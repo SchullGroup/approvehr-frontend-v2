@@ -14,7 +14,8 @@ import {
   PriorityIcon,
   TypeIcon,
 } from "./glyphs";
-import { PersonAvatar } from "./person";
+import { assigneesOf } from "@/lib/projects/assignees";
+import { AssigneeStack } from "./assignees";
 
 /**
  * A card on the board.
@@ -133,7 +134,7 @@ export function IssueCard({
               <span className="ml-auto flex items-center gap-2">
                 <PriorityIcon priority={issue.priority} />
                 {issue.points !== null && <PointsPill points={issue.points} />}
-                <PersonAvatar people={people} id={issue.assigneeId} />
+                <AssigneeStack people={people} ids={assigneesOf(issue)} />
               </span>
             </div>
           </div>

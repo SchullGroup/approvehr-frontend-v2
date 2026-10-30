@@ -6,6 +6,7 @@
  * `resolveDrop` returns, so the rules a drag follows can be tested without a drag.
  */
 
+import { leadingWith } from "./assignees";
 import { daysBetween, daysLeft } from "./dates";
 import { byRank, rankForInsert } from "./rank";
 import type {
@@ -212,7 +213,8 @@ export function resolveDrop(args: {
   if (mode === "assignee") {
     const next = target.laneKey === "none" ? null : target.laneKey;
     if (next === null || memberIds.includes(next)) {
-      if (next !== issue.assigneeId) patch.assigneeId = next;
+      if (next !== issue.assigneeId)
+        patch.assigneeIds = leadingWith(issue, next);
     }
   }
   if (mode === "epic" && issue.type !== "SUBTASK") {
@@ -222,7 +224,7 @@ export function resolveDrop(args: {
 
   const sameCell =
     patch.statusId === undefined &&
-    patch.assigneeId === undefined &&
+    patch.assigneeIds === undefined &&
     patch.epicId === undefined;
   const rest = cell.filter((c) => c.id !== issue.id);
   if (sameCell) {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
-import { Input, Textarea } from "@/components/ui";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Button, Input, Textarea } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 /**
@@ -15,6 +15,11 @@ import { cn } from "@/lib/cn";
  *
  * `clean` normalises what was typed before it is compared and sent; returning
  * `null` rejects it and puts the saved value back (an empty title, for instance).
+ *
+ * `buttons` adds Save and Cancel under the field while it is being edited, and a
+ * short "Saved" after. Leaving the field still saves; the buttons are there
+ * because a field that saves itself with nothing on screen to say so reads as
+ * one that has not been saved at all.
  */
 
 type CommonProps = {
@@ -31,6 +36,15 @@ function useDraft(
   const [draft, setDraft] = useState(value);
   const [seen, setSeen] = useState(value);
   const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+  /* Set by Cancel and Save, so the blur that follows them does not commit. */
+  const skip = useRef(false);
+
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
 
   /* Adjusting state during render: the documented way to follow a prop without
      an effect. Only follows while the person is not typing. */
@@ -41,20 +55,43 @@ function useDraft(
 
   const commit = () => {
     setEditing(false);
+    if (skip.current) {
+      skip.current = false;
+      return;
+    }
     const next = clean ? clean(draft) : draft;
     if (next === null) {
       setDraft(value);
       return;
     }
     if (next !== draft) setDraft(next);
-    if (next !== value) onCommit(next);
+    if (next !== value) {
+      onCommit(next);
+      setSaved(true);
+    }
   };
 
   return {
     draft,
     setDraft,
-    focus: () => setEditing(true),
+    focus: () => {
+      skip.current = false;
+      setEditing(true);
+    },
     commit,
+    editing,
+    saved,
+    /** Save now; the blur that follows is then a no-op. */
+    save: () => {
+      commit();
+      skip.current = true;
+    },
+    /** Put the saved text back without sending anything. */
+    cancel: () => {
+      setDraft(value);
+      setEditing(false);
+      skip.current = true;
+    },
   };
 }
 
@@ -90,22 +127,81 @@ export function DraftTextarea({
   value,
   onCommit,
   clean,
+  buttons = false,
   ...props
-}: CommonProps &
-  Omit<
+}: CommonProps & {
+  buttons?: boolean;
+} & Omit<
     React.TextareaHTMLAttributes<HTMLTextAreaElement>,
     "value" | "onChange" | "onBlur" | "onFocus"
   >) {
   const field = useDraft(value, onCommit, clean);
+  const ref = useRef<HTMLTextAreaElement>(null);
   return (
-    <Textarea
-      {...props}
-      value={field.draft}
-      onChange={(event) => field.setDraft(event.target.value)}
-      onFocus={field.focus}
-      onBlur={field.commit}
-    />
+    <div>
+      <Textarea
+        {...props}
+        ref={ref}
+        value={field.draft}
+        onChange={(event) => field.setDraft(event.target.value)}
+        onFocus={field.focus}
+        onBlur={field.commit}
+      />
+      {buttons && <DraftButtons field={field} target={ref} />}
+    </div>
   );
+}
+
+/**
+ * Save and Cancel under a field being edited, and "Saved" once it is.
+ *
+ * A press on either would blur the field first and save it on the way; holding
+ * the press (`preventDefault` on mouse down) keeps the field focused, so Cancel
+ * really cancels.
+ */
+function DraftButtons({
+  field,
+  target,
+}: {
+  field: ReturnType<typeof useDraft>;
+  target: React.RefObject<HTMLTextAreaElement | null>;
+}) {
+  if (field.editing) {
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="primary"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            field.save();
+            target.current?.blur();
+          }}
+        >
+          Save
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            field.cancel();
+            target.current?.blur();
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+  if (field.saved) {
+    return (
+      <p role="status" className="mt-1 text-meta text-success-text">
+        Saved
+      </p>
+    );
+  }
+  return null;
 }
 
 /**
@@ -119,10 +215,12 @@ export function DraftHeading({
   disabled,
   "aria-label": ariaLabel,
   className,
+  buttons = false,
 }: CommonProps & {
   disabled?: boolean;
   "aria-label": string;
   className?: string;
+  buttons?: boolean;
 }) {
   const field = useDraft(value, onCommit, clean);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -135,28 +233,31 @@ export function DraftHeading({
   }, [field.draft]);
 
   return (
-    <textarea
-      ref={ref}
-      rows={1}
-      value={field.draft}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      maxLength={240}
-      onChange={(event) => field.setDraft(event.target.value)}
-      onFocus={field.focus}
-      onBlur={field.commit}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          event.currentTarget.blur();
-        }
-      }}
-      className={cn(
-        "block w-full resize-none overflow-hidden rounded-md border border-transparent bg-transparent px-2 py-1 -mx-2 text-h4 text-ink",
-        "hover:bg-canvas focus:border-accent-text focus:bg-surface focus:outline-none focus:ring-3 focus:ring-accent/25",
-        "disabled:hover:bg-transparent",
-        className,
-      )}
-    />
+    <div>
+      <textarea
+        ref={ref}
+        rows={1}
+        value={field.draft}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        maxLength={240}
+        onChange={(event) => field.setDraft(event.target.value)}
+        onFocus={field.focus}
+        onBlur={field.commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+        className={cn(
+          "block w-full resize-none overflow-hidden rounded-md border border-transparent bg-transparent px-2 py-1 -mx-2 text-h4 text-ink",
+          "hover:bg-canvas focus:border-accent-text focus:bg-surface focus:outline-none focus:ring-3 focus:ring-accent/25",
+          "disabled:hover:bg-transparent",
+          className,
+        )}
+      />
+      {buttons && <DraftButtons field={field} target={ref} />}
+    </div>
   );
 }

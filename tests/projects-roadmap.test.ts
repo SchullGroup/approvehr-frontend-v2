@@ -55,6 +55,7 @@ function epic(start: string | null, due: string | null, rank = 1): Issue {
     statusId: "st",
     priority: "MEDIUM",
     assigneeId: null,
+    assigneeIds: [],
     reporterId: null,
     epicId: null,
     parentId: null,
