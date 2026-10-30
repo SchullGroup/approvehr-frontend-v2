@@ -190,6 +190,14 @@ export function toIssue(raw: Raw): Issue {
     statusId: str(raw["statusId"]),
     priority: str(raw["priority"], "MEDIUM") as Priority,
     assigneeId: strOrNull(raw["assigneeId"]),
+    /* An API from before several people could share a task sends the lead alone. */
+    assigneeIds: Array.isArray(raw["assigneeIds"])
+      ? (raw["assigneeIds"] as unknown[]).filter(
+          (a): a is string => typeof a === "string",
+        )
+      : typeof raw["assigneeId"] === "string"
+        ? [raw["assigneeId"]]
+        : [],
     reporterId: strOrNull(raw["reporterId"]),
     epicId: strOrNull(raw["epicId"]),
     parentId: strOrNull(raw["parentId"]),
@@ -360,6 +368,8 @@ export type PersonalTask = Issue & {
   statusCategory: StatusCategory;
   /** Present only when somebody other than its owner put it on the list. */
   setBy: { id: string; name: string } | null;
+  /** Whose list it is on, when a colleague put the reader on one of theirs. */
+  sharedBy: { id: string; name: string } | null;
 };
 
 /** One personal task as the drawer needs it: the issue and its list's columns. */
@@ -386,13 +396,18 @@ const categoryOf = (v: unknown): StatusCategory =>
     : "TODO";
 
 export function toPersonalTask(raw: Raw): PersonalTask {
-  const by = raw["setBy"] as Raw | null | undefined;
+  const person = (value: unknown) => {
+    const row = value as Raw | null | undefined;
+    return row && str(row["id"])
+      ? { id: str(row["id"]), name: str(row["name"]) }
+      : null;
+  };
   return {
     ...toIssue(raw),
     statusName: str(raw["statusName"]),
     statusCategory: categoryOf(raw["statusCategory"]),
-    setBy:
-      by && str(by["id"]) ? { id: str(by["id"]), name: str(by["name"]) } : null,
+    setBy: person(raw["setBy"]),
+    sharedBy: person(raw["sharedBy"]),
   };
 }
 

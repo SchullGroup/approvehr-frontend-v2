@@ -74,6 +74,7 @@ function issue(over: Partial<Issue> = {}): Issue {
     createdAt: NOW,
     updatedAt: NOW,
     ...over,
+    assigneeIds: over.assigneeIds ?? (over.assigneeId ? [over.assigneeId] : []),
   };
 }
 

@@ -13,7 +13,8 @@ import {
   StatusPill,
   TypeIcon,
 } from "./glyphs";
-import { PersonAvatar } from "./person";
+import { assigneesOf } from "@/lib/projects/assignees";
+import { AssigneeStack } from "./assignees";
 
 /**
  * One issue in a backlog list.
@@ -117,7 +118,7 @@ export function BacklogRow({
             {issue.points !== null && <PointsPill points={issue.points} />}
           </span>
           <PriorityIcon priority={issue.priority} />
-          <PersonAvatar people={people} id={issue.assigneeId} />
+          <AssigneeStack people={people} ids={assigneesOf(issue)} />
           {canMove && (
             <label
               className={cn(

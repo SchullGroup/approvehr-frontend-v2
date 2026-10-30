@@ -86,6 +86,23 @@ describe("filters", () => {
     expect(matchesFilter(issue("p-01"), both, null)).toBe(true);
   });
 
+  it("counts everybody on a shared task, for a person and for 'Only my issues'", () => {
+    const shared = {
+      ...byKey(d, "CHK-14"),
+      assigneeId: "p-01",
+      assigneeIds: ["p-01", "p-03"],
+    } as Issue;
+    expect(
+      matchesFilter(shared, { ...EMPTY_FILTER, assigneeIds: ["p-03"] }, null),
+    ).toBe(true);
+    expect(matchesFilter(shared, { ...EMPTY_FILTER, mine: true }, "p-03")).toBe(
+      true,
+    );
+    expect(matchesFilter(shared, { ...EMPTY_FILTER, mine: true }, "p-09")).toBe(
+      false,
+    );
+  });
+
   it("'Only my issues' needs to know who I am, and shows nothing when it does not", () => {
     const mine = { ...EMPTY_FILTER, mine: true };
     const forMe = applyFilter(d.issues, mine, "p-03");
@@ -352,7 +369,17 @@ describe("what a drop does", () => {
       mode: "assignee",
       memberIds,
     })!;
-    expect(patch.assigneeId).toBe("p-03");
+    expect(patch.assigneeIds).toEqual(["p-03"]);
+    /* The others on it stay; the person whose lane it lands in leads. */
+    const shared = resolveDrop({
+      issue: { ...issue, assigneeIds: ["p-01", "p-09"] },
+      target: { statusId: issue.statusId, laneKey: "p-03" },
+      cell: [],
+      beforeId: null,
+      mode: "assignee",
+      memberIds,
+    })!;
+    expect(shared.assigneeIds).toEqual(["p-03", "p-09"]);
     const unassign = resolveDrop({
       issue,
       target: { statusId: issue.statusId, laneKey: "none" },
@@ -361,7 +388,7 @@ describe("what a drop does", () => {
       mode: "assignee",
       memberIds,
     })!;
-    expect(unassign.assigneeId).toBeNull();
+    expect(unassign.assigneeIds).toEqual([]);
   });
 
   it("will not hand work to a lane's person who is not a member", () => {
