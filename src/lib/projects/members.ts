@@ -8,6 +8,7 @@
  * and the demo can refuse in the same words.
  */
 
+import { assigneesOf } from "./assignees";
 import type { Issue, ProjectStatus } from "./types";
 import { isDone } from "./workflow";
 
@@ -18,8 +19,8 @@ export function openIssuesHeldBy(
 ): Map<string, number> {
   const held = new Map<string, number>();
   for (const issue of issues) {
-    if (!issue.assigneeId || isDone(statuses, issue)) continue;
-    held.set(issue.assigneeId, (held.get(issue.assigneeId) ?? 0) + 1);
+    if (isDone(statuses, issue)) continue;
+    for (const id of assigneesOf(issue)) held.set(id, (held.get(id) ?? 0) + 1);
   }
   return held;
 }

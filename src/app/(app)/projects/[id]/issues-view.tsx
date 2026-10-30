@@ -23,6 +23,7 @@ import {
 } from "@/components/projects/glyphs";
 import { IssueFilterBar } from "@/components/projects/issue-filter-bar";
 import { PersonName } from "@/components/projects/person";
+import { assigneesOf } from "@/lib/projects/assignees";
 import { useProject } from "@/components/projects/project-context";
 import { isBefore } from "@/lib/projects/dates";
 import { applyFilter, isFiltering } from "@/lib/projects/filters";
@@ -163,6 +164,11 @@ export function IssuesView() {
                     id={issue.assigneeId}
                     className="whitespace-nowrap"
                   />
+                  {assigneesOf(issue).length > 1 && (
+                    <span className="ml-1 text-meta text-muted">
+                      +{assigneesOf(issue).length - 1}
+                    </span>
+                  )}
                 </TD>
                 <TD>
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap">

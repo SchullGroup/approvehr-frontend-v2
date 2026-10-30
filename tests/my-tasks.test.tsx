@@ -140,7 +140,9 @@ const task = (over: Partial<PersonalTask> = {}): PersonalTask => {
     statusName: status.name,
     statusCategory: category,
     setBy: null,
+    sharedBy: null,
     ...over,
+    assigneeIds: over.assigneeIds ?? [over.assigneeId ?? "p-01"],
   };
 };
 
@@ -197,12 +199,25 @@ describe("the list", () => {
 
   it("leaves sub-tasks out of the groups", async () => {
     answer([
-      task({ title: "Parent" }),
-      task({ title: "Child", parentId: "t-1" }),
+      task({ id: "t-parent", title: "Parent" }),
+      task({ title: "Child", parentId: "t-parent" }),
     ]);
     render(<MyTasksScreen />);
     expect(await screen.findByText("Parent")).toBeInTheDocument();
     expect(screen.queryByText("Child")).not.toBeInTheDocument();
+  });
+
+  it("lists a sub-task shared without its parent, saying who shared it", async () => {
+    answer([
+      task({
+        title: "Check the bands",
+        parentId: "on-somebody-elses-list",
+        sharedBy: { id: "p-09", name: "Emeka Anyanwu" },
+      }),
+    ]);
+    render(<MyTasksScreen />);
+    expect(await screen.findByText("Check the bands")).toBeInTheDocument();
+    expect(screen.getByText("Shared by Emeka Anyanwu")).toBeInTheDocument();
   });
 
   it("says Set by only when somebody else put the task there", async () => {

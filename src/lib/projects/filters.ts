@@ -7,6 +7,7 @@
  * with `UNASSIGNED` standing for nobody; "Only my issues" is its own switch.
  */
 
+import { assigneesOf, isOn } from "./assignees";
 import type { Issue, IssueType } from "./types";
 
 /** The assignee filter's value for issues with no assignee. */
@@ -60,12 +61,14 @@ export function matchesFilter(
     if (!hit) return false;
   }
   if (filter.type && issue.type !== filter.type) return false;
-  if (filter.mine && (meId === null || issue.assigneeId !== meId)) return false;
-  if (
-    filter.assigneeIds.length > 0 &&
-    !filter.assigneeIds.includes(issue.assigneeId ?? UNASSIGNED)
-  ) {
-    return false;
+  if (filter.mine && (meId === null || !isOn(issue, meId))) return false;
+  if (filter.assigneeIds.length > 0) {
+    const on = assigneesOf(issue);
+    const shown =
+      on.length === 0
+        ? filter.assigneeIds.includes(UNASSIGNED)
+        : on.some((id) => filter.assigneeIds.includes(id));
+    if (!shown) return false;
   }
   return true;
 }
@@ -89,6 +92,6 @@ export function filterAssigneeIds(
   cap = 9,
 ): string[] {
   const ids = new Set(memberIds);
-  for (const issue of issues) if (issue.assigneeId) ids.add(issue.assigneeId);
+  for (const issue of issues) for (const id of assigneesOf(issue)) ids.add(id);
   return [...ids].slice(0, cap);
 }
