@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Modal, SuccessMoment } from "@/components/ui";
+import { Button, Field, Modal, SuccessMoment, Textarea } from "@/components/ui";
 import {
   ratingWordsFrom,
   showsOverallMark,
@@ -25,21 +25,36 @@ import { finalisedCopy, type SignOffCopy } from "./sign-off-copy";
  * The dialog now stays and turns into a statement of what was recorded, says
  * "told" only when the API did, and closes on "Done". The caller must not toast
  * a success of its own.
+ *
+ * ## HR can add a recommendation here, before the person is told
+ *
+ * Optional, and offered only where the caller says the reader is HR
+ * (`canRecommend`, the records permission): the API refuses a recommendation from
+ * anybody else and leaves the rating not final, so a box that anybody saw would be
+ * a box that could cost somebody their finalise. It says who will read it before
+ * anybody types, because it travels with the rating. A form is a new form every
+ * time the dialog opens, so what was typed and cancelled is not still there.
  */
 export function FinaliseDialog({
   open,
   review,
+  canRecommend = false,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   review: ApiReviewDetail;
+  /** Whether to offer HR's recommendation box. */
+  canRecommend?: boolean;
   onClose: () => void;
   /**
-   * Makes it final. Resolves to whether the API could tell the person, or to
-   * `null` when it failed and the caller has said so in a toast.
+   * Makes it final, with HR's recommendation when one was typed. Resolves to
+   * whether the API could tell the person, or to `null` when it failed and the
+   * caller has said so in a toast.
    */
-  onConfirm: () => Promise<{ subjectNotified: boolean | undefined } | null>;
+  onConfirm: (
+    recommendation?: string,
+  ) => Promise<{ subjectNotified: boolean | undefined } | null>;
 }) {
   /* Its own read of the same cached scale rather than a prop. This dialog
      quotes the mark somebody is about to make final, and quoting it in the
@@ -53,18 +68,27 @@ export function FinaliseDialog({
      because this is the one act on the page that cannot be taken back and
      "Done" in a toast is not an account of it. */
   const [made, setMade] = useState<SignOffCopy | null>(null);
+  const [recommendation, setRecommendation] = useState("");
 
-  /* A fresh question each time it is opened after one was answered. */
+  /* A fresh question each time it is opened, whether or not one was answered. */
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open && made) setMade(null);
+    if (open) {
+      if (made) setMade(null);
+      setRecommendation("");
+    }
   }
+
+  /* The API's limit, said before the press rather than as a refusal after it.
+     Not a `maxLength` on the box, which would cut a paste short without a word. */
+  const typed = canRecommend ? recommendation.trim() : "";
+  const over = typed.length - RECOMMENDATION_LIMIT;
 
   const submit = async () => {
     setBusy(true);
     try {
-      const outcome = await onConfirm();
+      const outcome = await onConfirm(typed.length > 0 ? typed : undefined);
       if (outcome) {
         setMade(
           finalisedCopy({
@@ -74,6 +98,7 @@ export function FinaliseDialog({
               review.rating === null ? null : ratingWords(review.rating),
             subjectNotified: outcome.subjectNotified,
             markShown: showsOverallMark(review),
+            recommended: typed.length > 0,
           }),
         );
       }
@@ -100,6 +125,7 @@ export function FinaliseDialog({
               type="button"
               variant="primary"
               loading={busy}
+              disabled={over > 0}
               onClick={() => void submit()}
             >
               Make it final
@@ -126,8 +152,8 @@ export function FinaliseDialog({
           }
         />
       ) : (
-        <div className="text-body-sm leading-relaxed text-body">
-          <span>
+        <div className="flex flex-col gap-4">
+          <p className="text-body-sm leading-relaxed text-body">
             {review.subjectName} will be told, and will be asked to acknowledge
             it.{" "}
             {review.rating === null
@@ -136,9 +162,39 @@ export function FinaliseDialog({
                 : "They will read the answers."
               : `Their rating becomes "${ratingWords(review.rating)}".`}{" "}
             It cannot be changed afterwards.
-          </span>
+          </p>
+
+          {canRecommend && (
+            <div className="flex flex-col gap-2">
+              <Field
+                label="Your recommendation (optional)"
+                {...(over > 0
+                  ? {
+                      error: `That is ${String(over)} characters over. Keep it to ${RECOMMENDATION_LIMIT.toLocaleString("en-NG")}.`,
+                    }
+                  : {})}
+              >
+                <Textarea
+                  rows={4}
+                  value={recommendation}
+                  onChange={(event) => setRecommendation(event.target.value)}
+                />
+              </Field>
+              {/* Said on the page and not behind the help icon: that the person
+                  reads it is the consequence of writing it, and a consequence
+                  behind a hover is one that gets agreed to unread. */}
+              <p className="text-meta text-muted">
+                {firstName(review.subjectName)} will read it with their rating.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </Modal>
   );
 }
+
+/** The API's limit on HR's recommendation, in characters. */
+const RECOMMENDATION_LIMIT = 2000;
+
+const firstName = (name: string): string => name.split(" ")[0] ?? name;

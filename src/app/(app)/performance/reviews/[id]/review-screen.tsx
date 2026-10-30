@@ -32,6 +32,12 @@ import {
   type ApiEmployeeScore,
   type ApiReviewDetail,
 } from "@/lib/api/performance";
+import {
+  evidenceLine,
+  leftOutLabels,
+  leftOutNote,
+  setAtNote,
+} from "@/lib/performance/score-wording";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
@@ -42,14 +48,10 @@ import {
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
-import {
-  AppraiserStrip,
-  PeriodFraming,
-  ReadAnswer,
-  draftFrom,
-} from "../../review-parts";
+import { AppraiserStrip } from "../../review-parts";
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { FinaliseDialog } from "./finalise-dialog";
+import { ReviewFormCard } from "./review-form-card";
 import { SignOffDialog } from "./sign-off-dialog";
 import {
   RecordCheck,
@@ -90,52 +92,6 @@ import {
  * links to it rather than growing a second one: a read-only copy of a form
  * drifts until it renders a question the form has stopped asking.
  */
-/**
- * How much of this form is still to do, in a sentence whose noun is true.
- *
- * `outstanding` is **required** questions only — the API filters on
- * `question.required && answer === null`, which is the right thing for it to
- * carry, because required-and-unanswered is what refuses a submit. The
- * description read *"2 questions still unanswered"* above three questions
- * each showing "Not answered": the number was right and the noun was not.
- *
- * Naming the requirement also makes the number useful rather than merely
- * accurate — what a reader wants to know is what is standing between them and
- * sending the form. The optional ones are still counted, separately, because
- * silently dropping an unanswered question from a summary is how a form gets
- * sent with a blank nobody meant to leave.
- *
- * The same rule the payroll side keeps a helper pair for: a number under a
- * label has to be true of the thing the label names.
- */
-function unansweredLine(review: {
-  outstanding: string[];
-  questions: { required: boolean; answer: unknown }[];
-}): string {
-  const required = review.outstanding.length;
-  const optional = review.questions.filter(
-    (question) => !question.required && question.answer === null,
-  ).length;
-
-  const optionalPart =
-    optional === 0
-      ? ""
-      : optional === 1
-        ? " One optional question is also unanswered."
-        : ` ${String(optional)} optional questions are also unanswered.`;
-
-  if (required === 0) {
-    return optional === 0
-      ? "Every question on this form is answered."
-      : `Every required question is answered.${optionalPart}`;
-  }
-  const requiredPart =
-    required === 1
-      ? "1 required question still to answer."
-      : `${String(required)} required questions still to answer.`;
-  return `${requiredPart}${optionalPart}`;
-}
-
 export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const { review: fresh, loading, error, reload } = useReview(reviewId);
   /* The last appraisal that loaded, shown while the next one is on its way.
@@ -272,6 +228,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
      setting says whether its forms end with one, and a mark already given is
      shown whatever the setting says now. See `showsOverallMark`. */
   const markShown = showsOverallMark(review);
+  /* With their self review in, the two overall marks are one row of the
+     comparison below, side by side. Said again in this card they would be said
+     twice, the manager's here and both there. */
+  const comparing = review.kind === "MANAGER" && selfReview !== null;
 
   return (
     <>
@@ -391,7 +351,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                     all: "None given" would read as something missing from a
                     form that never had a place for it. A mark somebody already
                     gave is shown whatever the setting says now. */}
-                {markShown && (
+                {markShown && !comparing && (
                   <Stat
                     label="Overall mark"
                     value={
@@ -448,15 +408,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   mine={review.mine}
                 />
               )}
-
-              {review.summary && (
-                <div>
-                  <p className="text-meta font-medium text-muted">In summary</p>
-                  <p className="mt-1 text-body-sm leading-relaxed text-ink">
-                    {review.summary}
-                  </p>
-                </div>
-              )}
             </CardBody>
 
             {mayFinalise && (
@@ -481,6 +432,30 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               </CardFooter>
             )}
           </Card>
+
+          {/* What HR recommended as they made the rating final. Directly under
+              the rating it travels with, because the person reads it with their
+              rating and a card at the foot of a long page is one they can
+              acknowledge without ever reaching. Absent when there is none: a
+              card saying HR recommended nothing would be a claim about a choice
+              nobody made. */}
+          {review.kind === "MANAGER" && review.hrRecommendation && (
+            <Card>
+              <CardHeader
+                title="HR's recommendation"
+                description={
+                  review.finalisedAt
+                    ? `Added when the rating was made final on ${dayOf(review.finalisedAt)}.`
+                    : undefined
+                }
+              />
+              <CardBody>
+                <p className="text-body-sm leading-relaxed whitespace-pre-line text-ink">
+                  {review.hrRecommendation}
+                </p>
+              </CardBody>
+            </Card>
+          )}
 
           {/* --------------------------------------------- the employee's answer */}
           {answered && (
@@ -550,57 +525,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           />
 
           {/* ------------------------------------------------------------- the form */}
-          <Card>
-            <CardHeader
-              title="What was asked, and what was answered"
-              description={unansweredLine(review)}
-              {...(review.mine && !review.submitted
-                ? {
-                    action: (
-                      <ButtonLink
-                        href={`/performance/reviews/${review.id}/answer`}
-                        variant="accent"
-                        size="sm"
-                      >
-                        Fill it in
-                      </ButtonLink>
-                    ),
-                  }
-                : {})}
-            />
-            {review.questions.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<FileQuestion aria-hidden="true" />}
-                title="No questions on this form"
-                description="Add questions to the period and they will show up here."
-              />
-            ) : (
-              <CardBody className="flex flex-col gap-4">
-                {/* Above the answers, because this is the record of a mark and
-                    what period it covers is part of the record. Renders
-                    nothing when the period states nothing. */}
-                <PeriodFraming
-                  periodStart={review.periodStart}
-                  periodEnd={review.periodEnd}
-                  instructions={review.instructions}
-                  guideUrl={review.guideUrl}
-                />
-                {review.questions.map((question) => (
-                  <ReadAnswer
-                    key={question.id}
-                    question={question}
-                    held={draftFrom(question)}
-                    reviewId={review.id}
-                  />
-                ))}
-              </CardBody>
-            )}
-          </Card>
-
-          <TheirOwnAccount
-            review={selfReview}
-            loading={selfLoading}
+          <ReviewFormCard
+            review={review}
+            selfReview={selfReview}
+            selfLoading={selfLoading}
             ratingWords={ratingWords}
           />
         </div>
@@ -627,9 +555,12 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       <FinaliseDialog
         open={finalising}
         review={review}
+        canRecommend={canSeeCompany}
         onClose={() => setFinalising(false)}
-        onConfirm={async () => {
-          const outcome = await settle(() => signOff.finalise(review.id));
+        onConfirm={async (recommendation) => {
+          const outcome = await settle(() =>
+            signOff.finalise(review.id, recommendation),
+          );
           return outcome.ok
             ? { subjectNotified: outcome.value.subjectNotified }
             : null;
@@ -640,111 +571,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * The employee's own account of the period, beside the appraiser's form.
- *
- * The comparison the feedback asks for — *"a proper comparison between employee
- * self-assessment and manager assessment"*. Side by side on a wide screen and
- * stacked on a phone, which is what the existing two-column grid already does.
- *
- * **Absent rather than empty when there is nothing to show.** Null covers three
- * different situations — this is not an appraiser's form, the employee has not
- * sent theirs, or there is no API — and none of them is "they wrote nothing".
- * An empty panel headed with their name would say exactly that. The employee
- * not having sent it is stated where it can be acted on: the refusal a manager
- * meets when they try to submit before it is in.
- *
- * Read-only, and it does not offer to open the self form. An appraiser reading
- * it is doing so through `mayReadReview`'s `(cycle, subject)` scoping, which is
- * permission to read this one account rather than a door into the employee's
- * record.
- */
-function TheirOwnAccount({
-  review,
-  loading,
-  ratingWords,
-}: {
-  review: ApiReviewDetail | null;
-  loading: boolean;
-  /* Same convention as the rating displayed for the review being read on this
-     page (see the "Overall mark" Stat above): the word, not the digit, in
-     this company's own scale. Passed down rather than recomputed so the two
-     cannot ever quote a different scale. */
-  ratingWords: (level: number | null | undefined) => string | null;
-}) {
-  if (loading) {
-    return (
-      <Card>
-        <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-          <Spinner size="sm" />
-          Loading their self-appraisal
-        </CardBody>
-      </Card>
-    );
-  }
-  if (!review) return null;
-
-  return (
-    <Card>
-      <CardHeader
-        level={3}
-        title="What they said about their own period"
-        description={
-          review.summary
-            ? undefined
-            : "Their answers, as they sent them. Yours are above."
-        }
-      />
-      {/* Their own overall mark, beside the manager's on the card above —
-          the comparison the doc feedback asked for: what did they rate
-          themselves, before you rate them. Absent, never zero. Where the
-          company does not ask for an overall mark there is nothing to compare,
-          so no row: see `showsOverallMark`. */}
-      {showsOverallMark(review) && (
-        <CardBody className="pb-0">
-          <Stat
-            label="Their overall mark"
-            value={
-              review.rating === null
-                ? "None given"
-                : (ratingWords(review.rating) as string)
-            }
-            {...(review.rating === null
-              ? { hint: "No overall mark. The answers stand on their own." }
-              : {})}
-          />
-        </CardBody>
-      )}
-      {review.summary && (
-        <CardBody className="pb-0">
-          <p className="text-body-sm leading-relaxed text-body">
-            {review.summary}
-          </p>
-        </CardBody>
-      )}
-      {review.questions.length === 0 ? (
-        <CardBody className="text-body-sm text-muted">
-          Their own form had no questions.
-        </CardBody>
-      ) : (
-        <CardBody className="flex flex-col gap-4">
-          {review.questions.map((question) => (
-            <ReadAnswer
-              key={question.id}
-              question={question}
-              held={draftFrom(question)}
-              /* So an appraiser can open the evidence the employee attached to
-                 their own account of the half. This is the side-by-side read
-                 that evidence exists for. */
-              reviewId={review.id}
-            />
-          ))}
-        </CardBody>
-      )}
-    </Card>
-  );
-}
 
 /**
  * What the composite mark is made of, component by component.
@@ -860,10 +686,21 @@ function ScorePanel({
             hint={
               score.objectives.awaitingApproval > 0
                 ? `${score.objectives.awaitingApproval} still waiting to be agreed`
-                : `${score.objectives.measured} of them measured`
+                : score.objectives.agreed === 0
+                  ? "None agreed for this period"
+                  : `${score.objectives.measured} of them measured`
             }
           />
         </div>
+
+        {/* Why the parts that count are counting for more than was set, said
+            once and naming what was left out. On each part it was the same
+            sentence four times. */}
+        {leftOutNote(leftOutLabels(score.components)) && (
+          <p className="text-body-sm text-body">
+            {leftOutNote(leftOutLabels(score.components))}
+          </p>
+        )}
 
         <ul className="flex flex-col gap-3">
           {visibleComponents(score.components).map((component) => (
@@ -936,6 +773,7 @@ function ScorePanel({
 
 /** One component: what it scored, what it was worth, and why if it was left out. */
 function ComponentRow({ component }: { component: ApiComponentScore }) {
+  const setAt = setAtNote(component);
   return (
     <li className="rounded-md border border-line p-3.5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -958,35 +796,21 @@ function ComponentRow({ component }: { component: ApiComponentScore }) {
         </span>
       </div>
 
-      {/* A row said its own weights back on every component, so five components
-          produced five near-identical sentences — "Set at 40% by the company,
-          carried 40% here because components with no data were left out" —
-          under a badge that had just said "carried 40%". That is the clutter
-          the feedback named, and it drowned the one sentence per screen that
-          is actually specific to a row.
-
-          So: the API's own note when a component was left out or reweighted,
-          because that is different every time; and nothing where the weight it
-          carried is the weight the company set, because the badge said it. */}
+      {/* Three cases, each saying only what is specific to the row. A part left
+          out says why, in the API's words, because that is different every
+          time. A part counting for something other than the company set says
+          what was set, since the badge beside it has the other figure; why it
+          moved is said once above the list. A part counting for exactly what was
+          set says nothing, because the badge already did. */}
       {component.excludedNote ? (
         <p className="mt-1.5 text-body-sm text-body">
           {component.excludedNote}
         </p>
-      ) : component.effectiveWeightBp !== component.weightBp ? (
-        <p className="mt-1.5 text-body-sm text-body">
-          Set at {weightLabel(component.weightBp)} by the company, counted at{" "}
-          {weightLabel(component.effectiveWeightBp)} here because parts with
-          nothing recorded were left out.
-        </p>
+      ) : setAt ? (
+        <p className="mt-1.5 text-body-sm text-body">{setAt}</p>
       ) : null}
 
-      <p className="mt-1 text-meta text-muted">
-        {component.evidenceCount === 0
-          ? "Nothing recorded for this"
-          : component.evidenceCount === 1
-            ? "Based on 1 thing"
-            : `Based on ${component.evidenceCount} things`}
-      </p>
+      <p className="mt-1 text-meta text-muted">{evidenceLine(component)}</p>
     </li>
   );
 }

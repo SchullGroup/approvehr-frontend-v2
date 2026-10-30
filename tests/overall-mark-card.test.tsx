@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui";
@@ -8,8 +8,9 @@ import { ToastProvider } from "@/components/ui";
  *
  * The cases are the states that are not simply "on" and "off": a server that
  * does not know the setting, no server at all, a read that failed, somebody who
- * may look and not change, and the one sentence the card says only when it is
- * true (Self-assessment is weighted and nobody can give the mark it counts).
+ * may look and not change, and that the card says nothing about Self-assessment:
+ * the part is read from the answers when there is no overall mark, so a warning
+ * that it "has nothing to count" would describe something that no longer happens.
  */
 
 const setOverallMark = vi.fn<(next: boolean) => Promise<object>>(
@@ -45,18 +46,11 @@ const mount = (
   const onChanged = vi.fn();
   render(
     <ToastProvider>
-      <OverallMarkCard
-        connected
-        selfWeightBp={0}
-        onChanged={onChanged}
-        {...props}
-      />
+      <OverallMarkCard connected onChanged={onChanged} {...props} />
     </ToastProvider>,
   );
   return { onChanged };
 };
-
-const MARK = /Self-assessment has nothing to count/;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -184,28 +178,17 @@ describe("where there is no answer to show", () => {
 });
 
 describe("what it says about Self-assessment", () => {
-  it("says it has nothing to count when the weight is above 0 and the mark is off", async () => {
-    mount({ selfWeightBp: 2000 });
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: MARK })).toBeInTheDocument(),
-    );
-    expect(
-      screen.getByRole("button", { name: /weighted at 20%/ }),
-    ).toBeInTheDocument();
-  });
-
-  it("says nothing at the default weight of 0%", () => {
-    mount({ selfWeightBp: 0 });
-    expect(screen.queryByRole("button", { name: MARK })).toBeNull();
-  });
-
-  it("says nothing while the mark is on, because then there is something to count", () => {
-    mount({ selfWeightBp: 2000 }, { overallMark: true });
-    expect(screen.queryByRole("button", { name: MARK })).toBeNull();
-  });
-
-  it("says nothing about a setting the server does not have", () => {
-    mount({ selfWeightBp: 2000 }, { overallMark: null });
-    expect(screen.queryByRole("button", { name: MARK })).toBeNull();
+  /* Nothing, whatever is set. Self-assessment counts from the answers when there
+     is no overall mark, so there is no state in which the card has a warning true
+     enough to give. It used to give one, and was wrong the day the part began to
+     read the answers. */
+  it.each([
+    ["off", false],
+    ["on", true],
+    ["not said", null],
+  ] as const)("says nothing about it when the mark is %s", (_name, value) => {
+    mount({}, { overallMark: value });
+    expect(screen.queryByText(/Self-assessment/)).toBeNull();
+    expect(screen.queryByText(/nothing to count/i)).toBeNull();
   });
 });
