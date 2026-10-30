@@ -555,23 +555,30 @@ function toBalance(wire: WireBalance): LeaveBalanceRow {
 }
 
 function toDetail(wire: WireDetail): LeaveDetail {
+  const reduced = wire.reduced === true;
   return {
     request: toRow(wire),
-    /* Absent stays absent. `?? []` here would turn "this read does not say"
-       into "nobody else is off", and the drawer would tell a manager cover is
-       fine on the strength of a field the API deliberately did not send. */
-    clashes: wire.clashes
-      ? wire.clashes.map((clash) => ({
-          id: clash.id,
-          employeeId: clash.employeeId,
-          employeeName: clash.employeeName,
-          from: clash.startDate.slice(0, 10),
-          to: clash.endDate.slice(0, 10),
-          status: statusOf(clash.status),
-        }))
-      : null,
-    balance: wire.balance ? toBalance(wire.balance) : null,
-    reduced: wire.reduced === true,
+    /* Withheld is withheld, however it arrives. The API's own words for a
+       reduced read are "clashes and balance are withheld, not empty", and on the
+       wire that is `clashes: []` beside `reduced: true`: the key is there and the
+       list is empty because nobody was asked, not because nobody else is off.
+       Reading the list as the answer would tell a manager deciding the request
+       that cover is fine on the strength of a question the API never put. So
+       `reduced` decides, and an absent list (an API that predates the field) is
+       "not said" too. `?? []` would be the same claim made quietly. */
+    clashes:
+      !reduced && wire.clashes
+        ? wire.clashes.map((clash) => ({
+            id: clash.id,
+            employeeId: clash.employeeId,
+            employeeName: clash.employeeName,
+            from: clash.startDate.slice(0, 10),
+            to: clash.endDate.slice(0, 10),
+            status: statusOf(clash.status),
+          }))
+        : null,
+    balance: !reduced && wire.balance ? toBalance(wire.balance) : null,
+    reduced,
     history: (wire.history ?? []).map((entry) => ({
       kind: entry.kind,
       at: entry.at.slice(0, 10),

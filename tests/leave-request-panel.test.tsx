@@ -1,4 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { ApiError } from "@/lib/api/client";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PermissionKey } from "@/lib/permission-keys";
 import type {
@@ -21,6 +28,7 @@ let held = new Set<PermissionKey>();
 let me: string | null = null;
 let detail: LeaveDetail | null = null;
 let files: unknown = { list: null, loading: false, error: null };
+const decide = vi.fn();
 
 vi.mock("@/lib/permissions", async (original) => ({
   ...(await original<typeof import("@/lib/permissions")>()),
@@ -72,7 +80,7 @@ vi.mock("@/lib/store/leave-api", async (original) => {
     }),
     useLeaveMutations: () => ({
       create: vi.fn(),
-      decide: vi.fn(),
+      decide,
       reopen: vi.fn(),
       cancel: vi.fn(),
       connected: true,
@@ -146,6 +154,8 @@ beforeEach(() => {
   me = "emp-1";
   detail = null;
   files = { list: null, loading: false, error: null };
+  decide.mockReset();
+  decide.mockResolvedValue(null);
   window.localStorage?.clear?.();
 });
 
@@ -291,5 +301,290 @@ describe("the files on their own request", () => {
     };
     render(<LeaveScreen />);
     expect(within(panel()).queryByText("Supporting files")).toBeNull();
+  });
+});
+
+/* ------------------------------------------------- a manager who decides it */
+
+const filesFor = (role: "owner" | "hr" | "approver", canAdd: boolean) => ({
+  loading: false,
+  error: null,
+  list: {
+    files: [
+      {
+        id: "f1",
+        filename: "certificate.pdf",
+        contentType: "application/pdf",
+        sizeBytes: 2048,
+        createdAt: "2026-10-18T09:00:00Z",
+        scanStatus: "NOT_SCANNED",
+        flagged: false,
+        viewable: true,
+        uploadedByYou: false,
+        canRemove: false,
+      },
+    ],
+    access: { role, canView: true, canAdd },
+    requirement: {
+      policy: "REQUIRED",
+      requiredOverDays: 2,
+      required: true,
+      met: true,
+    },
+    limits: {
+      maxFiles: 5,
+      maxBytes: 5 * 1024 * 1024,
+      storage: true,
+      types: [],
+    },
+  },
+});
+
+/** A Modal opened from the panel is a second dialog on top of it. */
+const modal = () => screen.getAllByRole("dialog").at(-1)!;
+
+describe("a manager reading the request they decide", () => {
+  beforeEach(() => {
+    me = "mgr-1";
+    held = new Set();
+    /* The reduced read: cover and balance withheld, not empty. */
+    detail = detailOf(
+      request("pending", { attachmentCount: 1 }),
+      [entry({ note: "Flu" })],
+      { reduced: true, clashes: null, balance: null },
+    );
+    files = filesFor("approver", false);
+  });
+
+  it("says cover is not shown to them, never that nobody else is off", () => {
+    render(<LeaveScreen />);
+    const dialog = within(panel());
+    expect(
+      dialog.getByText("Who else is off is not shown to you."),
+    ).toBeInTheDocument();
+    expect(dialog.queryByText(/Nobody else/)).toBeNull();
+    /* No balance section, and no zero standing in for one. */
+    expect(dialog.queryByText(/balance/i)).toBeNull();
+  });
+
+  it("can open the files, and cannot add or take one off", () => {
+    render(<LeaveScreen />);
+    const dialog = within(panel());
+    expect(
+      dialog.getByRole("button", { name: "Open certificate.pdf" }),
+    ).toBeInTheDocument();
+    expect(dialog.queryByLabelText("Add files")).toBeNull();
+    expect(dialog.queryByRole("button", { name: /^Remove/ })).toBeNull();
+  });
+
+  it("is offered Approve and Send back while it is waiting", () => {
+    render(<LeaveScreen />);
+    const dialog = within(panel());
+    expect(dialog.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+    expect(
+      dialog.getByRole("button", { name: "Send back" }),
+    ).toBeInTheDocument();
+  });
+
+  it("approves with no note as a plain approval", async () => {
+    render(<LeaveScreen />);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Approve" }));
+    const dialog = within(modal());
+    expect(dialog.getByText(/A note is optional/)).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(decide).toHaveBeenCalledTimes(1));
+    /* The same two arguments a quick approve has always sent. */
+    expect(decide).toHaveBeenCalledWith("r1", "approved");
+  });
+
+  it("approves with a note when there is one", async () => {
+    render(<LeaveScreen />);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Approve" }));
+    const dialog = within(modal());
+    fireEvent.change(dialog.getByRole("textbox"), {
+      target: { value: "  Covered by Kemi that week.  " },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Approve" }));
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith(
+        "r1",
+        "approved",
+        "Covered by Kemi that week.",
+      ),
+    );
+  });
+
+  it("keeps the dialog open, with the note, and says the API's reason when it refuses", async () => {
+    decide.mockRejectedValue(
+      new ApiError(
+        403,
+        "forbidden",
+        "You have approved this one. It is with HR now.",
+      ),
+    );
+    render(<LeaveScreen />);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Approve" }));
+    const dialog = within(modal());
+    fireEvent.change(dialog.getByRole("textbox"), {
+      target: { value: "Fine by me." },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Approve" }));
+    expect(
+      await dialog.findByText("You have approved this one. It is with HR now."),
+    ).toBeInTheDocument();
+    expect((dialog.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
+      "Fine by me.",
+    );
+  });
+
+  it("will not send it back without a reason, and asks before sending", async () => {
+    render(<LeaveScreen />);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Send back" }));
+    const dialog = within(modal());
+    fireEvent.click(dialog.getByRole("button", { name: "Send it back" }));
+    expect(
+      await dialog.findByText("Write a line so they know what to change."),
+    ).toBeInTheDocument();
+    expect(decide).not.toHaveBeenCalled();
+
+    fireEvent.change(dialog.getByRole("textbox"), {
+      target: { value: "Two people are already off that week." },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Send it back" }));
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith(
+        "r1",
+        "declined",
+        "Two people are already off that week.",
+      ),
+    );
+  });
+
+  it("shows the server's own message in the dialog when it refuses the reason", async () => {
+    decide.mockRejectedValue(
+      new ApiError(400, "validation_failed", "Invalid request", [
+        { field: "note", message: "Say why, so they know what to change." },
+      ]),
+    );
+    render(<LeaveScreen />);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Send back" }));
+    const dialog = within(modal());
+    fireEvent.change(dialog.getByRole("textbox"), {
+      target: { value: "no" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Send it back" }));
+    expect(
+      await dialog.findByText("Say why, so they know what to change."),
+    ).toBeInTheDocument();
+    /* Still open, with what was typed. */
+    expect((dialog.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
+      "no",
+    );
+  });
+
+  it("is given nothing to press on a request that is with HR, and is told whose it is", () => {
+    detail = detailOf(
+      request("awaitingHr", {
+        attachmentCount: 1,
+        firstApprovedByName: "Tolu Bello",
+        firstApprovalNote: "Covered by Kemi.",
+      }),
+      [entry({})],
+      { reduced: true, clashes: null, balance: null },
+    );
+    render(<LeaveScreen />);
+    const dialog = within(panel());
+    expect(dialog.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(dialog.queryByRole("button", { name: "Send back" })).toBeNull();
+    expect(
+      dialog.getByText("With HR now. They make the final decision."),
+    ).toBeInTheDocument();
+  });
+
+  it("is given nothing to press on a request that is already decided", () => {
+    detail = detailOf(
+      request("approved", { attachmentCount: 1 }),
+      [entry({})],
+      {
+        reduced: true,
+        clashes: null,
+        balance: null,
+      },
+    );
+    render(<LeaveScreen />);
+    expect(
+      within(panel()).queryByRole("button", { name: /Approve|Send back|Undo/ }),
+    ).toBeNull();
+  });
+});
+
+describe("HR finishing a request a head has approved", () => {
+  beforeEach(() => {
+    me = "emp-hr";
+    held = new Set<PermissionKey>(["APPROVE_LEAVE_ALL"]);
+    detail = detailOf(
+      request("awaitingHr", {
+        employeeId: "emp-1",
+        firstApprovedAt: "2026-10-19",
+        firstApprovedByName: "Tolu Bello",
+        firstApprovedByJobTitle: "Head of Operations",
+        firstApprovalNote: "Covered by Kemi.",
+        attachmentCount: 1,
+      }),
+      [
+        entry({}),
+        entry({
+          kind: "FIRST_APPROVED",
+          at: "2026-10-19",
+          byName: "Tolu Bello",
+          byJobTitle: "Head of Operations",
+          note: "Covered by Kemi.",
+        }),
+      ],
+    );
+    files = filesFor("hr", true);
+  });
+
+  it("shows the first approver's note to the person who finishes it", () => {
+    render(<LeaveScreen />);
+    const dialog = within(panel());
+    expect(dialog.getByText("First approver's note")).toBeInTheDocument();
+    /* The row, and the same words as a line of what happened. */
+    expect(dialog.getAllByText(/Covered by Kemi\./)).toHaveLength(2);
+  });
+
+  it("can open the file and add more on the employee's behalf, and approves with a note of their own", async () => {
+    render(<LeaveScreen />);
+    const dialog = within(panel());
+    expect(
+      dialog.getByRole("button", { name: "Open certificate.pdf" }),
+    ).toBeInTheDocument();
+    expect(dialog.getByLabelText("Add files")).toBeInTheDocument();
+
+    fireEvent.click(dialog.getByRole("button", { name: "Approve" }));
+    const approve = within(modal());
+    fireEvent.change(approve.getByRole("textbox"), {
+      target: { value: "Entitlement checked." },
+    });
+    fireEvent.click(approve.getByRole("button", { name: "Approve" }));
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith(
+        "r1",
+        "approved",
+        "Entitlement checked.",
+      ),
+    );
+  });
+});
+
+describe("the person whose leave it is", () => {
+  it("is not offered a way to decide it", () => {
+    me = "emp-1";
+    held = new Set();
+    detail = detailOf(request("pending"));
+    render(<LeaveScreen />);
+    expect(
+      within(panel()).queryByRole("button", { name: /^(Approve|Send back)/ }),
+    ).toBeNull();
   });
 });

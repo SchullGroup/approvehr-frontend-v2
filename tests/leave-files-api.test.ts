@@ -375,7 +375,44 @@ describe("the leave request, as it now arrives", () => {
     decisionNote: null,
   };
 
-  it("leaves cover and balance absent on a reduced read, not empty", async () => {
+  it("withholds cover on a reduced read even though the wire sends an empty list beside it", async () => {
+    /* The payload a line manager actually gets: the keys are there, `clashes`
+       is [] and `balance` is null, and `reduced: true` is the only thing that
+       says those are withheld rather than empty. */
+    mocks.request.mockResolvedValue({
+      ...wireRequest,
+      clashes: [],
+      balance: null,
+      reduced: true,
+      history: [],
+    });
+    const detail = await leaveApi.get("r1");
+    expect(detail.reduced).toBe(true);
+    expect(detail.clashes).toBeNull();
+    expect(detail.balance).toBeNull();
+  });
+
+  it("does not show a balance on a reduced read even if one were sent", async () => {
+    mocks.request.mockResolvedValue({
+      ...wireRequest,
+      clashes: [],
+      balance: {
+        leaveTypeId: "t1",
+        leaveType: "Sick",
+        year: 2026,
+        entitled: 10,
+        openingTaken: 0,
+        carriedIn: 0,
+        taken: 0,
+        pending: 3,
+        remaining: 7,
+      },
+      reduced: true,
+    });
+    expect((await leaveApi.get("r1")).balance).toBeNull();
+  });
+
+  it("leaves cover and balance absent when they are not sent at all", async () => {
     mocks.request.mockResolvedValue({
       ...wireRequest,
       reduced: true,
