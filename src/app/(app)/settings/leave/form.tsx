@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArchiveX,
@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import {
+  AttentionMark,
   Badge,
   Button,
   Callout,
@@ -44,13 +45,18 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import { leaveApi, type LeaveAccrualWire } from "@/lib/api/leave";
+import {
+  leaveApi,
+  type LeaveAccrualWire,
+  type LeaveAttachmentPolicy,
+} from "@/lib/api/leave";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { usePermissions } from "@/lib/permissions";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { useCompanySettings } from "@/lib/store/company";
 import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
+import { useLeaveFileLimits } from "@/lib/store/leave-files";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
 import { todayIn } from "@/lib/time";
@@ -94,7 +100,10 @@ type TypeRow = {
   accrual: Accrual;
   carryOverMax: number;
   minNoticeDays: number;
-  requiresEvidence: boolean;
+  /** Whether a supporting file is asked for. Demo types ask for none. */
+  attachmentPolicy: LeaveAttachmentPolicy;
+  /** With `REQUIRED` only. Null is a request of any length. */
+  attachmentRequiredOverDays: number | null;
   /** Null is everyone. See `EligibleGender` in `lib/api/leave.ts`. */
   eligibleGender: "female" | "male" | "other" | null;
 };
@@ -134,6 +143,91 @@ function EligibilitySelect({
         </option>
       ))}
     </Select>
+  );
+}
+
+/**
+ * Whether a type asks for a supporting file, and from how many days.
+ *
+ * **"After N days" is strictly longer.** Required after 2 means a one- or
+ * two-day request needs nothing and a three-day one needs a file, which is "a
+ * sick note after two days" as people say it. Empty is a request of any length.
+ *
+ * Required cannot be chosen on a server with no file storage, because nobody
+ * could meet it, and the API refuses it too. A type that is already Required
+ * keeps showing as Required: hiding a rule that is set would be a worse claim
+ * than showing one that cannot currently be met. `storage === null` is
+ * unknown, which is not off: the API answers if somebody gets that far.
+ *
+ * One copy for the desktop cell and the mobile card so the options and the
+ * number cannot drift between them.
+ */
+function SupportingFileSelect({
+  type,
+  storage,
+  onChange,
+  className,
+}: {
+  type: TypeRow;
+  storage: boolean | null;
+  onChange: (
+    patch: Partial<
+      Pick<TypeRow, "attachmentPolicy" | "attachmentRequiredOverDays">
+    >,
+  ) => void;
+  className?: string;
+}) {
+  const required = type.attachmentPolicy === "REQUIRED";
+  /* Its own id: inside a mobile `Field` the select takes the field's, and the
+     number beside it would otherwise inherit the same one. */
+  const daysId = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Select
+        className={className}
+        value={type.attachmentPolicy}
+        aria-label={`${type.name} supporting file`}
+        onChange={(e) =>
+          onChange({
+            attachmentPolicy: e.target.value as LeaveAttachmentPolicy,
+          })
+        }
+      >
+        <option value="NONE">Not asked for</option>
+        <option value="OPTIONAL">Optional</option>
+        <option value="REQUIRED" disabled={storage === false && !required}>
+          Required
+        </option>
+      </Select>
+      {required && (
+        <label className="flex items-center gap-1.5 whitespace-nowrap text-meta text-muted">
+          After
+          <Input
+            id={daysId}
+            type="number"
+            min={0}
+            max={365}
+            step={1}
+            inputMode="numeric"
+            placeholder="any"
+            value={type.attachmentRequiredOverDays ?? ""}
+            className="w-16 text-right"
+            aria-label={`${type.name}: a supporting file after how many days. Leave empty for a request of any length`}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              if (raw === "") {
+                onChange({ attachmentRequiredOverDays: null });
+                return;
+              }
+              const next = Number(raw);
+              if (!Number.isInteger(next) || next < 0 || next > 365) return;
+              onChange({ attachmentRequiredOverDays: next });
+            }}
+          />
+          days
+        </label>
+      )}
+    </div>
   );
 }
 
@@ -226,6 +320,10 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   const { isConnected } = useSession();
   const timeZone = useOrgTimezone();
   const toast = useToast();
+  /* Whether this server can keep a file at all, which decides whether a type
+     can be made to require one. Unknown (not loaded, or the read failed) is not
+     "no": only an answer of false disables the choice. */
+  const { storage } = useLeaveFileLimits();
 
   /**
    * Whether the last edit has landed.
@@ -314,7 +412,8 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
               accrual: WIRE_TO_LOCAL_ACCRUAL[row.accrual],
               carryOverMax: row.carryOverMax,
               minNoticeDays: row.minNoticeDays,
-              requiresEvidence: row.requiresEvidence,
+              attachmentPolicy: row.attachmentPolicy,
+              attachmentRequiredOverDays: row.attachmentRequiredOverDays,
               eligibleGender: row.eligibleGender,
             })),
             error: null,
@@ -341,7 +440,9 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     accrual: type.accrual,
     carryOverMax: type.carryOverMax,
     minNoticeDays: type.minNoticeDays,
-    requiresEvidence: type.requiresEvidence,
+    /* A file goes to storage through the API, which the demo has not got. */
+    attachmentPolicy: "NONE",
+    attachmentRequiredOverDays: null,
     eligibleGender: type.eligibleGender ?? null,
   }));
 
@@ -353,7 +454,15 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     patch: Partial<Omit<TypeRow, "id" | "name">>,
   ) {
     if (!isConnected) {
-      updateLeaveType(row.name, patch);
+      /* The demo keeps no supporting-file setting. */
+      const {
+        attachmentPolicy: _policy,
+        attachmentRequiredOverDays: _days,
+        ...local
+      } = patch;
+      void _policy;
+      void _days;
+      updateLeaveType(row.name, local);
       /* Demo mode saves too — locally — so the indicator says so rather than
          staying silent, which would read as nothing having happened. */
       markSaved();
@@ -362,11 +471,19 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     if (!row.id) return;
     setSaveState("saving");
     const before = row;
+    /* Moving off Required clears "after N days" on the server (a stale number
+       would come back the next time it is switched on), so the row says so too
+       rather than showing a number under a policy that has none. */
+    const shown =
+      patch.attachmentPolicy !== undefined &&
+      patch.attachmentPolicy !== "REQUIRED"
+        ? { ...patch, attachmentRequiredOverDays: null }
+        : patch;
     setFetched(
       (s) =>
         s && {
           ...s,
-          rows: s.rows.map((r) => (r.id === row.id ? { ...r, ...patch } : r)),
+          rows: s.rows.map((r) => (r.id === row.id ? { ...r, ...shown } : r)),
         },
     );
     try {
@@ -383,8 +500,15 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
         ...(patch.minNoticeDays !== undefined
           ? { minNoticeDays: patch.minNoticeDays }
           : {}),
-        ...(patch.requiresEvidence !== undefined
-          ? { requiresEvidence: patch.requiresEvidence }
+        /* The policy alone when it changes: the API refuses a number under any
+           policy but Required, and clears one itself when the policy moves off
+           it. The number alone when it changes: `null` is "any length", and is
+           the only way to say so. */
+        ...(patch.attachmentPolicy !== undefined
+          ? { attachmentPolicy: patch.attachmentPolicy }
+          : {}),
+        ...(patch.attachmentRequiredOverDays !== undefined
+          ? { attachmentRequiredOverDays: patch.attachmentRequiredOverDays }
           : {}),
         /* `!== undefined`, not truthy: `null` is a real, meaningful value
            here — it is what clears the restriction back to "everyone" — and
@@ -600,7 +724,19 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                             <TH>Accrual</TH>
                             <TH align="right">Carry over</TH>
                             <TH align="right">Notice (days)</TH>
-                            <TH>Evidence</TH>
+                            {isConnected && (
+                              <TH>
+                                <span className="inline-flex items-center gap-1.5">
+                                  Supporting file
+                                  {storage === false && (
+                                    <AttentionMark
+                                      tone="info"
+                                      text="This server cannot store files yet, so a supporting file cannot be required. It can still be switched off or left optional."
+                                    />
+                                  )}
+                                </span>
+                              </TH>
+                            )}
                             <TH>Who</TH>
                             {isConnected && (
                               <TH align="right">
@@ -686,24 +822,18 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     }}
                                   />
                                 </TD>
-                                <TD>
-                                  {/* One line. "Not required" broke onto two in a column
-                                  the inputs beside it had squeezed. */}
-                                  <Switch
-                                    className="whitespace-nowrap"
-                                    checked={type.requiresEvidence}
-                                    label={
-                                      type.requiresEvidence
-                                        ? "Required"
-                                        : "Not required"
-                                    }
-                                    onChange={(e) =>
-                                      void editType(type, {
-                                        requiresEvidence: e.target.checked,
-                                      })
-                                    }
-                                  />
-                                </TD>
+                                {isConnected && (
+                                  <TD>
+                                    <SupportingFileSelect
+                                      className="min-w-32"
+                                      type={type}
+                                      storage={storage}
+                                      onChange={(patch) =>
+                                        void editType(type, patch)
+                                      }
+                                    />
+                                  </TD>
+                                )}
                                 <TD>
                                   <EligibilitySelect
                                     className="min-w-28"
@@ -853,25 +983,25 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                   />
                                 </Field>
 
-                                <div className="flex min-h-11 items-center justify-between gap-3">
-                                  <span className="text-body-sm text-muted">
-                                    Evidence
-                                  </span>
-                                  <Switch
-                                    className="items-center"
-                                    checked={type.requiresEvidence}
-                                    label={
-                                      type.requiresEvidence
-                                        ? "Required"
-                                        : "Not required"
+                                {isConnected && (
+                                  <Field
+                                    label="Supporting file"
+                                    help={
+                                      storage === false
+                                        ? "This server cannot store files yet, so a file cannot be required."
+                                        : "A file can go on any request. This is whether one is asked for."
                                     }
-                                    onChange={(e) =>
-                                      void editType(type, {
-                                        requiresEvidence: e.target.checked,
-                                      })
-                                    }
-                                  />
-                                </div>
+                                  >
+                                    <SupportingFileSelect
+                                      className="h-11"
+                                      type={type}
+                                      storage={storage}
+                                      onChange={(patch) =>
+                                        void editType(type, patch)
+                                      }
+                                    />
+                                  </Field>
+                                )}
 
                                 {isConnected && (
                                   <div className="flex flex-wrap gap-2">

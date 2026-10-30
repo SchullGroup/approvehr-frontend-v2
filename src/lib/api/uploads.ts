@@ -44,6 +44,16 @@ export type PresignedUpload = {
   url: string;
   expiresAt: string;
   maxBytes: number;
+  /**
+   * Exactly the headers the URL was signed with, where the API names them.
+   *
+   * When present they are sent **as given and nothing else**: a signed URL
+   * refuses a header it did not sign, and a Content-Type worked out from
+   * `file.type` is the one place a browser that gives an empty type for a
+   * `.heic` would disagree with what was signed. Absent for the scopes whose
+   * endpoints do not say, which keep sending `file.type`.
+   */
+  headers?: Readonly<Record<string, string>>;
 };
 
 /** A refusal somebody can act on, carrying the API's own sentence. */
@@ -111,10 +121,16 @@ export function putToStorage(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", presigned.url, true);
-    xhr.setRequestHeader(
-      "Content-Type",
-      file.type || "application/octet-stream",
-    );
+    if (presigned.headers) {
+      for (const [name, value] of Object.entries(presigned.headers)) {
+        xhr.setRequestHeader(name, value);
+      }
+    } else {
+      xhr.setRequestHeader(
+        "Content-Type",
+        file.type || "application/octet-stream",
+      );
+    }
 
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable && onProgress) {

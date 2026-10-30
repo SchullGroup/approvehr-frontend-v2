@@ -11074,3 +11074,89 @@ got 200 and read "Not provided"; typing 150000 saved 15,000,000 kobo and read â‚
 
 **Not exercised:** iOS Safari or any real device; demo mode (nothing here changes it: Send message and the picker need the API); a company with
 hundreds of people in the picker; the backend suite in one run (CI runs it).
+
+---
+
+# Files on a leave request, and decisions with reasons that are kept
+
+The owner asked for "the ability to attach files for a leave request, for the manager to view the file, and to
+approve or reject leave with reasons". The API side is `docs/backend/leave-attachments-handover.md` on the
+backend (read it first: routes, error codes, who may open a file, limits). **These files are often medical
+certificates**, so most of what follows is about what the web must *not* do.
+
+## What is where
+
+| File | What and why |
+| ---- | ------------ |
+| `lib/api/leave-files.ts` | Every file route, `declaredType`, `fileRefusal`, `uploadLeaveFile`, `openLeaveFile`, `fileProblem`. |
+| `lib/store/leave-files.ts` | The limits (one shared read), the rule for these dates, one request's file list. Connected only. |
+| `components/leave/leave-file-picker.tsx` | Choosing files in the request form, and the staged list the drawer reuses. |
+| `components/leave/leave-request-files.tsx` | The drawer's files: open, add, remove, the flag when one is missing. |
+| `components/leave/leave-history.tsx` | What happened to a request, from the API's own history. |
+| `components/portal/approve-dialog.tsx` | Approve with an optional note. The same shape as `DeclineDialog`. |
+
+## Rules that are about this module and not any screen
+
+- **The open link is a credential for five minutes.** `openLeaveFile` is called from a click and nowhere else; the
+  tab is opened inside the click (a browser stops one opened after an `await`) and pointed at the file when the link
+  comes back; the link goes to `location` and no further. No thumbnail, no preview, no prefetch, nothing stored,
+  logged or put in a toast. If the browser stopped the tab **no link is asked for at all**, because issuing one is
+  a look in the audit trail and there would be nothing to look with. The mode used is the one the API *returns*.
+- **A file's name is a row in the file list and nowhere else.** No toast, no message, no title is built from one, and
+  `fileProblem` uses the API's sentences, none of which carry a name. A test per component asserts it.
+- **Controls come from what the API says about this reader** (`access.canAdd`, `canRemove`, `requirement`,
+  `attachmentCount`), not from the role. The list is asked for only for the owner, HR (`APPROVE_LEAVE_ALL`) and a
+  reduced read, because it would be a 403 for anybody else; a request with no file and nobody who may add one draws
+  no heading; somebody who cannot open files is told only how many there are.
+- **Uploaded when the request is sent, not when a file is picked.** A person who picks a certificate and closes the
+  form asked for nothing to be stored. The ref is remembered per file *and per employee*, so a retry does not upload
+  twice and a file uploaded for one person is not sent for another (its key would not match).
+- **The PUT sends exactly the signed headers.** `PresignedUpload.headers` is new; with it `putToStorage` sends those
+  and nothing else. `declaredType` prefers the extension to a browser type the API does not accept (some say
+  `image/heif` for a `.heic`, some say nothing).
+
+## The contract surprise: a reduced read sends `clashes: []`
+
+The handover says cover and balance are "withheld, not empty" on a manager's read. On the wire they are **there**:
+`clashes: []`, `balance: null`, beside `reduced: true`. Read as data that says "nobody else is off, cover is
+fine", to the person deciding on cover. `toDetail` therefore keys on `reduced` and returns `clashes: null`
+whatever the list holds; the panel says "Who else is off is not shown to you." and draws no balance. Found by
+looking at the real payload: every unit test written from the document passed first.
+
+## Deciding
+
+- A manager who decides is the reader the screen cannot know from permissions (it is a relationship), so the
+  panel goes by `detail.reduced`. They get Approve and Send back **only while the request is `pending`**: a request
+  with HR is HR's to finish and the API refuses another approver, so it says "With HR now" instead of a button.
+- Approve opens a dialog with an optional note (500 characters, the API's limit); a note-less approve sends the same
+  two arguments a quick approve always did. Send back asks for a reason before sending anything. **A refusal is shown
+  in the dialog and the dialog stays open**, with what was typed: the previous flow closed it on failure and toasted.
+  The API's own "Say why, so they know what to change." (a 400 on `note`) is read from the field.
+- HR finishing a two-step request sees the first approver's note as its own row, and its own note is separate
+  (`firstApprovalNote` and `decisionNote`). The panel closes when a decision is made, so it does not go on offering
+  two buttons for a request no longer waiting.
+- **"Send back" on `/people/leave`, "Reject" in the approvals inbox.** The owner said "reject". The two words already
+  differed and still do; renaming is a decision about product voice and touches the status label and several tests.
+
+## Deployment, found by running it
+
+**The bucket's origin has to be in `NEXT_PUBLIC_UPLOAD_ORIGINS`**, or the browser refuses the PUT against
+`connect-src` before it leaves and the person is told the upload failed. Setting it is a build-time decision (it is
+read by `next.config.ts`), and the staging web build needs it as much as any other file upload. The API must also
+allow `PUT` from the web origin on the bucket (CORS), as it already does for CVs.
+
+## Verified, and what was not
+
+Unit tests (new): `leave-files-api` (32), `leave-type-supporting-file` (10), `leave-book-with-files` (18),
+`leave-request-files` (20), `leave-history` (5), `leave-request-panel` (20). Against the real API (backend at
+`abea59a`, local Postgres, a **stand-in S3-compatible server** that does not check signatures) as seven seeded
+people: the setting, the form with a required file, upload and record, open (inline) and download, add and remove,
+the last-file refusal, colleague and other-manager 403s with no file name anywhere on the page, the reduced read,
+approve with a note, send back with a reason, the two-step second step, and the audit trail (a manager's open is a
+look, the owner's is not). At 1440 and 390.
+
+**Not exercised:** a real bucket, so nothing about signatures, CORS on a real origin or response-header overrides;
+iOS Safari or a real pop-up blocker; a reader holding only `EDIT_RECORDS` in a browser (unit-tested: they are told
+how many files there are and cannot open them); the demo web build (files need a live company, and it says so).
+Three unrelated test files (`overall-mark-flow`, `subsection-answer-flow`, `record-comms-actions`) fail the same way
+on staging before this work; they are not caused by it.
