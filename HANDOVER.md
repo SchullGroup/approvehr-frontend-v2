@@ -11160,3 +11160,61 @@ iOS Safari or a real pop-up blocker; a reader holding only `EDIT_RECORDS` in a b
 how many files there are and cannot open them); the demo web build (files need a live company, and it says so).
 Three unrelated test files (`overall-mark-flow`, `subsection-answer-flow`, `record-comms-actions`) fail the same way
 on staging before this work; they are not caused by it.
+
+---
+
+# A server that has not been told about several people on a task still has to be told who the lead is
+
+Frontend #561 (several people on a task, merged into `dev` on 30 October) sends who is on a task as `assigneeIds`. It said
+its backend half, #254, should merge first, and #254 had not when #561 did. A promotion that reached the QA site before
+#254 reached `staging` would have lost something that worked, so the one place where that happens is closed in the web.
+
+## What a server from before #254 does
+
+Checked on one: the scratch stack of the day, whose code has no several-people support.
+
+- **A create with `assigneeIds` alone answers 201 and leaves the person off.** The schema strips a key it does not know, so
+  "Assign to me" in the New issue dialog, and the people chosen on a sub-task row, were dropped without a word. The first of
+  those worked before #561 and stopped working with it.
+- **A change to the list alone answers 400, _Send at least one field_**, because once the unknown key is stripped nothing is
+  left.
+
+## The fix, and what it leaves alone on purpose
+
+`withLead` in `lib/api/projects.ts`: **a create** puts the first of the list beside it as `assigneeId`. A server with #254
+reads the list and ignores the lead (checked on one: when the two disagree the list wins), so nothing changes there. The
+lead is always the first of the list, so both kinds of server take the same person.
+
+**A change is left as it is.** The store sends what changed, and the lead goes with it only when the lead changed, so a
+change that only adds or takes off somebody who is not the lead is `{ assigneeIds }` alone. A server without #254 cannot
+hold several people, and its 400 is the honest answer to being asked to: it says the change did not take. Adding the lead
+there would turn that refusal into a silent no-op, which is the failure this entry is about. Nothing that worked before #561
+depends on it, because assigning, unassigning and changing the lead all change the lead and so already carry it.
+
+The first version put the lead on changes too, on the belief that the board's patches always carried it. The browser walk of
+#561 showed they do not: adding a second person sent the list alone. Its test had also named a lead equal to the list's
+first, so the break that let a caller's lead win over the list still passed. Both are corrected.
+
+A second person is still not kept by a server without #254. It has nowhere to put them, and the lead alone comes back.
+
+> **The rule this leaves behind:** a new field that replaces an old one on the wire goes **beside** it until the server is
+> known to read it, wherever dropping it would take away something that worked. A key an old server does not know is not
+> refused. It is dropped, and a drop is silent where a refusal is shown.
+
+## Verified
+
+`tests/projects-assignees-wire.test.ts` is new, 7 cases (four on a create, three on a change), and with the two existing wire
+tests (`projects-objective-api`, `projects-open-task`) 17 tests pass. Four deliberate breaks, each caught by the tests written
+for it: a create sending the input as it is, a caller's lead kept over the list's, an empty list with no lead, and a change
+given a lead too. Prettier and ESLint are clean on both files.
+
+A whole-project `tsc` found four errors, all in this test: `NewIssueInput` requires a `type` and the calls left it out.
+Vitest and ESLint cannot see that and CI's `check` would have. They are fixed, and the test and everything it imports now
+type-check, with a probe proving the same configuration does flag the original mistake. It was run that way because a
+whole-project run takes many minutes on a loaded machine.
+
+Both bodies were also sent to real servers: to one without #254 (a create with the list alone gave 201 and no assignee, the
+same create with the lead beside it assigned the lead, and a change to the list alone gave 400) and to one with #254 (the same
+result as the list alone, and the list winning when the lead disagrees).
+
+**Not run:** the screens against a server without #254 in a browser; the whole suite (CI runs `check`, not vitest).
