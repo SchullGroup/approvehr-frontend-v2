@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { ToastProvider } from "@/components/ui";
 import type { LeaveFileLimits } from "@/lib/api/leave-files";
+import { UPLOAD_BLOCKED, UploadBlockedError } from "@/lib/api/uploads";
 import type { LeaveRow, LeaveTypeRow } from "@/lib/api/leave";
 
 /**
@@ -240,6 +241,20 @@ describe("when a file is required", () => {
     expect(screen.queryByText("A supporting file is required.")).toBeNull();
   });
 
+  it("takes the red refusal down once a file is attached", () => {
+    /* The muted line above goes by itself, because it is read off the staged
+       files. The red sentence is what a refused send said, and it used to stay
+       under the file that answered it until the next send. */
+    mount();
+    pickDates();
+    send();
+    const refusal =
+      "A supporting file is required. Attach one and send the request again.";
+    expect(screen.getByText(refusal)).toBeInTheDocument();
+    choose(pdf());
+    expect(screen.queryByText(refusal)).toBeNull();
+  });
+
   it("sends nothing to the API about it when it is not known to be required", async () => {
     mocks.rule = null;
     mount();
@@ -371,6 +386,73 @@ describe("sending with files", () => {
     expect(
       screen.getByText(/The request was not sent\. Fix or remove the file/),
     ).toBeInTheDocument();
+  });
+
+  it("takes 'fix or remove the file' down when that file is taken off", async () => {
+    mocks.upload.mockRejectedValue(
+      new ApiError(
+        422,
+        "attachment_too_large",
+        "That file is 7 MB. Keep files under 5 MB.",
+      ),
+    );
+    mount();
+    pickDates();
+    choose(pdf("b.pdf"));
+    send();
+    await screen.findByText(
+      /The request was not sent\. Fix or remove the file/,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove b.pdf" }));
+    expect(screen.queryByText(/The request was not sent/)).toBeNull();
+  });
+
+  describe("when the browser itself refuses to send the file", () => {
+    /* This site's security policy does not name the storage address, so the
+       request never leaves. Retrying cannot help and the file is not at fault,
+       so neither "check your connection" nor "fix or remove the file" is said. */
+    beforeEach(() => {
+      mocks.upload.mockRejectedValue(new UploadBlockedError());
+    });
+
+    it("says why under the file, in words that do not blame the connection or the file", async () => {
+      mount();
+      pickDates();
+      choose(pdf("a.pdf"));
+      send();
+      expect(await screen.findByText(UPLOAD_BLOCKED)).toBeInTheDocument();
+      expect(mocks.create).not.toHaveBeenCalled();
+      expect(screen.queryByText(/check your connection/i)).toBeNull();
+      expect(screen.queryByText(/Fix or remove the file/)).toBeNull();
+    });
+
+    it("tells somebody whose leave needs a file that it cannot be raised yet", async () => {
+      mocks.rule = { policy: "REQUIRED", requiredOverDays: 2, required: true };
+      mount();
+      pickDates();
+      choose(pdf("a.pdf"));
+      send();
+      expect(
+        await screen.findByText(
+          "The request was not sent. This leave needs a file, so it cannot be raised until this site is set up to send files.",
+        ),
+      ).toBeInTheDocument();
+      expect(mocks.create).not.toHaveBeenCalled();
+    });
+
+    it("tells somebody whose leave does not need one that they can send it without", async () => {
+      mount();
+      pickDates();
+      choose(pdf("a.pdf"));
+      send();
+      await screen.findByText(
+        "The request was not sent. Remove the file to send it without one.",
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Remove a.pdf" }));
+      send();
+      await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+      expect(mocks.create.mock.calls[0]![0]).not.toHaveProperty("attachments");
+    });
   });
 
   it("does not upload a file twice when a send is tried again", async () => {

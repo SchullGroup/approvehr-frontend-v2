@@ -107,11 +107,62 @@ export async function presign(
 }
 
 /**
+ * What a person is told when the browser itself refused to send the file.
+ *
+ * Neither "check your connection" nor "fix the file" is true here, and both
+ * send somebody round a loop that cannot end: the request never left the
+ * browser, so nothing about their network or their file is wrong, and trying
+ * again fails the same way. The one thing that helps is the one nobody on this
+ * screen can do, so it names who can.
+ */
+export const UPLOAD_BLOCKED =
+  "This site is not set up to send files to storage yet, so the upload was blocked. Your connection and your file are fine, and trying again will not help. Tell whoever looks after ApproveHR.";
+
+/**
+ * The browser blocked the upload against this site's own security policy: its
+ * `connect-src` does not name the storage address (`NEXT_PUBLIC_UPLOAD_ORIGINS`
+ * in `next.config.ts` is where it comes from, and it is read when the site is
+ * built). A deployment built without it cannot upload anything, from any
+ * screen, and used to say "Check your connection" about it.
+ */
+export class UploadBlockedError extends Error {
+  constructor() {
+    super(UPLOAD_BLOCKED);
+    this.name = "UploadBlockedError";
+  }
+}
+
+/**
+ * How long to wait after a failed request for the browser to say why.
+ *
+ * The browser reports a blocked request twice, as a `securitypolicyviolation`
+ * event and as the request's own `error`, and specifies no order between the
+ * two. Deciding on the `error` alone would read a block as a dropped
+ * connection about as often as not.
+ */
+const VIOLATION_GRACE_MS = 100;
+
+const originOf = (address: string): string | null => {
+  try {
+    return new URL(address).origin;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * PUT the bytes, reporting progress.
  *
  * `Content-Type` has to match what was presigned exactly — it is signed into
  * the URL, so storage itself refuses a mismatch. That is deliberate on the API
  * side: a size and type the client alone enforces is not a limit.
+ *
+ * A request this site's own security policy blocks rejects with
+ * `UploadBlockedError`, which is **not** a connection failure and is not
+ * reported as one. It is the only failure here whose cause the browser tells
+ * us. A bucket with no CORS rule for this site fails just as silently and
+ * cannot be told apart from a dropped connection from here, so that case still
+ * reads as the connection.
  */
 export function putToStorage(
   file: File,
@@ -119,6 +170,36 @@ export function putToStorage(
   onProgress?: (fraction: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    /* Heard for as long as this request is in flight, and only about storage's
+       own address: the page prefetches other origins that its policy also
+       refuses, and one of those is not this upload. */
+    const target = originOf(presigned.url);
+    let blocked = false;
+    const noticeBlock = (event: Event) => {
+      const violation = event as Partial<SecurityPolicyViolationEvent>;
+      /* `effectiveDirective` is `connect-src` even where the policy only has a
+         `default-src` to fall back on, which is when `violatedDirective` says
+         the other thing. */
+      const directive =
+        violation.effectiveDirective ?? violation.violatedDirective;
+      if (
+        directive?.startsWith("connect-src") &&
+        target !== null &&
+        originOf(violation.blockedURI ?? "") === target
+      ) {
+        blocked = true;
+      }
+    };
+    const listening = typeof document !== "undefined";
+    if (listening) {
+      document.addEventListener("securitypolicyviolation", noticeBlock);
+    }
+    const stopListening = () => {
+      if (listening) {
+        document.removeEventListener("securitypolicyviolation", noticeBlock);
+      }
+    };
+
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", presigned.url, true);
     if (presigned.headers) {
@@ -139,6 +220,7 @@ export function putToStorage(
     });
 
     xhr.addEventListener("load", () => {
+      stopListening();
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
         return;
@@ -152,16 +234,23 @@ export function putToStorage(
       );
     });
 
-    xhr.addEventListener("error", () =>
-      reject(
-        new Error(
-          "The upload did not finish. Check your connection and try again.",
-        ),
-      ),
-    );
-    xhr.addEventListener("abort", () =>
-      reject(new Error("The upload was stopped.")),
-    );
+    xhr.addEventListener("error", () => {
+      /* The reason may still be on its way: see `VIOLATION_GRACE_MS`. */
+      setTimeout(() => {
+        stopListening();
+        reject(
+          blocked
+            ? new UploadBlockedError()
+            : new Error(
+                "The upload did not finish. Check your connection and try again.",
+              ),
+        );
+      }, VIOLATION_GRACE_MS);
+    });
+    xhr.addEventListener("abort", () => {
+      stopListening();
+      reject(new Error("The upload was stopped."));
+    });
 
     xhr.send(file);
   });

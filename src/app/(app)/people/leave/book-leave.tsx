@@ -12,6 +12,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { UploadBlockedError } from "@/lib/api/uploads";
 import { daysLabel, type LeaveRow, type LeaveTypeRow } from "@/lib/api/leave";
 import {
   fileProblem,
@@ -271,6 +272,22 @@ export function BookLeaveDialog({
   );
   /** A refusal that belongs to the files as a group, said under them. */
   const [fileError, setFileError] = useState<string | null>(null);
+  /* What the picker is handed. Choosing a file or taking one off answers
+     whatever was said about the files after the last send, so that is taken
+     down then. Left up, "A supporting file is required" stays in red under the
+     file somebody has just attached, and "Fix or remove the file above" under
+     a list that no longer has it. */
+  const pickerFiles = {
+    ...staged,
+    add: (files: Iterable<File>) => {
+      setFileError(null);
+      return staged.add(files);
+    },
+    remove: (id: string) => {
+      setFileError(null);
+      staged.remove(id);
+    },
+  };
   const balances = useLeaveBalancesFor(
     draft.employeeId ? [draft.employeeId] : [],
     draft.type,
@@ -354,8 +371,16 @@ export function BookLeaveDialog({
             progress: null,
             error: fileProblem(failure),
           });
+          /* Said under the file already, in full. A block by this site's own
+             policy is not the file's fault and not the person's to fix, so
+             "fix or remove the file" would send them in a circle; what they
+             need here is whether the request can go at all. */
           setFileError(
-            "The request was not sent. Fix or remove the file above, then send it again.",
+            failure instanceof UploadBlockedError
+              ? rule?.required
+                ? "The request was not sent. This leave needs a file, so it cannot be raised until this site is set up to send files."
+                : "The request was not sent. Remove the file to send it without one."
+              : "The request was not sent. Fix or remove the file above, then send it again.",
           );
           return;
         }
@@ -567,7 +592,7 @@ export function BookLeaveDialog({
 
         {canAttach && limits && (
           <LeaveFilePicker
-            staged={staged}
+            staged={pickerFiles}
             limits={limits}
             required={rule?.required === true}
             error={fileError}
