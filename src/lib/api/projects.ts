@@ -539,3 +539,74 @@ export const projectsApi = {
   removeComment: (id: string) =>
     request<unknown>(`/comments/${id}`, { method: "DELETE" }),
 };
+
+/* ------------------------------------------------------ work planning (plan) */
+
+export type CommitPlanStory = {
+  title: string;
+  description?: string;
+  points?: number | null;
+  labels?: string[];
+  assigneeId?: string | null;
+  subtasks?: string[];
+};
+
+export type CommitPlanInput = {
+  goalId: string;
+  /** Whether to link the project to this objective, so finished stories count. */
+  linkProject: boolean;
+  epic: { title: string; description?: string };
+  stories: CommitPlanStory[];
+};
+
+export type CommitPlanResult = {
+  epic: { id: string; key: string };
+  issues: {
+    id: string;
+    key: string;
+    title: string;
+    assigneeId: string | null;
+  }[];
+  notified: string[];
+  /** True when the project was linked to the objective as part of this call. */
+  linked: boolean;
+};
+
+/**
+ * Create the plan the lead confirmed: one epic, its stories, and their sub-tasks.
+ *
+ * - Every story goes through `createIssue`, so weekly-task bridging applies.
+ * - Subtasks stay unassigned — they are steps in the story the assignee owns.
+ * - Non-members in `stories[].assigneeId` are refused (422, reason: "not_a_member").
+ */
+export const commitObjectivePlan = async (
+  projectId: string,
+  input: CommitPlanInput,
+): Promise<CommitPlanResult> => {
+  const raw = await request<Raw>(`/projects/${projectId}/plan`, {
+    method: "POST",
+    body: input,
+  });
+  const epicRaw = (raw["epic"] as Raw | undefined) ?? {};
+  const issuesRaw = Array.isArray(raw["issues"])
+    ? (raw["issues"] as Raw[])
+    : [];
+  return {
+    epic: {
+      id: str(epicRaw["id"]),
+      key: str(epicRaw["key"]),
+    },
+    issues: issuesRaw.map((r) => ({
+      id: str(r["id"]),
+      key: str(r["key"]),
+      title: str(r["title"]),
+      assigneeId: strOrNull(r["assigneeId"]),
+    })),
+    notified: Array.isArray(raw["notified"])
+      ? (raw["notified"] as unknown[]).filter(
+          (x): x is string => typeof x === "string",
+        )
+      : [],
+    linked: raw["linked"] === true,
+  };
+};
