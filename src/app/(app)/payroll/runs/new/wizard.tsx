@@ -59,6 +59,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   formatKobo,
   naira,
+  payrollApi,
   payslipCountLabel,
   periodLabel,
   type PayrollRunDetail,
@@ -498,6 +499,22 @@ export function PayrollRunWizard() {
 
   const blocked = counts.blockers > 0 || discrepancies.length > 0;
   const canContinue = [Boolean(run) && !blocked, false][stepper.index];
+
+  /* The approvers are told once, when the maker moves on to Approve: not on every
+     calculation, which used to email them about a run still being worked. The
+     server refuses while anything blocks the run and sends nothing the second
+     time, so this can run as often as the step is entered; a refusal is not the
+     maker's problem and is left unsaid. */
+  const submittedRef = useRef<string | null>(null);
+  const runIdNow = run?.id ?? null;
+  useEffect(() => {
+    if (stepper.index !== 1 || !runIdNow || settled || !canPrepare) return;
+    if (submittedRef.current === runIdNow) return;
+    submittedRef.current = runIdNow;
+    void payrollApi.submitForApproval(runIdNow).catch(() => {
+      submittedRef.current = null;
+    });
+  }, [stepper.index, runIdNow, settled, canPrepare]);
 
   const doneFlags = [Boolean(run) && !blocked, settled];
   const displaySteps = stepper.steps.map((step, i) => ({

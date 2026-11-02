@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import {
-  Badge,
-  Button,
-  Field,
-  FileField,
-  RadioCard,
-  Select,
-  Textarea,
-  TextLink,
-  useToast,
-} from "@/components/ui";
+import { Badge, Button, TextLink, useToast } from "@/components/ui";
 import {
   performanceApi,
   ratingWordsFrom,
@@ -20,65 +10,45 @@ import {
   type ApiAppraiserContext,
   type AnswerBody,
   type ApiFormQuestion,
-  type ApiRatingScale,
 } from "@/lib/api/performance";
 import type { InlineFile } from "@/lib/api/uploads";
 import { cn } from "@/lib/cn";
+import {
+  answerWords,
+  isLivePick,
+  isSubsectionQuestion,
+  questionKind,
+} from "@/lib/performance/subsection-answer";
 import { shortDate } from "@/lib/today";
 import { useRatingScale } from "@/lib/store/performance";
 
 /**
- * The pieces a review is made of, shared by the modal and the full record.
+ * The pieces a review is made of, shared by the page-by-page flow and the full
+ * record.
  *
- * There are two places a review is opened — `review-form.tsx` as a modal from a
- * task list, and `/performance/reviews/[id]` as the record of a rating — and
- * they are different acts on the same document: one fills a form in, the other
- * reads a mark and answers it. What they must **not** differ about is what a
- * question looks like, because a read-only copy that drifts eventually renders a
- * question the form has stopped asking, or renders an unanswered one as blank
- * rather than as unanswered.
+ * There are two places a review is opened — `/performance/reviews/[id]/answer`
+ * as the flow that fills a form in, and `/performance/reviews/[id]` as the record
+ * of a rating — and they are different acts on the same document: one fills a
+ * form in, the other reads a mark and answers it. What they must **not** differ
+ * about is what a question looks like, because a read-only copy that drifts
+ * eventually renders a question the form has stopped asking, or renders an
+ * unanswered one as blank rather than as unanswered.
  *
  * So the question, the answer, the scale and the appraiser strip live here once.
  * Neither surface owns them.
  */
 
-/**
- * The scale, in **this company's** words, ready for a picker.
- *
- * ## Three sets became one, and then the one became configurable
- *
- * This file used to define its own — "3: Did what was needed" — while two
- * other sets said "Meets Expectations" and had no importers between them.
- * `verify-rating-scale` closed that. Then #117 let a company choose its own
- * five words, which moves the authority again: the constant in
- * `lib/api/performance` is now the **fallback** the API serves when nobody has
- * chosen, and the words on screen come from `GET /performance/rating-scale`.
- *
- * So this is a hook rather than a constant. A module-level `Record` cannot
- * read a company's own scale, and a screen still importing one is quoting a
- * scale that company may not use — the same failure the verifier exists for,
- * one level up.
- *
- * `value` is the level as a **string** because the inputs are. `label` carries
- * the number as well as the word: the picker keeps its coordinates because
- * they are what people use to talk to each other while marking — "I gave her a
- * four" — and because five prose options with no ordering cue are hard to
- * scan. A record that is *read* drops the digit; see `ReadAnswer`.
- */
-export function ratingOptionsFrom(
-  scale: ApiRatingScale,
-): { value: string; label: string; meaning: string }[] {
-  return scale.levels.map((entry) => ({
-    value: String(entry.level),
-    label: `${String(entry.level)}: ${entry.label}`,
-    meaning: entry.meaning,
-  }));
-}
-
 /** What is in one answer box right now, before anything is saved. */
 export type Draft = {
   text?: string;
   rating?: string;
+  /**
+   * The pick. **The text of the option for an ordinary pick-from-a-list
+   * question, and the id of the choice for a subsection question.** A subsection's
+   * choices can share a label and can be archived after somebody picked one, so
+   * what is held, compared and sent for them is the id, and the label is only ever
+   * read for display (`lib/performance/subsection-answer.ts`).
+   */
   choice?: string;
   bool?: string;
   /**
@@ -105,7 +75,11 @@ export function draftFrom(question: ApiFormQuestion): Draft {
     text: answer.textValue ?? undefined,
     rating:
       answer.ratingValue === null ? undefined : String(answer.ratingValue),
-    choice: answer.choiceValue ?? undefined,
+    /* A subsection's pick is its choice's id, never the label saved beside it. */
+    choice:
+      (isSubsectionQuestion(question)
+        ? answer.choiceOptionId
+        : answer.choiceValue) ?? undefined,
     bool:
       answer.boolValue === null ? undefined : answer.boolValue ? "yes" : "no",
     /* No `file`, and it is not an omission. The saved answer carries the
@@ -117,11 +91,16 @@ export function draftFrom(question: ApiFormQuestion): Draft {
 
 /** Whether this question has an answer of the kind it asked for. */
 export function filled(question: ApiFormQuestion, held: Draft): boolean {
-  switch (question.kind) {
+  switch (questionKind(question)) {
     case "RATING":
       return Boolean(held.rating);
     case "CHOICE":
-      return Boolean(held.choice);
+      /* A subsection's pick counts only while it is still on the list: one taken
+         off since is a pick the API will refuse at send, and a form that called
+         it answered would say a required question is done when it cannot go. */
+      return isSubsectionQuestion(question)
+        ? isLivePick(question, held.choice)
+        : Boolean(held.choice);
     case "BOOLEAN":
       return Boolean(held.bool);
     case "FILE":
@@ -140,22 +119,23 @@ export function filled(question: ApiFormQuestion, held: Draft): boolean {
  *
  * Only what has actually been typed. Re-answering replaces on the API side, and
  * an empty box is not an instruction to clear an answer, so it sends nothing.
- *
- * Shared by the popup form and the full-page one, which would otherwise carry
- * two copies of "how a draft becomes a request" and drift apart.
  */
 export function answerBodyFor(
   question: ApiFormQuestion,
   held: Draft,
 ): AnswerBody | null {
   const body: AnswerBody = { questionId: question.id };
-  if (question.kind === "RATING" && held.rating) {
+  const kind = questionKind(question);
+  if (kind === "RATING" && held.rating) {
     body.ratingValue = Number(held.rating);
-  } else if (question.kind === "CHOICE" && held.choice) {
-    body.choiceValue = held.choice;
-  } else if (question.kind === "BOOLEAN" && held.bool) {
+  } else if (kind === "CHOICE" && held.choice) {
+    /* The id for a subsection's choice and the text for an ordinary one, and
+       never the other way round: the API matches each on its own. */
+    if (isSubsectionQuestion(question)) body.choiceOptionId = held.choice;
+    else body.choiceValue = held.choice;
+  } else if (kind === "BOOLEAN" && held.bool) {
     body.boolValue = held.bool === "yes";
-  } else if (question.kind === "FILE" && held.file) {
+  } else if (kind === "FILE" && held.file) {
     /* Only when a file was picked **in this session**. A question whose
        evidence is already on the record has no `file` in the draft, and
        re-sending it is not possible — the bytes are behind a download
@@ -357,8 +337,8 @@ export function PeriodFraming({
  * ## It used to say the same thing three times
  *
  * "You are appraising Chidera Anusiobi-Uzor as their line manager, and yours is
- * the whole mark." The badge beside it already says *Line manager*. The modal
- * header above it already says *About Chidera Anusiobi-Uzor*. So two thirds of
+ * the whole mark." The badge beside it already says *Line manager*. The header
+ * above it already says *About Chidera Anusiobi-Uzor*. So two thirds of
  * that sentence was restating what was on screen, and the third — "yours is the
  * whole mark" — made a reader work out that it meant 100%.
  *
@@ -403,142 +383,16 @@ export function AppraiserStrip({
   );
 }
 
-export function AnswerField({
-  question,
-  held,
-  reviewId,
-  onChange,
-  onBusyChange,
-}: {
-  question: ApiFormQuestion;
-  held: Draft;
-  /** Needed by the `FILE` branch, to open what is already attached. */
-  reviewId: string;
-  onChange: (next: Draft) => void;
-  /** So the form can hold its own save while a file is being read. */
-  onBusyChange?: (busy: boolean) => void;
-}) {
-  const { scale, editable } = useRatingScale();
-
-  if (question.kind === "RATING") {
-    return (
-      /* A `fieldset` and a `legend`, not a `Field`: a `Field` wires one
-         `<label for>` at one control and a scale has five. Same shape as the
-         conduct dialog's severity picker, which is the established one here.
-
-         Cards rather than the `<Select>` this was, because `meaning` had
-         nowhere to go inside an `<option>`. `ratingOptionsFrom` has always
-         returned it and every caller dropped it — so the sentence
-         `RatingScaleLevel.meaning` exists to carry ("What it means, so the word
-         is not left to interpretation") reached nobody at the one moment it is
-         load-bearing, which is while somebody is choosing a level. A scale
-         everybody reads differently is not a scale. */
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 text-body-sm font-medium text-ink">
-          {question.prompt}
-          {question.required && (
-            <span className="ml-0.5 text-danger-text" aria-hidden="true">
-              *
-            </span>
-          )}
-          {question.required && (
-            <span className="sr-only-focusable"> required</span>
-          )}
-        </legend>
-        <div className="grid gap-2">
-          {ratingOptionsFrom(scale).map((option) => (
-            <RadioCard
-              key={option.value}
-              name={`rating-${question.id}`}
-              value={option.value}
-              label={option.label}
-              /* A company may leave a level's meaning blank — the column
-                 defaults to empty. An empty description renders an empty line,
-                 so it is absent rather than blank. */
-              {...(option.meaning ? { description: option.meaning } : {})}
-              checked={held.rating === option.value}
-              onChange={() => onChange({ rating: option.value })}
-            />
-          ))}
-        </div>
-      </fieldset>
-    );
-  }
-
-  if (question.kind === "FILE") {
-    const attached = question.answer?.attachment ?? null;
-    return (
-      <div className="flex flex-col gap-2">
-        <FileField
-          label={question.prompt}
-          {...(question.required ? { required: true } : {})}
-          help={
-            attached
-              ? "Choosing another file replaces the one on this answer."
-              : "A report, a dashboard, a screenshot. PDFs, images and Office documents."
-          }
-          onAttached={(file) => onChange({ file: file ?? undefined })}
-          {...(onBusyChange ? { onBusyChange } : {})}
-        />
-        {/* What is already on the record, and a way to read it. Shown
-            **alongside** the picker rather than instead of it: somebody
-            reopening a form wants to see what they attached before deciding
-            whether to replace it, and a picker that hid the current answer
-            would make replacing it the only way to find out. */}
-        {attached && !held.file && (
-          <AttachedEvidence
-            reviewId={reviewId}
-            questionId={question.id}
-            attachment={attached}
-            canOpen={editable}
-          />
-        )}
-      </div>
-    );
-  }
-
-  if (question.kind === "CHOICE") {
-    return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.choice ?? ""}
-          placeholder="Pick one"
-          onChange={(event) => onChange({ choice: event.target.value })}
-        >
-          {question.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </Select>
-      </Field>
-    );
-  }
-
-  if (question.kind === "BOOLEAN") {
-    return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.bool ?? ""}
-          placeholder="Yes or no"
-          onChange={(event) => onChange({ bool: event.target.value })}
-        >
-          <option value="yes">Yes</option>
-          <option value="no">No</option>
-        </Select>
-      </Field>
-    );
-  }
-
-  return (
-    <Field label={question.prompt} required={question.required}>
-      <Textarea
-        rows={4}
-        value={held.text ?? ""}
-        onChange={(event) => onChange({ text: event.target.value })}
-      />
-    </Field>
-  );
+/**
+ * The line beside a manager's control: what the person said of themselves.
+ *
+ * Absent for a form that is not a manager's, and absent until the person has
+ * sent their self-review, and then nothing is drawn at all: not "No answer",
+ * which would read as a gap somebody left, and never a nought.
+ */
+export function SelfAnswerLine({ words }: { words: string | null }) {
+  if (words === null) return null;
+  return <p className="text-meta text-muted">Their own answer: {words}</p>;
 }
 
 /**
@@ -566,8 +420,29 @@ export function ReadAnswer({
   const { scale, editable } = useRatingScale();
   const attached = question.answer?.attachment ?? null;
 
-  const answer =
-    question.kind === "RATING"
+  const answer = isSubsectionQuestion(question)
+    ? /* A directly rated subsection, read back from its own scale and choices:
+         a level in words where the company's scale is this one and `4 of 10`
+         where it is not, a pick by its label. Read from what is held, so the
+         preview says what is about to be sent and not only what was saved. */
+      answerWords(
+        question,
+        {
+          ratingValue: held.rating ? Number(held.rating) : null,
+          boolValue: held.bool ? held.bool === "yes" : null,
+          choiceOptionId: held.choice,
+          /* The label the API saved with the pick, for the very choice it was
+             saved with and no other: the record says what was chosen when it was
+             chosen, even if the choice has been renamed or taken off since. A pick
+             made in this visit has none yet and is found by its id. */
+          choiceLabel:
+            question.answer?.choiceOptionId === held.choice
+              ? question.answer?.choiceValue
+              : null,
+        },
+        scale,
+      )
+    : question.kind === "RATING"
       ? /* The words, not the digit, and **this company's** words. The scale
            the standup asked for was on the picker and nowhere a mark was read
            back; then it became configurable, and a read-back still quoting

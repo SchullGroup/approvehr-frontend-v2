@@ -114,6 +114,14 @@ describe("the tag", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("says Personal, never a link, for a task on somebody's own list", () => {
+    actor = { employeeId: "e-hr", editRecords: true };
+    render(<ProjectSourceTag source={{ key: "MY-3", projectId: "p-mine" }} />);
+    expect(screen.getByText("Personal")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(listRequested).not.toHaveBeenCalled();
+  });
+
   describe("when it is a link", () => {
     it("links for a member or the lead, who have the project in their own list", () => {
       myProjects = [{ id: "p-chk" }];

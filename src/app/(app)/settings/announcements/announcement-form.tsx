@@ -13,12 +13,18 @@ import {
   Textarea,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
+import { NoticeImageField } from "@/components/announcements/notice-image-field";
+import {
+  PeoplePicker,
+  type ChosenPerson,
+} from "@/components/announcements/people-picker";
 import {
   DRAFT_EFFECT,
   MANDATORY_CHANGE_RECORDED,
   MANDATORY_EFFECT,
   type AnnouncementAudience,
   type ApiAnnouncement,
+  type NoticeImageUpload,
 } from "@/lib/api/announcements";
 
 /**
@@ -62,6 +68,10 @@ export type Draft = {
   body: string;
   audience: AnnouncementAudience;
   departmentIds: string[];
+  /** Named staff, for `PEOPLE`. */
+  employeeIds: string[];
+  /** `undefined` keeps the stored picture, `null` removes it. */
+  image: NoticeImageUpload | null | undefined;
   pinned: boolean;
   /** Staff must open it. */
   mandatory: boolean;
@@ -69,13 +79,7 @@ export type Draft = {
   expiresOn: string;
 };
 
-export function AnnouncementForm({
-  notice,
-  departments,
-  open,
-  onClose,
-  onSave,
-}: {
+type AnnouncementFormProps = {
   /** Absent when writing a new one. */
   notice?: ApiAnnouncement;
   departments: { id: string; name: string }[];
@@ -83,7 +87,46 @@ export function AnnouncementForm({
   onClose: () => void;
   /** `publish` is what the pressed button asked for. */
   onSave: (draft: Draft, publish: boolean) => Promise<void>;
-}) {
+};
+
+/**
+ * A fresh form each time it is opened.
+ *
+ * The screen keeps this mounted so the dialog can animate out, and a component
+ * that stays mounted keeps its `useState`s. `Modal` unmounts its children when it
+ * closes, so every control inside it starts over: but the fields are held here,
+ * above it, and they did not. After a notice with a picture was saved, the next
+ * "Write a notice" opened with the previous title and text still in it, and its
+ * picture still attached while the file field read "Choose a file". The next
+ * notice then went out carrying a picture nobody could see. Editing had the
+ * smaller version of the same fault: type over a notice, cancel, and the typing
+ * was there next time.
+ *
+ * So the fields live one level down, and this decides when a new session starts:
+ * the dialog opening. It does not start one when `notice` is handed over again
+ * (the board refreshes when the window is focused, and a new object for the same
+ * notice must not wipe what somebody is typing), and it does not start one when
+ * the dialog closes, so what is on screen does not change while it animates out.
+ * Cancel therefore discards what was typed, as every other dialog here does;
+ * "Save as a draft" is the way to keep it.
+ */
+export function AnnouncementForm(props: AnnouncementFormProps) {
+  const [session, setSession] = useState(0);
+  const [wasOpen, setWasOpen] = useState(props.open);
+  if (props.open !== wasOpen) {
+    setWasOpen(props.open);
+    if (props.open) setSession((n) => n + 1);
+  }
+  return <AnnouncementFormBody key={session} {...props} />;
+}
+
+function AnnouncementFormBody({
+  notice,
+  departments,
+  open,
+  onClose,
+  onSave,
+}: AnnouncementFormProps) {
   const editing = notice !== undefined;
   const live = notice?.published === true;
 
@@ -95,6 +138,16 @@ export function AnnouncementForm({
   const [departmentIds, setDepartmentIds] = useState<string[]>(
     notice?.departmentIds ?? [],
   );
+  const [people, setPeople] = useState<ChosenPerson[]>(() =>
+    (notice?.employeeIds ?? []).map((id, index) => ({
+      id,
+      name: notice?.employeeNames?.[index] ?? "Somebody no longer on file",
+    })),
+  );
+  const [image, setImage] = useState<NoticeImageUpload | null | undefined>(
+    undefined,
+  );
+  const [reading, setReading] = useState(false);
   const [pinned, setPinned] = useState(notice?.pinned ?? false);
   const [mandatory, setMandatory] = useState(notice?.mandatory ?? false);
   const mandatoryTipId = useId();
@@ -122,14 +175,17 @@ export function AnnouncementForm({
   const audienceProblem =
     audience === "DEPARTMENTS" && departmentIds.length === 0
       ? "Choose at least one department, or address it to everybody. A notice with no department reaches nobody and still looks published."
-      : undefined;
+      : audience === "PEOPLE" && people.length === 0
+        ? "Add at least one person, or address it to a department or everybody."
+        : undefined;
 
   const complete =
     trimmedTitle.length >= 3 &&
     trimmedBody.length > 0 &&
     titleError === undefined &&
     bodyError === undefined &&
-    audienceProblem === undefined;
+    audienceProblem === undefined &&
+    !reading;
 
   function toggleDepartment(id: string, on: boolean) {
     setDepartmentIds((current) =>
@@ -146,6 +202,8 @@ export function AnnouncementForm({
           body: trimmedBody,
           audience,
           departmentIds: audience === "DEPARTMENTS" ? departmentIds : [],
+          employeeIds: audience === "PEOPLE" ? people.map((p) => p.id) : [],
+          image,
           pinned,
           mandatory,
           expiresOn,
@@ -166,7 +224,7 @@ export function AnnouncementForm({
       description={
         live
           ? "This one is on the board. Saving changes what people are reading now."
-          : "Everybody with an account sees it on their dashboard once you publish."
+          : "Once you publish, the people it is for see it on their dashboard and get it by email."
       }
       footer={
         <div className="flex flex-wrap justify-end gap-2">
@@ -258,7 +316,25 @@ export function AnnouncementForm({
             checked={audience === "DEPARTMENTS"}
             onChange={() => setAudience("DEPARTMENTS")}
           />
+          <Radio
+            name="announcement-audience"
+            label="Specific people"
+            description="Only the people you add below. Nobody else sees it."
+            checked={audience === "PEOPLE"}
+            onChange={() => setAudience("PEOPLE")}
+          />
         </fieldset>
+
+        {audience === "PEOPLE" && (
+          <div className="flex flex-col gap-2.5 rounded-lg border border-line p-3.5">
+            <PeoplePicker value={people} onChange={setPeople} />
+            {audienceProblem && (
+              <p className="text-body-sm text-warning-text">
+                {audienceProblem}
+              </p>
+            )}
+          </div>
+        )}
 
         {audience === "DEPARTMENTS" && (
           <div className="flex flex-col gap-2.5 rounded-lg border border-line p-3.5">
@@ -290,6 +366,13 @@ export function AnnouncementForm({
             )}
           </div>
         )}
+
+        <NoticeImageField
+          current={notice?.image ?? null}
+          value={image}
+          onChange={setImage}
+          onBusyChange={setReading}
+        />
 
         <Field
           label="Take it down on"

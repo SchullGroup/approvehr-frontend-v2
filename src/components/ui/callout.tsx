@@ -1,6 +1,15 @@
 "use client";
 
-import { Fragment, isValidElement, useContext, useId } from "react";
+import {
+  Fragment,
+  isValidElement,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { Check, CircleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { InfoTooltip } from "./field";
@@ -114,6 +123,21 @@ export function Callout({
   const quiet = useId();
   void _icon;
   const inDialog = useContext(InDialog);
+
+  /* A failure inside a dialog is shown on the footer row, beside the button that
+     caused it, wherever the dialog has a place for it (`data-error-slot`). The
+     marker below only exists to find the dialog this was rendered in; without a
+     slot the failure stays where it was written. */
+  const marker = useRef<HTMLSpanElement>(null);
+  const [slot, setSlot] = useState<Element | null>(null);
+  useLayoutEffect(() => {
+    if (tone !== "danger" || !inDialog) return;
+    setSlot(
+      marker.current
+        ?.closest('[role="dialog"]')
+        ?.querySelector("[data-error-slot]") ?? null,
+    );
+  }, [tone, inDialog]);
   /* On a page, words with formatting in them are read as words and go the same
      way as plain text. In a dialog they stay where they are: that is where the
      consequence of the button beside them is read. */
@@ -126,8 +150,9 @@ export function Callout({
      two words, so a message after it reads as the rest of the sentence. */
   if (tone === "danger") {
     const message = hasContent(children);
-    return (
+    const words = (
       <div
+        role={slot ? "alert" : undefined}
         className={cn(
           "flex flex-wrap items-baseline gap-x-2 text-body-sm leading-relaxed text-danger-text",
           className,
@@ -136,6 +161,12 @@ export function Callout({
         {title && <span className="font-medium">{title}</span>}
         {message && <div className="min-w-0">{children}</div>}
       </div>
+    );
+    return (
+      <>
+        {inDialog && <span ref={marker} hidden />}
+        {slot ? createPortal(words, slot) : words}
+      </>
     );
   }
 

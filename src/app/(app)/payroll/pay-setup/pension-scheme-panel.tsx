@@ -55,7 +55,11 @@ export function PensionSchemePanel({ canEdit }: { canEdit: boolean }) {
   async function setOne(id: string, exempt: boolean) {
     setFailed(null);
     try {
-      await update(id, { pensionExempt: exempt });
+      if (directory.connected) {
+        await employeesApi.bulkPensionScheme({ employeeIds: [id], exempt });
+      } else {
+        await update(id, { pensionExempt: exempt });
+      }
       directory.reload();
     } catch (error) {
       setFailed(message(error));
@@ -151,7 +155,7 @@ export function PensionSchemePanel({ canEdit }: { canEdit: boolean }) {
         </ul>
         {!canEdit && (
           <p className="mt-3 text-body-sm text-muted">
-            Changing this needs the “Edit records” permission.
+            Changing this needs the “Manage pay structure” permission.
           </p>
         )}
         {failed && (

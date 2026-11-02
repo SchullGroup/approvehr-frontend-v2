@@ -9,6 +9,7 @@ import {
   RATING_MEANING,
   parseMeasure,
   performanceApi,
+  type AnswerKind,
   type ApiAnswer,
   type ApiFairness,
   type ApiClaims,
@@ -49,8 +50,9 @@ import {
   type ApiTaskForGrading,
   type ApiMyTask,
   type ScoreBand,
-  type ScoreComponent,
+  type WeightSet,
   type AnswerBody,
+  type ChoiceOptionBody,
   type CreateGoalBody,
   type UpdateGoalBody,
   type CreateKeyResultBody,
@@ -62,6 +64,8 @@ import {
   type RateBody,
   type ReviewQuestionKind,
   type SubmitReviewBody,
+  type SectionBody,
+  type SubsectionAudience,
 } from "@/lib/api/performance";
 import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 /* `lib/permissions` does not import this module, so this closes no cycle —
@@ -709,6 +713,16 @@ const SEED_RATINGS: readonly {
   { employeeId: "p-07", name: "Process and compliance", level: 2, target: 4 },
 ];
 
+/* What a demo period was fixed with: the shipped defaults, Weekly tasks at 0. */
+const DEMO_FROZEN_WEIGHTS: WeightSet = {
+  OBJECTIVES: 4_000,
+  TASKS: 0,
+  CORE_COMPETENCY: 2_500,
+  BEHAVIOURAL_COMPETENCY: 2_000,
+  LEADERSHIP: 1_500,
+  SELF_ASSESSMENT: 0,
+};
+
 const demoCycles: ApiCycle[] = [
   {
     id: DEMO_CYCLE_OPEN,
@@ -737,6 +751,7 @@ const demoCycles: ApiCycle[] = [
        still be rewritten by a settings change, which is the property the
        snapshot exists to remove. */
     scoringFrozen: true,
+    weights: { values: DEMO_FROZEN_WEIGHTS, basis: "frozen" },
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
@@ -766,6 +781,7 @@ const demoCycles: ApiCycle[] = [
     questionCount: 5,
     reviewCount: 18,
     scoringFrozen: true,
+    weights: { values: DEMO_FROZEN_WEIGHTS, basis: "frozen" },
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
@@ -944,10 +960,15 @@ function demoKeyResult(
     id: seed.id,
     goalId,
     label: seed.label,
+    kind: "NUMBER",
     unit: seed.unit ?? null,
     ...measure,
     percent: demoPercent(measure),
     met: demoMet(measure),
+    /* Every seeded measure carries a figure somebody wrote down, so every one is
+       read; the demo does not stage an unread measure it could not also stage
+       the consequences of. */
+    lastReadAt: "2026-08-18T10:00:00.000Z",
     updatedAt: "2026-08-18T10:00:00.000Z",
   };
 }
@@ -1081,7 +1102,10 @@ function demoEmployeeCompetencies(employeeId: string): ApiEmployeeCompetencies {
     rows,
     summary: {
       total: rows.length,
-      rated: rows.filter((row) => row.level !== null).length,
+      /* `ratedAt`, not `level`: a yes or no and a pick have no level and are
+         answered all the same. Every demo subsection is a level, so the two
+         agree here, and this is the form that stays true. */
+      rated: rows.filter((row) => row.ratedAt !== null).length,
       gaps: rows.filter((row) => (row.gap ?? 0) > 0).length,
     },
   };
@@ -1580,6 +1604,31 @@ export function useKpiMutations() {
             "but you can move any of their numbers.",
         );
         return performanceApi.addKeyResult(goalId, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * A manager says a done-or-not-done measure is done. Refuses in demo mode:
+     * whether somebody's work is done is a judgement about another person, and
+     * one made in this browser would reach nobody's review.
+     */
+    confirmMeasure: useCallback(
+      async (measureId: string, note?: string) => {
+        guard(
+          "Confirming a measure needs the API. It is a manager's word about " +
+            "somebody else's work, and one kept in this browser would never " +
+            "reach their review.",
+        );
+        return performanceApi.confirmMeasure(measureId, note);
+      },
+      [guard],
+    ),
+
+    unconfirmMeasure: useCallback(
+      async (measureId: string) => {
+        guard("Taking a confirmation back needs the API.");
+        return performanceApi.unconfirmMeasure(measureId);
       },
       [guard],
     ),
@@ -2550,7 +2599,7 @@ export function useFrameworkActions() {
     editable: isConnected,
 
     createSection: useCallback(
-      async (body: { name: string; order?: number }) => {
+      async (body: SectionBody & { name: string }) => {
         guard(
           "Adding a section needs the API: sections are shared across every " +
             "appraisal period, and one kept in this browser would vanish the " +
@@ -2568,6 +2617,7 @@ export function useFrameworkActions() {
         description?: string;
         isCore?: boolean;
         scaleMax: number;
+        answerKind?: AnswerKind;
       }) => {
         guard(
           "Adding a competency needs the API: the demo framework is fixed, " +
@@ -2590,7 +2640,7 @@ export function useFrameworkActions() {
      * every rating under it counting.
      */
     updateSection: useCallback(
-      async (id: string, body: { name?: string; order?: number }) => {
+      async (id: string, body: SectionBody) => {
         guard(
           "Renaming a section needs the API: sections are shared across every " +
             "appraisal period, and a name kept in this browser would not " +
@@ -2641,6 +2691,7 @@ export function useFrameworkActions() {
           isCore?: boolean;
           scaleMax?: number;
           active?: boolean;
+          answerKind?: AnswerKind;
         },
       ) => {
         guard(
@@ -2648,6 +2699,26 @@ export function useFrameworkActions() {
             "but you can still rate anybody against it.",
         );
         return performanceApi.updateCompetency(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Replace the whole list of choices of a `CHOICE` subsection.
+     *
+     * Its own write, from its own button, the same shape as the scoring
+     * weights: the set is the unit, so it is saved as one. No demo
+     * simulation, for the reason every write in this hook has none: the
+     * framework is a company's standing configuration, and a list of scored
+     * choices kept in one browser would move no mark anywhere.
+     */
+    setChoiceOptions: useCallback(
+      async (competencyId: string, options: ChoiceOptionBody[]) => {
+        guard(
+          "Setting a subsection's choices needs the API: the demo framework " +
+            "is fixed, but you can still rate anybody against it.",
+        );
+        return performanceApi.setChoiceOptions(competencyId, options);
       },
       [guard],
     ),
@@ -2855,6 +2926,8 @@ export function useCycleMutations() {
           periodEnd?: string;
           instructions?: string;
           guideUrl?: string;
+          /** The whole set, in basis points. Sent whenever it is given. */
+          weights?: WeightSet;
         },
       ) => {
         guard("Creating an appraisal period needs the API.");
@@ -2888,6 +2961,7 @@ export function useCycleMutations() {
           ...(options?.guideUrl?.trim()
             ? { guideUrl: options.guideUrl.trim() }
             : {}),
+          ...(options?.weights ? { weights: options.weights } : {}),
         });
       },
       [guard],
@@ -3041,6 +3115,8 @@ export function useCycleMutations() {
           periodEnd?: string | null;
           instructions?: string | null;
           guideUrl?: string | null;
+          /** The whole set, or `null` for the company defaults. */
+          weights?: WeightSet | null;
         },
       ) => {
         guard("Changing a period's settings needs the API.");
@@ -3082,6 +3158,36 @@ export function useCycleMutations() {
       async (id: string) => {
         guard("Removing a question needs the API.");
         return performanceApi.removeQuestion(id);
+      },
+      [guard],
+    ),
+
+    /**
+     * Put a directly rated subsection on a period's review form, or change who is
+     * asked. One call for both: the API creates the question or moves `askedOf`.
+     *
+     * Refused offline, in the sentence every period write uses. Nothing here is
+     * simulated: what it decides is whose answer becomes somebody's rating of a
+     * subsection when a form is sent, and a form sent in a browser moves no mark
+     * anywhere.
+     */
+    askSubsection: useCallback(
+      async (
+        cycleId: string,
+        competencyId: string,
+        askedOf: SubsectionAudience[],
+      ) => {
+        guard("Asking a subsection on the review form needs the API.");
+        return performanceApi.askSubsection(cycleId, competencyId, askedOf);
+      },
+      [guard],
+    ),
+
+    /** Take a subsection off a period's review form. The subsection stays. */
+    stopAskingSubsection: useCallback(
+      async (cycleId: string, competencyId: string) => {
+        guard("Taking a subsection off the review form needs the API.");
+        return performanceApi.stopAskingSubsection(cycleId, competencyId);
       },
       [guard],
     ),
@@ -3865,6 +3971,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
       label: "Delivery against objectives",
       weightBp: 4_000,
     },
+    { component: "TASKS", label: "Weekly tasks", weightBp: 0 },
     {
       component: "CORE_COMPETENCY",
       label: "Core competencies",
@@ -4008,9 +4115,7 @@ export function useScoringWeights(): {
    * fact they can check. Same discipline as the payroll run naming the person it
    * excluded rather than counting them.
    */
-  save: (
-    weights: Record<ScoreComponent, number>,
-  ) => Promise<ApiScoringWeightsSaved>;
+  save: (weights: WeightSet) => Promise<ApiScoringWeightsSaved>;
   reload: () => void;
 } {
   const { isConnected } = useSession();
@@ -4040,7 +4145,7 @@ export function useScoringWeights(): {
     editable: isConnected,
     refusal: WEIGHTS_SAVE_OFFLINE,
     save: useCallback(
-      async (weights: Record<ScoreComponent, number>) => {
+      async (weights: WeightSet) => {
         if (!isConnected) offline(WEIGHTS_SAVE_OFFLINE);
         const saved = await performanceApi.setScoringWeights(weights);
         reload();

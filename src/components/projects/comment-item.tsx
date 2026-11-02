@@ -7,6 +7,7 @@ import type { People } from "@/lib/store/project-session";
 import { formatDateTimeShort } from "@/lib/time";
 import { MentionComposer } from "./mention-composer";
 import { PersonAvatar } from "./person";
+import { AttachmentList } from "./task-files";
 
 /**
  * One comment: who, when, what, and what its owner may do with it.
@@ -142,6 +143,14 @@ export function CommentItem({
               ),
             )}
           </p>
+        )}
+        {!editing && comment.attachments && comment.attachments.length > 0 && (
+          <div className="mt-2">
+            <AttachmentList
+              attachments={comment.attachments}
+              label="Files on this comment"
+            />
+          </div>
         )}
       </div>
     </li>

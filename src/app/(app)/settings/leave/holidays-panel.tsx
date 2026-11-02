@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  FileUp,
   Pencil,
   Plus,
   Trash2,
@@ -14,6 +15,7 @@ import {
 import {
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
@@ -248,6 +250,17 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                   <ChevronRight aria-hidden="true" className="size-4" />
                 </IconButton>
               </div>
+              {canManage && (
+                <ButtonLink
+                  variant="secondary"
+                  size="sm"
+                  className="min-h-11 sm:min-h-8"
+                  href={`/settings/leave/holidays/import?year=${year}`}
+                >
+                  <FileUp aria-hidden="true" className="size-4" />
+                  Import from Excel
+                </ButtonLink>
+              )}
               {canManage && (
                 <Button
                   variant="accent"

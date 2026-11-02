@@ -154,3 +154,58 @@ export function useMyRecordMutations() {
 
   return { save, editable: isConnected };
 }
+
+export type MyRequiredState = {
+  /** API field names HR requires. Empty when nothing is, or offline. */
+  required: ReadonlySet<string>;
+  /** Required and still blank, with labels, for the reminder. */
+  missing: { field: string; label: string }[];
+  reload: () => void;
+};
+
+/**
+ * The details the company requires of the signed-in person.
+ *
+ * Offline, or before the answer arrives, nothing is required: the API is the
+ * gate (a required detail cannot be emptied there), so a slow answer can only
+ * delay the asterisks, never let a save through that should not happen.
+ */
+export function useMyRequiredDetails(): MyRequiredState {
+  const { isConnected, isLoading } = useSession();
+  const [answer, setAnswer] = useState<{
+    required: string[];
+    missing: { field: string; label: string }[];
+  } | null>(null);
+  const [nonce, setNonce] = useState(0);
+  const revalidation = useRevalidation();
+
+  useEffect(() => {
+    if (isLoading || !isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const result = await employees.myRequired(controller.signal);
+        if (!cancelled) {
+          setAnswer({
+            required: result.required.map((r) => r.field),
+            missing: result.missing,
+          });
+        }
+      } catch {
+        /* Nothing to say: no reminder is shown, and the API still enforces. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, isLoading, nonce, revalidation]);
+
+  const reload = useCallback(() => setNonce((n) => n + 1), []);
+  return {
+    required: new Set(isConnected && answer ? answer.required : []),
+    missing: isConnected && answer ? answer.missing : [],
+    reload,
+  };
+}

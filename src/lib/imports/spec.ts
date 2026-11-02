@@ -1,4 +1,5 @@
 import type { ImportCell, ImportRow } from "@/lib/api/imports";
+import type { DateCheckFormat } from "@/lib/xlsx";
 
 /**
  * The importer's column machinery, with no entity in it.
@@ -344,8 +345,19 @@ export type Dictionary<Field extends string = string> = {
   slug: string;
   /** The `ImportKind` this entity's batches are recorded under. */
   kind: string;
-  /** What the downloaded file is called, and what its first sheet is called. */
-  templateFile: { basename: string; sheetName: string };
+  /**
+   * What the downloaded file is called, and what its first sheet is called.
+   *
+   * `checkedDates` names the columns, by field, whose dates Excel itself
+   * checks as they are typed, and the one format it allows — see
+   * `SheetSpec.dateChecks`. Absent for every entity whose files people also
+   * write in other shapes the API already accepts.
+   */
+  templateFile: {
+    basename: string;
+    sheetName: string;
+    checkedDates?: Readonly<Record<string, DateCheckFormat>>;
+  };
   /** What one row is. Every count sentence on the screen uses these. */
   noun: { one: string; many: string };
   /** What the match key is called in copy: "staff number". */
@@ -476,7 +488,7 @@ export function buildDictionary<Field extends string>(
   identity: {
     slug: string;
     kind: string;
-    templateFile: { basename: string; sheetName: string };
+    templateFile: Dictionary<Field>["templateFile"];
     noun: { one: string; many: string };
     keyLabel: string;
     rowRules?: RowRules<Field>;

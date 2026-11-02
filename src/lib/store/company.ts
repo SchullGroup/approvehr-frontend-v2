@@ -693,11 +693,8 @@ export function validateProfile(
       });
     }
   }
-  if (patch.tin !== undefined && patch.tin.trim()) {
-    if (!/^\d{10}$/.test(patch.tin.replace(/[\s-]/g, ""))) {
-      errors.push({ field: "tin", message: "A Nigerian TIN is 10 digits." });
-    }
-  }
+  /* No shape check on the TIN: FIRS has issued more than one format, so any
+     length is accepted and the tax office is the one to say it is wrong. */
   return errors;
 }
 

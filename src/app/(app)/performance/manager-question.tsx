@@ -12,6 +12,10 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ReviewAudience, ReviewQuestionKind } from "@/lib/api/performance";
+import {
+  questionCounter,
+  questionWordingProblem,
+} from "@/lib/performance/question-limits";
 import { useCycleMutations } from "@/lib/store/performance";
 
 const KINDS: { value: ReviewQuestionKind; label: string }[] = [
@@ -101,8 +105,10 @@ function ManagerQuestionDialog({
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (prompt.trim().length < 5) {
-      setError("Write the question out.");
+    /* The server's own limits and sentences, said before the request. */
+    const problem = questionWordingProblem(prompt);
+    if (problem) {
+      setError(problem);
       return;
     }
     setError(null);
@@ -119,6 +125,13 @@ function ManagerQuestionDialog({
         tone: "success",
         detail: "Asked only of your own team.",
       });
+      /* Emptied before it closes. This dialog stays mounted while it is closed,
+         so what was left in it came back the next time a manager pressed Add your
+         own question: the question they had just added, one press from being
+         added again. */
+      setPrompt("");
+      setKind("RATING");
+      setAudience("MANAGER");
       onAdded();
     } catch (caught) {
       setError(
@@ -129,16 +142,25 @@ function ManagerQuestionDialog({
     }
   };
 
+  const counter = questionCounter(prompt);
+
+  /* Closed without adding: what was written stays for next time, but a refusal
+     from the last try does not. */
+  const close = () => {
+    setError(null);
+    onClose();
+  };
+
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={close}
       title="Add your own question"
       description="On top of the standard questions, and asked only of your own team."
       size="sm"
       footer={
         <>
-          <Button disabled={saving} onClick={onClose}>
+          <Button disabled={saving} onClick={close}>
             Cancel
           </Button>
           <Button variant="accent" loading={saving} onClick={() => void save()}>
@@ -148,7 +170,12 @@ function ManagerQuestionDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="The question" required {...(error ? { error } : {})}>
+        <Field
+          label="The question"
+          required
+          {...(error ? { error } : {})}
+          {...(counter ? { help: counter } : {})}
+        >
           <Textarea
             rows={2}
             value={prompt}

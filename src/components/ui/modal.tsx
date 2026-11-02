@@ -140,6 +140,7 @@ export function Modal({
 
         {footer && (
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line bg-canvas px-5 py-4 sm:px-6 rounded-b-xl">
+            <div data-error-slot className="min-w-0 flex-1 empty:hidden" />
             {footer}
           </div>
         )}
@@ -299,6 +300,7 @@ export function Drawer({
 
         {footer && (
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 rounded-b-xl border-t border-line bg-canvas px-5 py-4 sm:px-6">
+            <div data-error-slot className="min-w-0 flex-1 empty:hidden" />
             {footer}
           </div>
         )}

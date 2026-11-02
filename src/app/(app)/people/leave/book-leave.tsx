@@ -13,6 +13,16 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveTypeRow } from "@/lib/api/leave";
+import {
+  fileProblem,
+  uploadLeaveFile,
+  type FileRef,
+} from "@/lib/api/leave-files";
+import {
+  LeaveFilePicker,
+  useStagedLeaveFiles,
+} from "@/components/leave/leave-file-picker";
+import { useAttachmentRule, useLeaveFileLimits } from "@/lib/store/leave-files";
 import { useEmployee, useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useLeaveBalancesFor,
@@ -244,6 +254,23 @@ export function BookLeaveDialog({
   );
 
   const chosenType = availableTypes.find((type) => type.name === draft.type);
+
+  /* Files: offered only where the server can keep one, and required only where
+     the API says so for these dates. Neither is worked out here. */
+  const { limits, storage } = useLeaveFileLimits();
+  const canAttach = mutations.connected && storage === true && limits !== null;
+  const staged = useStagedLeaveFiles(limits);
+  const { rule } = useAttachmentRule(
+    mutations.connected && chosenType?.id && draft.from && draft.to
+      ? {
+          leaveTypeId: chosenType.id,
+          startDate: draft.from,
+          endDate: draft.to,
+        }
+      : null,
+  );
+  /** A refusal that belongs to the files as a group, said under them. */
+  const [fileError, setFileError] = useState<string | null>(null);
   const balances = useLeaveBalancesFor(
     draft.employeeId ? [draft.employeeId] : [],
     draft.type,
@@ -271,6 +298,8 @@ export function BookLeaveDialog({
        validation on a field they cannot see. */
     setDraft(canBookForOthers ? BLANK : { ...BLANK, employeeId: me });
     setErrors([]);
+    setFileError(null);
+    staged.clear();
     onClose();
   }
 
@@ -287,10 +316,51 @@ export function BookLeaveDialog({
       days,
     );
     setErrors(found);
+    setFileError(null);
     if (found.length > 0) return;
+
+    const toSend = canAttach ? staged.sendable : [];
+    if (canAttach && rule?.required && toSend.length === 0) {
+      setFileError(
+        "A supporting file is required. Attach one and send the request again.",
+      );
+      return;
+    }
 
     setSaving(true);
     try {
+      /* Uploaded now, one at a time, and the request goes only once every file
+         is in storage: a request naming a file that is not there is refused
+         whole. A file already uploaded for this person is not sent twice. */
+      const refs: FileRef[] = [];
+      for (const item of toSend) {
+        if (item.uploaded?.employeeId === draft.employeeId) {
+          refs.push(item.uploaded.ref);
+          continue;
+        }
+        staged.patch(item.id, { progress: 0, error: null });
+        try {
+          const ref = await uploadLeaveFile(item.file, limits, {
+            employeeId: draft.employeeId,
+            onProgress: (progress) => staged.patch(item.id, { progress }),
+          });
+          staged.patch(item.id, {
+            progress: null,
+            uploaded: { employeeId: draft.employeeId, ref },
+          });
+          refs.push(ref);
+        } catch (failure) {
+          staged.patch(item.id, {
+            progress: null,
+            error: fileProblem(failure),
+          });
+          setFileError(
+            "The request was not sent. Fix or remove the file above, then send it again.",
+          );
+          return;
+        }
+      }
+
       const result = await mutations.create({
         employeeId: draft.employeeId,
         leaveTypeId: chosenType?.id ?? null,
@@ -308,6 +378,7 @@ export function BookLeaveDialog({
            unrouted and reads as "Not routed" — which is true, and better than
            attributing it to a seeded person who is not the one signed in. */
         ...approverFor(draft.employeeId),
+        ...(refs.length > 0 ? { attachments: refs } : {}),
       });
 
       toast.push({
@@ -321,6 +392,16 @@ export function BookLeaveDialog({
       onCreated();
       close();
     } catch (failure) {
+      /* A refusal about the files belongs under the files, not under the dates:
+         the person has nothing to change in the dates. */
+      if (
+        failure instanceof ApiError &&
+        (failure.code.startsWith("attachment_") ||
+          failure.code.startsWith("storage_"))
+      ) {
+        setFileError(fileProblem(failure));
+        return;
+      }
       /* The API's own words. An overlap names the request it clashes with and
          the dates, which is exactly what the person needs to change. */
       setErrors([
@@ -484,13 +565,26 @@ export function BookLeaveDialog({
           />
         </Field>
 
-        {chosenType?.requiresEvidence && (
+        {canAttach && limits && (
+          <LeaveFilePicker
+            staged={staged}
+            limits={limits}
+            required={rule?.required === true}
+            error={fileError}
+            disabled={saving}
+          />
+        )}
+
+        {/* The demo has nowhere to keep a file, and its types carry only the
+            old informational flag. Connected, whether a file is asked for is
+            the leave type's setting and the picker above says so. */}
+        {!mutations.connected && chosenType?.requiresEvidence && (
           <Callout
             tone="info"
             title={`${chosenType.name} leave needs evidence`}
           >
             Attach the note or certificate to their record after raising this.
-            Documents are not part of a leave request yet.
+            Files on a leave request need a live company.
           </Callout>
         )}
 

@@ -179,8 +179,33 @@ export function readProjectSource(value: unknown): ProjectSource | null {
   return { key, projectId };
 }
 
+/**
+ * Whether a source is a task on somebody's own list. Those are keyed `MY-n`, and
+ * no board can take the key `MY`, so the key alone says so. They have no project
+ * page to open; with the issue's id they open on `/projects/tasks/{id}`
+ * (`workIssueHref`). A source tag has only the key, so it stays unlinked.
+ */
+export function isPersonalSource(source: ProjectSource): boolean {
+  return /^MY-\d+$/i.test(source.key);
+}
+
+/**
+ * Where a row about one issue goes when its id is known: a `MY-n` task to its
+ * own page by id (which also sends a board task on to its board, so a wrong
+ * guess still lands), anything else to its board with the issue open.
+ */
+export function workIssueHref(issue: {
+  id: string;
+  key: string;
+  projectId: string;
+}): string {
+  return isPersonalSource({ key: issue.key, projectId: issue.projectId })
+    ? `/projects/tasks/${encodeURIComponent(issue.id)}`
+    : `/projects/${issue.projectId}?issue=${encodeURIComponent(issue.key)}`;
+}
+
 /** Where the tag goes: the issue in its project, as the notifications link to it. */
 export function projectSourceHref(source: ProjectSource): string | null {
-  if (source.projectId === null) return null;
+  if (source.projectId === null || isPersonalSource(source)) return null;
   return `/projects/${encodeURIComponent(source.projectId)}?issue=${encodeURIComponent(source.key)}`;
 }

@@ -4,11 +4,14 @@ import { useMemo, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
+  CalendarDays,
   Clock3,
+  Heart,
   IdCard,
   Landmark,
   MapPin,
   ShieldCheck,
+  Sparkles,
   UserRound,
 } from "lucide-react";
 import {
@@ -32,7 +35,10 @@ import {
   SELF_SERVICE_OFFLINE,
   useMyPendingChanges,
   useMyRecordMutations,
+  useMyRequiredDetails,
 } from "@/lib/store/my-record";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import type { Employee } from "@/lib/types";
 
 /**
@@ -71,6 +77,10 @@ type Draft = {
   addressLine: string;
   stateOfOrigin: string;
   lgaOfOrigin: string;
+  maritalStatus: string;
+  religion: string;
+  dateOfBirth: string;
+  gender: string;
   nextOfKinName: string;
   nextOfKinRelationship: string;
   nextOfKinPhone: string;
@@ -88,6 +98,10 @@ const EMPTY: Draft = {
   addressLine: "",
   stateOfOrigin: "",
   lgaOfOrigin: "",
+  maritalStatus: "",
+  religion: "",
+  dateOfBirth: "",
+  gender: "",
   nextOfKinName: "",
   nextOfKinRelationship: "",
   nextOfKinPhone: "",
@@ -100,14 +114,59 @@ const EMPTY: Draft = {
   nin: "",
 };
 
+type Group = {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  tier: "immediate" | "approval";
+  /**
+   * Which tab the group is on, when that is not the same as its tier. The tabs
+   * split on "what your pay is worked out from", and date of birth and gender
+   * are checked first without being pay: they belong with your other details.
+   */
+  tab?: "immediate" | "approval";
+  /** Replaces the tier's badge and note, for a group payroll is not who checks. */
+  badge?: string;
+  hint?: string;
+  fields: (keyof Draft)[];
+};
+
 /** Which group a field belongs to, and which tier that group is. */
-const GROUPS = [
+const GROUPS: Group[] = [
   {
     id: "contact",
     title: "How to reach you",
     icon: <UserRound aria-hidden="true" className="size-4" />,
     tier: "immediate" as const,
     fields: ["phone", "addressLine"] as (keyof Draft)[],
+  },
+  {
+    id: "marital",
+    title: "Marital status",
+    icon: <Heart aria-hidden="true" className="size-4" />,
+    tier: "immediate",
+    fields: ["maritalStatus"],
+  },
+  {
+    id: "religion",
+    title: "Religion",
+    icon: <Sparkles aria-hidden="true" className="size-4" />,
+    tier: "immediate",
+    fields: ["religion"],
+  },
+  {
+    /* Checked first, by the people who can edit records: gender decides
+       whether maternity or paternity leave is on your balance, and date of
+       birth is what pension and retirement are worked out from. Mirrors
+       `SELF_NEEDS_APPROVAL` on the API. */
+    id: "identity",
+    title: "Date of birth and gender",
+    icon: <CalendarDays aria-hidden="true" className="size-4" />,
+    tier: "approval",
+    tab: "immediate",
+    badge: "HR checks this",
+    hint: "HR checks these before they change: leave and pension are worked out from them.",
+    fields: ["dateOfBirth", "gender"],
   },
   {
     id: "kin",
@@ -155,6 +214,10 @@ const LABEL: Record<keyof Draft, string> = {
   addressLine: "Address",
   stateOfOrigin: "State of origin",
   lgaOfOrigin: "LGA of origin",
+  maritalStatus: "Marital status",
+  religion: "Religion",
+  dateOfBirth: "Date of birth",
+  gender: "Gender",
   nextOfKinName: "Their name",
   nextOfKinRelationship: "Relationship",
   nextOfKinPhone: "Their phone",
@@ -165,6 +228,37 @@ const LABEL: Record<keyof Draft, string> = {
   tin: "Tax identification number",
   nhfNumber: "NHF number",
   nin: "National identity number",
+};
+
+/** Checked by HR rather than payroll — the "Date of birth and gender" group. */
+const HR_CHECKS = new Set<string>(
+  GROUPS.find((group) => group.id === "identity")?.fields ?? [],
+);
+
+/** The fixed answers, in the API's words. Mirrors `employeeFields` there. */
+type ChoiceField = "maritalStatus" | "gender" | "religion";
+const CHOICES: Record<ChoiceField, readonly (readonly [string, string])[]> = {
+  maritalStatus: [
+    ["single", "Single"],
+    ["married", "Married"],
+    ["divorced", "Divorced"],
+    ["separated", "Separated"],
+    ["widowed", "Widowed"],
+  ],
+  gender: [
+    ["female", "Female"],
+    ["male", "Male"],
+    ["other", "Other"],
+  ],
+  /* Free text on the API (HR may have typed something else before this list
+     existed), so a stored value that is not here is offered as itself. */
+  religion: [
+    ["Christianity", "Christianity"],
+    ["Islam", "Islam"],
+    ["Traditional", "Traditional"],
+    ["None", "None"],
+    ["Other", "Other"],
+  ],
 };
 
 const TIER_NOTE = {
@@ -193,6 +287,8 @@ export function MyDetails({
   const toast = useToast();
   const pending = useMyPendingChanges();
   const { save, editable } = useMyRecordMutations();
+  const requiredDetails = useMyRequiredDetails();
+  const timeZone = useOrgTimezone();
 
   const initial = useMemo<Draft>(() => {
     if (!me) return EMPTY;
@@ -205,6 +301,10 @@ export function MyDetails({
       addressLine: text("addressLine"),
       stateOfOrigin: text("stateOfOrigin"),
       lgaOfOrigin: text("lgaOfOrigin"),
+      maritalStatus: text("maritalStatus"),
+      religion: text("religion"),
+      dateOfBirth: text("dateOfBirth"),
+      gender: text("gender"),
       nextOfKinName: text("nextOfKinName"),
       nextOfKinRelationship: text("nextOfKinRelationship"),
       nextOfKinPhone: text("nextOfKinPhone"),
@@ -234,7 +334,9 @@ export function MyDetails({
    */
   const [baseline, setBaseline] = useState<Draft>(initial);
   const [open, setOpen] = useState<string | null>(
-    () => GROUPS.find((group) => !only || group.tier === only)?.id ?? null,
+    () =>
+      GROUPS.find((group) => !only || (group.tab ?? group.tier) === only)?.id ??
+      null,
   );
   const [busy, setBusy] = useState(false);
 
@@ -260,8 +362,24 @@ export function MyDetails({
     pending.changes.map((change) => [change.field, change]),
   );
 
+  /**
+   * Required details on this tab still blank.
+   *
+   * HR chose them (Settings → Required details), and the API refuses to empty
+   * one. Saving waits for them here, so a person filling in their phone is told
+   * what else the company needs at the moment they are looking at the form. A
+   * detail already sent for HR's approval counts as given.
+   */
+  const shownFields = GROUPS.filter(
+    (group) => !only || (group.tab ?? group.tier) === only,
+  ).flatMap((group) => group.fields);
+  const isRequired = (key: keyof Draft) => requiredDetails.required.has(key);
+  const blank = shownFields.filter(
+    (key) => isRequired(key) && draft[key].trim() === "" && !waiting.has(key),
+  );
+
   async function submit() {
-    if (changed.length === 0) return;
+    if (changed.length === 0 || blank.length > 0) return;
     setBusy(true);
     const patch: Record<string, unknown> = {};
     for (const key of changed) patch[key] = draft[key].trim() || null;
@@ -279,6 +397,7 @@ export function MyDetails({
 
     const { applied, pending: raised, refused } = result.outcome;
     pending.reload();
+    requiredDetails.reload();
     /* Everything the API accepted — written or proposed — is the new baseline.
        Anything it refused stays flagged as an unsaved change, which is honest:
        it did not go anywhere. */
@@ -299,15 +418,20 @@ export function MyDetails({
     if (applied.length > 0 && raised.length === 0) {
       toast.push({ title: "Saved", tone: "success" });
     } else if (raised.length > 0) {
+      /* Named after who actually decides: date of birth and gender go to HR,
+         and anything pay is worked out from goes to payroll. */
+      const who = raised.every((one) => HR_CHECKS.has(one.field))
+        ? "HR"
+        : "payroll";
       toast.push({
         title:
           applied.length > 0
-            ? "Some saved, some sent to payroll"
-            : "Sent to payroll",
+            ? `Some saved, some sent to ${who}`
+            : `Sent to ${who}`,
         tone: "success",
         detail: `${raised.map((one) => one.label).join(", ")} ${
           raised.length === 1 ? "changes" : "change"
-        } once payroll agrees. Nothing has moved yet.`,
+        } once ${who} agrees. Nothing has moved yet.`,
       });
     }
     if (refused.length > 0) {
@@ -336,9 +460,13 @@ export function MyDetails({
           tone="info"
           icon={<Clock3 aria-hidden="true" />}
           title={
-            pending.changes.length === 1
-              ? "One change is with payroll"
-              : `${pending.changes.length} changes are with payroll`
+            /* Named after who decides, as the toast is: date of birth and
+               gender go to HR, anything pay is worked out from to payroll. */
+            `${pending.changes.length === 1 ? "One change is" : `${pending.changes.length} changes are`} with ${
+              pending.changes.every((change) => HR_CHECKS.has(change.field))
+                ? "HR"
+                : "payroll"
+            }`
           }
         >
           <ul className="mt-1 flex flex-col gap-1">
@@ -371,130 +499,181 @@ export function MyDetails({
           }
         />
         <CardBody className="flex flex-col gap-2">
-          {GROUPS.filter((group) => !only || group.tier === only).map(
-            (group) => {
-              const held = group.fields.filter((f) => waiting.has(f)).length;
-              const edited = group.fields.filter(
-                (f) => draft[f] !== baseline[f],
-              ).length;
-              return (
-                <Disclosure
-                  key={group.id}
-                  /* Single-open, which is the point: the record has thirty-odd
+          {GROUPS.filter(
+            (group) => !only || (group.tab ?? group.tier) === only,
+          ).map((group) => {
+            const held = group.fields.filter((f) => waiting.has(f)).length;
+            const needed = group.fields.filter((f) => blank.includes(f)).length;
+            const edited = group.fields.filter(
+              (f) => draft[f] !== baseline[f],
+            ).length;
+            return (
+              <Disclosure
+                key={group.id}
+                /* Single-open, which is the point: the record has thirty-odd
                    fields and the reason this screen is not the incumbent's is
                    that only one group is ever in front of you. */
-                  open={open === group.id}
-                  onToggle={() =>
-                    setOpen((current) =>
-                      current === group.id ? null : group.id,
-                    )
-                  }
-                  title={
-                    <span className="flex items-center gap-2">
-                      <span className="text-accent-text">{group.icon}</span>
-                      {group.title}
-                    </span>
-                  }
-                  meta={
-                    <span className="flex items-center gap-1.5">
-                      {group.tier === "approval" && (
-                        <Badge tone="neutral" size="sm">
-                          Payroll checks this
-                        </Badge>
-                      )}
-                      {held > 0 && (
-                        <Badge tone="info" size="sm" dot>
-                          {held} waiting
-                        </Badge>
-                      )}
-                      {edited > 0 && (
-                        <Badge tone="warning" size="sm">
-                          {edited} unsaved
-                        </Badge>
-                      )}
-                    </span>
-                  }
-                  hint={TIER_NOTE[group.tier]}
-                >
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {group.fields.flatMap((key) => {
-                      const field = (
-                        <Field
-                          key={key}
-                          label={LABEL[key]}
-                          {...(waiting.has(key)
-                            ? {
-                                /* The API's own masked summary — "••••4471 →
+                open={open === group.id}
+                onToggle={() =>
+                  setOpen((current) => (current === group.id ? null : group.id))
+                }
+                title={
+                  <span className="flex items-center gap-2">
+                    <span className="text-accent-text">{group.icon}</span>
+                    {group.title}
+                  </span>
+                }
+                meta={
+                  <span className="flex items-center gap-1.5">
+                    {group.tier === "approval" && (
+                      <Badge tone="neutral" size="sm">
+                        {group.badge ?? "Payroll checks this"}
+                      </Badge>
+                    )}
+                    {needed > 0 && (
+                      <Badge tone="warning" size="sm" dot>
+                        Needs filling in
+                      </Badge>
+                    )}
+                    {held > 0 && (
+                      <Badge tone="info" size="sm" dot>
+                        {held} waiting
+                      </Badge>
+                    )}
+                    {edited > 0 && (
+                      <Badge tone="warning" size="sm">
+                        {edited} unsaved
+                      </Badge>
+                    )}
+                  </span>
+                }
+                hint={group.hint ?? TIER_NOTE[group.tier]}
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {group.fields.flatMap((key) => {
+                    const field = (
+                      <Field
+                        key={key}
+                        label={LABEL[key]}
+                        required={isRequired(key)}
+                        {...(waiting.has(key)
+                          ? {
+                              /* The API's own masked summary — "••••4471 →
                                    ••••5566" — not a generic sentence. Reading
                                    the value here is the point: it is what the
                                    Callout above already says, repeated where
                                    somebody is actually looking when a group is
                                    open and the page has scrolled past it. */
-                                help: `Already with payroll: ${waiting.get(key)?.summary}. Saving again replaces it.`,
-                              }
-                            : {})}
-                        >
-                          {key === "stateOfOrigin" ? (
-                            <Select
-                              value={draft[key]}
-                              disabled={!editable}
-                              onChange={(event) => set(key, event.target.value)}
-                            >
-                              <option value="">Not recorded</option>
-                              {NIGERIAN_STATES.map((state) => (
-                                <option key={state} value={state}>
-                                  {state}
+                              help: `Already with payroll: ${waiting.get(key)?.summary}. Saving again replaces it.`,
+                            }
+                          : {})}
+                      >
+                        {key in CHOICES ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            {/* Blank sends null, which clears it. Somebody
+                                  who would rather not say must be able to take
+                                  a value back off their record. */}
+                            <option value="">
+                              {isRequired(key)
+                                ? "Choose one"
+                                : "Prefer not to say"}
+                            </option>
+                            {key === "religion" &&
+                              initial.religion !== "" &&
+                              !CHOICES.religion.some(
+                                ([value]) => value === initial.religion,
+                              ) && (
+                                <option value={initial.religion}>
+                                  {initial.religion}
                                 </option>
-                              ))}
-                            </Select>
-                          ) : key === "bankName" ? (
-                            <Select
-                              value={draft[key]}
-                              disabled={!editable}
-                              onChange={(event) => set(key, event.target.value)}
-                            >
-                              <option value="">Not recorded</option>
-                              {banksIncluding(initial.bankName).map((bank) => (
-                                <option key={bank.label} value={bank.label}>
-                                  {bank.label}
+                              )}
+                            {CHOICES[key as ChoiceField].map(
+                              ([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
                                 </option>
-                              ))}
-                            </Select>
-                          ) : (
-                            <Input
-                              value={draft[key]}
-                              disabled={!editable}
-                              onChange={(event) => set(key, event.target.value)}
-                            />
-                          )}
-                        </Field>
-                      );
+                              ),
+                            )}
+                          </Select>
+                        ) : key === "dateOfBirth" ? (
+                          <Input
+                            type="date"
+                            value={draft[key]}
+                            max={todayIn(timeZone)}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          />
+                        ) : key === "stateOfOrigin" ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            <option value="">Not recorded</option>
+                            {NIGERIAN_STATES.map((state) => (
+                              <option key={state} value={state}>
+                                {state}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : key === "bankName" ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            <option value="">Not recorded</option>
+                            {banksIncluding(initial.bankName).map((bank) => (
+                              <option key={bank.label} value={bank.label}>
+                                {bank.label}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : (
+                          <Input
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          />
+                        )}
+                      </Field>
+                    );
 
-                      /* BE-10: confirms the account once both fields beside it
+                    /* BE-10: confirms the account once both fields beside it
                        are filled in. Placed after `bankAccount` rather than
                        inside its `Field` — a live confirmation is not the
                        field's own help text. */
-                      if (key !== "bankAccount") return [field];
-                      return [
-                        field,
-                        <div key={`${key}-verify`} className="sm:col-span-2">
-                          <AccountVerificationHint
-                            bankName={draft.bankName}
-                            accountNumber={draft.bankAccount}
-                          />
-                        </div>,
-                      ];
-                    })}
-                  </div>
-                </Disclosure>
-              );
-            },
-          )}
+                    if (key !== "bankAccount") return [field];
+                    return [
+                      field,
+                      <div key={`${key}-verify`} className="sm:col-span-2">
+                        <AccountVerificationHint
+                          bankName={draft.bankName}
+                          accountNumber={draft.bankAccount}
+                        />
+                      </div>,
+                    ];
+                  })}
+                </div>
+              </Disclosure>
+            );
+          })}
         </CardBody>
 
         <CardBody className="flex flex-wrap items-center justify-between gap-3 border-t border-line">
           <p className="text-meta text-muted">
-            {changed.length === 0 ? (
+            {blank.length > 0 ? (
+              /* Said where the disabled button is, so nobody presses it and
+                 wonders. */
+              <span className="text-warning-text">
+                Fill in {blank.map((key) => LABEL[key]).join(", ")} first: your
+                company needs {blank.length === 1 ? "it" : "them"}.
+              </span>
+            ) : changed.length === 0 ? (
               <span className="flex items-center gap-1.5">
                 <BadgeCheck aria-hidden="true" className="size-3.5" />
                 Nothing changed yet
@@ -521,7 +700,9 @@ export function MyDetails({
               variant="accent"
               size="sm"
               loading={busy}
-              disabled={!editable || changed.length === 0 || busy}
+              disabled={
+                !editable || changed.length === 0 || blank.length > 0 || busy
+              }
               onClick={() => void submit()}
             >
               Save changes

@@ -114,6 +114,7 @@ function useImportDataAccess(): boolean {
 
 /** What a surface with no lists of its own passes: nothing, so `useImport`'s default applies. */
 const useNoTemplateLists = (): undefined => undefined;
+const useNoImportContext = (): undefined => undefined;
 
 /**
  * Bring a spreadsheet in. Any spreadsheet, of anything.
@@ -158,7 +159,16 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
      any. Always the same hook for a given surface, so it is called
      unconditionally. */
   const useTemplateLists = surface.useTemplateLists ?? useNoTemplateLists;
-  const imp = useImport(surface.dictionary, allowed, useTemplateLists());
+  /* What the screen tells the API that the file cannot — the holidays' year.
+     Same rule: one hook per surface, called unconditionally. */
+  const useImportContext = surface.useImportContext ?? useNoImportContext;
+  const importContext = useImportContext();
+  const imp = useImport(
+    surface.dictionary,
+    allowed,
+    useTemplateLists(),
+    importContext?.values,
+  );
   const dictionary = surface.dictionary;
 
   /* A count on every step, so nobody is ever guessing what is about to happen
@@ -202,6 +212,17 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
      here keeping the two in step — the thing an effect would be repairing is
      instead not possible. */
   const stepper = useStepper(steps);
+
+  /* A context changed after a check — another year for the same holidays — is
+     another import, and the store has dropped the check. Back to the columns,
+     where "Check" runs it again; adjusted during render rather than in an
+     effect, the same reasoning as the note above. A finished import stays. */
+  const contextKey = JSON.stringify(importContext?.values ?? {});
+  const [contextSeen, setContextSeen] = useState(contextKey);
+  if (contextSeen !== contextKey) {
+    setContextSeen(contextKey);
+    if (stepper.index === 2 && imp.result === null) stepper.goTo(1);
+  }
 
   if (!allowed) {
     return (
@@ -261,6 +282,8 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
             if (n < stepper.index) stepper.goTo(n);
           }}
         />
+
+        {importContext?.control}
 
         {imp.error && (
           <Callout tone="danger" title="That did not work">

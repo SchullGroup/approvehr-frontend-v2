@@ -325,6 +325,8 @@ export type ApiEmployee = {
   phone: string | null;
   dateOfBirth: string | null;
   gender: string | null;
+  /** Absent from an API that predates it. */
+  maritalStatus?: string | null;
   jobTitle: string;
   departmentId: string | null;
   department: string | null;
@@ -416,6 +418,32 @@ export type ApiEmployee = {
     /** The roles the account actually holds. */
     roles: string[];
   };
+};
+
+/** One personal detail, by API field name and label. */
+export type ApiDetailField = { field: string; label: string };
+
+/** Mirrors `mineRequired`: what the company requires, and what of it is still blank. */
+export type ApiMyRequired = {
+  required: ApiDetailField[];
+  /** Blank and not waiting on HR's approval. */
+  missing: ApiDetailField[];
+};
+
+/** Mirrors `overview` in `employees/required-details.ts`. */
+export type ApiRequiredOverview = {
+  required: ApiDetailField[];
+  /** Every detail HR may require. */
+  options: ApiDetailField[];
+  /** Current staff with at least one required detail blank. Names only. */
+  outstanding: {
+    employeeId: string;
+    name: string;
+    employeeNo: string;
+    missing: ApiDetailField[];
+  }[];
+  /** Current staff in all. */
+  staff: number;
 };
 
 export type EmployeeListParams = {
@@ -643,6 +671,24 @@ export const employees = {
    */
   updateMine: (body: Record<string, unknown>) =>
     request<ApiSelfUpdateOutcome>("/employees/me", { method: "PATCH", body }),
+
+  /** The details the caller's company requires, and which they still owe. */
+  myRequired: (signal?: AbortSignal) =>
+    request<ApiMyRequired>("/employees/me/required", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** For HR: what is required, what can be, and who still has gaps. */
+  requiredDetails: (signal?: AbortSignal) =>
+    request<ApiRequiredOverview>("/employees/required-details", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  setRequiredDetails: (fields: string[]) =>
+    request<ApiRequiredOverview>("/employees/required-details", {
+      method: "PUT",
+      body: { fields },
+    }),
 
   /** What the caller has waiting on somebody. */
   myChanges: (signal?: AbortSignal) =>
@@ -1353,6 +1399,9 @@ export function toEmployee(api: ApiEmployee): Employee {
     phone: api.phone,
     dateOfBirth: api.dateOfBirth,
     ...(api.gender ? { gender: api.gender as Employee["gender"] } : {}),
+    ...(api.maritalStatus
+      ? { maritalStatus: api.maritalStatus as Employee["maritalStatus"] }
+      : {}),
     jobTitle: api.jobTitle,
     department: api.department ?? "—",
     managerId: api.managerId,

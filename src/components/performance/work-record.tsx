@@ -16,6 +16,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { isPersonalSource, workIssueHref } from "@/lib/projects/objectives";
 import {
   dayLabel,
   performanceApi,
@@ -265,10 +266,11 @@ function IssueRow({ issue }: { issue: ApiWorkRecordIssue }) {
   return (
     <li className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        {/* The viewer may not be on this board; the project page then says so
-            in the app's usual not-found, which is acceptable. */}
+        {/* A `MY-n` task opens on its own page by id; a board issue on its
+            board. The viewer may not be allowed in; the page then says so in
+            the app's usual not-found, which is acceptable. */}
         <Link
-          href={`/projects/${issue.projectId}?issue=${encodeURIComponent(issue.key)}`}
+          href={workIssueHref(issue)}
           className="tabular text-body-sm font-medium text-accent hover:underline"
         >
           {issue.key}
@@ -276,7 +278,11 @@ function IssueRow({ issue }: { issue: ApiWorkRecordIssue }) {
         <span className="text-body-sm text-ink">{issue.title}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
-        <span>{issue.projectName}</span>
+        <span>
+          {isPersonalSource({ key: issue.key, projectId: issue.projectId })
+            ? "Personal"
+            : issue.projectName}
+        </span>
         {issue.labels.map((label) => (
           <Badge key={label} tone="neutral" size="sm">
             {label}

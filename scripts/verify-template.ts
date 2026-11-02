@@ -51,6 +51,7 @@ import { DEPARTMENTS } from "../src/lib/imports/departments";
 import { EQUIPMENT } from "../src/lib/imports/equipment";
 import { ATTENDANCE, ATTENDANCE_COLUMNS } from "../src/lib/imports/attendance";
 import { OBJECTIVES, OBJECTIVE_COLUMNS } from "../src/lib/imports/objectives";
+import { HOLIDAYS, HOLIDAY_COLUMNS } from "../src/lib/imports/holidays";
 import { normalizeKey, type Dictionary } from "../src/lib/imports/spec";
 import {
   columnIndex,
@@ -476,6 +477,45 @@ async function main(): Promise<void> {
     "OBJECTIVE_COLUMNS",
     OBJECTIVE_COLUMNS,
   );
+  gateMirror("holidays", "holidays.ts", "HOLIDAY_COLUMNS", HOLIDAY_COLUMNS);
+
+  /* --- Excel refuses a holiday date that is not DD/MM ------------------
+     The entries are stored, not deflated, so the sheet's XML is plain text in
+     the file. The rule is on the date column only, and only for a dictionary
+     that asks for it: every other template keeps accepting what the API does.
+     Built the way the import store builds it, from `checkedDates`. */
+  {
+    const columns = columnsFromDictionary(HOLIDAYS);
+    const checkedDates = Object.entries(
+      HOLIDAYS.templateFile.checkedDates ?? {},
+    ).map(([field, format]) => ({
+      column: HOLIDAYS.heading[field as keyof typeof HOLIDAYS.heading],
+      format,
+    }));
+    const strict = Buffer.from(
+      buildTemplateFiles(columns, { checkedDates }).xlsx,
+    ).toString("latin1");
+    const loose = Buffer.from(buildTemplateFiles(columns).xlsx).toString(
+      "latin1",
+    );
+    eq(
+      "holidays: the date column carries a DD/MM rule",
+      /type="custom"[^>]*sqref="B2:B5000"><formula1>AND\(LEN\(B2\)=5,/.test(
+        strict,
+      ),
+      true,
+    );
+    eq(
+      "holidays: the rule says the format before anybody types",
+      strict.includes('promptTitle="Date: DD/MM"'),
+      true,
+    );
+    eq(
+      "a template that does not ask for it has no date rule",
+      loose.includes('type="custom"'),
+      false,
+    );
+  }
 
   /* --- Headings are words, and the old ones still match ----------------- */
 

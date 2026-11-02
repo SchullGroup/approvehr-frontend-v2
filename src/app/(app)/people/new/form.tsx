@@ -172,6 +172,12 @@ const GROUP_COPY: Record<RecordFieldKey, { title: string; purpose: string }> = {
 /** Digits and one decimal point. What a money input is allowed to become. */
 const money = (value: string) => value.replace(/[^\d.]/g, "");
 
+/** `money`, keeping a leading minus: gross pay may be any figure HR enters. */
+const signedMoney = (value: string) => {
+  const digits = money(value);
+  return digits && value.trim().startsWith("-") ? `-${digits}` : digits;
+};
+
 /**
  * A message against one field, keyed by the **draft's** field name.
  *
@@ -455,15 +461,17 @@ export function NewEmployeeForm() {
    * the person would be created on ₦0 a month. Null means nobody has agreed
    * one, the column stays empty, and payroll raises `missing_pay` naming them.
    */
-  const gross = draft.grossMonthly.trim()
-    ? Number(money(draft.grossMonthly)) || null
-    : null;
+  const typedGross = Number(signedMoney(draft.grossMonthly));
+  const gross =
+    signedMoney(draft.grossMonthly) !== "" && Number.isFinite(typedGross)
+      ? typedGross
+      : null;
 
   /* Whole kobo, from the string the user typed rather than from `gross`. A float
      multiply is how a figure ends up a kobo out; `koboFromDecimal` splits on the
      point and works in integers instead. */
   const grossKobo = useMemo(
-    () => koboFromDecimal(money(draft.grossMonthly) || "0"),
+    () => koboFromDecimal(signedMoney(draft.grossMonthly) || "0"),
     [draft.grossMonthly],
   );
 
@@ -583,16 +591,9 @@ export function NewEmployeeForm() {
         found.push({ field: "jobTitle", message: "Job title is required." });
       if (!draft.startDate)
         found.push({ field: "startDate", message: "Start date is required." });
-      /* Pay is not required to add somebody — an offer is frequently still
-         being signed when HR puts them on the list. What is refused is a figure
-         that was typed and is not a figure: zero or negative. Payroll names
-         anybody with none set rather than paying them a zero. */
-      if (draft.grossMonthly.trim() && (gross === null || gross <= 0))
-        found.push({
-          field: "grossMonthly",
-          message:
-            "That is not an amount. Leave it blank if it is not agreed yet.",
-        });
+      /* Pay is not required to add somebody, and any figure HR types is
+         taken as it is, zero and negative included: the product owner's
+         instruction. Payroll names anybody with none set. */
     };
     const optional = () => {
       const bank = draft.bankAccount.replace(/\s/g, "");
@@ -1350,7 +1351,6 @@ export function NewEmployeeForm() {
                   >
                     <Input
                       data-employee-field="grossMonthly"
-                      inputMode="numeric"
                       value={draft.grossMonthly}
                       onChange={(e) => set("grossMonthly", e.target.value)}
                       placeholder="850,000"

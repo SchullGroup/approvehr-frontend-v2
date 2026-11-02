@@ -28,7 +28,14 @@ import {
   type AppliedFilter,
   LoadState,
 } from "@/components/ui";
+import { NoticeLine } from "@/components/portal/notice-line";
+import { InfoTooltip } from "@/components/ui/field";
 import { ApiError } from "@/lib/api/client";
+import {
+  formsWrittenSentence,
+  standInSentence,
+  stillWithoutSentence,
+} from "@/lib/performance/appraiser-fill";
 import {
   APPRAISER_ROLES,
   APPRAISER_ROLE_HELP,
@@ -109,6 +116,13 @@ export function AppraiserMapTab() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<ApiAppraiserMapRow | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
+  /* What the last "Fill in" press did, kept for the period it was pressed on. */
+  const [filled, setFilled] = useState<{
+    cycleId: string;
+    viaHead: string[];
+    without: string[];
+    headsKnown: boolean;
+  } | null>(null);
 
   /* Fetched once for the whole table rather than once per row — a period of two
      hundred people would otherwise open two hundred identical requests. The
@@ -241,21 +255,25 @@ export function AppraiserMapTab() {
     setAutoBusy(true);
     try {
       const result = await mutations.autoAssign(cycleId);
+      const forms = formsWrittenSentence(result.formsCreated);
       toast.push({
         title:
           result.created === 0
             ? "Everybody already has an appraiser"
             : result.created === 1
-              ? "1 person given their line manager"
-              : `${result.created} people given their line manager`,
+              ? "1 person given an appraiser"
+              : `${result.created} people given an appraiser`,
         tone: "success",
-        /* Named, not counted. These are the people who would otherwise finish
-           the period with no mark at all. */
-        ...(result.withoutManager.length > 0
-          ? {
-              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either. Assign somebody by hand.`,
-            }
-          : {}),
+        /* Short on purpose: a toast clamps its detail to two lines and is gone in
+           six seconds. The names, which somebody has to read and act on, are on
+           the page below until the next press. */
+        ...(forms ? { detail: forms } : {}),
+      });
+      setFilled({
+        cycleId,
+        viaHead: result.viaDepartmentHead ?? [],
+        without: result.withoutManager,
+        headsKnown: result.viaDepartmentHead !== undefined,
       });
       reload();
     } catch (caught) {
@@ -271,6 +289,21 @@ export function AppraiserMapTab() {
       setAutoBusy(false);
     }
   };
+
+  const shown = filled !== null && filled.cycleId === cycleId ? filled : null;
+  const standIns = shown ? standInSentence(shown.viaHead) : null;
+  const still = shown
+    ? stillWithoutSentence(
+        shown.without.filter(
+          (name) =>
+            !map ||
+            map.rows.some(
+              (row) => row.employeeName === name && row.appraisers.length === 0,
+            ),
+        ),
+        shown.headsKnown,
+      )
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -305,16 +338,22 @@ export function AppraiserMapTab() {
           count={rows.length}
           noun={["person", "people"]}
           actions={
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={autoBusy}
-              disabled={autoBusy}
-              onClick={() => void autoAssign()}
-            >
-              <Wand2 aria-hidden="true" className="size-4" />
-              Fill in from the reporting line
-            </Button>
+            <span className="inline-flex items-center gap-1.5">
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={autoBusy}
+                disabled={autoBusy}
+                onClick={() => void autoAssign()}
+              >
+                <Wand2 aria-hidden="true" className="size-4" />
+                Fill in from the reporting line
+              </Button>
+              <InfoTooltip
+                label="What Fill in does"
+                text="Gives each person nobody appraises their line manager, for the whole mark. On a running period it also writes the forms for those managers to answer. Anybody already mapped is left as they are, and anybody it cannot find an appraiser for is named below."
+              />
+            </span>
           }
         >
           <Field label="Show">
@@ -344,6 +383,20 @@ export function AppraiserMapTab() {
           </Field>
         </FilterBar>
       </div>
+
+      {/* What the press did, as lines beside the table it changed rather than a
+          banner: who was given their department head (so it can be checked) and
+          who is still without anybody. The second is read against the live map,
+          so somebody assigned since the press drops off it instead of the line
+          going stale. */}
+      {(standIns !== null || still !== null) && (
+        <div className="flex flex-col gap-1.5">
+          {standIns !== null && (
+            <NoticeLine tone="muted">{standIns}</NoticeLine>
+          )}
+          {still !== null && <NoticeLine tone="warning">{still}</NoticeLine>}
+        </div>
+      )}
 
       {map && (
         <StatGrid>

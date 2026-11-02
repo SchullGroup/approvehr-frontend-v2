@@ -31,12 +31,18 @@ import {
   changeLabel,
   dayLabel,
   scoreLabel,
+  visibleComponents,
   weightLabel,
   type ApiComponentScore,
   type ApiHistoryPoint,
   type ApiScoreHistory,
 } from "@/lib/api/performance";
 import { BAND_TONE, useScoreHistory } from "@/lib/store/performance";
+
+const TAB_ITEMS = [
+  { id: "history", label: "Appraisal history" },
+  { id: "work-record", label: "Work record" },
+];
 
 /**
  * One person's mark, cycle by cycle.
@@ -100,65 +106,70 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <Tabs
-          items={[
-            { id: "history", label: "Appraisal history" },
-            { id: "work-record", label: "Work record" },
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
+        <Tabs items={TAB_ITEMS} value={tab} onChange={setTab}>
+          <div className="flex flex-col gap-6">
+            {/* The work record asks for its own data and says its own failures,
+            so it neither waits on the history below nor is blocked by it. */}
+            {tab === "work-record" && (
+              <WorkRecordPanel employeeId={employeeId} />
+            )}
 
-        {/* The one loading and failure rule. A 403 here reaches the reader as the
+            {/* The one loading and failure rule. A 403 here reaches the reader as the
             server's own sentence, which is the one that names the rule: self,
             direct report, or the records permission. An appraiser assigned to
             one period is refused on purpose, and only the server can say so. */}
-        <LoadState
-          loading={detail.loading}
-          error={detail.error}
-          subject="this person's score history"
-          onRetry={detail.reload}
-          skeleton="detail"
-        >
-          {history && (
-            <>
-              <Who history={history} />
+            {tab === "history" && (
+              <LoadState
+                loading={detail.loading}
+                error={detail.error}
+                subject="this person's score history"
+                onRetry={detail.reload}
+                skeleton="detail"
+              >
+                {history && (
+                  <>
+                    <Who history={history} />
 
-              {/* The API's own sentence, on its own line. The heading over it
+                    {/* The API's own sentence, on its own line. The heading over it
                 said what the sentence already says. */}
-              {history.withheldNote && (
-                <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
-              )}
+                    {history.withheldNote && (
+                      <NoticeLine tone="muted">
+                        {history.withheldNote}
+                      </NoticeLine>
+                    )}
 
-              {history.points.length === 0 ? (
-                <Card>
-                  <EmptyState
-                    compact
-                    icon={<TriangleAlert aria-hidden="true" />}
-                    title="No appraisal period has covered them yet"
-                    description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
-                  />
-                </Card>
-              ) : (
-                <>
-                  <Trend history={history} />
-                  {history.unscoredCycles.length > 0 && (
-                    <NoMark cycles={history.unscoredCycles} />
-                  )}
-                  {history.truncated && (
-                    <p className="text-body-sm text-muted">
-                      The {history.limit} most recent periods are shown. Older
-                      ones exist and are not on this page.
-                    </p>
-                  )}
-                  {[...history.points].reverse().map((point) => (
-                    <Point key={point.cycleId} point={point} />
-                  ))}
-                </>
-              )}
-            </>
-          )}
-        </LoadState>
+                    {history.points.length === 0 ? (
+                      <Card>
+                        <EmptyState
+                          compact
+                          icon={<TriangleAlert aria-hidden="true" />}
+                          title="No appraisal period has covered them yet"
+                          description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
+                        />
+                      </Card>
+                    ) : (
+                      <>
+                        <Trend history={history} />
+                        {history.unscoredCycles.length > 0 && (
+                          <NoMark cycles={history.unscoredCycles} />
+                        )}
+                        {history.truncated && (
+                          <p className="text-body-sm text-muted">
+                            The {history.limit} most recent periods are shown.
+                            Older ones exist and are not on this page.
+                          </p>
+                        )}
+                        {[...history.points].reverse().map((point) => (
+                          <Point key={point.cycleId} point={point} />
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+              </LoadState>
+            )}
+          </div>
+        </Tabs>
       </PageBody>
     </>
   );
@@ -445,7 +456,7 @@ function Components({ components }: { components: ApiComponentScore[] }) {
   return (
     <div className="rounded-md border border-line">
       <ul className="divide-y divide-line">
-        {components.map((part) => (
+        {visibleComponents(components).map((part) => (
           <li
             key={part.component}
             className="flex flex-wrap gap-x-4 gap-y-1 p-3"

@@ -1,5 +1,5 @@
 import { toCsv, type CsvRow } from "@/lib/csv";
-import { writeXlsx } from "@/lib/xlsx";
+import { writeXlsx, type DateCheckFormat } from "@/lib/xlsx";
 import type { ApiTemplateColumn } from "@/lib/api/imports";
 import { normalizeKey, type Dictionary } from "./spec";
 
@@ -281,6 +281,13 @@ export function buildTemplateFiles(
     basename?: string;
     /** The sheet somebody fills in. "Staff list" for employees. */
     sheetName?: string;
+    /**
+     * Columns, by heading, whose dates Excel refuses unless they are written
+     * in the given format, with a note on the cell saying so. See
+     * `SheetSpec.dateChecks` for why it is a rule on the text and not Excel's
+     * own date rule.
+     */
+    checkedDates?: readonly { column: string; format: DateCheckFormat }[];
   } = {},
 ): TemplateFiles {
   const {
@@ -288,6 +295,7 @@ export function buildTemplateFiles(
     matching,
     basename = "approvehr-employees-template",
     sheetName = "Staff list",
+    checkedDates = [],
   } = options;
 
   const headers = columns.map(marked);
@@ -297,6 +305,10 @@ export function buildTemplateFiles(
   );
 
   const { listRows, validations } = dropdownSheets(columns);
+  const dateChecks = checkedDates.flatMap(({ column, format }) => {
+    const index = columns.findIndex((c) => c.column === column);
+    return index === -1 ? [] : [{ column: index, format }];
+  });
 
   const guide: string[][] = [
     ["How to fill this in"],
@@ -334,6 +346,7 @@ export function buildTemplateFiles(
           Math.min(34, Math.max(12, heading.length + 3)),
         ),
         ...(validations.length > 0 ? { validations } : {}),
+        ...(dateChecks.length > 0 ? { dateChecks } : {}),
       },
       {
         name: "Columns explained",

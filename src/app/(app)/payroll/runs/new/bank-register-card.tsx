@@ -75,7 +75,9 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
       )}
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1 basis-72">
-          <h3 className="text-body-sm font-semibold text-ink">Bank payment schedule</h3>
+          <h3 className="text-body-sm font-semibold text-ink">
+            Bank payment schedule
+          </h3>
           {/* The one thing worth saying before somebody downloads this: it
               carries what `payslips.csv` deliberately does not. Said here
               rather than only discovered on open, since a spreadsheet with
@@ -83,9 +85,9 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
               than one without. */}
           <p className="mt-0.5 text-meta leading-relaxed text-muted">
             For when your bank pays directly. One sheet: bank code, bank,
-            account number, account name and the amount to pay each person.
-            It carries account numbers, so keep it as carefully as you would a
-            bank statement.
+            account number, account name and the amount to pay each person. It
+            carries account numbers, so keep it as carefully as you would a bank
+            statement.
           </p>
         </div>
         <Button
@@ -107,8 +109,18 @@ function filenameFor(register: BankRegister): string {
 }
 
 const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ] as const;
 
 /**

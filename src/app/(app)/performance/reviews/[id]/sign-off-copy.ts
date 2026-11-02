@@ -32,17 +32,25 @@ export type SignOffCopy = {
  *
  * `subjectNotified` is `undefined` only if an older API does not send it; then
  * nothing is said either way.
+ *
+ * `markShown` is false where the company does not ask for an overall mark and
+ * this review carries none (`showsOverallMark`). Then there is nothing to say
+ * about a mark that was not given: "has no overall mark" would read as a gap in
+ * a form that never had a place for one. It defaults to true, which is the old
+ * wording, so a caller that does not know says what it always said.
  */
 export function finalisedCopy({
   subjectName,
   cycleName,
   ratingLabel,
   subjectNotified,
+  markShown = true,
 }: {
   subjectName: string;
   cycleName: string;
   ratingLabel: string | null;
   subjectNotified: boolean | undefined;
+  markShown?: boolean;
 }): SignOffCopy {
   const first = subjectName.split(" ")[0] ?? subjectName;
 
@@ -63,7 +71,9 @@ export function finalisedCopy({
     title: `${subjectName}'s rating is final`,
     lead: ratingLabel
       ? `The rating for ${cycleName} is "${ratingLabel}".`
-      : `${cycleName} has no overall mark, so ${first} will read the answers.`,
+      : markShown
+        ? `${cycleName} has no overall mark, so ${first} will read the answers.`
+        : `${first} will read the answers.`,
     details,
   };
 }

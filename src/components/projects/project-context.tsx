@@ -52,6 +52,14 @@ export type ProjectContextValue = {
    */
   connected: boolean;
   canWork: boolean;
+  /** Whether the reader may comment. Absent, `canWork` decides. */
+  canComment?: boolean;
+  /**
+   * Whether the reader may change the title, description and due date. Absent,
+   * `canWork` decides. On a personal task the leader who set it may, though
+   * everything else stays the owner's.
+   */
+  canEditDetails?: boolean;
   canManage: boolean;
   timeZone: string;
   /** The company's today, `YYYY-MM-DD`. */
@@ -62,6 +70,13 @@ export type ProjectContextValue = {
   setFilter: (next: IssueFilter) => void;
   openIssue: (issue: Pick<Issue, "key">) => void;
   openCreate: (defaults?: Partial<NewIssueInput>) => void;
+  /**
+   * Set when the drawer is showing a task on somebody's own list ("My tasks"),
+   * which has no board, no assignee to pick, no epic and no link by key (every
+   * list has a `MY-1`). `setByName` is who put it there, when that was not its
+   * owner. Absent for a board issue.
+   */
+  personal?: { setByName: string | null };
 };
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);

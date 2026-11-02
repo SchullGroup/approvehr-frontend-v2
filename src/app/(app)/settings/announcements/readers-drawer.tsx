@@ -79,7 +79,10 @@ export function ReadersDrawer({
       title={shown ? `Who has read “${shown.title}”` : "Who has read this"}
       {...(shown
         ? {
-            description: `For ${audienceLabel(shown.audience, shown.departmentNames).toLowerCase()}`,
+            description:
+              shown.audience === "EVERYONE"
+                ? "For everybody"
+                : `For ${audienceLabel(shown.audience, shown.departmentNames, shown.employeeNames ?? [])}`,
           }
         : {})}
     >

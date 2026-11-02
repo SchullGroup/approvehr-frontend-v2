@@ -3,10 +3,22 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import {
+  MAX_FILES,
+  uploadFailure,
+  uploadIssueFile,
+} from "@/lib/projects/files";
 import { encodeMentions, mentionQueryAt } from "@/lib/projects/mentions";
+import type { AttachmentRef } from "@/lib/projects/types";
 import type { People } from "@/lib/store/project-session";
 import { PersonAvatar } from "./person";
 import { registerPopup } from "./popups";
+import {
+  AttachButton,
+  StagedList,
+  useDropTarget,
+  useStagedFiles,
+} from "./task-files";
 
 /**
  * The comment box, with @mentions.
@@ -22,6 +34,14 @@ import { registerPopup } from "./popups";
  * The same box edits a comment: give it the text and mentions to start from (a
  * stored body run through `decodeMentions`), a label for the button, and a way to
  * cancel. Editing keeps the text after a save, since the caller closes it.
+ *
+ * ## Files
+ *
+ * Given `attach`, a paperclip and the box itself (as a drop target) take files.
+ * They are listed under the box before sending; on send each is uploaded first
+ * (`uploadIssueFile`), and only when every one is stored does the comment go,
+ * carrying their keys. A file that fails stops the send and keeps the words.
+ * Send is enabled with words or at least one file. An edit takes no files.
  */
 export function MentionComposer({
   people,
@@ -30,21 +50,24 @@ export function MentionComposer({
   disabled = false,
   onPost,
   initial,
-  submitLabel = "Comment",
+  submitLabel = "Send",
   onCancel,
   label = "Add a comment",
+  attach,
 }: {
   people: People;
   memberIds: readonly string[];
   meId: string | null;
   disabled?: boolean;
-  /** Resolves true once the comment is saved. */
-  onPost: (body: string) => Promise<boolean>;
+  /** Resolves true once the comment is saved. `attachments` are uploaded already. */
+  onPost: (body: string, attachments: AttachmentRef[]) => Promise<boolean>;
   /** Start from this text, with these names standing for these people. */
   initial?: { text: string; mentions: Record<string, string> };
   submitLabel?: string;
   onCancel?: () => void;
   label?: string;
+  /** Lets the comment carry files, uploaded for this issue. */
+  attach?: { issueId: string } | undefined;
 }) {
   const [text, setText] = useState(initial?.text ?? "");
   const [mentions, setMentions] = useState<Record<string, string>>(
@@ -57,6 +80,12 @@ export function MentionComposer({
   const [posting, setPosting] = useState(false);
   const listId = useId();
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const staged = useStagedFiles(
+    MAX_FILES,
+    `A comment can have up to ${MAX_FILES} files.`,
+  );
+  const sendable = staged.items.filter((item) => !item.refused);
+  const drop = useDropTarget((files) => staged.add(files), Boolean(attach));
 
   const hits = useMemo(() => {
     if (!query) return [];
@@ -98,22 +127,60 @@ export function MentionComposer({
     });
   }
 
+  /** Upload each file not yet stored; null if any failed. */
+  async function upload(issueId: string): Promise<AttachmentRef[] | null> {
+    const refs: AttachmentRef[] = [];
+    let ok = true;
+    for (const item of sendable) {
+      if (item.ref) {
+        refs.push(item.ref);
+        continue;
+      }
+      staged.patch(item.id, { progress: 0, error: null });
+      try {
+        const ref = await uploadIssueFile(issueId, item.file, (p) =>
+          staged.patch(item.id, { progress: p }),
+        );
+        staged.patch(item.id, { progress: null, ref });
+        refs.push(ref);
+      } catch (error) {
+        ok = false;
+        staged.patch(item.id, { progress: null, error: uploadFailure(error) });
+      }
+    }
+    return ok ? refs : null;
+  }
+
   async function post() {
     const body = text.trim();
-    if (!body || posting) return;
+    if ((!body && sendable.length === 0) || posting) return;
     setPosting(true);
-    const done = await onPost(encodeMentions(body, mentions));
+    const refs =
+      attach && sendable.length > 0 ? await upload(attach.issueId) : [];
+    if (!refs) {
+      setPosting(false);
+      return;
+    }
+    const done = await onPost(encodeMentions(body, mentions), refs);
     setPosting(false);
     if (done && !initial) {
       setText("");
       setMentions({});
       setQuery(null);
+      staged.clear();
     }
   }
 
   return (
     <div className="space-y-2">
-      <div className="relative">
+      <div
+        className={cn(
+          "relative rounded-md",
+          drop.over &&
+            "outline-2 outline-offset-2 outline-dashed outline-accent",
+        )}
+        {...drop.handlers}
+      >
         <textarea
           ref={fieldRef}
           value={text}
@@ -197,9 +264,27 @@ export function MentionComposer({
           </ul>
         )}
       </div>
+      {attach && (
+        <StagedList
+          items={staged.items}
+          onRemove={staged.remove}
+          busy={posting}
+          label="Files to send with your comment"
+        />
+      )}
       <div className="flex items-center justify-between gap-3">
-        <span className="text-meta text-muted">
-          Ctrl or ⌘ + Enter to {initial ? "save" : "post"}
+        <span className="flex items-center gap-2">
+          {attach && (
+            <AttachButton
+              iconOnly
+              label="Attach files to your comment"
+              disabled={disabled || posting}
+              onFiles={(files) => void staged.add(files)}
+            />
+          )}
+          <span className="text-meta text-muted">
+            Ctrl or ⌘ + Enter to {initial ? "save" : "post"}
+          </span>
         </span>
         <span className="flex items-center gap-2">
           {onCancel && (
@@ -211,7 +296,7 @@ export function MentionComposer({
             size="sm"
             variant="primary"
             loading={posting}
-            disabled={disabled || text.trim() === ""}
+            disabled={disabled || (text.trim() === "" && sendable.length === 0)}
             onClick={() => void post()}
           >
             {submitLabel}

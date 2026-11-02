@@ -38,6 +38,8 @@ import {
   LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { payComponentsApi } from "@/lib/api/pay-components";
+import { ComponentPeople } from "./component-people";
 import { AssignComponentToManyDialog } from "./assign-to-many-dialog";
 import { ScheduleFields, useScheduleForm } from "./schedule-fields";
 import { type RowActionItem } from "@/components/ui";
@@ -781,6 +783,34 @@ function AssigneesDrawer({
   const isActive = component?.active ?? false;
   const basis = component?.basis ?? "FIXED";
 
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  /** Takes one person off, the way HR would after a mistake. */
+  async function removePerson(assignmentId: string, name: string) {
+    setRemovingId(assignmentId);
+    try {
+      await payComponentsApi.removeAssignment(assignmentId);
+      reload();
+      toast.push({
+        title: `${name} is off ${component?.name ?? "it"}`,
+        tone: "success",
+        detail:
+          "A payroll already calculated picks this up when you run it again.",
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
   const [assigning, setAssigning] = useState(false);
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignFailed, setAssignFailed] = useState<string | null>(null);
@@ -884,6 +914,15 @@ function AssigneesDrawer({
             </div>
           )}
 
+          {component && (
+            <ComponentPeople
+              key={component.id}
+              componentId={component.id}
+              canEdit={editable}
+              onChanged={reload}
+            />
+          )}
+
           {error && <LoadFailure subject="who is on it" error={error} />}
 
           <div>
@@ -914,19 +953,40 @@ function AssigneesDrawer({
                       <span className="block text-body-sm font-medium text-ink">
                         {person.name}
                       </span>
-                      <span className="block text-meta text-muted">
-                        From {shortDate(person.effectiveFrom)}
-                        {person.effectiveTo
-                          ? ` to ${shortDate(person.effectiveTo)}`
-                          : ", every month"}
-                      </span>
+                      {person.effectiveTo && (
+                        <span className="block text-meta text-muted">
+                          Until {shortDate(person.effectiveTo)}
+                        </span>
+                      )}
                     </span>
-                    <span className="tabular shrink-0 text-body-sm text-body">
-                      {person.amountKobo !== null
-                        ? money(person.amountKobo)
-                        : person.rate !== null
-                          ? `${percent(person.rate)} of ${basisOf(basis)}`
-                          : "Default"}
+                    <span className="flex shrink-0 items-center gap-3">
+                      {person.amountKobo !== null ? (
+                        <span className="tabular text-body-sm text-body">
+                          {money(person.amountKobo)}
+                        </span>
+                      ) : person.rate !== null ? (
+                        <span className="tabular text-body-sm text-body">
+                          {percent(person.rate)} of {basisOf(basis)}
+                        </span>
+                      ) : null}
+                      <Badge tone="success" size="sm" dot>
+                        Added
+                      </Badge>
+                      {assignMany.editable && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={removingId !== null}
+                          loading={removingId === person.assignmentId}
+                          aria-label={`Remove ${person.name} from ${component?.name ?? "this"}`}
+                          onClick={() =>
+                            void removePerson(person.assignmentId, person.name)
+                          }
+                        >
+                          Remove
+                        </Button>
+                      )}
                     </span>
                   </li>
                 ))}

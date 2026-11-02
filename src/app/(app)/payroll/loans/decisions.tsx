@@ -180,6 +180,96 @@ export function DeclineLoanModal({
   );
 }
 
+/* ------------------------------------------------------------ first deduction */
+
+/**
+ * Change the month a loan starts coming off, while nothing has come off it.
+ *
+ * For a loan entered with the wrong first month. The amounts and the number of
+ * instalments stay; every date moves.
+ */
+export function RescheduleLoanModal({
+  loan,
+  onClose,
+}: {
+  loan: ApiLoanDetail;
+  onClose: () => void;
+}) {
+  const { reschedule } = useLoanActions();
+  const today = useLoanToday();
+  const toast = useToast();
+  const { failure, clear, capture } = useFailure();
+  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("0");
+  const [saving, setSaving] = useState(false);
+  const startPeriod = addMonths(today, Number(startsIn));
+
+  async function submit() {
+    setSaving(true);
+    clear();
+    try {
+      await reschedule(loan.id, startPeriod);
+      toast.push({
+        title: `${loan.employeeName}'s loan now starts in ${monthLabel(startPeriod)}`,
+        tone: "success",
+        detail:
+          "A payroll already calculated picks it up when you run it again.",
+      });
+      onClose();
+    } catch (error) {
+      capture(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title="Change the first deduction"
+      description={`${loan.employeeName}'s loan. The amounts stay; every date moves.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
+            Move it to {monthLabel(startPeriod)}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failure && (
+          <Callout tone="danger" title="That did not go through">
+            {failure.message}
+          </Callout>
+        )}
+        <Field
+          label="First deduction"
+          error={failure?.messageFor("startPeriod")}
+        >
+          <Select
+            value={startsIn}
+            onChange={(event) =>
+              setStartsIn(event.target.value as "0" | "1" | "2")
+            }
+          >
+            <option value="0">{monthLabel(addMonths(today, 0))}</option>
+            <option value="1">{monthLabel(addMonths(today, 1))}</option>
+            <option value="2">{monthLabel(addMonths(today, 2))}</option>
+          </Select>
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
 /* ------------------------------------------------------------ counter-offer */
 
 /**
@@ -209,7 +299,7 @@ export function CounterOfferModal({
   /* Seeded from what was applied for, because a counter-offer is an edit to it. */
   const [amount, setAmount] = useState(String(naira(loan.principalKobo)));
   const [term, setTerm] = useState(String(loan.termMonths));
-  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("1");
+  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("0");
   const [saving, setSaving] = useState(false);
 
   const principal = Number(amount.replace(/[^0-9.]/g, ""));
@@ -294,7 +384,7 @@ export function CounterOfferModal({
         <Field
           label="First deduction"
           error={failure?.messageFor("startPeriod")}
-          help="Payroll that has already been calculated cannot take this month's."
+          help="This month comes off the payroll being worked the next time it is calculated."
         >
           <Select
             value={startsIn}

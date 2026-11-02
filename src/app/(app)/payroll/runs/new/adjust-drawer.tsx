@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
-import {
-  AttentionMark,
-  Button,
-  ButtonLink,
-  Drawer,
-} from "@/components/ui";
+import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -78,8 +72,8 @@ import {
 
 type View =
   | "overview"
-  | "overtime"
   | "days"
+  | "overtime"
   | "loan"
   | "bonus"
   | "paye"
@@ -244,6 +238,14 @@ export function AdjustDrawer({
 
   const employeeId = person.employeeId;
   const overridden = person.overriddenDeductions ?? [];
+  /* Loan instalments are their own lines above; what is left is everything else. */
+  const loanKobo = person.lines
+    .filter(
+      (line) =>
+        line.kind === "DEDUCTION" && line.label.startsWith("Staff loan"),
+    )
+    .reduce((sum, line) => sum + line.amountKobo, 0);
+  const otherKobo = Math.max(0, person.otherDeductionsKobo - loanKobo);
   const overtimeKobo = overtimeOn(person);
   const manualOvertime = hasManualOvertime(person);
   const bonus = bonusOn(person);
@@ -253,6 +255,15 @@ export function AdjustDrawer({
   const typedLines =
     typedDeduction !== undefined && typedDeduction.state !== "none";
   const firstName = person.name.split(" ")[0] ?? person.name;
+  /* Somebody paid by the day is paid by the calendar day, so the month they
+     are counted against is the month's own length (31 in October), not the
+     company's working month. Once days are typed the payslip carries the
+     divisor the API used. */
+  const daysWorked = person.daysWorked ?? null;
+  const workingDays =
+    daysWorked !== null
+      ? (person.workingDays ?? daysInLabel(periodLabel))
+      : daysInLabel(periodLabel);
 
   const canEditOvertime =
     editable && (overtimePolicy.policy.enabled || manualOvertime);
@@ -261,8 +272,8 @@ export function AdjustDrawer({
 
   const title: Record<View, string> = {
     overview: person.name,
-    overtime: "Overtime",
     days: "Days worked",
+    overtime: "Overtime",
     loan: "Staff loan",
     bonus: "Bonus",
     paye: "PAYE",
@@ -359,35 +370,28 @@ export function AdjustDrawer({
               editColumn={editable}
               label="Gross pay"
               value={formatKobo(person.grossKobo)}
-              {...(person.unpaidDays > 0
+              {...(daysWorked !== null
                 ? {
-                    note: `After ${person.unpaidDays} unpaid ${
-                      person.unpaidDays === 1 ? "day" : "days"
-                    }`,
+                    note: `Paid for ${daysWorked} of ${workingDays} days`,
                   }
-                : {})}
+                : person.unpaidDays > 0
+                  ? {
+                      note: `After ${person.unpaidDays} unpaid ${
+                        person.unpaidDays === 1 ? "day" : "days"
+                      }`,
+                    }
+                  : { note: "The whole month" })}
+              marked={daysWorked !== null}
+              edit={
+                editable
+                  ? {
+                      label: `Pay ${person.name} by days worked`,
+                      disabled: refreshing,
+                      onClick: () => go("days"),
+                    }
+                  : undefined
+              }
             />
-            {editable && (
-              <Line
-                editColumn={editable}
-                label="Days worked"
-                note={
-                  person.daysWorked == null
-                    ? "Paid the whole month"
-                    : `Out of ${String(person.workingDays ?? "")} days in the month`
-                }
-                value={
-                  person.daysWorked == null ? "—" : String(person.daysWorked)
-                }
-                marked={person.daysWorked != null}
-                indent
-                edit={{
-                  label: `Set days worked for ${person.name}`,
-                  disabled: refreshing,
-                  onClick: () => go("days"),
-                }}
-              />
-            )}
             {showOvertime && (
               <Line
                 editColumn={editable}
@@ -505,40 +509,36 @@ export function AdjustDrawer({
                 }
               />
             )}
-            {(loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ?? []).map(
-              (loan) => (
-                <Line
-                  key={loan.loanId}
-                  editColumn={editable}
-                  label="Staff loan"
-                  note={`Owed ${formatKobo(loan.balanceBeforeKobo)}, ${formatKobo(loan.balanceAfterKobo)} after this month · of ${formatKobo(loan.accumulatedKobo)} borrowed`}
-                  value={minus(loan.deductionKobo)}
-                  marked={loan.overridden === true}
-                  indent
-                  edit={
-                    editable
-                      ? {
-                          label: `Change this month's loan deduction for ${person.name}`,
-                          disabled: refreshing,
-                          onClick: () => {
-                            setLoanId(loan.loanId);
-                            go("loan");
-                          },
-                        }
-                      : undefined
-                  }
-                />
-              ),
-            )}
+            {(
+              loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ??
+              []
+            ).map((loan) => (
+              <Line
+                key={loan.loanId}
+                editColumn={editable}
+                label="Loan"
+                note={`Borrowed ${formatKobo(loan.accumulatedKobo)} · owed ${formatKobo(loan.balanceBeforeKobo)} before this month · ${formatKobo(loan.balanceAfterKobo)} left after`}
+                value={minus(loan.deductionKobo)}
+                marked={loan.overridden === true}
+                edit={
+                  editable
+                    ? {
+                        label: `Change this month's loan deduction for ${person.name}`,
+                        disabled: refreshing,
+                        onClick: () => {
+                          setLoanId(loan.loanId);
+                          go("loan");
+                        },
+                      }
+                    : undefined
+                }
+              />
+            ))}
             <Line
               editColumn={editable}
               label="Other deductions"
-              note="Loan instalments, expense claims and anything typed here"
-              value={
-                person.otherDeductionsKobo > 0
-                  ? minus(person.otherDeductionsKobo)
-                  : "—"
-              }
+              note="Expense claims and anything typed here"
+              value={otherKobo > 0 ? minus(otherKobo) : "—"}
               marked={typedLines}
               edit={
                 editable
@@ -568,44 +568,46 @@ export function AdjustDrawer({
         </div>
       )}
 
-      {view === "loan" && (() => {
-        const loan = loansOnRun
-          ?.find((row) => row.employeeId === employeeId)
-          ?.loans.find((l) => l.loanId === loanId);
-        if (!loan) return null;
-        return (
-          <LoanForm
-            name={person.name}
-            scheduledKobo={loan.scheduledKobo ?? loan.deductionKobo}
-            balanceBeforeKobo={loan.balanceBeforeKobo}
-            currentKobo={loan.deductionKobo}
-            overridden={loan.overridden === true}
-            saving={busy}
-            error={error}
-            onBack={() => go("overview")}
-            onSave={(amountKobo) =>
-              void perform(() =>
-                payrollApi.setLoanDeduction(runId, {
-                  loanId: loan.loanId,
-                  amountKobo,
-                }),
-              )
-            }
-            onReset={() =>
-              void perform(() =>
-                payrollApi.clearLoanDeduction(runId, loan.loanId),
-              )
-            }
-          />
-        );
-      })()}
+      {view === "loan" &&
+        (() => {
+          const loan = loansOnRun
+            ?.find((row) => row.employeeId === employeeId)
+            ?.loans.find((l) => l.loanId === loanId);
+          if (!loan) return null;
+          return (
+            <LoanForm
+              name={person.name}
+              scheduledKobo={loan.scheduledKobo ?? loan.deductionKobo}
+              balanceBeforeKobo={loan.balanceBeforeKobo}
+              currentKobo={loan.deductionKobo}
+              overridden={loan.overridden === true}
+              saving={busy}
+              error={error}
+              onBack={() => go("overview")}
+              onSave={(amountKobo) =>
+                void perform(() =>
+                  payrollApi.setLoanDeduction(runId, {
+                    loanId: loan.loanId,
+                    amountKobo,
+                  }),
+                )
+              }
+              onReset={() =>
+                void perform(() =>
+                  payrollApi.clearLoanDeduction(runId, loan.loanId),
+                )
+              }
+            />
+          );
+        })()}
 
       {view === "days" && (
         <DaysForm
           name={person.name}
-          daysInMonth={daysInLabel(periodLabel)}
+          periodLabel={periodLabel}
           monthlyKobo={monthlyOf(person, employees)}
-          currentDays={person.daysWorked ?? null}
+          workingDays={workingDays}
+          currentDays={daysWorked}
           saving={busy}
           error={error}
           onBack={() => go("overview")}
@@ -831,7 +833,6 @@ function Line({
   label,
   note,
   value,
-  marked = false,
   indent = false,
   editColumn,
   edit,
@@ -865,12 +866,6 @@ function Line({
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink">
           {label}
-          {marked && (
-            <span className="inline-flex items-center gap-1 text-[11px] leading-none text-muted">
-              <Pencil aria-hidden="true" className="size-2.5" />
-              entered by hand
-            </span>
-          )}
         </p>
         {note && (
           <p className="mt-0.5 text-meta leading-snug text-muted">{note}</p>

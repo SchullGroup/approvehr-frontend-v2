@@ -14,6 +14,7 @@ import {
   FileText,
   Gauge,
   BriefcaseBusiness,
+  ClipboardCheck,
   Megaphone,
   ScrollText,
   Sparkles,
@@ -144,6 +145,13 @@ const ONGOING = [
     icon: <BriefcaseBusiness aria-hidden="true" />,
   },
   {
+    href: "/settings/required-details",
+    title: "Required details",
+    description:
+      "Which personal details every member of staff must fill in on My profile, such as date of birth or next of kin, and who still has gaps.",
+    icon: <ClipboardCheck aria-hidden="true" />,
+  },
+  {
     href: "/settings/announcements",
     title: "Noticeboard",
     description:
@@ -203,7 +211,7 @@ const ONGOING = [
     href: "/settings/performance",
     title: "Appraisal scoring",
     description:
-      "How much each part of an appraisal counts. The weights must make 100% exactly, and they are frozen onto an appraisal period when it starts.",
+      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. The weights must make 100% exactly, and they are frozen onto an appraisal period when it starts.",
     icon: <Gauge aria-hidden="true" />,
   },
   {

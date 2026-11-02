@@ -125,6 +125,11 @@ export type ApiKeyResult = {
   id: string;
   goalId: string;
   label: string;
+  /**
+   * What the measure is. Absent on a server that predates measure kinds, and
+   * absent means a number, which is all there was.
+   */
+  kind?: MeasureKind;
   /** "₦", "%", "customers". Free text: every company invents its own. */
   unit: string | null;
   startValue: string;
@@ -132,11 +137,30 @@ export type ApiKeyResult = {
   currentValue: string;
   /** True when success means the number going down. */
   lowerIsBetter: boolean;
-  /** 0–100, honouring `lowerIsBetter`. Read this; do not derive it. */
+  /**
+   * 0–100, honouring `lowerIsBetter`. Read this; do not derive it.
+   *
+   * **A number even when nobody has read the measure**, where it is the 0 it
+   * started at. `lastReadAt` says whether it means anything: read it before
+   * drawing a bar, or an unread measure shows as a result.
+   */
   percent: number;
   met: boolean;
+  /**
+   * When a reading was last entered. **Null is unread**, which is a different
+   * fact from "no movement". Absent (a server that predates this) makes no
+   * claim either way, so a screen must not call that measure unread.
+   */
+  lastReadAt?: string | null;
+  /** A done-or-not-done measure's confirmation. Null until a manager says so. */
+  confirmedAt?: string | null;
+  confirmedByName?: string | null;
+  confirmNote?: string | null;
   updatedAt: string;
 };
+
+/** What a measure is. A closed list: see the design report. */
+export type MeasureKind = "NUMBER" | "DONE";
 
 export type ApiGoal = {
   id: string;
@@ -160,9 +184,17 @@ export type ApiGoal = {
   parentId: string | null;
   parentTitle: string | null;
   status: GoalStatus;
-  /** The stored figure. Equal to `measuredProgress` whenever there are measures. */
+  /**
+   * The stored figure. Equal to `measuredProgress` whenever it is not null; when
+   * it is null this is what the goal was created with, or the owner's own
+   * figure, and is not a result.
+   */
   progress: number;
-  /** From the measures. Null when the goal has none and progress is by hand. */
+  /**
+   * From the measures **that have been read**. Null when the goal has none, so
+   * progress is by hand, and also when it has measures and none has been read:
+   * there is nothing to average, and `progress` must not be shown as one.
+   */
   measuredProgress: number | null;
   dueQuarter: string | null;
   /**
@@ -255,8 +287,21 @@ export type ApiGoalCancelled = ApiGoal & {
 
 /** Every key-result write returns the goal's recomputed progress beside it. */
 export type ApiKeyResultWritten = ApiKeyResult & {
-  /** Null only when the goal somehow has no measures left. */
+  /**
+   * Null when the goal has no measures, and also when none of them has been read
+   * yet: there is nothing to average, so the goal keeps the figure it had.
+   */
   goalProgress: number | null;
+};
+
+/**
+ * What a section can be told. `component` is the part of the mark its ratings
+ * count towards; `null` clears it, and leaving it out leaves it as it is.
+ */
+export type SectionBody = {
+  name?: string;
+  order?: number;
+  component?: ScoreComponent | null;
 };
 
 /** A section of an appraisal — "Core competency", a company's own values. */
@@ -285,6 +330,41 @@ export type ApiSection = {
   weightBp: number | null;
 };
 
+/**
+ * How a subsection is answered when somebody records an answer on it directly.
+ *
+ * `RATING` is a level from 1 to the subsection's `scaleMax`, and is what every
+ * subsection was before there were kinds. `BOOLEAN` is a yes or a no. `CHOICE`
+ * is one pick from the subsection's own list, each pick carrying a score
+ * somebody set by hand. Whatever the kind, an answer reduces to the same 0 to
+ * 10,000 basis points on the API, so nothing about weights or bands changed.
+ *
+ * Text and file answers are deliberately not a kind: a score is never made up
+ * from a paragraph (ADR 0003, an absent figure is never a zero).
+ */
+export type AnswerKind = "RATING" | "BOOLEAN" | "CHOICE";
+
+/** One pick on a `CHOICE` subsection, and what picking it is worth. */
+export type ApiChoiceOption = {
+  id: string;
+  label: string;
+  /**
+   * What a pick of this choice scores, 0 to 10,000 basis points. Set by hand and
+   * never worked out from the other choices. A choice that any rating has picked
+   * keeps its score for good: the API refuses to change it.
+   */
+  scoreBp: number;
+  sortOrder: number;
+  /**
+   * How many ratings, in any period, picked this choice. Above 0 means its score
+   * is fixed, which is the API's rule above, so an editor can say so before a
+   * save is refused instead of after. Optional because a server one deploy behind
+   * does not send it, and an absent count claims nothing: such a choice is not
+   * shown as fixed.
+   */
+  ratingCount?: number;
+};
+
 export type ApiCompetency = {
   id: string;
   name: string;
@@ -295,19 +375,42 @@ export type ApiCompetency = {
   description: string | null;
   /** Expected of everybody, as against role-specific. */
   isCore: boolean;
-  /** The ceiling of the scale. A level means nothing without it. */
+  /**
+   * The ceiling of the scale. A level means nothing without it. Carried for
+   * every kind, and means nothing for a yes or no and for a pick.
+   */
   scaleMax: number;
   active: boolean;
   archived: boolean;
+  /**
+   * Ratings of any kind recorded against it. Above 0, `answerKind` can no
+   * longer be changed, which is how a screen knows to say so beforehand.
+   */
   ratingCount: number;
+  /**
+   * How it is answered. **Optional on this side**, because a server that
+   * predates answer kinds sends neither field, and the API's own rule is that a
+   * subsection that does not say is `RATING`. Read it through `answerKindOf` in
+   * `lib/performance/answer-kind.ts` rather than by hand, so that one decision
+   * is made in one place.
+   */
+  answerKind?: AnswerKind;
+  /**
+   * The live choices, in `sortOrder`. **Read only when `answerKind` is
+   * `CHOICE`**: a subsection switched away from `CHOICE` before its first
+   * rating keeps its old choices, and the API still lists them.
+   */
+  choiceOptions?: ApiChoiceOption[];
 };
 
 /**
  * One line of somebody's framework.
  *
- * `level: null` means **never assessed**, which is a different fact from a low
- * score and must not render as zero. `gap` is null until there is both a level
- * and a target.
+ * **`ratedAt: null` means never answered**, which is a different fact from a low
+ * score and must not render as zero. It is not `level: null`: a yes or no and a
+ * pick have no level, so their rows always carry `level: null` and are answered
+ * all the same. `gap` is null until there is both a level and a target, and only
+ * a rated level can have either.
  */
 export type ApiCompetencyRow = {
   competencyId: string;
@@ -316,7 +419,22 @@ export type ApiCompetencyRow = {
   sectionName: string | null;
   isCore: boolean;
   scaleMax: number;
+  /** Absent from a server that predates answer kinds, which means `RATING`. */
+  answerKind?: AnswerKind;
+  /** `RATING` only. `null` on a yes or no and on a pick, answered or not. */
   level: number | null;
+  /** `BOOLEAN` only. `null` until somebody answers it. */
+  boolValue?: boolean | null;
+  /**
+   * `CHOICE` only: the id of the pick, which is what a form preselects by. Labels
+   * are not unique and the pick may have been taken off the list since, so the
+   * label below cannot stand in for it. `null` on any other kind and while
+   * unanswered. Optional because a server one deploy behind does not send it, and
+   * then nothing is preselected.
+   */
+  choiceOptionId?: string | null;
+  /** `CHOICE` only: the label of the pick, which is shown but never matched on. */
+  choiceOptionLabel?: string | null;
   target: number | null;
   gap: number | null;
   note: string | null;
@@ -383,7 +501,16 @@ export type ApiRating = {
   id: string;
   competencyId: string;
   employeeId: string;
-  level: number;
+  /** Absent from a server that predates answer kinds, which means `RATING`. */
+  answerKind?: AnswerKind;
+  /** `RATING` only. A yes or no and a pick have no level. */
+  level: number | null;
+  /** `BOOLEAN` only. */
+  boolValue?: boolean | null;
+  /** `CHOICE` only. */
+  choiceOptionId?: string | null;
+  /** `CHOICE` only. */
+  choiceOptionLabel?: string | null;
   target: number | null;
   note: string | null;
   createdAt: string;
@@ -427,6 +554,11 @@ export type ApiCycle = {
    * from a live one cannot tell whether the mark on screen is the one awarded.
    */
   scoringFrozen: boolean;
+  /**
+   * How the mark is made up for this period, and whether it is still open to
+   * change. Absent from an API older than per-period weights, so optional.
+   */
+  weights?: CycleWeights;
   /** Empty means everybody — see `createCycle`'s own note. */
   departmentIds: string[];
   /** Null means no automatic reminder, which is the default. */
@@ -471,6 +603,12 @@ export type ApiCycleActivated = ApiCycle & {
    * not a count.
    */
   withoutAppraiser: string[];
+  /**
+   * Who was given their department head because nobody is recorded as their
+   * manager, by name. Only a server with that rule sends it (today's does not), so
+   * it is optional: absent says nothing and an empty list says nobody was.
+   */
+  viaDepartmentHead?: string[];
   /**
    * Anybody with nothing agreed to be scored against, by name.
    *
@@ -536,6 +674,13 @@ export type ApiCycleParticipants = {
   counts: { people: number; selfDone: number; managerDone: number };
 };
 
+/**
+ * Who a directly rated subsection can be put to on the review form. The API
+ * refuses anything else, colleagues included: a subsection's answer is given by
+ * the person or by their manager.
+ */
+export type SubsectionAudience = "SELF" | "MANAGER";
+
 export type ApiQuestion = {
   id: string;
   reviewCycleId: string;
@@ -554,12 +699,65 @@ export type ApiQuestion = {
   source: "HR" | "MANAGER";
   /** Non-empty only for a MANAGER question. */
   departmentIds: string[];
+  /**
+   * True when this question **is** a directly rated subsection's own answer, put
+   * on the form by this period (`PUT .../subsection-questions/:competencyId`).
+   * Its `prompt` is the subsection's name, its `kind` is derived from how the
+   * subsection is answered, `askedOf` is a non-empty subset of the person and
+   * their manager, and it is always required.
+   *
+   * **Optional on this side, and absent means an ordinary question.** A server
+   * that predates it sends neither this nor `competencyName`, and every screen
+   * then behaves exactly as it did.
+   */
+  answersSubsection?: boolean;
+  /** The subsection's name. Sent with a subsection question only. */
+  competencyName?: string;
+};
+
+/**
+ * What a form needs to know about the subsection a question is the answer to.
+ *
+ * `choices` is for `CHOICE` only: the active choices in `sortOrder`, **labels and
+ * ids and never their scores**. A person answering a pick-one question decides
+ * which description fits, not which score they want.
+ */
+export type ApiSubsectionOnForm = {
+  name: string;
+  answerKind: AnswerKind;
+  /** The ceiling of the subsection's own scale, which is not the company's. */
+  scaleMax: number;
+  choices: { id: string; label: string }[];
+};
+
+/**
+ * The subject's own answer to a subsection question, shown on their manager's
+ * form beside the manager's own control.
+ *
+ * Only ever present on a MANAGER form, and `null` there until the subject has
+ * **sent** their self-review: a draft is not shown to the person marking them.
+ * Null is nothing to show, never "No answer" and never a 0.
+ */
+export type ApiSelfAnswer = {
+  ratingValue: number | null;
+  boolValue: boolean | null;
+  choiceOptionId: string | null;
+  /** The label of the pick, for display. */
+  choiceValue: string | null;
+  answeredAt: string | null;
 };
 
 export type ApiAnswer = {
   ratingValue: number | null;
   textValue: string | null;
   choiceValue: string | null;
+  /**
+   * `CHOICE` subsection answers only: the id of the pick, which is what an
+   * answer is matched on (`choiceValue` is its label, and two choices can share
+   * one). Optional because a server that predates subsection questions sends no
+   * such key.
+   */
+  choiceOptionId?: string | null;
   boolValue: boolean | null;
   /**
    * The evidence attached to this answer, or null.
@@ -633,6 +831,16 @@ export type ApiReview = {
    * dispute — so a non-null value here does not tell you which act it was.
    */
   employeeComment: string | null;
+  /**
+   * On a form in the list of what you have to write: why Send would be refused
+   * right now, in the API's own sentence, or `null` when it would not. The same
+   * rule and the same sentence as the form's own `sendBlockedBy`, so the row can
+   * say it before the form is opened.
+   *
+   * **Absent from a server that predates it, and from any list that is not a work
+   * list, and absent means there is nothing to say**, never "Send is open".
+   */
+  sendBlockedBy?: string | null;
 };
 
 /**
@@ -667,11 +875,51 @@ export type ApiFormQuestion = {
   allowCustom: boolean;
   order: number;
   answer: ApiAnswer | null;
+  /**
+   * True when this question is a directly rated subsection's own answer, so its
+   * `prompt` is the subsection's name and its answer is recorded as the person's
+   * rating of it. **Absent means an ordinary question**, which is what a server
+   * that predates it sends for every one. Read it through
+   * `isSubsectionQuestion` in `lib/performance/subsection-answer.ts`.
+   */
+  answersSubsection?: boolean;
+  /** Sent with `answersSubsection: true`, and what the form is drawn from. */
+  subsection?: ApiSubsectionOnForm;
+  /**
+   * The subject's own answer, on their manager's form only. `null` and absent
+   * are the same thing: nothing to show.
+   */
+  selfAnswer?: ApiSelfAnswer | null;
 };
 
 export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
+  /**
+   * Whether the company's appraisal forms end with an overall mark: its setting
+   * in Appraisal scoring, sent with the form so the page that draws it needs no
+   * second request. **Absent from a server that predates the setting, and absent
+   * means off**, never on: a form must not ask for something the company has not
+   * chosen. The API takes a `rating` either way, and a review that already
+   * carries one still shows it.
+   */
+  overallMark?: boolean;
+  /**
+   * Why Send would be refused right now, in the API's own sentence, or `null`
+   * when it would not.
+   *
+   * It is the rule that holds a manager's review until the employee has sent
+   * their self-appraisal (released by a past due date, by the appraiser holding
+   * the records permission, or when nobody was asked for one). Only the author
+   * of an unsent form is told, because it is a fact about their next press. The
+   * form says it at the start and keeps Send shut, so nobody fills in twelve
+   * answers to learn at the end that it could not go.
+   *
+   * **Absent from a server that predates it, and absent means there is nothing
+   * to say**, never "Send is open": the API still refuses at Send with the same
+   * sentence, and the form shows that.
+   */
+  sendBlockedBy?: string | null;
   /**
    * What the author is to the subject, on a manager form.
    *
@@ -694,6 +942,25 @@ export type ApiReviewDetail = ApiReview & {
   /** Prompts, not ids: a refusal that names the questions is a refusal you can act on. */
   outstanding: string[];
 };
+
+/**
+ * Whether a review's overall mark belongs on the screen showing it.
+ *
+ * The company's setting decides, and a mark that was given is never hidden
+ * because the setting moved. So: a review that carries a mark shows it, and one
+ * that carries none shows "None given" only where the company asks for one.
+ * Where the company does not, a row saying nobody gave a mark is a row about
+ * something that cannot happen, and "None given" reads as something missing.
+ *
+ * The same rule the answering form follows, read from the same field. Absent
+ * means off (see `ApiReviewDetail.overallMark`), so a server that predates the
+ * setting shows no empty row either.
+ */
+export function showsOverallMark(
+  review: Pick<ApiReviewDetail, "rating" | "overallMark">,
+): boolean {
+  return review.rating !== null || review.overallMark === true;
+}
 
 /* -------------------------------------------------- multi-appraiser mapping */
 
@@ -868,8 +1135,27 @@ export type ApiAppraisersSet = {
 export type ApiAutoAssigned = {
   cycleId: string;
   created: number;
-  /** Named, never counted: these are the people who would get no mark. */
+  /**
+   * Manager forms this press wrote on a running period, so a manager's list holds
+   * what the mapping now says they owe. 0 where there was nothing to write (a
+   * draft gets its forms when it starts, and a period that already had them all
+   * needs none). Optional because a server one deploy behind does not send it, and
+   * an absent count claims nothing about forms.
+   */
+  formsCreated?: number;
+  /**
+   * Named, never counted: these are the people who would get no mark. Nobody is
+   * recorded as their manager and, from a server that sends `viaDepartmentHead`,
+   * no department head could stand in either.
+   */
   withoutManager: string[];
+  /**
+   * The people given their department head as appraiser because nobody is
+   * recorded as their manager, by name so they can be checked. Only a server with
+   * that rule sends it (today's does not), so it is optional: absent says nothing,
+   * and an empty list says nobody was.
+   */
+  viaDepartmentHead?: string[];
 };
 
 /* -------------------------------------------------------- the composite score
@@ -891,13 +1177,93 @@ export type ApiAutoAssigned = {
 /** Mirrors `ScoreComponent`. Self-assessment ships weighted at zero. */
 export type ScoreComponent =
   | "OBJECTIVES"
+  | "TASKS"
   | "CORE_COMPETENCY"
   | "BEHAVIOURAL_COMPETENCY"
   | "LEADERSHIP"
   | "SELF_ASSESSMENT";
 
+/**
+ * The components in the order they are listed everywhere, which is the order
+ * the API sends them: Weekly tasks sits straight after objectives, because both
+ * are measured delivery.
+ */
+export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
+  "OBJECTIVES",
+  "TASKS",
+  "CORE_COMPETENCY",
+  "BEHAVIOURAL_COMPETENCY",
+  "LEADERSHIP",
+  "SELF_ASSESSMENT",
+];
+
+/**
+ * A whole weight set, in basis points (10000 = 100%).
+ *
+ * All six keys, always. The API refuses a partial set on a period, because a
+ * missing key is a weight nobody chose.
+ */
+export type WeightSet = Record<ScoreComponent, number>;
+
+/**
+ * Where a period's weights come from, as the API reports it.
+ *
+ * - `period`: somebody set them on this draft period.
+ * - `company`: a draft with none of its own, so it follows the company defaults.
+ * - `frozen`: the period has started and these are the ones it was fixed with.
+ */
+export type CycleWeights = {
+  values: WeightSet;
+  basis: "period" | "company" | "frozen";
+};
+
 /** Why a component did not enter the arithmetic. Null means it did. */
-export type ScoreExclusionReason = "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER";
+export type ScoreExclusionReason =
+  "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER" | "NO_GRADED_TASKS";
+
+/**
+ * Where a score's weights came from. `"period"` is a draft previewing the set
+ * it holds for itself, before it has started and been frozen.
+ */
+export type WeightsFrom = "snapshot" | "period" | "current";
+
+/** The sentence for a draft scored on its own weights. One copy, four screens. */
+export function weightsFromNote(from: WeightsFrom): string | null {
+  return from === "period"
+    ? "Previewed with the weights set for this period."
+    : null;
+}
+
+/**
+ * The components a breakdown shows. Weekly tasks weighted at nothing is
+ * dropped: every period set up before it became a component carries it at 0%,
+ * and "Weekly tasks: weighted at 0%" on every mark says nothing. Every other
+ * exclusion stays, in the API's words.
+ */
+export function visibleComponents<
+  T extends Pick<ApiComponentScore, "component" | "excludedBecause">,
+>(components: T[]): T[] {
+  return components.filter(
+    (part) =>
+      !(part.component === "TASKS" && part.excludedBecause === "NOT_WEIGHTED"),
+  );
+}
+
+/**
+ * The parts a period actually appraises on: every part with a weight above nothing.
+ *
+ * A company that sets a part to 0% has chosen not to appraise on it, so a table
+ * about how the mark came out has no row to give it. This is not
+ * `visibleComponents`, which is about one person's mark and keeps a part the
+ * company weighted at nothing for every reason but one; here the weight alone
+ * decides, because the table is about the period and the period's weights are
+ * fixed when it starts.
+ */
+export function weightedParts<T extends { weightBp: number }>(
+  parts: readonly T[],
+): T[] {
+  return parts.filter((part) => part.weightBp > 0);
+}
 
 export type ApiComponentScore = {
   component: ScoreComponent;
@@ -1034,8 +1400,8 @@ export type ApiScoreRegister = {
   cycleName: string;
   stage: ReviewCycleStage;
   started: boolean;
-  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
-  weightsFrom: "snapshot" | "current";
+  /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
+  weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];
   /** Published rather than left to be added up. 10000 for anything saved here. */
   weightsTotalBp: number;
@@ -1057,7 +1423,7 @@ export type ApiEmployeeScore = ApiScoreRow & {
   cycleId: string;
   cycleName: string;
   stage: ReviewCycleStage;
-  weightsFrom: "snapshot" | "current";
+  weightsFrom: WeightsFrom;
 };
 
 export type ApiScoringWeights = {
@@ -1318,8 +1684,8 @@ export type ApiCycleReport = {
   stage: ReviewCycleStage;
   started: boolean;
   published: boolean;
-  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
-  weightsFrom: "snapshot" | "current";
+  /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
+  weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];
   weightsTotalBp: number;
   distribution: ApiScoreDistribution;
@@ -1363,7 +1729,7 @@ export type ApiHistoryPoint = {
   cycleName: string;
   stage: ReviewCycleStage;
   dueDate: string | null;
-  weightsFrom: "snapshot" | "current";
+  weightsFrom: WeightsFrom;
   scoreBp: number | null;
   scorePercent: number | null;
   band: ScoreBand | null;
@@ -1638,10 +2004,13 @@ export type UpdateGoalBody = {
 
 export type CreateKeyResultBody = {
   label: string;
+  /** Absent means a number. A done-or-not-done measure sends only `label`. */
+  kind?: MeasureKind;
   unit?: string;
   /** Decimal strings. See the header on why these are not numbers. */
   startValue?: string;
-  targetValue: string;
+  /** Required for a number, and refused for a done-or-not-done measure. */
+  targetValue?: string;
   currentValue?: string;
   lowerIsBetter?: boolean;
 };
@@ -1671,13 +2040,44 @@ export type GapListParams = {
   employeeId?: string;
 };
 
+/**
+ * One answer on one subsection.
+ *
+ * **Exactly one of `level`, `boolValue` and `choiceOptionId`, the one the
+ * subsection's kind names.** The API refuses any other of the three by name, so
+ * a form builds the body from the kind rather than sending all of them.
+ */
 export type RateBody = {
   employeeId: string;
-  level: number;
-  /** Where the company wants them, so a gap is arithmetic rather than opinion. */
+  /** `RATING` only. */
+  level?: number;
+  /** `BOOLEAN` only. */
+  boolValue?: boolean;
+  /** `CHOICE` only: one of the subsection's own live choices. */
+  choiceOptionId?: string;
+  /**
+   * `RATING` only. Where the company wants them, so a gap is arithmetic rather
+   * than opinion. A yes or no and a pick have no target, because there is no
+   * honest distance between two answers that are not on a scale.
+   */
   target?: number;
   reviewCycleId?: string;
   note?: string;
+};
+
+/** One row of the whole list `PUT .../choice-options` replaces. */
+export type ChoiceOptionBody = {
+  /**
+   * Present means this existing choice, which keeps its identity. Absent makes
+   * a new one. A live choice left out of the list is archived, never deleted,
+   * because a rating can point at it.
+   */
+  id?: string;
+  /** 1 to 80 characters. */
+  label: string;
+  /** A whole number from 0 to 10,000. */
+  scoreBp: number;
+  sortOrder: number;
 };
 
 export type CycleListParams = {
@@ -1688,6 +2088,23 @@ export type CycleListParams = {
   sort?: "name" | "createdAt" | "dueDate";
   order?: "asc" | "desc";
   stage?: ReviewCycleStage;
+};
+
+/**
+ * What copying a period's questions did.
+ *
+ * `skipped` and `skippedNote` are only on a server that knows a subsection can be
+ * asked on the review form. A question that asks one is not copied word for word:
+ * it is read again from the subsection, and one whose subsection has since been
+ * switched off or removed is left behind, and the API says so in `skippedNote`
+ * (`Left out: "Teamwork" (it is switched off).`). A server that predates it sends
+ * neither, which reads as nothing left behind and never as an answer about it.
+ */
+export type QuestionCopy = {
+  cycleId: string;
+  copied: number;
+  skipped?: number;
+  skippedNote?: string | null;
 };
 
 export type CreateQuestionBody = {
@@ -1725,6 +2142,14 @@ export type AnswerBody = {
   ratingValue?: number;
   textValue?: string;
   choiceValue?: string;
+  /**
+   * For a **subsection** question that is answered by picking: the id of one of
+   * the subsection's own live choices, which is what the API matches on. An
+   * ordinary pick-from-a-list question sends `choiceValue`, the text of the
+   * option. Never both, and never the label for a subsection's choice: two
+   * choices can share one.
+   */
+  choiceOptionId?: string;
   boolValue?: boolean;
   /**
    * For a `FILE` question. `readAsAttachment` in `lib/api/uploads.ts` produces
@@ -2084,6 +2509,27 @@ export const performanceApi = {
       },
     ),
 
+  /**
+   * A manager says a done-or-not-done measure is done. The note is free text and
+   * is where a link to the evidence goes.
+   *
+   * The owner is refused, and so is anyone who may not agree their objective:
+   * the API says which, in words about confirming, and that sentence is shown
+   * as it arrives.
+   */
+  confirmMeasure: (id: string, note?: string) =>
+    request<ApiKeyResultWritten & { met: boolean }>(
+      `/performance/key-results/${id}/confirm`,
+      { method: "POST", body: note === undefined ? {} : { note } },
+    ),
+
+  /** Takes a confirmation back, by the same people. The measure stays read. */
+  unconfirmMeasure: (id: string) =>
+    request<ApiKeyResultWritten & { met: boolean }>(
+      `/performance/key-results/${id}/confirm`,
+      { method: "DELETE" },
+    ),
+
   /* ----------------------------------------------------------- competencies */
 
   competencies: (params: CompetencyListParams = {}, signal?: AbortSignal) =>
@@ -2167,6 +2613,8 @@ export const performanceApi = {
      */
     appraiseOwner?: boolean;
     appraiseHrManager?: boolean;
+    /** The whole set, in basis points. Omitted means the company defaults. */
+    weights?: WeightSet;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
   /**
@@ -2184,6 +2632,11 @@ export const performanceApi = {
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
+      /**
+       * The whole set, or `null` to go back to the company defaults. Refused
+       * (409) once the period has started: the weights are fixed by then.
+       */
+      weights?: WeightSet | null;
       /**
        * Nullable, unlike on create: clearing a period is a real edit, and
        * `null` is how it is said. Both together or neither — the API checks the
@@ -2238,10 +2691,10 @@ export const performanceApi = {
    * questions. Both refusals are the API's own sentences.
    */
   copyQuestions: (id: string, sourceCycleId: string) =>
-    request<{ cycleId: string; copied: number }>(
-      `/performance/cycles/${id}/questions/copy`,
-      { method: "POST", body: { sourceCycleId } },
-    ),
+    request<QuestionCopy>(`/performance/cycles/${id}/questions/copy`, {
+      method: "POST",
+      body: { sourceCycleId },
+    }),
 
   /**
    * Move one person's mark, with a reason.
@@ -2442,7 +2895,7 @@ export const performanceApi = {
    * why the incumbent needs a "Resolve Weights" button and this does not — there
    * is never an unbalanced state to resolve.
    */
-  setScoringWeights: (weights: Record<ScoreComponent, number>) =>
+  setScoringWeights: (weights: WeightSet) =>
     request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
       method: "PUT",
       body: weights,
@@ -2689,6 +3142,40 @@ export const performanceApi = {
       method: "DELETE",
     }),
 
+  /**
+   * Put a directly rated subsection on this period's review form, or change who
+   * is asked. **Idempotent**: it creates the question or moves `askedOf`, so one
+   * call does both and there is no separate "change".
+   *
+   * `askedOf` is one or both of the person and their manager. The API refuses
+   * colleagues, an empty list, a subsection that is archived or switched off,
+   * and a period that has started, each in its own sentence naming the
+   * subsection and the period, and those sentences are shown as they come.
+   *
+   * Answers the question as the period lists it, with `answersSubsection: true`.
+   */
+  askSubsection: (
+    cycleId: string,
+    competencyId: string,
+    askedOf: SubsectionAudience[],
+  ) =>
+    request<ApiQuestion>(
+      `/performance/cycles/${cycleId}/subsection-questions/${competencyId}`,
+      { method: "PUT", body: { askedOf } },
+    ),
+
+  /**
+   * Stop asking a subsection on this period's review form. Refused once anybody
+   * has answered it, with the same rule as removing any other question, and
+   * 404 when it was not being asked. The subsection and any rating already
+   * recorded on it are untouched.
+   */
+  stopAskingSubsection: (cycleId: string, competencyId: string) =>
+    request<{ id: string; removed: boolean }>(
+      `/performance/cycles/${cycleId}/subsection-questions/${competencyId}`,
+      { method: "DELETE" },
+    ),
+
   /* --------------------------------------------------------------- sections */
 
   /* Reading needs nothing: a heading a rating is filed under is not something
@@ -2696,10 +3183,10 @@ export const performanceApi = {
   sections: (signal?: AbortSignal) =>
     request<ApiSection[]>("/performance/sections", signalOf(signal)),
 
-  createSection: (body: { name: string; order?: number }) =>
+  createSection: (body: SectionBody) =>
     request<ApiSection>("/performance/sections", { method: "POST", body }),
 
-  updateSection: (id: string, body: { name?: string; order?: number }) =>
+  updateSection: (id: string, body: SectionBody) =>
     request<ApiSection>(`/performance/sections/${id}`, {
       method: "PATCH",
       body,
@@ -2711,18 +3198,29 @@ export const performanceApi = {
       method: "DELETE",
     }),
 
+  /**
+   * `scaleMax` is **still required whatever the kind**, and means nothing for a
+   * yes or no and a pick: send 5. An absent `answerKind` is `RATING`, which is
+   * what a body that never mentions it has always meant.
+   */
   createCompetency: (body: {
     name: string;
     sectionId?: string;
     description?: string;
     isCore?: boolean;
     scaleMax: number;
+    answerKind?: AnswerKind;
   }) =>
     request<ApiCompetency>("/performance/competencies", {
       method: "POST",
       body,
     }),
 
+  /**
+   * A **change of kind** is refused once any rating exists, and when a job role
+   * targets a `RATING` subsection. Both refusals arrive as the API's own
+   * sentence, naming the subsection, and are shown as they come.
+   */
   updateCompetency: (
     id: string,
     body: {
@@ -2732,12 +3230,28 @@ export const performanceApi = {
       isCore?: boolean;
       scaleMax?: number;
       active?: boolean;
+      answerKind?: AnswerKind;
     },
   ) =>
     request<ApiCompetency>(`/performance/competencies/${id}`, {
       method: "PATCH",
       body,
     }),
+
+  /**
+   * Replace the whole list of choices of a `CHOICE` subsection.
+   *
+   * The whole set at once, like the scoring weights: removing one cannot be
+   * said as a partial list, and "at least two" is only checkable on the set. A
+   * choice that any rating has picked **keeps its score**, so a changed score on
+   * one is refused (409) and every such choice is named in the one sentence.
+   * Answers with the subsection, its live choices in `sortOrder`.
+   */
+  setChoiceOptions: (competencyId: string, options: ChoiceOptionBody[]) =>
+    request<ApiCompetency>(
+      `/performance/competencies/${competencyId}/choice-options`,
+      { method: "PUT", body: { options } },
+    ),
 
   /** Archive, not delete: past ratings are the evidence somebody improved. */
   archiveCompetency: (id: string) =>
@@ -3097,6 +3611,56 @@ export function ratingWordsFrom(
 export function parseMeasure(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Is this a done-or-not-done measure? Absent `kind` is a number. */
+export function isDoneMeasure(measure: Pick<ApiKeyResult, "kind">): boolean {
+  return measure.kind === "DONE";
+}
+
+/**
+ * Has nobody entered a reading on this measure yet?
+ *
+ * **True only when the server said so** (`lastReadAt` is null). An absent field
+ * is a server that predates the column, and calling those measures unread would
+ * tell every user of an older server that nothing they track has been read.
+ */
+export function isUnread(measure: Pick<ApiKeyResult, "lastReadAt">): boolean {
+  return measure.lastReadAt === null;
+}
+
+/**
+ * Has nothing been recorded on this measure, for a screen that has always said
+ * so and has to keep saying it on a server that predates `lastReadAt`?
+ *
+ * The server's word wins when it gives one. Without it, a figure still equal to
+ * where it started is taken as unrecorded, which is the inference the approvals
+ * screen was built on: it was the only signal there was. It is no longer exact
+ * (a reading of the starting figure is a reading), which is why the field
+ * exists, and why this prefers it.
+ */
+export function hasNoReading(
+  measure: Pick<ApiKeyResult, "lastReadAt" | "currentValue" | "startValue">,
+): boolean {
+  if (measure.lastReadAt !== undefined) return measure.lastReadAt === null;
+  return measure.currentValue === measure.startValue;
+}
+
+/**
+ * How many of a goal's measures have been read, or null when that is not worth
+ * saying: no measures, an older server, or every one of them read.
+ *
+ * Null for "all read" is deliberate. "4 of 4 measures read" on every card is
+ * noise that teaches people to skip the line, so the count appears only when it
+ * is a warning: some figure on this objective is not a reading.
+ */
+export function readCount(
+  measures: readonly Pick<ApiKeyResult, "lastReadAt">[],
+): { read: number; of: number } | null {
+  if (measures.length === 0) return null;
+  if (measures.some((measure) => measure.lastReadAt === undefined)) return null;
+  const read = measures.filter((measure) => measure.lastReadAt !== null).length;
+  return read === measures.length ? null : { read, of: measures.length };
 }
 
 /**

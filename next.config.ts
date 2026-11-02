@@ -151,6 +151,9 @@ const challengeOrigin = process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"]?.trim()
  * accepted from the variable (and `http://localhost` in a development build, where
  * the fake storage the tests use lives); anything else is dropped rather than
  * trusted, and a malformed entry does not take the build down over a header.
+ *
+ * The same origins are in `img-src`: an image attached to a task is shown as a
+ * thumbnail straight from storage, through a short-lived link the API signs.
  */
 const uploadOrigins = (() => {
   const origins = new Set<string>();
@@ -200,7 +203,9 @@ const CSP = [
   "font-src 'self' data: https://fonts.gstatic.com",
   /* The API's origin too, for one thing: a company's logo on its careers page is
      served by the API (`/careers/public/{org}/logo`). */
-  `img-src 'self' data: blob:${apiOrigin ? ` ${apiOrigin}` : ""}`,
+  `img-src 'self' data: blob:${apiOrigin ? ` ${apiOrigin}` : ""}${uploadOrigins
+    .map((origin) => ` ${origin}`)
+    .join("")}`,
   `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}${
     errorReportOrigin ? ` ${errorReportOrigin}` : ""
   }${uploadOrigins.map((origin) => ` ${origin}`).join("")}`,

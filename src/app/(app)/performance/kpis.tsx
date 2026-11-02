@@ -48,6 +48,8 @@ import { useTaskSummarySuggestion } from "@/lib/store/ai";
 import { useSession } from "@/lib/store/session";
 import {
   formatMeasure,
+  isDoneMeasure,
+  isUnread,
   quarterLabel,
   type ApiGoal,
   type ApiKeyResult,
@@ -70,11 +72,15 @@ import { AddMultipleObjectives } from "./add-multiple-objectives";
 import { ApprovalReasonDialog } from "./approval-dialogs";
 import { goalFacts } from "./goal-facts";
 import {
+  averageProgressHint,
   kpiAddedSaid,
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
   objectiveCreatedSaid,
+  progressLabel,
+  readCountLine,
+  readCountShort,
   reopenedSaid,
   sharedSaid,
   type Said,
@@ -95,6 +101,11 @@ import { useCanUploadObjectives } from "./kpis/import/access";
 import { PlanWorkDialog } from "./plan-work-dialog";
 import { useAssistantAvailable } from "@/lib/store/ai";
 import { useFeatures } from "@/lib/store/features";
+import {
+  DoneMeasureRow,
+  MeasureConfirmProvider,
+  type MeasureConfirmActions,
+} from "./done-measure";
 
 /**
  * The KPI cascade.
@@ -295,6 +306,29 @@ export function KpisTab({
     if (kpis.source === "api") kpis.reload();
   };
 
+  /* A manager's word that a done-or-not-done measure is done. Each reports its
+     own failure through `announced`, so a refusal shows the API's sentence, and
+     answers whether it saved so the row knows whether to close its note box. */
+  const measureConfirm: MeasureConfirmActions = {
+    confirm: async (measureId, note) =>
+      (
+        await announced(
+          () => mutations.confirmMeasure(measureId, note),
+          (measure) => ({ title: `"${measure.label}" is confirmed as done` }),
+        )
+      ).ok,
+    unconfirm: async (measureId) =>
+      (
+        await announced(
+          () => mutations.unconfirmMeasure(measureId),
+          (measure) => ({
+            title: `"${measure.label}" is back to not done`,
+            tone: "info",
+          }),
+        )
+      ).ok,
+  };
+
   /**
    * What each dropdown offers, taken from the objectives themselves.
    *
@@ -482,17 +516,23 @@ export function KpisTab({
      recorded, and the two read identically on a Stat while meaning opposite
      things. Same rule the module's own `period-status.tsx` states with
      `notYet`. */
+  /* A goal whose measures have all gone unread has no figure, only the 0 it was
+     created with, so it is left out of the mean instead of pulling it down. */
+  const withAFigure = tracked.filter(
+    (goal) => !(goal.keyResults.length > 0 && goal.measuredProgress === null),
+  );
+  const averageHint = averageProgressHint(withAFigure.length, tracked.length);
   const average =
-    tracked.length === 0
+    withAFigure.length === 0
       ? null
       : Math.round(
-          tracked.reduce(
+          withAFigure.reduce(
             (sum, goal) => sum + (goal.measuredProgress ?? goal.progress),
             0,
-          ) / tracked.length,
+          ) / withAFigure.length,
         );
 
-  return (
+  const content = (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {scopes.length > 1 ? (
@@ -572,14 +612,7 @@ export function KpisTab({
               `${average}%`
             )
           }
-          {...(average === null
-            ? {}
-            : {
-                hint:
-                  tracked.length === 1
-                    ? "across 1 KPI"
-                    : `across ${tracked.length} KPIs`,
-              })}
+          {...(averageHint ? { hint: averageHint } : {})}
         />
         <Stat
           label="Needs attention"
@@ -1091,6 +1124,12 @@ export function KpisTab({
       )}
     </div>
   );
+
+  return (
+    <MeasureConfirmProvider value={measureConfirm}>
+      {content}
+    </MeasureConfirmProvider>
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1225,7 +1264,7 @@ function GoalBranch({
   );
 }
 
-function GoalCard({
+export function GoalCard({
   goal,
   depth,
   editable,
@@ -1249,7 +1288,7 @@ function GoalCard({
   editable: boolean;
   /** Signed-in person's own employee id — decides who may log a task. */
   actingId: string | null;
-  canPlan: boolean;
+  canPlan?: boolean | undefined;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
   onAssign: (goal: ApiGoal) => void;
@@ -1261,10 +1300,10 @@ function GoalCard({
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
-  onPlan: (goal: ApiGoal) => void;
+  onPlan?: ((goal: ApiGoal) => void) | undefined;
 }) {
   const facts = goalFacts(goal, actingId);
-  const { progress, done } = facts;
+  const { progress, done, reads } = facts;
 
   /* The detail is a modal, and this is the card's only piece of state.
      Everything the modal renders comes from the same `goal` the card has, so
@@ -1322,9 +1361,27 @@ function GoalCard({
                 {goal.title}
               </p>
             </div>
-            <span className="tabular shrink-0 text-body-sm font-medium text-ink">
-              {progress}%
-            </span>
+            {/* With none of its measures read the figure is the 0 the objective
+                was made with, and a 0% on the face of a card is a claim that the
+                work has not moved. So it is not drawn: what is said instead is
+                that nobody has measured it. With some read, the figure stands
+                and the count beside it says how much of it is a reading. */}
+            {reads?.read === 0 ? (
+              <span className="shrink-0 text-meta text-muted">
+                {readCountShort(reads)}
+              </span>
+            ) : (
+              <span className="shrink-0 text-right">
+                <span className="tabular block text-body-sm font-medium text-ink">
+                  {progress}%
+                </span>
+                {reads && (
+                  <span className="block text-meta text-muted">
+                    {readCountShort(reads)}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
 
           <div className="flex w-full flex-wrap items-center justify-between gap-2 text-meta text-muted">
@@ -1423,6 +1480,7 @@ function GoalDetailModal({
   canShare,
   canLogTasks,
   noPeriod,
+  reads,
   editable,
   canPlan,
   onAddMeasure,
@@ -1447,9 +1505,11 @@ function GoalDetailModal({
   canShare: boolean;
   canLogTasks: boolean;
   noPeriod: boolean;
+  /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
+  reads: { read: number; of: number } | null;
   editable: boolean;
   /** Assistant connected and Projects switched on. */
-  canPlan: boolean;
+  canPlan?: boolean | undefined;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
   onAssign: (goal: ApiGoal) => void;
@@ -1461,7 +1521,7 @@ function GoalDetailModal({
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
-  onPlan: (goal: ApiGoal) => void;
+  onPlan?: ((goal: ApiGoal) => void) | undefined;
 }) {
   /* Every action closes the dialog before it runs. All eight open a second
      dialog of their own — a confirm, a form, a share sheet — and two stacked
@@ -1512,9 +1572,11 @@ function GoalDetailModal({
           {goal.parentTitle && <span>Under {goal.parentTitle}</span>}
         </div>
 
+        {/* With nothing read, the label says so and the figure is not drawn: a 0%
+            beside "nothing read yet" would be the claim the label denies. */}
         <ProgressMeter
           value={progress}
-          showValue
+          showValue={reads?.read !== 0}
           size="sm"
           tone={
             done
@@ -1525,26 +1587,35 @@ function GoalDetailModal({
                   ? "warning"
                   : "accent"
           }
-          label={
-            goal.keyResults.length === 0
-              ? "Progress, entered by hand"
-              : goal.keyResults.length === 1
-                ? "Progress, from 1 measure"
-                : `Progress, from ${goal.keyResults.length} measures`
-          }
+          label={progressLabel(goal.keyResults.length, reads)}
         />
+
+        {/* Said only when it is a warning: "4 of 4 read" on every card is noise.
+            With none read, the bar above is the 0 the objective was made with
+            and not a result, so the line says so. */}
+        {reads && (
+          <p className="text-body-sm text-body">{readCountLine(reads)}</p>
+        )}
 
         {goal.keyResults.length > 0 ? (
           <ul className="flex flex-col gap-3 border-t border-line pt-4">
-            {goal.keyResults.map((measure) => (
-              <MeasureRow
-                key={measure.id}
-                measure={measure}
-                goalId={goal.id}
-                editable={!done}
-                onRecord={onRecord}
-              />
-            ))}
+            {goal.keyResults.map((measure) =>
+              isDoneMeasure(measure) ? (
+                <DoneMeasureRow
+                  key={measure.id}
+                  measure={measure}
+                  goalOwnerId={goal.ownerId}
+                />
+              ) : (
+                <MeasureRow
+                  key={measure.id}
+                  measure={measure}
+                  goalId={goal.id}
+                  editable={!done}
+                  onRecord={onRecord}
+                />
+              ),
+            )}
           </ul>
         ) : (
           <p className="text-body-sm text-body">
@@ -1597,7 +1668,7 @@ function GoalDetailModal({
               Reopen the target
             </Button>
           )}
-          {goal.approval === "AGREED" && !done && canPlan && (
+          {goal.approval === "AGREED" && !done && canPlan && onPlan && (
             <Button size="sm" onClick={act(() => onPlan(goal))}>
               Plan work
             </Button>
@@ -1681,7 +1752,7 @@ function GoalDetailModal({
  * on a business figure invite a stray scroll, and `type="number"` silently
  * discards a value it cannot parse.
  */
-function MeasureRow({
+export function MeasureRow({
   measure,
   goalId,
   editable,
@@ -1699,8 +1770,17 @@ function MeasureRow({
   const [failed, setFailed] = useState<string | null>(null);
   const summary = useTaskSummarySuggestion();
 
-  const value = draft ?? measure.currentValue;
-  const changed = draft !== null && draft.trim() !== measure.currentValue;
+  /* Nobody has entered a reading. Its "current value" is the start it was made
+     with, so it is not shown as one: the box is empty and asks for a first
+     reading. Typing the same number as the start is still a reading (0 can be
+     the honest answer), which is why an unread measure is saveable even when
+     the draft equals the figure behind it. */
+  const unread = isUnread(measure);
+  const value = draft ?? (unread ? "" : measure.currentValue);
+  const changed =
+    draft !== null &&
+    draft.trim() !== "" &&
+    (unread || draft.trim() !== measure.currentValue);
 
   const save = async () => {
     if (!changed) return;
@@ -1746,7 +1826,12 @@ function MeasureRow({
           >
             {measure.lowerIsBetter ? "Counting down" : "Counting up"}
           </Badge>
-          {measure.met && (
+          {unread && (
+            <Badge tone="warning" size="sm">
+              Not read yet
+            </Badge>
+          )}
+          {!unread && measure.met && (
             <Badge tone="accent" size="sm" icon={<Check aria-hidden="true" />}>
               At target
             </Badge>
@@ -1754,25 +1839,39 @@ function MeasureRow({
         </span>
       </div>
 
-      <ProgressMeter
-        value={measure.percent}
-        showValue
-        size="sm"
-        tone={measure.met ? "ink" : "accent"}
-      />
+      {/* No bar for a measure nobody has read: a bar at 0% is a result, and the
+          0 is only where the measure began. What being unread costs is said once,
+          under the objective's own bar, because it is a fact about that figure;
+          repeating it under every unread measure said the same sentence four
+          times in a row to somebody with one unread measure. */}
+      {!unread && (
+        <ProgressMeter
+          value={measure.percent}
+          showValue
+          size="sm"
+          tone={measure.met ? "ink" : "accent"}
+        />
+      )}
 
       <p className="tabular text-body-sm text-body">
-        Now {formatMeasure(measure.currentValue, measure.unit)} · target{" "}
-        {formatMeasure(measure.targetValue, measure.unit)} · started at{" "}
+        {unread
+          ? "No reading yet"
+          : `Now ${formatMeasure(measure.currentValue, measure.unit)}`}{" "}
+        · target {formatMeasure(measure.targetValue, measure.unit)} · started at{" "}
         {formatMeasure(measure.startValue, measure.unit)}
       </p>
 
       {editable && (
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            aria-label={`Latest number for ${measure.label}`}
+            aria-label={
+              unread
+                ? `First reading for ${measure.label}`
+                : `Latest number for ${measure.label}`
+            }
             inputMode="decimal"
             className="h-8 w-36"
+            {...(unread ? { placeholder: "First reading" } : {})}
             value={value}
             onChange={(event) => setDraft(event.target.value)}
           />

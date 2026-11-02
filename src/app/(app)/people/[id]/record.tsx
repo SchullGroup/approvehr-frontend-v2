@@ -960,6 +960,9 @@ export function EmployeeRecord({
                   label: "Gross monthly",
                   optional: true,
                   type: "number",
+                  /* Emptied is "not agreed", which is null. Zero and negative
+                     figures are kept as typed. */
+                  clearsToNull: true,
                   help: "Changing this changes their next payslip. Clear it if pay is no longer agreed: payroll will name them until it is set again.",
                   /* Two decimals, never abbreviated: this is a figure somebody
                      reconciles against a bank statement. Absent, never zero:

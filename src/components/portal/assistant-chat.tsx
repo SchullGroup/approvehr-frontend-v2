@@ -20,28 +20,35 @@ import {
   Textarea,
 } from "@/components/ui";
 import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/api/ai";
+import { openersFor, standingFrom } from "@/lib/assistant-openers";
+import { usePermissions } from "@/lib/permissions";
 import { useAssistantAvailable } from "@/lib/store/ai";
 import { useAssistantChat, type ChatTurn } from "@/lib/store/ai-chat";
 import { LiveTurn } from "@/components/ai/turn-progress";
 import { UsageGauge } from "@/components/ai/usage-gauge";
 import { AssistantOrb } from "./assistant-orb";
 
-const OPENERS = SALES_SCRIPT_ENABLED
-  ? [
-      "How many people have no bank account?",
-      "Whose leave requests are still waiting?",
-      "Is anyone missing something before payday?",
-      "How's the H2 2026 review going?",
-    ]
-  : [
-      "How many people have no bank account?",
-      "Whose leave requests are still waiting?",
-      "What can you do for me?",
-    ];
-
 export function AssistantChat() {
   const assistant = useAssistantAvailable();
   const chat = useAssistantChat();
+  const { permissions } = usePermissions();
+  const who = standingFrom(permissions);
+  const suggested = openersFor(who);
+  /* The standalone sales demo answers four prepared questions and nothing else, so
+     it offers those to the person it presents as the administrator. The ternary
+     sits inside this function so a production build folds it away with its strings
+     (see `lib/sales-script.ts`). Everything else comes from
+     `lib/assistant-openers.ts`, which asks only what this person's lookups can
+     answer. */
+  const openers =
+    SALES_SCRIPT_ENABLED && who.editsRecords
+      ? [
+          "How many people have no bank account?",
+          "Whose leave requests are still waiting?",
+          "Is anyone missing something before payday?",
+          "How's the H2 2026 review going?",
+        ]
+      : suggested.questions;
   const [draft, setDraft] = useState("");
   const composer = useRef<HTMLDivElement>(null);
 
@@ -83,12 +90,11 @@ export function AssistantChat() {
             <div className="flex items-start gap-3">
               <AssistantOrb size={36} className="mt-0.5 shrink-0" />
               <p className="text-body-sm text-muted">
-                Ask about your people, your leave, your payroll runs, or what
-                you deduct. Try one of these:
+                {suggested.intro} Try one of these:
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {OPENERS.map((opener) => (
+              {openers.map((opener) => (
                 <button
                   key={opener}
                   type="button"

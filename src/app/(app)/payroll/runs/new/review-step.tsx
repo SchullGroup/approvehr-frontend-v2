@@ -42,14 +42,13 @@ import { ScheduledNote } from "./scheduled-note";
 import type { ScheduledAllowancesState } from "@/lib/store/scheduled-allowances";
 import { TOUCH } from "./drawer-parts";
 import {
-  ADJUSTMENT_LABEL,
   adjustmentsOf,
   bonusOn,
   deductionLabels,
   deductionTotal,
+  loanTotal,
   visiblePayslips,
   warningsByPerson,
-  type AdjustmentKind,
   type ReviewFilter,
   type ReviewView,
   type SortColumn,
@@ -192,6 +191,7 @@ export function ReviewStep({
     paySettings.bonus.enabled ||
     payslips.some((slip) => (bonusOn(slip)?.amountKobo ?? 0) > 0);
   const anyUnpaid = payslips.some((slip) => slip.unpaidDays > 0);
+  const showLoans = payslips.some((slip) => loanTotal(slip) > 0);
 
   /* ---------------------------------------------------------- the toolbar */
 
@@ -427,6 +427,7 @@ export function ReviewStep({
                   onSort={onSort}
                   showOvertime={showOvertime}
                   showBonus={showBonus}
+                  showLoans={showLoans}
                   anyUnpaid={anyUnpaid}
                 />
                 <TBody>
@@ -436,6 +437,7 @@ export function ReviewStep({
                       slip={slip}
                       showOvertime={showOvertime}
                       showBonus={showBonus}
+                      showLoans={showLoans}
                       anyUnpaid={anyUnpaid}
                       {...rowProps}
                     />
@@ -451,6 +453,7 @@ export function ReviewStep({
                   slip={slip}
                   showOvertime={showOvertime}
                   showBonus={showBonus}
+                  showLoans={showLoans}
                   anyUnpaid={anyUnpaid}
                   {...rowProps}
                 />
@@ -539,12 +542,14 @@ function ReviewHead({
   onSort,
   showOvertime,
   showBonus,
+  showLoans,
   anyUnpaid,
 }: {
   view: ReviewView;
   onSort: (column: string, startDescending?: boolean) => void;
   showOvertime: boolean;
   showBonus: boolean;
+  showLoans: boolean;
   anyUnpaid: boolean;
 }) {
   const active = view.sort?.column;
@@ -635,6 +640,18 @@ function ReviewHead({
         >
           Deductions
         </SortableTH>
+        {showLoans && (
+          <SortableTH
+            column="loans"
+            active={active}
+            order={order}
+            onSort={onSort}
+            align="right"
+            startDescending
+          >
+            Loans
+          </SortableTH>
+        )}
         <SortableTH
           column="net"
           active={active}
@@ -671,11 +688,13 @@ function PayslipRow({
   onOpen,
   showOvertime,
   showBonus,
+  showLoans,
   anyUnpaid,
 }: RowShared & {
   slip: Payslip;
   showOvertime: boolean;
   showBonus: boolean;
+  showLoans: boolean;
   anyUnpaid: boolean;
 }) {
   const facts = factsOf(slip, typedDeductions);
@@ -690,7 +709,7 @@ function PayslipRow({
         subtitle={
           <>
             {slip.employeeNo}
-            <Flags adjusted={facts.adjusted} warnings={mine} />
+            <Flags warnings={mine} />
           </>
         }
       />
@@ -737,6 +756,11 @@ function PayslipRow({
           </span>
         )}
       </TD>
+      {showLoans && (
+        <TD align="right" className="tabular text-body-sm">
+          <Figure kobo={facts.loans} />
+        </TD>
+      )}
       {/* The figure a reader came here to check. Heavier and larger than anything
           beside it, on its own tint, so the eye lands on it before the rest. */}
       <TD
@@ -775,11 +799,13 @@ function PayslipCard({
   onOpen,
   showOvertime,
   showBonus,
+  showLoans,
   anyUnpaid,
 }: RowShared & {
   slip: Payslip;
   showOvertime: boolean;
   showBonus: boolean;
+  showLoans: boolean;
   anyUnpaid: boolean;
 }) {
   const facts = factsOf(slip, typedDeductions);
@@ -828,6 +854,11 @@ function PayslipCard({
             />
           </CardFact>
         )}
+        {showLoans && facts.loans > 0 && (
+          <CardFact label="Loans">
+            <Figure kobo={facts.loans} />
+          </CardFact>
+        )}
         {showOvertime && facts.overtime > 0 && (
           <CardFact label="Overtime">
             <Figure kobo={facts.overtime} />
@@ -846,7 +877,7 @@ function PayslipCard({
       </dl>
 
       <div className="flex items-center justify-between gap-3">
-        <Flags adjusted={facts.adjusted} warnings={mine} bare />
+        <Flags warnings={mine} bare />
         <div className="ml-auto">
           <OpenButton
             slip={slip}
@@ -889,6 +920,7 @@ function factsOf(slip: Payslip, typedDeductions: LineSummaryByEmployee | null) {
     bonus: bonusOn(slip)?.amountKobo ?? 0,
     payeOperated: wasDeducted(slip.operates, "paye"),
     deductions: deductionTotal(slip),
+    loans: loanTotal(slip),
     deductionLabels: deductionLabels(slip),
   };
 }
@@ -937,16 +969,14 @@ function Figure({
  * A figure that stops the run still gets the ochre mark; the rest are grey.
  */
 function Flags({
-  adjusted,
   warnings,
   bare = false,
 }: {
-  adjusted: readonly AdjustmentKind[];
   warnings: readonly RunException[];
   /** No margin above it: it is not sitting under a name. */
   bare?: boolean;
 }) {
-  if (adjusted.length === 0 && warnings.length === 0) return null;
+  if (warnings.length === 0) return null;
   const toFix = warnings.filter((w) => w.severity === "BLOCKER").length;
   return (
     <span
@@ -955,18 +985,6 @@ function Flags({
         !bare && "mt-1",
       )}
     >
-      {adjusted.length > 0 && (
-        <span
-          className="inline-flex items-center gap-1 text-[11px] leading-none text-muted"
-          title={adjusted.map((kind) => ADJUSTMENT_LABEL[kind]).join(", ")}
-        >
-          <Pencil aria-hidden="true" className="size-2.5" />
-          adjusted
-          <span className="sr-only">
-            : {adjusted.map((kind) => ADJUSTMENT_LABEL[kind]).join(", ")}
-          </span>
-        </span>
-      )}
       <AttentionMark
         tone={toFix > 0 ? "attention" : "info"}
         text={warnings.map((warning) => warning.message)}

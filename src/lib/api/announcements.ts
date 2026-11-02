@@ -1,6 +1,12 @@
 "use client";
 
-import { request, requestPaged, type Paged } from "@/lib/api/client";
+import {
+  request,
+  requestPaged,
+  requestStream,
+  type Paged,
+} from "@/lib/api/client";
+import type { EmployeeAccess } from "@/lib/types";
 
 /**
  * The company noticeboard — `/api/v1/announcements`.
@@ -38,7 +44,32 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 
 /* ------------------------------------------------------------------- shapes */
 
-export type AnnouncementAudience = "EVERYONE" | "DEPARTMENTS";
+export type AnnouncementAudience = "EVERYONE" | "DEPARTMENTS" | "PEOPLE";
+
+/** The attached picture, described. The bytes come from `announcementsApi.image`. */
+export type ApiNoticeImage = {
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+};
+
+/** A picture on its way to the API: base64, as documents travel. */
+export type NoticeImageUpload = {
+  filename: string;
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+  contentBase64: string;
+};
+
+/** Mirrors the API's `MAX_NOTICE_IMAGE_BYTES`. */
+export const MAX_NOTICE_IMAGE_BYTES = 5 * 1024 * 1024;
+export const NOTICE_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+/** Who was told, on a write that published. */
+export type ApiDelivery = { notified: number; emailing: number };
 
 /** Mirrors `SerializedAnnouncement`. */
 export type ApiAnnouncement = {
@@ -56,6 +87,15 @@ export type ApiAnnouncement = {
    * count of who it is for and these are the label.
    */
   departmentNames: string[];
+  /*
+   * The three below are optional because demo data and an older API do not
+   * carry them; absent reads as "nobody named" and "no picture".
+   */
+  /** Ids as stored, for `PEOPLE`. */
+  employeeIds?: string[];
+  /** Names for `employeeIds`. Somebody removed since is dropped. */
+  employeeNames?: string[];
+  image?: ApiNoticeImage | null;
   pinned: boolean;
   /**
    * Staff are expected to open it.
@@ -79,6 +119,8 @@ export type ApiAnnouncement = {
   postedByName: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Only on a create that published. */
+  delivery?: ApiDelivery;
 };
 
 /** Mirrors `BoardNotice`. What staff read. */
@@ -92,6 +134,10 @@ export type ApiBoardNotice = {
   publishedAt: string;
   /** Empty when the notice is for everybody. Names, never ids. */
   departmentNames: string[];
+  /** Sent to named people, the reader among them. Who else is never said. */
+  personal?: boolean;
+  /** A picture comes with it: `announcementsApi.image(id)`. */
+  hasImage?: boolean;
   postedByName: string | null;
 };
 
@@ -166,6 +212,7 @@ export type ApiPublishResult = {
   announcement: ApiAnnouncement;
   /** How many accounts can now read it. */
   reaches: number;
+  delivery: ApiDelivery;
 };
 
 /* ------------------------------------------------------------------ params */
@@ -180,6 +227,8 @@ export type AnnouncementListParams = {
   order?: "asc" | "desc";
   /** Matches the title and the wording. */
   q?: string;
+  /** Only notices sent to this person by name. */
+  employeeId?: string;
 };
 
 export type CreateAnnouncementBody = {
@@ -187,6 +236,8 @@ export type CreateAnnouncementBody = {
   body: string;
   audience?: AnnouncementAudience;
   departmentIds?: string[];
+  employeeIds?: string[];
+  image?: NoticeImageUpload;
   pinned?: boolean;
   /** Staff are expected to open it. Defaults to false. */
   mandatory?: boolean;
@@ -201,6 +252,9 @@ export type UpdateAnnouncementBody = {
   body?: string;
   audience?: AnnouncementAudience;
   departmentIds?: string[];
+  employeeIds?: string[];
+  /** `null` removes the picture. Absent leaves it alone. */
+  image?: NoticeImageUpload | null;
   pinned?: boolean;
   /**
    * Set or cleared at any time. The API records a change to it as its own audit
@@ -251,6 +305,91 @@ export const MANDATORY_EFFECT =
 export const DRAFT_EFFECT =
   "A draft is invisible to staff, it is not on anybody's dashboard, dimmed or " +
   "otherwise. Publishing is what puts it there.";
+
+/**
+ * Whether a notice can be addressed to somebody by name, and what to say about it.
+ *
+ * It copies the API's rule and nothing stricter (`assertPeople` in the
+ * announcements module): a person is refused when they have **no account at
+ * all** or their account is **archived**, and accepted otherwise. That includes
+ * somebody who was invited and has not accepted yet. They have an account, so
+ * the notice waits in their notifications until they sign in.
+ *
+ * The first version of this refused everybody who was not `ACCEPTED`, which
+ * turned away people the API takes and told them to invite somebody who had
+ * already been invited. A screen that is stricter than the server teaches
+ * people a rule the server does not have.
+ *
+ * `undefined` is "not known" (demo mode, or a caller who is sent lookup rows
+ * and so gets no access summary), and not known is allowed: the API decides at
+ * send, and its refusal names the person.
+ *
+ * The wording is the record's own ("Invited", "Invitation expired", "Access
+ * closed"), kept in one place so the picker's row and the Send message dialog
+ * cannot describe the same person two ways.
+ */
+export type NoticeReach = {
+  /** False exactly when the API would refuse them. */
+  can: boolean;
+  /** One short line for a row in a list. Null when there is nothing to say. */
+  line: string | null;
+  /** A phrase that follows their name, for a heading. Null when there is nothing to say. */
+  headline: string | null;
+  /** What it means for the message, and what to do. Null when there is nothing to say. */
+  detail: string | null;
+};
+
+const REACHABLE: NoticeReach = {
+  can: true,
+  line: null,
+  headline: null,
+  detail: null,
+};
+
+export function noticeReach(
+  access: Pick<EmployeeAccess, "state"> | undefined,
+): NoticeReach {
+  switch (access?.state) {
+    case "NONE":
+      return {
+        can: false,
+        line: "No account yet, so cannot be sent a message",
+        headline: "has no account yet",
+        detail:
+          "A message lands in their notifications, which they cannot open " +
+          "without an account. Invite them to sign in first.",
+      };
+    case "DISABLED":
+      return {
+        can: false,
+        line: "Access closed, so cannot be sent a message",
+        headline: "no longer has access",
+        detail:
+          "Their account is archived, so a message would sit in notifications " +
+          "they cannot open.",
+      };
+    case "SENT":
+      return {
+        can: true,
+        line: "Invited, has not signed in yet",
+        headline: "has not signed in yet",
+        detail:
+          "They have been invited and have not accepted yet. They will see " +
+          "this once they do.",
+      };
+    case "EXPIRED":
+      return {
+        can: true,
+        line: "Invitation expired, has not signed in yet",
+        headline: "has not signed in yet",
+        detail:
+          "Their invitation ran out before they used it. They will see this " +
+          "once they sign in, which needs another invitation.",
+      };
+    default:
+      return REACHABLE;
+  }
+}
 
 /* ------------------------------------------------------------------- calls */
 
@@ -305,6 +444,19 @@ export const announcementsApi = {
       `/announcements/${id}/readers`,
       { query: { ...params }, ...(signal ? { signal } : {}) },
     );
+  },
+
+  /**
+   * The notice's picture, as a blob for an object URL. An `<img src>` cannot
+   * carry the bearer token, so it is fetched like any other call.
+   */
+  async image(id: string, signal?: AbortSignal): Promise<Blob> {
+    const response = await requestStream(`/announcements/${id}/image`, {
+      method: "GET",
+      accept: "image/*",
+      ...(signal ? { signal } : {}),
+    });
+    return response.blob();
   },
 
   get(id: string, signal?: AbortSignal): Promise<ApiAnnouncement> {
@@ -366,8 +518,14 @@ export const announcementsApi = {
 export function audienceLabel(
   audience: AnnouncementAudience,
   departmentNames: readonly string[],
+  employeeNames: readonly string[] = [],
 ): string {
   if (audience === "EVERYONE") return "Everybody";
+  if (audience === "PEOPLE") {
+    if (employeeNames.length === 0) return "Nobody chosen";
+    if (employeeNames.length <= 2) return employeeNames.join(" and ");
+    return `${employeeNames.slice(0, 2).join(", ")} and ${employeeNames.length - 2} more`;
+  }
   if (departmentNames.length === 0) return "No department chosen";
   if (departmentNames.length <= 2) return departmentNames.join(" and ");
   return `${departmentNames.slice(0, 2).join(", ")} and ${departmentNames.length - 2} more`;

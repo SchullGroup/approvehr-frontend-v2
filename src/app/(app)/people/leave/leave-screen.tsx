@@ -47,7 +47,10 @@ import {
   useToast,
   type BadgeTone,
 } from "@/components/ui";
+import { ApproveDialog } from "@/components/portal/approve-dialog";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
+import { LeaveHistory } from "@/components/leave/leave-history";
+import { LeaveRequestFiles } from "@/components/leave/leave-request-files";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
@@ -81,6 +84,23 @@ const STATUS: Record<LeaveRowStatus, { tone: BadgeTone; label: string }> = {
   declined: { tone: "danger", label: "Sent back" },
   cancelled: { tone: "neutral", label: "Withdrawn" },
 };
+
+/** The API's limit on the note with a decision (`decideLeaveSchema`). */
+const NOTE_MAX = 500;
+
+/**
+ * What a refused decision says, for the dialog it was asked in.
+ *
+ * The field's own message where the API named one ("Say why, so they know what
+ * to change." is a 400 on `note`), and its sentence otherwise. Either way the
+ * dialog shows it and stays open, with what was typed still there.
+ */
+function refusalOf(failure: unknown): Error {
+  if (failure instanceof ApiError) {
+    return new Error(failure.messageFor("note") ?? failure.message);
+  }
+  return new Error("That did not work. Try again.");
+}
 
 /** How many balances the side card asks for. Connected, each one is a request. */
 const BALANCES_SHOWN = 8;
@@ -218,6 +238,8 @@ export function LeaveScreen() {
   );
   const [booking, setBooking] = useState(false);
   const [declining, setDeclining] = useState<LeaveRow | null>(null);
+  /** The request the panel is about to approve, asking for an optional note. */
+  const [approving, setApproving] = useState<LeaveRow | null>(null);
   const [withdrawing, setWithdrawing] = useState<LeaveRow | null>(null);
   /** The approval just made, said back at the top of the list. */
   const [decided, setDecided] = useState<LeaveDecision | null>(null);
@@ -315,9 +337,20 @@ export function LeaveScreen() {
    * answer: a first approval in a two-step workflow leaves the request waiting
    * on HR, and that is not "approved".
    */
-  const approve = async (request: LeaveRow) => {
+  const approve = async (
+    request: LeaveRow,
+    note?: string,
+    /* The dialog shows a refusal itself, in the field the person is looking at,
+       and stays open with what they typed. Reporting it here as well would also
+       close it, as though it had worked. */
+    options?: { throwOnFailure?: boolean },
+  ) => {
     try {
-      const result = await mutations.decide(request.id, "approved");
+      /* The note only when there is one: a quick approve from a row sends the
+         same two arguments it always did. */
+      const result = note
+        ? await mutations.decide(request.id, "approved", note)
+        : await mutations.decide(request.id, "approved");
       reload();
       setDecided((current) => ({
         request,
@@ -325,18 +358,28 @@ export function LeaveScreen() {
         n: (current?.n ?? 0) + 1,
       }));
     } catch (failure) {
+      if (options?.throwOnFailure) throw refusalOf(failure);
       reportFailure(failure);
     }
   };
 
-  const sendBack = (request: LeaveRow, note: string) => {
+  const sendBack = async (request: LeaveRow, note: string) => {
     setDecided((current) =>
       current?.request.id === request.id ? null : current,
     );
-    return run(
-      () => mutations.decide(request.id, "declined", note),
-      `${request.employeeName}'s request went back to them`,
-    );
+    try {
+      await mutations.decide(request.id, "declined", note);
+    } catch (failure) {
+      /* Thrown, not toasted: the reason is the whole of this dialog, and a
+         refusal about it (the server's own "Say why") belongs in the field the
+         person is typing in, with what they typed still there. */
+      throw refusalOf(failure);
+    }
+    reload();
+    toast.push({
+      title: `${request.employeeName}'s request went back to them`,
+      tone: "success",
+    });
   };
 
   const undo = (request: LeaveRow) => {
@@ -852,14 +895,35 @@ export function LeaveScreen() {
         detail={detail.detail}
         actionsFor={actionsFor}
         canWithdraw={canWithdraw}
-        onApprove={approve}
+        onApprove={setApproving}
         onSendBack={setDeclining}
         onUndo={undo}
         onWithdraw={setWithdrawing}
+        readerEmployeeId={employeeId}
+        isHr={canDecide}
+      />
+
+      <ApproveDialog
+        open={approving !== null}
+        what={
+          approving
+            ? `${approving.employeeName}'s ${approving.leaveType} leave`
+            : ""
+        }
+        maxLength={NOTE_MAX}
+        onClose={() => setApproving(null)}
+        onConfirm={async (note) => {
+          if (!approving) return;
+          await approve(approving, note, { throwOnFailure: true });
+          /* Decided: the panel has nothing left to show about a request that is
+             no longer waiting on this person. */
+          setOpenId(null);
+        }}
       />
 
       <DeclineDialog
         open={declining !== null}
+        maxLength={NOTE_MAX}
         what={
           declining
             ? `${declining.employeeName}'s ${declining.leaveType} leave`
@@ -867,7 +931,11 @@ export function LeaveScreen() {
         }
         onClose={() => setDeclining(null)}
         onConfirm={async (note) => {
-          if (declining) await sendBack(declining, note);
+          if (!declining) return;
+          await sendBack(declining, note);
+          /* Decided: a panel still open on it would go on offering the same
+             two buttons until the next refresh, for a request no longer waiting. */
+          if (openId === declining.id) setOpenId(null);
         }}
       />
 
@@ -1008,11 +1076,17 @@ function RequestPanel({
   onSendBack,
   onUndo,
   onWithdraw,
+  readerEmployeeId,
+  isHr,
 }: {
   open: boolean;
   onClose: () => void;
   loading: boolean;
   detail: ReturnType<typeof useLeaveRequestDetail>["detail"];
+  /** Who is reading, so the files know whether this is their own leave. */
+  readerEmployeeId: string | null;
+  /** Holds `APPROVE_LEAVE_ALL`. */
+  isHr: boolean;
   actionsFor: (request: LeaveRow) => LeaveRowActions;
   canWithdraw: (request: LeaveRow) => boolean;
   onApprove: (request: LeaveRow) => void;
@@ -1026,7 +1100,23 @@ function RequestPanel({
      at their own waiting request may approve it or take it back, and those are
      different acts with different records. The footer renders whichever apply
      and is absent when neither does, rather than rendering an empty bar. */
-  const actions = request ? actionsFor(request) : "none";
+  /* A manager who decides this request is the one reader the screen cannot
+     know about from their permissions alone: they hold `APPROVE_LEAVE` and the
+     person reports to them, which is a relationship and not a permission. The
+     API says so by sending the reduced read, so that is what this goes by.
+     They decide the first step and not the second: a request already with HR is
+     HR's to finish, and the API refuses another approver the same way. So the
+     controls are offered while it is waiting, and a request that is with HR
+     says whose it is instead of offering a button that can only refuse. */
+  const reduced = detail?.reduced === true;
+  const actions: LeaveRowActions = !request
+    ? "none"
+    : reduced
+      ? request.status === "pending"
+        ? "decide"
+        : "none"
+      : actionsFor(request);
+  const withHr = reduced && request?.status === "awaitingHr";
   const withdrawable = request !== undefined && canWithdraw(request);
 
   return (
@@ -1051,8 +1141,13 @@ function RequestPanel({
          `flex flex-wrap justify-end gap-2` div restated all three and quietly
          overrode the gap. */
       footer={
-        request && (actions !== "none" || withdrawable) ? (
+        request && (actions !== "none" || withdrawable || withHr) ? (
           <>
+            {withHr && (
+              <span className="mr-auto text-meta text-muted">
+                With HR now. They make the final decision.
+              </span>
+            )}
             {/* The reader's own open request: no button, because the API
                 refuses one, and a line that says so instead of a gap. First
                 in the source so `mr-auto` keeps it at the left and the
@@ -1093,13 +1188,7 @@ function RequestPanel({
                   <X aria-hidden="true" className="size-3.5" />
                   Send back
                 </Button>
-                <Button
-                  variant="approve"
-                  onClick={() => {
-                    onApprove(request);
-                    onClose();
-                  }}
-                >
+                <Button variant="approve" onClick={() => onApprove(request)}>
                   <Check aria-hidden="true" className="size-3.5" />
                   Approve
                 </Button>
@@ -1158,13 +1247,55 @@ function RequestPanel({
                     },
                   ]
                 : []),
+              /* What the first approver said, for whoever finishes it. HR's own
+                 note never replaces it, so it is still here when HR decides. */
+              ...(request.status === "awaitingHr" && request.firstApprovalNote
+                ? [
+                    {
+                      term: "First approver's note",
+                      value: request.firstApprovalNote,
+                    },
+                  ]
+                : []),
               { term: "Reason given", value: request.reason ?? "None given" },
-              {
-                term: "Decision note",
-                value: request.decisionNote ?? "—",
-              },
+              /* What was said when it was decided. With a history the same
+                 words are a line in it, so only a request that was sent back
+                 repeats its reason here: that is the one thing the person who
+                 filed it opens this to read. Without a history (demo mode, an
+                 API that predates it) the row is the only place it is. */
+              ...(detail && detail.history.length > 0
+                ? request.status === "declined" && request.decisionNote
+                  ? [
+                      {
+                        term: "Why it was sent back",
+                        value: request.decisionNote,
+                      },
+                    ]
+                  : []
+                : [
+                    {
+                      term: "Decision note",
+                      value: request.decisionNote ?? "—",
+                    },
+                  ]),
             ]}
           />
+
+          {/* Files, when the API says this reader may see them. */}
+          <LeaveRequestFiles
+            requestId={request.id}
+            employeeId={request.employeeId}
+            attachmentCount={request.attachmentCount}
+            reader={{
+              isOwner:
+                readerEmployeeId !== null &&
+                request.employeeId === readerEmployeeId,
+              isHr,
+              reduced: detail?.reduced === true,
+            }}
+          />
+
+          {detail && <LeaveHistory history={detail.history} />}
 
           {detail?.balance && (
             <DrawerSection title={`${detail.balance.leaveType} balance`}>
@@ -1201,13 +1332,20 @@ function RequestPanel({
           )}
 
           <DrawerSection title="Who else is off those days">
-            {detail && detail.clashes.length === 0 ? (
+            {detail && detail.clashes === null ? (
+              /* Withheld, not empty. A manager who decides the request gets the
+                 reduced read, and "Nobody else" here would be a statement about
+                 cover that the API did not make. */
+              <p className="text-body-sm text-muted">
+                Who else is off is not shown to you.
+              </p>
+            ) : detail && detail.clashes?.length === 0 ? (
               <p className="text-body-sm text-body">
                 Nobody else. Cover is not a problem here.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {detail?.clashes.map((clash) => (
+                {detail?.clashes?.map((clash) => (
                   <li
                     key={clash.id}
                     className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2.5 text-body-sm"

@@ -608,7 +608,12 @@ export function EditableSection({
               value={String(draft[f.key] ?? "")}
               onChange={(e) => {
                 const raw = e.target.value;
-                const v = f.type === "number" ? Number(raw) : raw;
+                /* An emptied number box is "not set", not zero, where the
+                   field clears to null (gross pay): zero is a figure now. */
+                const v =
+                  f.type === "number" && !(f.clearsToNull && raw === "")
+                    ? Number(raw)
+                    : raw;
                 setDraft((d) => ({ ...d, [f.key]: v }));
                 setErrors((x) => x.filter((y) => y.field !== f.key));
               }}

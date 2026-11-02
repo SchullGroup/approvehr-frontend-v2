@@ -55,7 +55,6 @@ import { PensionSchemePanel } from "./pension-scheme-panel";
 
 export function ExtrasPanel() {
   const canEdit = useCan("MANAGE_PAY_STRUCTURE");
-  const canEditRecords = useCan("EDIT_RECORDS");
 
   return (
     <div className="grid gap-4">
@@ -71,7 +70,7 @@ export function ExtrasPanel() {
       <BonusSwitch canEdit={canEdit} />
       <WalletPayoutSwitch canEdit={canEdit} />
       <PayrollSettingsForm />
-      <PensionSchemePanel canEdit={canEditRecords} />
+      <PensionSchemePanel canEdit={canEdit} />
 
       <Card>
         <CardHeader

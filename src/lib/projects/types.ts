@@ -211,7 +211,36 @@ export type IssueComment = {
   /** Set once the author has changed it after posting. */
   editedAt: string | null;
   createdAt: string;
+  /** Files posted with it. Absent in the demo, which keeps none. */
+  attachments?: IssueAttachment[];
 };
+
+/**
+ * A file on a task, or on one of its comments. Never its storage key: the only
+ * way to open one is `GET /attachments/:id/url`, which asks who is reading.
+ */
+export type IssueAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  /** The employee who attached it. */
+  uploadedBy: string;
+  createdAt: string;
+};
+
+/** A file already PUT to a key the API minted, ready to be recorded. */
+export type AttachmentRef = {
+  storageKey: string;
+  filename: string;
+  contentType: string;
+};
+
+/** Somebody watching an issue. `addedById` is a *user* id: who added them. */
+export type Watcher = { id: string; name: string; addedById?: string | null };
+
+/** Who is watching an issue, and whether the reader is. */
+export type WatchState = { watchers: Watcher[]; watching: boolean };
 
 export type IssueActivity = {
   id: string;
@@ -243,6 +272,14 @@ export type IssueWeeklyTask =
 export type IssueThread = {
   comments: IssueComment[];
   activity: IssueActivity[];
+  /** From the issue's own read; absent in the demo, which keeps none. */
+  watchers?: Watcher[];
+  watching?: boolean;
+  /** The task's own files, not its comments'. */
+  attachments?: IssueAttachment[];
+  /** What the API says the reader may do; absent in the demo. */
+  canManageWatchers?: boolean;
+  canAttachToTask?: boolean;
 };
 
 /** Everything the project screen needs about one project. */

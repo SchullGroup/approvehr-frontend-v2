@@ -156,6 +156,20 @@ export function HowItWorksBody() {
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
+          Weekly tasks can count too
+        </p>
+        <p className="mt-1">
+          Weekly tasks count toward the mark only when the period gives them a
+          weight. They use the manager&rsquo;s grades on tasks logged against
+          the period&rsquo;s objectives: Completed counts in full, Partly
+          completed counts half, and Not completed and Rejected count nothing.
+          Someone with no graded tasks has that share spread over the other
+          parts.
+        </p>
+      </div>
+
+      <div>
+        <p className="text-body-sm font-semibold text-ink">
           The shares are locked in when the period opens
         </p>
         <p className="mt-1">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Pin } from "lucide-react";
 import { Badge, Button, Disclosure } from "@/components/ui";
+import { NoticeImage } from "@/components/announcements/notice-image";
 import type { ApiBoard, ApiBoardNotice } from "@/lib/api/announcements";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
@@ -134,6 +135,12 @@ function Notice({ notice }: { notice: ApiBoardNotice }) {
             Pinned
           </Badge>
         )}
+        {notice.personal && (
+          /* Why they got it, as for a department: a message for them alone. */
+          <Badge tone="neutral" size="sm">
+            Sent to you
+          </Badge>
+        )}
         {notice.departmentNames.length > 0 && (
           /* Why they got it. A departmental notice reaching somebody who does
              not know why reads as a message sent to the wrong person. */
@@ -153,6 +160,10 @@ function Notice({ notice }: { notice: ApiBoardNotice }) {
       <p className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-body">
         {notice.body}
       </p>
+
+      {notice.hasImage && (
+        <NoticeImage id={notice.id} alt={notice.title} className="mt-2" />
+      )}
 
       <p className="mt-1.5 text-meta text-muted">
         {notice.postedByName

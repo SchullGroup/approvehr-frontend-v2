@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   imports as api,
@@ -431,6 +431,13 @@ export function useImport(
      */
     ready: boolean;
   } = NO_TEMPLATE_LISTS,
+  /**
+   * What the screen tells the API that the file cannot — see
+   * `ImportSurface.useImportContext`. Sent with both steps; a change drops the
+   * check, because the fingerprint covers it and the old check was for another
+   * import.
+   */
+  context?: Readonly<Record<string, string>>,
 ) {
   const { isConnected, can } = useSession();
   const timeZone = useOrgTimezone();
@@ -453,6 +460,20 @@ export function useImport(
   const [mapping, setMapping] = useState<Mapping>({});
   const [check, setCheck] = useState<CheckOutcome | null>(null);
   const [result, setResult] = useState<ApplyOutcome | null>(null);
+
+  /* Compared by value, so a surface building a fresh object each render is not
+     a change. Adjusted during render, not in an effect: a check for one year
+     must not survive a frame into another. */
+  const contextKey = JSON.stringify(context ?? {});
+  const contextBody = useMemo(() => {
+    const values = JSON.parse(contextKey) as Record<string, string>;
+    return Object.keys(values).length > 0 ? { context: values } : {};
+  }, [contextKey]);
+  const [checkedContext, setCheckedContext] = useState(contextKey);
+  if (checkedContext !== contextKey) {
+    setCheckedContext(contextKey);
+    if (result === null) setCheck(null);
+  }
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [template, setTemplate] = useState<ApiImportTemplate | null>(null);
@@ -829,6 +850,7 @@ export function useImport(
           filename: file.name,
           rows: slice,
           decisions: decisionsFor(rowNumbers, decisions),
+          ...contextBody,
         });
 
         parts.push({
@@ -938,6 +960,7 @@ export function useImport(
     decisions,
     selection,
     timeZone,
+    contextBody,
   ]);
 
   /* -------------------------------------------------------------- step four */
@@ -992,6 +1015,7 @@ export function useImport(
           confirm: true,
           rows: part.rowNumbers.map((number) => rows[number - 1] as ImportRow),
           decisions: decisionsFor(part.rowNumbers, decisions),
+          ...contextBody,
         });
         applied += 1;
         sent += part.rowNumbers.length;
@@ -1039,7 +1063,7 @@ export function useImport(
       failure,
     });
     return failure === null;
-  }, [check, dictionary, mapping, fixes, decisions]);
+  }, [check, dictionary, mapping, fixes, decisions, contextBody]);
 
   /**
    * Try again with only the rows that did not land.
@@ -1085,6 +1109,12 @@ export function useImport(
       const files = buildTemplateFiles(templateColumns(), {
         basename: dictionary.templateFile.basename,
         sheetName: dictionary.templateFile.sheetName,
+        checkedDates: Object.entries(
+          dictionary.templateFile.checkedDates ?? {},
+        ).flatMap(([field, format]) => {
+          const column = dictionary.heading[field];
+          return column === undefined ? [] : [{ column, format }];
+        }),
         ...(template?.legend ? { legend: template.legend } : {}),
         ...(template?.matching ? { matching: template.matching } : {}),
       });

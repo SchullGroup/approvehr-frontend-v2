@@ -3,8 +3,10 @@
 import { ApiError, request, requestPaged } from "@/lib/api/client";
 import { STATUS_CATEGORIES } from "@/lib/projects/types";
 import type {
+  AttachmentRef,
   StatusCategory,
   CompleteSprintMove,
+  IssueAttachment,
   Issue,
   IssueActivity,
   IssueComment,
@@ -22,6 +24,7 @@ import type {
   Sprint,
   SprintPatch,
   StatusInput,
+  WatchState,
 } from "@/lib/projects/types";
 
 /**
@@ -217,8 +220,52 @@ export function toComment(raw: Raw): IssueComment {
     body: str(raw["body"]),
     editedAt: strOrNull(raw["editedAt"]),
     createdAt: str(raw["createdAt"]),
+    attachments: list(raw["attachments"]).map(toAttachment),
   };
 }
+
+export function toAttachment(raw: Raw): IssueAttachment {
+  return {
+    id: str(raw["id"]),
+    filename: str(raw["filename"]),
+    contentType: str(raw["contentType"]),
+    sizeBytes: num(raw["sizeBytes"]),
+    uploadedBy: str(raw["uploadedBy"]),
+    createdAt: str(raw["createdAt"]),
+  };
+}
+
+/** `{ watchers, watching }`, from an issue's read or any watcher route. */
+export function toWatchState(raw: Raw): WatchState {
+  return {
+    watchers: list(raw["watchers"])
+      .map((w) => ({
+        id: str(w["id"]),
+        name: str(w["name"]),
+        addedById: strOrNull(w["addedById"]),
+      }))
+      .filter((w) => w.id !== ""),
+    watching: raw["watching"] === true,
+  };
+}
+
+/** Where to PUT one file for an issue: the key to record, and the signed URL. */
+export type IssueUploadUrl = {
+  storageKey: string;
+  url: string;
+  headers: Record<string, string>;
+  expiresAt: string;
+};
+
+/**
+ * What opening a task by id finds (`/projects/tasks/:id`): somebody's personal
+ * task, a board task (opened on its board), or a board task the reader only
+ * leads somebody on (the reduced read).
+ */
+export type TaskTarget =
+  | { kind: "personal"; issue: Issue }
+  | { kind: "board"; projectId: string; key: string }
+  | ({ kind: "reduced" } & ReducedIssueDetail);
 
 export function toActivity(raw: Raw): IssueActivity {
   return {
@@ -300,6 +347,188 @@ export function toIssueLink(raw: Raw): IssueLink {
               : "TODO",
             assigneeName: strOrNull(other["assigneeName"]),
           },
+  };
+}
+
+/* ------------------------------------------------------------- personal tasks */
+
+export type PersonalState = "open" | "done" | "overdue";
+
+/** A task on somebody's own list: an issue, the column it is in, and who set it. */
+export type PersonalTask = Issue & {
+  statusName: string;
+  statusCategory: StatusCategory;
+  /** Present only when somebody other than its owner put it on the list. */
+  setBy: { id: string; name: string } | null;
+};
+
+/** One personal task as the drawer needs it: the issue and its list's columns. */
+export type PersonalTaskDetail = {
+  issue: Issue;
+  statusName: string;
+  statusCategory: StatusCategory;
+  statuses: ProjectStatus[];
+  /** The reader may change title, description and due date: its owner, or the leader who set it. */
+  canEditDetails: boolean;
+};
+
+export type NewPersonalTaskInput = {
+  title: string;
+  description?: string;
+  dueDate?: string | null;
+  labels?: string[];
+  goalId?: string | null;
+};
+
+const categoryOf = (v: unknown): StatusCategory =>
+  (STATUS_CATEGORIES as readonly string[]).includes(str(v))
+    ? (v as StatusCategory)
+    : "TODO";
+
+export function toPersonalTask(raw: Raw): PersonalTask {
+  const by = raw["setBy"] as Raw | null | undefined;
+  return {
+    ...toIssue(raw),
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    setBy:
+      by && str(by["id"]) ? { id: str(by["id"]), name: str(by["name"]) } : null,
+  };
+}
+
+export function toPersonalTaskDetail(raw: Raw): PersonalTaskDetail {
+  return {
+    issue: toIssue(raw),
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    statuses: list(raw["statuses"]).map(toStatus),
+    canEditDetails: raw["canEditDetails"] === true,
+  };
+}
+
+/* ----------------------------------------------------------------- team tasks */
+
+export type TeamFilter = "open" | "overdue" | "due-week";
+
+export type TeamCounts = {
+  open: number;
+  overdue: number;
+  dueThisWeek: number;
+  laterOrNoDate: number;
+  doneThisWeek: number;
+};
+
+export type TeamTask = {
+  id: string;
+  key: string;
+  title: string;
+  /** Null for a personal task: its list is not a project anybody opens. */
+  projectId: string | null;
+  projectName: string;
+  personal: boolean;
+  statusName: string;
+  statusCategory: StatusCategory;
+  dueDate: string | null;
+  overdue: boolean;
+  labels: string[];
+};
+
+export type TeamPerson = {
+  employee: { id: string; name: string; jobTitle: string | null };
+  counts: TeamCounts;
+  tasks: TeamTask[];
+};
+
+export type GiveTaskInput = {
+  employeeId: string;
+  title: string;
+  description?: string;
+  dueDate?: string | null;
+  labels?: string[];
+};
+
+export function toTeamTask(raw: Raw): TeamTask {
+  return {
+    id: str(raw["id"]),
+    key: str(raw["key"]),
+    title: str(raw["title"]),
+    projectId: strOrNull(raw["projectId"]),
+    projectName: str(raw["projectName"]),
+    personal: raw["personal"] === true,
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    dueDate: day(raw["dueDate"]),
+    overdue: raw["overdue"] === true,
+    labels: Array.isArray(raw["labels"])
+      ? (raw["labels"] as unknown[]).filter(
+          (l): l is string => typeof l === "string",
+        )
+      : [],
+  };
+}
+
+export function toTeamPerson(raw: Raw): TeamPerson {
+  const who = (raw["employee"] ?? {}) as Raw;
+  const c = (raw["counts"] ?? {}) as Raw;
+  return {
+    employee: {
+      id: str(who["id"]),
+      name: str(who["name"]),
+      jobTitle: strOrNull(who["jobTitle"]),
+    },
+    counts: {
+      open: num(c["open"]),
+      overdue: num(c["overdue"]),
+      dueThisWeek: num(c["dueThisWeek"]),
+      laterOrNoDate: num(c["laterOrNoDate"]),
+      doneThisWeek: num(c["doneThisWeek"]),
+    },
+    tasks: list(raw["tasks"]).map(toTeamTask),
+  };
+}
+
+/**
+ * A board task read by somebody who leads its assignee but is not on its project
+ * (`GET /issues/:id` answers `reduced: true`): what it is and where it stands,
+ * never what is said about it. No description, comments or files.
+ */
+export type ReducedIssueDetail = {
+  issue: Issue;
+  projectName: string;
+  statusName: string;
+  statusCategory: StatusCategory;
+  subtasks: {
+    id: string;
+    key: string;
+    title: string;
+    statusCategory: StatusCategory;
+  }[];
+};
+
+/** What `GET /issues/:id` gave a leader: the full read, or the reduced one. */
+export type LeaderRead =
+  { reduced: false } | ({ reduced: true } & ReducedIssueDetail);
+
+export function toLeaderRead(raw: Raw): LeaderRead {
+  if (raw["reduced"] !== true) return { reduced: false };
+  return {
+    reduced: true,
+    /* Rebuilt from the fields a reduced read carries: if the API ever sent a
+       description or a comment count here, it would still not reach the screen. */
+    issue: toIssue({
+      ...raw,
+      description: "",
+      commentCount: 0,
+    }),
+    projectName: str(raw["projectName"]),
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    subtasks: list(raw["subtasks"]).map((s) => ({
+      id: str(s["id"]),
+      key: str(s["key"]),
+      title: str(s["title"]),
+      statusCategory: categoryOf(s["statusCategory"]),
+    })),
   };
 }
 
@@ -485,6 +714,82 @@ export const projectsApi = {
     };
   },
 
+  /* ---------------------------------------------------------- personal tasks */
+
+  /** The caller's own tasks. `overdue` is open and due before today. */
+  mineTasks: async (state: PersonalState, signal?: AbortSignal) =>
+    list(
+      await request<Raw[]>("/projects/mine/tasks", {
+        query: { state },
+        ...signalOf(signal),
+      }),
+    ).map(toPersonalTask),
+
+  createMineTask: async (input: NewPersonalTaskInput) =>
+    toPersonalTask(
+      await request<Raw>("/projects/mine/tasks", {
+        method: "POST",
+        body: input,
+      }),
+    ),
+
+  /** A personal task with the columns of the list it is on. */
+  personalTask: async (id: string, signal?: AbortSignal) =>
+    toPersonalTaskDetail(await request<Raw>(`/issues/${id}`, signalOf(signal))),
+
+  /* -------------------------------------------------------------- team tasks */
+
+  /** Your people's open work, most overdue first. `{ people: [] }` for a non-leader. */
+  teamTasks: async (
+    filter: TeamFilter,
+    signal?: AbortSignal,
+  ): Promise<TeamPerson[]> => {
+    const raw = await request<Raw>("/projects/team-tasks", {
+      query: { filter },
+      ...signalOf(signal),
+    });
+    return list(raw["people"]).map(toTeamPerson);
+  },
+
+  /** Whether the caller leads anybody: one cheap existence check for the nav. */
+  teamLeads: async (signal?: AbortSignal): Promise<boolean> => {
+    const raw = await request<Raw>(
+      "/projects/team-tasks/leads",
+      signalOf(signal),
+    );
+    return raw["leads"] === true;
+  },
+
+  /** Puts a task on one of your people's own lists, set by you. */
+  giveTask: (input: GiveTaskInput) =>
+    request<Raw>("/projects/team-tasks", { method: "POST", body: input }),
+
+  /** Moves a personal task to somebody in your team. */
+  moveTask: (id: string, employeeId: string) =>
+    request<Raw>(`/issues/${id}/move`, {
+      method: "POST",
+      body: { employeeId },
+    }),
+
+  /**
+   * A task by id, wherever it lives. The read says whether it is personal; the
+   * key cannot, since a board may be keyed `MY` too.
+   */
+  openTask: async (id: string, signal?: AbortSignal): Promise<TaskTarget> => {
+    const raw = await request<Raw>(`/issues/${id}`, signalOf(signal));
+    const read = toLeaderRead(raw);
+    if (read.reduced) return { ...read, kind: "reduced" };
+    const issue = toIssue(raw);
+    if (raw["personal"] === true) {
+      return { kind: "personal", issue };
+    }
+    return { kind: "board", projectId: issue.projectId, key: issue.key };
+  },
+
+  /** An issue as a leader reads it: in full, or reduced when not on its project. */
+  leaderRead: async (id: string, signal?: AbortSignal) =>
+    toLeaderRead(await request<Raw>(`/issues/${id}`, signalOf(signal))),
+
   /* ----------------------------------------------------------------- issues */
 
   createIssue: async (projectId: string, input: NewIssueInput) =>
@@ -516,16 +821,96 @@ export const projectsApi = {
     return {
       comments: list(comments).map(toComment),
       activity: list(issue["activity"]).map(toActivity),
+      ...toWatchState(issue),
+      attachments: list(issue["attachments"]).map(toAttachment),
+      canManageWatchers: issue["canManageWatchers"] === true,
+      canAttachToTask: issue["canAttachToTask"] === true,
     };
   },
 
-  addComment: async (issueId: string, body: string) =>
+  /** Files go up first (`attachmentUploadUrl`, then the PUT); this records them. */
+  addComment: async (
+    issueId: string,
+    body: string,
+    attachments: AttachmentRef[] = [],
+  ) =>
     toComment(
       await request<Raw>(`/issues/${issueId}/comments`, {
         method: "POST",
-        body: { body },
+        body: attachments.length > 0 ? { body, attachments } : { body },
       }),
     ),
+
+  /* --------------------------------------------------------------- watchers */
+
+  watch: async (issueId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watch`, { method: "POST" }),
+    ),
+
+  unwatch: async (issueId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watch`, { method: "DELETE" }),
+    ),
+
+  /** 422 when, on a board, they cannot see the task; 403 on a personal task
+      for anybody but its owner and their leaders. */
+  addWatcher: async (issueId: string, employeeId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watchers`, {
+        method: "POST",
+        body: { employeeId },
+      }),
+    ),
+
+  removeWatcher: async (issueId: string, employeeId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watchers/${employeeId}`, {
+        method: "DELETE",
+      }),
+    ),
+
+  /* ------------------------------------------------------------------ files */
+
+  /** Somewhere to PUT one file, for the task or for a comment about to be posted. */
+  attachmentUploadUrl: async (
+    issueId: string,
+    input: { filename: string; contentType: string; sizeBytes: number },
+  ): Promise<IssueUploadUrl> => {
+    const raw = await request<Raw>(
+      `/issues/${issueId}/attachments/upload-url`,
+      { method: "POST", body: input },
+    );
+    const headers = (raw["headers"] ?? {}) as Record<string, unknown>;
+    return {
+      storageKey: str(raw["storageKey"]),
+      url: str(raw["url"]),
+      headers: Object.fromEntries(
+        Object.entries(headers).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+      ),
+      expiresAt: str(raw["expiresAt"]),
+    };
+  },
+
+  /** Records a file, already uploaded, on the task itself. */
+  recordAttachment: async (issueId: string, ref: AttachmentRef) =>
+    toAttachment(
+      await request<Raw>(`/issues/${issueId}/attachments`, {
+        method: "POST",
+        body: ref,
+      }),
+    ),
+
+  /** A short-lived link to open one file. */
+  attachmentUrl: async (id: string, signal?: AbortSignal) => {
+    const raw = await request<Raw>(`/attachments/${id}/url`, signalOf(signal));
+    return { url: str(raw["url"]), expiresAt: str(raw["expiresAt"]) };
+  },
+
+  removeAttachment: (id: string) =>
+    request<unknown>(`/attachments/${id}`, { method: "DELETE" }),
 
   /** Author only. */
   editComment: async (id: string, body: string) =>

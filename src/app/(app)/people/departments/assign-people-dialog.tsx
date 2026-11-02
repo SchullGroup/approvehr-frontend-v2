@@ -56,6 +56,7 @@ export function AssignPeopleDialog({
   effect,
   extraContent,
   countLabel,
+  statusOnly = false,
   candidates,
   confirmLabel,
   busy = false,
@@ -67,6 +68,12 @@ export function AssignPeopleDialog({
   description?: string;
   /** What this does to pay reporting. Always rendered when present. */
   effect?: string;
+  /**
+   * Say only "Added" or "Not added" beside each name, and nothing about where
+   * they sit or what they do. For a pay component, where the one question is
+   * who has it.
+   */
+  statusOnly?: boolean;
   /**
    * Fields specific to one caller — an amount, a start date — that belong
    * above the picker rather than beside it. Generic on purpose: this dialog
@@ -208,12 +215,24 @@ export function AssignPeopleDialog({
               >
                 <Checkbox
                   label={person.name}
-                  {...(person.jobTitle ? { description: person.jobTitle } : {})}
+                  {...(person.jobTitle && !statusOnly
+                    ? { description: person.jobTitle }
+                    : {})}
                   checked={person.already === true || picked.has(person.id)}
                   disabled={person.already === true || busy}
                   onChange={() => toggle(person.id)}
                 />
-                {person.already ? (
+                {statusOnly ? (
+                  person.already ? (
+                    <Badge tone="success" size="sm" dot>
+                      Added
+                    </Badge>
+                  ) : (
+                    <Badge tone="neutral" size="sm">
+                      Not added
+                    </Badge>
+                  )
+                ) : person.already ? (
                   <Badge tone="neutral" size="sm">
                     Already here
                   </Badge>
@@ -233,7 +252,9 @@ export function AssignPeopleDialog({
 
         {chosen.length > moving.length && (
           <p className="text-body-sm text-muted">
-            People already here are ticked and will not be sent again.
+            {statusOnly
+              ? "People already added are ticked and will not be added again."
+              : "People already here are ticked and will not be sent again."}
           </p>
         )}
       </div>

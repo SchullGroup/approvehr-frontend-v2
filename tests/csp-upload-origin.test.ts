@@ -69,8 +69,22 @@ describe("the storage origin in connect-src", () => {
 describe("the API's origin in img-src", () => {
   it("is named, so a company's logo from the API can be drawn", async () => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
+    vi.stubEnv("NEXT_PUBLIC_UPLOAD_ORIGINS", "");
     expect(await directive("img-src")).toBe(
       "img-src 'self' data: blob: https://api.example.test",
+    );
+  });
+});
+
+describe("the storage origin in img-src", () => {
+  it("is named, so an image attached to a task can be shown as a thumbnail", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
+    vi.stubEnv(
+      "NEXT_PUBLIC_UPLOAD_ORIGINS",
+      "https://bucket.s3.us-east-1.amazonaws.com",
+    );
+    expect(await directive("img-src")).toBe(
+      "img-src 'self' data: blob: https://api.example.test https://bucket.s3.us-east-1.amazonaws.com",
     );
   });
 });

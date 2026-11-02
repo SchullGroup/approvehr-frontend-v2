@@ -37,6 +37,7 @@ import {
   withLead,
 } from "@/lib/projects/mutations";
 import type {
+  AttachmentRef,
   CompleteSprintMove,
   Issue,
   IssueComment,
@@ -699,11 +700,12 @@ async function apiAddComment(
   projectId: string,
   issueId: string,
   body: string,
+  attachments: AttachmentRef[] = [],
 ): Promise<Result<IssueComment>> {
   claim(owner);
   try {
     const comment = await tracked(projectId, () =>
-      projectsApi.addComment(issueId, body),
+      projectsApi.addComment(issueId, body, attachments),
     );
     const entry = cache.threads[issueId];
     if (entry?.thread) {
@@ -1157,10 +1159,11 @@ export type ProjectActions = {
     issue: Pick<Issue, "id" | "key">,
     options?: Quiet,
   ) => Promise<Result<void>>;
+  /** `attachments` are uploaded already (`lib/projects/files.ts`); the API only. */
   addComment: (
     issueId: string,
     body: string,
-    options?: Quiet,
+    options?: Quiet & { attachments?: AttachmentRef[] },
   ) => Promise<Result<IssueComment>>;
   /** Author only. The API refuses anybody else. */
   editComment: (
@@ -1290,7 +1293,13 @@ export function useProjectActions(projectId: string): ProjectActions {
       addComment: async (issueId, body, options) =>
         settle(
           api
-            ? await apiAddComment(api, projectId, issueId, body)
+            ? await apiAddComment(
+                api,
+                projectId,
+                issueId,
+                body,
+                options?.attachments,
+              )
             : demo((book, ctx) => {
                 const out = addCommentToBook(book, issueId, body, ctx);
                 return { book: out.book, value: out.comment };

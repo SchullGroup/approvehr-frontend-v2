@@ -143,12 +143,9 @@ afterEach(() => {
 
 /** The start-month select inside the "Change the start month" disclosure. */
 function openStartMonths() {
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: "Change the start month, add interest or record what is already repaid",
-    }),
-  );
-  return screen.getByRole("combobox") as HTMLSelectElement;
+  return screen.getByLabelText(
+    /When do deductions start/i,
+  ) as HTMLSelectElement;
 }
 
 const labelsOf = (select: HTMLSelectElement) =>
@@ -207,7 +204,7 @@ describe("useLoanToday", () => {
 });
 
 describe("applying for a loan", () => {
-  it("connected, offers this month and the next two, and defaults to next month", async () => {
+  it("connected, offers this month and the next two, and defaults to this month", async () => {
     apply.mockResolvedValue(pending());
     renderApply();
     const select = openStartMonths();
@@ -217,24 +214,24 @@ describe("applying for a loan", () => {
       "November 2026",
       "December 2026",
     ]);
-    expect(select.value).toBe("1");
-
-    fireEvent.click(screen.getByRole("button", { name: "Send for approval" }));
-    await waitFor(() => expect(apply).toHaveBeenCalledOnce());
-    expect(apply.mock.calls[0]?.[0]).toMatchObject({
-      startPeriod: "2026-11-01",
-    });
-  });
-
-  it("connected, can still start this month's payroll", async () => {
-    apply.mockResolvedValue(pending());
-    renderApply();
-    fireEvent.change(openStartMonths(), { target: { value: "0" } });
+    expect(select.value).toBe("0");
 
     fireEvent.click(screen.getByRole("button", { name: "Send for approval" }));
     await waitFor(() => expect(apply).toHaveBeenCalledOnce());
     expect(apply.mock.calls[0]?.[0]).toMatchObject({
       startPeriod: "2026-10-01",
+    });
+  });
+
+  it("connected, can still start next month", async () => {
+    apply.mockResolvedValue(pending());
+    renderApply();
+    fireEvent.change(openStartMonths(), { target: { value: "1" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Send for approval" }));
+    await waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    expect(apply.mock.calls[0]?.[0]).toMatchObject({
+      startPeriod: "2026-11-01",
     });
   });
 
@@ -257,12 +254,12 @@ describe("applying for a loan", () => {
       "September 2026",
       "October 2026",
     ]);
-    expect(select.value).toBe("1");
+    expect(select.value).toBe("0");
 
     fireEvent.click(screen.getByRole("button", { name: "Send for approval" }));
     await waitFor(() => expect(apply).toHaveBeenCalledOnce());
     expect(apply.mock.calls[0]?.[0]).toMatchObject({
-      startPeriod: "2026-09-01",
+      startPeriod: "2026-08-01",
     });
   });
 });
@@ -287,14 +284,14 @@ describe("approving different terms", () => {
       "November 2026",
       "December 2026",
     ]);
-    expect(select.value).toBe("1");
+    expect(select.value).toBe("0");
 
     fireEvent.click(
       screen.getByRole("button", { name: "Approve these terms" }),
     );
     await waitFor(() => expect(approve).toHaveBeenCalledOnce());
     expect(approve.mock.calls[0]?.[1]).toMatchObject({
-      startPeriod: "2026-11-01",
+      startPeriod: "2026-10-01",
     });
   });
 
@@ -308,11 +305,11 @@ describe("approving different terms", () => {
 });
 
 describe("a pending loan's proposed schedule", () => {
-  it("connected, starts next month when no start was asked for, as the API will", () => {
+  it("connected, starts this month when no start was asked for, as the API will", () => {
     loanOnScreen.current = pending({ startPeriod: null });
     render(<LoanDetailScreen id="loan-9" />);
 
-    expect(screen.getByText("November 2026 if approved now")).toBeVisible();
+    expect(screen.getByText("October 2026 if approved now")).toBeVisible();
   });
 
   it("keeps the month the applicant asked for", () => {
@@ -327,6 +324,6 @@ describe("a pending loan's proposed schedule", () => {
     loanOnScreen.current = pending({ startPeriod: null });
     render(<LoanDetailScreen id="loan-9" />);
 
-    expect(screen.getByText("September 2026 if approved now")).toBeVisible();
+    expect(screen.getByText("August 2026 if approved now")).toBeVisible();
   });
 });

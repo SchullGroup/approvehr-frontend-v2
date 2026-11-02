@@ -49,12 +49,15 @@ export function DeclineDialog({
   open,
   what,
   reader = "requester",
+  maxLength,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   /** What is going back, named in the sentence the approver reads. */
   what: string;
+  /** The server's limit on a reason, where it has one. */
+  maxLength?: number;
   /** `record` when nobody raised the row, so the note is kept rather than sent. */
   reader?: "requester" | "reject" | "record";
   onClose: () => void;
@@ -118,6 +121,7 @@ export function DeclineDialog({
         <Textarea
           rows={3}
           value={note}
+          {...(maxLength ? { maxLength } : {})}
           placeholder={copy.placeholder}
           onChange={(e) => {
             const next = e.target.value;

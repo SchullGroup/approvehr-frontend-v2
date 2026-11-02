@@ -37,13 +37,15 @@ vi.mock("@/lib/store/projects", () => ({
   useIssueThread: () => ({ thread, status: "ready", reload: reloadThread }),
 }));
 
+const actor = vi.hoisted(() => ({
+  employeeId: "p-01" as string | null,
+  editRecords: false,
+  leadsPeople: true,
+  headsDepartment: false,
+}));
+
 vi.mock("@/lib/store/project-session", () => ({
-  useProjectActor: () => ({
-    employeeId: "p-01",
-    editRecords: false,
-    leadsPeople: true,
-    headsDepartment: false,
-  }),
+  useProjectActor: () => actor,
 }));
 
 const { IssueDrawer } = await import("@/components/projects/issue-drawer");
@@ -84,6 +86,7 @@ const status = (d: ProjectData, name: string) =>
 
 beforeEach(() => {
   thread = { comments: [], activity: [] };
+  actor.editRecords = false;
 });
 
 describe("what the drawer shows", () => {
@@ -418,7 +421,7 @@ describe("comments", () => {
     });
     const box = screen.getByLabelText("Add a comment");
     await userEvent.type(box, "hello");
-    await userEvent.click(screen.getByRole("button", { name: "Comment" }));
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(actions.addComment).toHaveBeenCalled());
     expect(box).toHaveValue("hello");
   });
@@ -683,5 +686,101 @@ describe("editing a comment", () => {
     };
     renderDrawer();
     expect(screen.getByText("edited")).toBeInTheDocument();
+  });
+});
+
+describe("a personal task", () => {
+  it("shows its type without a select: it can never become an epic", () => {
+    renderDrawer("CHK-10", { personal: { setByName: null } });
+    const details = within(
+      screen.getByRole("complementary", { name: "Details" }),
+    );
+    expect(details.queryByRole("combobox", { name: "Type" })).toBeNull();
+    expect(details.getByText("Story")).toBeInTheDocument();
+  });
+});
+
+describe("somebody's personal task", () => {
+  /* p-02 owns the task; p-01 (the reader) is the leader who set it. */
+  const personalData = () => {
+    const d = sampleData();
+    const issue = find(d, "CHK-10");
+    issue.assigneeId = "p-02";
+    issue.reporterId = "p-01";
+    d.project.leadId = "p-02";
+    return d;
+  };
+  const personalCtx = (over: Partial<ProjectContextValue> = {}) => ({
+    personal: { setByName: "Adaeze Okonkwo" },
+    canWork: false,
+    canManage: false,
+    canComment: true,
+    ...over,
+  });
+
+  it("lets the leader who set it fix the title, description and due date, and nothing else", async () => {
+    const { actions, issue } = renderDrawer(
+      "CHK-10",
+      personalCtx({ canEditDetails: true }),
+      personalData(),
+    );
+    expect(screen.getByLabelText("Summary")).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "Description" })).toBeEnabled();
+    const details = within(
+      screen.getByRole("complementary", { name: "Details" }),
+    );
+    expect(details.getByLabelText("Due")).toBeEnabled();
+    expect(details.getByLabelText("Status")).toBeDisabled();
+    expect(details.getByLabelText("Priority")).toBeDisabled();
+    expect(
+      screen.queryByLabelText("Delete this issue"),
+    ).not.toBeInTheDocument();
+
+    const summary = screen.getByLabelText("Summary");
+    await userEvent.clear(summary);
+    await userEvent.type(summary, "Fixed by the manager");
+    await leave();
+    expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
+      title: "Fixed by the manager",
+    });
+  });
+
+  it("keeps them read-only for anybody else who can see it", () => {
+    renderDrawer(
+      "CHK-10",
+      personalCtx({ canEditDetails: false }),
+      personalData(),
+    );
+    expect(screen.getByLabelText("Summary")).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Description" })).toBeDisabled();
+    expect(
+      within(
+        screen.getByRole("complementary", { name: "Details" }),
+      ).getByLabelText("Due"),
+    ).toBeDisabled();
+  });
+
+  const theirComment = {
+    id: "c9",
+    issueId: "x",
+    authorId: "p-03",
+    body: "Theirs",
+    editedAt: null,
+    createdAt: "2026-10-15T08:00:00.000Z",
+  };
+
+  it("offers deleting a comment to its author and the task's owner, not HR or a leader", () => {
+    thread = { comments: [theirComment], activity: [] };
+    actor.editRecords = true;
+    const { view } = renderDrawer("CHK-10", personalCtx(), personalData());
+    expect(
+      screen.queryByRole("button", { name: "Delete" }),
+    ).not.toBeInTheDocument();
+    view.unmount();
+
+    /* The owner may. */
+    actor.editRecords = false;
+    renderDrawer("CHK-10", personalCtx({ meId: "p-02" }), personalData());
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
   });
 });

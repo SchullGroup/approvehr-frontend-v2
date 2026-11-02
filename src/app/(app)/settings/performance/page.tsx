@@ -19,6 +19,11 @@ export const metadata: Metadata = {
  * somewhere nobody looking at the appraisal settings would find it — the same
  * discoverability failure `Settings → Features` had.
  *
+ * The switch for whether forms ask for an overall mark is on the second tab,
+ * ahead of the names, because the names are what that page offers. It is not
+ * frozen onto a period the way the weights and the names are: it is read when a
+ * form opens.
+ *
  * `ScoringWeightsForm` owns the page header, because it owns the breadcrumb and
  * the demo badge, and the two are its two tabs: it is handed the scale form to
  * show on the second.

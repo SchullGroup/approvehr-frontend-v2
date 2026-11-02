@@ -71,7 +71,11 @@ export function FormFooter({
 }) {
   return (
     <div className="sticky -bottom-5 -mx-5 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-canvas px-5 py-4 sm:-mx-6 sm:px-6">
-      <div className="min-w-0 flex-1 text-body-sm text-muted">{summary}</div>
+      <div className="min-w-0 flex-1 text-body-sm text-muted">
+        {/* A failure from the form lands here, beside the buttons. */}
+        <div data-error-slot className="empty:hidden" />
+        {summary}
+      </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
   );

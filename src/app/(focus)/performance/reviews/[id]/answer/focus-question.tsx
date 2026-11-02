@@ -7,15 +7,21 @@ import {
   AttachedEvidence,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
+import {
+  isSubsectionQuestion,
+  questionKind,
+  subsectionLevels,
+  type SubsectionQuestion,
+} from "@/lib/performance/subsection-answer";
 import { TEXT_LIMIT } from "./focus-logic";
 
 /**
  * The input for one question, big enough to be the only thing on the page.
  *
  * What a question *is* — its kinds, how a draft becomes an answer, what counts
- * as filled — stays in `review-parts.tsx`, shared with the popup form and the
- * record. This file only decides what it looks like when it has the page to
- * itself, and which keys pick which option.
+ * as filled — stays in `review-parts.tsx`, shared with the record. This file
+ * only decides what it looks like when it has the page to itself, and which keys
+ * pick which option.
  */
 
 /** One pickable option, with the key that picks it. */
@@ -42,6 +48,48 @@ export function ratingOptions(scale: ApiRatingScale): PickOption[] {
     }));
 }
 
+const yesNo = (): PickOption[] => [
+  { value: "yes", label: "Yes", key: "Y" },
+  { value: "no", label: "No", key: "N" },
+];
+
+/**
+ * The options of a directly rated subsection's own question.
+ *
+ * **Drawn from the subsection**: a level for each of its own levels, 1 to its own
+ * ceiling, however many words the company's scale has; a yes or no; or its
+ * choices, with the choice's **id** as the value so two choices that share a label
+ * stay two options and what is sent is the id. A digit picks a level and a letter
+ * picks a choice, and one past what a single key can name has no key at all
+ * (`""`, which the key handler never matches) rather than being left out of the
+ * list: a tenth level and a twenty-seventh choice are still answers somebody gave.
+ */
+function subsectionPickOptions(
+  question: SubsectionQuestion,
+  scale: ApiRatingScale,
+): PickOption[] | null {
+  const { subsection } = question;
+  switch (subsection.answerKind) {
+    case "RATING":
+      return subsectionLevels(subsection.scaleMax, scale).map((entry) => ({
+        value: String(entry.level),
+        label:
+          entry.words ??
+          `${String(entry.level)} of ${String(subsection.scaleMax)}`,
+        ...(entry.meaning ? { meaning: entry.meaning } : {}),
+        key: entry.level <= 9 ? String(entry.level) : "",
+      }));
+    case "BOOLEAN":
+      return yesNo();
+    case "CHOICE":
+      return subsection.choices.map((choice, index) => ({
+        value: choice.id,
+        label: choice.label,
+        key: index < 26 ? letter(index) : "",
+      }));
+  }
+}
+
 /**
  * The options of a one-of-several question, or null for any other kind.
  *
@@ -52,13 +100,11 @@ export function pickOptions(
   question: ApiFormQuestion,
   scale: ApiRatingScale,
 ): PickOption[] | null {
-  if (question.kind === "RATING") return ratingOptions(scale);
-  if (question.kind === "BOOLEAN") {
-    return [
-      { value: "yes", label: "Yes", key: "Y" },
-      { value: "no", label: "No", key: "N" },
-    ];
+  if (isSubsectionQuestion(question)) {
+    return subsectionPickOptions(question, scale);
   }
+  if (question.kind === "RATING") return ratingOptions(scale);
+  if (question.kind === "BOOLEAN") return yesNo();
   if (question.kind === "CHOICE") {
     return question.options.slice(0, 26).map((option, index) => ({
       value: option,
@@ -71,8 +117,9 @@ export function pickOptions(
 
 /** The draft that picking `value` makes. */
 export function draftForPick(question: ApiFormQuestion, value: string): Draft {
-  if (question.kind === "RATING") return { rating: value };
-  if (question.kind === "BOOLEAN") return { bool: value };
+  const kind = questionKind(question);
+  if (kind === "RATING") return { rating: value };
+  if (kind === "BOOLEAN") return { bool: value };
   return { choice: value };
 }
 
@@ -81,8 +128,9 @@ export function pickedValue(
   question: ApiFormQuestion,
   held: Draft,
 ): string | undefined {
-  if (question.kind === "RATING") return held.rating;
-  if (question.kind === "BOOLEAN") return held.bool;
+  const kind = questionKind(question);
+  if (kind === "RATING") return held.rating;
+  if (kind === "BOOLEAN") return held.bool;
   return held.choice;
 }
 
@@ -97,8 +145,8 @@ function KeyBadge({ children }: { children: string }) {
 /**
  * Options as large cards, with their keys.
  *
- * `RadioCard` is the card the popup form already uses, so a checked option
- * looks the same in both. The key sits in the card's icon slot.
+ * `RadioCard` is the shared choice card, so a checked option looks the same
+ * wherever somebody picks one. The key sits in the card's icon slot.
  */
 export function PickList({
   name,
@@ -125,7 +173,7 @@ export function PickList({
           value={option.value}
           label={option.label}
           {...(option.meaning ? { description: option.meaning } : {})}
-          icon={<KeyBadge>{option.key}</KeyBadge>}
+          {...(option.key ? { icon: <KeyBadge>{option.key}</KeyBadge> } : {})}
           checked={value === option.value}
           onChange={() => onPick(option.value)}
         />
@@ -233,7 +281,7 @@ export function FocusQuestion({
         options={options}
         value={pickedValue(question, held)}
         onPick={onPick}
-        columns={question.kind === "BOOLEAN" ? 2 : 1}
+        columns={questionKind(question) === "BOOLEAN" ? 2 : 1}
       />
     );
   }

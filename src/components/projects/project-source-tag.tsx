@@ -5,6 +5,7 @@ import { FolderKanban } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
+  isPersonalSource,
   projectSourceHref,
   readProjectSource,
   type ProjectSource,
@@ -47,7 +48,9 @@ export function ProjectSourceTag({
 }) {
   const parsed = readProjectSource(source);
   if (!parsed) return null;
-  if (parsed.projectId === null) {
+  /* A task on somebody's own list has no project page: say so, and do not ask
+     for the project list. */
+  if (parsed.projectId === null || isPersonalSource(parsed)) {
     return <Tag source={parsed} {...(className ? { className } : {})} />;
   }
   return <Gated source={parsed} {...(className ? { className } : {})} />;
@@ -96,7 +99,7 @@ function Tag({
         className,
       )}
     >
-      From project {source.key}
+      {isPersonalSource(source) ? "Personal" : `From project ${source.key}`}
     </Badge>
   );
   if (!href) return badge;
