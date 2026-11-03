@@ -11356,3 +11356,122 @@ backend tests cover; the HR sign-off stage, which nothing in the product offers.
 - **Moving the comparison above the score.** The order of the existing cards is the order they had; only HR's
   recommendation moved up, to sit with the rating.
 - **Renaming "Self-review" across the product.**
+
+---
+
+# Files on a leave request work, the QA site cannot take one, and a person was told it was their connection
+
+The ask: _"We need to work on the ability to attach files for a leave request. Ability for the manager to view the file,
+and to approve or reject leave with reasons. Scan, analyse and debug."_ Then, mid-way: _"are you sure we can upload files
+with what we currently have?"_ The answer is **no, not on the QA site as it stands**, and the code is not why. The feature
+was already built and is on every branch (`dev`, `test`, `preprod`, `main`, `staging`; backend `staging` and `main`), so
+this entry is what scanning and running it found.
+
+## The code works
+
+Run on a scratch stack: the backend at `origin/staging` (`7f200e0`), a stand-in for object storage that **recomputes every
+signature** (a browser that sends a different `Content-Type` than was signed is refused, as a real bucket does, and the
+earlier walk of this feature used a stand-in that did not check), and a production build of `origin/dev`.
+
+- **The API contract, over HTTP, 53 checks, all passing.** The leave type's setting and who may change it; the preview's
+  "a file is required" for three days and not for two; refusal at submit; the real presigned `PUT`, and a control showing the
+  same link refused when the type differs; the request created with its file; the owner's list; a line manager with
+  `APPROVE_LEAVE` and nothing else opening the request (the reduced read), listing the file, and getting a link that serves
+  the same bytes, `inline` for a PDF and `attachment` for a Word file even when a view was asked for; a colleague refused
+  on the list, the link and the request; five types accepted and a sixth file, a `.txt`, a 6 MB file and PNG bytes under a
+  `.pdf` name refused; a decline with no reason refused; a decline with one read by the employee; files locked after a
+  decision and still openable by the manager; HR reopening; the history keeping the decline through the reopen.
+- **In a browser:** the employee books Sick leave over two days (14 of 14); the manager works it from the approvals inbox,
+  which deep-links each leave row to `/people/leave?request=<id>`, and sees the reason, the files with no "Add files",
+  and "Who else is off is not shown to you." rather than "Nobody else"; a PNG opens in a new tab on storage with `opener`
+  null, a Word file downloads, a PDF is downloaded by headless Chromium (it has no PDF viewer); Approve with a note and
+  Send back with a reason both work, and an empty reason is refused in the dialog with what was typed kept; the drawer adds,
+  refuses, confirms before removing, and refuses to remove the last file of a type that requires one in the API's words.
+
+## What a deployment needs, and how to tell which is missing
+
+A file goes **from the browser straight to the bucket** (the API never carries it), so three things have to be true and any
+one of them being false stops every upload, from every screen that uploads (leave, task files, documents):
+
+| Symptom on **Book leave** | What is missing | Where it is fixed |
+| --- | --- | --- |
+| No **Supporting file** section at all, and no sentence about why | The API says `storage: false` (no `S3_BUCKET` and its siblings), or the limits request failed | The API's environment. `GET /api/v1/leave/attachments/limits` shows `storage` |
+| The file is refused with **"This site is not set up to send files to storage yet"** | The web build's security policy does not name the bucket's address | `NEXT_PUBLIC_UPLOAD_ORIGINS` on the web project, then a **rebuild**: `next.config.ts` reads it when the site is built |
+| **"The upload did not finish. Check your connection and try again."** every time, with a CORS error in the browser console | The bucket has no CORS rule that allows `PUT` from this web origin | The bucket |
+
+**The QA site, `https://approvehr-frontend-v2-three.vercel.app`, is in the second row.** Its response header on 2 November,
+read from the live site, is `connect-src 'self' https://dev.approvehr.io` and `img-src 'self' data: blob: https://dev.approvehr.io`:
+no storage address, so the browser blocks the upload before it leaves. That was reproduced locally by pointing the API at a
+storage address the build does not name, and the browser reported a `securitypolicyviolation` for `connect-src`. **Not known:**
+whether the QA API has a bucket at all (the first row) and whether the bucket's CORS allows the QA origin (the third). Neither
+could be read without signing in. The address to put in `NEXT_PUBLIC_UPLOAD_ORIGINS` is the origin of any presigned upload
+link, for example `https://<bucket>.s3.<region>.amazonaws.com`; it must be `https:`, and one address, not a wildcard.
+
+## What a person was told, which was wrong twice
+
+With the second row's fault, someone raising Sick leave over two days read, under the file they had just chosen,
+**"The upload did not finish. Check your connection and try again."** and under that **"The request was not sent. Fix or
+remove the file above, then send it again."** Neither is true: the request never left the browser, so the connection and the
+file are fine, and trying again fails the same way. For a leave type that **requires** a file there was no way out at all, and
+nothing said so, and the person was sent to check their Wi-Fi. A tester who retried and found it did not work would be right
+to say the feature is broken.
+
+- **`putToStorage` now names the one cause the browser tells it** (`lib/api/uploads.ts`). It listens for the browser's
+  `securitypolicyviolation` event for as long as the request is in flight, counts only a `connect-src` block of **storage's own
+  address** (the page prefetches other origins its policy also refuses, and one of those is not this upload), and rejects with
+  `UploadBlockedError`: _"This site is not set up to send files to storage yet, so the upload was blocked. Your connection and
+  your file are fine, and trying again will not help. Tell whoever looks after ApproveHR."_ It waits 100 ms after the request's
+  own `error` before deciding, because the browser reports a block as that event and as the error and specifies no order
+  between them. It reads `effectiveDirective` first, which is `connect-src` even where the policy only has a `default-src`.
+- **The booking dialog says what it means for this request** (`book-leave.tsx`): for a leave that needs a file, _"…it cannot be
+  raised until this site is set up to send files."_; for one that does not, _"Remove the file to send it without one."_
+  The drawer's "Add files" gets the first sentence through the same `fileProblem`.
+- **Everything else keeps its words**, including the plain failure, which still says the connection: a bucket with no CORS
+  rule fails just as silently and **cannot be told apart from a dropped connection from the page**, so the third row above
+  still reads as the connection. `lib/marketing/apply-upload.ts`, the careers CV form, has its own copy of this upload and was
+  not touched.
+
+## A second, smaller bug: the red sentence stayed up
+
+After a send refused for a missing file, the dialog said **"A supporting file is required. Attach one and send the request
+again."** in red, and attaching the file did **not** take it down: it stayed under the file that answered it until the next
+send. The same held for "Fix or remove the file above" after the file was removed. `fileError` was cleared only by the next
+send or by closing. Choosing or removing a file now clears it (`pickerFiles` in `book-leave.tsx`, which wraps `add` and
+`remove`; no effect). The muted "A supporting file is required." line was never affected, because it is read off the staged
+files, and the existing test only checked that one, which is why this was never seen.
+
+## Verified
+
+`tests/put-to-storage-blocked.test.ts` is new (12): a block named whether the violation arrives before or after the error;
+by the effective directive; when the browser gives only the origin; **not** named for a violation of another origin or another
+directive; a refusal by storage, an abort and a 2xx unchanged; the listener removed however the request ends; one upload's
+block not naming the next one's failure. `tests/leave-book-with-files.test.tsx` gained 5 (the red sentence down once a file is
+attached and once it is taken off; the three blocked wordings). With `leave-files-api` and `leave-request-files`, 87 pass.
+**Six deliberate breaks, each caught by the test written for it** (no grace; any `connect-src` block counted; listener not
+removed; the picker not clearing on `add`; not on `remove`; a block worded as a file problem), the files restored byte for byte.
+
+Then in the real browser on a production build **with** the fix, under the QA conditions: the new sentences above, the request
+not created, the browser's own `securitypolicyviolation` for `connect-src` seen (4 of 4 checks); and with storage allowed, the employee walk 14 of 14 (it was 13 of 14: the red sentence) and the drawer 8 of 8.
+The walk scripts, the fixtures and the screenshots are in `out/leave-files-debug-2026-11-02/`.
+
+## Found, and not changed
+
+- **`GET /leave/balances?employeeIds=` is a 404 on `staging` and on `main`.** The web calls it (`balancesForMany`, added in
+  `072c8a09`, whose message calls the route "new"); the API defines only `GET /leave/balances/:id`. `/people/leave` renders
+  without balances ("Annual leave used —") and the booking dialog never shows "N days left afterwards", with a 404 in the
+  console and no message. It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and still true. Either side can fix it
+  (the route, or a fallback to the single-id one); it is not about files.
+- **The API does not route a request to anybody; the web form does.** `approverId` is whatever the client sends
+  (`approverFor` in `book-leave.tsx`). A request raised any other way shows "Approver —" and reaches nobody's inbox. The
+  person's manager can still open and decide it by its address (decided by standing, tested at the API), so the manager's
+  access is not lost, only the inbox card.
+- **The refusal to remove the last file of a required type is said under the staged list**, which can put it below an
+  unrelated `.txt` refusal and away from the file it is about.
+- **Scanning.** Every file is `NOT_SCANNED`: no scanner is wired, and the API says so. Nothing here promises scanned files.
+
+## Not exercised
+
+The QA site itself, and a real bucket, so nothing about real signatures' clock skew, a bucket's CORS rule, response-header
+overrides on a real object, or `s3:DeleteObject` on the role; Safari and a real phone (an iPhone's HEIC through the real picker,
+pop-up blocking, the on-screen keyboard); the Word download in anything but Chromium; a department or office head as the
+approver (the API test covers them); the demo, which has no storage and says so.
