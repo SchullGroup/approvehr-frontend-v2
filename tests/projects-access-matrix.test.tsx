@@ -338,7 +338,7 @@ describe("the project screen around the views", () => {
     await screenFor("READ");
     expect(
       screen.getByText(
-        "You can view this project. Ask its lead for write access.",
+        "You can read this project through Operations, but you can't change it. Ask the program lead for read and write access.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -353,7 +353,7 @@ describe("the project screen around the views", () => {
       screen.getByRole("button", { name: "New task" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/Ask its lead for write access/),
+      screen.queryByText(/but you can't change it/),
     ).not.toBeInTheDocument();
     expect(tabs()).not.toContain("Settings");
   });

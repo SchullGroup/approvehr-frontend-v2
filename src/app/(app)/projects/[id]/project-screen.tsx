@@ -38,7 +38,7 @@ import {
 } from "@/lib/projects/types";
 import {
   NEW_TASK,
-  READ_ONLY_BANNER,
+  readOnlyProject,
   TASK,
   UNASSIGNED,
   UNASSIGNED_ID,
@@ -465,6 +465,7 @@ function ProjectShell({
           : {})}
         tabs={
           <LinkTabs
+            label={`${project.name} sections`}
             items={offered.map((v) => ({
               href: hrefFor(v.id),
               label: v.label,
@@ -477,7 +478,7 @@ function ProjectShell({
       <PageBody className="space-y-5">
         {access === "READ" && (
           <p className="text-body-sm text-muted" role="note">
-            {READ_ONLY_BANNER}
+            {readOnlyProject(programName)}
           </p>
         )}
         {capped && (

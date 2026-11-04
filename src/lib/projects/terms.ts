@@ -334,9 +334,21 @@ export const LEVEL_SENTENCE = {
   LEAD: `Manages the ${PROGRAM.one}: its people, its ${NOUNS.project.many} and its settings.`,
 } as const;
 
-/** The quiet line a person sees on a project they can read but not change. */
-export const READ_ONLY_BANNER = `You can view this ${NOUNS.project.one}. Ask its lead for write access.`;
-export const READ_ONLY_PROGRAM = `You can view this ${PROGRAM.one}. Ask its lead for write access.`;
+/**
+ * The quiet line a person sees on a project they can read but not change.
+ *
+ * Worded as the API words its refusal when somebody tries anyway ("You can read
+ * this project through Operations, but you can't change it. Ask the program lead
+ * for read and write access."), so the line and the message never disagree. It
+ * names the program because it is the program's lead who can change somebody's
+ * access, not the project's.
+ */
+export function readOnlyProject(programName?: string | null): string {
+  return programName
+    ? `You can read this ${NOUNS.project.one} through ${programName}, but you can't change it. Ask the ${PROGRAM.one} lead for read and write access.`
+    : `You can read this ${NOUNS.project.one}, but you can't change it. Ask its lead for access.`;
+}
+export const READ_ONLY_PROGRAM = `You can read this ${PROGRAM.one}, but you can't change it. Ask its lead for read and write access.`;
 
 /** The three stage groups that compare across projects, in board order. */
 export const CATEGORY_COLUMN_LABEL: Record<StatusCategory, string> = {

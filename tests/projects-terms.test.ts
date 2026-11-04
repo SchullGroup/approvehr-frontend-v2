@@ -27,6 +27,10 @@ import {
   cycleName,
   displayType,
   nounFor,
+  LEVEL_LABEL,
+  LEVEL_SENTENCE,
+  READ_ONLY_PROGRAM,
+  readOnlyProject,
 } from "@/lib/projects/terms";
 import { ISSUE_TYPES, PICKABLE_ISSUE_TYPES } from "@/lib/projects/types";
 import { applyFilter, EMPTY_FILTER } from "@/lib/projects/filters";
@@ -288,5 +292,37 @@ describe("a new cycle's name", () => {
     );
     const two = [sprint("Cycle 2"), sprint("Cycle 3")];
     expect(nextSprintDraft(project, two, "2026-11-04").name).toBe("Cycle 4");
+  });
+});
+
+describe("how access is worded, once", () => {
+  /* These sentences are copied from what the API sends when a read-only person
+     tries to change something (`403 read_only`), so the quiet line on the screen
+     and the refusal never disagree. If the API's words change, change terms.ts. */
+  it("says on a project what the API says when it refuses a change", () => {
+    expect(readOnlyProject("Operations")).toBe(
+      "You can read this project through Operations, but you can't change it. Ask the program lead for read and write access.",
+    );
+    expect(readOnlyProject(null)).toBe(
+      "You can read this project, but you can't change it. Ask its lead for access.",
+    );
+  });
+
+  it("uses the level names everywhere: Read, Read and write, Lead", () => {
+    expect(LEVEL_LABEL).toEqual({
+      READ: "Read",
+      WRITE: "Read and write",
+      LEAD: "Lead",
+    });
+    /* Nothing asks for 'write access' alone, which is not a level anybody can be given. */
+    for (const line of [
+      readOnlyProject("Operations"),
+      readOnlyProject(null),
+      READ_ONLY_PROGRAM,
+      ...Object.values(LEVEL_SENTENCE),
+    ]) {
+      expect(line).not.toMatch(/\bwrite access\b(?<!read and write access)/);
+      expect(line).not.toMatch(/\bview\b/i);
+    }
   });
 });

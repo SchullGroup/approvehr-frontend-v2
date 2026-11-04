@@ -305,6 +305,21 @@ describe("New program", () => {
 /* ------------------------------------------------------------ the page -- */
 
 describe("a program's page", () => {
+  it("names the row of tabs, so it is not a second unnamed navigation", () => {
+    who = WHO.lead;
+    render(<ProgramScreen id="pg-ops" />);
+    const named = screen.getByRole("navigation", {
+      name: "Operations sections",
+    });
+    expect(
+      within(named).getByRole("link", { name: "Board" }),
+    ).toBeInTheDocument();
+    /* Every navigation on the page has a name. */
+    for (const nav of screen.getAllByRole("navigation")) {
+      expect(nav).toHaveAccessibleName();
+    }
+  });
+
   it("offers its lead every tab", () => {
     who = WHO.lead;
     render(<ProgramScreen id="pg-ops" />);
@@ -327,7 +342,7 @@ describe("a program's page", () => {
     expect(tabs()).not.toContain("Settings");
     expect(
       screen.getByText(
-        "You can view this program. Ask its lead for write access.",
+        "You can read this program, but you can't change it. Ask its lead for read and write access.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -347,7 +362,7 @@ describe("a program's page", () => {
       "Timeline",
     ]);
     expect(
-      screen.queryByText(/Ask its lead for write access/),
+      screen.queryByText(/but you can't change it/),
     ).not.toBeInTheDocument();
   });
 
