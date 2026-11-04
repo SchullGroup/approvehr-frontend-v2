@@ -38,6 +38,9 @@ import { useIsCollaborator } from "@/lib/hiring/access/collaborator";
 import { CollaboratorGate } from "./collaborator-gate";
 import { useHaveInterviews } from "@/lib/hiring/pipeline/use-mine";
 import { useLeadsTeam } from "@/lib/store/team-tasks";
+import { useProgramsNav } from "@/lib/store/programs";
+import { useNavHint } from "@/lib/store/nav-hint";
+import { programIdOfPath, withPrograms } from "./programs-nav";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
@@ -199,6 +202,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      say. One request per session, never waited on. */
   const leadsTeam = useLeadsTeam(features.projects === true);
 
+  /* Programs: the rows under Projects, and whether the Master view is theirs.
+     One request for the list, made once Projects is known to be on, and nothing
+     while it is off. */
+  const programsNav = useProgramsNav(features.projects === true);
+  const navHint = useNavHint();
+
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
@@ -209,6 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         signatures: canSendForSignature || haveSignatures,
         interviews: haveInterviews || collaborator,
         "team-tasks": leadsTeam,
+        "master-view": programsNav.seesAll,
       },
       collaborator,
     }),
@@ -223,13 +233,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       haveSignatures,
       haveInterviews,
       leadsTeam,
+      programsNav.seesAll,
       collaborator,
     ],
   );
   const billing = useBilling();
+  /* The static rows plus the program rows, then the one gating function. A
+     project's page lights its program's row only while it is the open page. */
+  const runtimeNav = useMemo(
+    () =>
+      withPrograms(NAV, programsNav, {
+        programId: programIdOfPath(pathname),
+        hint:
+          navHint &&
+          (pathname === navHint.path || pathname.startsWith(`${navHint.path}/`))
+            ? navHint
+            : null,
+      }),
+    [programsNav, pathname, navHint],
+  );
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features, facts, billing),
-    [permissions, features, facts, billing],
+    () => visibleNav(runtimeNav, permissions, features, facts, billing),
+    [runtimeNav, permissions, features, facts, billing],
   );
 
   /* Find's last resort, when no page matches what was typed: the header's

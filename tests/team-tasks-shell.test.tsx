@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const state = vi.hoisted(() => ({
+  seesAll: false,
   leads: false,
   projectsOn: true,
   asked: [] as boolean[],
@@ -30,6 +31,15 @@ vi.mock("@/lib/store/features", () => ({
     earlyPay: false,
     earnedWage: null,
     loading: false,
+  }),
+}));
+vi.mock("@/lib/store/programs", () => ({
+  useProgramsNav: () => ({
+    programs: [],
+    canCreate: false,
+    seesAll: state.seesAll,
+    unassigned: false,
+    loaded: true,
   }),
 }));
 vi.mock("@/lib/store/ai", () => ({
@@ -107,10 +117,18 @@ vi.mock("@/components/portal/billing-gate", () => ({
   BillingGate: ({ children }: { children: React.ReactNode }) => children,
 }));
 vi.mock("@/components/portal/sidebar", () => ({
-  SidebarNav: ({ groups }: { groups: { items: { label: string }[] }[] }) => (
+  SidebarNav: ({
+    groups,
+  }: {
+    groups: { id?: string; items: { label: string }[] }[];
+  }) => (
     <ul>
       {groups.flatMap((g) =>
-        g.items.map((i) => <li key={i.label}>{i.label}</li>),
+        g.items.map((i) => (
+          <li key={`${g.id}/${i.label}`} data-group={g.id}>
+            {i.label}
+          </li>
+        )),
       )}
     </ul>
   ),
@@ -119,6 +137,7 @@ vi.mock("@/components/portal/sidebar", () => ({
 const { AppShell } = await import("@/components/portal/shell");
 
 beforeEach(() => {
+  state.seesAll = false;
   state.leads = false;
   state.projectsOn = true;
   state.asked = [];
@@ -143,5 +162,23 @@ describe("the shell's Team tasks wiring", () => {
     render(<AppShell>page</AppShell>);
     expect(state.asked.every((enabled) => enabled === false)).toBe(true);
     expect(screen.queryByText("Team tasks")).not.toBeInTheDocument();
+  });
+
+  it("shows Overview only to somebody who holds the Master grant", () => {
+    render(<AppShell>page</AppShell>);
+    const projects = Array.from(
+      document.querySelectorAll('[data-group="projects"]'),
+    ).map((node) => node.textContent);
+    expect(projects).not.toContain("Overview");
+    expect(projects).toContain("My tasks");
+  });
+
+  it("shows Overview when the grant is held", () => {
+    state.seesAll = true;
+    render(<AppShell>page</AppShell>);
+    const projects = Array.from(
+      document.querySelectorAll('[data-group="projects"]'),
+    ).map((node) => node.textContent);
+    expect(projects[0]).toBe("Overview");
   });
 });

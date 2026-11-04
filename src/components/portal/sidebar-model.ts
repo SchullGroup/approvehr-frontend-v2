@@ -68,6 +68,8 @@ export type SidebarDrill = {
   sections: SidebarSection[];
   /** Every item in it is locked — a group only ever locks as a whole. */
   locked: boolean;
+  /** Doors Find reaches that the level does not list (programs past the cap). */
+  more: NavItem[];
 };
 
 export type SidebarEntry = SidebarLink | SidebarDrill;
@@ -146,7 +148,7 @@ function sectionsOf(
   const filed = new Map<string | null, NavItem[]>();
   let current: string | null = null;
   for (const item of items) {
-    const named = SECTION_OF[`${groupId}/${item.label}`];
+    const named = item.section ?? SECTION_OF[`${groupId}/${item.label}`];
     if (named !== undefined) current = named;
     if (!filed.has(current)) {
       filed.set(current, []);
@@ -154,7 +156,12 @@ function sectionsOf(
     }
     filed.get(current)!.push(item);
   }
-  const worthLabelling = items.length >= SECTION_MIN_ITEMS && order.length > 1;
+  /* A row that names its own section (a program) is labelled however short the
+     level is: "Programs" over its rows is information, not furniture. */
+  const worthLabelling =
+    order.length > 1 &&
+    (items.length >= SECTION_MIN_ITEMS ||
+      items.some((item) => item.section !== undefined));
   if (!worthLabelling) return [{ label: null, items: [...items] }];
   return order.map((label) => ({ label, items: filed.get(label)! }));
 }
@@ -191,9 +198,16 @@ export function buildSidebar(groups: readonly NavGroup[]): SidebarTree {
       return;
     }
 
-    const zone = group.billingModule !== undefined ? modules : company;
-    const [only] = group.items;
-    if (group.items.length === 1 && only) {
+    const listed = group.items.filter((item) => item.findOnly !== true);
+    const more = group.items.filter((item) => item.findOnly === true);
+    const zone =
+      group.zone === "yours"
+        ? yours
+        : group.billingModule !== undefined
+          ? modules
+          : company;
+    const [only] = listed;
+    if (listed.length === 1 && more.length === 0 && only) {
       zone.push({
         kind: "link",
         key: `link:${id}/${only.label}`,
@@ -210,9 +224,10 @@ export function buildSidebar(groups: readonly NavGroup[]): SidebarTree {
       id,
       label: heading,
       icon: group.icon ?? null,
-      items: [...group.items],
-      sections: sectionsOf(id, group.items),
+      items: [...listed],
+      sections: sectionsOf(id, listed),
       locked: group.items.every((item) => item.locked === true),
+      more,
     });
   });
 
@@ -233,7 +248,7 @@ export function destinations(
         groupLabel: entry.groupLabel,
       });
     } else {
-      for (const item of entry.items) {
+      for (const item of [...entry.items, ...entry.more]) {
         out.push({ item, groupId: entry.id, groupLabel: entry.label });
       }
     }
@@ -405,7 +420,8 @@ const KEYWORDS: Record<string, string[]> = {
   "home/Assistant": ["ai", "ask", "chat", "copilot"],
   /* The words the module speaks now, then the ones it used to: somebody who
      types "sprint" or "backlog" still finds it. See `lib/projects/terms.ts`. */
-  "home/Projects": [
+  projects: ["work"],
+  "projects/All projects": [
     "tasks",
     "kanban",
     "board",
@@ -416,7 +432,11 @@ const KEYWORDS: Record<string, string[]> = {
     "timeline",
     ...RETIRED_WORDS,
   ],
-  "home/My tasks": ["assigned", "to do", "issues", "my work"],
+  "projects/Overview": ["master", "everything", "all work", "company"],
+  "projects/My tasks": ["assigned", "to do", "issues", "my work"],
+  "projects/Team tasks": ["team", "reports", "their work"],
+  "projects/All programs": ["programs", "departments", "teams", "spaces"],
+  "projects/Unassigned": ["no program", "loose", "without a program"],
   "home/Wellness": [
     "water",
     "steps",
