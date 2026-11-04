@@ -11,6 +11,7 @@ import {
   Select,
   LoadState,
 } from "@/components/ui";
+import { LoadMore } from "@/components/portal/load-more";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectCard } from "@/components/projects/project-card";
 import { ProjectsOff } from "@/components/projects/module-off";
@@ -46,6 +47,9 @@ import { NewProjectDialog } from "./new-project-dialog";
 
 type Scope = "mine" | "all";
 
+/** Project cards drawn at a time on the All projects page. */
+const PROJECTS_PAGE = 60;
+
 export function ProjectsScreen() {
   const gate = useProjectsGate();
   if (gate.loading) return <ListSkeleton />;
@@ -79,6 +83,8 @@ function List() {
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useQueryParam("q", "");
   const [departmentParam, setDepartment] = useQueryParam("dept", "");
+  /* How many cards are drawn, for the filters it was set under. */
+  const [paging, setPaging] = useState({ key: "", n: PROJECTS_PAGE });
 
   /* In demo the list is the whole book, so it is narrowed here by the same
      predicate the API applies; connected, the API has already done it. */
@@ -101,7 +107,12 @@ function List() {
   const departmentLabel = departments.find(
     (d) => d.value === department,
   )?.label;
-  const shown = filterProjects(projects, query, department);
+  const matching = filterProjects(projects, query, department);
+  /* The API answers every project the person can open in one list, so a large
+     company's page is drawn sixty at a time; a new filter starts again from sixty. */
+  const filterKey = `${query}|${department}`;
+  const drawn = paging.key === filterKey ? paging.n : PROJECTS_PAGE;
+  const shown = matching.slice(0, drawn);
   const filtering = query.trim() !== "" || department !== "";
   const clearFilters = () => {
     setQuery(null);
@@ -138,7 +149,7 @@ function List() {
             onSearchChange={(value) => setQuery(value === "" ? null : value)}
             searchPlaceholder="Search projects"
             searchLabel="Search projects by name or key"
-            count={shown.length}
+            count={matching.length}
             noun={["project", "projects"]}
             applied={[
               ...(actor.editRecords && scope === "all"
@@ -279,7 +290,7 @@ function List() {
 
         {list.status === "ready" &&
           projects.length > 0 &&
-          shown.length === 0 &&
+          matching.length === 0 &&
           filtering && (
             <EmptyState
               icon={<FolderKanban />}
@@ -293,7 +304,7 @@ function List() {
             />
           )}
 
-        {list.status === "ready" && shown.length > 0 && (
+        {list.status === "ready" && matching.length > 0 && (
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {shown.map((project) => (
               <li key={project.id} className="min-w-0">
@@ -309,6 +320,19 @@ function List() {
               </li>
             ))}
           </ul>
+        )}
+        {list.status === "ready" && matching.length > PROJECTS_PAGE && (
+          <LoadMore
+            shown={shown.length}
+            total={matching.length}
+            noun={["project", "projects"]}
+            hasMore={shown.length < matching.length}
+            loading={false}
+            error={null}
+            onLoadMore={() =>
+              setPaging({ key: filterKey, n: drawn + PROJECTS_PAGE })
+            }
+          />
         )}
       </PageBody>
 
