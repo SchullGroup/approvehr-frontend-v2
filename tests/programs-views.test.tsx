@@ -35,6 +35,10 @@ const calls = vi.hoisted(() => ({ rollup: 0, list: 0, program: 0 }));
 const flags = vi.hoisted(() => ({
   pageError: false,
   capped: false,
+  /** A company with this many programs (each with i open tasks), instead of the engine's two. */
+  programs: 0,
+  /** The program ids the Master workload asked a rollup for. */
+  rollupIds: [] as string[],
 }));
 
 vi.mock("next/navigation", () => ({
@@ -66,7 +70,27 @@ vi.mock("@/lib/store/programs", async () => {
     },
     useProgramList: (...args: unknown[]) => {
       calls.list += 1;
+      if (flags.programs > 0) {
+        return {
+          status: "ready",
+          error: null,
+          reload: vi.fn(),
+          data: {
+            canCreate: true,
+            seesAll: true,
+            programs: Array.from({ length: flags.programs }, (_, i) => ({
+              id: `pg-${i}`,
+              name: `Program ${String(i).padStart(2, "0")}`,
+              openTaskCount: i,
+            })),
+          },
+        };
+      }
       return (hooks.useProgramList as (...a: unknown[]) => unknown)(...args);
+    },
+    useProgramRollups: (ids: readonly string[]) => {
+      flags.rollupIds = [...ids];
+      return hooks.useProgramRollups(ids);
     },
     useProgramActions: () => fixture.fakeProgramActions(),
     useWorkList: (...args: unknown[]) => {
@@ -300,6 +324,20 @@ describe("All tasks", () => {
 });
 
 describe("the Master workload", () => {
+  it("reads at most twenty programs' rollups, the busiest first", () => {
+    flags.programs = 25;
+    try {
+      search = new URLSearchParams("view=workload");
+      render(<MasterScreen />);
+      expect(flags.rollupIds).toHaveLength(20);
+      /* The busiest first: Program 24 has the most open tasks, Program 05 the least read. */
+      expect(flags.rollupIds[0]).toBe("pg-24");
+      expect(flags.rollupIds).not.toContain("pg-04");
+    } finally {
+      flags.programs = 0;
+    }
+  });
+
   it("merges each program's busiest people and says what that leaves out", () => {
     search = new URLSearchParams("view=workload");
     render(<MasterScreen />);

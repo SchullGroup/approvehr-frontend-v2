@@ -322,9 +322,27 @@ function ProgramsTab() {
 
 /* ---------------------------------------------------------------- workload -- */
 
+/**
+ * How many programs the Master workload reads a rollup from. There is no
+ * company-wide workload answer, so each program is one request; past this many
+ * the busiest are read and the page says so, rather than one request per program
+ * in a large company.
+ */
+const WORKLOAD_PROGRAMS = 20;
+/** People drawn as bars; the rest are summed in one line. */
+const WORKLOAD_PEOPLE = 40;
+
 function WorkloadTab() {
   const list = useProgramList();
-  const ids = (list.data?.programs ?? []).map((p) => p.id);
+  const everyProgram = list.data?.programs ?? [];
+  const busiest = [...everyProgram]
+    .sort(
+      (a, b) =>
+        b.openTaskCount - a.openTaskCount || a.name.localeCompare(b.name),
+    )
+    .slice(0, WORKLOAD_PROGRAMS);
+  const ids = busiest.map((p) => p.id);
+  const programsLeftOut = everyProgram.length - busiest.length;
   const rollups = useProgramRollups(ids);
   const rollup = useWorkRollup();
 
@@ -373,7 +391,7 @@ function WorkloadTab() {
         {rollup.data && (
           <StatGrid columns={3}>
             <Stat
-              label="People with open tasks"
+              label="People listed"
               value={<span className="tabular">{people.length}</span>}
             />
             <Stat
@@ -405,6 +423,8 @@ function WorkloadTab() {
               <>
                 <WorkloadBars
                   people={people}
+                  limit={WORKLOAD_PEOPLE}
+                  others={othersOf(people.slice(WORKLOAD_PEOPLE))}
                   unassigned={unassigned}
                   hrefFor={(id) => `/projects/master?view=tasks&assignee=${id}`}
                 />
@@ -412,6 +432,9 @@ function WorkloadTab() {
                   Each program counts its ten busiest people, so somebody who is
                   not among a program&apos;s ten busiest is left out of that
                   program&apos;s share here. Their tasks are all in All tasks.
+                  {programsLeftOut > 0
+                    ? ` This reads the ${WORKLOAD_PROGRAMS} programs with the most open tasks; ${programsLeftOut} quieter ${programsLeftOut === 1 ? "program is" : "programs are"} not counted.`
+                    : ""}
                 </p>
               </>
             )}
@@ -420,4 +443,13 @@ function WorkloadTab() {
       </div>
     </LoadState>
   );
+}
+
+/** The people past the ones drawn, in one line. */
+function othersOf(rest: readonly WorkloadPerson[]) {
+  return {
+    people: rest.length,
+    open: rest.reduce((n, p) => n + p.open, 0),
+    overdue: rest.reduce((n, p) => n + p.overdue, 0),
+  };
 }
