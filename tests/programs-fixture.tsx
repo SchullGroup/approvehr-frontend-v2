@@ -6,9 +6,11 @@ import {
   programRollup,
   programsFor,
   visibleProjects,
+  workPage,
   workRollup,
   type Scene,
   type Viewer,
+  type WorkQuery,
 } from "@/lib/projects/programs";
 import type { People } from "@/lib/store/project-session";
 
@@ -125,6 +127,8 @@ const loaded = <T,>(data: T | null): Loaded<T> => ({
   reload: vi.fn(),
 });
 
+export const loadMoreSpy = vi.fn();
+
 /** The hooks of `lib/store/programs`, answered by the engine for `who`. */
 export function programHooks(who: () => Who) {
   return {
@@ -146,6 +150,29 @@ export function programHooks(who: () => Who) {
     useWorkRollup: () => loaded(workRollup(scene, viewerOf(who()), NOW)),
     useProgramPeople: (id: string, enabled: boolean) =>
       loaded(enabled ? programPeople(scene, viewerOf(who()), id) : null),
+    useProgramRollups: (ids: readonly string[]) => ({
+      status: "ready" as const,
+      error: null,
+      data: ids
+        .map((id) => programRollup(scene, viewerOf(who()), id, NOW))
+        .filter((r) => r !== null),
+      reload: vi.fn(),
+    }),
+    useWorkList: (query: WorkQuery, enabled = true) => {
+      const page = enabled
+        ? workPage(scene, viewerOf(who()), { limit: 50, ...query })
+        : { rows: [], total: 0, hasMore: false, nextCursor: null };
+      return {
+        status: "ready" as const,
+        error: null,
+        rows: page.rows,
+        total: page.total,
+        hasMore: page.hasMore,
+        loadingMore: false,
+        loadMore: loadMoreSpy,
+        reload: vi.fn(),
+      };
+    },
     useProgramProjects: (
       target: { programId: string } | { unassigned: true },
     ) =>

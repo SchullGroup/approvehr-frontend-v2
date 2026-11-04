@@ -41,6 +41,18 @@ type View = {
 };
 let view: View;
 
+/* Programs are not what this file is about: a company with none. */
+vi.mock("@/lib/store/programs", () => ({
+  useProgramFacts: () => ({ facts: null, seesAll: false }),
+  useProgramList: () => ({
+    status: "ready",
+    error: null,
+    data: { programs: [], canCreate: false, seesAll: false },
+    reload: vi.fn(),
+  }),
+  useProgramActions: () => ({ moveProject: vi.fn() }),
+}));
+
 vi.mock("@/lib/store/projects", () => ({
   useProjectData: () => view,
   useProjectActions: () => fakeActions(),
@@ -121,7 +133,9 @@ describe("before there is a project", () => {
     view = { ...ready(), status: "notFound", data: null };
     render(<ProjectScreen id="pj-chk" />);
     expect(screen.getByText("This project is not here")).toBeInTheDocument();
-    expect(screen.getByText(/may not be a member/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/may not be part of your access/),
+    ).toBeInTheDocument();
   });
 
   it("treats the API's module_off refusal as the module being off", async () => {

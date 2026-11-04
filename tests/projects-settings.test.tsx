@@ -20,6 +20,18 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+/* Programs are not what this file is about: a company with none. */
+vi.mock("@/lib/store/programs", () => ({
+  useProgramFacts: () => ({ facts: null, seesAll: false }),
+  useProgramList: () => ({
+    status: "ready",
+    error: null,
+    data: { programs: [], canCreate: false, seesAll: false },
+    reload: vi.fn(),
+  }),
+  useProgramActions: () => ({ moveProject: vi.fn() }),
+}));
+
 vi.mock("@/lib/store/departments", () => ({
   useDepartments: () => ({
     flat: [

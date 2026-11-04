@@ -392,12 +392,12 @@ describe("a program's page", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("says the Board, Tasks, Workload and Timeline are coming, rather than showing nothing", () => {
+  it("opens the tab the address names, for somebody who is offered it", () => {
     who = WHO.lead;
     search = new URLSearchParams("view=board");
     render(<ProgramScreen id="pg-ops" />);
     expect(
-      screen.getByText("Board is coming in the next step"),
+      screen.getByRole("region", { name: "Not started" }),
     ).toBeInTheDocument();
   });
 
