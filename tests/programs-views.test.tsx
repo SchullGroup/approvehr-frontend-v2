@@ -13,6 +13,7 @@ import {
   viewerOf,
   type Who,
 } from "./programs-fixture";
+import { ApiError } from "@/lib/api/client";
 import { visibleProjects, workPage, workRollup } from "@/lib/projects/programs";
 
 /**
@@ -30,6 +31,11 @@ let allowed = true;
 let permissionsLoading = false;
 const replace = vi.fn();
 const calls = vi.hoisted(() => ({ rollup: 0, list: 0, program: 0 }));
+/** What a list reports beyond the engine's answer: a page that failed, or the row cap. */
+const flags = vi.hoisted(() => ({
+  pageError: false,
+  capped: false,
+}));
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => search,
@@ -63,6 +69,20 @@ vi.mock("@/lib/store/programs", async () => {
       return (hooks.useProgramList as (...a: unknown[]) => unknown)(...args);
     },
     useProgramActions: () => fixture.fakeProgramActions(),
+    useWorkList: (...args: unknown[]) => {
+      const list = (hooks.useWorkList as (...a: unknown[]) => unknown)(
+        ...args,
+      ) as Record<string, unknown>;
+      if (flags.pageError) {
+        return {
+          ...list,
+          hasMore: true,
+          error: new ApiError(503, "unavailable", "Down for a moment."),
+        };
+      }
+      if (flags.capped) return { ...list, hasMore: false, capped: true };
+      return list;
+    },
   };
 });
 vi.mock("@/lib/store/projects", async () => {
@@ -335,6 +355,38 @@ describe("a program's Board", () => {
     expect(
       within(card).getByRole("link", { name: /Open in project/ }),
     ).toHaveAttribute("href", "/projects/pj-cnt");
+  });
+
+  it("says when a column's next page did not arrive, and offers to try again", async () => {
+    flags.pageError = true;
+    try {
+      render(<ProgramScreen id="pg-ops" />);
+      const column = screen.getByRole("region", { name: "Not started" });
+      expect(within(column).getByRole("alert")).toHaveTextContent(/next tasks/);
+      expect(
+        within(column).getByRole("button", { name: "Try again" }),
+      ).toBeInTheDocument();
+      /* How many are shown is read out as it changes. */
+      const readout = column.querySelector('[aria-live="polite"]');
+      expect(readout).not.toBeNull();
+      expect(readout).toHaveTextContent(/shown|Showing/);
+    } finally {
+      flags.pageError = false;
+    }
+  });
+
+  it("says a column stopped at the most rows it shows, and points at the filters", () => {
+    flags.capped = true;
+    try {
+      render(<ProgramScreen id="pg-ops" />);
+      const note = within(
+        screen.getByRole("region", { name: "Not started" }),
+      ).getByRole("note");
+      expect(note).toHaveTextContent(/as many as this list shows/);
+      expect(note).toHaveTextContent(/filters/);
+    } finally {
+      flags.capped = false;
+    }
   });
 
   it("is read-only: nothing on it can be dragged or moved", () => {

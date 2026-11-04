@@ -168,6 +168,7 @@ export function programHooks(who: () => Who) {
         rows: page.rows,
         total: page.total,
         hasMore: page.hasMore,
+        capped: false,
         loadingMore: false,
         loadMore: loadMoreSpy,
         reload: vi.fn(),

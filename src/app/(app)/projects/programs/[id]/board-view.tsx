@@ -3,20 +3,20 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
-import {
-  Button,
-  Field,
-  FilterBar,
-  LoadState,
-  Select,
-  Skeleton,
-} from "@/components/ui";
+import { Field, FilterBar, LoadState, Select, Skeleton } from "@/components/ui";
+import { LoadMore } from "@/components/portal/load-more";
 import { ProjectKeyChip, StatusPill } from "@/components/projects/glyphs";
 import { useProgram } from "@/components/projects/program-context";
 import { taskHref } from "@/components/projects/work-list";
+import { ApiError } from "@/lib/api/client";
 import { dueLabel } from "@/lib/projects/due";
 import type { WorkQuery, WorkRow } from "@/lib/projects/programs";
-import { CATEGORY_COLUMN_LABEL, TASK, count } from "@/lib/projects/terms";
+import {
+  CATEGORY_COLUMN_LABEL,
+  LIST_CAPPED,
+  TASK,
+  count,
+} from "@/lib/projects/terms";
 import { STATUS_CATEGORIES, type StatusCategory } from "@/lib/projects/types";
 import { withParam, type WorkParam } from "@/lib/projects/work-query";
 import { useProgramProjects, useWorkList } from "@/lib/store/programs";
@@ -38,6 +38,9 @@ import { todayIn } from "@/lib/time";
  * Each column is the API's page for that category, with its own count and its own
  * "Load more", so a column of thousands is never fetched at once.
  */
+/** Cards a column asks for at a time. */
+const COLUMN_PAGE = 25;
+
 export function WorkBoardView() {
   const { program, unassigned } = useProgram();
   const params = useSearchParams();
@@ -62,7 +65,7 @@ export function WorkBoardView() {
     ...(project ? { projectId: project } : {}),
     ...(person ? { assigneeId: person } : {}),
     ...(q.trim() ? { q: q.trim() } : {}),
-    limit: 25,
+    limit: COLUMN_PAGE,
   };
 
   return (
@@ -204,17 +207,27 @@ function Column({
             ))}
           </ul>
         )}
-        {list.hasMore && (
-          <div className="pt-3 text-center">
-            <Button
-              variant="secondary"
-              size="sm"
+        {/* The same footer as every other list: it says how many are shown (read
+            out when it changes), says when a page did not arrive, and tries again. */}
+        {(list.hasMore ||
+          list.error !== null ||
+          list.rows.length > COLUMN_PAGE) && (
+          <div className="mt-3">
+            <LoadMore
+              shown={list.rows.length}
+              total={list.total}
+              noun={["task", "tasks"]}
+              hasMore={list.hasMore}
               loading={list.loadingMore}
-              onClick={list.loadMore}
-            >
-              Load more
-            </Button>
+              error={list.error instanceof ApiError ? list.error : null}
+              onLoadMore={list.loadMore}
+            />
           </div>
+        )}
+        {list.capped && (
+          <p role="note" className="mt-2 text-meta text-muted">
+            {LIST_CAPPED(list.rows.length)}
+          </p>
         )}
       </LoadState>
     </section>
