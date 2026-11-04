@@ -5,20 +5,25 @@ import {
   columnIssues,
   decodeDropTarget,
   encodeDropTarget,
+  hiddenDoneCount,
   isStaleDone,
   laneGroups,
   resolveDrop,
   sprintStrip,
 } from "@/lib/projects/board";
 import {
+  DEPT_NONE,
+  DEPT_UNASSIGNED,
   EMPTY_FILTER,
   UNASSIGNED,
   applyFilter,
   filterAssigneeIds,
   isFiltering,
   matchesFilter,
+  statusFromParam,
   toggleAssignee,
 } from "@/lib/projects/filters";
+import { categoryOf } from "@/lib/projects/workflow";
 import {
   countProgress,
   epicProgress,
@@ -86,7 +91,93 @@ describe("filters", () => {
     expect(matchesFilter(issue("p-01"), both, null)).toBe(true);
   });
 
-  it("'Only my issues' needs to know who I am, and shows nothing when it does not", () => {
+  it("counts everybody on a shared task, for a person and for 'Only my tasks'", () => {
+    const shared = {
+      ...byKey(d, "CHK-14"),
+      assigneeId: "p-01",
+      assigneeIds: ["p-01", "p-03"],
+    } as Issue;
+    expect(
+      matchesFilter(shared, { ...EMPTY_FILTER, assigneeIds: ["p-03"] }, null),
+    ).toBe(true);
+    expect(matchesFilter(shared, { ...EMPTY_FILTER, mine: true }, "p-03")).toBe(
+      true,
+    );
+    expect(matchesFilter(shared, { ...EMPTY_FILTER, mine: true }, "p-09")).toBe(
+      false,
+    );
+  });
+
+  it("narrows to one status category, whatever the project calls its columns", () => {
+    const done = applyFilter(
+      d.issues,
+      { ...EMPTY_FILTER, statusCategory: "DONE" },
+      null,
+      d.project.statuses,
+    );
+    expect(done.length).toBeGreaterThan(0);
+    expect(
+      done.every((i) => categoryOf(d.project.statuses, i.statusId) === "DONE"),
+    ).toBe(true);
+    const notStarted = applyFilter(
+      d.issues,
+      { ...EMPTY_FILTER, statusCategory: "TODO" },
+      null,
+      d.project.statuses,
+    );
+    expect(notStarted.some((i) => done.includes(i))).toBe(false);
+    expect(
+      isFiltering({ ...EMPTY_FILTER, statusCategory: "IN_PROGRESS" }),
+    ).toBe(true);
+  });
+
+  it("filters by the department of the people on a task, with Unassigned and No department", () => {
+    const departments = {
+      "p-01": "d-fin",
+      "p-03": "d-eng",
+      "p-09": null,
+      "p-04": "d-fin",
+    };
+    const keysOf = (department: string) =>
+      applyFilter(
+        d.issues,
+        { ...EMPTY_FILTER, department },
+        null,
+        d.project.statuses,
+        departments,
+      );
+    const fin = keysOf("d-fin");
+    expect(fin.length).toBeGreaterThan(0);
+    expect(
+      fin.every((i) =>
+        i.assigneeIds.some(
+          (id) => departments[id as keyof typeof departments] === "d-fin",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      keysOf(DEPT_UNASSIGNED).every((i) => i.assigneeIds.length === 0),
+    ).toBe(true);
+    expect(keysOf(DEPT_NONE).every((i) => i.assigneeIds.includes("p-09"))).toBe(
+      true,
+    );
+    /* An unassigned task is never in a department. */
+    expect(fin.some((i) => i.assigneeIds.length === 0)).toBe(false);
+    /* Without the project's member departments the filter is not applied. */
+    expect(
+      applyFilter(d.issues, { ...EMPTY_FILTER, department: "d-fin" }, null),
+    ).toHaveLength(d.issues.length);
+  });
+
+  it("reads ?status= ignoring case, and ignores anything it does not know", () => {
+    expect(statusFromParam("DONE")).toBe("DONE");
+    expect(statusFromParam("done")).toBe("DONE");
+    expect(statusFromParam(" in_progress ")).toBe("IN_PROGRESS");
+    expect(statusFromParam("finished")).toBe("");
+    expect(statusFromParam(null)).toBe("");
+  });
+
+  it("'Only my tasks' needs to know who I am, and shows nothing when it does not", () => {
     const mine = { ...EMPTY_FILTER, mine: true };
     const forMe = applyFilter(d.issues, mine, "p-03");
     expect(forMe.length).toBeGreaterThan(0);
@@ -178,6 +269,18 @@ describe("what the board shows", () => {
     expect(keys).toContain("CHK-8");
     expect(keys).toContain("CHK-9");
     expect(keys.some((k) => ["CHK-1", "CHK-2"].includes(k))).toBe(false);
+  });
+
+  it("counts the finished tasks a Kanban board is hiding, and none on Scrum", () => {
+    const kanban = { ...d.project, type: "KANBAN" as const };
+    const issues = d.issues.map((i) => ({ ...i, sprintId: null }));
+    /* CHK-5..7 finished more than fourteen days ago. */
+    expect(
+      hiddenDoneCount({ project: kanban, issues, today: TODAY, doneDayOf }),
+    ).toBe(3);
+    expect(
+      hiddenDoneCount({ project: d.project, issues, today: TODAY, doneDayOf }),
+    ).toBe(0);
   });
 
   it("counts the fourteenth day as still showing and the fifteenth as gone", () => {
@@ -352,7 +455,17 @@ describe("what a drop does", () => {
       mode: "assignee",
       memberIds,
     })!;
-    expect(patch.assigneeId).toBe("p-03");
+    expect(patch.assigneeIds).toEqual(["p-03"]);
+    /* The others on it stay; the person whose lane it lands in leads. */
+    const shared = resolveDrop({
+      issue: { ...issue, assigneeIds: ["p-01", "p-09"] },
+      target: { statusId: issue.statusId, laneKey: "p-03" },
+      cell: [],
+      beforeId: null,
+      mode: "assignee",
+      memberIds,
+    })!;
+    expect(shared.assigneeIds).toEqual(["p-03", "p-09"]);
     const unassign = resolveDrop({
       issue,
       target: { statusId: issue.statusId, laneKey: "none" },
@@ -361,7 +474,7 @@ describe("what a drop does", () => {
       mode: "assignee",
       memberIds,
     })!;
-    expect(unassign.assigneeId).toBeNull();
+    expect(unassign.assigneeIds).toEqual([]);
   });
 
   it("will not hand work to a lane's person who is not a member", () => {

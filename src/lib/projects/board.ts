@@ -6,6 +6,7 @@
  * `resolveDrop` returns, so the rules a drag follows can be tested without a drag.
  */
 
+import { leadingWith } from "./assignees";
 import { daysBetween, daysLeft } from "./dates";
 import { byRank, rankForInsert } from "./rank";
 import type {
@@ -17,8 +18,13 @@ import type {
 } from "./types";
 import { effectiveStatus, isDone } from "./workflow";
 
-/** Done issues disappear from a Kanban board after this many days. */
-export const KANBAN_DONE_DAYS = 14;
+/**
+ * Finished tasks stay in view this many whole company days, then leave a Kanban
+ * board (and, on My tasks, move to the Archive). One number for both places.
+ */
+export const DONE_VISIBLE_DAYS = 14;
+/** The board's older name for `DONE_VISIBLE_DAYS`. */
+export const KANBAN_DONE_DAYS = DONE_VISIBLE_DAYS;
 
 export type Swimlanes = "none" | "assignee" | "epic";
 
@@ -54,7 +60,7 @@ export function isStaleDone(
 ): boolean {
   if (!issue.doneAt || !doneDay) return false;
   const age = daysBetween(doneDay, today);
-  return age !== null && age > KANBAN_DONE_DAYS;
+  return age !== null && age > DONE_VISIBLE_DAYS;
 }
 
 export type BoardScope = {
@@ -97,6 +103,26 @@ export function boardScope(args: {
       (issue) => issue.sprintId === sprint.id && issue.type !== "EPIC",
     ),
   };
+}
+
+/**
+ * How many finished tasks a Kanban board is hiding because they finished more
+ * than `DONE_VISIBLE_DAYS` ago. Zero for a Scrum board, which shows its sprint.
+ */
+export function hiddenDoneCount(args: {
+  project: Pick<Project, "type" | "statuses">;
+  issues: readonly Issue[];
+  today: string;
+  doneDayOf: (iso: string) => string | null;
+}): number {
+  const { project, issues, today, doneDayOf } = args;
+  if (project.type !== "KANBAN") return 0;
+  return issues.filter(
+    (issue) =>
+      issue.type !== "EPIC" &&
+      isDone(project.statuses, issue) &&
+      isStaleDone(issue, issue.doneAt ? doneDayOf(issue.doneAt) : null, today),
+  ).length;
 }
 
 /** Issues in one column, in rank order. Unknown statuses fall into the first column. */
@@ -212,7 +238,8 @@ export function resolveDrop(args: {
   if (mode === "assignee") {
     const next = target.laneKey === "none" ? null : target.laneKey;
     if (next === null || memberIds.includes(next)) {
-      if (next !== issue.assigneeId) patch.assigneeId = next;
+      if (next !== issue.assigneeId)
+        patch.assigneeIds = leadingWith(issue, next);
     }
   }
   if (mode === "epic" && issue.type !== "SUBTASK") {
@@ -222,7 +249,7 @@ export function resolveDrop(args: {
 
   const sameCell =
     patch.statusId === undefined &&
-    patch.assigneeId === undefined &&
+    patch.assigneeIds === undefined &&
     patch.epicId === undefined;
   const rest = cell.filter((c) => c.id !== issue.id);
   if (sameCell) {

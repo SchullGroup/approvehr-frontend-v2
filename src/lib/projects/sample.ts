@@ -489,6 +489,7 @@ export function buildSample(args: {
       createdAt,
       updatedAt: o.doneAt ?? createdAt,
       ...o,
+      assigneeIds: o.assigneeIds ?? (o.assigneeId ? [o.assigneeId] : []),
     };
     issues.push(issue);
     activity[id] = [

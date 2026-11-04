@@ -16,8 +16,15 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { ProjectsOff } from "@/components/projects/module-off";
+import { useQueryParam } from "@/components/projects/use-query-param";
 import { isModuleOff } from "@/lib/api/projects";
 import { canCreateProject, canSeeProject } from "@/lib/projects/access";
+import {
+  PROJECT_LIST_CAP,
+  departmentOptions,
+  filterProjects,
+  resolveDepartment,
+} from "@/lib/projects/project-filter";
 import { PROJECT_TYPE_LABEL, type Project } from "@/lib/projects/types";
 import { useProjectList } from "@/lib/store/projects";
 import {
@@ -71,6 +78,8 @@ function List() {
   const people = usePeople();
   const [scope, setScope] = useState<Scope>("mine");
   const [creating, setCreating] = useState(false);
+  const [query, setQuery] = useQueryParam("q", "");
+  const [departmentParam, setDepartment] = useQueryParam("dept", "");
 
   /* In demo the list is the whole book, so it is narrowed here by the same
      predicate the API applies; connected, the API has already done it. */
@@ -88,12 +97,30 @@ function List() {
   const projects = [...list.projects].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
+  const departments = departmentOptions(projects);
+  const department = resolveDepartment(departmentParam, departments);
+  const departmentLabel = departments.find(
+    (d) => d.value === department,
+  )?.label;
+  const shown = filterProjects(projects, query, department);
+  const filtering = query.trim() !== "" || department !== "";
+  const clearFilters = () => {
+    setQuery(null);
+    setDepartment(null);
+  };
+
+  /* A department in the address bar that no listed project is in is not
+     applied, and the list says so until another filter is chosen. */
+  const staleDepartment =
+    list.status === "ready" &&
+    departmentParam.trim() !== "" &&
+    department === "";
 
   return (
     <>
       <PageHeader
         title="Projects"
-        description="Plan work as projects, with issues, sprints and a board."
+        description="Plan work as projects, with tasks, sprints and a board."
         {...(canCreate
           ? {
               action: (
@@ -106,10 +133,16 @@ function List() {
           : {})}
       />
       <PageBody className="space-y-6">
-        {actor.editRecords && (
+        {list.status === "ready" && projects.length > 0 && (
           <FilterBar
-            applied={
-              scope === "all"
+            search={query}
+            onSearchChange={(value) => setQuery(value === "" ? null : value)}
+            searchPlaceholder="Search projects"
+            searchLabel="Search projects by name or key"
+            count={shown.length}
+            noun={["project", "projects"]}
+            applied={[
+              ...(actor.editRecords && scope === "all"
                 ? [
                     {
                       label: "Show",
@@ -117,20 +150,85 @@ function List() {
                       onClear: () => setScope("mine"),
                     },
                   ]
-                : []
-            }
+                : []),
+              ...(departmentLabel
+                ? [
+                    {
+                      label: "Department",
+                      value: departmentLabel,
+                      onClear: () => setDepartment(null),
+                    },
+                  ]
+                : []),
+            ]}
+            onClearAll={() => {
+              clearFilters();
+              if (actor.editRecords) setScope("mine");
+            }}
           >
-            <Field label="Which projects">
-              <Select
-                value={scope}
-                onChange={(event) => setScope(event.target.value as Scope)}
-              >
-                <option value="mine">My projects</option>
-                <option value="all">Everyone&apos;s</option>
-              </Select>
-            </Field>
+            {actor.editRecords && (
+              <Field label="Which projects">
+                <Select
+                  value={scope}
+                  onChange={(event) => setScope(event.target.value as Scope)}
+                >
+                  <option value="mine">My projects</option>
+                  <option value="all">Everyone&apos;s</option>
+                </Select>
+              </Field>
+            )}
+            {departments.length > 0 && (
+              <Field label="Department" help="By the project's department">
+                <Select
+                  value={department}
+                  onChange={(event) =>
+                    setDepartment(
+                      event.target.value === "" ? null : event.target.value,
+                    )
+                  }
+                >
+                  <option value="">All departments</option>
+                  {departments.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
           </FilterBar>
         )}
+
+        {list.status === "ready" &&
+          actor.editRecords &&
+          projects.length === 0 &&
+          scope === "all" && (
+            <FilterBar
+              applied={[
+                {
+                  label: "Show",
+                  value: "Everyone's",
+                  onClear: () => setScope("mine"),
+                },
+              ]}
+            >
+              {null}
+            </FilterBar>
+          )}
+
+        {staleDepartment && (
+          <p className="text-body-sm text-muted" role="status">
+            That department filter no longer applies. Showing all projects.
+          </p>
+        )}
+
+        {list.status === "ready" &&
+          list.projects.length >= PROJECT_LIST_CAP && (
+            <p className="text-body-sm text-muted" role="status">
+              Showing the first {PROJECT_LIST_CAP} projects. Narrow the search
+              to find others.
+            </p>
+          )}
 
         {/* The one loading and failure rule: card-shaped skeletons while it
             asks, the failure card (and nothing else) after it fails. */}
@@ -164,7 +262,7 @@ function List() {
             }
             description={
               canCreate
-                ? "A project holds a team's issues, sprints and board. Create one, and add the people who work on it."
+                ? "A project holds a team's tasks, sprints and board. Create one, and add the people who work on it."
                 : "Projects are started by people who lead a team or a department, and you see the ones you are added to. Ask whoever leads the work to add you."
             }
             {...(canCreate
@@ -180,9 +278,25 @@ function List() {
           />
         )}
 
-        {list.status === "ready" && projects.length > 0 && (
+        {list.status === "ready" &&
+          projects.length > 0 &&
+          shown.length === 0 &&
+          filtering && (
+            <EmptyState
+              icon={<FolderKanban />}
+              title="No projects match these filters"
+              description="Try another name or department, or clear the filters to see every project."
+              action={
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              }
+            />
+          )}
+
+        {list.status === "ready" && shown.length > 0 && (
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project) => (
+            {shown.map((project) => (
               <li key={project.id} className="min-w-0">
                 <Link
                   href={`/projects/${project.id}`}

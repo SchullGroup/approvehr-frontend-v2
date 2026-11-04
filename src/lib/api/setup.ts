@@ -243,8 +243,9 @@ export type ApiFeatures = {
   probationTracking: boolean;
   /**
    * Whether an appraisal form ends with an overall mark. Off by default, and the
-   * switch lives in Appraisal scoring beside the Self-assessment weight that
-   * depends on it.
+   * switch lives in Appraisal scoring, under Names of marks. It decides what a
+   * form offers and not whether Self-assessment has anything to count: that part
+   * reads from the mark when there is one and from the answers when there is not.
    *
    * Optional because an API one deploy behind does not send it, and **absent is
    * not off**: a server that has no such setting is a server on which the switch

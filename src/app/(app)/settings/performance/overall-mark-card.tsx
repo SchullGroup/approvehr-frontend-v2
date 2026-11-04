@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardBody, CardHeader, Switch, useToast } from "@/components/ui";
-import { weightLabel } from "@/lib/api/performance";
 import { useFeatureSettings } from "@/lib/store/features";
 
 /**
@@ -23,15 +22,16 @@ import { useFeatureSettings } from "@/lib/store/features";
  * question: is there an overall mark, and what is it called. Weights are the
  * other tab because they answer a different one, how a score is assembled.
  *
- * ## The one consequence worth putting on the card
+ * ## What it says about Self-assessment: nothing
  *
  * A manager's overall mark is shown beside the score and is **not counted in
- * it**. Self-assessment is the exception: when it carries a weight, its figure
- * is the overall mark somebody gave **themselves**. Off, nobody can give one,
- * so for new forms that part has nothing to count and is left out of the score
- * (never counted as nought). The mark says so only when it is true, which is a
- * saved weight above 0 with the switch off. At the default weight of 0% there
- * is nothing to say.
+ * it**. Self-assessment is read from the mark somebody gave themselves when
+ * there is one, and from how they answered when there is not, so the switch does
+ * not decide whether that part has something to count. This card used to warn
+ * that a weighted Self-assessment had "nothing to count" while the switch was
+ * off, which stopped being true when the part began to read the answers, and a
+ * warning about something that no longer happens is worse than none. What the
+ * part is read from is the weights tab's to say, once, in the API's words.
  *
  * ## Three states that are not "off"
  *
@@ -42,13 +42,10 @@ import { useFeatureSettings } from "@/lib/store/features";
  */
 export function OverallMarkCard({
   connected,
-  selfWeightBp,
   onChanged,
 }: {
   /** False offline: there is no server holding a company's setting. */
   connected: boolean;
-  /** The weight Self-assessment has **saved**, in basis points. */
-  selfWeightBp: number;
   /** Called after a save, so the weights page re-reads what the API says. */
   onChanged: () => void;
 }) {
@@ -91,14 +88,6 @@ export function OverallMarkCard({
             : on === false
               ? "Forms do not ask for an overall mark. The answers stand on their own."
               : "Whether each form ends with a page asking for one overall mark."
-        }
-        mark={
-          on === false && selfWeightBp > 0
-            ? [
-                "Self-assessment has nothing to count.",
-                `Self-assessment is weighted at ${weightLabel(selfWeightBp)}, and its figure is the overall mark somebody gives themselves. While this is off nobody can give one, so for new forms that part has nothing to count and is left out of the score.`,
-              ]
-            : null
         }
       />
       <CardBody className="flex flex-col gap-4">

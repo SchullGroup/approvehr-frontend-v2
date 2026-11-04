@@ -33,7 +33,6 @@ import {
   type WeightSet,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
-import { useFeatureSettings } from "@/lib/store/features";
 import { useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
@@ -107,9 +106,9 @@ const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
   BEHAVIOURAL_COMPETENCY:
     "Ratings against competencies filed under Behavioural competency.",
   LEADERSHIP:
-    "Ratings under Leadership, and only for people who manage others or lead a team.",
+    "Ratings under Leadership, and only for people who lead others: somebody reports to them, they lead a team, or they head a department.",
   SELF_ASSESSMENT:
-    "The overall rating somebody gave themselves on their own form.",
+    "How somebody rated themselves: their overall mark if they gave one, otherwise their own answers to the rated subsections their manager answers too.",
 };
 
 /** Percent text to integer basis points. Never a float in the payload. */
@@ -151,9 +150,6 @@ export function ScoringWeightsForm({
   const canManage = useCan("MANAGE_SETTINGS");
   const { weights, loading, error, source, editable, refusal, save, reload } =
     useScoringWeights();
-  /* Whether forms ask for an overall mark. Self-assessment is that mark, so
-     what it can say depends on it. Null is "the server did not say", never off. */
-  const { overallMark } = useFeatureSettings();
   const toast = useToast();
 
   /* Keyed by the set it was started from, so weights arriving or changing
@@ -389,8 +385,6 @@ export function ScoringWeightsForm({
                   weightBp={selfBp?.weightBp ?? 0}
                   savedWeightBp={savedSelfBp}
                   swingBp={selfSwingBp}
-                  overallMark={overallMark}
-                  onShowMarks={() => changeTab("marks")}
                 />
 
                 <Card>
@@ -474,11 +468,7 @@ export function ScoringWeightsForm({
           <div hidden={tab !== "marks"} className="flex flex-col gap-6">
             {/* First, because it decides whether the names below are ever
                 offered on a form. */}
-            <OverallMarkCard
-              connected={source === "api"}
-              selfWeightBp={savedSelfBp}
-              onChanged={reload}
-            />
+            <OverallMarkCard connected={source === "api"} onChanged={reload} />
             {scale}
           </div>
         </Tabs>
@@ -531,24 +521,14 @@ function SelfAssessment({
   weightBp,
   savedWeightBp,
   swingBp,
-  overallMark,
-  onShowMarks,
 }: {
   note: string;
   weightBp: number;
   savedWeightBp: number;
   swingBp: number;
-  /** Whether forms ask for an overall mark. Null is "not said", not off. */
-  overallMark: boolean | null;
-  onShowMarks: () => void;
 }) {
   const on = weightBp > 0;
   const changed = weightBp !== savedWeightBp;
-  /* Self-assessment is the overall mark somebody gave themselves. With the
-     switch off nobody can give one, so everything below that talks about a
-     self-rating moving a mark would describe something that cannot happen.
-     Only an explicit `false` says so: null is a server that did not answer. */
-  const markOff = overallMark === false;
 
   return (
     <Card>
@@ -583,19 +563,7 @@ function SelfAssessment({
           </span>
         </p>
 
-        {markOff ? (
-          /* An action, not a second explanation: the API's sentence above
-             already says why this weight has nothing to count. */
-          <p className="text-body-sm">
-            <button
-              type="button"
-              onClick={onShowMarks}
-              className="font-medium text-accent-text underline-offset-4 hover:underline"
-            >
-              Switch overall marks on under Names of marks
-            </button>
-          </p>
-        ) : on ? (
+        {on ? (
           <p className="text-body-sm text-muted">
             {changed ? "If you save this: at" : "At"} {weightLabel(weightBp)},
             somebody who rates themselves 5 out of 5 rather than 3 out of 5
@@ -614,17 +582,13 @@ function SelfAssessment({
         )}
 
         <DescriptionList
-          columns={markOff ? 1 : 2}
+          columns={2}
           items={[
-            ...(markOff
-              ? []
-              : [
-                  {
-                    term: "What we do instead",
-                    value:
-                      "The self-rating is shown beside the manager's, so the gap between them is visible and can be discussed.",
-                  },
-                ]),
+            {
+              term: "What we do instead",
+              value:
+                "Their own answers are shown beside the manager's, so the gap between them is visible and can be discussed.",
+            },
             {
               term: "Why it is a setting at all",
               value:

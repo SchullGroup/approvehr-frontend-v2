@@ -181,7 +181,7 @@ describe("moving a card without dragging it", () => {
   it("leaves a viewer with nothing to move and nothing to drag", () => {
     renderBoard(sampleData(), { canWork: false });
     expect(screen.queryByLabelText(/^Move CHK-14/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Drop an issue here")).not.toBeInTheDocument();
+    expect(screen.queryByText("Drop a task here")).not.toBeInTheDocument();
   });
 });
 
@@ -243,9 +243,9 @@ describe("dragging a card", () => {
     const { actions } = renderBoard(data);
     drag("CHK-14", cell("To Do", "Chidi Nwosu"));
     const patch = actions.patchIssue.mock.calls[0]![1] as {
-      assigneeId: string;
+      assigneeIds: string[];
     };
-    expect(patch.assigneeId).toBe("p-03");
+    expect(patch.assigneeIds[0]).toBe("p-03");
   });
 
   it("does nothing when the pointer is released over nothing", () => {
@@ -276,5 +276,14 @@ describe("a Kanban board", () => {
     expect(
       screen.getByText("Show line-item tax breakdown in the order summary"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 finished tasks older than 14 days are hidden\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View all done tasks" }),
+    ).toHaveAttribute(
+      "href",
+      `/projects/${kanban.project.id}?view=issues&status=DONE`,
+    );
   });
 });

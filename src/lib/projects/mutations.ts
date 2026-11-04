@@ -43,6 +43,19 @@ const same = (a: unknown, b: unknown): boolean =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 /** Comma-separated labels as the API stores them: trimmed, unique, at most twelve. */
+/** Who a new issue starts with, lead first: `assigneeIds` wins over `assigneeId`. */
+function newAssignees(input: NewIssueInput): {
+  assigneeId: string | null;
+  assigneeIds: string[];
+} {
+  const ids = input.assigneeIds
+    ? [...new Set(input.assigneeIds)]
+    : input.assigneeId
+      ? [input.assigneeId]
+      : [];
+  return { assigneeId: ids[0] ?? null, assigneeIds: ids };
+}
+
 export function parseLabels(text: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -124,6 +137,14 @@ export function sanitisePatch(
     else out.points = points;
   }
   if (out.labels) out.labels = parseLabels(out.labels.join(","));
+  /* The lead is always the first of everybody, as the API keeps it; `assigneeId`
+     alone means that one person. */
+  if (out.assigneeIds !== undefined) {
+    out.assigneeIds = [...new Set(out.assigneeIds)];
+    out.assigneeId = out.assigneeIds[0] ?? null;
+  } else if (out.assigneeId !== undefined) {
+    out.assigneeIds = out.assigneeId ? [out.assigneeId] : [];
+  }
   return out;
 }
 
@@ -173,6 +194,13 @@ export function patchIssue(
   }
   if (next.rank === current.rank && changes.length === 0) {
     return { data, issue: current, changes: [], touched: [], applied: {} };
+  }
+
+  /* Clearing the date clears the time, as the API does; a time with no date
+     (sent, or left on a task whose date was cleared) is not kept. */
+  if (!next.dueDate && next.dueTime) {
+    next.dueTime = null;
+    if ("dueTime" in applied) delete applied["dueTime"];
   }
 
   if (next.statusId !== current.statusId) {
@@ -260,7 +288,7 @@ export function buildIssue(
     description: input.description ?? "",
     statusId: status.id,
     priority: input.priority ?? "MEDIUM",
-    assigneeId: input.assigneeId ?? null,
+    ...newAssignees(input),
     reporterId: ctx.actorId,
     epicId: parent ? parent.epicId : (epic?.id ?? null),
     parentId: parent ? parent.id : null,
@@ -269,6 +297,8 @@ export function buildIssue(
     labels: parseLabels((input.labels ?? []).join(",")),
     startDate: input.startDate ?? null,
     dueDate: input.dueDate ?? null,
+    /* A time only ever comes with a date, as the API refuses one without. */
+    dueTime: input.dueDate ? (input.dueTime ?? null) : null,
     rank: rankAtEnd(issues.map((i) => i.rank)),
     doneAt: done ? ctx.now : null,
     goalId: null,

@@ -55,6 +55,7 @@ function epic(start: string | null, due: string | null, rank = 1): Issue {
     statusId: "st",
     priority: "MEDIUM",
     assigneeId: null,
+    assigneeIds: [],
     reporterId: null,
     epicId: null,
     parentId: null,
@@ -334,15 +335,15 @@ describe("the sample project's roadmap", () => {
       today: TODAY,
     });
     expect(alone.rows[0]!.percent).toBeNull();
-    expect(alone.rows[0]!.label).toBe("X-" + lone.number + " · No issues");
-    expect(alone.rows[0]!.summary).toBe("No issues yet");
+    expect(alone.rows[0]!.label).toBe("X-" + lone.number + " · No tasks");
+    expect(alone.rows[0]!.summary).toBe("No tasks yet");
   });
 
   it("words the summary and the label", () => {
-    expect(epicSummary({ done: 0, total: 0 })).toBe("No issues yet");
+    expect(epicSummary({ done: 0, total: 0 })).toBe("No tasks yet");
     expect(epicSummary({ done: 1, total: 3 })).toBe("1 of 3 done");
     expect(epicBarLabel("CHK-9", 1)).toBe("CHK-9 · 100%");
-    expect(epicBarLabel("CHK-9", null)).toBe("CHK-9 · No issues");
+    expect(epicBarLabel("CHK-9", null)).toBe("CHK-9 · No tasks");
   });
 });
 

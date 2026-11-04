@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { projectsApi, type PersonalTaskDetail } from "@/lib/api/projects";
+import { isOn } from "@/lib/projects/assignees";
 import { EMPTY_FILTER } from "@/lib/projects/filters";
 import type {
   AttachmentRef,
@@ -254,7 +255,15 @@ export function PersonalIssueDrawer({
   }, [all, detail, keep, onChanged, reloadThread, remember, toast]);
 
   const ownerId = (current ?? detail?.issue)?.assigneeId ?? null;
+  const parentOf =
+    (current?.parentId && all.find((i) => i.id === current.parentId)) || null;
   const meId = actor.employeeId;
+  /* A colleague the owner put on it (or on its parent) may move it. */
+  const canChangeStatus =
+    meId !== null &&
+    (meId === ownerId ||
+      (current !== null && isOn(current, meId)) ||
+      (parentOf !== null && isOn(parentOf, meId)));
   const setByName =
     current && ownerId && current.reporterId !== ownerId
       ? people.nameOf(current.reporterId)
@@ -296,6 +305,7 @@ export function PersonalIssueDrawer({
       meId,
       connected: true,
       canWork: meId !== null && meId === ownerId,
+      canChangeStatus,
       /* The API's word: the owner, or the leader who set it, fixes the details. */
       canEditDetails: detail.canEditDetails,
       /* Everybody who can open somebody's task may comment on it: its owner,
@@ -326,6 +336,7 @@ export function PersonalIssueDrawer({
     timeZone,
     today,
     setByName,
+    canChangeStatus,
   ]);
 
   if (!value) return null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { DueTimeInput } from "@/components/projects/due-time-input";
 import { useId, useMemo, useState } from "react";
 import { Link2, Trash2 } from "lucide-react";
 import {
@@ -50,12 +51,16 @@ import { LinkedTasks } from "./linked-tasks";
 import { IssueKey, StatusPill, TypeIcon } from "./glyphs";
 import { MentionComposer } from "./mention-composer";
 import { IssueObjectiveLink } from "./objective-link";
-import { PersonAvatar, PersonName, PersonPicker } from "./person";
+import { PersonAvatar, PersonName } from "./person";
 import { SectionTabs } from "./section-tabs";
 import { closeTopPopup } from "./popups";
 import { useProject } from "./project-context";
 import { TaskFiles } from "./task-files";
 import { Watchers } from "./watchers";
+import { AssigneeList, AssigneeMenu, AssigneeStack } from "./assignees";
+import { SubtaskComposer } from "./subtask-composer";
+import { assigneesOf, isOn } from "@/lib/projects/assignees";
+import type { NewIssueInput } from "@/lib/projects/types";
 
 const NO_FILES: IssueAttachment[] = [];
 const NO_WATCHERS: Watcher[] = [];
@@ -103,7 +108,7 @@ export function IssueDrawer({
            away a half-made choice along with the drawer. */
         if (!closeTopPopup()) onClose();
       }}
-      title={shown ? shown.key : "Issue"}
+      title={shown ? shown.key : "Task"}
       size="xl"
       className="sm:max-w-4xl"
     >
@@ -143,6 +148,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     meId,
     canWork,
     canComment = canWork,
+    canChangeStatus = canWork,
     canEditDetails = canWork,
     canManage,
     connected,
@@ -159,7 +165,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
 
   const [confirming, setConfirming] = useState(false);
   const [tab, setTab] = useState<"comments" | "history">("comments");
-  const [quickAdd, setQuickAdd] = useState("");
 
   const statuses = useMemo(
     () => sortStatuses(project.statuses),
@@ -188,6 +193,13 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
       ? [...planned, currentSprint]
       : planned;
 
+  /* Who can be put on it: a board's members; on a personal list, anybody at
+     the company, with the list's owner always kept on it. */
+  const assignable = personal
+    ? people.people.map((p) => p.id)
+    : project.memberIds;
+  const locked = personal && project.leadId ? [project.leadId] : [];
+
   const save = (patch: Parameters<typeof actions.patchIssue>[1]) =>
     void actions.patchIssue(issue, patch);
 
@@ -201,20 +213,21 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
   const comments = [...thread.comments].reverse();
   const history = [...thread.activity].reverse();
 
-  async function addKid() {
-    const title = quickAdd.trim();
-    if (!title) return;
-    setQuickAdd("");
+  async function addKid(
+    input: Pick<
+      NewIssueInput,
+      "title" | "assigneeIds" | "dueDate" | "priority"
+    >,
+  ): Promise<boolean> {
     const result = await actions.createIssue(
       isEpic
-        ? { type: "STORY", title, epicId: issue.id }
-        : { type: "SUBTASK", title, parentId: issue.id },
+        ? { type: "STORY", epicId: issue.id, ...input }
+        : { type: "SUBTASK", parentId: issue.id, ...input },
     );
     if (result.ok) {
       toast.push({ tone: "success", title: `${result.value.key} created` });
-    } else {
-      setQuickAdd(title);
     }
+    return result.ok;
   }
 
   async function remove() {
@@ -274,7 +287,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         <nav
-          aria-label="Where this issue sits"
+          aria-label="Where this task sits"
           className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-meta text-muted"
         >
           {epic && (
@@ -310,7 +323,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         </nav>
         {!personal && (
           <IconButton
-            label="Copy link to this issue"
+            label="Copy link to this task"
             size="sm"
             onClick={copyLink}
           >
@@ -319,7 +332,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         )}
         {canWork && (
           <IconButton
-            label="Delete this issue"
+            label="Delete this task"
             size="sm"
             onClick={() => setConfirming(true)}
           >
@@ -337,7 +350,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           <span className="min-w-0 flex-1">
             Delete <strong>{issue.key}</strong>
             {isEpic && kids.length > 0
-              ? `? Its ${kids.length} ${kids.length === 1 ? "issue stays" : "issues stay"}, without an epic.`
+              ? `? Its ${kids.length} ${kids.length === 1 ? "task stays" : "tasks stay"}, without an epic.`
               : kids.length > 0
                 ? ` and its ${kids.length} ${kids.length === 1 ? "sub-task" : "sub-tasks"}?`
                 : "?"}{" "}
@@ -362,6 +375,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         disabled={!canEditDetails}
         clean={(draft) => (draft.trim() ? draft.trim() : null)}
         onCommit={(title) => save({ title })}
+        buttons
       />
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_18rem]">
@@ -384,6 +398,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
               }
               aria-labelledby={`${base}-desc`}
               onCommit={(description) => save({ description })}
+              buttons
             />
           </section>
 
@@ -407,7 +422,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                   id={`${base}-kids`}
                   className="text-meta font-semibold text-muted"
                 >
-                  {isEpic ? "Issues in this epic" : "Sub-tasks"}
+                  {isEpic ? "Tasks in this epic" : "Sub-tasks"}
                 </h3>
                 {kids.length > 0 && (
                   <span className="tabular text-meta text-muted">
@@ -430,7 +445,8 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                   />
                 </div>
               )}
-              <ul className="divide-y divide-line overflow-hidden rounded-md border border-line">
+              {/* Not `overflow-hidden`: it would clip each row's people menu. */}
+              <ul className="divide-y divide-line rounded-md border border-line">
                 {kids.map((kid) => {
                   const done = isDone(project.statuses, kid);
                   return (
@@ -445,7 +461,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                           </span>
                         }
                         checked={done}
-                        disabled={!canWork}
+                        disabled={!canChangeStatus}
                         onChange={() =>
                           void actions.patchIssue(kid, {
                             statusId: checkboxTarget(project.statuses, done).id,
@@ -465,7 +481,20 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                         status={effectiveStatus(project.statuses, kid.statusId)}
                         className="hidden sm:inline-flex"
                       />
-                      <PersonAvatar people={people} id={kid.assigneeId} />
+                      {canWork ? (
+                        <AssigneeMenu
+                          people={people}
+                          value={assigneesOf(kid)}
+                          candidates={assignable}
+                          locked={locked}
+                          label={`Assignees of ${kid.key}`}
+                          onChange={(next) =>
+                            void actions.patchIssue(kid, { assigneeIds: next })
+                          }
+                        />
+                      ) : (
+                        <AssigneeStack people={people} ids={assigneesOf(kid)} />
+                      )}
                     </li>
                   );
                 })}
@@ -473,26 +502,13 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                   <li className="px-3 py-3 text-body-sm text-muted">None</li>
                 )}
                 {canWork && (
-                  <li className="bg-canvas px-3 py-2">
-                    <Input
-                      value={quickAdd}
-                      onChange={(event) => setQuickAdd(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void addKid();
-                        }
-                      }}
-                      placeholder={
-                        isEpic
-                          ? "Add a story to this epic and press Enter"
-                          : "Add a sub-task and press Enter"
-                      }
-                      aria-label={
-                        isEpic ? "Add a story to this epic" : "Add a sub-task"
-                      }
-                      autoComplete="off"
-                      maxLength={240}
+                  <li>
+                    <SubtaskComposer
+                      people={people}
+                      candidates={assignable}
+                      locked={locked}
+                      noun={isEpic ? "story" : "sub-task"}
+                      onCreate={addKid}
                     />
                   </li>
                 )}
@@ -634,7 +650,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             <Select
               id={`${base}-status`}
               value={status.id}
-              disabled={!canWork}
+              disabled={!canChangeStatus}
               onChange={(event) => save({ statusId: event.target.value })}
               className="h-9"
             >
@@ -659,23 +675,22 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </Row>
           )}
 
-          {!personal && (
-            <Row label="Assignee">
-              <PersonPicker
+          {(!personal || canWork) && (
+            <Row label="Assignees">
+              <AssigneeList
                 people={people}
-                value={issue.assigneeId ?? ""}
-                ids={project.memberIds}
-                allowNone
+                value={assigneesOf(issue)}
+                candidates={assignable}
+                locked={locked}
                 disabled={!canWork}
-                aria-label="Assignee"
-                onChange={(id) => save({ assigneeId: id || null })}
+                onChange={(next) => save({ assigneeIds: next })}
               />
             </Row>
           )}
           {!personal &&
             canWork &&
             meId &&
-            issue.assigneeId !== meId &&
+            !isOn(issue, meId) &&
             project.memberIds.includes(meId) && (
               <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-x-3">
                 <span />
@@ -683,7 +698,9 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                   size="sm"
                   variant="ghost"
                   className="justify-self-start"
-                  onClick={() => save({ assigneeId: meId })}
+                  onClick={() =>
+                    save({ assigneeIds: [...assigneesOf(issue), meId] })
+                  }
                 >
                   Assign to me
                 </Button>
@@ -848,6 +865,15 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 save({ dueDate: event.target.value || null })
               }
               className="h-9"
+            />
+          </Row>
+          <Row label="Time" htmlFor={`${base}-due-time`}>
+            <DueTimeInput
+              id={`${base}-due-time`}
+              date={issue.dueDate}
+              value={issue.dueTime}
+              disabled={!canEditDetails}
+              onChange={(next) => save({ dueTime: next })}
             />
           </Row>
 

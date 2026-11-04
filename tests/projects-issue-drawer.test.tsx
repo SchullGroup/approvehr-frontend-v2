@@ -116,13 +116,13 @@ describe("what the drawer shows", () => {
   it("places the issue under its epic in the breadcrumb", () => {
     renderDrawer();
     expect(
-      screen.getByRole("navigation", { name: "Where this issue sits" }),
+      screen.getByRole("navigation", { name: "Where this task sits" }),
     ).toHaveTextContent("CHK-1");
   });
 
   it("shows an epic's stories instead of sub-tasks, with dates and no points", () => {
     renderDrawer("CHK-1");
-    expect(screen.getByText("Issues in this epic")).toBeInTheDocument();
+    expect(screen.getByText("Tasks in this epic")).toBeInTheDocument();
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
@@ -148,9 +148,7 @@ describe("what the drawer shows", () => {
       screen.getByRole("complementary", { name: "Details" }),
     );
     expect(details.getByLabelText("Status")).toBeDisabled();
-    expect(
-      screen.queryByLabelText("Delete this issue"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Add a comment")).not.toBeInTheDocument();
   });
 });
@@ -223,8 +221,9 @@ describe("saving as you go", () => {
   it("assigns to me in one press, and only offers it when it would change something", async () => {
     const { actions, issue } = renderDrawer("CHK-14", { meId: "p-03" });
     await userEvent.click(screen.getByRole("button", { name: "Assign to me" }));
+    /* Added alongside whoever is on it already, not in their place. */
     expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
-      assigneeId: "p-03",
+      assigneeIds: ["p-01", "p-03"],
     });
   });
 
@@ -242,16 +241,37 @@ describe("saving as you go", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("offers only the project's members as assignees, and unassigning", async () => {
-    const { actions, issue } = renderDrawer();
-    await userEvent.click(screen.getByRole("combobox", { name: "Assignee" }));
+  it("offers only the project's members as assignees, adds them, and takes them off", async () => {
+    const { actions, issue } = renderDrawer("CHK-14");
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "Add an assignee" }),
+    );
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options.some((o) => o?.includes("Unassigned"))).toBe(true);
     expect(options.some((o) => o?.includes("Amara"))).toBe(false);
-    await userEvent.click(screen.getByRole("option", { name: /Unassigned/ }));
+    /* Whoever is on it already is not offered again. */
+    expect(options.some((o) => o?.includes("Adaeze"))).toBe(false);
+    await userEvent.click(screen.getByRole("option", { name: /Chidi/ }));
     expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
-      assigneeId: null,
+      assigneeIds: ["p-01", "p-03"],
     });
+    actions.patchIssue.mockClear();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Take Adaeze Okonkwo off this task" }),
+    );
+    expect(actions.patchIssue).toHaveBeenCalledWith(issue, { assigneeIds: [] });
+  });
+
+  it("shows everybody on a shared task, the lead marked", () => {
+    const data = sampleData();
+    const shared = find(data, "CHK-14");
+    data.issues = data.issues.map((i) =>
+      i.id === shared.id ? { ...i, assigneeIds: ["p-01", "p-03"] } : i,
+    );
+    renderDrawer("CHK-14", {}, data);
+    const list = screen.getByRole("list", { name: "Assignees" });
+    expect(list).toHaveTextContent("Adaeze Okonkwo");
+    expect(list).toHaveTextContent("Lead");
+    expect(list).toHaveTextContent("Chidi Nwosu");
   });
 });
 
@@ -275,28 +295,67 @@ describe("sub-tasks and an epic's stories", () => {
     );
   });
 
-  it("adds a sub-task from the quick row on Enter", async () => {
+  it("adds sub-tasks one after another, with people, a date and a priority", async () => {
     const { actions, issue } = renderDrawer();
-    const row = screen.getByLabelText("Add a sub-task");
-    await userEvent.type(row, "Cover the timeout{Enter}");
+    await userEvent.click(screen.getByRole("button", { name: "Add sub-task" }));
+    const name = screen.getByLabelText("Name of the new sub-task");
+    await userEvent.type(name, "Cover the timeout");
+    await userEvent.click(
+      screen.getByRole("button", { name: /Assignees for the new sub-task/ }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: /Chidi Nwosu/ }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: /Emeka Anyanwu/ }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText("Priority for the new sub-task"),
+      "HIGH",
+    );
+    await userEvent.type(
+      screen.getByLabelText("Due date for the new sub-task"),
+      "2026-11-14",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(actions.createIssue).toHaveBeenCalledWith({
       type: "SUBTASK",
-      title: "Cover the timeout",
       parentId: issue.id,
+      title: "Cover the timeout",
+      priority: "HIGH",
+      assigneeIds: ["p-03", "p-09"],
+      dueDate: "2026-11-14",
     });
-    await waitFor(() => expect(row).toHaveValue(""));
+
+    /* Still open, cleared, and ready for the next one with the same people. */
+    await waitFor(() => expect(name).toHaveValue(""));
+    await userEvent.type(name, "Retry once{Enter}");
+    expect(actions.createIssue).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: "Retry once",
+        assigneeIds: ["p-03", "p-09"],
+      }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(
+      screen.queryByLabelText("Name of the new sub-task"),
+    ).not.toBeInTheDocument();
   });
 
   it("adds a story to an epic from the same row", async () => {
     const { actions, issue } = renderDrawer("CHK-1");
+    await userEvent.click(screen.getByRole("button", { name: "Add story" }));
     await userEvent.type(
-      screen.getByLabelText("Add a story to this epic"),
+      screen.getByLabelText("Name of the new story"),
       "Refund flow{Enter}",
     );
     expect(actions.createIssue).toHaveBeenCalledWith({
       type: "STORY",
-      title: "Refund flow",
       epicId: issue.id,
+      title: "Refund flow",
+      priority: "MEDIUM",
+      assigneeIds: [],
     });
   });
 
@@ -307,16 +366,54 @@ describe("sub-tasks and an epic's stories", () => {
       message: "No",
       error: null,
     });
-    const row = screen.getByLabelText("Add a sub-task");
+    await userEvent.click(screen.getByRole("button", { name: "Add sub-task" }));
+    const row = screen.getByLabelText("Name of the new sub-task");
     await userEvent.type(row, "Cover the timeout{Enter}");
     await waitFor(() => expect(row).toHaveValue("Cover the timeout"));
+  });
+
+  it("changes who is on a sub-task from its own row", async () => {
+    const { actions } = renderDrawer();
+    const kid = screen.getAllByRole("button", { name: /^Assignees of / })[0]!;
+    await userEvent.click(kid);
+    await userEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: /Ngozi Eze/ }),
+    );
+    expect(actions.patchIssue).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SUBTASK" }),
+      { assigneeIds: expect.arrayContaining(["p-04"]) },
+    );
+  });
+});
+
+describe("saving the description", () => {
+  it("offers Save while editing, and says when it saved", async () => {
+    const { actions, issue } = renderDrawer();
+    const box = screen.getByRole("textbox", { name: "Description" });
+    await userEvent.clear(box);
+    await userEvent.type(box, "New notes");
+    await userEvent.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+    expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
+      description: "New notes",
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+  });
+
+  it("puts the old text back on Cancel and sends nothing", async () => {
+    const { actions, issue } = renderDrawer();
+    const box = screen.getByRole("textbox", { name: "Description" });
+    await userEvent.clear(box);
+    await userEvent.type(box, "Throw this away");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(box).toHaveValue(issue.description);
+    expect(actions.patchIssue).not.toHaveBeenCalled();
   });
 });
 
 describe("deleting", () => {
   it("says what goes with the issue before it goes, then deletes and closes", async () => {
     const { actions, onClose, issue } = renderDrawer();
-    await userEvent.click(screen.getByLabelText("Delete this issue"));
+    await userEvent.click(screen.getByLabelText("Delete this task"));
     const confirm = screen.getByRole("alertdialog", { name: "Delete CHK-10" });
     expect(confirm).toHaveTextContent("and its 3 sub-tasks");
     expect(confirm).toHaveTextContent("cannot be undone");
@@ -329,7 +426,7 @@ describe("deleting", () => {
 
   it("can be called off", async () => {
     const { actions } = renderDrawer();
-    await userEvent.click(screen.getByLabelText("Delete this issue"));
+    await userEvent.click(screen.getByLabelText("Delete this task"));
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(actions.deleteIssue).not.toHaveBeenCalled();
@@ -337,15 +434,15 @@ describe("deleting", () => {
 
   it("says an epic's stories stay, rather than going with it", async () => {
     renderDrawer("CHK-1");
-    await userEvent.click(screen.getByLabelText("Delete this issue"));
+    await userEvent.click(screen.getByLabelText("Delete this task"));
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "issues stay, without an epic",
+      "tasks stay, without an epic",
     );
   });
 
   it("does not mention sub-tasks when there are none", async () => {
     renderDrawer("CHK-14");
-    await userEvent.click(screen.getByLabelText("Delete this issue"));
+    await userEvent.click(screen.getByLabelText("Delete this task"));
     expect(screen.getByRole("alertdialog")).not.toHaveTextContent("sub-task");
   });
 });
@@ -359,7 +456,7 @@ describe("Escape", () => {
 
   it("closes an open dropdown first, and the drawer only on the next press", async () => {
     const { onClose } = renderDrawer();
-    const assignee = screen.getByRole("combobox", { name: "Assignee" });
+    const assignee = screen.getByRole("combobox", { name: "Add an assignee" });
     await userEvent.click(assignee);
     expect(assignee).toHaveAttribute("aria-expanded", "true");
     await userEvent.keyboard("{Escape}");
@@ -502,7 +599,7 @@ describe("history", () => {
     const items = within(dialog()).getAllByRole("listitem");
     const text = items.map((li) => li.textContent ?? "");
     const changed = text.findIndex((t) => t.includes("changed priority"));
-    const created = text.findIndex((t) => t.includes("created the issue"));
+    const created = text.findIndex((t) => t.includes("created the task"));
     expect(changed).toBeGreaterThan(-1);
     expect(created).toBeGreaterThan(changed);
     expect(text[changed]).toContain("Chidi Nwosu");
@@ -732,9 +829,7 @@ describe("somebody's personal task", () => {
     expect(details.getByLabelText("Due")).toBeEnabled();
     expect(details.getByLabelText("Status")).toBeDisabled();
     expect(details.getByLabelText("Priority")).toBeDisabled();
-    expect(
-      screen.queryByLabelText("Delete this issue"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
 
     const summary = screen.getByLabelText("Summary");
     await userEvent.clear(summary);

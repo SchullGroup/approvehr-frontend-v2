@@ -365,6 +365,16 @@ export type ApiChoiceOption = {
   ratingCount?: number;
 };
 
+/** What starting a new version of a subsection answers with. */
+export type NewVersionResult = {
+  /** The new subsection: same name and section, answered the way that was asked. */
+  competency: ApiCompetency;
+  /** The one it replaces, under the name it was given when it was retired. */
+  retired: { id: string; name: string; ratingsKept: number };
+  /** What moved or was left behind, in the API's own sentences. May be empty. */
+  notes: string[];
+};
+
 export type ApiCompetency = {
   id: string;
   name: string;
@@ -920,6 +930,16 @@ export type ApiReviewDetail = ApiReview & {
    * sentence, and the form shows that.
    */
   sendBlockedBy?: string | null;
+  /**
+   * What HR recommended when this rating was made final, or `null`. Read by
+   * whoever may read the review, the person it is about included once the rating
+   * is theirs to read, so it is part of what they are told. **Absent from a server
+   * that predates it, and absent means there is none to show**, never "HR chose
+   * to say nothing". It is also the screen's only way to know the server keeps a
+   * recommendation at all, so the box that writes one is offered only where the key
+   * is present (`null` counts): an older server ignores the body of the finalise.
+   */
+  hrRecommendation?: string | null;
   /**
    * What the author is to the subject, on a manager form.
    *
@@ -3263,6 +3283,28 @@ export const performanceApi = {
     }>(`/performance/competencies/${id}`, { method: "DELETE" }),
 
   /**
+   * Start a new version of a subsection that is answered another way.
+   *
+   * How a subsection is answered is fixed once any rating exists, in any period,
+   * so this is the way through that rule and not around it: the old subsection
+   * keeps its ratings and every mark made from them under a retired name, and a
+   * new one with the same name and section, answered the way asked, starts empty
+   * and is used from now on. Periods that have not started move to the new one
+   * and published periods keep the old one.
+   *
+   * It is refused (409) while a period that is running asks the subsection on its
+   * review form, in a sentence naming the period, and shown as it comes. `notes`
+   * are the API's own sentences about what moved or was left behind, and are shown
+   * as they are: this side cannot work out which draft periods or job roles are
+   * affected.
+   */
+  newCompetencyVersion: (id: string, body: { answerKind: AnswerKind }) =>
+    request<NewVersionResult>(`/performance/competencies/${id}/new-version`, {
+      method: "POST",
+      body,
+    }),
+
+  /**
    * Give one KPI to several people, under one objective.
    *
    * Creates a sibling per person rather than one row with many owners — see
@@ -3418,10 +3460,17 @@ export const performanceApi = {
    * Only a submitted manager review: a self-review is not a mark anybody is
    * told, and peer feedback reaches its subject as an aggregate nobody signs.
    * The author, the subject's manager, or `EDIT_RECORDS`.
+   *
+   * HR can add a recommendation as they do it, which is part of what the person
+   * is told. **Only HR**: the API refuses it from anybody else and leaves the
+   * rating not final, so a caller offers the box to `EDIT_RECORDS` alone. It is
+   * sent only when there is something in it, because an empty one is refused and
+   * "no recommendation" is the absence of the key.
    */
-  finaliseReview: (id: string) =>
+  finaliseReview: (id: string, recommendation?: string) =>
     request<ApiReviewFinalised>(`/performance/reviews/${id}/finalise`, {
       method: "POST",
+      ...(recommendation === undefined ? {} : { body: { recommendation } }),
     }),
 
   /**

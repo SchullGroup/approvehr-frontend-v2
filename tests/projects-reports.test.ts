@@ -74,6 +74,7 @@ function issue(over: Partial<Issue> = {}): Issue {
     createdAt: NOW,
     updatedAt: NOW,
     ...over,
+    assigneeIds: over.assigneeIds ?? (over.assigneeId ? [over.assigneeId] : []),
   };
 }
 
@@ -137,11 +138,6 @@ describe("the four tiles", () => {
   it("counts what was finished in the last seven days, and its points", () => {
     /* Done 4, 2 and 1 days ago, and a sub-task 3 days ago: 3+5+1 = 9 points. */
     expect(tiles.doneInWeek).toEqual({ issues: 4, points: 9 });
-  });
-
-  it("counts open bugs and how many are high priority", () => {
-    /* The Safari bug is done. Open: a medium one and a high one. */
-    expect(tiles.bugs).toEqual({ open: 2, high: 1 });
   });
 
   it("counts what is past its due date and not done", () => {
@@ -256,29 +252,10 @@ describe("the four tiles", () => {
     });
   });
 
-  it("counts only open bugs, and only highest and high as high priority", () => {
-    const bug = (over: Partial<Issue>) => issue({ type: "BUG", ...over });
-    const t = reportTiles({
-      statuses,
-      issues: [
-        bug({ priority: "HIGHEST" }),
-        bug({ priority: "HIGH" }),
-        bug({ priority: "MEDIUM" }),
-        bug({ priority: "LOW" }),
-        finished(TODAY, { type: "BUG", priority: "HIGHEST" }),
-        issue({ type: "STORY", priority: "HIGHEST" }),
-      ],
-      today: TODAY,
-      dayOf,
-    });
-    expect(t.bugs).toEqual({ open: 4, high: 2 });
-  });
-
   it("reads zero from an empty project", () => {
     expect(reportTiles({ statuses, issues: [], today: TODAY, dayOf })).toEqual({
       open: { issues: 0, points: 0 },
       doneInWeek: { issues: 0, points: 0 },
-      bugs: { open: 0, high: 0 },
       overdue: 0,
     });
   });

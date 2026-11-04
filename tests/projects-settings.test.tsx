@@ -94,11 +94,11 @@ describe("the workflow editor", () => {
 
   it("refuses to remove a status that has issues, and says how many, on press", async () => {
     renderSettings();
-    expect(screen.queryByText(/issues are in Done/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tasks are in Done/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Remove Done" }));
     expect(
       screen.getByText(
-        /issues are in Done\. Move them to another status first\./,
+        /tasks are in Done\. Move them to another status first\./,
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Status 4 name")).toHaveValue("Done");

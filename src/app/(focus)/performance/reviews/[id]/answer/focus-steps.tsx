@@ -36,6 +36,7 @@ import {
   WriteBox,
   ratingOptions,
 } from "./focus-question";
+import { closingNoteWords } from "./focus-logic";
 
 /**
  * What each page of the review says.
@@ -338,19 +339,20 @@ export function SummaryStep({
   onChange: (next: string) => void;
   development: ReturnType<typeof useDevelopmentSuggestions>;
 }) {
+  const words = closingNoteWords(review.kind);
   return (
     <Frame
       headingId={HEADING}
       focusHeading={false}
-      title="Anything to add?"
-      lead="Optional. A line or two in your own words."
+      title={words.title}
+      lead={words.lead}
     >
       <div className="flex flex-col gap-3">
         <WriteBox
           value={summary}
           onChange={onChange}
           labelledBy={HEADING}
-          placeholder="Type here if there is more to say"
+          placeholder={words.placeholder}
         />
         <p className="text-meta text-muted">Press {continueKeys()} to go on.</p>
       </div>
@@ -496,7 +498,9 @@ export function CheckStep({
             onClick={() => onEdit("summary")}
             className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
           >
-            <p className="text-meta font-medium text-muted">Anything to add</p>
+            <p className="text-meta font-medium text-muted">
+              {closingNoteWords(review.kind).row}
+            </p>
             <p className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-ink">
               {summary.trim() || "Nothing added"}
             </p>

@@ -6,12 +6,15 @@ import { ToastProvider } from "@/components/ui";
 /**
  * Appraisal scoring, where the overall mark and Self-assessment meet.
  *
- * Self-assessment is the overall mark somebody gave themselves, so what the
- * weights page may say about it depends on whether forms ask for one. Switched
- * off, "somebody who rates themselves 5 rather than 3 moves their own mark" would
- * describe something nobody can do, so it is not said, and the page offers the
- * way to the switch instead of repeating the API's explanation. A server that
- * does not know the setting is not "off", and the page must read exactly as it did.
+ * Self-assessment is read from the mark somebody gave themselves when there is
+ * one, and from how they answered when there is not, so whether forms ask for an
+ * overall mark does not decide whether the part has anything to count. The weights
+ * page therefore reads the same either way: the API's sentence about what is
+ * saved, once; what a weight costs; and no offer to switch marks on, which used to
+ * be there because "nothing to count" was true.
+ *
+ * What does depend on the switch is the card on the Names of marks tab, and that
+ * it is read again when the switch moves, so the API's sentence follows it.
  */
 
 const reload = vi.fn();
@@ -101,65 +104,13 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/settings/performance");
 });
 
-describe("Self-assessment while forms do not ask for an overall mark", () => {
-  it("offers the way to the switch, instead of describing a swing nobody can cause", () => {
-    mount();
-    expect(
-      screen.getByRole("button", {
-        name: "Switch overall marks on under Names of marks",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/moves their own final mark/)).toBeNull();
-    expect(screen.queryByText("What we do instead")).toBeNull();
-  });
-
-  it("offers it at the default weight too, instead of arguing against a weight nobody can use yet", () => {
-    selfSaved = 0;
-    mount();
-    expect(
-      screen.getByRole("button", {
-        name: "Switch overall marks on under Names of marks",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Set this above 0%/)).toBeNull();
-  });
-
-  it("does not repeat the API's explanation in words of its own", () => {
-    mount();
-    expect(screen.queryByText(/Overall marks are switched off/)).toBeNull();
-    expect(screen.queryByText(/no self-given mark/)).toBeNull();
-  });
-
-  it("keeps the API's own sentence about what is saved, so it is said once and by the API", () => {
-    mount();
-    expect(screen.getByText("THE API'S NOTE")).toBeInTheDocument();
-  });
-
-  it("no longer claims it is collected either way", () => {
-    mount();
-    expect(screen.queryByText(/Collected either way/)).toBeNull();
-  });
-
-  it("takes the person to the switch without leaving the page", async () => {
-    mount();
-    const panel = () => screen.getByText("THE SCALE FORM").closest("[hidden]");
-    expect(panel()).not.toBeNull();
-    await userEvent.click(
-      screen.getByRole("button", {
-        name: "Switch overall marks on under Names of marks",
-      }),
-    );
-    expect(panel()).toBeNull();
-    expect(window.location.search).toBe("?tab=marks");
-  });
-});
-
-describe("Self-assessment where forms ask for one, or the server does not say", () => {
+describe("Self-assessment reads the same whatever forms ask for", () => {
   it.each([
+    ["off", false],
     ["on", true],
     ["not said", null],
   ] as const)(
-    "reads as it always did when the setting is %s",
+    "describes what a weight costs when the setting is %s",
     (_name, value) => {
       overallMark = value;
       mount();
@@ -167,13 +118,38 @@ describe("Self-assessment where forms ask for one, or the server does not say", 
         screen.getByText(/moves their own final mark by 10%/),
       ).toBeInTheDocument();
       expect(screen.getByText("What we do instead")).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", {
-          name: "Switch overall marks on under Names of marks",
-        }),
-      ).toBeNull();
     },
   );
+
+  it("does not offer to switch overall marks on, because the part counts without it", () => {
+    overallMark = false;
+    mount();
+    expect(
+      screen.queryByRole("button", {
+        name: "Switch overall marks on under Names of marks",
+      }),
+    ).toBeNull();
+  });
+
+  it("argues against a weight at the default, whatever forms ask for", () => {
+    selfSaved = 0;
+    overallMark = false;
+    mount();
+    expect(screen.getByText(/Set this above 0%/)).toBeInTheDocument();
+  });
+
+  it("keeps the API's own sentence about what is saved, so it is said once and by the API", () => {
+    mount();
+    expect(screen.getAllByText("THE API'S NOTE")).toHaveLength(1);
+  });
+
+  it("says the person's own answers are shown beside the manager's, not a self-rating", () => {
+    mount();
+    expect(
+      screen.getByText(/Their own answers are shown beside the manager's/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/The self-rating is shown/)).toBeNull();
+  });
 });
 
 describe("the Names of marks tab", () => {
@@ -193,29 +169,5 @@ describe("the Names of marks tab", () => {
     expect(setOverallMark).toHaveBeenCalledWith(true);
     await screen.findByText("Appraisal forms will end with an overall mark");
     expect(reload).toHaveBeenCalledTimes(1);
-  });
-
-  it("is told the weight that is saved, not the one being typed", async () => {
-    selfSaved = 0;
-    mount("marks");
-    /* Typing 20% into Self-assessment is a draft. The card is about what a
-       form would do today, so it says nothing until that is saved. */
-    const weight = screen.getAllByLabelText("Weight")[4]!;
-    await userEvent.clear(weight);
-    await userEvent.type(weight, "20");
-    expect(
-      screen.queryByRole("button", {
-        name: /Self-assessment has nothing to count/,
-      }),
-    ).toBeNull();
-  });
-
-  it("says Self-assessment has nothing to count once a weight is saved with the mark off", () => {
-    mount("marks");
-    expect(
-      screen.getByRole("button", {
-        name: /Self-assessment has nothing to count/,
-      }),
-    ).toBeInTheDocument();
   });
 });

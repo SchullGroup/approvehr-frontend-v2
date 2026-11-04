@@ -396,14 +396,43 @@ export function SelfAnswerLine({ words }: { words: string | null }) {
 }
 
 /**
- * One answered question, read back.
+ * One answered question, read back: the question, then its answer.
+ *
+ * The answer is `ReadAnswerBody`, which a side-by-side comparison draws on its
+ * own, once for each reader, under one question.
+ */
+export function ReadAnswer({
+  question,
+  held,
+  reviewId,
+}: {
+  question: ApiFormQuestion;
+  held: Draft;
+  reviewId?: string;
+}) {
+  return (
+    <div>
+      <p className="text-meta font-medium text-muted">{question.prompt}</p>
+      <div className="mt-1">
+        <ReadAnswerBody
+          question={question}
+          held={held}
+          {...(reviewId ? { reviewId } : {})}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The answer to one question, read back, without the question.
  *
  * An unanswered question renders as "Not answered" rather than as an empty line.
  * A blank there reads as an answer somebody gave and cannot be told apart from a
  * question nobody reached, which on a rating somebody is disputing is the
  * difference between evidence and a gap.
  */
-export function ReadAnswer({
+export function ReadAnswerBody({
   question,
   held,
   reviewId,
@@ -462,29 +491,21 @@ export function ReadAnswer({
               null
             : (held.text ?? null);
 
+  if (question.kind === "FILE") {
+    return attached ? (
+      <AttachedEvidence
+        reviewId={reviewId ?? ""}
+        questionId={question.id}
+        attachment={attached}
+        canOpen={editable && Boolean(reviewId)}
+      />
+    ) : (
+      <p className="text-body-sm leading-relaxed text-ink">Nothing attached</p>
+    );
+  }
   return (
-    <div>
-      <p className="text-meta font-medium text-muted">{question.prompt}</p>
-      {question.kind === "FILE" ? (
-        attached ? (
-          <div className="mt-1">
-            <AttachedEvidence
-              reviewId={reviewId ?? ""}
-              questionId={question.id}
-              attachment={attached}
-              canOpen={editable && Boolean(reviewId)}
-            />
-          </div>
-        ) : (
-          <p className="mt-1 text-body-sm leading-relaxed text-ink">
-            Nothing attached
-          </p>
-        )
-      ) : (
-        <p className="mt-1 text-body-sm leading-relaxed text-ink">
-          {answer ?? "Not answered"}
-        </p>
-      )}
-    </div>
+    <p className="text-body-sm leading-relaxed text-ink">
+      {answer ?? "Not answered"}
+    </p>
   );
 }

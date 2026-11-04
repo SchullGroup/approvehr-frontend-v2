@@ -1,9 +1,9 @@
 "use client";
 
+import { DueTimeInput } from "@/components/projects/due-time-input";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   Button,
-  Checkbox,
   Field,
   Input,
   Modal,
@@ -23,6 +23,7 @@ import {
   type NewIssueInput,
   type Priority,
 } from "@/lib/projects/types";
+import { AssigneeList } from "./assignees";
 import { useProject } from "./project-context";
 import {
   AttachButton,
@@ -42,7 +43,9 @@ type Draft = {
   sprintId: string;
   startDate: string;
   dueDate: string;
-  assignMe: boolean;
+  dueTime: string;
+  /** Everybody on it, the lead first. */
+  assigneeIds: string[];
 };
 
 function blank(defaults: Partial<NewIssueInput>): Draft {
@@ -56,7 +59,8 @@ function blank(defaults: Partial<NewIssueInput>): Draft {
     sprintId: defaults.sprintId ?? "",
     startDate: "",
     dueDate: "",
-    assignMe: false,
+    dueTime: "",
+    assigneeIds: [],
   };
 }
 
@@ -87,7 +91,8 @@ export function CreateIssueDialog({
   onClose: () => void;
   defaults: Partial<NewIssueInput>;
 }) {
-  const { project, sprints, epics, actions, meId, connected } = useProject();
+  const { project, sprints, epics, actions, meId, connected, people } =
+    useProject();
   const toast = useToast();
   const formId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
@@ -155,7 +160,8 @@ export function CreateIssueDialog({
         sprintId: isEpic || !scrum ? null : draft.sprintId || null,
         startDate: isEpic ? draft.startDate || null : null,
         dueDate: draft.dueDate || null,
-        assigneeId: draft.assignMe && meId ? meId : null,
+        dueTime: draft.dueDate && draft.dueTime ? draft.dueTime : null,
+        assigneeIds: draft.assigneeIds,
       },
       { quiet: true },
     );
@@ -185,7 +191,7 @@ export function CreateIssueDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Create an issue"
+      title="Create a task"
       description={`In ${project.name}`}
       size="lg"
       footer={
@@ -361,18 +367,44 @@ export function CreateIssueDialog({
             <Input
               type="date"
               value={draft.dueDate}
-              onChange={(e) => set("dueDate", e.target.value)}
+              onChange={(e) => {
+                set("dueDate", e.target.value);
+                /* Clearing the date clears the time, on screen as on save. */
+                if (!e.target.value) set("dueTime", "");
+              }}
+            />
+          </Field>
+          <Field label="Due time" optional>
+            <DueTimeInput
+              date={draft.dueDate}
+              value={draft.dueTime}
+              onChange={(next) => set("dueTime", next ?? "")}
             />
           </Field>
         </div>
 
-        {canAssignMe && (
-          <Checkbox
-            label="Assign to me"
-            checked={draft.assignMe}
-            onChange={(e) => set("assignMe", e.target.checked)}
+        <fieldset className="space-y-2">
+          <legend className="text-body-sm font-medium text-ink">
+            Assignees <span className="font-normal text-muted">(optional)</span>
+          </legend>
+          <AssigneeList
+            people={people}
+            value={draft.assigneeIds}
+            candidates={project.memberIds}
+            disabled={false}
+            onChange={(next) => set("assigneeIds", next)}
           />
-        )}
+          {canAssignMe && meId && !draft.assigneeIds.includes(meId) && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => set("assigneeIds", [...draft.assigneeIds, meId])}
+            >
+              Assign to me
+            </Button>
+          )}
+        </fieldset>
 
         {connected && !created && (
           <div className="space-y-2">

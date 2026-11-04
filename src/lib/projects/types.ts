@@ -134,6 +134,14 @@ export type Project = {
   goalId: string | null;
   /** The lead is always among them. */
   memberIds: string[];
+  /**
+   * Each member's department id (null for none), for the board's "Assignee's
+   * department" filter. Sent with one project, not with the list; absent in the
+   * demo, where the filter is not offered.
+   */
+  memberDepartments?: Record<string, string | null>;
+  /** Names of the departments in `memberDepartments`, by id. */
+  departmentNames?: Record<string, string>;
   statuses: ProjectStatus[];
   createdById: string;
   createdAt: string;
@@ -182,7 +190,10 @@ export type Issue = {
   description: string;
   statusId: string;
   priority: Priority;
+  /** The lead: `assigneeIds[0]`. Credit for finished work follows them. */
   assigneeId: string | null;
+  /** Everybody on it, the lead first. Empty when nobody is. */
+  assigneeIds: string[];
   reporterId: string | null;
   epicId: string | null;
   parentId: string | null;
@@ -191,6 +202,13 @@ export type Issue = {
   labels: string[];
   startDate: string | null;
   dueDate: string | null;
+  /**
+   * `HH:MM`, 24-hour, on `dueDate` in the company's time zone; null (or absent)
+   * for "by the end of the day". Never set without a `dueDate`.
+   */
+  dueTime?: string | null;
+  /** The deadline instant the API worked out from the two (ISO); read-only. */
+  dueAt?: string | null;
   /** Position within a column or section. Insert between neighbours is the midpoint. */
   rank: number;
   doneAt: string | null;
@@ -337,6 +355,8 @@ export type NewIssueInput = {
   statusId?: string;
   priority?: Priority;
   assigneeId?: string | null;
+  /** Everybody on it, the lead first. Wins over `assigneeId`. */
+  assigneeIds?: string[];
   epicId?: string | null;
   parentId?: string | null;
   sprintId?: string | null;
@@ -344,6 +364,7 @@ export type NewIssueInput = {
   labels?: string[];
   startDate?: string | null;
   dueDate?: string | null;
+  dueTime?: string | null;
 };
 
 export type IssuePatch = Partial<{
@@ -353,12 +374,14 @@ export type IssuePatch = Partial<{
   statusId: string;
   priority: Priority;
   assigneeId: string | null;
+  assigneeIds: string[];
   epicId: string | null;
   sprintId: string | null;
   points: number | null;
   labels: string[];
   startDate: string | null;
   dueDate: string | null;
+  dueTime: string | null;
   rank: number;
   goalId: string | null;
 }>;

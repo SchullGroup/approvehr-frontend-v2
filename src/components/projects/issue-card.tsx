@@ -2,9 +2,9 @@
 
 import { ArrowRightLeft, GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { isBefore } from "@/lib/projects/dates";
+import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
+import { useOrgTimezone } from "@/lib/store/session";
 import type { Issue, ProjectStatus } from "@/lib/projects/types";
-import { shortDate } from "@/lib/today";
 import type { People } from "@/lib/store/project-session";
 import {
   EpicChip,
@@ -14,7 +14,8 @@ import {
   PriorityIcon,
   TypeIcon,
 } from "./glyphs";
-import { PersonAvatar } from "./person";
+import { assigneesOf } from "@/lib/projects/assignees";
+import { AssigneeStack } from "./assignees";
 
 /**
  * A card on the board.
@@ -60,7 +61,8 @@ export function IssueCard({
   onOpen: () => void;
   onMove: (statusId: string) => void;
 }) {
-  const overdue = !done && isBefore(issue.dueDate, today);
+  const timeZone = useOrgTimezone();
+  const overdue = !done && isPastDue(issue, today, nowHHMMIn(timeZone));
   const labels = issue.labels.slice(0, 3);
 
   return (
@@ -126,14 +128,14 @@ export function IssueCard({
               <TypeIcon type={issue.type} />
               <IssueKey issueKey={issue.key} done={done} />
               {overdue && issue.dueDate && (
-                <span className="text-meta font-medium text-warning-text">
-                  Due {shortDate(issue.dueDate)}
+                <span className="whitespace-nowrap text-meta font-medium text-warning-text">
+                  Due {dueLabel(issue, today, "card")}
                 </span>
               )}
               <span className="ml-auto flex items-center gap-2">
                 <PriorityIcon priority={issue.priority} />
                 {issue.points !== null && <PointsPill points={issue.points} />}
-                <PersonAvatar people={people} id={issue.assigneeId} />
+                <AssigneeStack people={people} ids={assigneesOf(issue)} />
               </span>
             </div>
           </div>

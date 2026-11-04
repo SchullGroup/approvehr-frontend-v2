@@ -273,7 +273,7 @@ describe("a self-review's record", () => {
   });
 });
 
-describe("what they said about their own period, beside a manager's record", () => {
+describe("the overall marks beside each other, on a manager's record with the self review in", () => {
   const selfReview = (over: Partial<ApiReviewDetail> = {}) =>
     review({
       id: "r-self",
@@ -284,35 +284,44 @@ describe("what they said about their own period, beside a manager's record", () 
       ...over,
     });
 
-  it("has no row for their own overall mark where the company does not ask", () => {
+  it("has no row for either overall mark where the company does not ask and nobody gave one", () => {
     state.review = review({ overallMark: false });
     state.self = selfReview({ overallMark: false });
     mount();
     expect(
-      screen.getByRole("heading", {
-        name: "What they said about their own period",
-      }),
+      screen.getByRole("heading", { name: "Self review and manager review" }),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Overall mark")).toBeNull();
     expect(screen.queryByText("Their overall mark")).toBeNull();
   });
 
-  it("says none was given where the company asks and they gave none", () => {
-    state.review = review({ overallMark: true });
+  it("is one row, with the manager's and the person's, and none given where the company asks and they gave none", () => {
+    state.review = review({ overallMark: true, rating: 4 });
     state.self = selfReview({ overallMark: true });
     mount();
-    /* The Stat's own box, so this is their row and not the manager's. */
-    const stat = screen
-      .getByText("Their overall mark")
-      .closest<HTMLElement>(".rounded-lg")!;
-    expect(within(stat).getByText("None given")).toBeInTheDocument();
+    /* One row, not the manager's in the top card and both again below. */
+    expect(screen.getAllByText("Overall mark")).toHaveLength(1);
+    const row = within(screen.getByText("Overall mark").closest("li")!);
+    expect(row.getByText("Exceeds Expectations")).toBeInTheDocument();
+    expect(row.getByText("None given")).toBeInTheDocument();
   });
 
   it("shows the mark they gave, whatever the setting says now", () => {
     state.review = review({ overallMark: false });
     state.self = selfReview({ overallMark: false, rating: 5 });
     mount();
-    expect(screen.getByText("Their overall mark")).toBeInTheDocument();
-    expect(screen.getByText("Exceptional")).toBeInTheDocument();
+    const row = within(screen.getByText("Overall mark").closest("li")!);
+    expect(row.getByText("Exceptional")).toBeInTheDocument();
+  });
+
+  it("keeps the manager's own mark in the top card when there is no self review to put beside it", () => {
+    state.review = review({ overallMark: true, rating: 4 });
+    state.self = null;
+    mount();
+    expect(screen.getAllByText("Overall mark")).toHaveLength(1);
+    expect(
+      screen.getByText("Overall mark").closest(".rounded-lg"),
+    ).not.toBeNull();
   });
 });
 
