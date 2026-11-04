@@ -480,7 +480,7 @@ export function WorkloadList({
                 </span>
                 <span className="text-muted">
                   {" · "}
-                  {plural(row.issues, "task")}
+                  {plural(row.issues, "issue")}
                 </span>
               </span>
             </div>

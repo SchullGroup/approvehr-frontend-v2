@@ -1,7 +1,5 @@
 "use client";
 
-import { useOrgTimezone } from "@/lib/store/session";
-import { nowHHMMIn } from "@/lib/projects/due";
 import { useMemo } from "react";
 import {
   Card,
@@ -73,19 +71,11 @@ function points(n: number): string {
 
 export function ReportsView() {
   const { project, issues, people, today, dayOf } = useProject();
-  const timeZone = useOrgTimezone();
   const { statuses } = project;
 
   const tiles = useMemo(
-    () =>
-      reportTiles({
-        statuses,
-        issues,
-        today,
-        dayOf,
-        nowHHMM: nowHHMMIn(timeZone),
-      }),
-    [statuses, issues, today, dayOf, timeZone],
+    () => reportTiles({ statuses, issues, today, dayOf }),
+    [statuses, issues, today, dayOf],
   );
   const load = useMemo(
     () => workload({ statuses, issues, nameOf: people.nameOf }),
@@ -105,13 +95,13 @@ export function ReportsView() {
         <h2 className="text-h4 text-ink">Reports</h2>
         <p className="mt-1 text-body-sm text-muted">
           Progress and load for {project.name}. Every figure comes from the
-          project&rsquo;s own tasks.
+          project&rsquo;s own issues.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
-          label="Open tasks"
+          label="Open issues"
           value={tiles.open.issues}
           hint={`${points(tiles.open.points)} left`}
         />
@@ -119,6 +109,11 @@ export function ReportsView() {
           label="Done in 7 days"
           value={tiles.doneInWeek.issues}
           hint={`${points(tiles.doneInWeek.points)} shipped`}
+        />
+        <Stat
+          label="Open bugs"
+          value={<Tone bad={tiles.bugs.open > 0}>{tiles.bugs.open}</Tone>}
+          hint={`${tiles.bugs.high} high priority`}
         />
         <Stat
           label="Overdue"
@@ -145,7 +140,7 @@ export function ReportsView() {
             description={
               load.measure === "points"
                 ? "Open points by person"
-                : "Open tasks by person. None has points yet."
+                : "Open issues by person. None has points yet."
             }
           />
           <CardBody>
@@ -161,17 +156,17 @@ export function ReportsView() {
 
         <Card>
           <CardHeader
-            title="Task breakdown"
+            title="Issue breakdown"
             description={
               byStatus.total === 0
-                ? "No tasks yet"
-                : `${byStatus.total} ${byStatus.total === 1 ? "task" : "tasks"} in this project, epics not counted`
+                ? "No issues yet"
+                : `${byStatus.total} ${byStatus.total === 1 ? "issue" : "issues"} in this project, epics not counted`
             }
           />
           <CardBody className="space-y-6">
             {byStatus.total === 0 ? (
               <p className="text-body-sm text-muted">
-                Create a task and its status and type are counted here.
+                Create an issue and its status and type are counted here.
               </p>
             ) : (
               <>
@@ -180,7 +175,7 @@ export function ReportsView() {
                     By status
                   </h4>
                   <StackedBar
-                    caption="Tasks by status category"
+                    caption="Issues by status category"
                     total={byStatus.total}
                     segments={byStatus.counts.map(
                       ({ category, count }): Segment => ({
@@ -196,7 +191,7 @@ export function ReportsView() {
                     By type
                   </h4>
                   <StackedBar
-                    caption="Tasks by type"
+                    caption="Issues by type"
                     total={byType.total}
                     segments={byType.counts.map(({ type, count }): Segment => ({
                       label: ISSUE_TYPE_LABEL[type],
@@ -279,7 +274,7 @@ function BurndownPanel() {
           </p>
         ) : result.total === 0 ? (
           <p className="text-body-sm text-muted">
-            The tasks in {sprint.name} have no points yet. Give them points and
+            The issues in {sprint.name} have no points yet. Give them points and
             the line starts to move.
           </p>
         ) : (

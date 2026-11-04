@@ -81,7 +81,7 @@ describe("the lists", () => {
     renderView();
     const active = list("CHK Sprint 3");
     expect(within(active).getByText("Active")).toBeInTheDocument();
-    expect(within(active).getByText("7 tasks")).toBeInTheDocument();
+    expect(within(active).getByText("7 issues")).toBeInTheDocument();
     expect(within(active).getByText("27 pts")).toBeInTheDocument();
     expect(within(active).getByText("3 done")).toBeInTheDocument();
     expect(
@@ -92,11 +92,11 @@ describe("the lists", () => {
 
     const planned = list("CHK Sprint 4");
     expect(within(planned).getByText("Planned")).toBeInTheDocument();
-    expect(within(planned).getByText("2 tasks")).toBeInTheDocument();
+    expect(within(planned).getByText("2 issues")).toBeInTheDocument();
     expect(within(planned).getByText("11 pts")).toBeInTheDocument();
 
     const backlog = list("Backlog");
-    expect(within(backlog).getByText("4 tasks")).toBeInTheDocument();
+    expect(within(backlog).getByText("4 issues")).toBeInTheDocument();
     expect(within(backlog).getByText("17 pts")).toBeInTheDocument();
   });
 
@@ -139,11 +139,11 @@ describe("the lists", () => {
     });
     const active = list("CHK Sprint 3");
     expect(within(active).getAllByRole("listitem")).toHaveLength(2);
-    expect(within(active).getByText("7 tasks")).toBeInTheDocument();
+    expect(within(active).getByText("7 issues")).toBeInTheDocument();
     expect(within(active).getByText("2 shown")).toBeInTheDocument();
     expect(
       within(list("CHK Sprint 4")).getByText(
-        "No tasks here match these filters.",
+        "No issues here match these filters.",
       ),
     ).toBeInTheDocument();
   });
@@ -198,7 +198,7 @@ describe("empty states", () => {
     const d = sampleData();
     renderView({ ...d, issues: d.issues.filter((i) => i.sprintId) });
     expect(
-      screen.getByText("Your backlog is empty. Add a task below."),
+      screen.getByText("Your backlog is empty. Add an issue below."),
     ).toBeInTheDocument();
   });
 
@@ -212,7 +212,7 @@ describe("empty states", () => {
     });
     expect(
       within(list("CHK Sprint 4")).getByText(
-        "Drag tasks here from the backlog to plan this sprint.",
+        "Drag issues here from the backlog to plan this sprint.",
       ),
     ).toBeInTheDocument();
   });
@@ -349,7 +349,7 @@ describe("dragging a row", () => {
 describe("the quick row", () => {
   it("adds a story to the backlog on Enter, and says so", async () => {
     const { actions } = renderView();
-    const box = screen.getByLabelText("Add a task to the backlog");
+    const box = screen.getByLabelText("Add an issue to the backlog");
     await userEvent.type(box, "Offer Apple Pay on mobile{Enter}");
     expect(actions.createIssue).toHaveBeenCalledWith({
       type: "STORY",
@@ -366,11 +366,11 @@ describe("the quick row", () => {
     const { actions } = renderView(d);
     const planned = list("CHK Sprint 4");
     await userEvent.selectOptions(
-      within(planned).getByLabelText(/^Type of the task to add/),
+      within(planned).getByLabelText(/^Type of the issue to add/),
       "Bug",
     );
     await userEvent.type(
-      within(planned).getByLabelText("Add a task to CHK Sprint 4"),
+      within(planned).getByLabelText("Add an issue to CHK Sprint 4"),
       "Refund button does nothing{Enter}",
     );
     expect(actions.createIssue).toHaveBeenCalledWith({
@@ -382,7 +382,7 @@ describe("the quick row", () => {
 
   it("ignores an empty line, and keeps the words when the store refuses", async () => {
     const { actions } = renderView();
-    const box = screen.getByLabelText("Add a task to the backlog");
+    const box = screen.getByLabelText("Add an issue to the backlog");
     await userEvent.type(box, "   {Enter}");
     expect(actions.createIssue).not.toHaveBeenCalled();
 
@@ -402,7 +402,7 @@ describe("the quick row", () => {
       issues: d.issues.map((i) => ({ ...i, sprintId: null })),
     });
     await userEvent.type(
-      screen.getByLabelText("Add a task to the backlog"),
+      screen.getByLabelText("Add an issue to the backlog"),
       "Queue me{Enter}",
     );
     expect(actions.createIssue).toHaveBeenCalledWith({
@@ -442,7 +442,7 @@ describe("starting a sprint", () => {
     expect(
       within(sprint).getByRole("button", { name: "Start sprint" }),
     ).toBeDisabled();
-    expect(within(sprint).getByText("Add tasks first.")).toBeInTheDocument();
+    expect(within(sprint).getByText("Add issues first.")).toBeInTheDocument();
   });
 
   it("shows what will be committed, then starts it with the edits and goes to the board", async () => {
@@ -456,7 +456,7 @@ describe("starting a sprint", () => {
     const dialog = await screen.findByRole("dialog", { name: "Start sprint" });
     expect(
       within(dialog).getByText(
-        "2 tasks and 11 points will be committed to this sprint.",
+        "2 issues and 11 points will be committed to this sprint.",
       ),
     ).toBeInTheDocument();
     const name = within(dialog).getByLabelText(/Sprint name/);
@@ -558,7 +558,9 @@ describe("completing a sprint", () => {
     const open = within(dialog).getByText("Open").closest("div")!;
     expect(open).toHaveTextContent("4");
     expect(open).toHaveTextContent("18 points");
-    expect(within(dialog).getByLabelText("Move open tasks to")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Move open issues to")).toHaveValue(
+      "",
+    );
 
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Complete sprint" }),
@@ -574,7 +576,7 @@ describe("completing a sprint", () => {
     expect(move).toBeNull();
     expect(
       await screen.findByText(
-        "CHK Sprint 3 completed, 9 of 27 points done; 4 tasks moved to the backlog",
+        "CHK Sprint 3 completed, 9 of 27 points done; 4 issues moved to the backlog",
       ),
     ).toBeInTheDocument();
   });
@@ -584,7 +586,7 @@ describe("completing a sprint", () => {
     const { actions } = renderView(d);
     let dialog = await openComplete();
     await userEvent.selectOptions(
-      within(dialog).getByLabelText("Move open tasks to"),
+      within(dialog).getByLabelText("Move open issues to"),
       "CHK Sprint 4",
     );
     await userEvent.click(
@@ -597,7 +599,7 @@ describe("completing a sprint", () => {
       sprintOf(d, "CHK Sprint 4").id,
     );
     expect(
-      await screen.findByText(/4 tasks moved to CHK Sprint 4/),
+      await screen.findByText(/4 issues moved to CHK Sprint 4/),
     ).toBeInTheDocument();
 
     await waitFor(() =>
@@ -607,7 +609,7 @@ describe("completing a sprint", () => {
     );
     dialog = await openComplete();
     await userEvent.selectOptions(
-      within(dialog).getByLabelText("Move open tasks to"),
+      within(dialog).getByLabelText("Move open issues to"),
       "A new sprint",
     );
     await userEvent.click(
@@ -641,8 +643,10 @@ describe("completing a sprint", () => {
       ),
     });
     const dialog = await openComplete();
-    expect(within(dialog).getByText("Every task is done.")).toBeInTheDocument();
-    expect(within(dialog).queryByLabelText("Move open tasks to")).toBeNull();
+    expect(
+      within(dialog).getByText("Every issue is done."),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Move open issues to")).toBeNull();
   });
 
   it("shows a refusal in the dialog, and says nothing was completed", async () => {
@@ -767,7 +771,7 @@ describe("editing and deleting a sprint", () => {
       name: "Delete CHK Sprint 4?",
     });
     expect(
-      within(dialog).getByText(/Its 2 tasks go back to the backlog/),
+      within(dialog).getByText(/Its 2 issues go back to the backlog/),
     ).toBeInTheDocument();
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Delete sprint" }),
@@ -802,7 +806,7 @@ describe("who sees what", () => {
     expect(screen.getByLabelText("Move CHK-19 to…")).toBeInTheDocument();
     expect(screen.getByLabelText(/^Move CHK-19\./)).toBeInTheDocument();
     expect(
-      screen.getByLabelText("Add a task to the backlog"),
+      screen.getByLabelText("Add an issue to the backlog"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create sprint" }),
@@ -813,7 +817,7 @@ describe("who sees what", () => {
     renderView(sampleData(), { canWork: false, canManage: false });
     expect(screen.queryByLabelText(/^Move CHK-19/)).not.toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Add a task to the backlog"),
+      screen.queryByLabelText("Add an issue to the backlog"),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create sprint" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Start sprint/ })).toBeNull();

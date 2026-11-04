@@ -330,7 +330,7 @@ const plural = (n: number, one: string, many: string) =>
 
 /**
  * The line said after a sprint is completed, from real figures only:
- * "CHK Sprint 3 completed — 22 of 26 points done; 3 tasks moved to the backlog".
+ * "CHK Sprint 3 completed — 22 of 26 points done; 3 issues moved to the backlog".
  *
  * Points when the sprint was estimated, issues when it was not (a sprint of
  * unpointed work would otherwise read "0 of 0 points"). Nothing is said about
@@ -346,7 +346,7 @@ export function completionLine(
     line +=
       figures.points > 0
         ? `, ${figures.donePoints} of ${figures.points} points done`
-        : `, ${figures.doneIssues} of ${plural(figures.issues, "task", "tasks")} done`;
+        : `, ${figures.doneIssues} of ${plural(figures.issues, "issue", "issues")} done`;
   }
   if (figures.openIssues > 0) {
     const where =
@@ -355,7 +355,7 @@ export function completionLine(
         : to.kind === "sprint"
           ? to.name
           : "a new sprint";
-    line += `; ${plural(figures.openIssues, "task", "tasks")} moved to ${where}`;
+    line += `; ${plural(figures.openIssues, "issue", "issues")} moved to ${where}`;
   }
   return line;
 }

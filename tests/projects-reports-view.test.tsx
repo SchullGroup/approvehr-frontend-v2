@@ -68,7 +68,7 @@ describe("the view's place in the project", () => {
 describe("the tiles", () => {
   it("shows open issues and the points left", () => {
     renderReports();
-    expect(tile("Open tasks")).toMatchObject({
+    expect(tile("Open issues")).toMatchObject({
       value: "13",
       hint: "46 points left",
     });
@@ -82,9 +82,11 @@ describe("the tiles", () => {
     });
   });
 
-  it("has no Open bugs tile", () => {
+  it("shows open bugs and how many are high priority, in the warning colour while there are any", () => {
     renderReports();
-    expect(screen.queryByText("Open bugs")).toBeNull();
+    const bugs = tile("Open bugs");
+    expect(bugs).toMatchObject({ value: "2", hint: "1 high priority" });
+    expect(within(bugs.el).getByText("2")).toHaveClass("text-warning-text");
   });
 
   it("shows what is overdue, in the warning colour while there is any", () => {
@@ -100,10 +102,9 @@ describe("the tiles", () => {
       ...data,
       issues: data.issues.filter((i) => i.type !== "BUG" && i.dueDate === null),
     });
-    const overdue = tile("Overdue");
-    expect(within(overdue.el).getByText("0")).not.toHaveClass(
-      "text-warning-text",
-    );
+    const bugs = tile("Open bugs");
+    expect(bugs.value).toBe("0");
+    expect(within(bugs.el).getByText("0")).not.toHaveClass("text-warning-text");
     expect(tile("Overdue").value).toBe("0");
   });
 
@@ -114,7 +115,7 @@ describe("the tiles", () => {
       points: 1,
     };
     renderReports({ ...data, issues: [lone] });
-    expect(tile("Open tasks").hint).toBe("1 point left");
+    expect(tile("Open issues").hint).toBe("1 point left");
   });
 });
 
@@ -300,10 +301,10 @@ describe("workload", () => {
     const rows = within(panel("Workload")).getAllByRole("listitem");
     /* The avatar's initials are decorative and come first in the text. */
     const texts = rows.map((r) => r.textContent ?? "");
-    expect(texts[0]).toMatch(/Unassigned26 points · 5 tasks$/);
-    expect(texts[1]).toMatch(/Adaeze Okonkwo11 points · 3 tasks$/);
-    expect(texts[2]).toMatch(/Emeka Anyanwu7 points · 3 tasks$/);
-    expect(texts[3]).toMatch(/Ngozi Eze2 points · 2 tasks$/);
+    expect(texts[0]).toMatch(/Unassigned26 points · 5 issues$/);
+    expect(texts[1]).toMatch(/Adaeze Okonkwo11 points · 3 issues$/);
+    expect(texts[2]).toMatch(/Emeka Anyanwu7 points · 3 issues$/);
+    expect(texts[3]).toMatch(/Ngozi Eze2 points · 2 issues$/);
     expect(rows).toHaveLength(4);
   });
 
@@ -327,7 +328,7 @@ describe("workload", () => {
       issues: data.issues.map((i) => ({ ...i, points: null })),
     });
     expect(
-      screen.getByText("Open tasks by person. None has points yet."),
+      screen.getByText("Open issues by person. None has points yet."),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/0 points/).length).toBeGreaterThan(0);
   });
@@ -344,10 +345,10 @@ describe("workload", () => {
 describe("the issue breakdown", () => {
   it("counts issues by status category and by type, and says how many there are", () => {
     renderReports();
-    const breakdown = panel("Task breakdown");
+    const breakdown = panel("Issue breakdown");
     expect(
       within(breakdown).getByText(
-        "22 tasks in this project, epics not counted",
+        "22 issues in this project, epics not counted",
       ),
     ).toBeInTheDocument();
     for (const legend of [
@@ -366,13 +367,13 @@ describe("the issue breakdown", () => {
   it("carries the same numbers in a table for a screen reader", () => {
     renderReports();
     const table = screen.getByRole("table", {
-      name: "Tasks by status category",
+      name: "Issues by status category",
     });
     expect(
       within(table).getByRole("row", { name: /To do\s*9/ }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("table", { name: "Tasks by type" })).getByRole(
+      within(screen.getByRole("table", { name: "Issues by type" })).getByRole(
         "row",
         {
           name: /Bug\s*4/,
@@ -385,11 +386,11 @@ describe("the issue breakdown", () => {
     const data = sampleData();
     renderReports({ ...data, issues: [] });
     expect(
-      within(panel("Task breakdown")).getByText("No tasks yet"),
+      within(panel("Issue breakdown")).getByText("No issues yet"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Create a task and its status and type are counted here.",
+        "Create an issue and its status and type are counted here.",
       ),
     ).toBeInTheDocument();
   });
@@ -418,9 +419,9 @@ describe("a Kanban project", () => {
 
   it("still shows the tiles, the workload and the breakdown", () => {
     renderReports(kanban());
-    expect(tile("Open tasks").value).toBe("13");
+    expect(tile("Open issues").value).toBe("13");
     expect(screen.getByText("Workload")).toBeInTheDocument();
-    expect(screen.getByText("Task breakdown")).toBeInTheDocument();
+    expect(screen.getByText("Issue breakdown")).toBeInTheDocument();
   });
 
   it("says nothing about sprints on a Scrum project", () => {
