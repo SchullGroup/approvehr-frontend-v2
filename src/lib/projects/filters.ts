@@ -11,6 +11,7 @@
  */
 
 import { assigneesOf, isOn } from "./assignees";
+import { STAGE_FILTER_LABEL, displayType } from "./terms";
 import {
   STATUS_CATEGORIES,
   type Issue,
@@ -45,11 +46,8 @@ export const DEPT_UNASSIGNED = "unassigned";
 export type MemberDepartments = Readonly<Record<string, string | null>>;
 
 /** The status filter's choices, in the order they are offered. */
-export const STATUS_FILTER_LABEL: Record<StatusCategory, string> = {
-  TODO: "Not started",
-  IN_PROGRESS: "In progress",
-  DONE: "Done",
-};
+export const STATUS_FILTER_LABEL: Record<StatusCategory, string> =
+  STAGE_FILTER_LABEL;
 
 /** `?status=` read ignoring case; anything else is no status filter. */
 export function statusFromParam(value: string | null): StatusCategory | "" {
@@ -109,7 +107,9 @@ export function matchesFilter(
       issue.labels.some((label) => label.toLowerCase().includes(q));
     if (!hit) return false;
   }
-  if (filter.type && issue.type !== filter.type) return false;
+  /* A stored STORY is a Task, so the Task filter finds it. */
+  if (filter.type && displayType(issue.type) !== displayType(filter.type))
+    return false;
   if (
     filter.statusCategory &&
     statuses &&

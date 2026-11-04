@@ -16,6 +16,7 @@ import {
   type PayrollDeductions,
 } from "@/lib/api/setup";
 import { EMPLOYEES } from "@/lib/mock/people";
+import { PROJECTS_FEATURE_LINE } from "@/lib/projects/terms";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
@@ -286,7 +287,7 @@ export const FEATURE_COPY: Record<
   },
   projects: {
     label: "Projects",
-    line: "Plan work as projects with issues, sprints and a board, and let people track it together.",
+    line: PROJECTS_FEATURE_LINE,
   },
   wellness: {
     label: "Wellness",

@@ -25,6 +25,7 @@ import {
 } from "./mutations";
 import { buildSample } from "./sample";
 import { completeSprint, startBlocker, startSprint } from "./sprints";
+import { CYCLE, PROBLEM, SUBTASK, TASK, cycleName } from "./terms";
 import {
   PROJECT_COLORS,
   type CompleteSprintMove,
@@ -278,12 +279,14 @@ export function createIssue(
   if (input.type === "SUBTASK") {
     const parent = d.issues.find((i) => i.id === input.parentId);
     if (!parent || parent.type === "EPIC" || parent.type === "SUBTASK") {
-      throw new ProjectRuleError("A sub-task belongs to a story, task or bug.");
+      throw new ProjectRuleError(
+        `A ${SUBTASK.one} belongs to a ${TASK.one} or a ${PROBLEM.one}.`,
+      );
     }
   }
   if (input.assigneeId && !d.project.memberIds.includes(input.assigneeId)) {
     throw new ProjectRuleError(
-      "Only members of the project can be assigned issues.",
+      `Only members of the project can be assigned ${TASK.many}.`,
     );
   }
   const number = nextIssueNumber(d.issues, book.counters[projectId] ?? 0);
@@ -326,7 +329,7 @@ export function patchIssueInBook(
   const d = data(book, projectId);
   if (patch.assigneeId && !d.project.memberIds.includes(patch.assigneeId)) {
     throw new ProjectRuleError(
-      "Only members of the project can be assigned issues.",
+      `Only members of the project can be assigned ${TASK.many}.`,
     );
   }
   const result = patchIssue(d, issueId, patch, ctx.now);
@@ -480,13 +483,12 @@ export function createSprintInBook(
 ): { book: DemoBook; sprint: Sprint } {
   const d = data(book, projectId);
   if (d.project.type === "KANBAN") {
-    throw new ProjectRuleError("Kanban projects do not use sprints.");
+    throw new ProjectRuleError(`Kanban projects do not use ${CYCLE.many}.`);
   }
   const sprint: Sprint = {
     id: ctx.makeId(),
     projectId,
-    name:
-      input.name.trim() || `${d.project.key} Sprint ${d.sprints.length + 1}`,
+    name: input.name.trim() || cycleName(d.sprints.length + 1),
     goal: input.goal ?? "",
     startDate: input.startDate ?? null,
     endDate: input.endDate ?? null,
@@ -506,7 +508,7 @@ const projectIdOfSprint = (book: DemoBook, sprintId: string): string => {
   for (const [id, d] of Object.entries(book.projects)) {
     if (d.sprints.some((s) => s.id === sprintId)) return id;
   }
-  throw new ProjectRuleError("That sprint is not here.");
+  throw new ProjectRuleError(`That ${CYCLE.one} is not here.`);
 };
 
 export function updateSprintInBook(
@@ -529,7 +531,7 @@ export function deleteSprintInBook(
   const d = data(book, projectIdOfSprint(book, sprintId));
   const sprint = d.sprints.find((s) => s.id === sprintId)!;
   if (sprint.state !== "PLANNED") {
-    throw new ProjectRuleError("Only a planned sprint can be deleted.");
+    throw new ProjectRuleError(`Only a planned ${CYCLE.one} can be deleted.`);
   }
   return withProject(book, {
     ...d,
@@ -568,7 +570,9 @@ export function completeSprintInBook(
   const d = data(book, projectIdOfSprint(book, sprintId));
   const sprint = d.sprints.find((s) => s.id === sprintId)!;
   if (sprint.state !== "ACTIVE") {
-    throw new ProjectRuleError("Only the active sprint can be completed.");
+    throw new ProjectRuleError(
+      `Only the active ${CYCLE.one} can be completed.`,
+    );
   }
   const created: Sprint | null =
     move === "new"

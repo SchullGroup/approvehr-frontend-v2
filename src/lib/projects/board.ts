@@ -9,6 +9,7 @@
 import { leadingWith } from "./assignees";
 import { daysBetween, daysLeft } from "./dates";
 import { byRank, rankForInsert } from "./rank";
+import { INITIATIVE, SWIMLANE_LABEL as TERMS_SWIMLANE_LABEL } from "./terms";
 import type {
   Issue,
   IssuePatch,
@@ -28,11 +29,7 @@ export const KANBAN_DONE_DAYS = DONE_VISIBLE_DAYS;
 
 export type Swimlanes = "none" | "assignee" | "epic";
 
-export const SWIMLANE_LABEL: Record<Swimlanes, string> = {
-  none: "No swimlanes",
-  assignee: "Lanes by assignee",
-  epic: "Lanes by epic",
-};
+export const SWIMLANE_LABEL: Record<Swimlanes, string> = TERMS_SWIMLANE_LABEL;
 
 export function activeSprint(sprints: readonly Sprint[]): Sprint | null {
   return sprints.find((s) => s.state === "ACTIVE") ?? null;
@@ -187,7 +184,12 @@ export function laneGroups(args: {
     const placed = new Set(epics.map((e) => e.id));
     const rest = issues.filter((i) => !i.epicId || !placed.has(i.epicId));
     if (rest.length > 0) {
-      lanes.push({ key: "none", kind: "epic", label: "No epic", items: rest });
+      lanes.push({
+        key: "none",
+        kind: "epic",
+        label: `No ${INITIATIVE.one}`,
+        items: rest,
+      });
     }
     return lanes;
   }

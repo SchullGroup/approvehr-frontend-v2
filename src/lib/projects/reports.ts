@@ -21,6 +21,7 @@
 import { isPastDue } from "./due";
 import { addDays, daysBetween } from "./dates";
 import { sumPoints } from "./progress";
+import { BREAKDOWN_TYPES, displayType } from "./terms";
 import type {
   Issue,
   IssueType,
@@ -396,14 +397,7 @@ export function statusBreakdown(args: {
   };
 }
 
-const BREAKDOWN_TYPES: readonly IssueType[] = [
-  "STORY",
-  "TASK",
-  "BUG",
-  "SUBTASK",
-];
-
-/** Issues (no epics) by type. Types with none are left out. */
+/** Issues (no epics) by type, as people name them: a stored STORY counts as a Task. Types with none are left out. */
 export function typeBreakdown(issues: readonly Issue[]): {
   total: number;
   counts: TypeCount[];
@@ -413,7 +407,7 @@ export function typeBreakdown(issues: readonly Issue[]): {
     total: all.length,
     counts: BREAKDOWN_TYPES.map((type) => ({
       type,
-      count: all.filter((issue) => issue.type === type).length,
+      count: all.filter((issue) => displayType(issue.type) === type).length,
     })).filter((entry) => entry.count > 0),
   };
 }

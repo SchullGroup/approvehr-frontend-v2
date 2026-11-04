@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api/client";
 import { projectsApi } from "@/lib/api/projects";
 import { employeeById } from "@/lib/mock/people";
 import { nowIso } from "@/lib/projects/clock";
+import { CYCLE, TASK } from "@/lib/projects/terms";
 import {
   EMPTY_BOOK,
   ProjectRuleError,
@@ -498,7 +499,7 @@ async function apiPatchIssue(
       new ApiError(
         404,
         "not_found",
-        "That issue is not here. It may have been deleted.",
+        `That ${TASK.one} is not here. It may have been deleted.`,
       ),
     );
   }
@@ -1259,7 +1260,7 @@ export function useProjectActions(projectId: string): ProjectActions {
                 const out = bookCreateIssue(book, projectId, input, ctx);
                 return { book: out.book, value: out.issue };
               }),
-          "Could not create the issue",
+          `Could not create the ${TASK.one}`,
           options,
         ),
 
@@ -1426,7 +1427,7 @@ export function useProjectActions(projectId: string): ProjectActions {
                 const out = createSprintInBook(book, projectId, input, ctx);
                 return { book: out.book, value: out.sprint };
               }),
-          "Could not create the sprint",
+          `Could not create the ${CYCLE.one}`,
           options,
         ),
 
@@ -1448,7 +1449,7 @@ export function useProjectActions(projectId: string): ProjectActions {
                 book: updateSprintInBook(book, id, patch),
                 value: undefined,
               })),
-          "Could not save the sprint",
+          `Could not save the ${CYCLE.one}`,
           options,
         ),
 
@@ -1473,7 +1474,7 @@ export function useProjectActions(projectId: string): ProjectActions {
                 book: deleteSprintInBook(book, id, ctx.now),
                 value: undefined,
               })),
-          "Could not delete the sprint",
+          `Could not delete the ${CYCLE.one}`,
           options,
         ),
 
@@ -1497,7 +1498,7 @@ export function useProjectActions(projectId: string): ProjectActions {
                 book: startSprintInBook(book, id, edits ?? {}),
                 value: undefined,
               })),
-          "Could not start the sprint",
+          `Could not start the ${CYCLE.one}`,
           options,
         ),
 
@@ -1538,7 +1539,7 @@ export function useProjectActions(projectId: string): ProjectActions {
                 ),
                 value: undefined,
               })),
-          "Could not complete the sprint",
+          `Could not complete the ${CYCLE.one}`,
           options,
         ),
     } satisfies ProjectActions;

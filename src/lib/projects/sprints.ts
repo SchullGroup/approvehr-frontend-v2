@@ -9,6 +9,7 @@
 
 import { addDays, daysBetween } from "./dates";
 import { sprintScope, sumPoints } from "./progress";
+import { CYCLE, TASK, cycleName } from "./terms";
 import type {
   CompleteSprintMove,
   Issue,
@@ -28,11 +29,12 @@ export function startBlocker(
   issues: readonly Issue[],
 ): string | null {
   if (sprint.state !== "PLANNED")
-    return "Only a planned sprint can be started.";
+    return `Only a planned ${CYCLE.one} can be started.`;
   if (sprints.some((s) => s.state === "ACTIVE")) {
-    return "Complete the active sprint first.";
+    return `Complete the active ${CYCLE.one} first.`;
   }
-  if (sprintScope(issues, sprint.id).length === 0) return "Add tasks first.";
+  if (sprintScope(issues, sprint.id).length === 0)
+    return `Add ${TASK.many} first.`;
   return null;
 }
 
@@ -47,9 +49,13 @@ export function sprintDatesProblem(
   return null;
 }
 
-/** Name and dates for the next sprint of a project, following the last one's end. */
+/**
+ * Name and dates for the next cycle of a project, following the last one's end.
+ * The name is "Cycle N" (see `terms.ts`); the project key is no longer part of
+ * it, and a name somebody already gave a sprint is never rewritten.
+ */
 export function nextSprintDraft(
-  project: Pick<Project, "key">,
+  _project: Pick<Project, "key">,
   sprints: readonly Sprint[],
   today: string,
 ): { name: string; startDate: string; endDate: string } {
@@ -59,13 +65,13 @@ export function nextSprintDraft(
     .sort()
     .pop();
   const startDate = lastEnd && lastEnd >= today ? addDays(lastEnd, 1) : today;
-  /* One more than the sprints there are, unless that name is taken: after a
-     sprint is deleted, "Sprint 3" can already exist with only two sprints left. */
+  /* One more than the cycles there are, unless that name is taken: after one
+     is deleted, "Cycle 3" can already exist with only two left. */
   const taken = new Set(sprints.map((s) => s.name.toLowerCase()));
   let n = sprints.length + 1;
-  while (taken.has(`${project.key} Sprint ${n}`.toLowerCase())) n += 1;
+  while (taken.has(cycleName(n).toLowerCase())) n += 1;
   return {
-    name: `${project.key} Sprint ${n}`,
+    name: cycleName(n),
     startDate,
     endDate: addDays(startDate, DEFAULT_SPRINT_DAYS - 1),
   };
