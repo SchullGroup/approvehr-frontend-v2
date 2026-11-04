@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `afd4d974` (2026-11-03) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `a592e358` (2026-11-04) · regenerate with `npm run docs`, never by hand
 
 **159 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -228,8 +228,8 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 | Route                  | Title      | What it is                                                             | File                                         |
 | ---------------------- | ---------- | ---------------------------------------------------------------------- | -------------------------------------------- |
-| `/projects`            | Projects   | Plan work as projects, with tasks, sprints and a board.                | `src/app/(app)/projects/page.tsx`            |
-| `/projects/[id]`       | Project    | A project's board, tasks, sprints and settings.                        | `src/app/(app)/projects/[id]/page.tsx`       |
+| `/projects`            | Projects   | —                                                                      | `src/app/(app)/projects/page.tsx`            |
+| `/projects/[id]`       | Project    | —                                                                      | `src/app/(app)/projects/[id]/page.tsx`       |
 | `/projects/mine`       | My tasks   | Your own list of things to do, apart from any project board.           | `src/app/(app)/projects/mine/page.tsx`       |
 | `/projects/tasks/[id]` | Task       | One task, opened by its id.                                            | `src/app/(app)/projects/tasks/[id]/page.tsx` |
 | `/projects/team`       | Team tasks | What the people you lead have on, across projects and their own lists. | `src/app/(app)/projects/team/page.tsx`       |

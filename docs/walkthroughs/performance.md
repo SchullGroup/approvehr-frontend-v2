@@ -886,7 +886,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 | **Click**      | Pick an objective, write what you did, log it. The manager sees it under _Waiting on a grade_ |
 | **You'll see** | Rows grouped by the day each task was _logged_ — not the week it covers                       |
 
-A task that a finished issue on a project filed for you carries a small **From project KEY-n** tag, in
+A weekly task filed for you by a finished project task carries a small **From project KEY-n** tag, in
 **Your weeks**, in an objective's task log and in the grading queue. The tag says where the work came
 from; the grade is still the manager's. It is a link only if you can open that project, and plain
 text if you cannot.
