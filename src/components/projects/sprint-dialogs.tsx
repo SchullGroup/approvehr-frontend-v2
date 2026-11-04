@@ -222,7 +222,7 @@ export function SprintFormDialog({
       title={starting ? "Start sprint" : "Edit sprint"}
       {...(starting
         ? {
-            description: `${plural(figures.issues, "task", "tasks")} and ${plural(figures.points, "point", "points")} will be committed to this sprint.`,
+            description: `${plural(figures.issues, "issue", "issues")} and ${plural(figures.points, "point", "points")} will be committed to this sprint.`,
           }
         : {})}
       footer={
@@ -419,11 +419,11 @@ export function CompleteSprintDialog({ sprint: given, open, onClose }: Props) {
         {nothingOpen ? (
           <p className="text-body-sm text-muted">
             {figures.issues === 0
-              ? "This sprint has no tasks."
-              : "Every task is done."}
+              ? "This sprint has no issues."
+              : "Every issue is done."}
           </p>
         ) : (
-          <Field label="Move open tasks to">
+          <Field label="Move open issues to">
             <Select
               value={choice}
               onChange={(event) => setDest(event.target.value)}
@@ -510,8 +510,8 @@ export function DeleteSprintDialog({ sprint: given, open, onClose }: Props) {
         count === 0
           ? "It has no issues. This cannot be undone."
           : count === 1
-            ? "Its 1 task goes back to the backlog. This cannot be undone."
-            : `Its ${count} tasks go back to the backlog. This cannot be undone.`
+            ? "Its 1 issue goes back to the backlog. This cannot be undone."
+            : `Its ${count} issues go back to the backlog. This cannot be undone.`
       }
     />
   );
