@@ -70,7 +70,9 @@ const refusal = (fn: () => unknown): string => {
 describe("the demo book", () => {
   it("opens with the sample project, its counter and its history", () => {
     const b = book();
-    expect(Object.keys(b.projects)).toEqual([SAMPLE_PROJECT_ID]);
+    /* The sample is filed under Technology beside the program sample's projects. */
+    expect(Object.keys(b.projects)).toContain(SAMPLE_PROJECT_ID);
+    expect(b.projects[SAMPLE_PROJECT_ID]!.project.programId).toBe("pg-tech");
     expect(b.counters[SAMPLE_PROJECT_ID]).toBe(26);
     expect(b.anchor).toBe(TODAY);
     expect(b.activity[issueByKey(b, "CHK-10").id]![0]!.field).toBe("created");
@@ -407,7 +409,7 @@ describe("project settings", () => {
   it("deletes a project with everything under it", () => {
     const b = book();
     const next = deleteProject(b, SAMPLE_PROJECT_ID);
-    expect(Object.keys(next.projects)).toEqual([]);
+    expect(Object.keys(next.projects)).not.toContain(SAMPLE_PROJECT_ID);
     expect(
       Object.keys(next.comments).flatMap((k) => next.comments[k]!),
     ).toEqual([]);
