@@ -153,6 +153,19 @@ export function toProject(raw: Raw): Project {
       typeof raw["canManage"] === "boolean"
         ? (raw["canManage"] as boolean)
         : null,
+    programId: strOrNull(raw["programId"]),
+    programName: strOrNull(raw["programName"]),
+    programColor: strOrNull(raw["programColor"]),
+    access:
+      raw["access"] === "READ" ||
+      raw["access"] === "WRITE" ||
+      raw["access"] === "MANAGE"
+        ? (raw["access"] as "READ" | "WRITE" | "MANAGE")
+        : null,
+    canWrite:
+      typeof raw["canWrite"] === "boolean"
+        ? (raw["canWrite"] as boolean)
+        : null,
   };
 }
 
@@ -678,6 +691,7 @@ export const projectsApi = {
               }
             : {}),
           ...(input.leadId ? { leadId: input.leadId } : {}),
+          ...(input.programId ? { programId: input.programId } : {}),
         },
       }),
     ),

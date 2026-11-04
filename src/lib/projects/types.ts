@@ -164,6 +164,20 @@ export type Project = {
    * rule worked out from the project: the lead, or somebody who manages records.
    */
   canManage: boolean | null;
+  /**
+   * The program this project belongs to, or null (or absent) for none. Moving a
+   * project changes only this: members, tasks and keys stay as they are.
+   */
+  programId?: string | null;
+  programName?: string | null;
+  programColor?: string | null;
+  /**
+   * What the signed-in person may do here, as the API says it: READ, WRITE or
+   * MANAGE. Absent where the API did not say (the demo works it out with
+   * `accessFor`, the same rule).
+   */
+  access?: "READ" | "WRITE" | "MANAGE" | null;
+  canWrite?: boolean | null;
 };
 
 export type Sprint = {
@@ -329,6 +343,8 @@ export type NewProjectInput = {
    * sign-in with no staff record behind it, which cannot lead anything itself.
    */
   leadId?: string;
+  /** The program it starts in. Null or absent: Unassigned. */
+  programId?: string | null;
 };
 
 export type ProjectPatch = Partial<{
@@ -339,6 +355,8 @@ export type ProjectPatch = Partial<{
   departmentId: string | null;
   leadId: string;
   goalId: string | null;
+  /** Moves the project into a program, or out of one (null). Nothing else about it changes. */
+  programId: string | null;
 }>;
 
 export type StatusInput = {

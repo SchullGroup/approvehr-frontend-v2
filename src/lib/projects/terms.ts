@@ -83,6 +83,8 @@ export const NOUNS = {
   /** The advisory cap on how many tasks a stage should hold. */
   limit: noun("limit"),
   project: noun("project"),
+  /** A department or team's collection of projects, one level above a project. */
+  program: noun("program"),
   /** Not countable: "5 effort", "Effort left". The word stays the same. */
   effort: noun("effort", "effort"),
 } as const;
@@ -107,6 +109,9 @@ export function count(n: number, key: NounKey): string {
 export function nounFor(n: number, key: NounKey): string {
   return n === 1 ? NOUNS[key].one : NOUNS[key].many;
 }
+
+export const PROGRAM = NOUNS.program;
+export const PROJECT = NOUNS.project;
 
 /* ------------------------------------------------------ names of places -- */
 
@@ -271,4 +276,71 @@ export const SWIMLANE_LABEL: Record<"none" | "assignee" | "epic", string> = {
   none: "No swimlanes",
   assignee: "Lanes by assignee",
   epic: `Lanes by ${INITIATIVE.one}`,
+};
+
+/* ------------------------------------------- programs, and the Master view -- */
+
+/**
+ * A program's tabs. The keys are the `?view=` ids on `/projects/programs/[id]`.
+ * Board, Tasks, Workload and Timeline read across every project in the program.
+ */
+export const PROGRAM_TAB_LABEL = {
+  overview: "Overview",
+  projects: "Projects",
+  board: "Board",
+  tasks: "Tasks",
+  workload: "Workload",
+  timeline: "Timeline",
+  people: "People & access",
+  settings: "Settings",
+} as const;
+
+export type ProgramViewId = keyof typeof PROGRAM_TAB_LABEL;
+
+/** The Master view's tabs, `?view=` ids on `/projects/master`. */
+export const MASTER_TAB_LABEL = {
+  overview: "Overview",
+  programs: "Programs",
+  tasks: "All tasks",
+  workload: "Workload",
+} as const;
+
+export type MasterViewId = keyof typeof MASTER_TAB_LABEL;
+
+/** The Master view, as the sidebar row and the page title call it. */
+export const MASTER_NAME = "Overview";
+export const MASTER_TITLE = "Everything you can see";
+export const MASTER_DESCRIPTION = `Every ${PROGRAM.one} and ${NOUNS.project.one} in the company, read only.`;
+
+/** The bucket for projects that belong to no program. */
+export const UNASSIGNED = "Unassigned";
+export const UNASSIGNED_ID = "unassigned";
+export const ALL_PROGRAMS = `All ${PROGRAM.many}`;
+export const ALL_PROJECTS = `All ${NOUNS.project.many}`;
+export const NEW_PROGRAM = `New ${PROGRAM.one}`;
+export const NEW_PROJECT = `New ${NOUNS.project.one}`;
+
+/** What a person can have in a program, as the people list and the pickers say it. */
+export const LEVEL_LABEL = {
+  READ: "Read",
+  WRITE: "Read and write",
+  LEAD: "Lead",
+} as const;
+
+/** What each level can do, in one plain sentence. */
+export const LEVEL_SENTENCE = {
+  READ: `Can see every ${NOUNS.project.one}, ${TASK.one} and comment in it. Cannot change anything.`,
+  WRITE: `Can see every ${NOUNS.project.one} in it, and create, edit and comment on ${TASK.many}. Each ${NOUNS.project.one}'s settings stay with its lead.`,
+  LEAD: `Manages the ${PROGRAM.one}: its people, its ${NOUNS.project.many} and its settings.`,
+} as const;
+
+/** The quiet line a person sees on a project they can read but not change. */
+export const READ_ONLY_BANNER = `You can view this ${NOUNS.project.one}. Ask its lead for write access.`;
+export const READ_ONLY_PROGRAM = `You can view this ${PROGRAM.one}. Ask its lead for write access.`;
+
+/** The three stage groups that compare across projects, in board order. */
+export const CATEGORY_COLUMN_LABEL: Record<StatusCategory, string> = {
+  TODO: "Not started",
+  IN_PROGRESS: "In progress",
+  DONE: "Done",
 };

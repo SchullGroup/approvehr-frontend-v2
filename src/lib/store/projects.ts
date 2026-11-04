@@ -63,6 +63,7 @@ import {
 import { useRevalidation } from "@/lib/revalidate";
 import { todayIn } from "@/lib/time";
 import { createPersistedState } from "./persisted";
+import { projectsChanged } from "./program-sync";
 import { useOrgTimezone, useSession } from "./session";
 
 /**
@@ -112,7 +113,7 @@ import { useOrgTimezone, useSession } from "./session";
 export type Result<T> =
   { ok: true; value: T } | { ok: false; message: string; error: unknown };
 
-const ok = <T>(value: T): Result<T> => ({ ok: true, value });
+export const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 
 /** The same outcome, with nothing to hand back. */
 const voided = <T>(result: Result<T>): Result<void> =>
@@ -125,7 +126,7 @@ function messageOf(error: unknown): string {
   return "Something went wrong. Try again.";
 }
 
-const fail = (error: unknown): Result<never> => ({
+export const fail = (error: unknown): Result<never> => ({
   ok: false,
   message: messageOf(error),
   error,
@@ -478,9 +479,21 @@ async function apiCreateProject(
         lists[scope] = { ...list, projects: [...list.projects, project] };
     }
     setCache({ ...cache, lists });
+    projectsChanged();
     return ok(project);
   } catch (error) {
     return fail(error);
+  }
+}
+
+/**
+ * Ask again for a project, and for the lists it is on, after something outside
+ * this store changed where it sits (a move between programs).
+ */
+export function refreshProject(owner: string, projectId: string): void {
+  void loadProject(owner, projectId);
+  for (const scope of ["mine", "all"] as const) {
+    if (cache.lists[scope]) void loadList(owner, scope);
   }
 }
 
@@ -690,6 +703,7 @@ async function apiDeleteProject(
       }
     }
     setCache({ ...cache, entries, lists });
+    projectsChanged();
     return ok(undefined);
   } catch (error) {
     return fail(error);
@@ -829,10 +843,12 @@ async function apiSprint<T>(
 /*  The demo book                                                           */
 /* ======================================================================== */
 
+/* Version 2: the book holds programs and who is in them. A browser still
+   holding version 1 starts again from the new sample. */
 const demoStore = createPersistedState<DemoBook>({
   key: "approvehr.projects.book",
   empty: EMPTY_BOOK,
-  version: 1,
+  version: 2,
 });
 
 /** The employees the sample is written for, kept to ones the directory has. */
@@ -856,7 +872,7 @@ function seedDemoIfStale(today: string) {
   demoStore.commit(sampleBook({ today, now: nowIso(), people: demoPeople() }));
 }
 
-function demoRun<T>(
+export function demoRun<T>(
   actorId: string | null,
   today: string,
   fn: (book: DemoBook, ctx: Ctx) => { book: DemoBook; value: T },
@@ -876,7 +892,7 @@ function demoRun<T>(
 /*  Hooks                                                                   */
 /* ======================================================================== */
 
-function useMode() {
+export function useMode() {
   const { isConnected, isLoading, user, actingId } = useSession();
   const timeZone = useOrgTimezone();
   const owner = isConnected
@@ -899,7 +915,7 @@ function useCache(): Cache {
   );
 }
 
-function useDemoBook(enabled: boolean, today: string): DemoBook {
+export function useDemoBook(enabled: boolean, today: string): DemoBook {
   const book = useSyncExternalStore(
     demoStore.subscribe,
     demoStore.read,
