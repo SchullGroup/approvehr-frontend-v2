@@ -25,7 +25,11 @@ import {
 } from "@/components/projects/project-context";
 import { canManageProject, canWorkInProject } from "@/lib/projects/access";
 import { isModuleOff } from "@/lib/api/projects";
-import { EMPTY_FILTER, type IssueFilter } from "@/lib/projects/filters";
+import {
+  EMPTY_FILTER,
+  statusFromParam,
+  type IssueFilter,
+} from "@/lib/projects/filters";
 import {
   PROJECT_TYPE_LABEL,
   type Issue,
@@ -147,7 +151,20 @@ function ProjectShell({
   /* Objectives and the weekly-task bridge are the API's: the demo has neither. */
   const { isConnected: connected } = useSession();
 
-  const [filter, setFilter] = useState<IssueFilter>(EMPTY_FILTER);
+  /* `?status=DONE` (the board's "View all done tasks" link) starts the shared
+     filter on that status, and a later link with another status moves it. */
+  const statusParam = statusFromParam(params.get("status"));
+  const [filter, setFilter] = useState<IssueFilter>(() => ({
+    ...EMPTY_FILTER,
+    statusCategory: statusParam,
+  }));
+  /* Adjusted while rendering rather than in an effect: a new `?status=` moves
+     the filter once, and the filter stays the person's to change after that. */
+  const [seenStatus, setSeenStatus] = useState(statusParam);
+  if (statusParam !== seenStatus) {
+    setSeenStatus(statusParam);
+    if (statusParam) setFilter((f) => ({ ...f, statusCategory: statusParam }));
+  }
   const [create, setCreate] = useState<{
     open: boolean;
     defaults: Partial<NewIssueInput>;
@@ -215,7 +232,13 @@ function ProjectShell({
     [issueParam, router, urlWith],
   );
 
+  const fromMyTasks = params.get("from") === "my-tasks";
   const closeIssue = useCallback(() => {
+    /* Opened from a My tasks row: closing goes back there, to the same segment. */
+    if (fromMyTasks) {
+      router.back();
+      return;
+    }
     if (openedFrom.current !== null && openedFrom.current === urlWith(null)) {
       openedFrom.current = null;
       router.back();
@@ -223,7 +246,7 @@ function ProjectShell({
     }
     openedFrom.current = null;
     router.replace(urlWith(null), { scroll: false });
-  }, [router, urlWith]);
+  }, [router, urlWith, fromMyTasks]);
 
   /* The last issue the drawer showed, so that an issue that disappears while it
      is open (deleted here, or by somebody else) is told apart from a link to one
@@ -369,7 +392,7 @@ function ProjectShell({
               action: (
                 <Button variant="primary" onClick={() => openCreate()}>
                   <Plus aria-hidden="true" className="size-4" />
-                  Create issue
+                  Create task
                 </Button>
               ),
             }
@@ -387,7 +410,7 @@ function ProjectShell({
       />
       <PageBody className="space-y-5">
         {capped && (
-          <Callout tone="warning" title="Only the first 5,000 issues are shown">
+          <Callout tone="warning" title="Only the first 5,000 tasks are shown">
             This project has more than that. Filters and counts here work on
             what is shown.
           </Callout>

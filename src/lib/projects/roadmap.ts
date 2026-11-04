@@ -278,14 +278,14 @@ export type RoadmapModel = {
   todayX: number;
 };
 
-/** Done over total for one epic, worded. No issues is "No issues yet", not 0%. */
+/** Done over total for one epic, worded. No issues is "No tasks yet", not 0%. */
 export function epicSummary(progress: { done: number; total: number }): string {
-  if (progress.total === 0) return "No issues yet";
+  if (progress.total === 0) return "No tasks yet";
   return `${progress.done} of ${progress.total} done`;
 }
 
 export function epicBarLabel(key: string, ratio: number | null): string {
-  return ratio === null ? `${key} · No issues` : `${key} · ${percent(ratio)}%`;
+  return ratio === null ? `${key} · No tasks` : `${key} · ${percent(ratio)}%`;
 }
 
 /**
