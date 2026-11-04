@@ -218,7 +218,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         signatures: canSendForSignature || haveSignatures,
         interviews: haveInterviews || collaborator,
         "team-tasks": leadsTeam,
-        "master-view": programsNav.seesAll,
+        /* Both must agree. The programs answer is the API's, read from the
+           sign-in token, and a token outlives a revoked grant by minutes; the
+           permission set is confirmed from the database once it arrives, which
+           is what the Overview page itself checks. Asking only the first drew a
+           row that opened a page saying "not part of your access". */
+        "master-view":
+          programsNav.seesAll && hasPermission(permissions, "SEE_ALL_WORK"),
       },
       collaborator,
     }),
@@ -234,6 +240,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       haveInterviews,
       leadsTeam,
       programsNav.seesAll,
+      permissions,
       collaborator,
     ],
   );

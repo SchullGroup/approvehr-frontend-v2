@@ -9,6 +9,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   seesAll: false,
+  /** What the permission set, confirmed from the database, says of the Master grant. */
+  confirmed: true,
   leads: false,
   projectsOn: true,
   asked: [] as boolean[],
@@ -21,7 +23,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/nav-history", () => ({ useCanGoBack: () => false }));
 vi.mock("@/lib/permissions", () => ({
   hasAnyPermission: () => false,
-  hasPermission: () => false,
+  hasPermission: (_set: unknown, key: string) =>
+    key === "SEE_ALL_WORK" && state.confirmed,
   useIsManager: () => false,
   usePermissions: () => ({ permissions: new Set(), can: () => false }),
 }));
@@ -138,6 +141,7 @@ const { AppShell } = await import("@/components/portal/shell");
 
 beforeEach(() => {
   state.seesAll = false;
+  state.confirmed = true;
   state.leads = false;
   state.projectsOn = true;
   state.asked = [];
@@ -180,5 +184,19 @@ describe("the shell's Team tasks wiring", () => {
       document.querySelectorAll('[data-group="projects"]'),
     ).map((node) => node.textContent);
     expect(projects[0]).toBe("Overview");
+  });
+
+  it("drops Overview once the confirmed permission set no longer holds the grant", () => {
+    /* A sign-in token outlives a revoked grant by minutes, so the programs answer can
+       still say yes; the page itself asks the confirmed set and says no. The row must
+       follow the page, or it opens a screen that turns the person away. */
+    state.seesAll = true;
+    state.confirmed = false;
+    render(<AppShell>page</AppShell>);
+    const projects = Array.from(
+      document.querySelectorAll('[data-group="projects"]'),
+    ).map((node) => node.textContent);
+    expect(projects).not.toContain("Overview");
+    expect(projects).toContain("My tasks");
   });
 });
