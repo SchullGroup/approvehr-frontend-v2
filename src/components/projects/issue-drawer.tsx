@@ -272,10 +272,15 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     Boolean(personal) && meId !== null && meId === issue.assigneeId;
   /* On a personal task the author or its owner deletes a comment, as the API
      rules; HR and leaders, who may manage a board, may not. */
+  /* Somebody who can read a board task and change nothing (a program's read
+     access, or the Master grant) is offered no change at all, whoever wrote the
+     comment: the API would refuse it, and a control that only refuses is noise. */
+  const readOnly = !personal && !canWork;
   const canDelete = (c: IssueComment) =>
-    personal
+    !readOnly &&
+    (personal
       ? (meId !== null && c.authorId === meId) || isOwner
-      : canDeleteComment(actor, project, c);
+      : canDeleteComment(actor, project, c));
   const canAttachToTask = connected && thread.canAttachToTask === true;
   const mayChooseWatchers = connected && thread.canManageWatchers === true;
   const mayRemoveWatcher = (w: Watcher) =>
@@ -420,7 +425,8 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
               attachments={thread.attachments ?? NO_FILES}
               canAttach={canAttachToTask}
               canRemove={(file) =>
-                file.uploadedBy === meId || (personal ? isOwner : canManage)
+                !readOnly &&
+                (file.uploadedBy === meId || (personal ? isOwner : canManage))
               }
               onChanged={reloadThread}
             />
@@ -550,6 +556,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
               }
               mayChoose={mayChooseWatchers}
               mayRemove={mayRemoveWatcher}
+              readOnly={readOnly}
               onChanged={reloadThread}
             />
           )}
@@ -598,7 +605,11 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                         memberIds={project.memberIds}
                         meId={meId}
                         timeZone={timeZone}
-                        canEdit={meId !== null && comment.authorId === meId}
+                        canEdit={
+                          !readOnly &&
+                          meId !== null &&
+                          comment.authorId === meId
+                        }
                         canDelete={canDelete(comment)}
                         onSave={async (body) =>
                           (

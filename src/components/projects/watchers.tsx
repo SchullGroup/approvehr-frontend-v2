@@ -33,6 +33,7 @@ export function Watchers({
   candidates,
   mayChoose,
   mayRemove,
+  readOnly = false,
   onChanged,
 }: {
   issueId: string;
@@ -45,6 +46,11 @@ export function Watchers({
   mayChoose: boolean;
   /** Whether the reader may take this watcher off (yourself included). */
   mayRemove: (watcher: Watcher) => boolean;
+  /**
+   * Somebody who can read the task and change nothing: following is a change, so
+   * the button and every remove control are absent, and the list is only read.
+   */
+  readOnly?: boolean;
   onChanged?: () => void;
 }) {
   const toast = useToast();
@@ -144,7 +150,7 @@ export function Watchers({
         <h3 id={heading} className="text-meta font-semibold text-muted">
           {FOLLOWING}
         </h3>
-        {meId && (
+        {meId && !readOnly && (
           <Button
             size="sm"
             variant="secondary"
@@ -184,7 +190,7 @@ export function Watchers({
               <span className={mayRemove(w) ? "" : "pr-1.5"}>
                 {w.id === meId ? `${w.name} (you)` : w.name}
               </span>
-              {mayRemove(w) && (
+              {!readOnly && mayRemove(w) && (
                 <IconButton
                   label={
                     w.id === meId
@@ -204,7 +210,7 @@ export function Watchers({
         </ul>
       )}
 
-      {mayChoose && (
+      {mayChoose && !readOnly && (
         <div className="mt-3 max-w-xs">
           <PersonPicker
             people={people}
