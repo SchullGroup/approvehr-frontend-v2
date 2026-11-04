@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import Link from "next/link";
 import { FolderKanban, Plus } from "lucide-react";
 import {
-  Badge,
   Button,
   EmptyState,
   Skeleton,
@@ -14,7 +12,7 @@ import {
   LoadState,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { ProjectKeyChip } from "@/components/projects/glyphs";
+import { ProjectCard } from "@/components/projects/project-card";
 import { ProjectsOff } from "@/components/projects/module-off";
 import { useQueryParam } from "@/components/projects/use-query-param";
 import { isModuleOff } from "@/lib/api/projects";
@@ -26,7 +24,7 @@ import {
   resolveDepartment,
 } from "@/lib/projects/project-filter";
 import { PROJECTS_SUBTITLE, TASK, CYCLE } from "@/lib/projects/terms";
-import { PROJECT_TYPE_LABEL, type Project } from "@/lib/projects/types";
+import type { Project } from "@/lib/projects/types";
 import { useProjectList } from "@/lib/store/projects";
 import {
   usePeople,
@@ -299,52 +297,15 @@ function List() {
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {shown.map((project) => (
               <li key={project.id} className="min-w-0">
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="group flex h-full flex-col gap-3 rounded-lg border border-line bg-surface p-5 transition-[border-color,box-shadow] duration-200 hover:border-line-strong hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-                >
-                  <span className="flex flex-wrap items-center gap-2">
-                    <ProjectKeyChip project={project} />
-                    <Badge tone="neutral" size="sm">
-                      {PROJECT_TYPE_LABEL[project.type]}
-                    </Badge>
-                    {project.departmentName && (
-                      <Badge tone="neutral" size="sm">
-                        {project.departmentName}
-                      </Badge>
-                    )}
-                  </span>
-                  <span className="text-body-md font-semibold text-ink">
-                    {project.name}
-                  </span>
-                  <span className="line-clamp-2 text-body-sm text-muted">
-                    {project.description || "No description yet."}
-                  </span>
-                  <span className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-meta text-muted">
-                    <span>
-                      Lead{" "}
-                      <strong className="font-semibold text-ink">
-                        {people.byId.get(project.leadId)?.name ??
-                          project.leadName ??
-                          people.nameOf(project.leadId)}
-                      </strong>
-                    </span>
-                    <span className="tabular">
-                      <strong className="font-semibold text-ink">
-                        {project.memberIds.length}
-                      </strong>{" "}
-                      {project.memberIds.length === 1 ? "member" : "members"}
-                    </span>
-                    {project.openIssueCount !== null && (
-                      <span className="tabular">
-                        <strong className="font-semibold text-ink">
-                          {project.openIssueCount}
-                        </strong>{" "}
-                        open
-                      </span>
-                    )}
-                  </span>
-                </Link>
+                <ProjectCard
+                  project={project}
+                  showProgram
+                  leadName={
+                    people.byId.get(project.leadId)?.name ??
+                    project.leadName ??
+                    people.nameOf(project.leadId)
+                  }
+                />
               </li>
             ))}
           </ul>
