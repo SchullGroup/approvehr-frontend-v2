@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { openSprints } from "@/lib/projects/board";
+import { dueLabel } from "@/lib/projects/due";
 import { describeActivity, type HistoryLookup } from "@/lib/projects/history";
 import {
   childrenOf,
@@ -134,16 +135,44 @@ function Row({
   children,
 }: {
   label: string;
-  htmlFor?: string;
+  htmlFor?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
-      <label htmlFor={htmlFor} className="text-meta font-medium text-muted">
-        {label}
-      </label>
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="text-meta font-medium text-muted">
+          {label}
+        </label>
+      ) : (
+        <span className="text-meta font-medium text-muted">{label}</span>
+      )}
       <div className="min-w-0">{children}</div>
     </div>
+  );
+}
+
+/**
+ * A field the reader may not change, shown as what it says.
+ *
+ * Not a switched-off control: a person without the right is never shown the
+ * editor at all, only the value (or "None" when there is nothing to show).
+ */
+function Value({ children }: { children?: React.ReactNode }) {
+  const empty =
+    children === undefined ||
+    children === null ||
+    children === false ||
+    children === "";
+  return (
+    <span
+      className={cn(
+        "block break-words text-body-sm",
+        empty ? "text-muted" : "text-ink",
+      )}
+    >
+      {empty ? "None" : children}
+    </span>
   );
 }
 
@@ -164,6 +193,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     canManage,
     connected,
     timeZone,
+    today,
     openIssue,
     personal,
   } = useProject();
@@ -403,19 +433,22 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             >
               Description
             </h3>
-            <DraftTextarea
-              value={issue.description}
-              rows={5}
-              disabled={!canEditDetails}
-              placeholder={
-                canEditDetails
-                  ? "Add context, acceptance criteria, links"
-                  : "No description"
-              }
-              aria-labelledby={`${base}-desc`}
-              onCommit={(description) => save({ description })}
-              buttons
-            />
+            {canEditDetails ? (
+              <DraftTextarea
+                value={issue.description}
+                rows={5}
+                placeholder="Add context, acceptance criteria, links"
+                aria-labelledby={`${base}-desc`}
+                onCommit={(description) => save({ description })}
+                buttons
+              />
+            ) : issue.description.trim() ? (
+              <p className="whitespace-pre-wrap break-words text-body-sm text-ink">
+                {issue.description}
+              </p>
+            ) : (
+              <p className="text-body-sm text-muted">No description</p>
+            )}
           </section>
 
           {connected && (
@@ -477,20 +510,26 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                       key={kid.id}
                       className="flex items-center gap-2.5 px-3 py-2"
                     >
-                      <Checkbox
-                        label={
-                          <span className="sr-only">
-                            {done ? "Reopen" : "Mark done"} {kid.key}
-                          </span>
-                        }
-                        checked={done}
-                        disabled={!canChangeStatus}
-                        onChange={() =>
-                          void actions.patchIssue(kid, {
-                            statusId: checkboxTarget(project.statuses, done).id,
-                          })
-                        }
-                      />
+                      {canChangeStatus ? (
+                        <Checkbox
+                          label={
+                            <span className="sr-only">
+                              {done ? "Reopen" : "Mark done"} {kid.key}
+                            </span>
+                          }
+                          checked={done}
+                          onChange={() =>
+                            void actions.patchIssue(kid, {
+                              statusId: checkboxTarget(project.statuses, done)
+                                .id,
+                            })
+                          }
+                        />
+                      ) : (
+                        <span className="sr-only">
+                          {done ? "Done" : "Not done"}: {kid.key}
+                        </span>
+                      )}
                       <TypeIcon type={kid.type} />
                       <IssueKey issueKey={kid.key} done={done} />
                       <button
@@ -674,20 +713,26 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           aria-label="Details"
           className="order-first space-y-3.5 self-start rounded-lg border border-line bg-canvas p-4 md:order-last"
         >
-          <Row label={STAGE.One} htmlFor={`${base}-status`}>
-            <Select
-              id={`${base}-status`}
-              value={status.id}
-              disabled={!canChangeStatus}
-              onChange={(event) => save({ statusId: event.target.value })}
-              className="h-9"
-            >
-              {statuses.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
+          <Row
+            label={STAGE.One}
+            htmlFor={canChangeStatus ? `${base}-status` : undefined}
+          >
+            {canChangeStatus ? (
+              <Select
+                id={`${base}-status`}
+                value={status.id}
+                onChange={(event) => save({ statusId: event.target.value })}
+                className="h-9"
+              >
+                {statuses.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Value>{status.name}</Value>
+            )}
           </Row>
 
           {personal && (
@@ -745,9 +790,16 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </Row>
           )}
 
-          <Row label="Type" htmlFor={`${base}-type`}>
+          <Row
+            label="Type"
+            htmlFor={
+              isEpic || isSubtask || personal || !canWork
+                ? undefined
+                : `${base}-type`
+            }
+          >
             {/* A personal task is never an initiative: there is no timeline to put one on. */}
-            {isEpic || isSubtask || personal ? (
+            {isEpic || isSubtask || personal || !canWork ? (
               <span className="text-body-sm text-ink">
                 {TYPE_LABEL[issue.type]}
               </span>
@@ -755,7 +807,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
               <Select
                 id={`${base}-type`}
                 value={displayType(issue.type)}
-                disabled={!canWork}
                 onChange={(event) =>
                   save({ type: event.target.value as Issue["type"] })
                 }
@@ -770,140 +821,186 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             )}
           </Row>
 
-          <Row label="Priority" htmlFor={`${base}-priority`}>
-            <Select
-              id={`${base}-priority`}
-              value={issue.priority}
-              disabled={!canWork}
-              onChange={(event) =>
-                save({ priority: event.target.value as Priority })
-              }
-              className="h-9"
-            >
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {PRIORITY_LABEL[p]}
-                </option>
-              ))}
-            </Select>
+          <Row
+            label="Priority"
+            htmlFor={canWork ? `${base}-priority` : undefined}
+          >
+            {canWork ? (
+              <Select
+                id={`${base}-priority`}
+                value={issue.priority}
+                onChange={(event) =>
+                  save({ priority: event.target.value as Priority })
+                }
+                className="h-9"
+              >
+                {PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_LABEL[p]}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Value>{PRIORITY_LABEL[issue.priority]}</Value>
+            )}
           </Row>
 
           {!isEpic && (
-            <Row label={EFFORT.One} htmlFor={`${base}-points`}>
-              <DraftInput
-                id={`${base}-points`}
-                type="number"
-                min={0}
-                step={1}
-                inputMode="numeric"
-                placeholder="None"
-                disabled={!canWork}
-                value={issue.points === null ? "" : String(issue.points)}
-                clean={(draft) => {
-                  if (draft.trim() === "") return "";
-                  const points = parsePoints(draft);
-                  return points === null ? null : String(points);
-                }}
-                onCommit={(next) => save({ points: parsePoints(next) })}
-                className="h-9"
-              />
+            <Row
+              label={EFFORT.One}
+              htmlFor={canWork ? `${base}-points` : undefined}
+            >
+              {canWork ? (
+                <DraftInput
+                  id={`${base}-points`}
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder="None"
+                  value={issue.points === null ? "" : String(issue.points)}
+                  clean={(draft) => {
+                    if (draft.trim() === "") return "";
+                    const points = parsePoints(draft);
+                    return points === null ? null : String(points);
+                  }}
+                  onCommit={(next) => save({ points: parsePoints(next) })}
+                  className="h-9"
+                />
+              ) : (
+                <Value>{issue.points === null ? null : issue.points}</Value>
+              )}
             </Row>
           )}
 
           {project.type === "SCRUM" && !isEpic && !isSubtask && (
-            <Row label={CYCLE.One} htmlFor={`${base}-sprint`}>
-              <Select
-                id={`${base}-sprint`}
-                value={issue.sprintId ?? ""}
-                disabled={!canWork}
-                onChange={(event) =>
-                  save({ sprintId: event.target.value || null })
-                }
-                className="h-9"
-              >
-                <option value="">{LATER}</option>
-                {sprintChoices.map((sprint) => (
-                  <option key={sprint.id} value={sprint.id}>
-                    {sprint.name}
-                    {sprint.state === "ACTIVE"
-                      ? " (active)"
-                      : sprint.state === "CLOSED"
-                        ? " (closed)"
-                        : ""}
-                  </option>
-                ))}
-              </Select>
+            <Row
+              label={CYCLE.One}
+              htmlFor={canWork ? `${base}-sprint` : undefined}
+            >
+              {canWork ? (
+                <Select
+                  id={`${base}-sprint`}
+                  value={issue.sprintId ?? ""}
+                  onChange={(event) =>
+                    save({ sprintId: event.target.value || null })
+                  }
+                  className="h-9"
+                >
+                  <option value="">{LATER}</option>
+                  {sprintChoices.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                      {sprint.state === "ACTIVE"
+                        ? " (active)"
+                        : sprint.state === "CLOSED"
+                          ? " (closed)"
+                          : ""}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <Value>{currentSprint ? currentSprint.name : LATER}</Value>
+              )}
             </Row>
           )}
 
           {!personal && !isEpic && !isSubtask && (
-            <Row label={INITIATIVE.One} htmlFor={`${base}-epic`}>
-              <Select
-                id={`${base}-epic`}
-                value={issue.epicId ?? ""}
-                disabled={!canWork}
-                onChange={(event) =>
-                  save({ epicId: event.target.value || null })
-                }
-                className="h-9"
-              >
-                <option value="">None</option>
-                {epics.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.key} {e.title}
-                  </option>
-                ))}
-              </Select>
+            <Row
+              label={INITIATIVE.One}
+              htmlFor={canWork ? `${base}-epic` : undefined}
+            >
+              {canWork ? (
+                <Select
+                  id={`${base}-epic`}
+                  value={issue.epicId ?? ""}
+                  onChange={(event) =>
+                    save({ epicId: event.target.value || null })
+                  }
+                  className="h-9"
+                >
+                  <option value="">None</option>
+                  {epics.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.key} {e.title}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <Value>{epic ? `${epic.key} ${epic.title}` : null}</Value>
+              )}
             </Row>
           )}
 
-          <Row label="Labels" htmlFor={`${base}-labels`}>
-            <DraftInput
-              id={`${base}-labels`}
-              placeholder="Comma separated"
-              disabled={!canWork}
-              value={issue.labels.join(", ")}
-              clean={(draft) => parseLabels(draft).join(", ")}
-              onCommit={(next) => save({ labels: parseLabels(next) })}
-              className="h-9"
-            />
+          <Row label="Labels" htmlFor={canWork ? `${base}-labels` : undefined}>
+            {canWork ? (
+              <DraftInput
+                id={`${base}-labels`}
+                placeholder="Comma separated"
+                value={issue.labels.join(", ")}
+                clean={(draft) => parseLabels(draft).join(", ")}
+                onCommit={(next) => save({ labels: parseLabels(next) })}
+                className="h-9"
+              />
+            ) : (
+              <Value>{issue.labels.join(", ")}</Value>
+            )}
           </Row>
 
           {isEpic && (
-            <Row label="Start" htmlFor={`${base}-start`}>
+            <Row label="Start" htmlFor={canWork ? `${base}-start` : undefined}>
+              {canWork ? (
+                <Input
+                  id={`${base}-start`}
+                  type="date"
+                  value={issue.startDate ?? ""}
+                  onChange={(event) =>
+                    save({ startDate: event.target.value || null })
+                  }
+                  className="h-9"
+                />
+              ) : (
+                <Value>
+                  {issue.startDate
+                    ? dueLabel({ dueDate: issue.startDate }, today, "card")
+                    : null}
+                </Value>
+              )}
+            </Row>
+          )}
+          <Row label="Due" htmlFor={canEditDetails ? `${base}-due` : undefined}>
+            {canEditDetails ? (
               <Input
-                id={`${base}-start`}
+                id={`${base}-due`}
                 type="date"
-                disabled={!canWork}
-                value={issue.startDate ?? ""}
+                value={issue.dueDate ?? ""}
                 onChange={(event) =>
-                  save({ startDate: event.target.value || null })
+                  save({ dueDate: event.target.value || null })
                 }
                 className="h-9"
               />
+            ) : (
+              <Value>
+                {issue.dueDate
+                  ? dueLabel(
+                      { dueDate: issue.dueDate, dueTime: issue.dueTime },
+                      today,
+                      "card",
+                    )
+                  : null}
+              </Value>
+            )}
+          </Row>
+          {canEditDetails && (
+            <Row label="Time" htmlFor={`${base}-due-time`}>
+              <DueTimeInput
+                id={`${base}-due-time`}
+                date={issue.dueDate}
+                value={issue.dueTime}
+                onChange={(next) => save({ dueTime: next })}
+              />
             </Row>
           )}
-          <Row label="Due" htmlFor={`${base}-due`}>
-            <Input
-              id={`${base}-due`}
-              type="date"
-              disabled={!canEditDetails}
-              value={issue.dueDate ?? ""}
-              onChange={(event) =>
-                save({ dueDate: event.target.value || null })
-              }
-              className="h-9"
-            />
-          </Row>
-          <Row label="Time" htmlFor={`${base}-due-time`}>
-            <DueTimeInput
-              id={`${base}-due-time`}
-              date={issue.dueDate}
-              value={issue.dueTime}
-              disabled={!canEditDetails}
-              onChange={(next) => save({ dueTime: next })}
-            />
-          </Row>
 
           <dl
             className={cn(

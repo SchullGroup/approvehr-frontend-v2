@@ -424,9 +424,10 @@ describe("opening a task", () => {
     const drawer = await screen.findByRole("dialog");
     expect(within(drawer).getByLabelText("Summary")).toBeEnabled();
     expect(within(drawer).getByLabelText("Due")).toBeEnabled();
+    /* Status is not theirs to change: it is read, not offered as a switched-off box. */
     expect(
-      within(drawer).getByRole("combobox", { name: "Stage" }),
-    ).toBeDisabled();
+      within(drawer).queryByRole("combobox", { name: "Stage" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the details read-only when the API says so", async () => {
@@ -440,8 +441,13 @@ describe("opening a task", () => {
     render(<MyTasksScreen />);
     await userEvent.click(await screen.findByText("Not mine to fix"));
     const drawer = await screen.findByRole("dialog");
-    expect(within(drawer).getByLabelText("Summary")).toBeDisabled();
-    expect(within(drawer).getByLabelText("Due")).toBeDisabled();
+    /* Read, not offered: the title is a heading and the date is text, with no
+       switched-off editor in their place. */
+    expect(within(drawer).queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(
+      within(drawer).getByRole("heading", { name: "Not mine to fix" }),
+    ).toBeInTheDocument();
+    expect(within(drawer).queryByLabelText("Due")).not.toBeInTheDocument();
   });
 
   it("opens the issue drawer, which says Personal and who set it, without a board", async () => {

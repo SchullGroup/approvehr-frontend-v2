@@ -5,7 +5,12 @@ import {
   ProjectProvider,
   type ProjectContextValue,
 } from "@/components/projects/project-context";
-import type { Issue, IssueThread, ProjectData } from "@/lib/projects/types";
+import {
+  PRIORITY_LABEL,
+  type Issue,
+  type IssueThread,
+  type ProjectData,
+} from "@/lib/projects/types";
 import { contextFor, fakeActions, sampleData } from "./projects-fixture";
 
 /**
@@ -141,13 +146,26 @@ describe("what the drawer shows", () => {
     expect(screen.queryByText("Subtasks")).not.toBeInTheDocument();
   });
 
-  it("turns every field off for somebody who cannot work in the project", () => {
-    renderDrawer("CHK-10", { canWork: false });
-    expect(screen.getByLabelText("Summary")).toBeDisabled();
+  it("shows what the fields say, and no editor, to somebody who cannot work in the project", () => {
+    const { issue } = renderDrawer("CHK-10", { canWork: false });
+    const dialog = screen.getByRole("dialog");
+    /* Not a switched-off control: none of the editors exists at all. */
+    expect(dialog.querySelectorAll("input, select, textarea")).toHaveLength(0);
+    expect(screen.queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("heading", {
+        level: 3,
+        name: issue.title,
+      }),
+    ).toBeInTheDocument();
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
-    expect(details.getByLabelText("Stage")).toBeDisabled();
+    expect(details.queryByLabelText("Stage")).not.toBeInTheDocument();
+    expect(details.getByText("Stage")).toBeInTheDocument();
+    expect(
+      details.getByText(PRIORITY_LABEL[issue.priority]),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Add a comment")).not.toBeInTheDocument();
   });
@@ -828,8 +846,9 @@ describe("somebody's personal task", () => {
       screen.getByRole("complementary", { name: "Details" }),
     );
     expect(details.getByLabelText("Due")).toBeEnabled();
-    expect(details.getByLabelText("Stage")).toBeDisabled();
-    expect(details.getByLabelText("Priority")).toBeDisabled();
+    /* The rest is read, not offered: no stage or priority editor to switch off. */
+    expect(details.queryByLabelText("Stage")).not.toBeInTheDocument();
+    expect(details.queryByLabelText("Priority")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
 
     const summary = screen.getByLabelText("Summary");
@@ -847,13 +866,15 @@ describe("somebody's personal task", () => {
       personalCtx({ canEditDetails: false }),
       personalData(),
     );
-    expect(screen.getByLabelText("Summary")).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "Description" })).toBeDisabled();
+    expect(screen.queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Description" }),
+    ).not.toBeInTheDocument();
     expect(
       within(
         screen.getByRole("complementary", { name: "Details" }),
-      ).getByLabelText("Due"),
-    ).toBeDisabled();
+      ).queryByLabelText("Due"),
+    ).not.toBeInTheDocument();
   });
 
   const theirComment = {

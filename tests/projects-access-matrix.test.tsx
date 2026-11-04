@@ -164,12 +164,12 @@ describe("READ: every view draws no control that changes anything", () => {
     expect(
       all.filter((c) => MUTATES.test(c.name) && !isTask(c.name) && !c.disabled),
     ).toEqual([]);
-    /* Every field is there to read: none can be typed into or changed. */
+    /* Every field is there to read, and none is an editor, not even a switched-off
+       one: a person without the right is shown values, never a greyed control. */
     expect(
-      all.filter(
-        (c) => ["input", "select", "textarea"].includes(c.tag) && !c.disabled,
-      ),
+      all.filter((c) => ["input", "select", "textarea"].includes(c.tag)),
     ).toEqual([]);
+    expect(all.filter((c) => c.disabled)).toEqual([]);
     /* The comment is readable, and neither its author nor anybody can edit it. */
     expect(
       within(dialog).getByRole("tab", { name: /Comments/ }),
