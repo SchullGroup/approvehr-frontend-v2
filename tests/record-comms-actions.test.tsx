@@ -6,7 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui";
 import type { ApiApplicationDetail } from "@/lib/api/recruitment";
 
@@ -559,6 +559,23 @@ describe("what the record says", () => {
 });
 
 describe("booking an interview", () => {
+  /**
+   * The clock, frozen nine days before the interview these tests book.
+   *
+   * The dialog refuses to send an invitation for a time already gone, and these
+   * tests book 30 October, so against the real clock they began failing on the
+   * day that date went by. Only `Date` is faked, as `loan-start-month` and
+   * `holiday-banner` do, so the timers `waitFor` and `userEvent` rely on keep
+   * running.
+   */
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T09:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   /** What the API answers a booking with: the interview, and what became of each message. */
   const booked = (over: Record<string, unknown> = {}) => ({
     id: "iv-1",
