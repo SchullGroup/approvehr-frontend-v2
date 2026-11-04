@@ -17,8 +17,10 @@ import { wallClockIn } from "@/lib/time";
 export const END_OF_DAY = "23:59";
 
 /** `HH:MM` on the company's wall clock right now. */
-export function nowHHMMIn(timeZone: string, now: Date = new Date()): string {
-  // reads-the-clock: the current minute on the company clock, for a due time today
+export function nowHHMMIn(
+  timeZone: string,
+  now: Date = new Date(), // reads-the-clock: the current minute on the company clock, for a due time today
+): string {
   return wallClockIn(now, timeZone)?.time ?? "00:00";
 }
 
