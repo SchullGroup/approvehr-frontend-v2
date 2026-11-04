@@ -965,6 +965,13 @@ export function useProjectList(
       const ready = book.anchor !== "";
       const projects = Object.values(book.projects).map((d) => ({
         ...d.project,
+        /* The stored project holds its program's id; the card shows its name. */
+        programName: d.project.programId
+          ? (book.programs[d.project.programId]?.name ?? null)
+          : null,
+        programColor: d.project.programId
+          ? (book.programs[d.project.programId]?.color ?? null)
+          : null,
         openIssueCount: d.issues.filter(
           (i) =>
             i.type !== "EPIC" &&

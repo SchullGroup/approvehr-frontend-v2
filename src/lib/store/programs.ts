@@ -431,6 +431,76 @@ export function useWorkRollup(enabled = true): Loaded<WorkRollup> {
   }, [mode.connected, connected, demo]);
 }
 
+/**
+ * The rollup of each of several programs, for the Master workload.
+ *
+ * There is no company-wide workload endpoint, so the Master view asks each
+ * program's own (one request apiece, held in the same cache as a program page's)
+ * and merges them. Each answer holds the busiest ten people of its program, so a
+ * person who is not among the ten busiest in a program is left out of that
+ * program's share; the screen says so.
+ */
+export function useProgramRollups(ids: readonly string[]): {
+  status: ViewStatus;
+  error: unknown;
+  data: ProgramRollup[];
+  reload: () => void;
+} {
+  const mode = useMode();
+  const demo = useDemoScene();
+  useSyncExternalStore(subscribe, snapshot, () => 0);
+  const revalidation = useRevalidation();
+  const own = mode.owner;
+  const wanted = ids.join(",");
+
+  useEffect(() => {
+    if (!own || !mode.connected || !wanted) return;
+    for (const id of wanted.split(",")) {
+      void load(own, keyOf.rollup(id), (signal) =>
+        programsApi.rollup(id, signal),
+      );
+    }
+  }, [own, mode.connected, wanted, revalidation]);
+
+  const reload = useCallback(() => {
+    if (!own || !wanted) return;
+    for (const id of wanted.split(",")) {
+      void load(own, keyOf.rollup(id), (signal) =>
+        programsApi.rollup(id, signal),
+      );
+    }
+  }, [own, wanted]);
+
+  if (!mode.connected) {
+    const data = ids
+      .map((id) => programRollup(demo.scene, demo.viewer, id, nowIso()))
+      .filter((r): r is ProgramRollup => r !== null);
+    return {
+      status: demo.ready ? "ready" : "loading",
+      error: null,
+      data,
+      reload,
+    };
+  }
+  const mine = own === owner;
+  const slotsOf = ids.map((id) =>
+    mine ? slots.get(keyOf.rollup(id)) : undefined,
+  );
+  const failed = slotsOf.find((s) => s?.status === "error" && s.value === null);
+  if (failed) {
+    return { status: "error", error: failed.error, data: [], reload };
+  }
+  if (slotsOf.some((s) => !s || s.value === null)) {
+    return { status: "loading", error: null, data: [], reload };
+  }
+  return {
+    status: "ready",
+    error: null,
+    data: slotsOf.map((s) => s!.value as ProgramRollup),
+    reload,
+  };
+}
+
 /** Who is on a program's list. For its lead and HR; anybody else gets `error`. */
 export function useProgramPeople(
   id: string,
@@ -456,12 +526,13 @@ export function useProgramPeople(
 export function useProgramProjects(
   target: { programId: string } | { unassigned: true },
   all = false,
+  enabled = true,
 ): Loaded<Project[]> {
   const mode = useMode();
   const demo = useDemoScene();
   const name = "programId" in target ? target.programId : "unassigned";
   const connected = useSlot<Project[]>(
-    mode.connected ? keyOf.projects(name, all) : null,
+    mode.connected && enabled && name ? keyOf.projects(name, all) : null,
     (signal) => programsApi.projects(target, all, signal),
   );
   return useMemo(() => {
@@ -537,10 +608,13 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
   } | null>(null);
   const [tick, setTick] = useState(0);
   const run = useRef(0);
+  /* The page marker already asked for, so a second press cannot ask again. */
+  const asked = useRef<string | null>(null);
 
   useEffect(() => {
     if (!mode.connected || !enabled || !own) return;
     const mine = ++run.current;
+    asked.current = null;
     const controller = new AbortController();
     void (async () => {
       try {
@@ -579,38 +653,48 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode.connected, enabled, own, queryKey, tick, revalidation]);
 
+  /* The latest state, for a click to read: a write to a store from inside a state
+     updater runs twice in development and asked for the same page twice. */
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  });
   const loadMore = useCallback(() => {
-    setState((prev) => {
-      if (!prev || !prev.hasMore || prev.loadingMore || !prev.next) return prev;
-      const cursor = prev.next;
-      const mine = run.current;
-      void programsApi
-        .work(query, cursor)
-        .then((page) => {
-          if (run.current !== mine) return;
-          setState((now) =>
-            now && now.key === prev.key
-              ? {
-                  ...now,
-                  rows: [...now.rows, ...page.rows],
-                  total: page.total,
-                  next: page.nextCursor,
-                  hasMore: page.hasMore,
-                  loadingMore: false,
-                  error: null,
-                }
-              : now,
-          );
-        })
-        .catch((error: unknown) => {
-          setState((now) =>
-            now && now.key === prev.key
-              ? { ...now, loadingMore: false, error }
-              : now,
-          );
+    const prev = stateRef.current;
+    if (!prev || prev.key !== queryKey || !prev.hasMore || !prev.next) return;
+    if (asked.current === prev.next) return;
+    asked.current = prev.next;
+    const mine = run.current;
+    setState((s) =>
+      s && s.key === prev.key ? { ...s, loadingMore: true } : s,
+    );
+    programsApi
+      .work(query, prev.next)
+      .then((page) => {
+        if (run.current !== mine) return;
+        setState((now) => {
+          if (!now || now.key !== prev.key) return now;
+          const seen = new Set(now.rows.map((r) => r.id));
+          return {
+            ...now,
+            rows: [...now.rows, ...page.rows.filter((r) => !seen.has(r.id))],
+            total: page.total,
+            next: page.nextCursor,
+            hasMore: page.hasMore,
+            loadingMore: false,
+            error: null,
+          };
         });
-      return { ...prev, loadingMore: true };
-    });
+      })
+      .catch((error: unknown) => {
+        asked.current = null;
+        setState((now) =>
+          now && now.key === prev.key
+            ? { ...now, loadingMore: false, error }
+            : now,
+        );
+      });
+    // `query` is covered by its serialised key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey]);
 
