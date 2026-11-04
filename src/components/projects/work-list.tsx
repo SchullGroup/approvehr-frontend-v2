@@ -18,7 +18,7 @@ import { StatusPill } from "@/components/projects/glyphs";
 import { ApiError } from "@/lib/api/client";
 import { dueLabel } from "@/lib/projects/due";
 import type { WorkQuery, WorkRow } from "@/lib/projects/programs";
-import { TASK } from "@/lib/projects/terms";
+import { LIST_CAPPED, TASK } from "@/lib/projects/terms";
 import {
   DUE_CHOICES,
   filterCount,
@@ -436,6 +436,11 @@ function Results({
             error={list.error instanceof ApiError ? list.error : null}
             onLoadMore={list.loadMore}
           />
+          {list.capped && (
+            <p role="note" className="mt-2 text-meta text-muted">
+              {LIST_CAPPED(list.rows.length)}
+            </p>
+          )}
         </div>
       )}
     </LoadState>

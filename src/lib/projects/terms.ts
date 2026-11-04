@@ -350,6 +350,13 @@ export function readOnlyProject(programName?: string | null): string {
 }
 export const READ_ONLY_PROGRAM = `You can read this ${PROGRAM.one}, but you can't change it. Ask its lead for read and write access.`;
 
+/**
+ * Said under a list that stopped at the most rows it shows. The count is the
+ * server's; the filters are how to get at the rest.
+ */
+export const LIST_CAPPED = (shown: number) =>
+  `That is as many as this list shows (${shown.toLocaleString("en-NG")}). Use the filters to narrow it and see the rest.`;
+
 /** The three stage groups that compare across projects, in board order. */
 export const CATEGORY_COLUMN_LABEL: Record<StatusCategory, string> = {
   TODO: "Not started",

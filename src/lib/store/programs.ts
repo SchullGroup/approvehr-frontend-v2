@@ -578,10 +578,24 @@ export type WorkList = {
   rows: WorkPage["rows"];
   total: number | null;
   hasMore: boolean;
+  /**
+   * The list stopped at `WORK_ROW_CAP` rows although the API has more. The screen
+   * says so and points at the filters; it does not offer another page.
+   */
+  capped: boolean;
   loadingMore: boolean;
   loadMore: () => void;
   reload: () => void;
 };
+
+/**
+ * The most rows one list holds on screen. A press of "Load more" past this stops:
+ * a list of thousands is a page of thousands of nodes, and nobody reads past the
+ * first few hundred; the filters are how to get at the rest.
+ */
+export const WORK_ROW_CAP = 500;
+/** What one request may ask for (the API's own ceiling). */
+const WORK_PAGE_MAX = 200;
 
 /**
  * Pages of work for a query: the first on its own, the rest on "Load more".
@@ -602,12 +616,20 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
     total: number | null;
     next: string | null;
     hasMore: boolean;
+    capped: boolean;
     status: ViewStatus;
     error: unknown;
     loadingMore: boolean;
   } | null>(null);
   const [tick, setTick] = useState(0);
   const run = useRef(0);
+  /* The latest state, for an effect or a click to read: a write to a store from
+     inside a state updater runs twice in development and asked for the same page
+     twice. */
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  });
   /* The page marker already asked for, so a second press cannot ask again. */
   const asked = useRef<string | null>(null);
 
@@ -616,16 +638,29 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
     const mine = ++run.current;
     asked.current = null;
     const controller = new AbortController();
+    /* Asked again because the window came back (or the person pressed Retry), not
+       because the list is new: ask for as many rows as are on screen, up to a page's
+       worth, so "Load more" does not snap back to the first page under their eyes. */
+    const held = stateRef.current;
+    const loaded = held && held.key === queryKey ? held.rows.length : 0;
+    const limit = Math.min(WORK_PAGE_MAX, Math.max(query.limit ?? 50, loaded));
     void (async () => {
       try {
-        const page = await programsApi.work(query, null, controller.signal);
+        const page = await programsApi.work(
+          limit === (query.limit ?? 50) ? query : { ...query, limit },
+          null,
+          controller.signal,
+        );
         if (run.current !== mine) return;
+        const rows = page.rows.slice(0, WORK_ROW_CAP);
+        const capped = page.hasMore && rows.length >= WORK_ROW_CAP;
         setState({
           key: queryKey,
-          rows: page.rows,
+          rows,
           total: page.total,
-          next: page.nextCursor,
-          hasMore: page.hasMore,
+          next: capped ? null : page.nextCursor,
+          hasMore: page.hasMore && !capped,
+          capped,
           status: "ready",
           error: null,
           loadingMore: false,
@@ -641,6 +676,7 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
                 total: null,
                 next: null,
                 hasMore: false,
+                capped: false,
                 status: isNotFound(error) ? "notFound" : "error",
                 error,
                 loadingMore: false,
@@ -653,12 +689,6 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode.connected, enabled, own, queryKey, tick, revalidation]);
 
-  /* The latest state, for a click to read: a write to a store from inside a state
-     updater runs twice in development and asked for the same page twice. */
-  const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  });
   const loadMore = useCallback(() => {
     const prev = stateRef.current;
     if (!prev || prev.key !== queryKey || !prev.hasMore || !prev.next) return;
@@ -675,12 +705,18 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
         setState((now) => {
           if (!now || now.key !== prev.key) return now;
           const seen = new Set(now.rows.map((r) => r.id));
+          const rows = [
+            ...now.rows,
+            ...page.rows.filter((r) => !seen.has(r.id)),
+          ].slice(0, WORK_ROW_CAP);
+          const capped = page.hasMore && rows.length >= WORK_ROW_CAP;
           return {
             ...now,
-            rows: [...now.rows, ...page.rows.filter((r) => !seen.has(r.id))],
+            rows,
             total: page.total,
-            next: page.nextCursor,
-            hasMore: page.hasMore,
+            next: capped ? null : page.nextCursor,
+            hasMore: page.hasMore && !capped,
+            capped,
             loadingMore: false,
             error: null,
           };
@@ -714,6 +750,7 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
           rows: [],
           total: null,
           hasMore: false,
+          capped: false,
           loadingMore: false,
           loadMore: () => undefined,
           reload,
@@ -733,6 +770,7 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
         rows,
         total: everything.total,
         hasMore: rows.length < everything.total,
+        capped: false,
         loadingMore: false,
         loadMore: () =>
           setDemoTake((t) => ({
@@ -750,6 +788,7 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
         rows: [],
         total: null,
         hasMore: false,
+        capped: false,
         loadingMore: false,
         loadMore,
         reload,
@@ -761,6 +800,7 @@ export function useWorkList(query: WorkQuery, enabled = true): WorkList {
       rows: here.rows,
       total: here.total,
       hasMore: here.hasMore,
+      capped: here.capped,
       loadingMore: here.loadingMore,
       loadMore,
       reload,

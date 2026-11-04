@@ -48,6 +48,8 @@ const pages: WorkPage[] = [
   { rows: [row(5)], total: 5, hasMore: false, nextCursor: null },
 ];
 const work = vi.hoisted(() => vi.fn());
+/** What the window-focus revalidation counter says; bumped to simulate coming back. */
+const focus = vi.hoisted(() => ({ n: 0 }));
 
 vi.mock("@/lib/api/programs", () => ({ programsApi: { work } }));
 vi.mock("@/lib/store/projects", () => ({
@@ -83,12 +85,13 @@ vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
 }));
 vi.mock("@/lib/permissions", () => ({ useCan: () => false }));
-vi.mock("@/lib/revalidate", () => ({ useRevalidation: () => 0 }));
+vi.mock("@/lib/revalidate", () => ({ useRevalidation: () => focus.n }));
 vi.mock("@/components/ui", () => ({ useToast: () => ({ push: vi.fn() }) }));
 
-const { useWorkList } = await import("@/lib/store/programs");
+const { useWorkList, WORK_ROW_CAP } = await import("@/lib/store/programs");
 
 beforeEach(() => {
+  focus.n = 0;
   work.mockReset();
   work.mockImplementation(async (_q: unknown, cursor: string | null) =>
     cursor === null ? pages[0] : cursor === "c2" ? pages[1] : pages[2],
@@ -155,5 +158,52 @@ describe("useWorkList, connected", () => {
     /* Trying again asks for the same page, and works. */
     act(() => result.current.loadMore());
     await waitFor(() => expect(result.current.rows).toHaveLength(4));
+  });
+
+  it("keeps what was loaded when the window comes back, up to a page's worth", async () => {
+    const { result, rerender } = renderHook(
+      () => useWorkList({ programId: "pg", limit: 2 }),
+      { wrapper: StrictMode },
+    );
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(4));
+    work.mockClear();
+    focus.n += 1;
+    rerender();
+    await waitFor(() => expect(work).toHaveBeenCalled());
+    /* Asked again for the four on screen, not for the first two: the list does not
+       snap back under the reader's eyes. */
+    const refresh = work.mock.calls.find((c) => c[1] === null)!;
+    expect(refresh[0]).toMatchObject({ programId: "pg", limit: 4 });
+  });
+
+  it("stops at the most rows it shows and says it stopped, instead of paging on", async () => {
+    const big = (from: number, n: number): WorkRow[] =>
+      Array.from({ length: n }, (_, i) => row(from + i));
+    work.mockImplementation(async (_q: unknown, cursor: string | null) =>
+      cursor === null
+        ? { rows: big(1, 300), total: 20_000, hasMore: true, nextCursor: "n2" }
+        : {
+            rows: big(301, 300),
+            total: 20_000,
+            hasMore: true,
+            nextCursor: "n3",
+          },
+    );
+    const { result } = mount();
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.rows).toHaveLength(300);
+    expect(result.current.capped).toBe(false);
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.loadingMore).toBe(false));
+    expect(result.current.rows).toHaveLength(WORK_ROW_CAP);
+    expect(result.current.capped).toBe(true);
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.total).toBe(20_000);
+    /* Nothing more is asked for, however often it is pressed. */
+    const before = work.mock.calls.length;
+    act(() => result.current.loadMore());
+    expect(work.mock.calls.length).toBe(before);
   });
 });
