@@ -3,6 +3,7 @@
 import { ArrowRightLeft, GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
+import { STAGE } from "@/lib/projects/terms";
 import { useOrgTimezone } from "@/lib/store/session";
 import type { Issue, ProjectStatus } from "@/lib/projects/types";
 import type { People } from "@/lib/store/project-session";
@@ -85,7 +86,7 @@ export function IssueCard({
               type="button"
               onPointerDown={onGrab}
               onClick={onOpen}
-              aria-label={`Move ${issue.key}. Or use Move to, or open it and change its status.`}
+              aria-label={`Move ${issue.key}. Or use Move to, or open it and change its ${STAGE.one}.`}
               className={cn(
                 "relative z-10 -ml-1 mt-0.5 flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-faint",
                 "hover:bg-canvas hover:text-muted active:cursor-grabbing",

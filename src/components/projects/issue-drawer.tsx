@@ -26,7 +26,18 @@ import { weeklyTaskLine } from "@/lib/projects/objectives";
 import { byRank } from "@/lib/projects/rank";
 import { countProgress } from "@/lib/projects/progress";
 import {
-  ISSUE_TYPE_LABEL,
+  CYCLE,
+  EFFORT,
+  INITIATIVE,
+  LATER,
+  STAGE,
+  SUBTASK,
+  TASK,
+  TYPE_LABEL,
+  WORK_TYPES,
+  displayType,
+} from "@/lib/projects/terms";
+import {
   PRIORITIES,
   PRIORITY_LABEL,
   type Issue,
@@ -221,7 +232,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
   ): Promise<boolean> {
     const result = await actions.createIssue(
       isEpic
-        ? { type: "STORY", epicId: issue.id, ...input }
+        ? { type: "TASK", epicId: issue.id, ...input }
         : { type: "SUBTASK", parentId: issue.id, ...input },
     );
     if (result.ok) {
@@ -318,7 +329,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           )}
           <span className="inline-flex items-center gap-1.5 font-medium text-ink">
             <TypeIcon type={issue.type} />
-            {ISSUE_TYPE_LABEL[issue.type]}
+            {TYPE_LABEL[issue.type]}
           </span>
         </nav>
         {!personal && (
@@ -350,9 +361,9 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           <span className="min-w-0 flex-1">
             Delete <strong>{issue.key}</strong>
             {isEpic && kids.length > 0
-              ? `? Its ${kids.length} ${kids.length === 1 ? "task stays" : "tasks stay"}, without an epic.`
+              ? `? Its ${kids.length} ${kids.length === 1 ? `${TASK.one} stays` : `${TASK.many} stay`}, without an ${INITIATIVE.one}.`
               : kids.length > 0
-                ? ` and its ${kids.length} ${kids.length === 1 ? "sub-task" : "sub-tasks"}?`
+                ? ` and its ${kids.length} ${kids.length === 1 ? SUBTASK.one : SUBTASK.many}?`
                 : "?"}{" "}
             This cannot be undone.
           </span>
@@ -422,7 +433,9 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                   id={`${base}-kids`}
                   className="text-meta font-semibold text-muted"
                 >
-                  {isEpic ? "Tasks in this epic" : "Sub-tasks"}
+                  {isEpic
+                    ? `${TASK.Many} in this ${INITIATIVE.one}`
+                    : SUBTASK.Many}
                 </h3>
                 {kids.length > 0 && (
                   <span className="tabular text-meta text-muted">
@@ -433,7 +446,11 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
               {kids.length > 0 && (
                 <div
                   role="progressbar"
-                  aria-label={isEpic ? "Epic progress" : "Sub-task progress"}
+                  aria-label={
+                    isEpic
+                      ? `${INITIATIVE.One} progress`
+                      : `${SUBTASK.One} progress`
+                  }
                   aria-valuemin={0}
                   aria-valuemax={progress.total}
                   aria-valuenow={progress.done}
@@ -507,7 +524,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                       people={people}
                       candidates={assignable}
                       locked={locked}
-                      noun={isEpic ? "story" : "sub-task"}
+                      noun={isEpic ? TASK.one : SUBTASK.one}
                       onCreate={addKid}
                     />
                   </li>
@@ -646,7 +663,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           aria-label="Details"
           className="order-first space-y-3.5 self-start rounded-lg border border-line bg-canvas p-4 md:order-last"
         >
-          <Row label="Status" htmlFor={`${base}-status`}>
+          <Row label={STAGE.One} htmlFor={`${base}-status`}>
             <Select
               id={`${base}-status`}
               value={status.id}
@@ -718,24 +735,24 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           )}
 
           <Row label="Type" htmlFor={`${base}-type`}>
-            {/* A personal task is never an epic: there is no roadmap to put one on. */}
+            {/* A personal task is never an initiative: there is no timeline to put one on. */}
             {isEpic || isSubtask || personal ? (
               <span className="text-body-sm text-ink">
-                {ISSUE_TYPE_LABEL[issue.type]}
+                {TYPE_LABEL[issue.type]}
               </span>
             ) : (
               <Select
                 id={`${base}-type`}
-                value={issue.type}
+                value={displayType(issue.type)}
                 disabled={!canWork}
                 onChange={(event) =>
                   save({ type: event.target.value as Issue["type"] })
                 }
                 className="h-9"
               >
-                {(["STORY", "TASK", "BUG"] as const).map((type) => (
+                {WORK_TYPES.map((type) => (
                   <option key={type} value={type}>
-                    {ISSUE_TYPE_LABEL[type]}
+                    {TYPE_LABEL[type]}
                   </option>
                 ))}
               </Select>
@@ -761,7 +778,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           </Row>
 
           {!isEpic && (
-            <Row label="Points" htmlFor={`${base}-points`}>
+            <Row label={EFFORT.One} htmlFor={`${base}-points`}>
               <DraftInput
                 id={`${base}-points`}
                 type="number"
@@ -783,7 +800,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           )}
 
           {project.type === "SCRUM" && !isEpic && !isSubtask && (
-            <Row label="Sprint" htmlFor={`${base}-sprint`}>
+            <Row label={CYCLE.One} htmlFor={`${base}-sprint`}>
               <Select
                 id={`${base}-sprint`}
                 value={issue.sprintId ?? ""}
@@ -793,7 +810,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 }
                 className="h-9"
               >
-                <option value="">Backlog</option>
+                <option value="">{LATER}</option>
                 {sprintChoices.map((sprint) => (
                   <option key={sprint.id} value={sprint.id}>
                     {sprint.name}
@@ -809,7 +826,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           )}
 
           {!personal && !isEpic && !isSubtask && (
-            <Row label="Epic" htmlFor={`${base}-epic`}>
+            <Row label={INITIATIVE.One} htmlFor={`${base}-epic`}>
               <Select
                 id={`${base}-epic`}
                 value={issue.epicId ?? ""}

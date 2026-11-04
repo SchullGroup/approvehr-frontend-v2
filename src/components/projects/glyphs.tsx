@@ -1,5 +1,4 @@
 import {
-  Bookmark,
   Bug,
   ChevronDown,
   ChevronUp,
@@ -12,9 +11,9 @@ import {
 } from "lucide-react";
 import { Badge, type BadgeTone } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { EFFORT, TYPE_LABEL } from "@/lib/projects/terms";
 import {
   CATEGORY_LABEL,
-  ISSUE_TYPE_LABEL,
   PRIORITY_LABEL,
   type IssueType,
   type Priority,
@@ -35,7 +34,7 @@ import {
 
 const TYPE_ICON: Record<IssueType, typeof Zap> = {
   EPIC: Zap,
-  STORY: Bookmark,
+  STORY: SquareCheck,
   TASK: SquareCheck,
   BUG: Bug,
   SUBTASK: ListTree,
@@ -46,7 +45,7 @@ const TYPE_ICON: Record<IssueType, typeof Zap> = {
    them would not. */
 const TYPE_TONE: Record<IssueType, string> = {
   EPIC: "bg-cat-4/15 text-cat-4",
-  STORY: "bg-success-soft text-success-text",
+  STORY: "bg-info-soft text-info-text",
   TASK: "bg-info-soft text-info-text",
   BUG: "bg-warning-soft text-warning-text",
   SUBTASK: "bg-sunken text-muted",
@@ -63,8 +62,8 @@ export function TypeIcon({
   return (
     <span
       role="img"
-      aria-label={ISSUE_TYPE_LABEL[type]}
-      title={ISSUE_TYPE_LABEL[type]}
+      aria-label={TYPE_LABEL[type]}
+      title={TYPE_LABEL[type]}
       className={cn(
         "inline-flex size-5 shrink-0 items-center justify-center rounded-sm",
         TYPE_TONE[type],
@@ -173,7 +172,7 @@ export function PointsPill({
 }) {
   return (
     <span
-      title={`${points} ${points === 1 ? "point" : "points"}`}
+      title={`${points} ${EFFORT.one}`}
       className={cn(
         "tabular inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-sunken px-1.5 text-meta font-semibold text-body",
         className,

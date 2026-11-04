@@ -40,6 +40,14 @@ import {
   type CommitPlanStory,
 } from "@/lib/api/projects";
 import type { ApiGoal } from "@/lib/api/performance";
+import {
+  EFFORT,
+  INITIATIVE,
+  SUBTASK,
+  TASK,
+  count as countNoun,
+  nounFor,
+} from "@/lib/projects/terms";
 import type { Project } from "@/lib/projects/types";
 
 /**
@@ -208,14 +216,14 @@ export function PlanWorkDialog({
         epic: { title: draft.epic.title, description: draft.epic.description },
         stories: storiesToSend,
       });
-      const storyWord = result.issues.length === 1 ? "story" : "stories";
+      const taskWord = nounFor(result.issues.length, "task");
       const linked = result.linked
         ? " and linked the project to this objective"
         : "";
       toast.push({
         title: `Plan created under ${result.epic.key}`,
         tone: "success",
-        detail: `${String(result.issues.length)} ${storyWord} added${linked}.`,
+        detail: `${String(result.issues.length)} ${taskWord} added${linked}.`,
       });
       onClose();
     } catch (err) {
@@ -256,9 +264,9 @@ export function PlanWorkDialog({
   const untitled = stories.filter((s) => s.title.trim().length === 0).length;
   const blocker =
     stories.length === 0
-      ? "Keep at least one story."
+      ? `Keep at least one ${TASK.one}.`
       : untitled > 0
-        ? `Give ${untitled === 1 ? "every story" : `all ${String(untitled)} untitled stories`} a title first.`
+        ? `Give ${untitled === 1 ? `every ${TASK.one}` : `all ${String(untitled)} untitled ${TASK.many}`} a title first.`
         : null;
 
   return (
@@ -379,14 +387,12 @@ export function PlanWorkDialog({
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-body-sm font-medium text-ink">
-                  {stories.length === 1
-                    ? "1 story"
-                    : `${String(stories.length)} stories`}{" "}
-                  under the epic &ldquo;{available.epic.title}&rdquo;
+                  {countNoun(stories.length, "task")} under the {INITIATIVE.one}{" "}
+                  &ldquo;{available.epic.title}&rdquo;
                 </p>
                 <Button variant="ghost" size="sm" onClick={addStory}>
                   <Plus aria-hidden="true" className="size-3.5" />
-                  Add a story
+                  Add a {TASK.one}
                 </Button>
               </div>
               <ol className="flex flex-col gap-4">
@@ -425,10 +431,7 @@ export function PlanWorkDialog({
                 onClick={() => void handleCommit()}
               >
                 <LayoutList aria-hidden="true" className="size-4" />
-                Create{" "}
-                {stories.length === 1
-                  ? "1 story"
-                  : `${String(stories.length)} stories`}
+                Create {countNoun(stories.length, "task")}
               </Button>
             </span>
           )}
@@ -460,7 +463,7 @@ function ProjectLinkNotice({
           aria-hidden="true"
           className="size-4 shrink-0 text-success-text"
         />
-        {projectName} is linked to this objective, so finished stories count
+        {projectName} is linked to this objective, so finished {TASK.many} count
         towards it.
       </p>
     );
@@ -485,8 +488,8 @@ function ProjectLinkNotice({
             </span>
           ) : (
             <span className="mt-0.5 block text-meta text-muted">
-              Finished stories count towards this objective once the project is
-              linked.
+              Finished {TASK.many} count towards this objective once the project
+              is linked.
             </span>
           )}
         </span>
@@ -494,8 +497,8 @@ function ProjectLinkNotice({
       {!linkProject && (
         <p className="flex items-center gap-2 text-meta text-muted">
           <Link2Off aria-hidden="true" className="size-3.5" />
-          Unlinked, finished stories will not count towards this objective
-          unless each person links their own issue.
+          Unlinked, finished {TASK.many} will not count towards this objective
+          unless each person links their own {TASK.one}.
         </p>
       )}
     </div>
@@ -543,7 +546,9 @@ function StoryCard({
             expanded && "rotate-90",
           )}
           aria-expanded={expanded}
-          aria-label={expanded ? `Collapse story ${n}` : `Expand story ${n}`}
+          aria-label={
+            expanded ? `Collapse ${TASK.one} ${n}` : `Expand ${TASK.one} ${n}`
+          }
         >
           <ChevronRight className="size-4" aria-hidden="true" />
         </button>
@@ -551,14 +556,14 @@ function StoryCard({
           value={story.title}
           onChange={(e) => onChange({ title: e.target.value })}
           placeholder="What has to be done, starting with a verb"
-          aria-label={`Story ${n} title`}
+          aria-label={`${TASK.One} ${n} title`}
           className="flex-1 font-medium"
         />
         <button
           type="button"
           onClick={onRemove}
           className="mt-2.5 shrink-0 text-muted hover:text-danger-text"
-          aria-label={`Remove story ${n}`}
+          aria-label={`Remove ${TASK.one} ${n}`}
         >
           <Trash2 className="size-4" aria-hidden="true" />
         </button>
@@ -571,11 +576,11 @@ function StoryCard({
             onChange={(e) => onChange({ detail: e.target.value })}
             rows={2}
             placeholder="What done looks like"
-            aria-label={`Story ${n} detail`}
+            aria-label={`${TASK.One} ${n} detail`}
           />
 
           <div className="flex flex-wrap gap-3">
-            <Field label="Points" className="w-24 shrink-0">
+            <Field label={EFFORT.One} className="w-24 shrink-0">
               <Select
                 value={story.points ?? ""}
                 onChange={(e) =>
@@ -597,7 +602,7 @@ function StoryCard({
             {keyResults.length > 0 && (
               <Field
                 label="Moves the measure"
-                help="Written into the story's description."
+                help={`Written into the ${TASK.one}'s description.`}
                 className="min-w-40 flex-1"
               >
                 <Select
@@ -671,7 +676,7 @@ function StoryCard({
             <Select
               value={story.assigneeId ?? ""}
               onChange={(e) => onChange({ assigneeId: e.target.value || null })}
-              aria-label={`Story ${n} assignee`}
+              aria-label={`${TASK.One} ${n} assignee`}
             >
               <option value="">Nobody yet</option>
               {story.candidates.map((c) => {
@@ -693,16 +698,16 @@ function StoryCard({
             {assignee && !assignee.ownKpiId && (
               <Callout tone="warning" title="This work would not count">
                 {assignee.name} has no agreed KPI under this objective, so
-                finishing this story will not be filed against it. Give them one
-                with &ldquo;Give a KPI to people&rdquo; on the objective, or
-                choose someone else.
+                finishing this {TASK.one} will not be filed against it. Give
+                them one with &ldquo;Give a KPI to people&rdquo; on the
+                objective, or choose someone else.
               </Callout>
             )}
           </fieldset>
 
           <div className="flex flex-col gap-2">
             <p className="text-meta text-muted">
-              Steps, created as unassigned sub-tasks
+              Steps, created as unassigned {SUBTASK.many}
             </p>
             {story.subtasks.length > 0 && (
               <ol className="flex flex-col gap-2">
@@ -711,7 +716,7 @@ function StoryCard({
                     <Input
                       value={step}
                       onChange={(e) => setStep(si, e.target.value)}
-                      aria-label={`Story ${n} step ${String(si + 1)}`}
+                      aria-label={`${TASK.One} ${n} step ${String(si + 1)}`}
                       className="flex-1"
                     />
                     <button
@@ -774,7 +779,7 @@ function PeoplePanel({ people }: { people: ApiPlanPerson[] }) {
               <span>
                 {person.openIssues === 0
                   ? "Nothing open"
-                  : `${String(person.openIssues)} open${person.openPoints > 0 ? `, ${String(person.openPoints)} points` : ""}`}
+                  : `${String(person.openIssues)} open${person.openPoints > 0 ? `, ${String(person.openPoints)} ${EFFORT.one}` : ""}`}
                 {person.led ? "" : " on this project"}
               </span>
               {person.leave && (

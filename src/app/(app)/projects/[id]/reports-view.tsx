@@ -33,10 +33,17 @@ import {
 } from "@/lib/projects/reports";
 import {
   CATEGORY_LABEL,
-  ISSUE_TYPE_LABEL,
-  type IssueType,
-  type StatusCategory,
-} from "@/lib/projects/types";
+  CYCLE,
+  EFFORT,
+  INITIATIVE,
+  REPORT_TITLE,
+  STAGE,
+  TAB_LABEL,
+  TASK,
+  TYPE_LABEL,
+  count as countNoun,
+} from "@/lib/projects/terms";
+import type { IssueType, StatusCategory } from "@/lib/projects/types";
 
 /**
  * Reports: how the project is going, worked out from its own issues and sprints.
@@ -55,7 +62,6 @@ const CATEGORY_COLOR: Record<StatusCategory, string> = {
 };
 
 const TYPE_COLOR: Partial<Record<IssueType, string>> = {
-  STORY: "var(--color-success-strong)",
   TASK: "var(--color-info)",
   BUG: "var(--color-cat-4)",
   SUBTASK: "var(--color-faint)",
@@ -67,8 +73,9 @@ function Tone({ bad, children }: { bad: boolean; children: React.ReactNode }) {
   );
 }
 
-function points(n: number): string {
-  return `${n} ${n === 1 ? "point" : "points"}`;
+/** "5 effort". The word does not take an s. */
+function effort(n: number): string {
+  return `${n} ${EFFORT.one}`;
 }
 
 export function ReportsView() {
@@ -102,7 +109,7 @@ export function ReportsView() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-h4 text-ink">Reports</h2>
+        <h2 className="text-h4 text-ink">{TAB_LABEL.reports}</h2>
         <p className="mt-1 text-body-sm text-muted">
           Progress and load for {project.name}. Every figure comes from the
           project&rsquo;s own tasks.
@@ -111,14 +118,14 @@ export function ReportsView() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat
-          label="Open tasks"
+          label={`Open ${TASK.many}`}
           value={tiles.open.issues}
-          hint={`${points(tiles.open.points)} left`}
+          hint={`${effort(tiles.open.points)} left`}
         />
         <Stat
           label="Done in 7 days"
           value={tiles.doneInWeek.issues}
-          hint={`${points(tiles.doneInWeek.points)} shipped`}
+          hint={`${effort(tiles.doneInWeek.points)} finished`}
         />
         <Stat
           label="Overdue"
@@ -134,18 +141,19 @@ export function ReportsView() {
         </div>
       ) : (
         <p className="text-body-sm text-muted">
-          Burndown and velocity measure sprints, and a Kanban project has none.
+          Cycle progress and pace measure {CYCLE.many}, and a Kanban project has
+          none.
         </p>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader
-            title="Workload"
+            title={REPORT_TITLE.workload}
             description={
               load.measure === "points"
-                ? "Open points by person"
-                : "Open tasks by person. None has points yet."
+                ? `Open ${EFFORT.one} by person`
+                : `Open ${TASK.many} by person. None has ${EFFORT.one} yet.`
             }
           />
           <CardBody>
@@ -161,26 +169,27 @@ export function ReportsView() {
 
         <Card>
           <CardHeader
-            title="Task breakdown"
+            title={REPORT_TITLE.breakdown}
             description={
               byStatus.total === 0
                 ? "No tasks yet"
-                : `${byStatus.total} ${byStatus.total === 1 ? "task" : "tasks"} in this project, epics not counted`
+                : `${countNoun(byStatus.total, "task")} in this project, ${INITIATIVE.many} not counted`
             }
           />
           <CardBody className="space-y-6">
             {byStatus.total === 0 ? (
               <p className="text-body-sm text-muted">
-                Create a task and its status and type are counted here.
+                Create a {TASK.one} and its {STAGE.one} and type are counted
+                here.
               </p>
             ) : (
               <>
                 <div>
                   <h4 className="mb-2 text-body-sm font-semibold text-ink">
-                    By status
+                    By {STAGE.one}
                   </h4>
                   <StackedBar
-                    caption="Tasks by status category"
+                    caption={`${TASK.Many} by ${STAGE.one}`}
                     total={byStatus.total}
                     segments={byStatus.counts.map(
                       ({ category, count }): Segment => ({
@@ -196,10 +205,10 @@ export function ReportsView() {
                     By type
                   </h4>
                   <StackedBar
-                    caption="Tasks by type"
+                    caption={`${TASK.Many} by type`}
                     total={byType.total}
                     segments={byType.counts.map(({ type, count }): Segment => ({
-                      label: ISSUE_TYPE_LABEL[type],
+                      label: TYPE_LABEL[type],
                       value: count,
                       ...(TYPE_COLOR[type] ? { color: TYPE_COLOR[type] } : {}),
                     }))}
@@ -242,13 +251,13 @@ function BurndownPanel() {
   return (
     <Card>
       <CardHeader
-        title="Sprint burndown"
-        description="Points left against an even pace"
+        title={REPORT_TITLE.cycleProgress}
+        description={`${EFFORT.One} left against an even pace`}
         action={
           list.length > 1 ? (
             <div className="w-full sm:w-56">
               <Select
-                aria-label="Sprint"
+                aria-label={CYCLE.One}
                 value={sprint?.id ?? ""}
                 onChange={(event) => setChosen(event.target.value, "replace")}
               >
@@ -266,12 +275,13 @@ function BurndownPanel() {
       <CardBody>
         {!sprint || !result ? (
           <p className="text-body-sm text-muted">
-            Start a sprint to see its burndown.
+            Start a {CYCLE.one} to see its progress.
           </p>
         ) : result.kind === "no-dates" ? (
           <p className="text-body-sm text-muted">
             {sprint.name} has no start and end dates, so there is no pace to
-            measure against. Add them in the backlog and the burndown appears.
+            measure against. Add them on the {TAB_LABEL.backlog} tab and the
+            progress line appears.
           </p>
         ) : result.kind === "not-started" ? (
           <p className="text-body-sm text-muted">
@@ -279,14 +289,14 @@ function BurndownPanel() {
           </p>
         ) : result.total === 0 ? (
           <p className="text-body-sm text-muted">
-            The tasks in {sprint.name} have no points yet. Give them points and
-            the line starts to move.
+            The {TASK.many} in {sprint.name} have no {EFFORT.one} yet. Give them{" "}
+            {EFFORT.one} and the line starts to move.
           </p>
         ) : (
           <div className="space-y-3">
             <p className="tabular text-body-sm text-body">
               <span className="font-semibold text-ink">
-                {result.remaining} of {points(result.total)}
+                {result.remaining} of {effort(result.total)}
               </span>{" "}
               {sprint.state === "CLOSED"
                 ? result.basis === "committed"
@@ -303,12 +313,12 @@ function BurndownPanel() {
   );
 }
 
-/** How the running sprint stands against its end date, in a sentence. Null with no end date. */
+/** How the running cycle stands against its end date, in a sentence. Null with no end date. */
 function sprintClock(endDate: string | null, today: string): string | null {
   const left = daysLeft(endDate, today);
   if (left === null) return null;
   if (left > 0)
-    return `${left} ${left === 1 ? "day" : "days"} left in the sprint.`;
+    return `${left} ${left === 1 ? "day" : "days"} left in the ${CYCLE.one}.`;
   if (left === 0) return "It ends today.";
   return `It ran ${-left} ${left === -1 ? "day" : "days"} over.`;
 }
@@ -321,13 +331,13 @@ function VelocityPanel() {
   return (
     <Card>
       <CardHeader
-        title="Velocity"
-        description="Points completed of those committed, last 6 sprints"
+        title={REPORT_TITLE.pace}
+        description={`${EFFORT.One} completed of what was committed, last 6 ${CYCLE.many}`}
       />
       <CardBody>
         {rows.length === 0 ? (
           <p className="text-body-sm text-muted">
-            Complete a sprint to start tracking velocity.
+            Complete a {CYCLE.one} to start tracking pace.
           </p>
         ) : (
           <VelocityChart

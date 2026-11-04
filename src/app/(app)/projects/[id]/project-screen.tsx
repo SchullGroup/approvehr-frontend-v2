@@ -36,6 +36,7 @@ import {
   type NewIssueInput,
   type ProjectData,
 } from "@/lib/projects/types";
+import { NEW_TASK, TASK } from "@/lib/projects/terms";
 import { useProjectActions, useProjectData } from "@/lib/store/projects";
 import {
   usePeople,
@@ -177,7 +178,10 @@ function ProjectShell({
   const meId = actor.employeeId;
 
   const view = viewById(params.get("view") ?? DEFAULT_VIEW);
-  const issueParam = params.get("issue");
+  /* `?issue=KEY` is what the API's links and the app write, and stays so for the
+     links already out there. `?task=KEY` is read as the same thing, so a link
+     written in the new word opens the drawer too. */
+  const issueParam = params.get("issue") ?? params.get("task");
 
   const issueById = useMemo(
     () => new Map(issues.map((i) => [i.id, i])),
@@ -211,6 +215,7 @@ function ProjectShell({
   const urlWith = useCallback(
     (key: string | null) => {
       const query = new URLSearchParams(params.toString());
+      query.delete("task");
       if (key === null) query.delete("issue");
       else query.set("issue", key);
       const qs = query.toString();
@@ -392,7 +397,7 @@ function ProjectShell({
               action: (
                 <Button variant="primary" onClick={() => openCreate()}>
                   <Plus aria-hidden="true" className="size-4" />
-                  Create task
+                  {NEW_TASK}
                 </Button>
               ),
             }
@@ -410,7 +415,10 @@ function ProjectShell({
       />
       <PageBody className="space-y-5">
         {capped && (
-          <Callout tone="warning" title="Only the first 5,000 tasks are shown">
+          <Callout
+            tone="warning"
+            title={`Only the first 5,000 ${TASK.many} are shown`}
+          >
             This project has more than that. Filters and counts here work on
             what is shown.
           </Callout>

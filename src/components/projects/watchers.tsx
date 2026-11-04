@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { Avatar, Button, IconButton, useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { projectsApi } from "@/lib/api/projects";
+import { FOLLOW, FOLLOWING, TASK, UNFOLLOW } from "@/lib/projects/terms";
 import type { Watcher, WatchState } from "@/lib/projects/types";
 import type { People } from "@/lib/store/project-session";
 import { PersonPicker } from "./person";
@@ -89,15 +90,18 @@ export function Watchers({
           () =>
             toast.push({
               tone: "success",
-              title: "You stopped watching this task",
+              title: `You stopped following this ${TASK.one}`,
             }),
-          "Could not stop watching",
+          "Could not stop following",
         )
       : run(
           () => projectsApi.watch(issueId),
           () =>
-            toast.push({ tone: "success", title: "You're watching this task" }),
-          "Could not watch this task",
+            toast.push({
+              tone: "success",
+              title: `You're following this ${TASK.one}`,
+            }),
+          `Could not follow this ${TASK.one}`,
         );
 
   const add = (employeeId: string) =>
@@ -106,9 +110,9 @@ export function Watchers({
       () =>
         toast.push({
           tone: "success",
-          title: `${people.nameOf(employeeId)} is watching this task`,
+          title: `${people.nameOf(employeeId)} is following this ${TASK.one}`,
         }),
-      "Could not add that watcher",
+      "Could not add that person",
       true,
     );
 
@@ -123,8 +127,8 @@ export function Watchers({
           tone: "success",
           title:
             employeeId === meId
-              ? "You stopped watching this task"
-              : `${name} stopped watching`,
+              ? `You stopped following this ${TASK.one}`
+              : `${name} stopped following`,
         }),
       `Could not remove ${name}`,
       true,
@@ -138,7 +142,7 @@ export function Watchers({
     <section aria-labelledby={heading}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <h3 id={heading} className="text-meta font-semibold text-muted">
-          Watchers
+          {FOLLOWING}
         </h3>
         {meId && (
           <Button
@@ -147,7 +151,7 @@ export function Watchers({
             disabled={busy}
             onClick={() => void toggle()}
           >
-            {watching ? "Stop watching" : "Watch"}
+            {watching ? UNFOLLOW : FOLLOW}
           </Button>
         )}
       </div>
@@ -163,13 +167,13 @@ export function Watchers({
           </span>
         )}
         <span className="text-body-sm text-muted">
-          {count === 0 ? "Nobody is watching" : `${count} watching`}
+          {count === 0 ? "Nobody is following" : `${count} following`}
         </span>
       </div>
 
       {count > 0 && (
         <ul
-          aria-label="People watching"
+          aria-label="People following"
           className="mt-2 flex flex-wrap gap-1.5"
         >
           {watchers.map((w) => (
@@ -184,8 +188,8 @@ export function Watchers({
                 <IconButton
                   label={
                     w.id === meId
-                      ? "Remove yourself as a watcher"
-                      : `Remove ${w.name} as a watcher`
+                      ? "Stop following"
+                      : `Remove ${w.name} from following`
                   }
                   size="sm"
                   className="size-6"
@@ -206,9 +210,9 @@ export function Watchers({
             people={people}
             value=""
             ids={offered}
-            placeholder="Add a watcher"
+            placeholder="Add someone"
             disabled={busy}
-            aria-label="Add a watcher"
+            aria-label={`Add someone to follow this ${TASK.one}`}
             onChange={(id) => {
               if (id) void add(id);
             }}

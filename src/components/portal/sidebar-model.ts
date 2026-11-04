@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { RETIRED_WORDS } from "@/lib/projects/retired-words";
 import type { NavGroup, NavItem } from "./nav";
 
 /**
@@ -402,7 +403,20 @@ const KEYWORDS: Record<string, string[]> = {
   "home/Home": ["dashboard", "start", "overview", "today"],
   "home/My approvals": ["approve", "inbox", "pending", "requests", "to do"],
   "home/Assistant": ["ai", "ask", "chat", "copilot"],
-  "home/Projects": ["tasks", "kanban", "board", "issues", "work"],
+  /* The words the module speaks now, then the ones it used to: somebody who
+     types "sprint" or "backlog" still finds it. See `lib/projects/terms.ts`. */
+  "home/Projects": [
+    "tasks",
+    "kanban",
+    "board",
+    "work",
+    "cycle",
+    "initiative",
+    "problem",
+    "timeline",
+    ...RETIRED_WORDS,
+  ],
+  "home/My tasks": ["assigned", "to do", "issues", "my work"],
   "home/Wellness": [
     "water",
     "steps",

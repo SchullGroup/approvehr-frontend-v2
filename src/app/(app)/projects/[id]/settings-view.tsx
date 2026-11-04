@@ -30,6 +30,13 @@ import {
   PROJECT_TYPE_LABEL,
   type ProjectType,
 } from "@/lib/projects/types";
+import {
+  CYCLE,
+  LIMIT,
+  STAGE,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import { boardTypeChangeBlocker } from "@/lib/projects/workflow";
 import { useDepartments } from "@/lib/store/departments";
 import { WorkflowEditor } from "./workflow-editor";
@@ -55,7 +62,7 @@ export function SettingsView() {
       <Card>
         <CardHeader
           title="Workflow"
-          description="The board's columns, in order. A status's category decides whether a task in it counts as done. A WIP limit turns a column's count red when it has more than that many tasks; nothing is blocked."
+          description={`The board's columns, in order. A ${STAGE.one}'s category decides whether a ${TASK.one} in it counts as done. A ${LIMIT.one} turns a column's count red when it has more than that many ${TASK.many}; nothing is blocked.`}
         />
         <CardBody>
           <WorkflowEditor editable={canManage} />
@@ -136,8 +143,8 @@ function DetailsCard({ editable }: { editable: boolean }) {
               typeNotice
                 ? undefined
                 : project.type === "SCRUM"
-                  ? "Work is planned into sprints and the board shows the active one."
-                  : "Work flows through the columns with no sprints."
+                  ? `Work is planned into ${CYCLE.many} and the board shows the active one.`
+                  : `Work flows through the columns with no ${CYCLE.many}.`
             }
           >
             <Select
@@ -288,7 +295,7 @@ function MembersCard({ editable }: { editable: boolean }) {
     <Card>
       <CardHeader
         title="Members"
-        description="Only members can see this project, and only members can be given its issues."
+        description={`Only members can see this project, and only members can be given its ${TASK.many}.`}
       />
       <CardBody className="space-y-4">
         <ul className="divide-y divide-line">
@@ -392,7 +399,7 @@ function DangerCard() {
     <Card className="border-danger-line">
       <CardHeader
         title="Delete this project"
-        description={`Removes ${project.name} with all ${issues.length} ${issues.length === 1 ? "task" : "tasks"} and ${sprints.length} ${sprints.length === 1 ? "sprint" : "sprints"}. This cannot be undone.`}
+        description={`Removes ${project.name} with all ${countNoun(issues.length, "task")} and ${countNoun(sprints.length, "cycle")}. This cannot be undone.`}
       />
       <CardBody>
         <Button variant="danger" onClick={() => setOpen(true)}>
@@ -422,7 +429,8 @@ function DangerCard() {
       >
         <div className="space-y-4">
           <p className="text-body-sm leading-relaxed text-body">
-            Every task, comment and sprint in {project.name} goes with it.
+            Every {TASK.one}, comment and {CYCLE.one} in {project.name} goes
+            with it.
           </p>
           <Field label={`Type ${project.key} to confirm`}>
             <Input

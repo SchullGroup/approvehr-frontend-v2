@@ -33,6 +33,18 @@ import {
   sortIssues,
   type SortKey,
 } from "@/lib/projects/sort";
+import {
+  CYCLE,
+  EFFORT,
+  EMPTY,
+  INITIATIVE,
+  NEW_TASK,
+  PROBLEM,
+  STAGE,
+  TAB_LABEL,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import { PRIORITY_LABEL } from "@/lib/projects/types";
 import { effectiveStatus, isDone } from "@/lib/projects/workflow";
 import { formatDateShort } from "@/lib/time";
@@ -103,14 +115,14 @@ export function IssuesView() {
   if (issues.length === 0) {
     return (
       <EmptyState
-        title="No tasks yet"
-        description="Tasks are the work in a project: stories, bugs, epics and plain tasks. Create the first one and it shows up here and on the board."
+        title={EMPTY.noTasks}
+        description={`${TASK.Many} are the work in a project: plain ${TASK.many}, ${PROBLEM.many} and ${INITIATIVE.many}. Create the first one and it shows up here and on the board.`}
         {...(canWork
           ? {
               action: (
                 <Button variant="primary" onClick={() => openCreate()}>
                   <Plus aria-hidden="true" className="size-4" />
-                  Create a task
+                  {NEW_TASK}
                 </Button>
               ),
             }
@@ -122,27 +134,26 @@ export function IssuesView() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-h4 text-ink">All tasks</h2>
+        <h2 className="text-h4 text-ink">{TAB_LABEL.issues}</h2>
         <p className="tabular mt-1 text-body-sm text-muted">
-          {rows.length} of {issues.length}{" "}
-          {issues.length === 1 ? "task" : "tasks"}
+          {rows.length} of {countNoun(issues.length, "task")}
         </p>
       </div>
 
       <IssueFilterBar />
 
-      <TableWrap caption="All tasks in this project">
+      <TableWrap caption={`${TASK.Many} in this project`}>
         <THead>
           <TH className="w-10">
             <span className="sr-only">Type</span>
           </TH>
           {th("key", "Key")}
           {th("title", "Summary")}
-          {th("status", "Status")}
+          {th("status", STAGE.One)}
           {th("assignee", "Assignee")}
           {th("priority", "Priority")}
-          {th("points", "Points", "right")}
-          {th("sprint", "Sprint")}
+          {th("points", EFFORT.One, "right")}
+          {th("sprint", CYCLE.One)}
           {th("due", "Due")}
           {th("updated", "Updated")}
         </THead>
@@ -219,8 +230,8 @@ export function IssuesView() {
             <TR>
               <TD colSpan={10} className="py-8 text-center text-muted">
                 {isFiltering(filter)
-                  ? "No tasks match these filters."
-                  : "No issues."}
+                  ? `No ${TASK.many} match these filters.`
+                  : `No ${TASK.many}.`}
               </TD>
             </TR>
           )}

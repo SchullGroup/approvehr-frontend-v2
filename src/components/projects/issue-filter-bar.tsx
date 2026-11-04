@@ -13,9 +13,8 @@ import {
   isFiltering,
   toggleAssignee,
 } from "@/lib/projects/filters";
+import { FILTER_TYPES, STAGE, TYPE_LABEL } from "@/lib/projects/terms";
 import {
-  ISSUE_TYPES,
-  ISSUE_TYPE_LABEL,
   STATUS_CATEGORIES,
   type IssueType,
   type StatusCategory,
@@ -132,9 +131,9 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
           }
         >
           <option value="">All types</option>
-          {ISSUE_TYPES.map((type) => (
+          {FILTER_TYPES.map((type) => (
             <option key={type} value={type}>
-              {ISSUE_TYPE_LABEL[type]}
+              {TYPE_LABEL[type]}
             </option>
           ))}
         </Select>
@@ -142,7 +141,7 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
 
       <div className="w-[calc(50%-0.5rem)] sm:w-40">
         <Select
-          aria-label="Status"
+          aria-label={STAGE.One}
           value={filter.statusCategory}
           onChange={(event) =>
             setFilter({
@@ -151,7 +150,7 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
             })
           }
         >
-          <option value="">Any status</option>
+          <option value="">Any {STAGE.one}</option>
           {STATUS_CATEGORIES.map((category) => (
             <option key={category} value={category}>
               {STATUS_FILTER_LABEL[category]}

@@ -26,6 +26,7 @@ import {
 } from "@/lib/store/project-session";
 import { ApiError } from "@/lib/api/client";
 import { PersonPicker } from "@/components/projects/person";
+import { CYCLE } from "@/lib/projects/terms";
 
 type Draft = {
   /** Only asked of a sign-in with no staff record, which cannot lead anything itself. */
@@ -247,7 +248,7 @@ export function NewProjectDialog({
             label="Board type"
             help={
               draft.type === "SCRUM"
-                ? "Plan work into sprints."
+                ? `Plan work into ${CYCLE.many}.`
                 : "Work flows through the columns."
             }
           >

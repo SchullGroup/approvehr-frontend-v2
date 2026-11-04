@@ -25,6 +25,7 @@ import {
   filterProjects,
   resolveDepartment,
 } from "@/lib/projects/project-filter";
+import { PROJECTS_SUBTITLE, TASK, CYCLE } from "@/lib/projects/terms";
 import { PROJECT_TYPE_LABEL, type Project } from "@/lib/projects/types";
 import { useProjectList } from "@/lib/store/projects";
 import {
@@ -120,7 +121,7 @@ function List() {
     <>
       <PageHeader
         title="Projects"
-        description="Plan work as projects, with tasks, sprints and a board."
+        description={PROJECTS_SUBTITLE}
         {...(canCreate
           ? {
               action: (
@@ -262,7 +263,7 @@ function List() {
             }
             description={
               canCreate
-                ? "A project holds a team's tasks, sprints and board. Create one, and add the people who work on it."
+                ? `A project holds a team's ${TASK.many}, ${CYCLE.many} and board. Create one, and add the people who work on it.`
                 : "Projects are started by people who lead a team or a department, and you see the ones you are added to. Ask whoever leads the work to add you."
             }
             {...(canCreate
