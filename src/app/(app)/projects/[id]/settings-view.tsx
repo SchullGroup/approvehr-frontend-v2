@@ -55,7 +55,7 @@ export function SettingsView() {
       <Card>
         <CardHeader
           title="Workflow"
-          description="The board's columns, in order. A status's category decides whether an issue in it counts as done. A WIP limit turns a column's count red when it has more than that many issues; nothing is blocked."
+          description="The board's columns, in order. A status's category decides whether a task in it counts as done. A WIP limit turns a column's count red when it has more than that many tasks; nothing is blocked."
         />
         <CardBody>
           <WorkflowEditor editable={canManage} />
@@ -203,7 +203,7 @@ function DetailsCard({ editable }: { editable: boolean }) {
             <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
               <ProjectKeyChip project={project} />
               <span>
-                Issue keys look like {project.key}-42. The key cannot change
+                Task keys look like {project.key}-42. The key cannot change
                 after the project is created.
               </span>
             </p>
@@ -392,7 +392,7 @@ function DangerCard() {
     <Card className="border-danger-line">
       <CardHeader
         title="Delete this project"
-        description={`Removes ${project.name} with all ${issues.length} ${issues.length === 1 ? "issue" : "issues"} and ${sprints.length} ${sprints.length === 1 ? "sprint" : "sprints"}. This cannot be undone.`}
+        description={`Removes ${project.name} with all ${issues.length} ${issues.length === 1 ? "task" : "tasks"} and ${sprints.length} ${sprints.length === 1 ? "sprint" : "sprints"}. This cannot be undone.`}
       />
       <CardBody>
         <Button variant="danger" onClick={() => setOpen(true)}>
@@ -422,7 +422,7 @@ function DangerCard() {
       >
         <div className="space-y-4">
           <p className="text-body-sm leading-relaxed text-body">
-            Every issue, comment and sprint in {project.name} goes with it.
+            Every task, comment and sprint in {project.name} goes with it.
           </p>
           <Field label={`Type ${project.key} to confirm`}>
             <Input

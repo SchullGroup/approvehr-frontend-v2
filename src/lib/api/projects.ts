@@ -121,6 +121,27 @@ export function toProject(raw: Raw): Project {
     leadName: strOrNull(raw["leadName"]),
     goalId: strOrNull(raw["goalId"]),
     memberIds: memberIdsOf(raw),
+    ...(raw["memberDepartments"] && typeof raw["memberDepartments"] === "object"
+      ? {
+          memberDepartments: Object.fromEntries(
+            Object.entries(
+              raw["memberDepartments"] as Record<string, unknown>,
+            ).map(([id, dept]) => [
+              id,
+              typeof dept === "string" && dept ? dept : null,
+            ]),
+          ),
+        }
+      : {}),
+    ...(raw["departmentNames"] && typeof raw["departmentNames"] === "object"
+      ? {
+          departmentNames: Object.fromEntries(
+            Object.entries(
+              raw["departmentNames"] as Record<string, unknown>,
+            ).map(([id, name]) => [id, typeof name === "string" ? name : ""]),
+          ),
+        }
+      : {}),
     statuses: list(raw["statuses"]).map(toStatus),
     createdById: str(raw["createdById"]),
     createdAt: str(raw["createdAt"]),
@@ -210,6 +231,8 @@ export function toIssue(raw: Raw): Issue {
       : [],
     startDate: day(raw["startDate"]),
     dueDate: day(raw["dueDate"]),
+    dueTime: strOrNull(raw["dueTime"]),
+    dueAt: strOrNull(raw["dueAt"]),
     rank: num(raw["rank"]),
     doneAt: strOrNull(raw["doneAt"]),
     goalId: strOrNull(raw["goalId"]),
@@ -362,7 +385,17 @@ export function toIssueLink(raw: Raw): IssueLink {
 
 export type PersonalState = "open" | "done" | "overdue";
 
-/** A task on somebody's own list: an issue, the column it is in, and who set it. */
+/** Where a task on My tasks lives: a personal list (own or a colleague's) or a board. */
+export type PersonalTaskProject = {
+  id: string;
+  key: string;
+  name: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  personal: boolean;
+};
+
+/** A task on My tasks: an issue, the column it is in, who set it and where it lives. */
 export type PersonalTask = Issue & {
   statusName: string;
   statusCategory: StatusCategory;
@@ -370,6 +403,18 @@ export type PersonalTask = Issue & {
   setBy: { id: string; name: string } | null;
   /** Whose list it is on, when a colleague put the reader on one of theirs. */
   sharedBy: { id: string; name: string } | null;
+  project: PersonalTaskProject;
+  /** Everybody on it, lead first. Empty on a `lostAccess` row. */
+  assignees: { id: string; name: string }[];
+  /** A finished board task in a project the reader has left: title, key, project and date only. */
+  lostAccess: boolean;
+};
+
+/** One page of the Archive and how many there are in all. */
+export type MineArchivePage = {
+  rows: PersonalTask[];
+  total: number;
+  hasMore: boolean;
 };
 
 /** One personal task as the drawer needs it: the issue and its list's columns. */
@@ -386,6 +431,7 @@ export type NewPersonalTaskInput = {
   title: string;
   description?: string;
   dueDate?: string | null;
+  dueTime?: string | null;
   labels?: string[];
   goalId?: string | null;
 };
@@ -402,12 +448,27 @@ export function toPersonalTask(raw: Raw): PersonalTask {
       ? { id: str(row["id"]), name: str(row["name"]) }
       : null;
   };
+  const where = (raw["project"] ?? {}) as Raw;
+  const issue = toIssue(raw);
   return {
-    ...toIssue(raw),
+    ...issue,
     statusName: str(raw["statusName"]),
     statusCategory: categoryOf(raw["statusCategory"]),
     setBy: person(raw["setBy"]),
     sharedBy: person(raw["sharedBy"]),
+    project: {
+      id: str(where["id"], issue.projectId),
+      key: str(where["key"]),
+      name: str(where["name"]),
+      departmentId: strOrNull(where["departmentId"]),
+      departmentName: strOrNull(where["departmentName"]),
+      /* An older API sent no project: everything on My tasks was a personal list. */
+      personal: where["personal"] !== false,
+    },
+    assignees: list(raw["assignees"])
+      .map((row) => person(row))
+      .filter((p): p is { id: string; name: string } => p !== null),
+    lostAccess: raw["lostAccess"] === true,
   };
 }
 
@@ -444,12 +505,19 @@ export type TeamTask = {
   statusName: string;
   statusCategory: StatusCategory;
   dueDate: string | null;
+  dueTime: string | null;
   overdue: boolean;
   labels: string[];
 };
 
 export type TeamPerson = {
-  employee: { id: string; name: string; jobTitle: string | null };
+  employee: {
+    id: string;
+    name: string;
+    jobTitle: string | null;
+    departmentId: string | null;
+    departmentName: string | null;
+  };
   counts: TeamCounts;
   tasks: TeamTask[];
 };
@@ -459,6 +527,7 @@ export type GiveTaskInput = {
   title: string;
   description?: string;
   dueDate?: string | null;
+  dueTime?: string | null;
   labels?: string[];
 };
 
@@ -473,6 +542,7 @@ export function toTeamTask(raw: Raw): TeamTask {
     statusName: str(raw["statusName"]),
     statusCategory: categoryOf(raw["statusCategory"]),
     dueDate: day(raw["dueDate"]),
+    dueTime: strOrNull(raw["dueTime"]),
     overdue: raw["overdue"] === true,
     labels: Array.isArray(raw["labels"])
       ? (raw["labels"] as unknown[]).filter(
@@ -490,6 +560,8 @@ export function toTeamPerson(raw: Raw): TeamPerson {
       id: str(who["id"]),
       name: str(who["name"]),
       jobTitle: strOrNull(who["jobTitle"]),
+      departmentId: strOrNull(who["departmentId"]),
+      departmentName: strOrNull(who["departmentName"]),
     },
     counts: {
       open: num(c["open"]),
@@ -758,6 +830,25 @@ export const projectsApi = {
         ...signalOf(signal),
       }),
     ).map(toPersonalTask),
+
+  /** The Archive: finished more than 14 company days ago, newest first, a page at a time. */
+  mineArchive: async (
+    args: { page: number; q?: string },
+    signal?: AbortSignal,
+  ): Promise<MineArchivePage> => {
+    const res = await requestPaged<Raw>("/projects/mine/tasks/archive", {
+      query: {
+        page: args.page,
+        ...(args.q && args.q.trim() ? { q: args.q.trim() } : {}),
+      },
+      ...signalOf(signal),
+    });
+    return {
+      rows: list(res.data).map(toPersonalTask),
+      total: res.meta.total,
+      hasMore: res.meta.hasMore,
+    };
+  },
 
   createMineTask: async (input: NewPersonalTaskInput) =>
     toPersonalTask(

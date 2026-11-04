@@ -43,7 +43,7 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 export type ActivityText = {
-  /** Follows the actor's name: "created the issue", "changed status". */
+  /** Follows the actor's name: "created the task", "changed status". */
   verb: string;
   from: string | null;
   to: string | null;
@@ -80,7 +80,7 @@ export function formatValue(
       return lookup.sprintName(text) ?? "a sprint";
     case "epicId":
     case "parentId":
-      return lookup.issueKey(text) ?? "an issue";
+      return lookup.issueKey(text) ?? "a task";
     case "goalId":
       /* An id is never shown: the title where it is known, otherwise a noun. */
       return lookup.goalTitle?.(text) ?? "an objective";
@@ -101,7 +101,7 @@ export function describeActivity(
   lookup: HistoryLookup,
 ): ActivityText {
   if (activity.field === "created") {
-    return { verb: "created the issue", from: null, to: null };
+    return { verb: "created the task", from: null, to: null };
   }
   if (activity.field === "description") {
     return { verb: "updated the description", from: null, to: null };

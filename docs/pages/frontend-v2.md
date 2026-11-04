@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `0d9a0909` (2026-10-28) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `afd4d974` (2026-11-03) · regenerate with `npm run docs`, never by hand
 
-**157 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**159 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   137 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   139 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    11 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
@@ -228,8 +228,8 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 | Route                  | Title      | What it is                                                             | File                                         |
 | ---------------------- | ---------- | ---------------------------------------------------------------------- | -------------------------------------------- |
-| `/projects`            | Projects   | Plan work as projects, with issues, sprints and a board.               | `src/app/(app)/projects/page.tsx`            |
-| `/projects/[id]`       | Project    | A project's board, issues, sprints and settings.                       | `src/app/(app)/projects/[id]/page.tsx`       |
+| `/projects`            | Projects   | Plan work as projects, with tasks, sprints and a board.                | `src/app/(app)/projects/page.tsx`            |
+| `/projects/[id]`       | Project    | A project's board, tasks, sprints and settings.                        | `src/app/(app)/projects/[id]/page.tsx`       |
 | `/projects/mine`       | My tasks   | Your own list of things to do, apart from any project board.           | `src/app/(app)/projects/mine/page.tsx`       |
 | `/projects/tasks/[id]` | Task       | One task, opened by its id.                                            | `src/app/(app)/projects/tasks/[id]/page.tsx` |
 | `/projects/team`       | Team tasks | What the people you lead have on, across projects and their own lists. | `src/app/(app)/projects/team/page.tsx`       |
@@ -246,7 +246,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Settings
 
-`/settings` — 28 pages
+`/settings` — 30 pages
 
 | Route                                       | Title                       | What it is                                                                                                                                                                                        | File                                                              |
 | ------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -267,12 +267,14 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/settings/job-roles`                       | Job roles                   | What jobs this company has, what each one involves, and what people on it are judged against.                                                                                                     | `src/app/(app)/settings/job-roles/page.tsx`                       |
 | `/settings/knowledge`                       | Help articles               | The knowledge base editor: reads, helpfulness, and the questions no article answers yet.                                                                                                          | `src/app/(app)/settings/knowledge/page.tsx`                       |
 | `/settings/leave`                           | Leave policies              | Entitlements, accrual, carry-over and the notice each type requires.                                                                                                                              | `src/app/(app)/settings/leave/page.tsx`                           |
+| `/settings/leave/holidays/import`           | Import public holidays      | Add a year of public holidays from one spreadsheet: download the template, fill in each date as DD/MM, pick the year, and check every row before anything is saved.                               | `src/app/(app)/settings/leave/holidays/import/page.tsx`           |
 | `/settings/locations`                       | Work locations              | The offices, branches and sites people clock in at, and the geofence around each one.                                                                                                             | `src/app/(app)/settings/locations/page.tsx`                       |
 | `/settings/notifications`                   | Notifications               | What triggers an email, and who receives approval reminders.                                                                                                                                      | `src/app/(app)/settings/notifications/page.tsx`                   |
 | `/settings/overtime`                        | Overtime policy             | Whether overtime is paid, the grace before it counts, the daily cap, and the weekday, weekend and public holiday rates.                                                                           | `src/app/(app)/settings/overtime/page.tsx`                        |
 | `/settings/payroll`                         | Payroll settings            | Working month, salary structure, statutory rates and the checks that stop payroll.                                                                                                                | `src/app/(app)/settings/payroll/page.tsx`                         |
 | `/settings/performance`                     | Appraisal scoring           | How much each part of an appraisal counts towards somebody's mark, and what each mark is called. The weights must make 100% exactly, and both are frozen onto an appraisal period when it starts. | `src/app/(app)/settings/performance/page.tsx`                     |
 | `/settings/policies`                        | Handbook                    | Your company policies, the version in force, and who has accepted each one.                                                                                                                       | `src/app/(app)/settings/policies/page.tsx`                        |
+| `/settings/required-details`                | Required details            | Choose which personal details every member of staff must fill in on My profile, and see who still has gaps.                                                                                       | `src/app/(app)/settings/required-details/page.tsx`                |
 | `/settings/roles`                           | Roles and permissions       | Who can see salaries, approve payroll, or export employee data.                                                                                                                                   | `src/app/(app)/settings/roles/page.tsx`                           |
 | `/settings/security`                        | Sign-in security            | Two-factor sign-in, the actions that need a code, and your recovery codes.                                                                                                                        | `src/app/(app)/settings/security/page.tsx`                        |
 | `/settings/sms`                             | Text messages               | A weekly text of counts and a link, only for people who opt in. Who has agreed, and how.                                                                                                          | `src/app/(app)/settings/sms/page.tsx`                             |

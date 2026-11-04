@@ -223,7 +223,7 @@ export function NewProjectDialog({
           <Field
             label="Key"
             required
-            help="2 to 6 letters or digits. It starts every issue number, like MOB-12, and cannot change later."
+            help="2 to 6 letters or digits. It starts every task number, like MOB-12, and cannot change later."
             {...(keyError ? { error: keyError } : {})}
           >
             <Input

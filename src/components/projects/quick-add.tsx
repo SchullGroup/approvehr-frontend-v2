@@ -61,7 +61,7 @@ export function QuickAdd({
     <div className="flex items-center gap-2 border-t border-line bg-surface px-3 py-2">
       <div className="w-28 shrink-0">
         <Select
-          aria-label={`Type of the issue to add to ${label}`}
+          aria-label={`Type of the task to add to ${label}`}
           value={type}
           onChange={(event) => setType(event.target.value as IssueType)}
           className="h-9"
@@ -78,7 +78,7 @@ export function QuickAdd({
         value={title}
         maxLength={240}
         autoComplete="off"
-        aria-label={`Add an issue to ${label}`}
+        aria-label={`Add a task to ${label}`}
         placeholder="What needs to be done? Press Enter to add"
         onChange={(event) => setTitle(event.target.value)}
         onKeyDown={(event) => {

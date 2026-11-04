@@ -11399,13 +11399,27 @@ one of them being false stops every upload, from every screen that uploads (leav
 | The file is refused with **"This site is not set up to send files to storage yet"** | The web build's security policy does not name the bucket's address | `NEXT_PUBLIC_UPLOAD_ORIGINS` on the web project, then a **rebuild**: `next.config.ts` reads it when the site is built |
 | **"The upload did not finish. Check your connection and try again."** every time, with a CORS error in the browser console | The bucket has no CORS rule that allows `PUT` from this web origin | The bucket |
 
-**The QA site, `https://approvehr-frontend-v2-three.vercel.app`, is in the second row.** Its response header on 2 November,
-read from the live site, is `connect-src 'self' https://dev.approvehr.io` and `img-src 'self' data: blob: https://dev.approvehr.io`:
-no storage address, so the browser blocks the upload before it leaves. That was reproduced locally by pointing the API at a
-storage address the build does not name, and the browser reported a `securitypolicyviolation` for `connect-src`. **Not known:**
-whether the QA API has a bucket at all (the first row) and whether the bucket's CORS allows the QA origin (the third). Neither
-could be read without signing in. The address to put in `NEXT_PUBLIC_UPLOAD_ORIGINS` is the origin of any presigned upload
-link, for example `https://<bucket>.s3.<region>.amazonaws.com`; it must be `https:`, and one address, not a wildcard.
+**The QA site, `https://approvehr-frontend-v2-three.vercel.app`, is in the first row and the second, and the first is the one that
+matters.** Its API answers `"storage": false` to `GET /api/v1/leave/attachments/limits` (read on 2 November at about 12:30 UTC,
+signed in as the Owner; nothing was created). So on QA the **Supporting file** section is not drawn at all, and the sentence in the
+second row cannot be met there until a bucket exists. Nothing suggests the new API has ever had one: the backend's migration
+`20260909080000_documents_in_postgres` says `S3_BUCKET` "has never been set on any deployment"; nothing since sets it (no `S3_` in
+the workflows, `docs/deployment.md`, the Dockerfile or the README); and the infrastructure repository (last pushed 2026-09-11) has
+no bucket module, and its ECS task role allows only ECS Exec and logs.
+
+The second row is also true there. The QA site's response header on 2 November, read from the live site, is
+`connect-src 'self' https://dev.approvehr.io` and `img-src 'self' data: blob: https://dev.approvehr.io`: no storage address, so the
+browser would block the upload before it left. That was reproduced locally by pointing the API at a storage address the build does
+not name, and the browser reported a `securitypolicyviolation` for `connect-src`. **The third row cannot be asked until a bucket
+exists**, and **preprod and production were not read** (their policy and their storage). CVs on the careers form and files on
+tasks read the same two settings, so they cannot work on QA either (from the code; leave files are the ones that were run).
+
+To put it right, outside this repository: a bucket whose CORS rule allows `PUT` from the web address; `S3_BUCKET` and `S3_REGION`
+(and `S3_ENDPOINT` off AWS) with credentials that can put, get, delete and list on the API; then the bucket's address in
+`NEXT_PUBLIC_UPLOAD_ORIGINS` on the web project, and a rebuild. The address is the origin of any presigned upload link, for example
+`https://<bucket>.s3.<region>.amazonaws.com`; it must be `https:`, and one address, not a wildcard. **Ask for `storage` first.** It
+is one request, and it decides whether anything after it matters: this entry spent a morning on the security policy before that
+request was made.
 
 ## What a person was told, which was wrong twice
 
@@ -11471,8 +11485,9 @@ The walk scripts, the fixtures and the screenshots are in `out/leave-files-debug
 
 ## Not exercised
 
-The QA site itself, and a real bucket, so nothing about real signatures' clock skew, a bucket's CORS rule, response-header
-overrides on a real object, or `s3:DeleteObject` on the role; Safari and a real phone (an iPhone's HEIC through the real picker,
+A real bucket, on QA or anywhere (QA has none, above), so nothing about real signatures' clock skew, a bucket's CORS rule,
+response-header overrides on a real object, or `s3:DeleteObject` on the role; preprod's and production's storage and security
+policy (unread); Safari and a real phone (an iPhone's HEIC through the real picker,
 pop-up blocking, the on-screen keyboard); the Word download in anything but Chromium; a department or office head as the
 approver (the API test covers them); the demo, which has no storage and says so.
 

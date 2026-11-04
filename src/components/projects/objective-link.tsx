@@ -149,7 +149,7 @@ function ClearLink({ issue }: { issue: Issue }) {
 /* ----------------------------------------------------------------- a project -- */
 
 const PROJECT_HELP =
-  "When someone finishes an issue assigned to them, a weekly task is filed under this objective for the week it was finished. A manager still grades it. Issues finished before you link it are not counted.";
+  "When someone finishes a task assigned to them, a weekly task is filed under this objective for the week it was finished. A manager still grades it. Issues finished before you link it are not counted.";
 const SHARED_HELP =
   "It is a company or department objective, so each person's work is filed under their own objective beneath it.";
 
