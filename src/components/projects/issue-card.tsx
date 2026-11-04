@@ -2,9 +2,9 @@
 
 import { ArrowRightLeft, GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
-import { useOrgTimezone } from "@/lib/store/session";
+import { isBefore } from "@/lib/projects/dates";
 import type { Issue, ProjectStatus } from "@/lib/projects/types";
+import { shortDate } from "@/lib/today";
 import type { People } from "@/lib/store/project-session";
 import {
   EpicChip,
@@ -61,8 +61,7 @@ export function IssueCard({
   onOpen: () => void;
   onMove: (statusId: string) => void;
 }) {
-  const timeZone = useOrgTimezone();
-  const overdue = !done && isPastDue(issue, today, nowHHMMIn(timeZone));
+  const overdue = !done && isBefore(issue.dueDate, today);
   const labels = issue.labels.slice(0, 3);
 
   return (
@@ -128,8 +127,8 @@ export function IssueCard({
               <TypeIcon type={issue.type} />
               <IssueKey issueKey={issue.key} done={done} />
               {overdue && issue.dueDate && (
-                <span className="whitespace-nowrap text-meta font-medium text-warning-text">
-                  Due {dueLabel(issue, today, "card")}
+                <span className="text-meta font-medium text-warning-text">
+                  Due {shortDate(issue.dueDate)}
                 </span>
               )}
               <span className="ml-auto flex items-center gap-2">

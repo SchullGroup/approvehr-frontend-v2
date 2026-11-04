@@ -47,6 +47,6 @@ export function removalRefusal(
 ): string {
   const parts = holders.map((h) => `${nameOf(h.employeeId)} (${h.open} open)`);
   return holders.length === 1
-    ? `${parts[0]} still has open tasks in this project. Reassign them first, then remove them.`
-    : `${parts.join(", ")} still have open tasks in this project. Reassign them first, then remove them.`;
+    ? `${parts[0]} still has open issues in this project. Reassign them first, then remove them.`
+    : `${parts.join(", ")} still have open issues in this project. Reassign them first, then remove them.`;
 }

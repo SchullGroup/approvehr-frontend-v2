@@ -1,6 +1,5 @@
 "use client";
 
-import { DueTimeInput } from "@/components/projects/due-time-input";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   Button,
@@ -43,7 +42,6 @@ type Draft = {
   sprintId: string;
   startDate: string;
   dueDate: string;
-  dueTime: string;
   /** Everybody on it, the lead first. */
   assigneeIds: string[];
 };
@@ -59,7 +57,6 @@ function blank(defaults: Partial<NewIssueInput>): Draft {
     sprintId: defaults.sprintId ?? "",
     startDate: "",
     dueDate: "",
-    dueTime: "",
     assigneeIds: [],
   };
 }
@@ -160,7 +157,6 @@ export function CreateIssueDialog({
         sprintId: isEpic || !scrum ? null : draft.sprintId || null,
         startDate: isEpic ? draft.startDate || null : null,
         dueDate: draft.dueDate || null,
-        dueTime: draft.dueDate && draft.dueTime ? draft.dueTime : null,
         assigneeIds: draft.assigneeIds,
       },
       { quiet: true },
@@ -191,7 +187,7 @@ export function CreateIssueDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Create a task"
+      title="Create an issue"
       description={`In ${project.name}`}
       size="lg"
       footer={
@@ -367,18 +363,7 @@ export function CreateIssueDialog({
             <Input
               type="date"
               value={draft.dueDate}
-              onChange={(e) => {
-                set("dueDate", e.target.value);
-                /* Clearing the date clears the time, on screen as on save. */
-                if (!e.target.value) set("dueTime", "");
-              }}
-            />
-          </Field>
-          <Field label="Due time" optional>
-            <DueTimeInput
-              date={draft.dueDate}
-              value={draft.dueTime}
-              onChange={(next) => set("dueTime", next ?? "")}
+              onChange={(e) => set("dueDate", e.target.value)}
             />
           </Field>
         </div>

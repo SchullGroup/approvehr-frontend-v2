@@ -106,7 +106,7 @@ export function removalBlocker(
   if (!target) return null;
   const inUse = statusInUse(issues, statusId);
   if (inUse > 0) {
-    return `${inUse} ${inUse === 1 ? "task is" : "tasks are"} in ${target.name}. Move ${inUse === 1 ? "it" : "them"} to another status first.`;
+    return `${inUse} ${inUse === 1 ? "issue is" : "issues are"} in ${target.name}. Move ${inUse === 1 ? "it" : "them"} to another status first.`;
   }
   if (statuses.length <= MIN_STATUSES) {
     return `A workflow needs at least ${MIN_STATUSES} statuses.`;
@@ -172,7 +172,7 @@ export function boardTypeChangeBlocker(
     return "Complete the active sprint before changing the board type.";
   }
   if (issues.some((issue) => issue.sprintId !== null)) {
-    return "Some tasks are still planned into sprints. Move them to the backlog first.";
+    return "Some issues are still planned into sprints. Move them to the backlog first.";
   }
   return null;
 }

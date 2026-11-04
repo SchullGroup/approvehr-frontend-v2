@@ -372,7 +372,7 @@ describe("project settings", () => {
     const removing = keep.filter((s) => s.name !== "Done");
     expect(
       refusal(() => setStatuses(b, SAMPLE_PROJECT_ID, removing, ctx())),
-    ).toMatch(/Done status|tasks are in Done/);
+    ).toMatch(/Done status|issues are in Done/);
   });
 
   it("adds a status with a new id and allows removing an empty one", () => {

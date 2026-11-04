@@ -1,7 +1,5 @@
 "use client";
 
-import { dueLabel } from "@/lib/projects/due";
-import { DueTimeInput } from "@/components/projects/due-time-input";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Users } from "lucide-react";
@@ -9,7 +7,6 @@ import {
   Badge,
   Button,
   EmptyState,
-  Field,
   LoadState,
   Input,
   Modal,
@@ -34,7 +31,7 @@ import {
 } from "@/lib/api/projects";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDateShort } from "@/lib/time";
 
 /**
  * `/projects/team`: what the people you lead have on, as load rather than cards.
@@ -90,8 +87,6 @@ function Team() {
   const router = useRouter();
   const timeZone = useOrgTimezone();
   const [filter, setFilter] = useState<TeamFilter>("open");
-  /* A department id, `none`, or "" for everybody. */
-  const [department, setDepartment] = useState("");
   const [loaded, setData] = useState<Loaded>({ status: "loading" });
   /* Another filter's answer is not this one's: show it loading until it lands. */
   const data = useMemo<Loaded>(
@@ -142,40 +137,14 @@ function Team() {
     return () => controller.abort();
   }, [filter, version]);
 
-  const departments = useMemo(() => {
-    if (data.status !== "ready") return [];
-    const named = new Map<string, string>();
-    let anyWithout = false;
-    for (const p of data.people) {
-      if (p.employee.departmentId === null) anyWithout = true;
-      else
-        named.set(
-          p.employee.departmentId,
-          p.employee.departmentName ?? "Unnamed department",
-        );
-    }
-    const options = [...named]
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-    if (anyWithout) options.push({ value: "none", label: "No department" });
-    return options;
-  }, [data]);
-
   const people = useMemo(
     () =>
       data.status === "ready"
         ? [...data.people]
             .filter((p) => filter === "open" || p.tasks.length > 0)
-            .filter((p) =>
-              department === ""
-                ? true
-                : department === "none"
-                  ? p.employee.departmentId === null
-                  : p.employee.departmentId === department,
-            )
             .sort(byLoad)
         : [],
-    [data, filter, department],
+    [data, filter],
   );
 
   if (data.status === "error" && isModuleOff(data.error)) {
@@ -236,24 +205,7 @@ function Team() {
           />
         }
       />
-      <PageBody className="space-y-4">
-        {departments.length > 1 && (
-          <div className="w-full sm:w-64">
-            <Field label="Department" help="By the person's department">
-              <Select
-                value={department}
-                onChange={(event) => setDepartment(event.target.value)}
-              >
-                <option value="">All departments</option>
-                {departments.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-        )}
+      <PageBody>
         <LoadState
           loading={data.status === "loading"}
           error={data.status === "error" ? data.error : null}
@@ -269,28 +221,9 @@ function Team() {
             />
           )}
 
-          {data.status === "ready" &&
-            !nobodyLed &&
-            people.length === 0 &&
-            department !== "" && (
-              <EmptyState
-                icon={<Users />}
-                title="Nobody in that department matches"
-                description="Choose another department, or all departments."
-                action={
-                  <Button variant="secondary" onClick={() => setDepartment("")}>
-                    Show all departments
-                  </Button>
-                }
-              />
-            )}
-
-          {data.status === "ready" &&
-            !nobodyLed &&
-            people.length === 0 &&
-            department === "" && (
-              <EmptyState icon={<Users />} title={EMPTY_BY_FILTER[filter]} />
-            )}
+          {data.status === "ready" && !nobodyLed && people.length === 0 && (
+            <EmptyState icon={<Users />} title={EMPTY_BY_FILTER[filter]} />
+          )}
 
           {people.length > 0 && (
             <ul className="divide-y divide-line overflow-hidden rounded-md border border-line">
@@ -518,7 +451,7 @@ function TaskLine({
       <span className="flex items-center gap-2 text-meta text-muted">
         {task.dueDate ? (
           <>
-            <span>{dueLabel(task, todayIn(timeZone))}</span>
+            <span>Due {formatDateShort(task.dueDate, timeZone)}</span>
             {task.overdue && (
               <Badge tone="danger" size="sm">
                 Overdue
@@ -560,7 +493,6 @@ function GiveTaskDialog({
   const toast = useToast();
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
-  const [dueTime, setDueTime] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -573,11 +505,9 @@ function GiveTaskDialog({
         title: title.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
         ...(due ? { dueDate: due } : {}),
-        ...(due && dueTime ? { dueTime } : {}),
       });
       setTitle("");
       setDue("");
-      setDueTime(null);
       setDescription("");
       onGiven(person.name);
     } catch (error) {
@@ -637,14 +567,10 @@ function GiveTaskDialog({
         <Input
           type="date"
           value={due}
-          onChange={(event) => {
-            setDue(event.target.value);
-            if (!event.target.value) setDueTime(null);
-          }}
+          onChange={(event) => setDue(event.target.value)}
           aria-label="Due date"
           className="w-auto"
         />
-        <DueTimeInput date={due} value={dueTime} onChange={setDueTime} />
         <Textarea
           value={description}
           onChange={(event) => setDescription(event.target.value)}

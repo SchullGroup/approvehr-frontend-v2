@@ -1125,7 +1125,6 @@ export function QuestionsDialog({
             onAddQuestion={addQuestionTo}
             renderQuestions={renderSubsectionQuestions}
             {...(ask ? { ask } : {})}
-            onQuestionsMoved={reload}
           />
         ) : (
           <>
@@ -1293,7 +1292,6 @@ function SectionsView({
   onAddQuestion,
   renderQuestions,
   ask,
-  onQuestionsMoved,
 }: {
   periodName: string;
   framework: ReturnType<typeof useFramework>;
@@ -1309,8 +1307,6 @@ function SectionsView({
     section: SectionOption | null,
   ) => React.ReactNode;
   ask?: SubsectionAsk;
-  /** Read the period's questions again: a new version moved a draft's to a new subsection. */
-  onQuestionsMoved?: () => void;
 }) {
   const {
     sections,
@@ -1360,7 +1356,6 @@ function SectionsView({
       }}
       renderQuestions={renderQuestions}
       {...(ask ? { ask } : {})}
-      {...(onQuestionsMoved ? { onQuestionsMoved } : {})}
     />
   );
 }

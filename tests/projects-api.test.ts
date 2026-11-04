@@ -291,6 +291,6 @@ describe("taking somebody off a project", () => {
       ],
       nameOf,
     );
-    expect(text).toContain("still have open tasks");
+    expect(text).toContain("still have open issues");
   });
 });

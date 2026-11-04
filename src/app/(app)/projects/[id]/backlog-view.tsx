@@ -79,14 +79,7 @@ export function BacklogView() {
         today,
         doneDayOf: dayOf,
         visible: isFiltering(filter)
-          ? (issue) =>
-              applyFilter(
-                [issue],
-                filter,
-                meId,
-                project.statuses,
-                project.memberDepartments,
-              ).length > 0
+          ? (issue) => applyFilter([issue], filter, meId).length > 0
           : () => true,
       }),
     [project, issues, sprints, today, dayOf, filter, meId],
@@ -223,7 +216,7 @@ export function BacklogView() {
           <h2 className="text-h4 text-ink">Backlog</h2>
           <p className="mt-1 text-body-sm text-muted">
             {scrum
-              ? "Plan sprints by dragging tasks into them, or use Move to on a row. The top of each list comes first."
+              ? "Plan sprints by dragging issues into them, or use Move to on a row. The top of each list comes first."
               : "Order the queue. The top of the list gets picked up first. Done work drops off after 14 days."}
           </p>
         </div>
@@ -245,7 +238,7 @@ export function BacklogView() {
             </p>
             <p className="mt-0.5 text-body-sm text-muted">
               {canWork
-                ? "Create one, then drag tasks into it to plan the work."
+                ? "Create one, then drag issues into it to plan the work."
                 : "A sprint has not been planned yet."}
             </p>
           </div>
@@ -286,7 +279,7 @@ export function BacklogView() {
         over={drag?.over === BACKLOG}
         heading="Backlog"
         info={[
-          `${layout.backlog.count} ${layout.backlog.count === 1 ? "task" : "tasks"}`,
+          `${layout.backlog.count} ${layout.backlog.count === 1 ? "issue" : "issues"}`,
           `${layout.backlog.points} pts`,
           ...(filtering && layout.backlog.shown.length < layout.backlog.count
             ? [`${layout.backlog.shown.length} shown`]
@@ -298,9 +291,9 @@ export function BacklogView() {
           {layout.backlog.shown.length === 0 && (
             <EmptyRow>
               {filtering && layout.backlog.count > 0
-                ? "No tasks here match these filters."
+                ? "No issues here match these filters."
                 : canWork
-                  ? "Your backlog is empty. Add a task below."
+                  ? "Your backlog is empty. Add an issue below."
                   : "Your backlog is empty."}
             </EmptyRow>
           )}
@@ -375,7 +368,7 @@ function SprintBlock({
     ...(sprint.startDate && sprint.endDate
       ? [`${shortDate(sprint.startDate)} – ${shortDate(sprint.endDate)}`]
       : []),
-    `${count} ${count === 1 ? "task" : "tasks"}`,
+    `${count} ${count === 1 ? "issue" : "issues"}`,
     `${points} pts`,
     ...(count > 0 ? [`${done} done`] : []),
     ...(filtering && shown.length < count ? [`${shown.length} shown`] : []),
@@ -445,10 +438,10 @@ function SprintBlock({
         {shown.length === 0 && (
           <EmptyRow>
             {filtering && count > 0
-              ? "No tasks here match these filters."
+              ? "No issues here match these filters."
               : canWork
-                ? "Drag tasks here from the backlog to plan this sprint."
-                : "No tasks are planned into this sprint."}
+                ? "Drag issues here from the backlog to plan this sprint."
+                : "No issues are planned into this sprint."}
           </EmptyRow>
         )}
       </RowList>
