@@ -225,7 +225,7 @@ describe("what the board shows", () => {
       today: TODAY,
       doneDayOf,
     });
-    expect(scope.sprint?.name).toBe("CHK Sprint 3");
+    expect(scope.sprint?.name).toBe("Cycle 3");
     expect(scope.issues.every((i) => i.sprintId === scope.sprint!.id)).toBe(
       true,
     );
@@ -358,7 +358,7 @@ describe("swimlanes", () => {
     expect(lanes.map((l) => l.label)).toEqual([
       "Payments API v2",
       "Cart & checkout UX",
-      "No epic",
+      "No initiative",
     ]);
   });
 });

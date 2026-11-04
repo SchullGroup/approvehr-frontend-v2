@@ -62,10 +62,10 @@ describe("the sprint board", () => {
   it("names the sprint and says how far through it is", () => {
     renderBoard();
     expect(
-      screen.getByRole("heading", { name: "CHK Sprint 3" }),
+      screen.getByRole("heading", { name: "Cycle 3" }),
     ).toBeInTheDocument();
     expect(screen.getByText("7 days left")).toBeInTheDocument();
-    expect(screen.getByText(/points done/)).toHaveTextContent("9 of 27");
+    expect(screen.getByText(/effort done/)).toHaveTextContent("9 of 27");
   });
 
   it("shows a column per status with its count against the WIP limit", () => {
@@ -80,6 +80,16 @@ describe("the sprint board", () => {
     expect(
       screen.getByRole("heading", { name: "To Do" }).parentElement,
     ).not.toHaveTextContent("/");
+  });
+
+  it("counts a column's tasks in words that are right for one, and for the rest", () => {
+    renderBoard();
+    const head = (name: string) =>
+      screen.getByRole("heading", { name }).parentElement!;
+    /* One task: "1 task", never "1 tasks". */
+    expect(head("In Review")).toHaveTextContent(/1 task(?!s)/);
+    expect(head("In Review")).not.toHaveTextContent("1 tasks");
+    expect(head("In Progress")).toHaveTextContent("3 tasks");
   });
 
   it("says a column is over its limit in words, not only in colour", () => {
@@ -97,7 +107,7 @@ describe("the sprint board", () => {
     const head = screen.getByRole("heading", {
       name: "In Progress",
     }).parentElement!;
-    expect(head).toHaveTextContent("over the limit of 1");
+    expect(head).toHaveTextContent("3 tasks, over the limit of 1");
     expect(within(head).getByText("3/1").parentElement).toHaveClass(
       "text-warning-text",
     );
@@ -111,10 +121,11 @@ describe("the sprint board", () => {
         s.state === "ACTIVE" ? { ...s, state: "CLOSED" as const } : s,
       ),
     });
-    expect(screen.getByText("No active sprint")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Go to the backlog" }),
-    ).toHaveAttribute("href", "/projects/pj-chk?view=backlog");
+    expect(screen.getByText("No active cycle")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to Plan" })).toHaveAttribute(
+      "href",
+      "/projects/pj-chk?view=backlog",
+    );
   });
 
   it("offers swimlanes and writes the choice to the address", async () => {

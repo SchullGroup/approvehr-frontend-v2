@@ -171,7 +171,7 @@ describe("creating an issue", () => {
           ctx(),
         ),
       ),
-    ).toMatch(/sub-task belongs to/);
+    ).toMatch(/subtask belongs to/);
     expect(
       refusal(() =>
         createIssue(
@@ -296,7 +296,7 @@ describe("project settings", () => {
       refusal(() =>
         updateProject(b, SAMPLE_PROJECT_ID, { type: "KANBAN" }, NOW),
       ),
-    ).toMatch(/active sprint/);
+    ).toMatch(/active cycle/);
   });
 
   it("refuses to take somebody off who still has open issues, naming them", () => {
@@ -372,7 +372,7 @@ describe("project settings", () => {
     const removing = keep.filter((s) => s.name !== "Done");
     expect(
       refusal(() => setStatuses(b, SAMPLE_PROJECT_ID, removing, ctx())),
-    ).toMatch(/Done status|tasks are in Done/);
+    ).toMatch(/Done stage|tasks are in Done/);
   });
 
   it("adds a status with a new id and allows removing an empty one", () => {
@@ -421,20 +421,20 @@ describe("sprints", () => {
 
   it("will not start a sprint while another is active, or one with no issues", () => {
     const b = book();
-    const four = sprintOf(b, "CHK Sprint 4");
+    const four = sprintOf(b, "Cycle 4");
     expect(startBlocker(four, chk(b).sprints, chk(b).issues)).toMatch(
-      /Complete the active sprint/,
+      /Complete the active cycle/,
     );
     expect(refusal(() => startSprintInBook(b, four.id, {}))).toMatch(
-      /active sprint/,
+      /active cycle/,
     );
   });
 
   it("completes a sprint, moves unfinished issues to the backlog and records the points", () => {
     const b = book();
-    const three = sprintOf(b, "CHK Sprint 3");
+    const three = sprintOf(b, "Cycle 3");
     const next = completeSprintInBook(b, three.id, null, { name: "x" }, ctx());
-    const closed = sprintOf(next, "CHK Sprint 3");
+    const closed = sprintOf(next, "Cycle 3");
     expect(closed.state).toBe("CLOSED");
     expect(closed.completedPoints).toBe(3 + 5 + 1);
     expect(closed.closedAt).toBe(NOW);
@@ -447,8 +447,8 @@ describe("sprints", () => {
 
   it("can move unfinished work into a planned sprint or a new one", () => {
     const b = book();
-    const three = sprintOf(b, "CHK Sprint 3");
-    const four = sprintOf(b, "CHK Sprint 4");
+    const three = sprintOf(b, "Cycle 3");
+    const four = sprintOf(b, "Cycle 4");
     const toPlanned = completeSprintInBook(
       b,
       three.id,
@@ -462,29 +462,29 @@ describe("sprints", () => {
       b,
       three.id,
       "new",
-      { name: "CHK Sprint 5", startDate: "2026-10-29", endDate: "2026-11-11" },
+      { name: "Cycle 5", startDate: "2026-10-29", endDate: "2026-11-11" },
       ctx(),
     );
-    const created = chk(toNew).sprints.find((s) => s.name === "CHK Sprint 5")!;
+    const created = chk(toNew).sprints.find((s) => s.name === "Cycle 5")!;
     expect(created.state).toBe("PLANNED");
     expect(issueByKey(toNew, "CHK-10").sprintId).toBe(created.id);
   });
 
   it("starts a planned sprint once the active one is closed, fixing the committed points", () => {
     let b = book();
-    const three = sprintOf(b, "CHK Sprint 3");
+    const three = sprintOf(b, "Cycle 3");
     b = completeSprintInBook(
       b,
       three.id,
-      sprintOf(b, "CHK Sprint 4").id,
+      sprintOf(b, "Cycle 4").id,
       { name: "x" },
       ctx(),
     );
-    const four = sprintOf(b, "CHK Sprint 4");
+    const four = sprintOf(b, "Cycle 4");
     const started = startSprintInBook(b, four.id, {
-      name: "CHK Sprint 4 (go)",
+      name: "Cycle 4 (go)",
     });
-    const live = sprintOf(started, "CHK Sprint 4 (go)");
+    const live = sprintOf(started, "Cycle 4 (go)");
     expect(live.state).toBe("ACTIVE");
     expect(live.committedPoints).toBeGreaterThan(0);
   });
@@ -498,20 +498,20 @@ describe("sprints", () => {
       ctx(),
     );
     b = created.book;
-    expect(created.sprint.name).toBe("CHK Sprint 5");
-    const four = sprintOf(b, "CHK Sprint 4");
+    expect(created.sprint.name).toBe("Cycle 5");
+    const four = sprintOf(b, "Cycle 4");
     const next = deleteSprintInBook(b, four.id, NOW);
     expect(chk(next).sprints.some((s) => s.id === four.id)).toBe(false);
     expect(issueByKey(next, "CHK-17").sprintId).toBeNull();
     expect(
-      refusal(() => deleteSprintInBook(b, sprintOf(b, "CHK Sprint 3").id, NOW)),
-    ).toMatch(/planned sprint/);
+      refusal(() => deleteSprintInBook(b, sprintOf(b, "Cycle 3").id, NOW)),
+    ).toMatch(/planned cycle/);
   });
 
   it("drafts the next sprint after the last one's end", () => {
     const b = book();
     const draft = nextSprintDraft(chk(b).project, chk(b).sprints, TODAY);
-    expect(draft.name).toBe("CHK Sprint 5");
+    expect(draft.name).toBe("Cycle 5");
     expect(draft.startDate).toBe(addDays(TODAY, 22));
     expect(draft.endDate).toBe(addDays(draft.startDate, 13));
     expect(nextSprintDraft(chk(b).project, [], TODAY).startDate).toBe(TODAY);

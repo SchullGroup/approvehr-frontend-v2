@@ -11,6 +11,7 @@ import {
   locate,
   tokensOf,
 } from "@/components/portal/sidebar-model";
+import { RETIRED_WORDS } from "@/lib/projects/retired-words";
 import { PERSONAS, groupsFor } from "./sidebar-personas";
 
 /**
@@ -319,6 +320,28 @@ describe("Find", () => {
     expect(names("laptop")[0]).toBe("Core HR › Equipment");
     expect(names("paye")[0]).toBe("Payroll › Statutory filings");
     expect(names("permissions")[0]).toBe("Settings › Roles");
+  });
+
+  it("still finds Projects by the words the module used to speak", () => {
+    /* The module says task, cycle, Later and initiative now. Somebody who has
+       used a ticket tracker types the old word, and Find still lands on it. */
+    for (const old of RETIRED_WORDS) {
+      expect(names(old), `"${old}"`).toContain("Home › Projects");
+    }
+    expect(names("sprint")[0]).toBe("Home › Projects");
+    expect(names("backlog")[0]).toBe("Home › Projects");
+    expect(names("epic")[0]).toBe("Home › Projects");
+    expect(names("story points")[0]).toBe("Home › Projects");
+  });
+
+  it("finds Projects by the words it speaks now", () => {
+    for (const word of ["cycle", "initiative", "problem", "timeline", "task"]) {
+      expect(names(word), `"${word}"`).toContain("Home › Projects");
+    }
+  });
+
+  it("finds My tasks by the old word for a task", () => {
+    expect(names("issues")).toContain("Home › My tasks");
   });
 
   it("finds every door in a group by the group's name, label matches first", () => {

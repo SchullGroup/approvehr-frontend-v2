@@ -425,7 +425,7 @@ describe("opening a task", () => {
     expect(within(drawer).getByLabelText("Summary")).toBeEnabled();
     expect(within(drawer).getByLabelText("Due")).toBeEnabled();
     expect(
-      within(drawer).getByRole("combobox", { name: "Status" }),
+      within(drawer).getByRole("combobox", { name: "Stage" }),
     ).toBeDisabled();
   });
 
@@ -461,13 +461,13 @@ describe("opening a task", () => {
     expect(within(drawer).getByText("Set by")).toBeInTheDocument();
     expect(within(drawer).getByText("Chidi Nwosu")).toBeInTheDocument();
     /* The columns of the personal list are the status choices. */
-    const status = within(drawer).getByRole("combobox", { name: "Status" });
+    const status = within(drawer).getByRole("combobox", { name: "Stage" });
     expect(
       within(status)
         .getAllByRole("option")
         .map((o) => o.textContent),
     ).toEqual(["To do", "In progress", "Done"]);
-    expect(within(drawer).queryByLabelText("Epic")).toBeNull();
+    expect(within(drawer).queryByLabelText("Initiative")).toBeNull();
     expect(within(drawer).queryByRole("link")).toBeNull();
   });
 
@@ -493,7 +493,7 @@ describe("opening a task", () => {
     await userEvent.click(await screen.findByText("Move me"));
     const drawer = await screen.findByRole("dialog");
     await userEvent.selectOptions(
-      within(drawer).getByRole("combobox", { name: "Status" }),
+      within(drawer).getByRole("combobox", { name: "Stage" }),
       "s-doing",
     );
     await waitFor(() =>

@@ -58,7 +58,7 @@ describe("who can change settings", () => {
         "Only the project lead and people who manage employee records can change settings.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Status 1 name")).toBeDisabled();
+    expect(screen.getByLabelText("Stage 1 name")).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: "Save workflow" }),
     ).not.toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("who can change settings", () => {
   it("leaves it all open for the lead", () => {
     renderSettings();
     expect(screen.queryByText(/Only the project lead/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Status 1 name")).toBeEnabled();
+    expect(screen.getByLabelText("Stage 1 name")).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "Delete project" }),
     ).toBeInTheDocument();
@@ -84,12 +84,12 @@ describe("who can change settings", () => {
 describe("the workflow editor", () => {
   it("lists the statuses in order with their categories and limits", () => {
     renderSettings();
-    expect(screen.getByLabelText("Status 2 name")).toHaveValue("In Progress");
-    expect(screen.getByLabelText("Status 2 category")).toHaveValue(
+    expect(screen.getByLabelText("Stage 2 name")).toHaveValue("In Progress");
+    expect(screen.getByLabelText("Stage 2 category")).toHaveValue(
       "IN_PROGRESS",
     );
-    expect(screen.getByLabelText("Status 2 WIP limit")).toHaveValue(5);
-    expect(screen.getByLabelText("Status 1 WIP limit")).toHaveValue(null);
+    expect(screen.getByLabelText("Stage 2 limit")).toHaveValue(5);
+    expect(screen.getByLabelText("Stage 1 limit")).toHaveValue(null);
   });
 
   it("refuses to remove a status that has issues, and says how many, on press", async () => {
@@ -98,23 +98,23 @@ describe("the workflow editor", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove Done" }));
     expect(
       screen.getByText(
-        /tasks are in Done\. Move them to another status first\./,
+        /tasks are in Done\. Move them to another stage first\./,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Status 4 name")).toHaveValue("Done");
+    expect(screen.getByLabelText("Stage 4 name")).toHaveValue("Done");
   });
 
   it("starts with nothing to save, and saves a new status without an id", async () => {
     const { actions } = renderSettings();
     const save = screen.getByRole("button", { name: "Save workflow" });
     expect(save).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: "Add a status" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add a stage" }));
     /* A status with no name is not savable yet. */
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Every status needs a name",
+      "Every stage needs a name",
     );
     expect(save).toBeDisabled();
-    await userEvent.type(screen.getByLabelText("Status 4 name"), "Blocked");
+    await userEvent.type(screen.getByLabelText("Stage 4 name"), "Blocked");
     expect(save).toBeEnabled();
     await userEvent.click(save);
     await waitFor(() => expect(actions.saveWorkflow).toHaveBeenCalledTimes(1));
@@ -136,23 +136,23 @@ describe("the workflow editor", () => {
   it("will not save with the last Done category taken away", async () => {
     renderSettings();
     await userEvent.selectOptions(
-      screen.getByLabelText("Status 4 category"),
+      screen.getByLabelText("Stage 4 category"),
       "TODO",
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Keep at least one Done status",
+      "Keep at least one Done stage",
     );
     expect(
       screen.getByRole("button", { name: "Save workflow" }),
     ).toBeDisabled();
   });
 
-  it("will not save a WIP limit of zero", async () => {
+  it("will not save a limit of zero", async () => {
     renderSettings();
-    const wip = screen.getByLabelText("Status 2 WIP limit");
+    const wip = screen.getByLabelText("Stage 2 limit");
     await userEvent.clear(wip);
     await userEvent.type(wip, "0");
-    expect(screen.getByRole("alert")).toHaveTextContent("WIP limit");
+    expect(screen.getByRole("alert")).toHaveTextContent("limit");
     expect(
       screen.getByRole("button", { name: "Save workflow" }),
     ).toBeDisabled();
@@ -175,11 +175,11 @@ describe("the workflow editor", () => {
 
   it("discards an edit and goes back to what is saved", async () => {
     renderSettings();
-    await userEvent.type(screen.getByLabelText("Status 1 name"), " more");
+    await userEvent.type(screen.getByLabelText("Stage 1 name"), " more");
     await userEvent.click(
       screen.getByRole("button", { name: "Discard changes" }),
     );
-    expect(screen.getByLabelText("Status 1 name")).toHaveValue("To Do");
+    expect(screen.getByLabelText("Stage 1 name")).toHaveValue("To Do");
     expect(
       screen.getByRole("button", { name: "Save workflow" }),
     ).toBeDisabled();
@@ -192,12 +192,12 @@ describe("the workflow editor", () => {
       message: "That workflow is not allowed.",
       error: null,
     });
-    await userEvent.type(screen.getByLabelText("Status 1 name"), "x");
+    await userEvent.type(screen.getByLabelText("Stage 1 name"), "x");
     await userEvent.click(
       screen.getByRole("button", { name: "Save workflow" }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("not allowed");
-    expect(screen.getByLabelText("Status 1 name")).toHaveValue("To Dox");
+    expect(screen.getByLabelText("Stage 1 name")).toHaveValue("To Dox");
   });
 });
 
@@ -210,7 +210,7 @@ describe("details", () => {
     );
     expect(
       screen.getByText(
-        "Complete the active sprint before changing the board type.",
+        "Complete the active cycle before changing the board type.",
       ),
     ).toBeInTheDocument();
     expect(actions.updateProject).not.toHaveBeenCalled();
