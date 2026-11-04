@@ -274,8 +274,8 @@ describe("an epic with no issues, and a short one", () => {
     renderRoadmap(
       withEpics({ startDate: "2026-10-10", dueDate: "2026-11-20" }),
     );
-    expect(screen.getAllByText("CHK-90 · No issues").length).toBeGreaterThan(0);
-    expect(screen.getByText("No issues yet")).toBeInTheDocument();
+    expect(screen.getAllByText("CHK-90 · No tasks").length).toBeGreaterThan(0);
+    expect(screen.getByText("No tasks yet")).toBeInTheDocument();
     expect(screen.queryByText(/CHK-90 · 0%/)).not.toBeInTheDocument();
   });
 
@@ -286,7 +286,7 @@ describe("an epic with no issues, and a short one", () => {
     const short = bar(/^CHK-90 /);
     expect(short).toHaveStyle({ width: "40px" });
     expect(within(short).queryByText(/CHK-90/)).not.toBeInTheDocument();
-    const outside = screen.getAllByText("CHK-90 · No issues");
+    const outside = screen.getAllByText("CHK-90 · No tasks");
     expect(outside).toHaveLength(1);
     expect(outside[0]!.parentElement).toBe(short.closest("li"));
   });
@@ -295,7 +295,7 @@ describe("an epic with no issues, and a short one", () => {
     renderRoadmap(
       withEpics({ startDate: "2027-01-29", dueDate: "2027-01-31" }),
     );
-    const [label] = screen.getAllByText("CHK-90 · No issues");
+    const [label] = screen.getAllByText("CHK-90 · No tasks");
     expect(label!.style.right).not.toBe("");
     expect(label!.style.left).toBe("");
   });

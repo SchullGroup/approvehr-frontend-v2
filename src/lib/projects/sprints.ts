@@ -32,7 +32,7 @@ export function startBlocker(
   if (sprints.some((s) => s.state === "ACTIVE")) {
     return "Complete the active sprint first.";
   }
-  if (sprintScope(issues, sprint.id).length === 0) return "Add issues first.";
+  if (sprintScope(issues, sprint.id).length === 0) return "Add tasks first.";
   return null;
 }
 

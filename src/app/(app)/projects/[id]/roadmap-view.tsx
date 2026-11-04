@@ -89,7 +89,7 @@ export function RoadmapView() {
         <div>
           <h2 className="text-h4 text-ink">Roadmap</h2>
           <p className="mt-1 text-body-sm text-muted">
-            Epics on a timeline. Bars fill as their issues get done.
+            Epics on a timeline. Bars fill as their tasks get done.
           </p>
         </div>
         {canWork && (

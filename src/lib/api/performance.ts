@@ -365,6 +365,16 @@ export type ApiChoiceOption = {
   ratingCount?: number;
 };
 
+/** What starting a new version of a subsection answers with. */
+export type NewVersionResult = {
+  /** The new subsection: same name and section, answered the way that was asked. */
+  competency: ApiCompetency;
+  /** The one it replaces, under the name it was given when it was retired. */
+  retired: { id: string; name: string; ratingsKept: number };
+  /** What moved or was left behind, in the API's own sentences. May be empty. */
+  notes: string[];
+};
+
 export type ApiCompetency = {
   id: string;
   name: string;
@@ -3271,6 +3281,28 @@ export const performanceApi = {
       ratingsKept: number;
       note: string;
     }>(`/performance/competencies/${id}`, { method: "DELETE" }),
+
+  /**
+   * Start a new version of a subsection that is answered another way.
+   *
+   * How a subsection is answered is fixed once any rating exists, in any period,
+   * so this is the way through that rule and not around it: the old subsection
+   * keeps its ratings and every mark made from them under a retired name, and a
+   * new one with the same name and section, answered the way asked, starts empty
+   * and is used from now on. Periods that have not started move to the new one
+   * and published periods keep the old one.
+   *
+   * It is refused (409) while a period that is running asks the subsection on its
+   * review form, in a sentence naming the period, and shown as it comes. `notes`
+   * are the API's own sentences about what moved or was left behind, and are shown
+   * as they are: this side cannot work out which draft periods or job roles are
+   * affected.
+   */
+  newCompetencyVersion: (id: string, body: { answerKind: AnswerKind }) =>
+    request<NewVersionResult>(`/performance/competencies/${id}/new-version`, {
+      method: "POST",
+      body,
+    }),
 
   /**
    * Give one KPI to several people, under one objective.

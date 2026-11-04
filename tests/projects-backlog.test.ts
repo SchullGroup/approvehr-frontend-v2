@@ -24,7 +24,7 @@ import type { Issue, ProjectData, Sprint } from "@/lib/projects/types";
 import { NOW, TODAY, sampleData } from "./projects-fixture";
 
 /**
- * The backlog's rules, without a screen: which list an issue is in, what a drop or
+ * The backlog's rules, without a screen: which list an task is in, what a drop or
  * a menu choice writes, and the figures the sprint dialogs and the closing line
  * are made from.
  *
@@ -414,7 +414,7 @@ describe("sprint figures and the closing line", () => {
       openPoints: 4,
     };
     expect(completionLine("CHK Sprint 3", figures, { kind: "backlog" })).toBe(
-      "CHK Sprint 3 completed, 22 of 26 points done; 3 issues moved to the backlog",
+      "CHK Sprint 3 completed, 22 of 26 points done; 3 tasks moved to the backlog",
     );
     expect(
       completionLine("CHK Sprint 3", figures, {
@@ -422,10 +422,10 @@ describe("sprint figures and the closing line", () => {
         name: "CHK Sprint 4",
       }),
     ).toBe(
-      "CHK Sprint 3 completed, 22 of 26 points done; 3 issues moved to CHK Sprint 4",
+      "CHK Sprint 3 completed, 22 of 26 points done; 3 tasks moved to CHK Sprint 4",
     );
     expect(completionLine("CHK Sprint 3", figures, { kind: "new" })).toMatch(
-      /3 issues moved to a new sprint$/,
+      /3 tasks moved to a new sprint$/,
     );
   });
 
@@ -458,7 +458,7 @@ describe("sprint figures and the closing line", () => {
         { kind: "backlog" },
       ),
     ).toBe(
-      "CHK Sprint 3 completed, 3 of 4 issues done; 1 issue moved to the backlog",
+      "CHK Sprint 3 completed, 3 of 4 tasks done; 1 task moved to the backlog",
     );
     expect(
       completionLine(
@@ -491,7 +491,7 @@ describe("the sprint rules the dialogs rely on", () => {
     const empty = data.issues.map((i) =>
       i.sprintId === four.id ? { ...i, sprintId: null } : i,
     );
-    expect(startBlocker(four, noneRunning, empty)).toBe("Add issues first.");
+    expect(startBlocker(four, noneRunning, empty)).toBe("Add tasks first.");
   });
 
   it("names a new sprint past one that already exists after a deletion", () => {

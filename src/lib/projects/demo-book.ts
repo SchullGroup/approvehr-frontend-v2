@@ -321,7 +321,7 @@ export function patchIssueInBook(
   const projectId = projectIdOfIssue(book, issueId);
   if (!projectId)
     throw new ProjectRuleError(
-      "That issue is not here. It may have been deleted.",
+      "That task is not here. It may have been deleted.",
     );
   const d = data(book, projectId);
   if (patch.assigneeId && !d.project.memberIds.includes(patch.assigneeId)) {
@@ -330,7 +330,7 @@ export function patchIssueInBook(
     );
   }
   const result = patchIssue(d, issueId, patch, ctx.now);
-  if (!result.issue) throw new ProjectRuleError("That issue is not here.");
+  if (!result.issue) throw new ProjectRuleError("That task is not here.");
   const rows: IssueActivity[] = result.changes.map((change) => ({
     id: ctx.makeId(),
     issueId,
@@ -383,7 +383,7 @@ export function addCommentToBook(
   if (!text) throw new ProjectRuleError("Write something first.");
   if (!projectIdOfIssue(book, issueId)) {
     throw new ProjectRuleError(
-      "That issue is not here. It may have been deleted.",
+      "That task is not here. It may have been deleted.",
     );
   }
   const comment: IssueComment = {
