@@ -130,7 +130,7 @@ export function PeopleView() {
                           .join(" · ") || " "}
                       </span>
                     </span>
-                    <span className="flex items-center gap-2">
+                    <span className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
                       <Select
                         aria-label={`Access for ${person.name}`}
                         value={person.level}
@@ -144,7 +144,7 @@ export function PeopleView() {
                             event.target.value as ProgramLevel,
                           )
                         }
-                        className="w-44"
+                        className="w-44 max-w-full"
                       >
                         <option value="READ">{LEVEL_LABEL.READ}</option>
                         <option value="WRITE">{LEVEL_LABEL.WRITE}</option>

@@ -63,7 +63,12 @@ function ProgramOverview() {
     >
       {data && (
         <div className="space-y-6">
-          <MetricTiles metrics={data.totals} />
+          <MetricTiles
+            metrics={data.totals}
+            hrefFor={(bucket) =>
+              `/projects/programs/${program.id}?view=tasks&bucket=${bucket}`
+            }
+          />
 
           <section className="space-y-3" aria-labelledby="program-projects">
             <h2
@@ -180,7 +185,14 @@ function UnassignedOverview() {
       skeleton={<Placeholder />}
     >
       <div className="space-y-6">
-        {metrics && <MetricTiles metrics={metrics} />}
+        {metrics && (
+          <MetricTiles
+            metrics={metrics}
+            hrefFor={(bucket) =>
+              `/projects/programs/unassigned?view=tasks&bucket=${bucket}`
+            }
+          />
+        )}
         <section className="space-y-3" aria-labelledby="loose-projects">
           <h2
             id="loose-projects"

@@ -16,11 +16,14 @@ import {
   type ProgramViewId,
 } from "@/lib/projects/terms";
 import type { Program } from "@/lib/projects/programs";
-import { ComingView } from "./coming-view";
+import { WorkBoardView } from "./board-view";
 import { OverviewView } from "./overview-view";
 import { PeopleView } from "./people-view";
 import { ProgramProjectsView } from "./projects-view";
 import { ProgramSettingsView } from "./settings-view";
+import { TasksView } from "./tasks-view";
+import { TimelineView } from "./timeline-view";
+import { WorkloadView } from "./workload-view";
 
 export type { ProgramViewId };
 
@@ -83,26 +86,26 @@ export const PROGRAM_VIEWS: readonly ProgramViewDef[] = [
     id: "board",
     label: PROGRAM_TAB_LABEL.board,
     icon: <Kanban />,
-    Component: ComingView,
+    Component: WorkBoardView,
   },
   {
     id: "tasks",
     label: PROGRAM_TAB_LABEL.tasks,
     icon: <Table2 />,
-    Component: ComingView,
+    Component: TasksView,
   },
   {
     id: "workload",
     label: PROGRAM_TAB_LABEL.workload,
     icon: <ChartNoAxesColumn />,
-    Component: ComingView,
+    Component: WorkloadView,
     when: notForUnassigned,
   },
   {
     id: "timeline",
     label: PROGRAM_TAB_LABEL.timeline,
     icon: <CalendarRange />,
-    Component: ComingView,
+    Component: TimelineView,
     when: notForUnassigned,
   },
   {
