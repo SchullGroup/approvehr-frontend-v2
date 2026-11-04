@@ -27,6 +27,7 @@ import { useQueryParam } from "@/components/projects/use-query-param";
 import {
   SWIMLANE_LABEL,
   boardScope,
+  hiddenDoneCount,
   columnIssues,
   decodeDropTarget,
   encodeDropTarget,
@@ -89,6 +90,10 @@ export function BoardView() {
     () => sortStatuses(project.statuses),
     [project.statuses],
   );
+  const hiddenDone = useMemo(
+    () => hiddenDoneCount({ project, issues, today, doneDayOf: dayOf }),
+    [project, issues, today, dayOf],
+  );
   const scope = useMemo(
     () =>
       boardScope({
@@ -101,8 +106,15 @@ export function BoardView() {
     [project, issues, sprints, today, dayOf],
   );
   const shown = useMemo(
-    () => applyFilter(scope.issues, filter, meId),
-    [scope.issues, filter, meId],
+    () =>
+      applyFilter(
+        scope.issues,
+        filter,
+        meId,
+        project.statuses,
+        project.memberDepartments,
+      ),
+    [scope.issues, filter, meId, project.statuses, project.memberDepartments],
   );
   const lanes = useMemo(
     () =>
@@ -309,7 +321,7 @@ export function BoardView() {
       <div className="space-y-6">
         <EmptyState
           title="No active sprint"
-          description="Plan a sprint in the backlog and start it. Its issues show up here as columns you can move work across."
+          description="Plan a sprint in the backlog and start it. Its tasks show up here as columns you can move work across."
           action={
             <ButtonLink
               variant="primary"
@@ -337,6 +349,20 @@ export function BoardView() {
           <h2 className="text-h4 text-ink">Kanban board</h2>
           <p className="mt-1 text-body-sm text-muted">
             Continuous flow. Done work drops off after 14 days.
+            {hiddenDone > 0 && (
+              <>
+                {" "}
+                {hiddenDone === 1
+                  ? "1 finished task older than 14 days is hidden."
+                  : `${hiddenDone} finished tasks older than 14 days are hidden.`}{" "}
+                <Link
+                  className="font-medium text-accent-text underline-offset-4 hover:underline"
+                  href={`/projects/${project.id}?view=issues&status=DONE`}
+                >
+                  View all done tasks
+                </Link>
+              </>
+            )}
           </p>
         </div>
       )}
@@ -401,8 +427,8 @@ export function BoardView() {
                   >
                     <span className="sr-only">
                       {state === "over"
-                        ? `${count} issues, over the limit of ${status.wipLimit}`
-                        : `${count} issues`}
+                        ? `${count} tasks, over the limit of ${status.wipLimit}`
+                        : `${count} tasks`}
                     </span>
                     <span aria-hidden="true">
                       {count}
@@ -417,7 +443,7 @@ export function BoardView() {
           {lanes.map((lane) => (
             <section
               key={lane.key}
-              aria-label={lane.label ?? "Issues"}
+              aria-label={lane.label ?? "Tasks"}
               className="space-y-2"
             >
               {lane.label !== null && (
@@ -537,7 +563,7 @@ export function BoardView() {
                       {items.filter((i) => i.id !== dragId).length === 0 &&
                         !(dragId !== null && where?.cellId === id) && (
                           <li className="flex flex-1 items-center justify-center rounded-md border border-dashed border-line-strong px-3 py-5 text-center text-meta text-faint">
-                            {canWork ? "Drop an issue here" : "Nothing here"}
+                            {canWork ? "Drop a task here" : "Nothing here"}
                           </li>
                         )}
                     </ul>
@@ -553,8 +579,8 @@ export function BoardView() {
         <div className="flex flex-wrap items-center gap-3 text-body-sm text-muted">
           <span>
             {project.type === "KANBAN"
-              ? "No issues yet."
-              : "This sprint has no issues."}
+              ? "No tasks yet."
+              : "This sprint has no tasks."}
           </span>
           {project.type === "KANBAN" ? (
             canWork && (
@@ -574,9 +600,7 @@ export function BoardView() {
         </div>
       )}
       {shown.length === 0 && filtering && (
-        <p className="text-body-sm text-muted">
-          No issues match these filters.
-        </p>
+        <p className="text-body-sm text-muted">No tasks match these filters.</p>
       )}
 
       {drag && held && grab && <BoardGhost x={drag.x} y={drag.y} grab={grab} />}

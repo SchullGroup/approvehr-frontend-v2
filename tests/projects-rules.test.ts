@@ -482,7 +482,7 @@ describe("workflow rules", () => {
       d.issues,
       status(d, "Done").id,
     );
-    expect(reason).toMatch(/issues are in Done/);
+    expect(reason).toMatch(/tasks are in Done/);
     expect(reason).toMatch(/another status first/);
   });
 
