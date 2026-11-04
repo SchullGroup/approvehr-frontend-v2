@@ -22,6 +22,13 @@
  * are full ISO instants.
  */
 
+import {
+  CATEGORY_LABEL as TERMS_CATEGORY_LABEL,
+  PICKABLE_TYPES,
+  PROJECT_TYPE_LABEL as TERMS_PROJECT_TYPE_LABEL,
+  TYPE_LABEL,
+} from "./terms";
+
 export const PROJECT_TYPES = ["SCRUM", "KANBAN"] as const;
 export type ProjectType = (typeof PROJECT_TYPES)[number];
 
@@ -31,8 +38,12 @@ export type StatusCategory = (typeof STATUS_CATEGORIES)[number];
 export const ISSUE_TYPES = ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"] as const;
 export type IssueType = (typeof ISSUE_TYPES)[number];
 
-/** What a person can pick when creating or retyping an issue. A sub-task is made from a parent. */
-export const PICKABLE_ISSUE_TYPES = ["EPIC", "STORY", "TASK", "BUG"] as const;
+/**
+ * What a person can pick when creating or retyping a task: Task, Problem,
+ * Initiative, in that order. A subtask is made from a parent, and a STORY is
+ * shown and picked as a Task (see `terms.ts`).
+ */
+export const PICKABLE_ISSUE_TYPES: readonly IssueType[] = PICKABLE_TYPES;
 
 export const PRIORITIES = [
   "HIGHEST",
@@ -72,18 +83,11 @@ export const PROJECT_COLOR_NAMES: Record<string, string> = {
   "#3F6212": "Olive",
 };
 
-export const PROJECT_TYPE_LABEL: Record<ProjectType, string> = {
-  SCRUM: "Scrum",
-  KANBAN: "Kanban",
-};
+/* The words for these live in `terms.ts`, which is the one place they are written. */
+export const PROJECT_TYPE_LABEL: Record<ProjectType, string> =
+  TERMS_PROJECT_TYPE_LABEL;
 
-export const ISSUE_TYPE_LABEL: Record<IssueType, string> = {
-  EPIC: "Epic",
-  STORY: "Story",
-  TASK: "Task",
-  BUG: "Bug",
-  SUBTASK: "Sub-task",
-};
+export const ISSUE_TYPE_LABEL: Record<IssueType, string> = TYPE_LABEL;
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
   HIGHEST: "Highest",
@@ -102,11 +106,8 @@ export const PRIORITY_WEIGHT: Record<Priority, number> = {
   LOWEST: 1,
 };
 
-export const CATEGORY_LABEL: Record<StatusCategory, string> = {
-  TODO: "To do",
-  IN_PROGRESS: "In progress",
-  DONE: "Done",
-};
+export const CATEGORY_LABEL: Record<StatusCategory, string> =
+  TERMS_CATEGORY_LABEL;
 
 export type ProjectStatus = {
   id: string;
