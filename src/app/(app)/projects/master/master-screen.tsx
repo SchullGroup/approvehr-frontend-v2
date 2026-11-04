@@ -93,6 +93,7 @@ function Master() {
         description={MASTER_DESCRIPTION}
         tabs={
           <LinkTabs
+            label="Overview sections"
             items={VIEWS.map((id) => ({
               href: hrefFor(id),
               label: MASTER_TAB_LABEL[id],

@@ -252,6 +252,7 @@ function Shell({
           : {})}
         tabs={
           <LinkTabs
+            label={`${program.name} sections`}
             items={viewsFor(program, unassigned).map((v) => ({
               href: hrefFor(v.id),
               label: v.label,
