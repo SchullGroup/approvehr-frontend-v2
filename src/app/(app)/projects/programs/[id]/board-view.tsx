@@ -236,7 +236,7 @@ function Column({
 
 function Card({ row, today }: { row: WorkRow; today: string }) {
   return (
-    <article className="min-w-0 rounded-md border border-line bg-surface p-3 shadow-xs">
+    <article className="relative min-w-0 rounded-md border border-line bg-surface p-3 shadow-xs">
       <div className="flex items-center gap-2">
         <ProjectKeyChip
           project={{ key: row.projectKey, color: row.projectColor }}
@@ -245,7 +245,7 @@ function Card({ row, today }: { row: WorkRow; today: string }) {
       </div>
       <Link
         href={taskHref(row)}
-        className="mt-1.5 block break-words text-body-sm font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+        className="mt-1.5 block break-words text-body-sm font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text after:absolute after:inset-0 after:content-['']"
       >
         {row.title}
       </Link>
@@ -276,7 +276,7 @@ function Card({ row, today }: { row: WorkRow; today: string }) {
       </div>
       <Link
         href={`/projects/${row.projectId}`}
-        className="mt-2 inline-flex items-center gap-1 text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+        className="relative z-10 -mb-2 mt-1 inline-flex min-h-10 items-center gap-1 text-meta font-medium text-accent-text underline-offset-2 hover:underline"
       >
         Open in project
         <ArrowUpRight aria-hidden="true" className="size-3.5" />

@@ -145,7 +145,7 @@ export function ColorChoice({
             }}
             style={{ backgroundColor: color }}
             className={cn(
-              "size-8 rounded-md ring-2 ring-offset-2 ring-offset-surface transition-shadow",
+              "size-8 rounded-md ring-2 ring-offset-2 ring-offset-surface transition-shadow max-sm:size-10",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
               "disabled:cursor-not-allowed disabled:opacity-60",
               on ? "ring-ink" : "ring-transparent hover:ring-line-strong",
@@ -216,7 +216,7 @@ export function WorkloadBars({
               {href ? (
                 <Link
                   href={href}
-                  className="min-w-0 truncate font-medium text-ink underline-offset-2 hover:underline"
+                  className="-my-2.5 min-w-0 truncate py-2.5 font-medium text-ink underline-offset-2 hover:underline"
                 >
                   {person.name}
                 </Link>

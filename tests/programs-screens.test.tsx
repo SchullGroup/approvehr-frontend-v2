@@ -347,6 +347,17 @@ describe("a program's page", () => {
     }
   });
 
+  it("keeps the way back, and the colour swatches, 40px or more on a phone", () => {
+    who = WHO.lead;
+    search = new URLSearchParams("view=settings");
+    render(<ProgramScreen id="pg-ops" />);
+    expect(screen.getByRole("link", { name: /^Back to / }).className).toContain(
+      "min-h-10",
+    );
+    const swatch = screen.getAllByRole("radio")[0]!;
+    expect(swatch.className).toContain("max-sm:size-10");
+  });
+
   it("offers its lead every tab", () => {
     who = WHO.lead;
     render(<ProgramScreen id="pg-ops" />);
@@ -497,6 +508,12 @@ describe("People & access", () => {
       "nobody called this",
     );
     expect(screen.getByText("Nobody matches that search.")).toBeInTheDocument();
+  });
+
+  it("keeps Remove 40px tall on a phone", () => {
+    open();
+    const remove = screen.getAllByRole("button", { name: /^Remove / })[0]!;
+    expect(remove.className).toContain("max-sm:h-10");
   });
 
   it("offers no search and no footer for a small list", () => {

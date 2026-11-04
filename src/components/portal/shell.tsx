@@ -1030,7 +1030,7 @@ export function PageHeader({
                 <button
                   type="button"
                   onClick={() => router.back()}
-                  className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="-my-2.5 inline-flex min-h-10 items-center gap-1 rounded-md pr-2 text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <ChevronLeft aria-hidden="true" className="size-3.5" />
                   Back
@@ -1039,7 +1039,7 @@ export function PageHeader({
                 backCrumb && (
                   <Link
                     href={backCrumb.href}
-                    className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="-my-2.5 inline-flex min-h-10 items-center gap-1 rounded-md pr-2 text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     <ChevronLeft aria-hidden="true" className="size-3.5" />
                     Back to {backCrumb.label}

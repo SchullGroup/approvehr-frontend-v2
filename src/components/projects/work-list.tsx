@@ -344,12 +344,12 @@ function Results({
                 <li
                   key={row.id}
                   role="row"
-                  className={`flex flex-col gap-2 px-4 py-3 ${grid}`}
+                  className={`relative flex flex-col gap-2 px-4 py-3 ${grid}`}
                 >
                   <span role="cell" className="min-w-0">
                     <Link
                       href={taskHref(row)}
-                      className="block min-w-0 text-body-sm font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                      className="block min-w-0 text-body-sm font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text after:absolute after:inset-0 after:content-['']"
                     >
                       <span className="tabular mr-2 text-meta font-semibold text-muted">
                         {row.key}

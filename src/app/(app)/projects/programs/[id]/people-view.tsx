@@ -187,6 +187,7 @@ export function PeopleView() {
                         type="button"
                         variant="ghost"
                         size="sm"
+                        className="max-sm:h-10"
                         aria-label={`Remove ${person.name}`}
                         onClick={() => setRemoving(person)}
                       >

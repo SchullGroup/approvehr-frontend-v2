@@ -438,6 +438,20 @@ describe("a program's Board", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("makes the whole card a 40px-or-more target for opening the task, on a phone too", () => {
+    render(<ProgramScreen id="pg-ops" />);
+    const link = screen.getByText("Newsletter, week 46").closest("a")!;
+    /* The title link is stretched over its card (a link on its own line is about 20px
+       tall), and "Open in project" sits above that stretch with its own 40px height. */
+    expect(link.className).toContain("after:inset-0");
+    expect(link.closest("article")!.className).toContain("relative");
+    const secondary = within(link.closest("article")!).getByRole("link", {
+      name: /Open in project/,
+    });
+    expect(secondary.className).toContain("min-h-10");
+    expect(secondary.className).toContain("z-10");
+  });
+
   it("opens a task in its project to change its stage there", () => {
     render(<ProgramScreen id="pg-ops" />);
     const link = screen.getByText("Newsletter, week 46").closest("a")!;
