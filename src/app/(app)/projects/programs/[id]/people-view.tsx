@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { UserMinus, UsersRound } from "lucide-react";
 import {
   Button,
@@ -11,11 +11,13 @@ import {
   EmptyState,
   Field,
   FieldRow,
+  FilterBar,
   LoadState,
   Select,
   Skeleton,
   useToast,
 } from "@/components/ui";
+import { LoadMore } from "@/components/portal/load-more";
 import { PersonPicker } from "@/components/projects/person";
 import { useProgram } from "@/components/projects/program-context";
 import { LevelBadge } from "@/components/projects/program-parts";
@@ -24,6 +26,9 @@ import type { ProgramPerson } from "@/lib/projects/programs";
 import { LEVEL_LABEL, LEVEL_SENTENCE, PROGRAM } from "@/lib/projects/terms";
 import { useDepartments } from "@/lib/store/departments";
 import { useProgramPeople } from "@/lib/store/programs";
+
+/** How many people the list draws at a time; the rest come with "Load more". */
+const PEOPLE_PAGE = 50;
 
 /**
  * Who has access to a program, and at what level. For its lead and for people who
@@ -46,6 +51,22 @@ export function PeopleView() {
 
   if (removing && removing !== shown) setShown(removing);
   const data = list.data;
+
+  /* The API sends up to a thousand names. The list draws fifty at a time, with a
+     search over all of them, so a large program is not a thousand rows on a page. */
+  const [take, setTake] = useState(PEOPLE_PAGE);
+  const [search, setSearch] = useState("");
+  const matching = useMemo(() => {
+    const everyone = data?.people ?? [];
+    const needle = search.trim().toLowerCase();
+    if (!needle) return everyone;
+    return everyone.filter((p) =>
+      `${p.name} ${p.jobTitle ?? ""} ${p.departmentName ?? ""}`
+        .toLowerCase()
+        .includes(needle),
+    );
+  }, [data, search]);
+  const visible = matching.slice(0, take);
 
   async function confirmRemove() {
     if (!removing) return;
@@ -102,6 +123,19 @@ export function PeopleView() {
             onRetry={list.reload}
             skeleton={<Skeleton className="h-32" />}
           >
+            {data && data.people.length > PEOPLE_PAGE && (
+              <div className="mb-3">
+                <FilterBar
+                  search={search}
+                  onSearchChange={(value) => {
+                    setSearch(value);
+                    setTake(PEOPLE_PAGE);
+                  }}
+                  searchPlaceholder="Search by name, job or department"
+                  searchLabel="Search the people with access"
+                />
+              </div>
+            )}
             {data && (
               <ul className="divide-y divide-line">
                 <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
@@ -115,7 +149,7 @@ export function PeopleView() {
                   </span>
                   <LevelBadge level="LEAD" />
                 </li>
-                {data.people.map((person) => (
+                {visible.map((person) => (
                   <li
                     key={person.employeeId}
                     className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3"
@@ -172,7 +206,25 @@ export function PeopleView() {
                     />
                   </li>
                 )}
+                {data.people.length > 0 && matching.length === 0 && (
+                  <li className="py-3 text-body-sm text-muted">
+                    Nobody matches that search.
+                  </li>
+                )}
               </ul>
+            )}
+            {data && matching.length > PEOPLE_PAGE && (
+              <div className="mt-3">
+                <LoadMore
+                  shown={visible.length}
+                  total={matching.length}
+                  noun={["person", "people"]}
+                  hasMore={visible.length < matching.length}
+                  loading={false}
+                  error={null}
+                  onLoadMore={() => setTake((n) => n + PEOPLE_PAGE)}
+                />
+              </div>
             )}
           </LoadState>
         </CardBody>

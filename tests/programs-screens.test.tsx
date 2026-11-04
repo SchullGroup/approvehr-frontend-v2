@@ -37,10 +37,36 @@ vi.mock("@/components/ui", async (original) => ({
 }));
 
 let actions = fakeProgramActions();
+/** A program with this many people on its list, instead of the engine's three. */
+let crowd = 0;
 vi.mock("@/lib/store/programs", async () => {
   const fixture = await import("./programs-fixture");
   const hooks = fixture.programHooks(() => who);
-  return { ...hooks, useProgramActions: () => actions };
+  return {
+    ...hooks,
+    useProgramActions: () => actions,
+    useProgramPeople: (id: string, enabled: boolean) => {
+      if (crowd === 0) return hooks.useProgramPeople(id, enabled);
+      return {
+        status: "ready" as const,
+        error: null,
+        reload: vi.fn(),
+        data: {
+          lead: { id: "lead", name: "Halima Sani" },
+          total: crowd,
+          capped: false,
+          people: Array.from({ length: crowd }, (_, i) => ({
+            employeeId: `e${i}`,
+            name: `Person ${String(i + 1).padStart(3, "0")}`,
+            jobTitle: i % 2 === 0 ? "Analyst" : "Driver",
+            departmentId: null,
+            departmentName: null,
+            level: "READ" as const,
+          })),
+        },
+      };
+    },
+  };
 });
 
 vi.mock("@/lib/store/projects", () => ({
@@ -106,6 +132,7 @@ const { ProgramScreen } =
   await import("@/app/(app)/projects/programs/[id]/program-screen");
 
 beforeEach(() => {
+  crowd = 0;
   who = WHO.hr;
   search = new URLSearchParams();
   actions = fakeProgramActions();
@@ -443,6 +470,48 @@ describe("People & access", () => {
     search = new URLSearchParams("view=people");
     render(<ProgramScreen id="pg-ops" />);
   };
+
+  it("draws fifty people at a time, with a search over all of them", async () => {
+    crowd = 400;
+    open();
+    const rows = () =>
+      screen.getAllByRole("combobox", { name: /^Access for / });
+    expect(rows()).toHaveLength(50);
+    expect(screen.getByText("Showing 50 of 400 people")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(rows()).toHaveLength(100);
+    /* The search looks through everybody, not only who is drawn. */
+    await userEvent.type(
+      screen.getByLabelText("Search the people with access"),
+      "Person 399",
+    );
+    expect(rows()).toHaveLength(1);
+    expect(
+      screen.getByRole("combobox", { name: "Access for Person 399" }),
+    ).toBeInTheDocument();
+    await userEvent.clear(
+      screen.getByLabelText("Search the people with access"),
+    );
+    await userEvent.type(
+      screen.getByLabelText("Search the people with access"),
+      "nobody called this",
+    );
+    expect(screen.getByText("Nobody matches that search.")).toBeInTheDocument();
+  });
+
+  it("offers no search and no footer for a small list", () => {
+    crowd = 12;
+    open();
+    expect(
+      screen.getAllByRole("combobox", { name: /^Access for / }),
+    ).toHaveLength(12);
+    expect(
+      screen.queryByLabelText("Search the people with access"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Load more" }),
+    ).not.toBeInTheDocument();
+  });
 
   it("says what each level can do, in one plain sentence each", () => {
     open();
