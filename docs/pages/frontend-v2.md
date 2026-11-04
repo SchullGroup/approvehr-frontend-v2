@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `eb5d1d73` (2026-11-04) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `9e203f23` (2026-11-04) · regenerate with `npm run docs`, never by hand
 
-**161 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**162 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   141 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   142 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    11 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
@@ -224,12 +224,13 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Projects
 
-`/projects` — 7 pages
+`/projects` — 8 pages
 
 | Route                     | Title      | What it is                                                             | File                                            |
 | ------------------------- | ---------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
 | `/projects`               | Projects   | —                                                                      | `src/app/(app)/projects/page.tsx`               |
 | `/projects/[id]`          | Project    | —                                                                      | `src/app/(app)/projects/[id]/page.tsx`          |
+| `/projects/master`        | Overview   | —                                                                      | `src/app/(app)/projects/master/page.tsx`        |
 | `/projects/mine`          | My tasks   | Your own list of things to do, apart from any project board.           | `src/app/(app)/projects/mine/page.tsx`          |
 | `/projects/programs`      | Programs   | —                                                                      | `src/app/(app)/projects/programs/page.tsx`      |
 | `/projects/programs/[id]` | Program    | —                                                                      | `src/app/(app)/projects/programs/[id]/page.tsx` |
