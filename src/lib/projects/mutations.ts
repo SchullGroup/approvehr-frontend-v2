@@ -196,13 +196,6 @@ export function patchIssue(
     return { data, issue: current, changes: [], touched: [], applied: {} };
   }
 
-  /* Clearing the date clears the time, as the API does; a time with no date
-     (sent, or left on a task whose date was cleared) is not kept. */
-  if (!next.dueDate && next.dueTime) {
-    next.dueTime = null;
-    if ("dueTime" in applied) delete applied["dueTime"];
-  }
-
   if (next.statusId !== current.statusId) {
     const was = categoryOf(data.project.statuses, current.statusId) === "DONE";
     const is = categoryOf(data.project.statuses, next.statusId) === "DONE";
@@ -297,8 +290,6 @@ export function buildIssue(
     labels: parseLabels((input.labels ?? []).join(",")),
     startDate: input.startDate ?? null,
     dueDate: input.dueDate ?? null,
-    /* A time only ever comes with a date, as the API refuses one without. */
-    dueTime: input.dueDate ? (input.dueTime ?? null) : null,
     rank: rankAtEnd(issues.map((i) => i.rank)),
     doneAt: done ? ctx.now : null,
     goalId: null,

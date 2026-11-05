@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { MyTasksScreen } from "./my-tasks-screen";
 
@@ -9,9 +8,5 @@ export const metadata: Metadata = {
 
 /* A client screen: the list is the signed-in person's own. */
 export default function MyTasksPage() {
-  return (
-    <Suspense fallback={null}>
-      <MyTasksScreen />
-    </Suspense>
-  );
+  return <MyTasksScreen />;
 }

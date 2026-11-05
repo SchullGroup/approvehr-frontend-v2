@@ -16,7 +16,7 @@ describe("describing an issue's history", () => {
         lookup,
       ),
     ).toEqual({
-      verb: "created the task",
+      verb: "created the issue",
       from: null,
       to: null,
     });

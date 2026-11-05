@@ -438,14 +438,6 @@ its questions and puts the cursor in the question box (it never closes a subsect
 and it drops a change you had half made to another question). It is there for somebody who cannot change
 the framework too, because a question belongs to the period and not to the framework.
 
-Each row begins with **how that subsection is answered**, as a plain grey word: **Rated** (a level on a
-scale), **Yes or no** or **Pick one**, then its name. It is in front of the name so that two subsections that
-read alike can be told apart at a glance, and the words line up in a column so the names do too. The
-**Sections and subsections** dialog puts the same word in front of each name. A subsection that has ratings
-recorded on it also has a small grey lock directly after its name; hover it for _Fixed: 12 ratings are
-recorded, in any period._ It is a picture and not a button. The reason, and the way through it, are on **How
-it is rated**, below.
-
 Open a subsection and it has two tabs, which are two views of one subsection and never a choice between them:
 
 - **Questions** — this period's questions filed under that subsection, as read-only rows with a pencil and a
@@ -456,28 +448,9 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   100%, no scores 0%) or **Pick one from a list**, where you write the choices and give each a score in
   percent, then **Save choices**. A choice that anybody has picked keeps its score for good: its score box is
   greyed and reads _Picked 1 time, so its score is fixed. Add a new choice to score it differently._ Its name
-  and its place in the list can still change. The kind is written the moment you pick it, until anybody
-  records an answer on the subsection, in any period. From then on it is fixed, because how a subsection is
-  answered is the same in every period and changing it would make last period's answers mean something else.
-  A line **above** the control says so, with the count: _Fixed: 12 ratings are recorded on this subsection, in
-  any period, and how it is answered applies to every period._ The control is greyed, and **Start a new
-  version** beside it is the way through (below). A yes or no and a pick have no target, so they are left out
-  of the gap list and the heatmap.
-
-  **Start a new version** is there for somebody who can manage settings on a connected company, on a
-  subsection that has ratings. It opens a dialog with **How the new version is answered**, which offers the
-  other two ways and chooses nothing for you, and three lines of what will happen: the old subsection keeps
-  its ratings and every mark made from them, is marked retired and leaves the list; the new one has the same
-  name and section and starts with no ratings; and periods that have not started use the new one (for a
-  pick-one version they stop asking it until its choices are in), while published periods keep the old one, so
-  their forms read as they did. **Start new version** is switched off until a way is chosen. It cannot go
-  ahead while a period that is running asks the subsection on its review form: the API names the period, its
-  sentence is shown in the dialog with your choice still made, and nothing has changed. When it works the new
-  subsection opens, on **How it is rated** for a pick-one version (it needs its choices) and on
-  **Questions** otherwise. A toast says _Started a new version of Teamwork_ with _Teamwork (retired) keeps its
-  12 ratings._ When the API has more to say (which draft periods ask the new one, how many filed questions
-  moved, which job roles no longer expect it, which draft periods stopped asking a pick-one version) the
-  dialog stays up with those sentences, as they came, until **Done**.
+  and its place in the list can still change. The kind is written the moment you pick it, and it is fixed once anybody has
+  recorded an answer on the subsection (the screen says so; start a new subsection to change it). A yes or
+  no and a pick have no target, so they are left out of the gap list and the heatmap.
 
   Under that, and drawn only for somebody who can manage settings on a connected company, is
   **Ask it on the review form**. It is **this period's**, not the company's (hover the (i) beside the
@@ -1396,8 +1369,7 @@ seeded accounts to use.
 period's own weights), 6 (the questions and the subsections), 16 (the no-appraiser warning), 17 and 21
 (answering a review), 22 (recording a level) and 32 (the report), the twelfth surprise and demo step 8, which
 were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated
-subsection asked on the review form, and step 6 on 3 November 2026, for the lock, the answer type in front of a
-subsection's name and starting a new version). Every button label, field name and
+subsection asked on the review form). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

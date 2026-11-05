@@ -105,14 +105,16 @@ export function recordedWords(kind: AnswerKind | undefined): {
     : { a: "an answer", the: "the answer" };
 }
 
-/*
- * Why a kind cannot be changed, said before anybody tries, is `lockedReason` in
- * `new-version.ts`, with the way through it: starting a new version. The API
- * refuses a change too, in its own words, and that sentence is shown as it comes
- * when a refusal arrives (a job role that targets the subsection is one the screen
- * cannot know about). What the screen does know is that a rating exists, and
- * `ratingCount` says so.
+/**
+ * Why a kind cannot be changed, said before anybody tries.
+ *
+ * The API refuses it too, in its own words, and that sentence is shown as it
+ * comes when a refusal arrives (a job role that targets the subsection is one
+ * the screen cannot know about). This is the part the screen does know: a
+ * rating exists, and `ratingCount` says so.
  */
+export const KIND_FROZEN =
+  "This subsection already has ratings recorded, so its answer kind is fixed. Archive it and start a new one to change how it's answered.";
 
 /**
  * The live choices of a `CHOICE` subsection, in the order they are offered.

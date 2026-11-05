@@ -1,6 +1,5 @@
 "use client";
 
-import { DueTimeInput } from "@/components/projects/due-time-input";
 import { useId, useMemo, useState } from "react";
 import { Link2, Trash2 } from "lucide-react";
 import {
@@ -108,7 +107,7 @@ export function IssueDrawer({
            away a half-made choice along with the drawer. */
         if (!closeTopPopup()) onClose();
       }}
-      title={shown ? shown.key : "Task"}
+      title={shown ? shown.key : "Issue"}
       size="xl"
       className="sm:max-w-4xl"
     >
@@ -287,7 +286,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         <nav
-          aria-label="Where this task sits"
+          aria-label="Where this issue sits"
           className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-meta text-muted"
         >
           {epic && (
@@ -323,7 +322,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         </nav>
         {!personal && (
           <IconButton
-            label="Copy link to this task"
+            label="Copy link to this issue"
             size="sm"
             onClick={copyLink}
           >
@@ -332,7 +331,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         )}
         {canWork && (
           <IconButton
-            label="Delete this task"
+            label="Delete this issue"
             size="sm"
             onClick={() => setConfirming(true)}
           >
@@ -350,7 +349,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           <span className="min-w-0 flex-1">
             Delete <strong>{issue.key}</strong>
             {isEpic && kids.length > 0
-              ? `? Its ${kids.length} ${kids.length === 1 ? "task stays" : "tasks stay"}, without an epic.`
+              ? `? Its ${kids.length} ${kids.length === 1 ? "issue stays" : "issues stay"}, without an epic.`
               : kids.length > 0
                 ? ` and its ${kids.length} ${kids.length === 1 ? "sub-task" : "sub-tasks"}?`
                 : "?"}{" "}
@@ -422,7 +421,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                   id={`${base}-kids`}
                   className="text-meta font-semibold text-muted"
                 >
-                  {isEpic ? "Tasks in this epic" : "Sub-tasks"}
+                  {isEpic ? "Issues in this epic" : "Sub-tasks"}
                 </h3>
                 {kids.length > 0 && (
                   <span className="tabular text-meta text-muted">
@@ -865,15 +864,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 save({ dueDate: event.target.value || null })
               }
               className="h-9"
-            />
-          </Row>
-          <Row label="Time" htmlFor={`${base}-due-time`}>
-            <DueTimeInput
-              id={`${base}-due-time`}
-              date={issue.dueDate}
-              value={issue.dueTime}
-              disabled={!canEditDetails}
-              onChange={(next) => save({ dueTime: next })}
             />
           </Row>
 
