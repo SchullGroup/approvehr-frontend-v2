@@ -11399,27 +11399,13 @@ one of them being false stops every upload, from every screen that uploads (leav
 | The file is refused with **"This site is not set up to send files to storage yet"** | The web build's security policy does not name the bucket's address | `NEXT_PUBLIC_UPLOAD_ORIGINS` on the web project, then a **rebuild**: `next.config.ts` reads it when the site is built |
 | **"The upload did not finish. Check your connection and try again."** every time, with a CORS error in the browser console | The bucket has no CORS rule that allows `PUT` from this web origin | The bucket |
 
-**The QA site, `https://approvehr-frontend-v2-three.vercel.app`, is in the first row and the second, and the first is the one that
-matters.** Its API answers `"storage": false` to `GET /api/v1/leave/attachments/limits` (read on 2 November at about 12:30 UTC,
-signed in as the Owner; nothing was created). So on QA the **Supporting file** section is not drawn at all, and the sentence in the
-second row cannot be met there until a bucket exists. Nothing suggests the new API has ever had one: the backend's migration
-`20260909080000_documents_in_postgres` says `S3_BUCKET` "has never been set on any deployment"; nothing since sets it (no `S3_` in
-the workflows, `docs/deployment.md`, the Dockerfile or the README); and the infrastructure repository (last pushed 2026-09-11) has
-no bucket module, and its ECS task role allows only ECS Exec and logs.
-
-The second row is also true there. The QA site's response header on 2 November, read from the live site, is
-`connect-src 'self' https://dev.approvehr.io` and `img-src 'self' data: blob: https://dev.approvehr.io`: no storage address, so the
-browser would block the upload before it left. That was reproduced locally by pointing the API at a storage address the build does
-not name, and the browser reported a `securitypolicyviolation` for `connect-src`. **The third row cannot be asked until a bucket
-exists**, and **preprod and production were not read** (their policy and their storage). CVs on the careers form and files on
-tasks read the same two settings, so they cannot work on QA either (from the code; leave files are the ones that were run).
-
-To put it right, outside this repository: a bucket whose CORS rule allows `PUT` from the web address; `S3_BUCKET` and `S3_REGION`
-(and `S3_ENDPOINT` off AWS) with credentials that can put, get, delete and list on the API; then the bucket's address in
-`NEXT_PUBLIC_UPLOAD_ORIGINS` on the web project, and a rebuild. The address is the origin of any presigned upload link, for example
-`https://<bucket>.s3.<region>.amazonaws.com`; it must be `https:`, and one address, not a wildcard. **Ask for `storage` first.** It
-is one request, and it decides whether anything after it matters: this entry spent a morning on the security policy before that
-request was made.
+**The QA site, `https://approvehr-frontend-v2-three.vercel.app`, is in the second row.** Its response header on 2 November,
+read from the live site, is `connect-src 'self' https://dev.approvehr.io` and `img-src 'self' data: blob: https://dev.approvehr.io`:
+no storage address, so the browser blocks the upload before it leaves. That was reproduced locally by pointing the API at a
+storage address the build does not name, and the browser reported a `securitypolicyviolation` for `connect-src`. **Not known:**
+whether the QA API has a bucket at all (the first row) and whether the bucket's CORS allows the QA origin (the third). Neither
+could be read without signing in. The address to put in `NEXT_PUBLIC_UPLOAD_ORIGINS` is the origin of any presigned upload
+link, for example `https://<bucket>.s3.<region>.amazonaws.com`; it must be `https:`, and one address, not a wildcard.
 
 ## What a person was told, which was wrong twice
 
@@ -11485,130 +11471,7 @@ The walk scripts, the fixtures and the screenshots are in `out/leave-files-debug
 
 ## Not exercised
 
-A real bucket, on QA or anywhere (QA has none, above), so nothing about real signatures' clock skew, a bucket's CORS rule,
-response-header overrides on a real object, or `s3:DeleteObject` on the role; preprod's and production's storage and security
-policy (unread); Safari and a real phone (an iPhone's HEIC through the real picker,
+The QA site itself, and a real bucket, so nothing about real signatures' clock skew, a bucket's CORS rule, response-header
+overrides on a real object, or `s3:DeleteObject` on the role; Safari and a real phone (an iPhone's HEIC through the real picker,
 pop-up blocking, the on-screen keyboard); the Word download in anything but Chromium; a department or office head as the
 approver (the API test covers them); the demo, which has no storage and says so.
-
----
-
-# A locked answer type has a way through, and the answer type leads the name
-
-The product owner, on a call with the QA site on screen, asked why **How it is answered** was greyed out for a subsection in a
-period created a minute earlier, and then asked the question under it: if a subsection is answered yes or no in a period that is
-complete and already has records, can the same subsection be a 1 to 5 rating in another period? **No, and that is the design;
-this is the way through.** How a subsection is answered (`answerKind`) is a column on the subsection, so it is shared by every
-appraisal period, and **any rating in any period locks it**: changing it would make every earlier rating mean something else. On
-QA 13 of 15 subsections were locked for that reason, in a period that did not exist when the ratings were given. What was wrong
-was that the control was greyed with its reason under it, below the part of the dialog that was visible, and with nothing to do
-about it.
-
-Branches `feat/competency-new-version-20261103` in both repositories (the web from `origin/dev`, the API from `origin/staging`),
-neither pushed when this was written. The API half is `POST /performance/competencies/:id/new-version`, and its own note is
-`docs/backend/competency-new-version-handover.md` there. **The backend goes first**: against a server without the route the
-button is offered where the lock is, and the API answers 404.
-
-## What changed
-
-| Where | What |
-| ----- | ---- |
-| Questions dialog, **By section**, a subsection, **How it is rated** (`direct-answer-panel.tsx`) | The reason is **above** the control and says the count and the fact that is not obvious: _Fixed: 12 ratings are recorded on this subsection, in any period, and how it is answered applies to every period._ **Start a new version** sits beside the greyed control. |
-| `new-version-dialog.tsx` (new) | One dialog: **How the new version is answered** (the two other ways, nothing chosen for you), three lines of what will happen, **Start new version**. |
-| By-section rows and the **Sections and subsections** dialog (`subsection-title.tsx`, new) | The word for how it is answered (**Rated**, **Yes or no**, **Pick one**) **leads the name**, in a fixed-width column on every row, level or not. A small lock follows the name of a subsection that has ratings. |
-| `lib/performance/new-version.ts` (new), `performanceApi.newCompetencyVersion`, `useFrameworkActions().newCompetencyVersion` | The words, the call, and the offline refusal. |
-
-## Decisions not to undo
-
-1. **The reason is above the control, with the count and "applies to every period".** The second fact is what answers the
-   question that was actually asked, and it was nowhere on screen. It is said once: the panel's own first sentence ("How it is
-   answered is shared by every appraisal period") is dropped when the reason is showing.
-2. **One way through, in one place.** **Start a new version** is in **How it is rated**, beside the control it explains, and
-   nowhere else. Not a **Duplicate** button on the row: a duplicate leaves two live subsections that read alike, and a new
-   version retires the old one, so there is only ever one live "Teamwork". Not on every row either: the lock is explained where
-   the control is.
-3. **The dialog is held by the tree and not by the panel.** Starting a version retires the subsection the panel is showing, so
-   the re-read that follows removes that row and the panel under it. A dialog the panel owned would be unmounted by the very read
-   its own press causes, in the middle of showing what happened.
-4. **The consequences are three lines on the page above the button, never behind an icon**, and nothing is chosen for the
-   person: **Start new version** waits for a way. What the API did _specifically_ (which draft periods, how many filed
-   questions, which job roles) comes back as its own sentences, and they **stay on screen until Done**, because a toast is gone in
-   six seconds and they say what to do next (add the choices, ask it again). When there are none the dialog closes on a toast.
-5. **A refusal stays in the dialog, with the choice still made**, and the dialog cannot be closed while the request is in flight,
-   so what comes back is never lost behind a dialog that has gone. The one that matters is a period that is **running** and asks
-   the subsection on its review form: the API names it. A 404 says the subsection is gone, **by name** (`kindOf(caught) ===
-   "missing"`): the shared `actionMessage` would have said "The new version is not there any more", about something that was
-   never made.
-6. **After it works, the screen reads the framework, the sections and the period's questions again** (`onQuestionsMoved`),
-   because a draft period's questions moved on the server; a re-read of the framework alone would show the new subsection
-   with none of them and read as them having been lost. The new subsection opens, on **How it is rated** for a pick-one version
-   (it has no choices yet) and on **Questions** otherwise.
-7. **The kind word is in front, on both lists.** In front so that two subsections that read alike are told apart before the name
-   is read to the end, and fixed width so the names start in one column. The question-filing **Subsection** dropdown is **not**
-   changed, on purpose: it tags only the exceptions (a level stays bare), because a dropdown is read an option at a time and a
-   tag on every option says one thing down the whole list.
-8. **The lock is a plain icon with a title and words for a screen reader, and not `AttentionMark` or `InfoTooltip`**: both are
-   buttons, and the row's toggle is a button, and a button inside a button is invalid HTML. The whole reason is on the page above
-   the control, which is where a consequence belongs.
-9. **Demo mode refuses**, in a sentence ("Starting a new version needs the API: the demo framework is fixed."): a framework
-   change kept in one browser reaches no period and moves no mark.
-
-## Found, and not changed
-
-- **The retired subsection is in no list in the web.** There is no Archived view in the tree or in the Sections dialog, so the
-  retired one is seen only through the API (`includeArchived=true`) and, in a published period, as the name its question was asked
-  under. The permanent-delete note (`docs/backend/competency-permanent-delete-handover.md`) already asks the web for an Archived
-  view; this makes it more worth having.
-- **The 409 for changing a kind after a rating still says "archive it and start a new subsection instead"** and does not mention
-  the new route. The picker is disabled beforehand, so it is reached only through the API or a race.
-- **A plain archive of a subsection a running period asks takes the question off the forms and makes the send refuse an answer
-  already given.** The new route refuses that case and the archive does not.
-- **`scaleMax` can still be changed after ratings exist.** A new version copies the scale as it stands.
-
-## Verified
-
-**Backend.** `tests/competency-new-version.test.ts` is 21 tests: the retirement and the new subsection (same name and section,
-no ratings, the chosen kind), a draft period's ask and filed questions moving, a published period still reading the retired
-subsection's question as asked, the refusal naming a running period, the same-kind and switched-off refusals, a retired name
-that is taken (numbered) and one that fills the 80-character limit (the tag kept whole), the job-role note, the audit entry,
-the permission, two requests at once, and tenant isolation. With every performance, competency, job-role and tenant-isolation
-file around it that is 29 files and 760 tests, all passing. `tsc`, ESLint, `format:check`, `verify-lockstep`,
-`verify-legacy-permissions`, `verify-staging-gate`, `verify-permission-queries` and `verify-permission-checks` exit 0. Nothing
-in `prisma/` changed, so there is no migration.
-
-**Eighteen deliberate breaks, and two tests that had to be strengthened.** Seventeen were caught on the first run. The
-one that was not was **the wrong permission on the route**: every caller in the test held `MANAGE_SETTINGS` among others, so
-`EDIT_RECORDS` on the route passed everything. A caller who holds every permission except `MANAGE_SETTINGS` is in the test now,
-and the same break fails it. Separately, the **row lock**: the old two-at-once test checked status codes, which are the same
-with or without the lock, and passed with it removed. The loser's sentence ("is switched off") is pinned now, and that break
-fails it.
-
-**Frontend.** 289 tests in the 12 files that touch the panel, the tree, the Sections dialog, the new dialog and the words
-(`new-version`, `new-version-dialog`, `subsection-title`, `performance-new-version-api`, `questions-dialog-new-version`,
-`sections-dialog-kind`, `subsection-tree`, `direct-answer-panel` and the four neighbours of the ask control), all passing.
-**Sixteen deliberate breaks, sixteen caught**, and two more once they were added: the 404 sentence (the shared
-`actionMessage` would have said "The new version is not there any more") and the number agreement ("1 rating ... every mark
-made from it", which first read "from them"). `tsc --noEmit` exit 0; ESLint and Prettier clean on every file the change
-touches (`HANDOVER.md` and `docs/walkthroughs/performance.md` already failed Prettier on `dev` and are not formatted by it);
-`npm run check` exit 0 with the backend branch beside it, so the cross-repo gates compared and did not print `skip` (its 15 lint
-warnings are not in any file this change touches).
-
-**In a browser**, a production build of the branch against a scratch API running the backend branch, as the administrator:
-38 checks, 37 passed. The one that did not was the walk's own lookup (`limit=200`, where this API pages with `pageSize`, so
-once the scratch company held 28 subsections the 25-row default cut the one being looked for); the subsection read straight
-from the API afterwards was not archived, still a yes or no and still had its 1 rating, which is what the check asserts, and
-the script is fixed. It covered: the answer type leading the name on By-section rows and on the Sections and subsections dialog,
-and the lock directly after the name with its title; the reason above the control, in full; the control disabled and the button
-on the same row; **Start new version** waiting for a choice; the three lines on the page; the request carrying `{"answerKind":
-"BOOLEAN"}` and nothing else; 201, the toast, and the old subsection archived with its rating and named "(retired)" over the API
-while the new one is a yes or no with no ratings; the API's own sentences staying on screen until **Done** (a draft period asks
-the new one and its filed question moved); **All questions** showing the ask on the new subsection; the refusal for a running
-period naming it, with the dialog still open, the choice still made and no re-read; and at 375px with a touch pointer no
-sideways scroll, the button and the dialog inside the screen and a 16px field. No console errors, page errors or 5xx.
-
-## Not exercised
-
-The QA site, and the route on any deployed server (the backend is not merged: until it is, the button is offered where the lock
-is and the API answers 404); iOS Safari or any real device; a **published** period's form after a new version, and the job-role
-note, in a browser (the backend tests cover both and no walk did); demo mode in a browser (a test covers the refusal); a company
-with real data; the whole backend suite in one run.

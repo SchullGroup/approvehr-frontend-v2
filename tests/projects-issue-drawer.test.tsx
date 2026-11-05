@@ -116,13 +116,13 @@ describe("what the drawer shows", () => {
   it("places the issue under its epic in the breadcrumb", () => {
     renderDrawer();
     expect(
-      screen.getByRole("navigation", { name: "Where this task sits" }),
+      screen.getByRole("navigation", { name: "Where this issue sits" }),
     ).toHaveTextContent("CHK-1");
   });
 
   it("shows an epic's stories instead of sub-tasks, with dates and no points", () => {
     renderDrawer("CHK-1");
-    expect(screen.getByText("Tasks in this epic")).toBeInTheDocument();
+    expect(screen.getByText("Issues in this epic")).toBeInTheDocument();
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
@@ -148,7 +148,9 @@ describe("what the drawer shows", () => {
       screen.getByRole("complementary", { name: "Details" }),
     );
     expect(details.getByLabelText("Status")).toBeDisabled();
-    expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Delete this issue"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Add a comment")).not.toBeInTheDocument();
   });
 });
@@ -413,7 +415,7 @@ describe("saving the description", () => {
 describe("deleting", () => {
   it("says what goes with the issue before it goes, then deletes and closes", async () => {
     const { actions, onClose, issue } = renderDrawer();
-    await userEvent.click(screen.getByLabelText("Delete this task"));
+    await userEvent.click(screen.getByLabelText("Delete this issue"));
     const confirm = screen.getByRole("alertdialog", { name: "Delete CHK-10" });
     expect(confirm).toHaveTextContent("and its 3 sub-tasks");
     expect(confirm).toHaveTextContent("cannot be undone");
@@ -426,7 +428,7 @@ describe("deleting", () => {
 
   it("can be called off", async () => {
     const { actions } = renderDrawer();
-    await userEvent.click(screen.getByLabelText("Delete this task"));
+    await userEvent.click(screen.getByLabelText("Delete this issue"));
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(actions.deleteIssue).not.toHaveBeenCalled();
@@ -434,15 +436,15 @@ describe("deleting", () => {
 
   it("says an epic's stories stay, rather than going with it", async () => {
     renderDrawer("CHK-1");
-    await userEvent.click(screen.getByLabelText("Delete this task"));
+    await userEvent.click(screen.getByLabelText("Delete this issue"));
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "tasks stay, without an epic",
+      "issues stay, without an epic",
     );
   });
 
   it("does not mention sub-tasks when there are none", async () => {
     renderDrawer("CHK-14");
-    await userEvent.click(screen.getByLabelText("Delete this task"));
+    await userEvent.click(screen.getByLabelText("Delete this issue"));
     expect(screen.getByRole("alertdialog")).not.toHaveTextContent("sub-task");
   });
 });
@@ -599,7 +601,7 @@ describe("history", () => {
     const items = within(dialog()).getAllByRole("listitem");
     const text = items.map((li) => li.textContent ?? "");
     const changed = text.findIndex((t) => t.includes("changed priority"));
-    const created = text.findIndex((t) => t.includes("created the task"));
+    const created = text.findIndex((t) => t.includes("created the issue"));
     expect(changed).toBeGreaterThan(-1);
     expect(created).toBeGreaterThan(changed);
     expect(text[changed]).toContain("Chidi Nwosu");
@@ -829,7 +831,9 @@ describe("somebody's personal task", () => {
     expect(details.getByLabelText("Due")).toBeEnabled();
     expect(details.getByLabelText("Status")).toBeDisabled();
     expect(details.getByLabelText("Priority")).toBeDisabled();
-    expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Delete this issue"),
+    ).not.toBeInTheDocument();
 
     const summary = screen.getByLabelText("Summary");
     await userEvent.clear(summary);

@@ -18,7 +18,6 @@
  * - **Done** is the status's *category*, never its name, as everywhere else.
  */
 
-import { isPastDue } from "./due";
 import { addDays, daysBetween } from "./dates";
 import { sumPoints } from "./progress";
 import type {
@@ -48,6 +47,7 @@ export function pointsOf(issues: readonly Issue[]): number {
 export type ReportTiles = {
   open: { issues: number; points: number };
   doneInWeek: { issues: number; points: number };
+  bugs: { open: number; high: number };
   overdue: number;
 };
 
@@ -55,20 +55,20 @@ export type ReportTiles = {
 export const DONE_WINDOW_DAYS = 7;
 
 /**
- * The three tiles.
+ * The four tiles.
  *
  * - **Open**: not done, not an epic; the points still to do.
  * - **Done in 7 days**: finished today or in the six days before it, in the
  *   company's calendar; the points that shipped.
- * - **Overdue**: not done and past its deadline: an earlier day, or today at
- *   or after its due time (`nowHHMM`, the company's clock; without it, days only).
+ * - **Open bugs**: open issues of type bug, and how many of those are high or
+ *   highest priority.
+ * - **Overdue**: a due date before today on an issue that is not done.
  */
 export function reportTiles(args: {
   statuses: readonly ProjectStatus[];
   issues: readonly Issue[];
   today: string;
   dayOf: (instant: string) => string | null;
-  nowHHMM?: string;
 }): ReportTiles {
   const { statuses, today, dayOf } = args;
   const all = args.issues.filter(isCounted);
@@ -79,14 +79,18 @@ export function reportTiles(args: {
     const day = dayOf(issue.doneAt);
     return day !== null && day >= since;
   });
+  const bugs = open.filter((issue) => issue.type === "BUG");
   return {
     open: { issues: open.length, points: pointsOf(open) },
     doneInWeek: { issues: doneInWeek.length, points: pointsOf(doneInWeek) },
-    overdue: open.filter((issue) =>
-      args.nowHHMM
-        ? isPastDue(issue, today, args.nowHHMM)
-        : issue.dueDate !== null && issue.dueDate < today,
-    ).length,
+    bugs: {
+      open: bugs.length,
+      high: bugs.filter(
+        (bug) => bug.priority === "HIGHEST" || bug.priority === "HIGH",
+      ).length,
+    },
+    overdue: open.filter((issue) => issue.dueDate && issue.dueDate < today)
+      .length,
   };
 }
 

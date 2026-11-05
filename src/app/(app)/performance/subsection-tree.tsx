@@ -24,6 +24,7 @@ import type {
 } from "@/lib/api/performance";
 import {
   ANSWER_KINDS,
+  KIND_BADGE,
   answerKindOf,
   kindOptionLabel,
 } from "@/lib/performance/answer-kind";
@@ -32,9 +33,7 @@ import { useFrameworkActions } from "@/lib/store/performance";
 import type { FrameworkGroup } from "@/lib/store/performance";
 import { actionMessage } from "@/lib/use-action";
 import { DirectAnswerPanel } from "./direct-answer-panel";
-import { NewVersionDialog } from "./new-version-dialog";
 import { CountsTowards } from "./sections-dialog";
-import { KindTag, LockMark } from "./subsection-title";
 
 /**
  * The company's sections and subsections, and how each subsection is answered.
@@ -79,21 +78,6 @@ import { KindTag, LockMark } from "./subsection-title";
  * sentence at the top says so, because the two kinds sit on one screen and a
  * change to the first reaches every period and a change to the second reaches
  * one.
- *
- * ## A row says how it is answered before it says what it is called
- *
- * The word that says how a subsection is answered leads its name (`KindTag`), so
- * two that read alike are told apart at a glance, and a small lock follows the
- * name of one whose answer type is fixed by the ratings on it (`LockMark`). The
- * reason, and the way through it, are on the How it is rated tab.
- *
- * ## A new version is started from here, not from the panel
- *
- * Starting one retires the subsection the panel is showing, so the dialog is held
- * by the tree: it outlives the row. After it, the tree opens the new subsection
- * (on its choices, for a pick-one one, since that is what it needs next) and tells
- * whoever owns the period's questions to read them again, because a draft period's
- * questions moved to the new subsection on the server.
  */
 
 /** A section as a picker or the tree lists it. */
@@ -193,7 +177,6 @@ export function SubsectionTree({
   onChanged,
   renderQuestions,
   ask,
-  onQuestionsMoved,
 }: {
   periodName: string;
   sections: readonly SectionOption[];
@@ -234,20 +217,12 @@ export function SubsectionTree({
    * control, rather than offering one that says "Not asked" without knowing.
    */
   ask?: SubsectionAsk;
-  /**
-   * Called after a new version of a subsection has been started. A draft period's
-   * questions are moved to the new subsection on the server, so whoever holds the
-   * period's questions has to read them again. Absent, nothing else holds them.
-   */
-  onQuestionsMoved?: () => void;
 }) {
   const baseId = useId();
   const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<{ id: string; tab: PanelTab } | null>(
     null,
   );
-  /** The subsection a new version is being started of, while that dialog is up. */
-  const [versioning, setVersioning] = useState<ApiCompetency | null>(null);
 
   const unfiled = competencies.filter((one) => !one.sectionId);
   const sectionById = new Map(sections.map((one) => [one.id, one]));
@@ -298,11 +273,12 @@ export function SubsectionTree({
                 onClick={toggle}
                 className="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2 rounded-md p-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
               >
-                <KindTag kind={kind} />
                 <span className="text-body-sm font-medium text-ink">
                   {competency.name}
                 </span>
-                <LockMark ratingCount={competency.ratingCount} />
+                <Badge tone="neutral" size="sm">
+                  {KIND_BADGE[kind]}
+                </Badge>
                 {questions > 0 && (
                   <Badge tone="neutral" size="sm">
                     {questions === 1
@@ -371,9 +347,6 @@ export function SubsectionTree({
                       whyNot={whyNot}
                       onChanged={onChanged}
                       {...(ask ? { ask } : {})}
-                      {...(editable
-                        ? { onStartNewVersion: setVersioning }
-                        : {})}
                     />
                   ) : (
                     renderQuestions(competency, section)
@@ -484,25 +457,6 @@ export function SubsectionTree({
             : `${String(unfiledQuestionCount)} questions in this period are not filed under a subsection.`}{" "}
           They are in All questions.
         </p>
-      )}
-
-      {versioning && (
-        <NewVersionDialog
-          key={versioning.id}
-          competency={versioning}
-          onClose={() => setVersioning(null)}
-          onStarted={(result, kind) => {
-            /* A pick-one subsection has no choices yet, so that is where it
-               opens; every other kind opens on its questions, as any does. */
-            setPicked({
-              id: result.competency.id,
-              tab: kind === "CHOICE" ? "direct" : "questions",
-            });
-            onChanged();
-            onQuestionsMoved?.();
-            onSelect(result.competency);
-          }}
-        />
       )}
     </div>
   );

@@ -3,7 +3,7 @@ import { ProjectScreen } from "./project-screen";
 
 export const metadata: Metadata = {
   title: "Project",
-  description: "A project's board, tasks, sprints and settings.",
+  description: "A project's board, issues, sprints and settings.",
 };
 
 export default async function ProjectPage({

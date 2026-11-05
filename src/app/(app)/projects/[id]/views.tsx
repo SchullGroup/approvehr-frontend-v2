@@ -82,7 +82,7 @@ export const PROJECT_VIEWS: readonly ProjectViewDef[] = [
   },
   {
     id: "issues",
-    label: "All tasks",
+    label: "All issues",
     icon: <Table2 />,
     Component: IssuesView,
   },

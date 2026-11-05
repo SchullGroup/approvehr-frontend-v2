@@ -15,6 +15,7 @@ import { NoticeLine } from "@/components/portal/notice-line";
 import type { AnswerKind, ApiCompetency } from "@/lib/api/performance";
 import {
   ANSWER_KINDS,
+  KIND_FROZEN,
   answerKindOf,
   choiceProblems,
   choicesOf,
@@ -29,10 +30,6 @@ import {
   scoreIsFixed,
   type ChoiceDraft,
 } from "@/lib/performance/answer-kind";
-import {
-  NEW_VERSION_BUTTON,
-  lockedReason,
-} from "@/lib/performance/new-version";
 import {
   ASKED_CHOICES,
   ASKED_CONSEQUENCE,
@@ -90,22 +87,12 @@ import { actionMessage } from "@/lib/use-action";
  * used only while that is still the competency the panel is handed, so the next
  * read, which hands over a new one, is believed instead.
  *
- * ## The kind is fixed once a rating exists, and there is a way through
+ * ## The kind is fixed once a rating exists
  *
- * `ratingCount` already says so, so the picker is disabled with the reason above it
- * before anybody tries: how many ratings, in any period, and that how a subsection
- * is answered applies to every period. That second fact is why a subsection rated
- * as a yes or no in a finished period cannot be a level in the next one, and it is
- * the question the reason exists to answer.
- *
- * The way through is **Start a new version** beside the picker: the old subsection
- * keeps its ratings under a retired name and a new one, answered the new way,
- * starts empty. It is offered only here, where the lock is explained, and not on
- * every row. What it asks and what it says is the dialog's; this only opens it.
- *
- * What the screen cannot know is a job role that targets the subsection, which the
- * API also refuses, and that refusal arrives as its sentence naming the roles and is
- * shown verbatim.
+ * `ratingCount` already says so, so the picker is disabled with the reason before
+ * anybody tries. What it cannot know is a job role that targets the subsection,
+ * which the API also refuses, and that refusal arrives as its sentence naming the
+ * roles and is shown verbatim.
  */
 export function DirectAnswerPanel({
   competency,
@@ -114,7 +101,6 @@ export function DirectAnswerPanel({
   whyNot,
   onChanged,
   ask,
-  onStartNewVersion,
 }: {
   competency: ApiCompetency;
   /** The section it is filed under, as the tree knows it. `null` when unfiled. */
@@ -130,12 +116,6 @@ export function DirectAnswerPanel({
    * "Ask it on the review form" control at all: the period cannot be asked.
    */
   ask?: SubsectionAsk;
-  /**
-   * Open the dialog that starts a new version of this subsection. Offered only
-   * where the kind is fixed and can be written, so it is the caller that decides
-   * whether the control is here at all.
-   */
-  onStartNewVersion?: (competency: ApiCompetency) => void;
 }) {
   const { updateCompetency } = useFrameworkActions();
   const [confirmed, setConfirmed] = useState<{
@@ -173,9 +153,8 @@ export function DirectAnswerPanel({
     <div className="flex flex-col gap-4">
       <p className="text-body-sm text-muted">
         {competency.name} is answered directly when a manager or HR records an
-        answer on it, under Competency ratings, with Record a level.
-        {/* Said once: a fixed subsection says it in the reason below. */}
-        {!frozen && " How it is answered is shared by every appraisal period."}
+        answer on it, under Competency ratings, with Record a level. How it is
+        answered is shared by every appraisal period.
       </p>
 
       {error && (
@@ -184,40 +163,25 @@ export function DirectAnswerPanel({
         </Callout>
       )}
 
-      {frozen && (
-        <NoticeLine tone="muted">
-          <span>{lockedReason(competency.ratingCount)}</span>
-        </NoticeLine>
-      )}
-
       <Field label="How it is answered">
-        <div className="flex flex-wrap gap-2">
-          <Select
-            value={kind}
-            className="flex-1 basis-48"
-            disabled={!editable || frozen || busy}
-            onChange={(event) => void change(event.target.value as AnswerKind)}
-          >
-            {ANSWER_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {kindOptionLabel(option, competency.scaleMax)}
-              </option>
-            ))}
-          </Select>
-          {frozen && editable && onStartNewVersion && (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={busy}
-              onClick={() => onStartNewVersion(competency)}
-            >
-              <Plus aria-hidden="true" className="size-3.5" />
-              {NEW_VERSION_BUTTON}
-            </Button>
-          )}
-        </div>
+        <Select
+          value={kind}
+          disabled={!editable || frozen || busy}
+          onChange={(event) => void change(event.target.value as AnswerKind)}
+        >
+          {ANSWER_KINDS.map((option) => (
+            <option key={option} value={option}>
+              {kindOptionLabel(option, competency.scaleMax)}
+            </option>
+          ))}
+        </Select>
       </Field>
 
+      {frozen && (
+        <NoticeLine tone="muted">
+          <span>{KIND_FROZEN}</span>
+        </NoticeLine>
+      )}
       {!editable && whyNot && (
         <NoticeLine tone="muted">
           <span>{whyNot}</span>

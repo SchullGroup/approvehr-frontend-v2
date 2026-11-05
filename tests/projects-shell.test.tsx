@@ -169,7 +169,7 @@ describe("the project", () => {
       ["Backlog", "/projects/pj-chk?view=backlog"],
       ["Roadmap", "/projects/pj-chk?view=roadmap"],
       ["Reports", "/projects/pj-chk?view=reports"],
-      ["All tasks", "/projects/pj-chk?view=issues"],
+      ["All issues", "/projects/pj-chk?view=issues"],
       ["Settings", "/projects/pj-chk?view=settings"],
     ]);
     expect(
@@ -222,14 +222,14 @@ describe("the project", () => {
     view = ready(sampleData(), true);
     render(<ProjectScreen id="pj-chk" />);
     expect(
-      screen.getByText("Only the first 5,000 tasks are shown"),
+      screen.getByText("Only the first 5,000 issues are shown"),
     ).toBeInTheDocument();
   });
 
-  it("offers Create task to a member and not to anybody else", async () => {
+  it("offers Create issue to a member and not to anybody else", async () => {
     render(<ProjectScreen id="pj-chk" />);
     expect(
-      screen.getByRole("button", { name: /Create task/ }),
+      screen.getByRole("button", { name: /Create issue/ }),
     ).toBeInTheDocument();
   });
 });
@@ -337,19 +337,19 @@ describe("the keys", () => {
     render(<ProjectScreen id="pj-chk" />);
     await userEvent.keyboard("c");
     expect(await screen.findByRole("dialog")).toHaveTextContent(
-      "Create a task",
+      "Create an issue",
     );
   });
 
   it("c types a c in a text box rather than opening anything", async () => {
     render(<ProjectScreen id="pj-chk" />);
     await userEvent.click(
-      screen.getByLabelText("Search tasks by key, title or label"),
+      screen.getByLabelText("Filter issues by key, title or label"),
     );
     await userEvent.keyboard("c");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      screen.getByLabelText("Search tasks by key, title or label"),
+      screen.getByLabelText("Filter issues by key, title or label"),
     ).toHaveValue("c");
   });
 
@@ -365,7 +365,7 @@ describe("the keys", () => {
     render(<ProjectScreen id="pj-chk" />);
     await userEvent.keyboard("/");
     expect(
-      screen.getByLabelText("Search tasks by key, title or label"),
+      screen.getByLabelText("Filter issues by key, title or label"),
     ).toHaveFocus();
   });
 
