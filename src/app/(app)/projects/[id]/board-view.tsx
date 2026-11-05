@@ -33,6 +33,7 @@ import {
   laneGroups,
   resolveDrop,
   sprintStrip,
+  subtaskTallies,
   type Swimlanes,
 } from "@/lib/projects/board";
 import { applyFilter, isFiltering } from "@/lib/projects/filters";
@@ -99,6 +100,10 @@ export function BoardView() {
         doneDayOf: dayOf,
       }),
     [project, issues, sprints, today, dayOf],
+  );
+  const tallies = useMemo(
+    () => subtaskTallies(project.statuses, issues),
+    [project.statuses, issues],
   );
   const shown = useMemo(
     () => applyFilter(scope.issues, filter, meId),
@@ -496,11 +501,7 @@ export function BoardView() {
                             >
                               <IssueCard
                                 issue={issue}
-                                parent={
-                                  issue.parentId
-                                    ? (issueById.get(issue.parentId) ?? null)
-                                    : null
-                                }
+                                subtasks={tallies.get(issue.id) ?? null}
                                 epic={
                                   issue.epicId
                                     ? (issueById.get(issue.epicId) ?? null)

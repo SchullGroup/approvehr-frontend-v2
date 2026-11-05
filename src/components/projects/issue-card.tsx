@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowRightLeft, GripVertical } from "lucide-react";
+import { ArrowRightLeft, GripVertical, ListTree } from "lucide-react";
 import { cn } from "@/lib/cn";
+import type { SubtaskTally } from "@/lib/projects/board";
 import { isBefore } from "@/lib/projects/dates";
 import type { Issue, ProjectStatus } from "@/lib/projects/types";
 import { shortDate } from "@/lib/today";
@@ -34,7 +35,7 @@ import { AssigneeStack } from "./assignees";
  */
 export function IssueCard({
   issue,
-  parent,
+  subtasks,
   epic,
   statuses,
   people,
@@ -47,7 +48,8 @@ export function IssueCard({
   onMove,
 }: {
   issue: Issue;
-  parent: Issue | null;
+  /** Its sub-tasks, which live inside it rather than on cards of their own. */
+  subtasks: SubtaskTally | null;
   epic: Issue | null;
   statuses: readonly ProjectStatus[];
   people: People;
@@ -96,11 +98,6 @@ export function IssueCard({
           )}
 
           <div className="min-w-0 flex-1 space-y-2">
-            {parent && (
-              <span className="block truncate text-meta text-faint">
-                {parent.key} · {parent.title}
-              </span>
-            )}
             <button
               type="button"
               onClick={onOpen}
@@ -132,6 +129,23 @@ export function IssueCard({
                 </span>
               )}
               <span className="ml-auto flex items-center gap-2">
+                {subtasks && (
+                  <span
+                    className={cn(
+                      "flex items-center gap-1 text-meta tabular-nums",
+                      subtasks.done === subtasks.total
+                        ? "text-success-text"
+                        : "text-muted",
+                    )}
+                  >
+                    <ListTree aria-hidden="true" className="size-3.5" />
+                    {subtasks.done}/{subtasks.total}
+                    <span className="sr-only">
+                      {" "}
+                      sub-tasks done
+                    </span>
+                  </span>
+                )}
                 <PriorityIcon priority={issue.priority} />
                 {issue.points !== null && <PointsPill points={issue.points} />}
                 <AssigneeStack people={people} ids={assigneesOf(issue)} />

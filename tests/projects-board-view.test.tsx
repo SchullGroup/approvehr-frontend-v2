@@ -72,7 +72,7 @@ describe("the sprint board", () => {
     renderBoard();
     expect(
       screen.getByRole("heading", { name: "In Progress" }).parentElement,
-    ).toHaveTextContent("3/5");
+    ).toHaveTextContent("2/5");
     expect(
       screen.getByRole("heading", { name: "In Review" }).parentElement,
     ).toHaveTextContent("1/3");
@@ -80,6 +80,35 @@ describe("the sprint board", () => {
     expect(
       screen.getByRole("heading", { name: "To Do" }).parentElement,
     ).not.toHaveTextContent("/");
+  });
+
+  it("shows sub-tasks only inside their parent: no card of their own, a count on the parent's", () => {
+    const data = sampleData();
+    const sprint = data.sprints.find((sp) => sp.state === "ACTIVE")!;
+    const subs = data.issues.filter(
+      (i) => i.type === "SUBTASK" && i.sprintId === sprint.id,
+    );
+    expect(subs.length).toBeGreaterThan(0);
+    renderBoard(data);
+    for (const sub of subs) {
+      expect(
+        screen.queryByRole("button", {
+          name: (name) => name.includes(sub.title),
+        }),
+      ).not.toBeInTheDocument();
+    }
+    const parent = data.issues.find((i) => i.id === subs[0]!.parentId)!;
+    const kids = data.issues.filter((i) => i.parentId === parent.id);
+    const doneIds = new Set(
+      data.project.statuses
+        .filter((st) => st.category === "DONE")
+        .map((st) => st.id),
+    );
+    const done = kids.filter((k) => doneIds.has(k.statusId)).length;
+    const card = screen
+      .getByRole("button", { name: (name) => name.includes(parent.title) })
+      .closest("article")!;
+    expect(card).toHaveTextContent(`${done}/${kids.length} sub-tasks done`);
   });
 
   it("says a column is over its limit in words, not only in colour", () => {
@@ -98,7 +127,7 @@ describe("the sprint board", () => {
       name: "In Progress",
     }).parentElement!;
     expect(head).toHaveTextContent("over the limit of 1");
-    expect(within(head).getByText("3/1").parentElement).toHaveClass(
+    expect(within(head).getByText("2/1").parentElement).toHaveClass(
       "text-warning-text",
     );
   });
@@ -231,9 +260,9 @@ describe("dragging a card", () => {
 
   it("writes nothing for a drop where the card already is", () => {
     const { actions } = renderBoard();
-    /* CHK-26 is the last card in To Do; dropping it on its own column, at the
+    /* CHK-14 is the last card in To Do; dropping it on its own column, at the
        end, changes neither its status nor its place. */
-    drag("CHK-26", cell("To Do"));
+    drag("CHK-14", cell("To Do"));
     expect(actions.patchIssue).not.toHaveBeenCalled();
   });
 
