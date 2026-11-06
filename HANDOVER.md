@@ -10359,12 +10359,14 @@ staff list has no emails, so the Assigned to box is a plain email box). Everywhe
 
 ## Found, and not changed
 
-- **The appraiser map counts people the period does not appraise.** In the walk, **Nobody appraising** read 2 while the new
-  Fill in line named one person. The other was the HR manager, who has a manager recorded and holds the HR manager role,
-  and the period had **Appraise the HR manager** off, so it never gave her a form. The map is deliberately a view over
-  people and not over the period (its `cycle` argument is absent on purpose, and the comment says so), so it lists and
-  counts her. The Fill in line comes from the server's `withoutManager`, which is about the period, so it is the one that
-  matches what will happen. Whether the tile should leave such people out is a backend and product call.
+- **The appraiser map counted people the period does not appraise, and the API now reads the period.** In the walk,
+  **Nobody appraising** read 2 while the new Fill in line named one person: the other was the HR manager, whom the
+  period was set not to appraise. It was the common case, not an edge: `appraiseOwner` and `appraiseHrManager` default to
+  off, so out of the box every period listed the Owner and the HR manager as blockers for people who would never get a form,
+  and a period scoped to some departments listed all the others. `appraiserMap` read the whole company because
+  `participantsFor` was never given the period. It reads the same population `activateCycle` and the register read now
+  (backend `fix/appraiser-map-period-scope-20261106`, note `docs/backend/appraiser-map-period-scope-handover.md`), keeping
+  anybody who has been given an appraiser there. No web change: the tiles show what the API sends.
 - **`out/removed-2026-10-28c/` held an agent's unfinished work for R1 to R5.** It had stopped without reporting. Its
   backend half was rebuilt on a fresh `staging` and its frontend half on a fresh `dev`, then reviewed and tested as new
   code, and the preselect defect above is why that was worth doing.
@@ -11470,11 +11472,12 @@ The walk scripts, the fixtures and the screenshots are in `out/leave-files-debug
 
 ## Found, and not changed
 
-- **`GET /leave/balances?employeeIds=` is a 404 on `staging` and on `main`.** The web calls it (`balancesForMany`, added in
-  `072c8a09`, whose message calls the route "new"); the API defines only `GET /leave/balances/:id`. `/people/leave` renders
-  without balances ("Annual leave used —") and the booking dialog never shows "N days left afterwards", with a 404 in the
-  console and no message. It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and still true. Either side can fix it
-  (the route, or a fallback to the single-id one); it is not about files.
+- **`GET /leave/balances?employeeIds=` was a 404 on `staging` and on `main`, and the route now exists.** The web called it
+  (`balancesForMany`, added in `072c8a09`) and the API defined only `GET /leave/balances/:id`, so `/people/leave` rendered
+  without balances ("Annual leave used —") and the booking dialog never showed "N days left afterwards", with a 404 in the
+  console and no message. It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md`. Backend `fix/leave-balances-many-20261106`
+  adds it as the web documents it: `VIEW_SALARIES` outright, 1 to 200 ids, the same arithmetic as the single-id route, and `[]`
+  for an id that is not the company's. No web change was needed.
 - **The API does not route a request to anybody; the web form does.** `approverId` is whatever the client sends
   (`approverFor` in `book-leave.tsx`). A request raised any other way shows "Approver —" and reaches nobody's inbox. The
   person's manager can still open and decide it by its address (decided by standing, tested at the API), so the manager's
@@ -11950,19 +11953,18 @@ with no `Authorization` header and no cookie. Seen on screen:
   into a new tab and did not navigate the page; **Approve** with a note stored the note.
 - **The employee** added a PDF to a request that was still open, then removed it: the confirmation said "The copy that was uploaded
   stays where it was stored." and did not say "deleted".
-- No page error and no 5xx in any of it. The console's 404s are the known `GET /leave/balances?employeeIds=`
-  (see below), not this change.
+- No page error and no 5xx in any of it. The console's 404s were `GET /leave/balances?employeeIds=`, which the API did not have then
+  (it does now, see "Found, not changed" below), not this change.
 
 **Not exercised.** The real uploader: what it answers to a browser's preflight and to a JSON `POST` from this origin is unknown, and
 the stand-in was written to allow it. The real address was never used. A bucket on the API (`storage: true`, so the stored route);
 Safari and any real phone; demo mode in a browser (the columns are absent there by a test); an office or department head as the
 approver; and the whole vitest suite (`vitest related` and the gates were run, `npm run check` exit 0 with the backend branch beside it).
 
-**Found, not changed.** The web calls `GET /leave/balances?employeeIds=` (`balancesForMany`) and `origin/staging` has only
-`GET /leave/balances/:id`, so on a real API `/people/leave` logs 404s and shows no balances ("Annual leave used —") and the booking
-dialog never says "N days left afterwards". It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and was true before this change.
-Either side can close it (the route, or a fallback to the single-id one). Also: the drawer title of a type whose own name ends in
-"leave" reads "Study leave leave", because it appends "leave" to every type.
+**Found, not changed, and since fixed.** The web called `GET /leave/balances?employeeIds=` (`balancesForMany`) and `origin/staging` had only
+`GET /leave/balances/:id`, so on a real API `/people/leave` logged 404s and showed no balances; the route now exists (see the entry at the end of
+this file). And the drawer title of a type whose own name ends in "leave" read "Study leave leave", because it appended "leave" to every type;
+that is fixed too, in the web and in the API's stored titles ("A leave type named "Study leave" is not "Study leave leave"" below).
 
 ## Deliberately not done
 
@@ -12078,3 +12080,36 @@ offered again, the `isPaid` description claiming pay).
 
 Not exercised in a browser: nothing was signed into for this pass, and the backend route has
 not run on a deployed server.
+
+# A leave type named "Study leave" is not "Study leave leave"
+
+Found on 6 November while listing what was known to be wrong: the drawer for a request read **"Study leave leave · Ada Eze"**. Leave
+types are named by the company, and the ones people write are "Study leave" and "Annual leave" as often as "Study" and "Annual". Eight
+places wrote `${type} leave`, in the drawer, three dialogs, the approvals inbox row, a demo notification and the evidence callout. One
+file, `leave-decided-copy.ts`, already had a private function that knew better, and nobody else used it.
+
+## What it is now
+
+`leaveLabel(type, casing?)` in `src/lib/leave-label.ts` is the one place the phrase is built: the name plus "leave" unless it already ends
+with that whole word (case-insensitive, trimmed). `"as-named"` keeps the company's capitals for a title ("Study leave, Ada");
+`"lower"` is for the middle of a sentence ("Your sick leave was withdrawn"). "Leave" alone is complete; "Leaves of absence" and "Leave
+without pay" are not. All eight sites use it, and the private function in `leave-decided-copy.ts` is now a one-line use of it.
+
+**`tests/leave-label.test.ts` reads the source for the pattern** (`${...leaveType|.type|chosenType|typeName...} leave`), so a ninth place
+that forgets is found by the suite and not by a person reading a drawer. The guard was checked to fail by putting three of the sites back.
+
+## The API writes the same string
+
+The titles of an approvals inbox row and of the notification that points at it are built **on the API** and stored, so fixing the web alone
+leaves them doubled in the inbox and the bell. Backend branch `fix/leave-type-label-20261106`: its own `leaveLabel`, used by the two writers,
+and a data-only migration that repairs the titles already stored. **The two halves are independent**; either can merge first, and each fixes
+what it words. Until the backend half is on a server, a type named "Study leave" still shows the doubled title in the inbox.
+
+## Verified
+
+`leave-label` (8) and 395 tests across the 30 leave, approvals and queue files. Six deliberate breaks, each caught: the helper always
+appending, the queue row reverted, the drawer title reverted, the evidence callout reverted, the demo notification reverted, and the
+lower-casing lost. `npm run check` exit 0.
+
+Not exercised in a browser: nothing was signed into for this pass.
+
