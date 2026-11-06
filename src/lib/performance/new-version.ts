@@ -1,18 +1,18 @@
 import type { AnswerKind, NewVersionResult } from "@/lib/api/performance";
-import { ANSWER_KINDS } from "./answer-kind";
+import { ANSWER_KINDS, WRITTEN_NEVER_COUNTS } from "./answer-kind";
 
 /**
  * Starting a new version of a subsection: what the screens say about it.
  *
  * ## Why it exists
  *
- * How a subsection is answered (a level, a yes or no, a pick) belongs to the
- * subsection and not to a period, so it is shared by every appraisal period and is
- * fixed by the first rating, in any period. A company that rated "Teamwork" as a
- * yes or no for a year and now wants it as a level cannot change it without making
- * last period's answers mean something else. The way through is a *new version*:
- * the old subsection keeps its ratings and every mark made from them under a
- * retired name, and a new one with the original name, answered the new way,
+ * How a subsection is answered (a level, a yes or no, a pick, a written answer)
+ * belongs to the subsection and not to a period, so it is shared by every appraisal
+ * period and is fixed by the first rating, in any period. A company that rated
+ * "Teamwork" as a yes or no for a year and now wants it as a level cannot change it
+ * without making last period's answers mean something else. The way through is a
+ * *new version*: the old subsection keeps its ratings and every mark made from them
+ * under a retired name, and a new one with the original name, answered the new way,
  * starts empty and is used from now on. A changed mind is a new record.
  *
  * ## Nothing here works anything out
@@ -74,7 +74,7 @@ export function newVersionTitle(name: string): string {
   return `Start a new version of ${name}`;
 }
 
-/** The two kinds a new version can be answered as: every kind but the current one. */
+/** The kinds a new version can be answered as: every kind but the current one. */
 export function otherKinds(current: AnswerKind): AnswerKind[] {
   return ANSWER_KINDS.filter((kind) => kind !== current);
 }
@@ -92,17 +92,33 @@ export function otherKinds(current: AnswerKind): AnswerKind[] {
  * with nothing to pick cannot be answered, so a period that asked the old one stops
  * asking until the choices are in. `to` is `null` before one is chosen, and then the
  * line says only what is true of both.
+ *
+ * **Writing in words adds a fourth line**, because it is the one choice that takes a
+ * subsection out of the mark: whatever was recorded on the old version counted, and
+ * nothing recorded on a written one ever will. It is said before the press and on
+ * the page, in the sentence every screen uses for it, and not as something to find
+ * out afterwards from a mark that did not move.
+ *
+ * **A subsection that was written does not say its marks stay.** `from` is how the
+ * old version is answered, and where it is in words nothing recorded on it ever made
+ * a mark, so "every mark made from them stays as it is" would imply that some had.
+ * It is optional: absent says the thing that is true of the others.
  */
 export function newVersionEffects(input: {
   name: string;
   ratingCount: number;
+  from?: AnswerKind | undefined;
   to: AnswerKind | null;
 }): string[] {
   const published =
     "Published periods keep the old one, so their forms read as they did.";
-  return [
+  const lines = [
     input.ratingCount > 0
-      ? `${input.name} keeps its ${ratingsWords(input.ratingCount)}, and every mark made from ${aboutRatings(input.ratingCount)} stays as it is. It is marked retired and leaves this list.`
+      ? `${input.name} keeps its ${ratingsWords(input.ratingCount)}${
+          input.from === "TEXT"
+            ? ""
+            : `, and every mark made from ${aboutRatings(input.ratingCount)} stays as it is`
+        }. It is marked retired and leaves this list.`
       : `${input.name} is marked retired and leaves this list.`,
     "The new version has the same name and section and starts with no ratings. It is the one used from now on.",
     input.to === "CHOICE"
@@ -111,6 +127,7 @@ export function newVersionEffects(input: {
         ? `Periods that have not started move over to the new version. ${published}`
         : `Periods that have not started ask the new version in its place, and questions filed under it there move to it. ${published}`,
   ];
+  return input.to === "TEXT" ? [...lines, WRITTEN_NEVER_COUNTS] : lines;
 }
 
 /** How a kind reads in "answered as ...". */
@@ -122,20 +139,30 @@ export function answeredAsWords(kind: AnswerKind): string {
       return "a yes or no";
     case "CHOICE":
       return "one pick from a list";
+    case "TEXT":
+      return "a written answer";
   }
 }
 
 /**
  * What happened, as the dialog's result line. The API's `notes` follow it, as they
  * came, because they are the part that says what to do next.
+ *
+ * `from` is how the retired one was answered, for the reason `newVersionEffects`
+ * gives: a written subsection kept no marks to keep.
  */
 export function startedLine(
   result: NewVersionResult,
   kind: AnswerKind,
+  from?: AnswerKind,
 ): string {
   const kept =
     result.retired.ratingsKept > 0
-      ? `keeps its ${ratingsWords(result.retired.ratingsKept)} and every mark made from ${aboutRatings(result.retired.ratingsKept)}`
+      ? `keeps its ${ratingsWords(result.retired.ratingsKept)}${
+          from === "TEXT"
+            ? ""
+            : ` and every mark made from ${aboutRatings(result.retired.ratingsKept)}`
+        }`
       : "is kept, retired";
   return `${result.competency.name} is now answered as ${answeredAsWords(kind)}. ${result.retired.name} ${kept}.`;
 }

@@ -6,7 +6,7 @@ import { lockedMark } from "@/lib/performance/new-version";
 
 /**
  * The word in front of a subsection's name that says how it is answered: **Rated**
- * (a level), **Yes or no** or **Pick one**.
+ * (a level), **Yes or no**, **Pick one** or **Written** (in their own words).
  *
  * In front and not after the name, so two subsections that read alike (a company
  * that has two "Teamwork"s, one a level and one a yes or no) are told apart before

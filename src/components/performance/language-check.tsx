@@ -75,10 +75,14 @@ export function LanguageCheck({
   subjectName,
   /** True once somebody has pressed Send and been shown this. */
   acknowledged = false,
+  /** What is said under the list. Where the words are saved rather than sent as a
+   *  review, `ANSWER_CAVEAT`: this one says "sending the review". */
+  caveat = FINDINGS_CAVEAT,
 }: {
   texts: string[];
   subjectName?: string;
   acknowledged?: boolean;
+  caveat?: string;
 }) {
   const findings = useMemo(
     () => findingsAcross(texts, subjectName),
@@ -106,7 +110,7 @@ export function LanguageCheck({
           />
         ))}
       </ul>
-      <p className="mt-3 text-body-sm text-muted">{FINDINGS_CAVEAT}</p>
+      <p className="mt-3 text-body-sm text-muted">{caveat}</p>
     </Callout>
   );
 }

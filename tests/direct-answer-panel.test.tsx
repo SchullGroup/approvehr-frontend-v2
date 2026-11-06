@@ -88,7 +88,7 @@ beforeEach(() => {
 });
 
 describe("how it is answered", () => {
-  it("offers the three ways and shows the one the subsection has", () => {
+  it("offers the four ways and shows the one the subsection has", () => {
     show(competency());
     expect(
       within(kindSelect())
@@ -98,6 +98,7 @@ describe("how it is answered", () => {
       "A level on a scale, 1 to 5",
       "Yes or no",
       "Pick one from a list",
+      "In their own words",
     ]);
     expect(kindSelect().value).toBe("RATING");
   });
@@ -324,7 +325,7 @@ describe("the way through a fixed kind: starting a new version", () => {
   });
 
   it("is offered for every kind that is fixed, not only a level", () => {
-    for (const answerKind of ["RATING", "BOOLEAN", "CHOICE"] as const) {
+    for (const answerKind of ["RATING", "BOOLEAN", "CHOICE", "TEXT"] as const) {
       const { unmount } = show(
         competency({
           ratingCount: 3,
