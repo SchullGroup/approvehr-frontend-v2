@@ -5,8 +5,9 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
+import { LINKED_FILES_NOTE } from "@/lib/api/linked-upload";
 import type {
   LeaveFile,
   LeaveFileList,
@@ -128,6 +129,8 @@ beforeEach(() => {
     contentType: "application/pdf",
   }));
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("who is asked for a list", () => {
   it("asks for one for the person the leave is for, for HR, and for a manager reading the reduced view", () => {
@@ -473,5 +476,150 @@ describe("adding a file to a request that is open", () => {
     mount();
     /* At the limit the API says it cannot be added to: no control to try. */
     expect(screen.queryByLabelText("Add files")).toBeNull();
+  });
+});
+
+describe("a file that is linked, not stored", () => {
+  const linkedLimits: LeaveFileLimits = {
+    ...LIMITS,
+    storage: false,
+    links: true,
+    types: [
+      { contentType: "application/pdf", label: "PDF", extensions: ["pdf"] },
+      { contentType: "image/png", label: "PNG", extensions: ["png"] },
+      { contentType: "image/heic", label: "HEIC", extensions: ["heic"] },
+    ],
+  };
+  const pdf = new File([new Uint8Array(100)], "note.pdf", {
+    type: "application/pdf",
+  });
+
+  beforeEach(() => {
+    vi.stubEnv(
+      "NEXT_PUBLIC_LINKED_UPLOAD_URL",
+      "https://uploader.example.test/prod",
+    );
+    mocks.upload.mockImplementation(async (f: File) => ({
+      fileUrl: `https://files.example.test/${f.name}`,
+      filename: f.name,
+      contentType: "application/pdf",
+    }));
+  });
+
+  it("is listed and opened like any other, from a click", async () => {
+    mocks.useLeaveFiles.mockReturnValue(
+      state(listOf([file({ linked: true })], { limits: linkedLimits })),
+    );
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open certificate.pdf" }),
+    );
+    await waitFor(() => expect(mocks.open).toHaveBeenCalledTimes(1));
+  });
+
+  it("says, when it is taken off, that only the request's record goes and the uploaded copy stays", async () => {
+    mocks.useLeaveFiles.mockReturnValue(
+      state(listOf([file({ linked: true })], { limits: linkedLimits })),
+    );
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove certificate.pdf" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toMatch(
+      /The copy that was uploaded stays where it was stored/,
+    );
+    /* Nothing here deletes it, so nothing here says it is deleted. */
+    expect(dialog.textContent).not.toMatch(/deleted/);
+    expect(dialog.textContent).not.toMatch(/certificate/);
+  });
+
+  it("does not change what is said when a stored file is taken off", async () => {
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove certificate.pdf" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toMatch(
+      /It comes off the request and is deleted/,
+    );
+    expect(dialog.textContent).not.toMatch(/stays where it was stored/);
+  });
+
+  it("keeps saying so while the dialog closes, rather than switching to the other sentence on the way out", async () => {
+    mocks.useLeaveFiles.mockReturnValue(
+      state(listOf([file({ linked: true })], { limits: linkedLimits })),
+    );
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove certificate.pdf" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Remove file" }),
+    );
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalled());
+    expect(dialog.textContent).not.toMatch(/is deleted/);
+  });
+
+  it("adds one by sending it to the uploader and recording its address, then reloads", async () => {
+    mocks.useLeaveFiles.mockReturnValue(
+      state(listOf([], { limits: linkedLimits })),
+    );
+    const { onChanged } = mount(OWNER, 0);
+    expect(screen.getByText(LINKED_FILES_NOTE)).toBeInTheDocument();
+    expect(
+      screen.getByText("PDF up to 2 MB, PNG up to 3 MB, up to 5 files."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Add files"), {
+      target: { files: [pdf] },
+    });
+    await waitFor(() => expect(mocks.record).toHaveBeenCalledTimes(1));
+    expect(mocks.record).toHaveBeenCalledWith("req-1", {
+      fileUrl: "https://files.example.test/note.pdf",
+      filename: "note.pdf",
+      contentType: "application/pdf",
+    });
+    /* Given the server's own limits, for the route to narrow. */
+    expect(mocks.upload.mock.calls[0]![1]).toBe(linkedLimits);
+    await waitFor(() => expect(mocks.reload).toHaveBeenCalled());
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("refuses a kind the uploader does not take, and never uploads it", () => {
+    mocks.useLeaveFiles.mockReturnValue(
+      state(listOf([], { limits: linkedLimits })),
+    );
+    mount(OWNER, 0);
+    fireEvent.change(screen.getByLabelText("Add files"), {
+      target: {
+        files: [
+          new File([new Uint8Array(10)], "scan.heic", { type: "image/heic" }),
+        ],
+      },
+    });
+    expect(
+      screen.getByText(
+        "That kind of file cannot be attached. You can attach PDF and PNG.",
+      ),
+    ).toBeInTheDocument();
+    expect(mocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("offers no way to add where the server takes links and this build has nowhere to send them", () => {
+    vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", "");
+    mocks.useLeaveFiles.mockReturnValue(
+      state(listOf([file({ linked: true })], { limits: linkedLimits })),
+    );
+    mount();
+    expect(screen.queryByLabelText("Add files")).toBeNull();
+    expect(screen.queryByText(LINKED_FILES_NOTE)).toBeNull();
+  });
+
+  it("does not show the note for a file kept on the server's own storage", () => {
+    mocks.useLeaveFiles.mockReturnValue(state(listOf([])));
+    mount(OWNER, 0);
+    expect(screen.queryByText(LINKED_FILES_NOTE)).toBeNull();
   });
 });
