@@ -20,20 +20,16 @@
 
 import type { ApiGoal } from "@/lib/api/performance";
 import { addDays } from "./dates";
-import { countsAsWork, type ObjectiveLevel } from "./objectives";
+import { countsAsWork, describeLink, type ObjectiveLevel } from "./objectives";
 import { dayIn } from "@/lib/time";
 import { categoryOf } from "./workflow";
-import type { Issue, Project, ProjectData } from "./types";
-
-export type CompletionObjective = {
-  goalId: string;
-  title: string;
-  level: ObjectiveLevel;
-  keyResultId: string | null;
-  keyResultTitle: string | null;
-  /** The objective has closed. A plain fact, never a warning. */
-  closed: boolean;
-};
+import {
+  isLinked,
+  type Issue,
+  type IssueObjective,
+  type Project,
+  type ProjectData,
+} from "./types";
 
 export type Completion = {
   id: string;
@@ -52,8 +48,16 @@ export type Completion = {
   dueDate: string | null;
   /** `null` when it had no due date: neither on time nor late. */
   onTime: boolean | null;
-  /** The objective it is linked to, or null. Optional, and never a gap. */
-  objective: CompletionObjective | null;
+  /**
+   * Where it is under an objective, as the API says it. `UNLINKED` is the
+   * ordinary state of most tasks and is never a gap.
+   */
+  objective: IssueObjective;
+  /**
+   * Whether this reader may open the task: a board they are on, or a person they
+   * lead. Absent is yes (the demo shows no task its reader cannot open).
+   */
+  canOpen?: boolean;
   /**
    * For a person's KPI: which level a task was linked at when it is linked to
    * an objective above the KPI rather than to the KPI itself.
@@ -76,13 +80,28 @@ export type ProjectCount = {
   finished: number;
 };
 
-/** Finished tasks per objective (and measure); `goalId` null is the ones with no link. */
+/**
+ * Finished tasks per objective (and measure). `unlinked` is the ones with no
+ * link; `visible` false is work under an objective this reader may not open,
+ * whose title is withheld. Neither is a fault.
+ */
 export type ObjectiveCount = {
   goalId: string | null;
-  title: string;
+  title: string | null;
   keyResultTitle: string | null;
+  unlinked: boolean;
+  visible: boolean;
   finished: number;
 };
+
+/** What a row of "By objective" reads as: the name, the measure, or the plain fact. */
+export function objectiveCountLabel(row: ObjectiveCount): string {
+  if (row.unlinked) return "Not linked to an objective";
+  if (!row.visible || !row.title) return "An objective you can't open";
+  return row.keyResultTitle
+    ? `${row.title} (${row.keyResultTitle})`
+    : row.title;
+}
 
 /* ------------------------------------------------------------------ the sums */
 
@@ -95,7 +114,7 @@ export function summarise(items: readonly Completion[]): CompletionSummary {
       withDueDate += 1;
       if (item.onTime) onTime += 1;
     }
-    if (item.objective) linked += 1;
+    if (isLinked(item.objective)) linked += 1;
   }
   return {
     finished: items.length,
@@ -132,21 +151,27 @@ export function byObjective(items: readonly Completion[]): ObjectiveCount[] {
   const counts = new Map<string, ObjectiveCount>();
   for (const item of items) {
     const o = item.objective;
-    const key = o ? `${o.goalId}|${o.keyResultId ?? ""}` : "none";
+    const unlinked = !isLinked(o);
+    const key = unlinked
+      ? "none"
+      : `${o.goalId ?? "hidden"}|${o.keyResultId ?? ""}`;
     const row = counts.get(key) ?? {
-      goalId: o?.goalId ?? null,
-      title: o?.title ?? "Not linked to an objective",
-      keyResultTitle: o?.keyResultTitle ?? null,
+      goalId: unlinked ? null : o.goalId,
+      title: unlinked ? null : o.title,
+      keyResultTitle: unlinked ? null : o.keyResultTitle,
+      unlinked,
+      visible: o.visible,
       finished: 0,
     };
     row.finished += 1;
     counts.set(key, row);
   }
-  return [...counts.values()].sort((a, b) => {
-    if (a.goalId === null) return 1;
-    if (b.goalId === null) return -1;
-    return b.finished - a.finished || a.title.localeCompare(b.title);
-  });
+  return [...counts.values()].sort(
+    (a, b) =>
+      Number(a.unlinked) - Number(b.unlinked) ||
+      b.finished - a.finished ||
+      objectiveCountLabel(a).localeCompare(objectiveCountLabel(b)),
+  );
 }
 
 export type PersonCompletions = {
@@ -189,21 +214,20 @@ function objectiveOf(
   issue: Pick<Issue, "goalId" | "keyResultId">,
   project: Pick<Project, "goalId">,
   goals: readonly ApiGoal[],
-): CompletionObjective | null {
-  const goalId = issue.goalId ?? project.goalId;
-  if (!goalId) return null;
-  const goal = goals.find((g) => g.id === goalId);
-  const keyResultId = issue.goalId ? (issue.keyResultId ?? null) : null;
-  return {
-    goalId,
-    title: goal?.title ?? "An objective",
-    level: goal?.level ?? "personal",
-    keyResultId,
-    keyResultTitle: keyResultId
-      ? (goal?.keyResults.find((kr) => kr.id === keyResultId)?.label ?? null)
-      : null,
-    closed: goal?.status === "DONE",
-  };
+): IssueObjective {
+  return issue.goalId
+    ? describeLink(
+        {
+          goalId: issue.goalId,
+          keyResultId: issue.keyResultId ?? null,
+          source: "TASK",
+        },
+        goals,
+      )
+    : describeLink(
+        { goalId: project.goalId, keyResultId: null, source: "PROJECT" },
+        goals,
+      );
 }
 
 /** One finished task as a completion, or null when it is not one. */
@@ -312,7 +336,7 @@ export function completedUnder(
   );
   const out: Completion[] = [];
   for (const item of items) {
-    const linked = item.objective?.goalId;
+    const linked = item.objective.goalId;
     if (!linked) continue;
     if (linked === goal.id) {
       out.push(item);

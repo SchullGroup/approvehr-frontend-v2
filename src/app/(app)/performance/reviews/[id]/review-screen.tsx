@@ -529,7 +529,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {/* Read-only evidence beside the answers, for the self review and the
               manager's. Peer feedback is an aggregate nobody signs, so it has none. */}
           <WorkThisCycle
-            employeeId={review.subjectId}
+            subjectId={review.subjectId}
             cycleId={review.cycleId}
             periodStart={review.periodStart}
             periodEnd={review.periodEnd}

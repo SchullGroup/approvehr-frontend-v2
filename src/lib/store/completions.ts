@@ -13,7 +13,7 @@ import {
   type ApiWorkRecord,
   type ApiWorkRecordPeriod,
 } from "@/lib/api/performance";
-import { completionsApi, workRecordToThisCycle } from "@/lib/api/completions";
+import { completionsApi, type TeamRow } from "@/lib/api/completions";
 import {
   demoCompletedWork,
   demoTeamCompleted,
@@ -31,6 +31,7 @@ import type {
   WorkThisCycle,
 } from "@/lib/projects/completions";
 import {
+  BULK_LINK_LIMIT,
   runBulkLink,
   type BulkItem,
   type BulkLinkResult,
@@ -213,13 +214,15 @@ export function useDemoTeamOpen(filter: TeamFilter): TeamPerson[] | null {
   );
 }
 
-/** How many people one page of the Completed view asks for. */
-export const TEAM_PAGE = 20;
+/** How many finished tasks one page of the Completed view asks for. */
+export const TEAM_PAGE = 50;
 
 export type TeamCompletedList = {
   people: TeamCompletedPerson[];
-  /** The count of people with finished work in the period, when known. */
+  /** Every finished task the period matches, when known. */
   total: number | null;
+  /** How many of them are on screen now. */
+  shown: number;
   loading: boolean;
   error: ApiError | null;
   hasMore: boolean;
@@ -230,11 +233,40 @@ export type TeamCompletedList = {
 };
 
 /**
+ * The rows the API gave, grouped by the person they are credited to. The API
+ * sorts by person, so a person's tasks are together, and one cut across two pages
+ * simply continues in the next: the same person at the end of one page and the
+ * start of the next is one group.
+ */
+export function groupTeamRows(rows: readonly TeamRow[]): TeamCompletedPerson[] {
+  const groups: TeamCompletedPerson[] = [];
+  for (const row of rows) {
+    const last = groups.at(-1);
+    if (last && last.employee.id === row.personId) {
+      last.items.push(row);
+      continue;
+    }
+    groups.push({
+      employee: {
+        id: row.personId,
+        name: row.personName,
+        jobTitle: row.jobTitle,
+        departmentName: row.departmentName,
+      },
+      summary: row.totals,
+      items: [row],
+      itemsTotal: row.totals.finished,
+    });
+  }
+  return groups;
+}
+
+/**
  * What the people you lead finished in a period (a week, a month or a quarter).
  *
  * `anchor` is any day inside the period, or undefined for today. Connected, the
- * API pages by person and this keeps what it has been given, so no screen ever
- * asks for everybody at once; the demo answers in one piece.
+ * API pages by task and this keeps what it has been given, so no screen ever asks
+ * for everything at once; the demo answers in one piece.
  */
 export function useTeamCompleted(
   kind: "week" | "month" | "quarter",
@@ -243,20 +275,16 @@ export function useTeamCompleted(
   const { isConnected } = useSession();
   const world = useDemoWorld();
 
-  const paged = usePagedList<TeamCompletedPerson>({
+  const paged = usePagedList<TeamRow>({
     key: `team-completed|${kind}|${anchor ?? "today"}`,
     enabled: isConnected,
-    idOf: (person) => person.employee.id,
+    idOf: (row) => row.id,
     fetchPage: async (cursor, signal) => {
-      const result = await completionsApi.teamCompleted(
+      const page = await completionsApi.teamCompleted(
         { period: kind, date: anchor, cursor, limit: TEAM_PAGE },
         signal,
       );
-      return {
-        rows: result.page.people,
-        total: result.total,
-        next: result.next,
-      };
+      return { rows: page.rows, total: page.total, next: page.next };
     },
   });
 
@@ -275,13 +303,19 @@ export function useTeamCompleted(
     [world, kind, anchor],
   );
 
+  const connectedPeople = useMemo(
+    () => groupTeamRows(paged.settling ? [] : paged.rows),
+    [paged.rows, paged.settling],
+  );
+
   if (isConnected) {
     /* A new period is a new list: while it is settling, the rows still on hand
        belong to the last period, and showing them under this one's heading
        would be a claim about the wrong weeks. */
     return {
-      people: paged.settling ? [] : paged.rows,
+      people: connectedPeople,
       total: paged.settling ? null : paged.total,
+      shown: paged.settling ? 0 : paged.rows.length,
       loading: paged.loading || paged.settling,
       error: paged.error,
       hasMore: paged.hasMore,
@@ -291,9 +325,11 @@ export function useTeamCompleted(
       reload: paged.reload,
     };
   }
+  const tasks = demo?.people.reduce((n, p) => n + p.items.length, 0) ?? 0;
   return {
     people: demo?.people ?? [],
-    total: demo ? demo.people.length : null,
+    total: demo ? tasks : null,
+    shown: tasks,
     loading: demo === null,
     error: null,
     hasMore: false,
@@ -326,26 +362,49 @@ export function useBulkLink(): (
   const { viewer, directory, projects, today } = world;
 
   return useCallback(
-    (items, target) =>
-      runBulkLink(items, async (item) => {
-        const patch = {
-          goalId: target?.goalId ?? null,
-          keyResultId: target?.keyResultId ?? null,
-        };
-        if (isConnected) {
-          try {
-            await projectsApi.updateIssue(item.id, patch);
-            return { ok: true };
-          } catch (error) {
-            return {
-              ok: false,
-              message:
-                error instanceof ApiError
-                  ? error.message
-                  : "It could not be changed.",
-            };
-          }
+    async (items, target) => {
+      const goalId = target?.goalId ?? null;
+      const keyResultId = target?.keyResultId ?? null;
+      if (isConnected) {
+        const queue = items.slice(0, BULK_LINK_LIMIT);
+        try {
+          const answer = await projectsApi.bulkObjective({
+            issueIds: queue.map((item) => item.id),
+            goalId,
+            keyResultId,
+          });
+          const keyOf = new Map(queue.map((item) => [item.id, item.key]));
+          const failed = answer.items
+            .filter(
+              (row) => row.result === "refused" || row.result === "not_found",
+            )
+            .map((row) => ({
+              id: row.issueId,
+              key: row.key ?? keyOf.get(row.issueId) ?? "",
+              reason:
+                row.message ??
+                "It could not be found, or it is not yours to link.",
+            }));
+          return { changed: answer.items.length - failed.length, failed };
+        } catch (error) {
+          /* The objective itself was refused, so nothing was attempted: every
+             task says the same plain thing. */
+          const reason =
+            error instanceof ApiError
+              ? error.message
+              : "It could not be changed.";
+          return {
+            changed: 0,
+            failed: queue.map((item) => ({
+              id: item.id,
+              key: item.key,
+              reason,
+            })),
+          };
         }
+      }
+      return runBulkLink(items, async (item) => {
+        const patch = { goalId, keyResultId };
         const owner = projects.find((p) =>
           p.issues.some((i) => i.id === item.id),
         );
@@ -367,7 +426,8 @@ export function useBulkLink(): (
         return result.ok
           ? { ok: true }
           : { ok: false, message: result.message };
-      }),
+      });
+    },
     [isConnected, viewer, directory, projects, today],
   );
 }
@@ -380,42 +440,40 @@ export const REVIEW_LIST_CAP = 50;
 /**
  * "Work this cycle": what the person the review is about finished in its period.
  *
- * `employeeId` null is the signed-in person's own. `enabled` holds the request
- * until the review has loaded and the reader is somebody the API will answer.
+ * `enabled` holds the request until the review has loaded and is one the panel
+ * is for. A period with no dates has no stretch to read, so there is nothing to
+ * show and `data` is `null`, which hides the panel.
  */
 export function useWorkThisCycle(args: {
-  employeeId: string | null;
+  subjectId: string | null;
   cycleId: string | null;
   periodStart: string | null;
   periodEnd: string | null;
   enabled: boolean;
 }): Read<WorkThisCycle> {
-  const { employeeId, cycleId, periodStart, periodEnd, enabled } = args;
+  const { subjectId, cycleId, periodStart, periodEnd, enabled } = args;
   const { isConnected } = useSession();
   const world = useDemoWorld();
 
   const load = useCallback(
-    async (signal: AbortSignal) =>
-      workRecordToThisCycle(
-        await completionsApi.workForCycle(
-          employeeId,
-          { cycleId, from: periodStart, to: periodEnd },
-          signal,
-        ),
-        REVIEW_LIST_CAP,
+    (signal: AbortSignal) =>
+      completionsApi.workForCycle(
+        cycleId ?? "",
+        subjectId ?? "",
+        { limit: REVIEW_LIST_CAP },
+        signal,
       ),
-    [employeeId, cycleId, periodStart, periodEnd],
+    [cycleId, subjectId],
   );
-  const fetched = useFetched<WorkThisCycle>(
-    `work-cycle|${employeeId ?? "mine"}|${cycleId ?? ""}|${periodStart ?? ""}|${periodEnd ?? ""}`,
-    isConnected && enabled,
+  const fetched = useFetched<WorkThisCycle | null>(
+    `work-cycle|${subjectId ?? ""}|${cycleId ?? ""}`,
+    isConnected && enabled && subjectId !== null && cycleId !== null,
     load,
   );
 
   const demo = useMemo(() => {
-    if (!world.ready || !enabled) return null;
-    const subjectId = employeeId ?? world.viewer.id;
-    if (!subjectId) return { error: notFound() };
+    if (!world.ready || !enabled || !subjectId) return null;
+    if (!periodStart || !periodEnd) return { work: null };
     if (!maySeeWorkOf(world.viewer, subjectId, world.directory)) {
       return { error: notFound() };
     }
@@ -430,13 +488,15 @@ export function useWorkThisCycle(args: {
         cap: REVIEW_LIST_CAP,
       }),
     };
-  }, [world, enabled, employeeId, periodStart, periodEnd]);
+  }, [world, enabled, subjectId, periodStart, periodEnd]);
 
-  if (!enabled)
+  if (!enabled) {
     return { data: null, loading: false, error: null, reload: noReload };
+  }
   if (isConnected) return fetched;
-  if (!demo)
+  if (!demo) {
     return { data: null, loading: true, error: null, reload: noReload };
+  }
   return "error" in demo
     ? demoRead<WorkThisCycle>(null, demo.error)
     : demoRead(demo.work);
@@ -463,7 +523,8 @@ export function useCompletedWork(args: {
   const goalId = goal?.id ?? null;
 
   const load = useCallback(
-    (signal: AbortSignal) => completionsApi.completedWork(goalId ?? "", signal),
+    (signal: AbortSignal) =>
+      completionsApi.completedWork(goalId ?? "", { limit: 100 }, signal),
     [goalId],
   );
   const fetched = useFetched<CompletedWork>(

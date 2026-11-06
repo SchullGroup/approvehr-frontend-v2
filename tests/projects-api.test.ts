@@ -1,3 +1,4 @@
+import { UNLINKED } from "@/lib/projects/types";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -116,7 +117,7 @@ describe("reading an issue", () => {
     expect(issue.rank).toBe(0.5);
     expect(issue.dueDate).toBe("2026-10-20");
     expect(issue.commentCount).toBe(3);
-    expect(issue.objective).toBeNull();
+    expect(issue.objective).toEqual(UNLINKED);
   });
 
   it("defaults the lists it might not be sent", () => {
@@ -128,30 +129,89 @@ describe("reading an issue", () => {
 });
 
 describe("the objective link", () => {
-  it("reads the name and measure the API sends, and whether the objective has closed", () => {
+  const wire = (over: Record<string, unknown> = {}) => ({
+    state: "LINKED",
+    source: "TASK",
+    goalId: "g1",
+    title: "Cut support tickets",
+    level: "personal",
+    keyResultId: "kr1",
+    keyResultLabel: "Tickets a week",
+    visible: true,
+    message: "Linked to Cut support tickets (Tickets a week)",
+    ...over,
+  });
+
+  it("reads the objective the API sends: the name, the measure and the sentence", () => {
     const issue = toIssue({
       id: "x",
       goalId: "g1",
       keyResultId: "kr1",
-      objective: {
-        goalId: "g1",
-        title: "Cut support tickets",
-        keyResultTitle: "Tickets a week",
-        closed: true,
-      },
+      objective: wire(),
     });
     expect(issue.objective).toEqual({
+      state: "LINKED",
+      source: "TASK",
       goalId: "g1",
       title: "Cut support tickets",
+      level: "personal",
       keyResultId: "kr1",
       keyResultTitle: "Tickets a week",
-      closed: true,
+      visible: true,
+      message: "Linked to Cut support tickets (Tickets a week)",
     });
   });
 
-  it("an unlinked task has no objective at all", () => {
-    expect(toIssue({ id: "x", goalId: null }).objective).toBeNull();
-    expect(toIssue({ id: "x" }).objective).toBeNull();
+  it("reads a closed objective as closed, in the API's words", () => {
+    const issue = toIssue({
+      id: "x",
+      goalId: "g1",
+      objective: wire({
+        state: "CLOSED",
+        message: "Linked objective is closed",
+      }),
+    });
+    expect(issue.objective?.state).toBe("CLOSED");
+    expect(issue.objective?.message).toBe("Linked objective is closed");
+  });
+
+  it("reads a link to an objective the reader may not open as linked, with no name", () => {
+    const issue = toIssue({
+      id: "x",
+      goalId: null,
+      objective: wire({
+        goalId: null,
+        title: null,
+        level: null,
+        keyResultId: null,
+        keyResultLabel: null,
+        visible: false,
+        message: "Linked to an objective",
+      }),
+    });
+    expect(issue.objective).toMatchObject({
+      state: "LINKED",
+      visible: false,
+      title: null,
+      message: "Linked to an objective",
+    });
+  });
+
+  it("an unlinked task is UNLINKED, which is not a fault", () => {
+    expect(
+      toIssue({ id: "x", goalId: null, objective: { state: "UNLINKED" } })
+        .objective,
+    ).toEqual(UNLINKED);
+    expect(toIssue({ id: "x", goalId: null }).objective).toEqual(UNLINKED);
+    expect(toIssue({ id: "x" }).objective).toEqual(UNLINKED);
+  });
+
+  it("an older API that sends only goalId reads as linked with no name", () => {
+    expect(toIssue({ id: "x", goalId: "g1" }).objective).toMatchObject({
+      state: "LINKED",
+      goalId: "g1",
+      title: null,
+    });
   });
 });
 

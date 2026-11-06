@@ -119,9 +119,9 @@ export function CompletedTeam() {
               ))}
             </ul>
             <LoadMore
-              shown={list.people.length}
+              shown={list.shown}
               total={list.total}
-              noun={["person", "people"]}
+              noun={["task", "tasks"]}
               hasMore={list.hasMore}
               loading={list.loadingMore}
               error={list.moreError}

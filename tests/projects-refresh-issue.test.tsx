@@ -1,3 +1,4 @@
+import { UNLINKED, linkedTo } from "./support/objective-fixtures";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,14 +49,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   <ToastProvider>{children}</ToastProvider>
 );
 
-const UNLINKED: Issue["objective"] = null;
-const LINKED: Issue["objective"] = {
-  goalId: "g1",
-  title: "Cut support tickets",
-  keyResultId: null,
-  keyResultTitle: null,
-  closed: false,
-};
+const UNLINKED_STATE: Issue["objective"] = UNLINKED;
+const LINKED: Issue["objective"] = linkedTo("Cut support tickets");
 
 function mount() {
   const projectId = data.current.project.id;
@@ -84,7 +79,7 @@ describe("refreshIssue", () => {
     data.current = {
       ...data.current,
       issues: data.current.issues.map((i) =>
-        i.id === base.id ? { ...i, objective: UNLINKED } : i,
+        i.id === base.id ? { ...i, objective: UNLINKED_STATE } : i,
       ),
     };
     load.mockResolvedValue(data.current);
@@ -92,7 +87,7 @@ describe("refreshIssue", () => {
 
     const { result } = mount();
     await waitFor(() => expect(result.current.view.data).not.toBeNull());
-    expect(cached(result, base.id)?.objective).toEqual(UNLINKED);
+    expect(cached(result, base.id)?.objective).toEqual(UNLINKED_STATE);
 
     await act(async () => {
       await result.current.actions.refreshIssue(base);

@@ -12,6 +12,7 @@ import {
   type ProjectData,
 } from "@/lib/projects/types";
 import { contextFor, fakeActions, sampleData } from "./projects-fixture";
+import { closedLink, linkedTo } from "./support/objective-fixtures";
 
 /**
  * The issue drawer: every field it offers, and the call each one makes.
@@ -740,13 +741,7 @@ describe("the objective line", () => {
       {},
       linked("CHK-13", {
         goalId: "g1",
-        objective: {
-          goalId: "g1",
-          title: "Cut support tickets",
-          keyResultId: null,
-          keyResultTitle: null,
-          closed: false,
-        },
+        objective: linkedTo("Cut support tickets"),
       }),
     );
     expect(
@@ -760,13 +755,7 @@ describe("the objective line", () => {
       {},
       linked("CHK-13", {
         goalId: "g1",
-        objective: {
-          goalId: "g1",
-          title: "Cut support tickets",
-          keyResultId: null,
-          keyResultTitle: null,
-          closed: true,
-        },
+        objective: closedLink("Cut support tickets"),
       }),
     );
     expect(screen.getByText("Linked objective is closed")).toBeInTheDocument();

@@ -27,7 +27,7 @@ import {
   periodAround,
   periodBefore,
 } from "@/lib/projects/work-periods";
-import type { Issue } from "@/lib/projects/types";
+import { UNLINKED, type Issue } from "@/lib/projects/types";
 
 /**
  * What the completed-work screens are made of: periods, the finished-task
@@ -112,11 +112,34 @@ const GOALS: ApiGoal[] = [
     parentId: "demo-goal-company",
   }),
   goal({
+    id: "demo-goal-ngozi-cart",
+    title: "Ngozi's KPI",
+    level: "personal",
+    ownerId: "p-04",
+    parentId: "demo-goal-dept-eng",
+  }),
+  goal({
+    id: "demo-goal-emeka-checkout",
+    title: "Emeka's KPI",
+    level: "personal",
+    ownerId: "p-09",
+    parentId: "demo-goal-dept-eng",
+    keyResults: [
+      { id: "demo-kr-steps", label: "Steps taken out" },
+    ] as ApiGoal["keyResults"],
+  }),
+  goal({
     id: "demo-goal-mine-handbook",
     title: "Publish the hiring handbook",
     level: "personal",
     ownerId: "p-06",
     status: "DONE",
+  }),
+  goal({
+    id: "demo-goal-mine-speed",
+    title: "First interview inside a week",
+    level: "personal",
+    ownerId: "p-06",
   }),
   goal({
     id: "demo-goal-mine-offers",
@@ -184,7 +207,7 @@ describe("what counts as finished work", () => {
       completionOf(as({ goalId: "demo-goal-company" }), data, ctx)?.objective
         ?.title,
     ).toBe("Company goal");
-    expect(completionOf(done, data, ctx)?.objective).toBeNull();
+    expect(completionOf(done, data, ctx)?.objective).toEqual(UNLINKED);
   });
 
   it("an initiative, a subtask, an unassigned task and an unfinished one do not", () => {
@@ -253,7 +276,7 @@ describe("what counts as finished work", () => {
       data,
       ctx,
     )!;
-    expect(row.objective?.closed).toBe(true);
+    expect(row.objective.state).toBe("CLOSED");
   });
 });
 
@@ -269,7 +292,9 @@ describe("the sums", () => {
     expect(s.finished).toBe(rows.length);
     expect(s.onTime + s.late).toBe(s.withDueDate);
     expect(s.withDueDate).toBeLessThanOrEqual(s.finished);
-    expect(s.linked).toBe(rows.filter((r) => r.objective).length);
+    expect(s.linked).toBe(
+      rows.filter((r) => r.objective.state !== "UNLINKED").length,
+    );
     expect(s.linked).toBeGreaterThan(0);
     expect(s.linked).toBeLessThan(s.finished);
   });
@@ -300,11 +325,13 @@ describe("the demo book exercises every case", () => {
       ctx,
     );
     const levels = new Set(
-      all.filter((r) => r.objective).map((r) => r.objective!.level),
+      all
+        .filter((r) => r.objective.state !== "UNLINKED")
+        .map((r) => r.objective.level),
     );
     expect(levels).toEqual(new Set(["company", "department", "personal"]));
-    expect(all.some((r) => r.objective === null)).toBe(true);
-    expect(all.some((r) => r.objective?.closed)).toBe(true);
+    expect(all.some((r) => r.objective.state === "UNLINKED")).toBe(true);
+    expect(all.some((r) => r.objective.state === "CLOSED")).toBe(true);
     expect(all.some((r) => r.onTime === false)).toBe(true);
     expect(all.some((r) => r.onTime === null)).toBe(true);
   });
@@ -393,8 +420,9 @@ describe("the Work record in the demo", () => {
     for (const day of q.days) {
       for (const issue of day.issues) {
         expect(
-          issue.objective === null ||
-            typeof issue.objective?.title === "string",
+          issue.objective === undefined ||
+            issue.objective.state === "UNLINKED" ||
+            typeof issue.objective.message === "string",
         ).toBe(true);
       }
     }
@@ -503,8 +531,8 @@ describe("Work this cycle, in the demo", () => {
 
   it("an earlier period holds an earlier person's closed objective", () => {
     const w = work("p-06", "2025-07-01", "2025-12-31");
-    expect(w.items.some((i) => i.objective?.closed)).toBe(true);
-    expect(w.items.some((i) => i.objective === null)).toBe(true);
+    expect(w.items.some((i) => i.objective.state === "CLOSED")).toBe(true);
+    expect(w.items.some((i) => i.objective.state === "UNLINKED")).toBe(true);
   });
 
   it("a person with nothing in the period has nothing, not a zero score", () => {
@@ -625,7 +653,7 @@ describe("Completed work under an objective or KPI, in the demo", () => {
       doneDay: "2026-01-01",
       dueDate: null,
       onTime: null,
-      objective: null,
+      objective: UNLINKED,
     };
     expect(
       completedUnder(

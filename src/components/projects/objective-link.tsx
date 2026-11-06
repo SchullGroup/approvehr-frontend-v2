@@ -77,15 +77,59 @@ export function useMayLinkIssue(): (issue: Issue) => boolean {
 
 /** The read-only half: one plain line, or nothing when the task is not linked. */
 function LinkLine({ issue }: { issue: Issue }) {
-  const line = objectiveLine(issue);
+  const { project } = useProject();
+  const line = objectiveLine(issue, undefined, project.goalId);
   if (!line) return null;
   return <p className="text-meta leading-snug text-muted">{line}</p>;
 }
 
 const LOAD_FAILED = "Objectives could not be loaded.";
 
+/** The drawer's half: saves through the project's own optimistic write. */
 function Linker({ issue }: { issue: Issue }) {
-  const { actions, meId } = useProject();
+  const { actions, project } = useProject();
+  return (
+    <ObjectiveLinkControl
+      issue={issue}
+      projectGoalId={project.goalId}
+      save={async (patch) => {
+        const result = await actions.patchIssue(issue, patch);
+        /* What the link reads as (the objective's name, whether it has closed)
+           is the server's to say, so ask once more rather than guess it. */
+        if (result.ok) void actions.refreshIssue(issue);
+        return result.ok;
+      }}
+    />
+  );
+}
+
+/**
+ * "Link to an objective (optional)": the picker, the measure, and the one line.
+ *
+ * Where it saves is the caller's: the project drawer goes through the project's
+ * own write, and the read-only viewer a leader gets for a task off their own
+ * projects goes through the objective-only endpoint. Either way it says "linked"
+ * only after the save answered, and never says anything about a task that is not
+ * linked.
+ */
+export function ObjectiveLinkControl({
+  issue,
+  projectGoalId = null,
+  save,
+}: {
+  issue: Pick<
+    Issue,
+    "key" | "assigneeId" | "goalId" | "keyResultId" | "objective"
+  >;
+  /** The project's default link, for the line when the task has none of its own. */
+  projectGoalId?: string | null;
+  /** Saves the whole link. Answers whether it was saved. */
+  save: (patch: {
+    goalId: string | null;
+    keyResultId: string | null;
+  }) => Promise<boolean>;
+}) {
+  const { employeeId: meId } = useProjectActor();
   const toast = useToast();
   const base = useId();
   const { goals, loading, error, reload } = useKpis("company");
@@ -101,17 +145,13 @@ function Linker({ issue }: { issue: Issue }) {
     [goals, meId, issue],
   );
   const chosen = flattenGroups(groups).find((o) => o.id === issue.goalId);
-  const line = objectiveLine(issue, goals);
+  const line = objectiveLine(issue, goals, projectGoalId);
 
   async function change(patch: {
     goalId: string | null;
     keyResultId: string | null;
   }) {
-    const result = await actions.patchIssue(issue, patch);
-    if (!result.ok) return;
-    /* What the link reads as (the objective's name, whether it has closed) is
-       the server's to say, so ask once more rather than guess it. */
-    void actions.refreshIssue(issue);
+    if (!(await save(patch))) return;
     const title = flattenGroups(groups).find(
       (o) => o.id === patch.goalId,
     )?.title;

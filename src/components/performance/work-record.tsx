@@ -291,12 +291,8 @@ function IssueRow({ issue }: { issue: ApiWorkRecordIssue }) {
           </Badge>
         )}
       </div>
-      {issue.objective && (
-        <p className="text-meta text-muted">
-          {issue.objective.closed
-            ? "Linked objective is closed"
-            : `Linked to ${issue.objective.title}${issue.objective.keyResultTitle ? `, ${issue.objective.keyResultTitle}` : ""}`}
-        </p>
+      {issue.objective && issue.objective.state !== "UNLINKED" && (
+        <p className="text-meta text-muted">{issue.objective.message}</p>
       )}
       {issue.links.map((link, n) => (
         <p key={n} className="text-meta text-muted">

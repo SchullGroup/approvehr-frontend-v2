@@ -18,7 +18,12 @@
  */
 
 import type { ApiGoal, ApiKeyResult } from "@/lib/api/performance";
-import type { Issue, IssueObjective, IssueType } from "./types";
+import {
+  UNLINKED,
+  type Issue,
+  type IssueObjective,
+  type IssueType,
+} from "./types";
 
 export type ObjectiveLevel = "company" | "department" | "personal";
 
@@ -160,9 +165,9 @@ export function withCurrentGroup(
         id: currentId,
         label: title ?? "A linked objective",
         title: title ?? "an objective",
-        level: "personal",
+        level: link.objective?.level ?? "personal",
         shared: false,
-        closed: link.objective?.closed ?? false,
+        closed: link.objective?.state === "CLOSED",
         measures: [],
       };
   return [
@@ -203,32 +208,74 @@ export function mayLinkIssue(args: {
 /* --------------------------------------------------------- the state line */
 
 /**
+ * A link as the API describes it, worked out from the objectives the screen has.
+ *
+ * Connected, the server says this itself (`issue.objective`) and nothing here is
+ * used. The demo has no server, and an older API sends only `goalId`, so the same
+ * sentence is made here from the objective's title, so a task reads the same
+ * whichever way it was told.
+ */
+export function describeLink(
+  link: {
+    goalId: string | null;
+    keyResultId: string | null;
+    source: "TASK" | "PROJECT";
+  },
+  goals: readonly ApiGoal[],
+): IssueObjective {
+  if (!link.goalId) return UNLINKED;
+  const goal = goals.find((g) => g.id === link.goalId);
+  const measureId = link.source === "TASK" ? link.keyResultId : null;
+  const measure = measureId
+    ? (goal?.keyResults?.find((kr) => kr.id === measureId)?.label ?? null)
+    : null;
+  const closed = goal ? isClosed(goal) : false;
+  return {
+    state: closed ? "CLOSED" : "LINKED",
+    source: link.source,
+    goalId: link.goalId,
+    title: goal?.title ?? null,
+    level: goal?.level ?? null,
+    keyResultId: measureId,
+    keyResultTitle: measure,
+    visible: goal !== undefined,
+    message: closed
+      ? "Linked objective is closed"
+      : !goal
+        ? "Linked to an objective"
+        : measure
+          ? `Linked to ${goal.title} (${measure})`
+          : `Linked to ${goal.title}`,
+  };
+}
+
+/**
  * The one neutral line about a task's link, or `null` for nothing.
  *
  * - not linked: nothing at all, which is the ordinary case and not a gap
  * - linked: "Linked to <objective>", with the measure when it is narrowed
  * - linked and the objective has closed: "Linked objective is closed"
  *
- * Plain text, never a warning: a closed objective is a fact about the past.
+ * The server's own sentence wins where it sent one. Plain text, never a warning:
+ * a closed objective is a fact about the past. `projectGoalId` is the project's
+ * default, for a task with no link of its own where the server has not said.
  */
 export function objectiveLine(
   issue: Pick<Issue, "goalId" | "keyResultId" | "objective">,
   known?: readonly ApiGoal[],
+  projectGoalId?: string | null,
 ): string | null {
-  if (!issue.goalId) return null;
-  const goal = known?.find((g) => g.id === issue.goalId);
-  const closed =
-    issue.objective?.closed === true || (goal ? isClosed(goal) : false);
-  if (closed) return "Linked objective is closed";
-  const title = issue.objective?.title ?? goal?.title ?? null;
-  if (!title) return "Linked to an objective";
-  const measureId = issue.keyResultId ?? issue.objective?.keyResultId ?? null;
-  const measure =
-    issue.objective?.keyResultTitle ??
-    (measureId
-      ? (goal?.keyResults?.find((kr) => kr.id === measureId)?.label ?? null)
-      : null);
-  return measure ? `Linked to ${title}, ${measure}` : `Linked to ${title}`;
+  const said = issue.objective;
+  if (said && said.state !== "UNLINKED") return said.message;
+  if (said && issue.goalId === null && !projectGoalId) return null;
+  const own = issue.goalId;
+  const described = describeLink(
+    own
+      ? { goalId: own, keyResultId: issue.keyResultId ?? null, source: "TASK" }
+      : { goalId: projectGoalId ?? null, keyResultId: null, source: "PROJECT" },
+    known ?? [],
+  );
+  return described.state === "UNLINKED" ? null : described.message;
 }
 
 /* ---------------------------------------------------------- the "From project" tag */

@@ -79,47 +79,47 @@ describe("linking an issue", () => {
       goalId: "g1",
       keyResultId: "kr1",
       objective: {
+        state: "LINKED",
+        source: "TASK",
         goalId: "g1",
         title: "Cut support tickets",
+        level: "personal",
         keyResultId: "kr1",
-        keyResultTitle: "Tickets a week",
-        closed: false,
+        keyResultLabel: "Tickets a week",
+        visible: true,
+        message: "Linked to Cut support tickets (Tickets a week)",
       },
     });
     expect(issue.goalId).toBe("g1");
     expect(issue.keyResultId).toBe("kr1");
-    expect(issue.objective).toEqual({
-      goalId: "g1",
-      title: "Cut support tickets",
-      keyResultId: "kr1",
-      keyResultTitle: "Tickets a week",
-      closed: false,
-    });
+    expect(issue.objective?.keyResultTitle).toBe("Tickets a week");
+    expect(issue.objective?.message).toBe(
+      "Linked to Cut support tickets (Tickets a week)",
+    );
     expect(toIssue({ id: "i1" }).goalId).toBeNull();
   });
 
-  it("an unlinked task has no objective line, and the old bridge note is ignored", () => {
+  it("an unlinked task says nothing, and the old bridge note is ignored", () => {
     const issue = toIssue({
       id: "i1",
       goalId: null,
+      objective: { state: "UNLINKED", message: "Not linked to an objective" },
       weeklyTask: {
         state: "NOT_COUNTED",
         reason: "NO_OBJECTIVE",
         message: "Not counted toward a weekly task",
       },
     });
-    expect(issue.objective).toBeNull();
+    expect(issue.objective?.state).toBe("UNLINKED");
     expect("weeklyTask" in issue).toBe(false);
   });
 
   it("a link with no objective detail still reads as linked, never as a fault", () => {
-    const issue = toIssue({ id: "i1", goalId: "g1" });
-    expect(issue.objective).toEqual({
+    expect(toIssue({ id: "i1", goalId: "g1" }).objective).toMatchObject({
+      state: "LINKED",
       goalId: "g1",
       title: null,
-      keyResultId: null,
-      keyResultTitle: null,
-      closed: false,
+      message: "Linked to an objective",
     });
   });
 
@@ -131,5 +131,67 @@ describe("linking an issue", () => {
       toIssue({ id: "i1", canLinkObjective: false }).canLinkObjective,
     ).toBe(false);
     expect("canLinkObjective" in toIssue({ id: "i1" })).toBe(false);
+  });
+});
+
+describe("the whole link and the batch", () => {
+  it("PUT /issues/:id/objective sends the whole link, null clearing both", async () => {
+    request.mockResolvedValueOnce({
+      id: "i1",
+      key: "PRF-1",
+      goalId: "g1",
+      keyResultId: null,
+      objective: {
+        state: "LINKED",
+        goalId: "g1",
+        title: "Grow",
+        message: "Linked to Grow",
+      },
+      changed: true,
+    });
+    const answer = await projectsApi.setObjective("i1", {
+      goalId: "g1",
+      keyResultId: null,
+    });
+    expect(request).toHaveBeenCalledWith("/issues/i1/objective", {
+      method: "PUT",
+      body: { goalId: "g1", keyResultId: null },
+    });
+    expect(answer.changed).toBe(true);
+    expect(answer.objective.message).toBe("Linked to Grow");
+  });
+
+  it("POST /issues/objective-links names the tasks and reads each one's own answer", async () => {
+    request.mockResolvedValueOnce({
+      goalId: "g1",
+      keyResultId: null,
+      counts: { linked: 1, cleared: 0, unchanged: 0, refused: 1, not_found: 1 },
+      items: [
+        { issueId: "a", key: "PRF-1", result: "linked" },
+        {
+          issueId: "b",
+          key: null,
+          result: "refused",
+          reason: "cannot_link",
+          message: "Only the people this task is assigned to can link it.",
+        },
+        { issueId: "c", key: null, result: "not_found" },
+      ],
+    });
+    const answer = await projectsApi.bulkObjective({
+      issueIds: ["a", "b", "c"],
+      goalId: "g1",
+      keyResultId: null,
+    });
+    expect(request).toHaveBeenCalledWith("/issues/objective-links", {
+      method: "POST",
+      body: { issueIds: ["a", "b", "c"], goalId: "g1", keyResultId: null },
+    });
+    expect(answer.items.map((i) => i.result)).toEqual([
+      "linked",
+      "refused",
+      "not_found",
+    ]);
+    expect(answer.items[1]!.message).toContain("can link it");
   });
 });

@@ -305,26 +305,57 @@ export type IssueActivity = {
 };
 
 /**
- * What a task's link to an objective reads as, in plain terms.
+ * Where a task is under an objective, as the API says it, for the reader asking.
  *
- * Only ever a statement of fact: "Linked to X", or "Linked objective is closed".
- * Never a warning. A task that is not linked has no `IssueObjective` at all.
+ * Only ever a statement of fact: `LINKED`, `UNLINKED` (not a fault: the ordinary
+ * state of most tasks, and said with nothing at all) or `CLOSED` (linked to an
+ * objective that has since closed). `source` is `TASK` for the task's own link
+ * and `PROJECT` for the project's default it falls back on. A link to an
+ * objective this reader may not open (a colleague's personal KPI) is `visible:
+ * false`: it is still linked, and the title and level are withheld.
+ *
+ * `message` is the server's own plain sentence and is shown as it is.
  */
 export type IssueObjective = {
-  goalId: string;
-  /** The objective's title, when the reader may see it. */
+  state: "LINKED" | "UNLINKED" | "CLOSED";
+  source: "TASK" | "PROJECT" | null;
+  goalId: string | null;
   title: string | null;
+  level: "company" | "department" | "personal" | null;
   keyResultId: string | null;
+  /** The measure's name (the API calls it `keyResultLabel`). */
   keyResultTitle: string | null;
-  /** The objective has closed (done, or gone since the link was made). */
-  closed: boolean;
+  visible: boolean;
+  message: string;
 };
+
+/** The state of a task with no link, which most tasks are. Never a fault. */
+export const UNLINKED: IssueObjective = {
+  state: "UNLINKED",
+  source: null,
+  goalId: null,
+  title: null,
+  level: null,
+  keyResultId: null,
+  keyResultTitle: null,
+  visible: true,
+  message: "Not linked to an objective",
+};
+
+/** Whether a task is under an objective of any kind, open or closed. */
+export const isLinked = (o: Pick<IssueObjective, "state"> | null | undefined) =>
+  o !== null && o !== undefined && o.state !== "UNLINKED";
 
 export type IssueThread = {
   comments: IssueComment[];
   activity: IssueActivity[];
   /** From the issue's own read; absent in the demo, which keeps none. */
   watchers?: Watcher[];
+  /**
+   * Whether the reader may link the task to an objective, as the API says it on
+   * the task's own read. Absent where it did not say.
+   */
+  canLinkObjective?: boolean;
   watching?: boolean;
   /** The task's own files, not its comments'. */
   attachments?: IssueAttachment[];

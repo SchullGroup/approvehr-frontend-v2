@@ -1,3 +1,4 @@
+import { UNLINKED, closedLink, linkedTo } from "./support/objective-fixtures";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -412,12 +413,10 @@ describe("the Work record panel", () => {
                 title: "Linked work",
                 grade: null,
                 links: [],
-                objective: {
-                  goalId: "g1",
-                  title: "Grow pipeline",
+                objective: linkedTo("Grow pipeline", {
                   keyResultTitle: "Demos booked",
-                  closed: false,
-                },
+                  message: "Linked to Grow pipeline (Demos booked)",
+                }),
               },
               {
                 ...base,
@@ -426,12 +425,7 @@ describe("the Work record panel", () => {
                 title: "Older work",
                 grade: null,
                 links: [],
-                objective: {
-                  goalId: "g2",
-                  title: "Old goal",
-                  keyResultTitle: null,
-                  closed: true,
-                },
+                objective: closedLink("Old goal"),
               },
               {
                 ...base,
@@ -440,7 +434,7 @@ describe("the Work record panel", () => {
                 title: "Unlinked work",
                 grade: null,
                 links: [],
-                objective: null,
+                objective: UNLINKED,
               },
             ],
           },
@@ -450,7 +444,7 @@ describe("the Work record panel", () => {
     render(<WorkRecordPanel employeeId="emp-1" />);
     await screen.findByText("Linked work");
     expect(
-      screen.getByText("Linked to Grow pipeline, Demos booked"),
+      screen.getByText("Linked to Grow pipeline (Demos booked)"),
     ).toBeTruthy();
     expect(screen.getByText("Linked objective is closed")).toBeTruthy();
     const unlinked = screen

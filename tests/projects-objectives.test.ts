@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApiGoal } from "@/lib/api/performance";
+import { closedLink, linkedTo } from "./support/objective-fixtures";
 import { describeActivity, type HistoryLookup } from "@/lib/projects/history";
 import {
   countsAsWork,
@@ -235,7 +236,7 @@ describe("the one line a link reads as", () => {
         },
         [mine],
       ),
-    ).toBe("Linked to Lift checkout conversion, Conversion rate");
+    ).toBe("Linked to Lift checkout conversion (Conversion rate)");
     expect(
       objectiveLine({ goalId: "g-mine", keyResultId: null, objective: null }, [
         mine,
@@ -248,13 +249,7 @@ describe("the one line a link reads as", () => {
       objectiveLine({
         goalId: "g1",
         keyResultId: null,
-        objective: {
-          goalId: "g1",
-          title: "From the API",
-          keyResultId: null,
-          keyResultTitle: null,
-          closed: false,
-        },
+        objective: linkedTo("From the API"),
       }),
     ).toBe("Linked to From the API");
   });
@@ -269,13 +264,7 @@ describe("the one line a link reads as", () => {
       objectiveLine({
         goalId: "g1",
         keyResultId: null,
-        objective: {
-          goalId: "g1",
-          title: "X",
-          keyResultId: null,
-          keyResultTitle: null,
-          closed: true,
-        },
+        objective: closedLink("X"),
       }),
     ).toBe("Linked objective is closed");
   });

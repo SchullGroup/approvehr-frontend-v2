@@ -774,7 +774,13 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 </Button>
               </div>
             )}
-          <IssueObjectiveLink issue={issue} />
+          <IssueObjectiveLink
+            issue={
+              thread.canLinkObjective === undefined
+                ? issue
+                : { ...issue, canLinkObjective: thread.canLinkObjective }
+            }
+          />
 
           {!personal && (
             <Row label="Reporter">

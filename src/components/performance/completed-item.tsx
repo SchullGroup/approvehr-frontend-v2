@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Checkbox } from "@/components/ui";
 import type { Completion } from "@/lib/projects/completions";
+import { isLinked } from "@/lib/projects/types";
 import { isPersonalSource, workIssueHref } from "@/lib/projects/objectives";
 import { formatDateShort } from "@/lib/time";
 
@@ -17,22 +18,25 @@ import { formatDateShort } from "@/lib/time";
  */
 
 const LEVEL_WORDS = {
-  company: "the company objective",
-  department: "the department objective",
-  personal: "a personal objective",
+  company: "company",
+  department: "department",
+  personal: "personal",
 } as const;
 
-/** "Linked to X", with the measure, or that the objective has closed. `null` for no link. */
+/**
+ * "Linked to X (a measure)", or that the objective has closed, in the server's
+ * own words. `null` for no link at all, which most tasks do not have and which is
+ * never worth a line.
+ */
 export function linkLine(item: Completion): string | null {
   const o = item.objective;
-  if (!o) return null;
-  if (o.closed) return "Linked objective is closed";
-  const to = o.keyResultTitle ? `${o.title}, ${o.keyResultTitle}` : o.title;
+  if (!isLinked(o)) return null;
   /* A task linked above the KPI it is listed under says at which level, so the
      person grading the KPI knows the link was made one rung up. */
-  return item.linkedAt && item.linkedAt !== "personal"
-    ? `Linked to ${to}, ${LEVEL_WORDS[item.linkedAt]}`
-    : `Linked to ${to}`;
+  if (item.linkedAt && item.linkedAt !== "personal" && o.state !== "CLOSED") {
+    return `${o.message}, at the ${LEVEL_WORDS[item.linkedAt]} level`;
+  }
+  return o.message;
 }
 
 export type ItemSelection = {
@@ -79,12 +83,20 @@ export function CompletedItem({
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <Link
-            href={workIssueHref(item)}
-            className="tabular text-body-sm font-medium text-accent hover:underline"
-          >
-            {item.key}
-          </Link>
+          {/* Only where the reader may open it: a task off a board they are not on
+              is named, not linked to a page that would refuse them. */}
+          {item.canOpen === false ? (
+            <span className="tabular text-body-sm font-medium text-ink">
+              {item.key}
+            </span>
+          ) : (
+            <Link
+              href={workIssueHref(item)}
+              className="tabular text-body-sm font-medium text-accent hover:underline"
+            >
+              {item.key}
+            </Link>
+          )}
           <span className="min-w-0 break-words text-body-sm text-ink">
             {item.title}
           </span>

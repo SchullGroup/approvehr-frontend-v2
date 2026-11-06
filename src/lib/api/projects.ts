@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiError, request, requestPaged } from "@/lib/api/client";
-import { STATUS_CATEGORIES } from "@/lib/projects/types";
+import { STATUS_CATEGORIES, UNLINKED } from "@/lib/projects/types";
 import type {
   AttachmentRef,
   StatusCategory,
@@ -185,34 +185,70 @@ export function toSprint(raw: Raw): Sprint {
   };
 }
 
+const LEVELS = ["company", "department", "personal"] as const;
+
 /**
- * What the API says about a task's link to an objective.
- *
- * Read defensively: the objective's name and measure are there when the reader
- * may see them, `closed` only when the API says so, and anything missing is
- * simply not claimed. Never a refusal and never a warning: an unlinked task has
- * no objective line at all, which is `null` here.
+ * What the API says about a task's link to an objective: `LINKED`, `UNLINKED` or
+ * `CLOSED`, none of them a fault. Read defensively. An older API sends only the
+ * task's own `goalId`, which reads as linked with no name; anything missing is
+ * simply not claimed. `UNLINKED` is the ordinary state and has no line.
  */
 export function toIssueObjective(
   raw: unknown,
   goalId: string | null,
   keyResultId: string | null,
-): IssueObjective | null {
+): IssueObjective {
   const r = raw && typeof raw === "object" ? (raw as Raw) : null;
-  const id = r ? (strOrNull(r["goalId"]) ?? strOrNull(r["id"])) : goalId;
-  if (!id) return null;
-  const title = r ? strOrNull(r["title"]) : null;
-  const measure = r
-    ? (strOrNull(r["keyResultTitle"]) ?? strOrNull(r["measureTitle"]))
+  if (!r) {
+    return goalId
+      ? {
+          ...UNLINKED,
+          state: "LINKED",
+          source: "TASK",
+          goalId,
+          keyResultId,
+          message: "Linked to an objective",
+        }
+      : UNLINKED;
+  }
+  const state =
+    r["state"] === "LINKED" || r["state"] === "CLOSED"
+      ? r["state"]
+      : "UNLINKED";
+  if (state === "UNLINKED") return UNLINKED;
+  const level = (LEVELS as readonly unknown[]).includes(r["level"])
+    ? (r["level"] as IssueObjective["level"])
     : null;
+  const title = strOrNull(r["title"]);
+  const measure =
+    strOrNull(r["keyResultLabel"]) ?? strOrNull(r["keyResultTitle"]);
   return {
-    goalId: id,
-    title: title && title.trim() !== "" ? title : null,
-    keyResultId: r ? (strOrNull(r["keyResultId"]) ?? keyResultId) : keyResultId,
-    keyResultTitle: measure && measure.trim() !== "" ? measure : null,
-    closed: r ? r["closed"] === true : false,
+    state,
+    source: r["source"] === "PROJECT" ? "PROJECT" : "TASK",
+    goalId: strOrNull(r["goalId"]) ?? goalId,
+    title,
+    level,
+    keyResultId: strOrNull(r["keyResultId"]) ?? keyResultId,
+    keyResultTitle: measure,
+    visible: r["visible"] !== false,
+    message:
+      strOrNull(r["message"]) ??
+      (state === "CLOSED"
+        ? "Linked objective is closed"
+        : title
+          ? `Linked to ${title}`
+          : "Linked to an objective"),
   };
 }
+
+export type BulkObjectiveAnswer = {
+  items: {
+    issueId: string;
+    key: string | null;
+    result: "linked" | "cleared" | "unchanged" | "refused" | "not_found";
+    message: string | null;
+  }[];
+};
 
 export function toIssue(raw: Raw): Issue {
   return {
@@ -961,6 +997,67 @@ export const projectsApi = {
   removeIssue: (id: string) =>
     request<unknown>(`/issues/${id}`, { method: "DELETE" }),
 
+  /**
+   * The whole link of one task to an objective, and nothing else. `goalId: null`
+   * clears it (and its measure). Unlike `updateIssue`, this works for the
+   * assignee's manager or department head who is not on the project.
+   */
+  setObjective: async (
+    id: string,
+    link: { goalId: string | null; keyResultId: string | null },
+  ): Promise<{
+    id: string;
+    key: string;
+    goalId: string | null;
+    keyResultId: string | null;
+    objective: IssueObjective;
+    changed: boolean;
+  }> => {
+    const raw = await request<Raw>(`/issues/${id}/objective`, {
+      method: "PUT",
+      body: link,
+    });
+    return {
+      id: str(raw["id"]),
+      key: str(raw["key"]),
+      goalId: strOrNull(raw["goalId"]),
+      keyResultId: strOrNull(raw["keyResultId"]),
+      objective: toIssueObjective(
+        raw["objective"],
+        strOrNull(raw["goalId"]),
+        strOrNull(raw["keyResultId"]),
+      ),
+      changed: raw["changed"] === true,
+    };
+  },
+
+  /**
+   * The same link for up to 100 tasks. The target is checked once, then each
+   * task answers for itself: linked, cleared, unchanged, refused (not yours to
+   * link) or not found. One task never stops the rest.
+   */
+  bulkObjective: async (body: {
+    issueIds: string[];
+    goalId: string | null;
+    keyResultId: string | null;
+  }): Promise<BulkObjectiveAnswer> => {
+    const raw = await request<Raw>("/issues/objective-links", {
+      method: "POST",
+      body,
+    });
+    return {
+      items: list(raw["items"]).map((row) => ({
+        issueId: str(row["issueId"]),
+        key: strOrNull(row["key"]),
+        result:
+          (
+            ["linked", "cleared", "unchanged", "refused", "not_found"] as const
+          ).find((r) => r === row["result"]) ?? "refused",
+        message: strOrNull(row["message"]),
+      })),
+    };
+  },
+
   /** An issue's comments and its history. */
   thread: async (id: string, signal?: AbortSignal): Promise<IssueThread> => {
     const [issue, comments] = await Promise.all([
@@ -973,6 +1070,9 @@ export const projectsApi = {
       ...toWatchState(issue),
       attachments: list(issue["attachments"]).map(toAttachment),
       canManageWatchers: issue["canManageWatchers"] === true,
+      ...(typeof issue["canLinkObjective"] === "boolean"
+        ? { canLinkObjective: issue["canLinkObjective"] }
+        : {}),
       canAttachToTask: issue["canAttachToTask"] === true,
     };
   },

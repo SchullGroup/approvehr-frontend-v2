@@ -734,7 +734,7 @@ export function FocusForm({
               />
             )}
             <WorkThisCycle
-              employeeId={review.subjectId}
+              subjectId={review.subjectId}
               cycleId={review.cycleId}
               periodStart={review.periodStart}
               periodEnd={review.periodEnd}

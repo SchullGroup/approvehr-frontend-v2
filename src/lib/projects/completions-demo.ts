@@ -22,6 +22,7 @@ import { categoryOf } from "./workflow";
 import {
   BULK_LINK_LIMIT,
   byObjective,
+  objectiveCountLabel,
   byPerson,
   byProject,
   completedUnder,
@@ -97,14 +98,7 @@ function toRecordIssue(
     gradedByName: null,
     waitingForGrade: false,
     links: [],
-    objective: item.objective
-      ? {
-          goalId: item.objective.goalId,
-          title: item.objective.title,
-          keyResultTitle: item.objective.keyResultTitle,
-          closed: item.objective.closed,
-        }
-      : null,
+    objective: item.objective,
   };
 }
 
@@ -129,34 +123,14 @@ export function demoWorkRecord(args: {
   );
   const sums = summarise(items);
 
-  const groups = new Map<
-    string,
-    {
-      goalId: string | null;
-      title: string;
-      keyResultTitle?: string;
-      finished: number;
-    }
-  >();
-  for (const item of items) {
-    const o = item.objective;
-    const key = o ? `${o.goalId}|${o.keyResultId ?? ""}` : "none";
-    const row = groups.get(key) ?? {
-      goalId: o?.goalId ?? null,
-      title: o?.title ?? "Not linked to an objective",
-      ...(o?.keyResultTitle ? { keyResultTitle: o.keyResultTitle } : {}),
-      finished: 0,
-    };
-    row.finished += 1;
-    groups.set(key, row);
-  }
-  const byObjective = [...groups.values()]
-    .sort((a, b) => {
-      if (a.goalId === null) return 1;
-      if (b.goalId === null) return -1;
-      return b.finished - a.finished || a.title.localeCompare(b.title);
-    })
-    .map((g) => ({ ...g, completionRate: null }));
+  const byObjectiveRows = byObjective(items).map((row) => ({
+    goalId: row.goalId,
+    title: objectiveCountLabel(row),
+    ...(row.keyResultTitle ? { keyResultTitle: row.keyResultTitle } : {}),
+    finished: row.finished,
+    completionRate: null,
+    ...(!row.unlinked && !row.visible ? { hidden: true } : {}),
+  }));
 
   const days = new Map<string, Completion[]>();
   for (const item of items) {
@@ -184,7 +158,7 @@ export function demoWorkRecord(args: {
       graded: 0,
       linkedToObjective: sums.linked,
     },
-    byObjective,
+    byObjective: byObjectiveRows,
     days: [...days.entries()]
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([date, rows]) => ({ date, issues: rows.map(toRecordIssue) })),

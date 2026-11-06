@@ -6,7 +6,10 @@ import { Button, Disclosure, LoadFailure, Skeleton } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { usePhone } from "@/app/(app)/hiring/requisitions/[id]/use-phone";
 import { dayLabel } from "@/lib/api/performance";
-import type { WorkThisCycle as Work } from "@/lib/projects/completions";
+import {
+  objectiveCountLabel,
+  type WorkThisCycle as Work,
+} from "@/lib/projects/completions";
 import { count } from "@/lib/projects/terms";
 import { useWorkThisCycle } from "@/lib/store/completions";
 import { useOrgTimezone } from "@/lib/store/session";
@@ -41,7 +44,7 @@ import { CompletedItem } from "./completed-item";
  * answer, and again only when the review's own period changes.
  */
 export function WorkThisCycle({
-  employeeId,
+  subjectId,
   cycleId,
   periodStart,
   periodEnd,
@@ -50,7 +53,8 @@ export function WorkThisCycle({
   enabled = true,
   startOpen,
 }: {
-  employeeId: string | null;
+  /** Whose work: the person the review is about, always. */
+  subjectId: string;
   cycleId: string | null;
   periodStart: string | null;
   periodEnd: string | null;
@@ -69,7 +73,7 @@ export function WorkThisCycle({
   const phone = usePhone();
   const [choice, setChoice] = useState<boolean | null>(null);
   const read = useWorkThisCycle({
-    employeeId,
+    subjectId,
     cycleId,
     periodStart,
     periodEnd,
@@ -133,9 +137,9 @@ export function WorkThisCycle({
             work={work}
             timeZone={timeZone}
             seeAll={
-              employeeId === null
+              own
                 ? "/performance/work-record"
-                : `/performance/history/${employeeId}`
+                : `/performance/history/${subjectId}`
             }
           />
         )}
@@ -201,7 +205,7 @@ function Body({
 
       {/* Only worth a section when some of it is linked: a list that says
           "not linked" and nothing else would be a heading over a blank. */}
-      {work.byObjective.some((o) => o.goalId !== null) && (
+      {work.byObjective.some((o) => !o.unlinked) && (
         <section aria-labelledby="work-by-objective">
           <h4
             id="work-by-objective"
@@ -212,13 +216,11 @@ function Body({
           <ul className="flex flex-col gap-1 text-body-sm text-body">
             {work.byObjective.map((o) => (
               <li
-                key={`${o.goalId ?? "none"}|${o.keyResultTitle ?? ""}`}
+                key={`${o.goalId ?? (o.unlinked ? "none" : "hidden")}|${o.keyResultTitle ?? ""}`}
                 className="flex justify-between gap-4"
               >
                 <span className="min-w-0 break-words">
-                  {o.keyResultTitle
-                    ? `${o.title}, ${o.keyResultTitle}`
-                    : o.title}
+                  {objectiveCountLabel(o)}
                 </span>
                 <span className="tabular shrink-0 text-muted">
                   {o.finished === 1
