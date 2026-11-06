@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FileText, X } from "lucide-react";
 import {
   AttentionMark,
@@ -12,11 +12,13 @@ import {
 import { cn } from "@/lib/cn";
 import {
   fileProblem,
+  fileRoute,
   leaveFilesApi,
   openLeaveFile,
   uploadLeaveFile,
   type LeaveFile,
 } from "@/lib/api/leave-files";
+import { LINKED_FILES_NOTE } from "@/lib/api/linked-upload";
 import { useDropTarget } from "@/components/projects/task-files";
 import { formatBytes } from "@/lib/projects/files";
 import { useLeaveFiles } from "@/lib/store/leave-files";
@@ -79,14 +81,21 @@ export function LeaveRequestFiles({
   const files = useLeaveFiles(mayOpen ? requestId : null);
   const list = files.list;
 
-  const staged = useStagedLeaveFiles(list?.limits ?? null, () =>
+  /* How a file would get onto this request, from what the list says the server
+     can do. Not recomputed unless the limits are a new object, so the picker's
+     callbacks stay put. */
+  const route = useMemo(() => fileRoute(list?.limits ?? null), [list?.limits]);
+  const staged = useStagedLeaveFiles(route.limits, () =>
     list ? list.limits.maxFiles - list.files.length : 0,
   );
   const [message, setMessage] = useState<string | null>(null);
   const [removing, setRemoving] = useState<LeaveFile | null>(null);
+  /* Kept apart from `removing`, which is null while the dialog animates out:
+     reading it there would flip the sentence to the other one on the way out. */
+  const [removingLinked, setRemovingLinked] = useState(false);
   const [removeBusy, setRemoveBusy] = useState(false);
 
-  const canAdd = list?.access.canAdd === true && list.limits.storage;
+  const canAdd = list?.access.canAdd === true && route.kind !== "none";
   const drop = useDropTarget((dropped) => void take(dropped), canAdd);
 
   async function take(chosen: File[]) {
@@ -245,7 +254,10 @@ export function LeaveRequestFiles({
                   <IconButton
                     label={`Remove ${file.filename}`}
                     size="sm"
-                    onClick={() => setRemoving(file)}
+                    onClick={() => {
+                      setRemovingLinked(file.linked === true);
+                      setRemoving(file);
+                    }}
                   >
                     <X className="size-4" />
                   </IconButton>
@@ -255,18 +267,21 @@ export function LeaveRequestFiles({
           </ul>
         )}
 
-        {canAdd && (
+        {canAdd && route.limits && (
           <>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <AttachFilesButton
-                limits={list.limits}
+                limits={route.limits}
                 onFiles={(chosen) => void take(chosen)}
                 label="Add files"
               />
               <span className="min-w-0 text-meta text-muted">
-                {fileHint(list.limits)}
+                {fileHint(route.limits)}
               </span>
             </div>
+            {route.kind === "linked" && (
+              <p className="text-body-sm text-muted">{LINKED_FILES_NOTE}</p>
+            )}
             <StagedLeaveFileList staged={staged} />
           </>
         )}
@@ -289,8 +304,12 @@ export function LeaveRequestFiles({
         confirmLabel="Remove file"
         body={
           <p className="text-body-sm text-body">
-            It comes off the request and is deleted, so whoever decides it will
-            not see it. This cannot be undone.
+            {removingLinked
+              ? /* Nothing here can delete it from where it was uploaded: only
+                   this request's record of it goes. Saying "deleted" would be a
+                   claim about a copy this app does not hold. */
+                "It comes off the request, so whoever decides it will not see it. The copy that was uploaded stays where it was stored. This cannot be undone."
+              : "It comes off the request and is deleted, so whoever decides it will not see it. This cannot be undone."}
           </p>
         }
       />

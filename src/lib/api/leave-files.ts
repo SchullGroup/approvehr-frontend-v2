@@ -1,8 +1,19 @@
 "use client";
 
 import { ApiError, request } from "@/lib/api/client";
-import type { LeaveAttachmentPolicy } from "@/lib/api/leave";
+import type {
+  LeaveAttachmentPolicy,
+  LeaveAttachmentRef,
+} from "@/lib/api/leave";
+import {
+  LINKED_KINDS,
+  linkedUploadConfigured,
+  uploadLinkedFile,
+} from "@/lib/api/linked-upload";
 import { putToStorage } from "@/lib/api/uploads";
+import { megabytes } from "@/lib/file-size";
+
+export { megabytes };
 
 /**
  * Files on a leave request — `/api/v1/leave/attachments` and
@@ -32,6 +43,19 @@ import { putToStorage } from "@/lib/api/uploads";
  * returned headers → `record` (on an existing request) or the refs go in the
  * `POST /leave/requests` body, so the request and its files are one write.
  *
+ * ## Two ways a file can get onto a request
+ *
+ * **Stored here** (`storage: true`): the API's own signed upload, private, and
+ * the request is told the key. That is the route and it is unchanged.
+ *
+ * **Linked** (`storage: false`, `links: true`, and this build knows where the
+ * old platform's uploader is): the file goes to that uploader, which answers with
+ * an address, and the request is told the address. **Those files are public to
+ * anybody who has it**, which is why the picker says so (`LINKED_FILES_NOTE`) and
+ * why the route is off unless a deployment configures it. `fileRoute` is the one
+ * place that chooses, and `storage` always wins: a server that can keep a file
+ * privately is never sent down the other route.
+ *
  * ## Refusals
  *
  * Every refusal arrives as one of a few stable codes. `fileProblem` turns one
@@ -47,6 +71,12 @@ export type LeaveFileType = {
   label: string;
   /** With or without a leading dot; compare through `extensionOf`. */
   extensions: string[];
+  /**
+   * A smaller limit for this kind alone. Absent means `LeaveFileLimits.maxBytes`.
+   * The API never sends it: `fileRoute` sets it for the linked route, where a
+   * document and an image have different limits.
+   */
+  maxBytes?: number;
 };
 
 /** What the picker needs before anything is chosen. */
@@ -55,8 +85,13 @@ export type LeaveFileLimits = {
   /** Per file, measured by the API in bytes. */
   maxBytes: number;
   types: LeaveFileType[];
-  /** False on a server with no file storage: hide the picker. */
+  /** False on a server with no file storage of its own. */
   storage: boolean;
+  /**
+   * This server takes a link to a file that was uploaded elsewhere (from a host
+   * it allows). Absent is false: a server that predates it says nothing.
+   */
+  links?: boolean;
 };
 
 export type LeaveFileScanStatus =
@@ -78,6 +113,11 @@ export type LeaveFile = {
   uploadedByYou: boolean;
   /** Yours, and the request is still open. */
   canRemove: boolean;
+  /**
+   * A link to a file kept elsewhere, not a file this server holds. Absent is
+   * false. It decides what removing it says: only the record comes off.
+   */
+  linked?: boolean;
 };
 
 export type LeaveFileAccess = {
@@ -110,17 +150,21 @@ export type AttachmentRule = {
   required: boolean;
 };
 
-/** A file already uploaded, as the request or the record route takes it. */
-export type FileRef = {
-  storageKey: string;
-  filename: string;
-  contentType: string;
-};
+/**
+ * A file already uploaded, as the request or the record route takes it: either
+ * a key (stored here) or an address (linked). See `LeaveAttachmentRef`.
+ */
+export type FileRef = LeaveAttachmentRef;
 
 export type OpenedFile = {
-  /** A credential for five minutes. Use it at once and do not keep it. */
+  /**
+   * A credential for five minutes for a stored file: use it at once and do not
+   * keep it. For a linked file it is the file's own address, which is not a
+   * credential and does not expire.
+   */
   url: string;
-  expiresAt: string;
+  /** Null for a linked file: its address does not expire. */
+  expiresAt: string | null;
   filename: string;
   contentType: string;
   sizeBytes: number;
@@ -241,18 +285,15 @@ export function declaredType(
   return byName?.contentType ?? (file.type || "application/octet-stream");
 }
 
-/** `5 MB`, `1.2 MB`. */
-export function megabytes(bytes: number): string {
-  const mb = bytes / (1024 * 1024);
-  return `${Number.isInteger(mb) ? String(mb) : mb.toFixed(1)} MB`;
+/** `PDF`, `PDF and PNG`, `PDF, PNG and Word`. */
+export function joinLabels(labels: readonly string[]): string {
+  if (labels.length <= 1) return labels[0] ?? "";
+  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1] ?? ""}`;
 }
 
 /** `PDF, PNG, JPEG, HEIC and Word`. */
 export function acceptedLabels(limits: LeaveFileLimits | null): string {
-  const labels = limits?.types.map((type) => type.label) ?? [];
-  if (labels.length === 0) return "";
-  if (labels.length === 1) return labels[0] ?? "";
-  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1] ?? ""}`;
+  return joinLabels(limits?.types.map((type) => type.label) ?? []);
 }
 
 /** The `accept` hint for the picker. A hint: a drop goes around it. */
@@ -276,15 +317,21 @@ export function fileRefusal(
 ): string | null {
   if (file.size <= 0) return "That file is empty. Choose it again.";
   if (!limits) return null;
-  if (file.size > limits.maxBytes) {
+  /* The limit for this kind where it has its own (the linked route's document
+     and image differ), else the one for every file. The size is checked before
+     the kind, as it always was, so an oversized file of a kind that cannot be
+     attached still says it is too big. */
+  const type = declaredType(file, limits);
+  const kind = limits.types.find((allowed) => allowed.contentType === type);
+  const cap = kind?.maxBytes ?? limits.maxBytes;
+  if (file.size > cap) {
     /* The size as the list beside it shows it. The API rounds a size *up* to a
        whole megabyte in its own sentence, which reads "7 MB" under a row that
        says "6.0 MB". Its sentence is still what is shown if it is the one to
        refuse. */
-    return `That file is ${megabytes(file.size)}. Keep files under ${megabytes(limits.maxBytes)}.`;
+    return `That file is ${megabytes(file.size)}. Keep files under ${megabytes(cap)}.`;
   }
-  const type = declaredType(file, limits);
-  if (!limits.types.some((allowed) => allowed.contentType === type)) {
+  if (!kind) {
     return `That kind of file cannot be attached. You can attach ${acceptedLabels(limits)}.`;
   }
   return null;
@@ -292,6 +339,81 @@ export function fileRefusal(
 
 export const filesFull = (limits: LeaveFileLimits | null): string =>
   `A request can carry up to ${limits ? String(limits.maxFiles) : "five"} files. Remove one to add another.`;
+
+/* ----------------------------------------------------------------- the route */
+
+/**
+ * How a file gets onto a request on this server, and what it may be.
+ *
+ * `limits` is what the **picker** shows and checks with: for a stored file the
+ * API's own, untouched; for a linked one the same list narrowed to the three
+ * kinds the uploader takes, each with the smaller of the API's limit and the
+ * uploader's, so a hint never promises a size the route would refuse.
+ *
+ * `storage` wins. A server that can keep a file privately is never sent down
+ * the public route, whatever else is configured. Unknown limits (not loaded, or
+ * the read failed) are `none`, which draws nothing: an offered control that
+ * cannot be known to work is the dead button this product refuses, and the API
+ * refuses in its own words if somebody gets that far.
+ */
+export type FileRoute =
+  | { kind: "stored"; limits: LeaveFileLimits }
+  | { kind: "linked"; limits: LeaveFileLimits }
+  | { kind: "none"; limits: null };
+
+export function fileRoute(limits: LeaveFileLimits | null): FileRoute {
+  if (!limits) return { kind: "none", limits: null };
+  if (limits.storage === true) return { kind: "stored", limits };
+  if (limits.links === true && linkedUploadConfigured()) {
+    /* A server that lists no kinds at all has said nothing about them, which
+       is not the same as naming kinds the uploader cannot send: the uploader's
+       own three are offered, and the API refuses in its own words what it does
+       not take. Absent is not none, or a server that sends an empty list would
+       get a feature nobody could find. */
+    const silent = limits.types.length === 0;
+    const types = LINKED_KINDS.flatMap((linked): LeaveFileType[] => {
+      const theirs: LeaveFileType | undefined = silent
+        ? {
+            contentType: linked.contentType,
+            label: linked.label,
+            extensions: linked.extensions.map((extension) => `.${extension}`),
+          }
+        : limits.types.find((type) => type.contentType === linked.contentType);
+      return theirs
+        ? [
+            {
+              ...theirs,
+              maxBytes: Math.min(linked.maxBytes, limits.maxBytes),
+            },
+          ]
+        : [];
+    });
+    /* A server that takes links and names only kinds the uploader cannot send
+       has nothing this route could offer. */
+    if (types.length > 0) {
+      return {
+        kind: "linked",
+        limits: {
+          ...limits,
+          types,
+          maxBytes: Math.max(...types.map((t) => t.maxBytes ?? 0)),
+        },
+      };
+    }
+  }
+  return { kind: "none", limits: null };
+}
+
+/**
+ * Whether a file can be attached here at all, or null when it is not known.
+ *
+ * What a setting that asks for a file reads: only an answer of `false` stops
+ * one being asked for, and null is "not known", which the API settles.
+ */
+export const filesAvailable = (
+  limits: LeaveFileLimits | null,
+): boolean | null =>
+  limits === null ? null : fileRoute(limits).kind !== "none";
 
 /* ------------------------------------------------------------------- upload */
 
@@ -312,6 +434,20 @@ export async function uploadLeaveFile(
     onProgress?: (fraction: number) => void;
   } = {},
 ): Promise<FileRef> {
+  /* A server that stores files keeps the route it always had, and so does
+     "not known": the API answers. Only a server that says it cannot, and takes
+     links, goes the other way. */
+  if (limits && limits.storage !== true) {
+    const route = fileRoute(limits);
+    if (route.kind !== "linked") {
+      throw new Error("Files cannot be attached on this server yet.");
+    }
+    return uploadLinkedFile(file, {
+      maxBytes: limits.maxBytes,
+      ...(options.onProgress ? { onProgress: options.onProgress } : {}),
+    });
+  }
+
   const contentType = declaredType(file, limits);
   const presigned = await leaveFilesApi.uploadUrl({
     ...(options.employeeId ? { employeeId: options.employeeId } : {}),
@@ -368,7 +504,10 @@ export async function openLeaveFile(
       file.id,
       wantsView ? "view" : "download",
     );
-    if (opened.mode === "view" && tab) {
+    /* A linked file has no expiry and is not served with a download header, so
+       sending *this* window to it would replace the page. It goes in the tab
+       that was opened for it. */
+    if (tab && (opened.mode === "view" || opened.expiresAt === null)) {
       tab.location.href = opened.url;
     } else {
       tab?.close();
@@ -431,6 +570,13 @@ export function fileProblem(error: unknown): string {
       return (
         own ||
         "Files cannot be changed once a request is decided. Reopen it to change them."
+      );
+    case "attachment_link_refused":
+      /* The server's sentence is about the address it was given. Without one,
+         the one thing that helps is trying again, and the address is not shown:
+         it is a link to somebody's file. */
+      return (
+        own || "That file's address was not accepted. Try attaching it again."
       );
     case "storage_off":
       return own || "File uploads are not set up on this server.";
