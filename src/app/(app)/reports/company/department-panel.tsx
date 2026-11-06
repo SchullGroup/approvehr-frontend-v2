@@ -16,6 +16,7 @@ import {
 import { useDepartmentPeople } from "@/lib/store/company-report";
 import {
   DASH,
+  finishedWorkLine,
   gapSentence,
   koboOrDash,
   likelyRange,
@@ -144,6 +145,7 @@ function Results({
 }) {
   const { results } = row;
   const bands = Object.entries(results.bands).filter(([, n]) => n > 0);
+  const work = finishedWorkLine(results);
   return (
     <DrawerSection title="Results">
       <dl className="divide-y divide-line">
@@ -188,6 +190,12 @@ function Results({
             {plural(results.tasks.withGraded, "has", "have")} one graded
           </span>
         </Line>
+        {work && (
+          <Line label="Project work">
+            <span className="tabular">{work.who}</span>
+            <span className="block text-meta text-muted">{work.total}</span>
+          </Line>
+        )}
         {row.cost && (
           <Line label="Gross pay per head">
             <span className="tabular">{koboOrDash(row.cost.perHeadKobo)}</span>

@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `0781da1a` (2026-11-06) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `f61c9eb2` (2026-11-06) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -30,7 +30,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         69 |       1 |         9 |
 | [Screens — `/projects`](#screens--projects)                                                        |       36 |         34 |       0 |         3 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
-| [Screens — `/reports`](#screens--reports)                                                          |       12 |         15 |       0 |         7 |
+| [Screens — `/reports`](#screens--reports)                                                          |       12 |         15 |       0 |         8 |
 | [Screens — `/settings`](#screens--settings)                                                        |      101 |        104 |       0 |         6 |
 | [Screens — `/approvals`](#screens--approvals)                                                      |        2 |          2 |       0 |         0 |
 | [Screens — `/assistant`](#screens--assistant)                                                      |        2 |          2 |       0 |         0 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        13 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       45 |         50 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1246** |   **1037** | **445** |  **1551** |
+| **Total**                                                                                          | **1246** |   **1037** | **445** |  **1552** |
 
 ---
 
@@ -1228,20 +1228,20 @@ Screen components for the help module, including its dialogs and panels.
 
 Screen components for the reports module, including its dialogs and panels.
 
-| File                                                      | Components                                        | Hooks | Functions                                                                                            | Also             |
-| --------------------------------------------------------- | ------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------- | ---------------- |
-| `src/app/(app)/reports/page.tsx`                          | `ReportsPage`                                     | —     | —                                                                                                    | 1 const          |
-| `src/app/(app)/reports/reports-screen.tsx`                | `ReportsScreen`                                   | —     | —                                                                                                    | —                |
-| `src/app/(app)/reports/builder/builder-screen.tsx`        | `ReportBuilderScreen`                             | —     | —                                                                                                    | —                |
-| `src/app/(app)/reports/builder/page.tsx`                  | `ReportBuilderPage`                               | —     | —                                                                                                    | 1 const          |
-| `src/app/(app)/reports/company/company-report-screen.tsx` | `CompanyReportScreen`                             | —     | —                                                                                                    | —                |
-| `src/app/(app)/reports/company/department-panel.tsx`      | `DepartmentPanel`                                 | —     | —                                                                                                    | —                |
-| `src/app/(app)/reports/company/departments-tab.tsx`       | `DepartmentsTab`, `PrintDepartments`              | —     | —                                                                                                    | —                |
-| `src/app/(app)/reports/company/format.ts`                 | —                                                 | —     | `markOrDash`, `progressOrDash`, `koboOrDash`, `plural`, `gapSentence`, `signedPoints`, `likelyRange` | 1 const          |
-| `src/app/(app)/reports/company/overview.tsx`              | `Overview`, `Findings`, `Strengths`, `MethodText` | —     | —                                                                                                    | —                |
-| `src/app/(app)/reports/company/page.tsx`                  | `CompanyReportsPage`                              | —     | —                                                                                                    | 1 const          |
-| `src/app/(app)/reports/company/print-layout.tsx`          | `PrintHeading`, `PrintBody`                       | —     | —                                                                                                    | —                |
-| `src/app/(app)/reports/company/tabs.ts`                   | —                                                 | —     | —                                                                                                    | 1 const · 1 type |
+| File                                                      | Components                                        | Hooks | Functions                                                                                                                | Also             |
+| --------------------------------------------------------- | ------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| `src/app/(app)/reports/page.tsx`                          | `ReportsPage`                                     | —     | —                                                                                                                        | 1 const          |
+| `src/app/(app)/reports/reports-screen.tsx`                | `ReportsScreen`                                   | —     | —                                                                                                                        | —                |
+| `src/app/(app)/reports/builder/builder-screen.tsx`        | `ReportBuilderScreen`                             | —     | —                                                                                                                        | —                |
+| `src/app/(app)/reports/builder/page.tsx`                  | `ReportBuilderPage`                               | —     | —                                                                                                                        | 1 const          |
+| `src/app/(app)/reports/company/company-report-screen.tsx` | `CompanyReportScreen`                             | —     | —                                                                                                                        | —                |
+| `src/app/(app)/reports/company/department-panel.tsx`      | `DepartmentPanel`                                 | —     | —                                                                                                                        | —                |
+| `src/app/(app)/reports/company/departments-tab.tsx`       | `DepartmentsTab`, `PrintDepartments`              | —     | —                                                                                                                        | —                |
+| `src/app/(app)/reports/company/format.ts`                 | —                                                 | —     | `markOrDash`, `progressOrDash`, `koboOrDash`, `plural`, `finishedWorkLine`, `gapSentence`, `signedPoints`, `likelyRange` | 1 const          |
+| `src/app/(app)/reports/company/overview.tsx`              | `Overview`, `Findings`, `Strengths`, `MethodText` | —     | —                                                                                                                        | —                |
+| `src/app/(app)/reports/company/page.tsx`                  | `CompanyReportsPage`                              | —     | —                                                                                                                        | 1 const          |
+| `src/app/(app)/reports/company/print-layout.tsx`          | `PrintHeading`, `PrintBody`                       | —     | —                                                                                                                        | —                |
+| `src/app/(app)/reports/company/tabs.ts`                   | —                                                 | —     | —                                                                                                                        | 1 const · 1 type |
 
 ---
 

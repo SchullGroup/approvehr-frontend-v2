@@ -1,5 +1,11 @@
 import { formatKobo } from "@/lib/api/payroll";
-import { markPercent, pointsBetween } from "@/lib/api/company-report";
+import {
+  markPercent,
+  ofLabel,
+  pointsBetween,
+  type ShownDepartment,
+} from "@/lib/api/company-report";
+import { count } from "@/lib/projects/terms";
 
 /**
  * How the company report writes a figure.
@@ -23,6 +29,28 @@ export const koboOrDash = (kobo: number | undefined): string =>
 
 export const plural = (n: number, one: string, many: string): string =>
   n === 1 ? one : many;
+
+/**
+ * The line about project work finished in the cycle, or `null` where there is
+ * nothing true to say (a cycle with no dates, or a server that does not send it).
+ *
+ * It is a fact about the department's tracker use and never a mark: how many of
+ * the people the cycle asked finished a task, and how many tasks in all. A zero is
+ * a real answer and is written as one. It sits beside the weekly tasks, which keep
+ * their own logged and graded figures, and is never added to them.
+ */
+export function finishedWorkLine(
+  results: ShownDepartment["results"],
+): { who: string; total: string } | null {
+  const work = results.finishedWork;
+  if (!work || work.withFinishedWork === null || work.tasksFinished === null) {
+    return null;
+  }
+  return {
+    who: `${ofLabel({ n: work.withFinishedWork, of: results.tasks.people })} finished a task`,
+    total: `${count(work.tasksFinished, "task")} in all`,
+  };
+}
 
 /** "16.4 points above everyone else", from a signed gap in basis points. */
 export function gapSentence(gapBp: number): string {
