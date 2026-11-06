@@ -4,6 +4,7 @@ import {
   filled,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
+import { WRITTEN_ANSWER_MAX_LENGTH } from "@/lib/performance/question-limits";
 import type { LocalDraft } from "./draft-storage";
 
 /**
@@ -13,7 +14,7 @@ import type { LocalDraft } from "./draft-storage";
  */
 
 /** What the API accepts in one written answer, and in the closing note. */
-export const TEXT_LIMIT = 4000;
+export const TEXT_LIMIT = WRITTEN_ANSWER_MAX_LENGTH;
 
 /**
  * What the closing page is called, on each kind of form.

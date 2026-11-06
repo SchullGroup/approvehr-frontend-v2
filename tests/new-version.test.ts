@@ -81,9 +81,10 @@ describe("the reason it is fixed", () => {
 
 describe("the ways a new version can be answered", () => {
   it("is every way except the one the subsection has, in the order a picker offers them", () => {
-    expect(otherKinds("RATING")).toEqual(["BOOLEAN", "CHOICE"]);
-    expect(otherKinds("BOOLEAN")).toEqual(["RATING", "CHOICE"]);
-    expect(otherKinds("CHOICE")).toEqual(["RATING", "BOOLEAN"]);
+    expect(otherKinds("RATING")).toEqual(["BOOLEAN", "CHOICE", "TEXT"]);
+    expect(otherKinds("BOOLEAN")).toEqual(["RATING", "CHOICE", "TEXT"]);
+    expect(otherKinds("CHOICE")).toEqual(["RATING", "BOOLEAN", "TEXT"]);
+    expect(otherKinds("TEXT")).toEqual(["RATING", "BOOLEAN", "CHOICE"]);
   });
 });
 

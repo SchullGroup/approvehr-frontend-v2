@@ -76,7 +76,7 @@ beforeEach(() => {
 });
 
 describe("choosing how the new version is answered", () => {
-  it("is titled with the subsection and offers the two other ways, after a prompt", () => {
+  it("is titled with the subsection and offers the three other ways, after a prompt", () => {
     show();
     expect(
       screen.getByRole("dialog", { name: "Start a new version of Teamwork" }),
@@ -89,17 +89,18 @@ describe("choosing how the new version is answered", () => {
       "Choose how it is answered",
       "A level on a scale, 1 to 5",
       "Pick one from a list",
+      "In their own words",
     ]);
   });
 
-  it("offers a yes or no and a pick-one for a subsection that is a level", () => {
+  it("offers a yes or no, a pick-one and their own words for a subsection that is a level", () => {
     show(competency({ answerKind: "RATING" }));
     expect(
       within(kindSelect())
         .getAllByRole("option")
         .slice(1)
         .map((one) => one.textContent),
-    ).toEqual(["Yes or no", "Pick one from a list"]);
+    ).toEqual(["Yes or no", "Pick one from a list", "In their own words"]);
   });
 
   it("reads a subsection that does not say as a level, which is what an older server means", () => {
@@ -109,7 +110,7 @@ describe("choosing how the new version is answered", () => {
         .getAllByRole("option")
         .slice(1)
         .map((one) => one.textContent),
-    ).toEqual(["Yes or no", "Pick one from a list"]);
+    ).toEqual(["Yes or no", "Pick one from a list", "In their own words"]);
   });
 
   it("chooses nothing for anybody, and will not go ahead until a way is chosen", async () => {

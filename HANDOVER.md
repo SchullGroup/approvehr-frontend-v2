@@ -11665,6 +11665,153 @@ through `dev` into `test`).
 
 ---
 
+# A subsection can be answered in the person's own words, and it never counts
+
+The product owner, looking at the **Start a new version of Communication** dialog, whose **How the new version is answered**
+list offered only **Yes or no** and **Pick one from a list**: _"Please add ability to answer in their own word."_ A
+subsection (`Competency`) now has a fourth `answerKind`, `TEXT`: the answer is written, **read by people and never scored**.
+The word for it in a picker is **In their own words**, on a row it is **Written**, and the one sentence that says what it is
+(`WRITTEN_NEVER_COUNTS`, in `lib/performance/answer-kind.ts`) is _A written answer is read by people and never counts towards
+the mark._
+
+Branch `feat/answer-in-words-20261105` in both repositories: this one is a pull request into `dev`, and the API half is a
+pull request into `staging` of `approvehr-backend`. Neither was merged when this was written. The API half's own note is
+`docs/backend/answer-in-words-handover.md` there, and its wire shapes are what this is built against. **The backend goes
+first.** A server that predates it never sends `TEXT`, so nothing new is drawn against it; the pickers do offer **In their own
+words** (the web cannot tell), and it would be refused. That was not run.
+
+## What changed
+
+| Where | What |
+| ----- | ---- |
+| `lib/api/performance.ts` | `AnswerKind` gains `TEXT`. `textValue` on a skills row, on the rate body and its answer, and on a manager's `selfAnswer`, all optional: a server that sends none of them is read as it always was. |
+| `lib/performance/answer-kind.ts` | The fourth kind: **In their own words** in a picker, **Written** on a row, and `WRITTEN_NEVER_COUNTS`, the one sentence. `directCounts` says nothing for it. |
+| `lib/performance/question-limits.ts` | `WRITTEN_ANSWER_MAX_LENGTH` (4,000, the server's), the count from 3,500, `writtenAnswerProblem`, `writtenAnswerCounter`, `writtenAnswerIsOver`. The review form's own box (`TEXT_LIMIT`) reads the same constant. |
+| Record a level (`rating-dialog.tsx`) | A **Answer** box for a written skill: already filled with what is on record, a count, the one sentence under it, the period help that does not mention a mark, and the language check. Title unchanged. |
+| Skills (`skills.tsx`) | A written row shows the words in full with **Written**, folded to three lines with **Read all** when long, never a level, a score or a nought. **Answered** when the words did not arrive. The toast says **Answer recorded** for anything that is not a level. |
+| The review form (`review-parts.tsx`, `subsection-answer.ts`, `focus-question.tsx`) | A written subsection question is a box to write in, held and sent as `textValue` and never as a pick; blank is not an answer; read back in full with its paragraphs; a manager sees the person's own words in full on **Their own answer**. |
+| Questions dialog (`direct-answer-panel.tsx`, `subsection-ask.ts`, `question-filing.ts`, `period-dialogs.tsx`) | **In their own words** in **How it is answered** and **Answered by**; **Ask it on the review form** with lines that say where the words go; the filing sentence for a written subsection; a **Written directly** badge. |
+| Start a new version (`new-version.ts`, `new-version-dialog.tsx`) | The list gains **In their own words**. Choosing it adds a fourth line, the sentence above. A retired subsection that was written does not say its marks stay. |
+| `language-check.tsx`, `review-language.ts` | `caveat` on the component, and `ANSWER_CAVEAT` for words that are saved and not a review that is sent. |
+
+## Decisions not to undo
+
+1. **It is a kind, with its own sentence in one place.** Every screen that explains the kind reads `WRITTEN_NEVER_COUNTS`. Said
+   three different ways, it would be three different promises about a mark, and each of them a well-typed string.
+2. **A written subsection says nothing about its section's share of the mark.** `directCounts` is `null` for it, the filing
+   sentence says that nothing recorded on it counts and quotes no weight, and **Appraisal period** in Record a level says
+   nothing about a mark for it. The sentences for a level quote what the section is worth and warn when it is worth nothing;
+   for words both would be wrong in every state, because a written answer reaches no part of the mark.
+3. **Blank is not an answer, measured trimmed, in every place that decides.** `filled`, `answerBodyFor` (which sends nothing
+   for a blank box, so a saved answer is never blanked), `answerWords` and the dialog's own check. The server measures it the
+   same way. The too-long sentence is the server's, character for character (_Keep it to 4000 characters._); the blank one is
+   ours.
+4. **The words are shown in full, or with a way to read all of them.** The review read-back, the manager's line and the record
+   show them whole, with their paragraphs (`whitespace-pre-line break-words`). **That class is on the read-back of every kind,
+   so an ordinary written answer keeps its paragraphs now too.** The skills row folds past 240 characters or three lines, by
+   length and not by measuring the layout, which jsdom cannot do: at worst **Read all** is offered for words already in view.
+5. **Absent is not none, in three places.** An answered row whose words did not arrive says **Answered**, not **Written**; the
+   person's own answer on a manager's form draws nothing for `null`, absent, empty and spaces, never **No answer** and never a
+   nought; and a server that sends none of the fields is read exactly as before.
+6. **The language check reads a manager's written answer wherever it is written.** On the review form it already read every
+   question's text (`onRecord(question).text`), so a written subsection question was covered with no change, and it is now
+   pinned by a test. In Record a level it was **added**, live, never blocking, with its own caveat: the shared one says
+   _Nothing here stops you sending the review_, under a box in a dialog that has no review in it. A person's own self-review is
+   never read.
+7. **Record a level opens on what is on record**, found in the person's skills the way a pick is, so recording again corrects the
+   words. What was typed over it is kept until the person or the skill changes.
+8. **The period help in Record a level for words** says it files under the period and that writing again replaces it
+   (_Filed under that period. Each person has one answer per period, so writing it again replaces this one._), or, with no
+   period, _A snapshot of where they are now._ The server replaces a re-rate inside a period and keeps each reading outside one.
+9. **A retired written subsection does not claim marks stay** (`from` in `newVersionEffects` and `startedLine`): none was ever
+   made from its words, and "every mark made from them stays as it is" says some were.
+10. **The toast says _Answer recorded_ for any answer that is not a level**, yes or no and pick included. It said _Level
+    recorded_ for all of them.
+11. **The tab stays _How it is rated_.** It is the name of a place, shared by every kind, and renaming it for one is a change to
+    every screen that mentions it.
+
+## Found, and not changed
+
+- **The design called the wire field `kind`; the API's name is `subsection.answerKind`**, as it has been since subsection
+  questions, and its note says no alias was added. The web reads `answerKind`.
+- **The person's own skills list shows words their manager recorded, before the rating is final.** The API's note raises it: the
+  words are written as the person's rating when the manager **sends** the review, and the list is readable by the person, while
+  the manager review itself is hidden from them until it is final. A yes or no and a pick have the same exposure; words are more
+  sensitive. Seen in the walk: the manager's words were on the person's own skills list while the period was still open.
+  Withholding `textValue` until the mark is final is a decision for the owner, and `SkillRow` already draws a row that says
+  **Answered** and shows nothing.
+- **Record a level keeps its state after it closes.** `SkillsTab` renders it for good with `open` toggled, so after **Cancel**
+  (and after a save, which does not reset it either) it opens again on the same person, skill and words. Seen for words with a
+  throwaway test, and every other field is state in the same component. Not fixed: it matters more for words than for a level,
+  and the rule from the announcements entry above (a form per open, keyed) is the fix.
+- **No screen sets what a job role expects**, so nothing offers it a written subsection. The API refuses one; whichever screen is
+  built must offer only `RATING` subsections.
+- **A core written subsection appears in `expectedOf`** with `targetLevel: null` and a scale that means nothing, as a core yes or
+  no does. No screen draws it today (`jobRolesApi.expectedOf` has no caller).
+- **Words are counted in UTF-16 code units**, the server's way, so an emoji counts as two.
+
+## Verified
+
+**Frontend tests.** Thirteen new test files, 251 tests, one per surface: the helpers and the limits, the review form's value
+rules, the page-by-page flow, Record a level, the Skills row and the Skills screen, the panel, Start a new version, the tree, the
+Questions dialog, the filing sentence and the ask lines. Six existing files that list the kinds were updated to four. Run again
+on the final commit with every test file that imports a changed file: **176 files and 2,497 tests, all passing**.
+
+**Deliberate breaks.** Forty-seven (one exact replacement in one source file, refused unless the old text matched exactly once,
+the file restored with `git checkout` and the tree checked clean after each), among them: a written answer sent as a pick; a
+written answer sent as a level; a target sent with it; the level and target fields shown for it; **Written** missing from the
+badge; **In their own words** missing from every picker and from the new-version list; a blank answer accepted; one over 4,000
+accepted; the limit moved; a box of spaces counted as filled; a blank answer sent; the person's own answer drawn as _No answer_
+or as _0_; the preview cutting a long answer to two lines; the paragraphs flattened; a long answer on a skills row with no way
+to read it; a written row drawn with the level scale; a written row showing a level and a target (counted in gaps); the section's
+share of the mark promised for words, in the picker's line, the filing sentence, the ask lines and the period help; the new
+version saying marks stay for a written one; the language check not reading a manager's written answer, and reading a person's
+own. **Forty-five were caught on the first run. Two were not**, and both were tests that did not assert what their names said:
+the skills-row test checked for _Not assessed yet_ and never that the stale words were absent, and the self-review exemption test
+used words no rule flags (_I am quite disorganised_), so it passed with or without the exemption. Both were rewritten (stale
+words must not be drawn; _I took maternity leave in March_, which the check flags on a manager's form, is not flagged on a
+self-review, and a second test flags the very same words on a manager's), and both breaks are caught now. Three of them were
+made again afterwards, on a throwaway checkout, and each was caught with the tree clean after the restore: words sent as a pick
+(9 tests failed), the limit moved to 5,000 (12), and a written subsection promised a share of the mark again (4). The backend's
+side of the same exercise is in its own note.
+
+**The gates**, read from each command's own exit code, on the final commit: `tsc --noEmit` exit 0; ESLint on every changed file
+exit 0 and, over the whole repo inside `npm run check`, 0 errors and the **same 15 warnings that are already on `dev`**, none in
+a file this change touches; Prettier clean; **`npm run check` exit 0** with `APPROVEHR_BACKEND_DIR` pointing at the backend
+branch, so the four cross-repo gates (payroll, template, rating scale, signature wording) compared and did not print `skip`.
+`verify-review-language` gained three assertions (the new caveat says it does not block, admits its limits and does not talk of
+a review), 52 in all. `npm run docs -- --check --only frontend-components` says the components inventory is current; the pages
+inventory was not touched, because the route list did not change.
+
+**In a browser, against the real backend.** A scratch API built from the backend commit on a real Postgres, a production build of
+this branch with `NEXT_PUBLIC_DEMO=off`, and Chromium signed in for real as the administrator, a line manager and an employee,
+in one walk on a fresh period: **67 checks, all passing**, and no console error, page error or 5xx anywhere in it. The walk made
+a written subsection over the API and another in the Questions dialog, and asked the second of both people with **Ask it on the
+review form**; started the period and saw the written question on both forms; had the employee write on the page-by-page form
+and the manager answer beside the person's own words, read back in full; recorded words under **Record a level**, with the
+language check live and the save never blocked; compared a person's whole score, field by field, before and after written
+answers came in by both doors (17 fields, identical) and looked for a written subsection in the score register, the gap list and
+the heatmap (none); read the person's own skills list as the employee, with a long multi-paragraph answer folded and opened with
+**Read all**; opened
+**Start a new version** from a rated subsection and chose **In their own words**; and, on a 375px touch phone, the answer page
+and Record a level (no sideways scroll, the box and the dialog inside the screen, 16px text).
+
+**What was typed was then searched for.** The walk's three marker words were looked for in a dump of every table, in the API's
+log and in the web server's log. They are in `review_responses` and `competency_ratings` and nowhere else, in none of the logs,
+and not in any audit entry or notification (the audit entry for a written rating says `answerKind: TEXT` and carries no words;
+the notification says _A written answer, not scored._).
+
+## Not exercised
+
+The QA site; iOS Safari or any real device, or any browser but Chromium; demo mode in a browser (a production build has none, and
+the screens that need the API say so); a server that predates the API half (the pickers would offer **In their own words** and
+the server would refuse it, which was reasoned and not run); a real assistant key, so what a model is sent was seen in the
+backend's tests and not on a call; a company with real data (the walk's has ten people and a few periods); two appraisers
+sending a written answer at once; the migration against a database of production size; and the whole web suite in one run (the
+176 files above are the ones that bear on this) and the whole backend suite in one run (CI does that).
+
+---
+
 # A leave type decides whether it asks for a reason, and a file can go on a request with no bucket behind it
 
 Two requests in one change, and the second is the one to read twice.

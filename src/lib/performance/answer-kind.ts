@@ -24,16 +24,31 @@ import { weightLabel } from "@/lib/api/performance";
  * way out and back, and nothing downstream ever sees a float. A second
  * implementation of a score is how two screens end up disagreeing about the
  * same person.
+ *
+ * A written answer (`TEXT`) is the one kind with no score at all, not even a
+ * hand-set one: it is read by people and left out of every average and every part
+ * of the mark (absent, never zero; ADR 0003). `WRITTEN_NEVER_COUNTS` is the one
+ * sentence that says so, and every screen that has to say it reads it from here.
  */
 
 type KindCarrier = { answerKind?: AnswerKind | undefined };
 
-/** The three kinds, in the order a picker offers them. */
+/** The four kinds, in the order a picker offers them. */
 export const ANSWER_KINDS: readonly AnswerKind[] = [
   "RATING",
   "BOOLEAN",
   "CHOICE",
+  "TEXT",
 ];
+
+/**
+ * What a written answer is, in the one sentence every screen uses for it: the
+ * line under the picker, the line in the new-version dialog and the line under the
+ * box a manager writes in. Said once so the screens cannot come to say it three
+ * ways, and so that none of them can promise a mark from a paragraph.
+ */
+export const WRITTEN_NEVER_COUNTS =
+  "A written answer is read by people and never counts towards the mark.";
 
 /** What the API means by a subsection that does not say how it is answered. */
 export function answerKindOf(source: KindCarrier): AnswerKind {
@@ -45,6 +60,7 @@ export const KIND_BADGE: Record<AnswerKind, string> = {
   RATING: "Rated",
   BOOLEAN: "Yes or no",
   CHOICE: "Pick one",
+  TEXT: "Written",
 };
 
 /**
@@ -57,26 +73,37 @@ export const KIND_BADGE: Record<AnswerKind, string> = {
  * a tag on every option would say the same thing down the whole list. The Subsection
  * picker said nothing for any of them, so somebody filing a question under "Teamwork"
  * could not tell from the list that a manager answers it yes or no and not on the
- * scale. The words are the row badge's ("Yes or no", "Pick one") in lower case.
+ * scale. The words are the row badge's ("Yes or no", "Pick one", "Written") in lower
+ * case.
  */
 export function subsectionOptionLabel(name: string, kind: AnswerKind): string {
   if (kind === "RATING") return name;
-  return `${name}, ${kind === "BOOLEAN" ? "yes or no" : "pick one"}`;
+  return `${name}, ${KIND_BADGE[kind].toLowerCase()}`;
 }
 
 /** The option in the "How it is answered" picker. */
 export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
-  if (kind === "RATING") return `A level on a scale, 1 to ${String(scaleMax)}`;
-  return kind === "BOOLEAN" ? "Yes or no" : "Pick one from a list";
+  switch (kind) {
+    case "RATING":
+      return `A level on a scale, 1 to ${String(scaleMax)}`;
+    case "BOOLEAN":
+      return "Yes or no";
+    case "CHOICE":
+      return "Pick one from a list";
+    case "TEXT":
+      return "In their own words";
+  }
 }
 
 /**
  * What picking a kind means, in one sentence each.
  *
- * Every non-level kind says it has no target and is left out of the gap list
+ * Yes or no and a pick say they have no target and are left out of the gap list
  * and the heatmap, because both are about levels and the API filters them to
  * `RATING`. Said here so HR is not left wondering where a yes-or-no subsection
- * went, which is the question that sentence exists to answer.
+ * went, which is the question that sentence exists to answer. A written answer says
+ * the larger thing instead, that it never counts towards the mark, and nobody
+ * expects a target or a gap from words.
  */
 export function kindLine(kind: AnswerKind, scaleMax: number): string {
   switch (kind) {
@@ -86,15 +113,19 @@ export function kindLine(kind: AnswerKind, scaleMax: number): string {
       return "A yes or a no. Yes scores 100% and no scores 0%, with nothing to set. It has no target, so it is left out of the gap list and the heatmap.";
     case "CHOICE":
       return "One pick from the list below, and each pick scores what you set for it. It has no target, so it is left out of the gap list and the heatmap.";
+    case "TEXT":
+      return WRITTEN_NEVER_COUNTS;
   }
 }
 
 /**
  * What is recorded on a subsection, in the words that are true of its kind.
  *
- * A level is a level. A yes or no and a pick have none, so calling what a
- * manager records on them "the level" would be a wrong claim in the sentence
- * that is meant to say where the mark comes from.
+ * A level is a level. A yes or no, a pick and a written answer have none, so
+ * calling what a manager records on them "the level" would be a wrong claim in the
+ * sentence that is meant to say where the mark comes from. (A written answer never
+ * reaches the mark at all; the sentences that say where the mark comes from check
+ * for that first, and do not reach this.)
  */
 export function recordedWords(kind: AnswerKind | undefined): {
   a: string;
@@ -346,11 +377,19 @@ export function repeatedLabels(drafts: readonly ChoiceDraft[]): string[] {
  * `section` is `null` for a subsection filed under none, and its `weightBp` is
  * `null` for a section that is not weighted (never 0%) and `undefined` when the
  * API has not said, in which case there is nothing true to add.
+ *
+ * **A written answer says nothing here**, in any state: it counts towards no part of
+ * the mark whatever its section is, so "Behavioural competency is 40% of the mark,
+ * and an answer recorded here counts towards it" would be false, and the warning
+ * about a section that is not weighted would be warning about something that could
+ * not have counted anyway. The line above this one (`kindLine`) already says it never
+ * counts.
  */
 export function directCounts(input: {
   kind: AnswerKind;
   section: { name: string; weightBp: number | null | undefined } | null;
 }): { tone: "muted" | "warning"; text: string } | null {
+  if (input.kind === "TEXT") return null;
   const words = recordedWords(input.kind);
   if (input.section === null) {
     return {

@@ -118,7 +118,7 @@ describe("the sprint board", () => {
     const card = screen
       .getByRole("button", { name: (name) => name.includes(parent.title) })
       .closest("article")!;
-    expect(card).toHaveTextContent(`${done}/${kids.length} sub-tasks done`);
+    expect(card).toHaveTextContent(`${done}/${kids.length} subtasks done`);
   });
 
   it("says a column is over its limit in words, not only in colour", () => {
