@@ -392,9 +392,10 @@ export type BulkLinkItem = BulkItem & { personId: string | null };
  * Link or clear many tasks at once. One change per task, a few at a time, and
  * the answer says how many changed and, for each that did not, why.
  *
- * Connected, each is the same `PATCH` as linking one task, so the API decides
- * every one. In the demo each is applied to the demo book, and the same people
- * may link: the assignee, the project's lead, the assignee's manager and HR.
+ * Connected, it is one `POST /issues/objective-links` and each task answers for
+ * itself, so the API decides every one. In the demo each is applied to the demo
+ * book, and the same people may link: the assignee, the project's lead, the
+ * assignee's manager and HR.
  */
 export function useBulkLink(): (
   items: readonly BulkLinkItem[],

@@ -302,4 +302,22 @@ describe("linking the ones chosen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Done" }));
     await waitFor(() => expect(screen.queryByText("1 chosen")).toBeNull());
   });
+
+  it("gives focus back to the list when the button that opened the dialog is gone", async () => {
+    mount();
+    await choose(/Cart drawer slides in/);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Link to an objective" }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Clear the link on 1 task",
+      }),
+    );
+    await screen.findByText("Cleared the link on 1 task.");
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2 })).toHaveFocus(),
+    );
+  });
 });

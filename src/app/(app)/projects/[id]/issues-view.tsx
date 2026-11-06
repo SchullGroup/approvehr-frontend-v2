@@ -1,7 +1,7 @@
 "use client";
 
 import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import {
   Button,
@@ -76,6 +76,7 @@ export function IssuesView() {
   const mayLink = useMayLinkIssue();
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [linking, setLinking] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const rows = useMemo(
     () =>
@@ -166,7 +167,13 @@ export function IssuesView() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-h4 text-ink">{TAB_LABEL.issues}</h2>
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-h4 text-ink focus:outline-none"
+        >
+          {TAB_LABEL.issues}
+        </h2>
         <p className="tabular mt-1 text-body-sm text-muted">
           {rows.length} of {countNoun(issues.length, "task")}
         </p>
@@ -328,6 +335,7 @@ export function IssuesView() {
         open={linking}
         onClose={() => setLinking(false)}
         tasks={chosen}
+        focusAfter={() => headingRef.current}
         run={(target) =>
           runBulkLink(chosen, async (issue) => {
             const result = await actions.patchIssue(

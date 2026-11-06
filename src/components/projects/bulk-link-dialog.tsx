@@ -13,6 +13,28 @@ import { useKpis } from "@/lib/store/performance";
 import { MeasurePicker, ObjectivePicker } from "./objective-picker";
 
 /**
+ * The dialog takes a moment to leave, with focus still in it, and then gives
+ * focus back to whatever opened it. If that is gone (the chosen tasks, and the
+ * button with them, were let go) focus falls to the page, so once the dialog has
+ * left and focus is nowhere, put it where the person was reading.
+ */
+function settleFocus(target: () => HTMLElement | null) {
+  let frames = 0;
+  const step = () => {
+    frames += 1;
+    const now = document.activeElement;
+    const inDialog =
+      now instanceof HTMLElement && now.closest('[role="dialog"]') !== null;
+    if (!inDialog) {
+      if (!now || now === document.body) target()?.focus();
+      return;
+    }
+    if (frames < 90) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/**
  * Link, or clear, many tasks at once.
  *
  * Opened from a project's task list and from a person's completed list with the
@@ -33,6 +55,7 @@ export function BulkLinkDialog({
   assigneeId,
   run,
   onDone,
+  focusAfter,
 }: {
   open: boolean;
   onClose: () => void;
@@ -44,6 +67,12 @@ export function BulkLinkDialog({
   run: (target: BulkTarget) => Promise<BulkLinkResult>;
   /** The changes are made; refresh whatever is showing them. */
   onDone: (result: BulkLinkResult) => void;
+  /**
+   * Where focus goes if it has nowhere to return to. The tasks that were chosen
+   * are let go once they are changed, and the button that opened this went with
+   * them, so a keyboard user would land on the page's top.
+   */
+  focusAfter?: () => HTMLElement | null;
 }) {
   /* Asked for only once the dialog is open: one of these sits behind every list
      that offers it, and none of them should cost a request until it is used. */
@@ -83,6 +112,7 @@ export function BulkLinkDialog({
     setResult(null);
     setGoalId(null);
     setKeyResultId(null);
+    if (focusAfter) settleFocus(focusAfter);
   }
 
   const count = countNoun(tasks.length, "task");

@@ -429,8 +429,49 @@ describe("linking from a person's list", () => {
       ],
       { goalId: "g1", keyResultId: null },
     );
-    /* The list asks again so its links are current. */
-    expect(hook.reload).toHaveBeenCalled();
+    /* The list holds still while the answer is read, so it cannot take the
+       person (and the answer) away; it asks again once the dialog is closed. */
+    expect(hook.reload).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(hook.reload).toHaveBeenCalledTimes(1);
+    /* The chosen tasks are let go and so is the button that opened the dialog,
+       so focus goes to the person instead of falling to the top of the page. */
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Bola Projects/ }),
+      ).toHaveFocus(),
+    );
+  });
+
+  it("does not reload the list when nothing was changed", async () => {
+    hook.run.mockResolvedValue({
+      changed: 0,
+      failed: [
+        {
+          id: "i1",
+          key: "PRF-1",
+          reason: "It could not be found, or it is not yours to link.",
+        },
+      ],
+    });
+    render(<CompletedTeam />);
+    await choose("PRF-1");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Link to an objective" }),
+    );
+    const dialog = screen.getByRole("dialog");
+    await userEvent.selectOptions(
+      within(dialog).getByRole("combobox", { name: /Objective/ }),
+      "Grow revenue (Company)",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Link 1 task" }),
+    );
+    expect(
+      await screen.findByText("That task could not be changed."),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(hook.reload).not.toHaveBeenCalled();
   });
 
   it("narrows to one measure when the objective has them", async () => {

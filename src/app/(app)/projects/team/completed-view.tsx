@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ListChecks } from "lucide-react";
 import Link from "next/link";
 import {
@@ -152,7 +152,12 @@ function PersonCompleted({
   const [open, setOpen] = useState(startOpen);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [linking, setLinking] = useState(false);
+  /* Something was changed, so the list is asked again, but only once the dialog
+     has been read and closed: a list that reloads behind it can drop the very
+     person whose tasks it is answering for, and take the answer with it. */
+  const [stale, setStale] = useState(false);
   const panel = `completed-${employee.id}`;
+  const toggleRef = useRef<HTMLButtonElement>(null);
 
   const chosen = useMemo(
     () => items.filter((item) => picked.has(item.id)),
@@ -180,6 +185,7 @@ function PersonCompleted({
     <li data-person-row>
       <div className="flex flex-col gap-1 px-3 py-3 sm:flex-row sm:items-center sm:gap-4">
         <button
+          ref={toggleRef}
           type="button"
           aria-expanded={open}
           aria-controls={panel}
@@ -265,8 +271,15 @@ function PersonCompleted({
 
       <BulkLinkDialog
         open={linking}
-        onClose={() => setLinking(false)}
+        onClose={() => {
+          setLinking(false);
+          if (stale) {
+            setStale(false);
+            onChanged();
+          }
+        }}
         tasks={chosen}
+        focusAfter={() => toggleRef.current}
         assigneeId={employee.id}
         run={(target) =>
           run(
@@ -278,11 +291,11 @@ function PersonCompleted({
             target,
           )
         }
-        onDone={() => {
+        onDone={(result) => {
           /* The dialog says what happened, task by task. Here the tasks are no
-             longer "chosen", and the list asks again so its links are current. */
+             longer "chosen"; the list asks again when the dialog closes. */
           setPicked(new Set());
-          onChanged();
+          if (result.changed > 0) setStale(true);
         }}
       />
     </li>
