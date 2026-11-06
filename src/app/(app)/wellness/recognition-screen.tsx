@@ -19,7 +19,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
-import { PillTabs, WellnessArt } from "@/components/wellness";
+import { PillTabs, SceneImage, WellnessArt } from "@/components/wellness";
 import { LoadMore } from "@/components/portal/load-more";
 import { ApiError } from "@/lib/api/client";
 import type { ApiRecognition } from "@/lib/api/wellness";
@@ -131,7 +131,7 @@ export function RecognitionScreen() {
         {list.rows.length === 0 ? (
           <Card>
             <EmptyState
-              art={<WellnessArt name="pear" mood="sleepy" size={104} />}
+              art={<SceneImage name="ice-cream" size={140} />}
               title={EMPTY[kind].title}
               description={EMPTY[kind].description}
               compact

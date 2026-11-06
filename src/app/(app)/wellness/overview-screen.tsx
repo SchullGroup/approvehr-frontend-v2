@@ -43,6 +43,7 @@ import {
   MascotPromoCard,
   PillTabs,
   ProgressArc,
+  SceneImage,
   StatTile,
   StreakCard,
   WeekBars,
@@ -512,7 +513,7 @@ function YourRun({
                 />
               ) : (
                 <div className="flex items-center gap-3 rounded-2xl bg-sunken p-4 text-body-sm text-body">
-                  <WellnessArt name="flame" mood="sleepy" size={56} />
+                  <SceneImage name="strolling" size={88} />
                   No days to draw yet. Log something and your week fills in.
                 </div>
               )}

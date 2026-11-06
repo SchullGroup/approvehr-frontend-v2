@@ -623,14 +623,7 @@ export function WellnessArt({
  * Black line art, so they sit on a light sticker in both themes.
  */
 export type SceneName =
-  | "running"
-  | "strolling"
-  | "meditating"
-  | "chilling"
-  | "coffee"
-  | "jumping"
-  | "ice-cream"
-  | "groovy";
+  "strolling" | "meditating" | "chilling" | "coffee" | "ice-cream";
 
 export function SceneImage({
   name,
