@@ -33,6 +33,8 @@ const mocks = vi.hoisted(() => ({
   connected: true,
   /** What the chosen type says. Null is a server that says nothing. */
   reasonRequired: null as boolean | null,
+  /** What the chosen type asks for. Zero asks for none. */
+  notice: 0,
 }));
 
 const LIMITS: LeaveFileLimits = {
@@ -88,7 +90,13 @@ vi.mock("@/lib/store/holidays", () => ({
 }));
 vi.mock("@/lib/store/leave-api", () => ({
   useLeaveTypes: () => ({
-    types: [{ ...SICK, reasonRequired: mocks.reasonRequired }],
+    types: [
+      {
+        ...SICK,
+        reasonRequired: mocks.reasonRequired,
+        minNoticeDays: mocks.notice,
+      },
+    ],
   }),
   useLeaveBalancesFor: () => ({ of: () => undefined }),
   useLeaveMutations: () => ({
@@ -177,6 +185,7 @@ beforeEach(() => {
   mocks.rule = { policy: "OPTIONAL", requiredOverDays: null, required: false };
   mocks.connected = true;
   mocks.reasonRequired = null;
+  mocks.notice = 0;
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -541,6 +550,51 @@ const reasonLabel = () =>
   document.querySelector(`label[for="${reasonBox().id}"]`)!;
 
 const REASON_MISSING = "Say why you are asking for this leave.";
+
+describe("when the leave type asks for notice", () => {
+  /* The dates the helpers type are in the past, which is what makes "short"
+     deterministic: whatever day the suite runs, 2 November 2026 has gone. A
+     date far ahead is always enough. */
+  beforeEach(() => {
+    mocks.notice = 7;
+  });
+
+  it("says what the type asks for as soon as there is a start date, and that these dates fall short", () => {
+    mount();
+    expect(screen.queryByText(/asks for 7 days' notice/)).toBeNull();
+    pickDates();
+    expect(
+      screen.getByText(
+        /Annual asks for 7 days' notice\. This starts in the past/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("only states the ask when there is enough notice", () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/^From/), {
+      target: { value: "2099-01-05" },
+    });
+    expect(
+      screen.getByText("Annual asks for 7 days' notice."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/It can still be raised/)).toBeNull();
+  });
+
+  it("is guidance and not a gate: a short request is still sent", async () => {
+    mount();
+    pickDates();
+    send();
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+  });
+
+  it("says nothing for a type that asks for none", () => {
+    mocks.notice = 0;
+    mount();
+    pickDates();
+    expect(screen.queryByText(/notice/i)).toBeNull();
+  });
+});
 
 describe("when the leave type asks for a reason", () => {
   beforeEach(() => {
