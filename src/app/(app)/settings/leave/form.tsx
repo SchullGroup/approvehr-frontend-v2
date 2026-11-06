@@ -1253,47 +1253,86 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                 <Card>
                   <CardHeader title="Approval rules" level={3} />
                   <CardBody className="flex flex-col gap-5">
-                    <Field
-                      label="Allow approval into a negative balance"
-                      help="Off means an approver cannot push someone past their entitlement. On means they can, and payroll treats the excess as unpaid."
-                    >
-                      <Switch
-                        checked={policy.allowNegativeBalance}
-                        label={
-                          policy.allowNegativeBalance ? "Allowed" : "Blocked"
-                        }
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          updateLeave({ allowNegativeBalance: checked });
-                          toast.push({
-                            title: checked
-                              ? "Negative balances allowed"
-                              : "Negative balances blocked",
-                            tone: checked ? "info" : "success",
-                            detail: checked
-                              ? "Approvers can now exceed an entitlement. The excess is unpaid."
-                              : "Approvers can no longer exceed an entitlement.",
-                          });
-                        }}
-                      />
-                    </Field>
+                    {isConnected ? (
+                      /* Connected, these two are not company settings: the API
+                         has no policy to save them into, and decides both the
+                         same way for everybody. A switch here would look saved
+                         and move nothing, so each is a statement of what the
+                         server does. They are switches only offline, where the
+                         demo store reads them. */
+                      <>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-body-sm font-medium text-ink">
+                            Going over an entitlement
+                          </span>
+                          <span className="text-body-sm text-muted">
+                            Never blocks. A request over a person&rsquo;s
+                            entitlement is raised with a warning and the
+                            approver decides. Maternity and paternity are
+                            statutory and are never measured against an annual
+                            allowance.
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-body-sm font-medium text-ink">
+                            Pending days
+                          </span>
+                          <span className="text-body-sm text-muted">
+                            Always held back. The remaining figure already takes
+                            off requests nobody has decided yet, so the same
+                            days cannot be approved twice.
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Field
+                          label="Allow approval into a negative balance"
+                          help="Off means an approver cannot push someone past their entitlement. On means they can, and payroll treats the excess as unpaid."
+                        >
+                          <Switch
+                            checked={policy.allowNegativeBalance}
+                            label={
+                              policy.allowNegativeBalance
+                                ? "Allowed"
+                                : "Blocked"
+                            }
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              updateLeave({ allowNegativeBalance: checked });
+                              toast.push({
+                                title: checked
+                                  ? "Negative balances allowed"
+                                  : "Negative balances blocked",
+                                tone: checked ? "info" : "success",
+                                detail: checked
+                                  ? "Approvers can now exceed an entitlement. The excess is unpaid."
+                                  : "Approvers can no longer exceed an entitlement.",
+                              });
+                            }}
+                          />
+                        </Field>
 
-                    <Field
-                      label="Hold pending days against the remaining figure"
-                      help="On means an approver sees a balance that already accounts for requests they have not decided yet. Off means they can approve the same days twice."
-                    >
-                      <Switch
-                        checked={policy.reservePendingDays}
-                        label={
-                          policy.reservePendingDays
-                            ? "Held back"
-                            : "Not held back"
-                        }
-                        onChange={(e) =>
-                          updateLeave({ reservePendingDays: e.target.checked })
-                        }
-                      />
-                    </Field>
+                        <Field
+                          label="Hold pending days against the remaining figure"
+                          help="On means an approver sees a balance that already accounts for requests they have not decided yet. Off means they can approve the same days twice."
+                        >
+                          <Switch
+                            checked={policy.reservePendingDays}
+                            label={
+                              policy.reservePendingDays
+                                ? "Held back"
+                                : "Not held back"
+                            }
+                            onChange={(e) =>
+                              updateLeave({
+                                reservePendingDays: e.target.checked,
+                              })
+                            }
+                          />
+                        </Field>
+                      </>
+                    )}
                   </CardBody>
                 </Card>
               </div>

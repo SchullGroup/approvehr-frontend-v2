@@ -12001,3 +12001,49 @@ generated inventories exist to stop, so #589 was closed unmerged and only what i
 
 The row for `rename-period.tsx` was missing from `docs/components/frontend-v2.md` on `dev` and was added when the inventory
 was re-derived in the merge that carried #588.
+
+---
+
+# Leave settings: two that reached nothing, now said where they apply
+
+A pass over every setting on `/settings/leave` against whatever should read it. Most
+reach their screen (entitlement, accrual and carry-over into balances, "Who" into the
+booking form's type list, the supporting-file and reason switches into booking, the
+two-step approval flag into approvals, holidays into day counts). Two did not, and the
+third is a finding that is not fixed.
+
+## What was wrong
+
+- **The two Approval rules switches did nothing connected.** "Allow approval into a
+  negative balance" and "Hold pending days against the remaining figure" are written to
+  `useCompanySettings` (browser storage) and read by nothing but the demo. The API has no
+  `LeavePolicy` to save them into (a comment in `leave/service.ts` names one that does not
+  exist): it never blocks an overdraw, it returns a warning, and no caller of
+  `balancesFor` ever passes `reservePendingDays: false`, so pending days are always held
+  back. A switch that looks saved and moves nothing is the green "Paid" over money nobody
+  moved, one setting along. Connected, the card now states what the server does, in two
+  plain blocks; offline the two stay switches because the demo store reads them.
+- **"Notice (days)" was stored, shown and never used.** The API only echoes it and the
+  booking form never looked. The From field now says what the type asks for, and when the
+  typed start falls short, that it can still be raised. It is guidance, not a gate: the
+  API accepts a short request and the screen must not refuse what the server allows.
+  `lib/leave-notice.ts` is the one place the sentence is written and is counted in the
+  company's zone through `todayIn` and `daysBetweenIn`, never the browser's.
+
+## Not fixed
+
+- **`requiresEvidence` and `isPaid` have no control.** Both are on every leave type the
+  API returns, and nothing in the web edits them. `requiresEvidence` is superseded by the
+  supporting-file switch and only drives the demo's "needs evidence" callout; `isPaid` is
+  read by nothing. Whether either should come back as a control, or be removed from the
+  type, is a product call.
+- **Carry-over and its expiry are edited in the table and applied by the API's rollover
+  job**, which this pass did not run. The settings are stored and the balance maths reads
+  them; whether the job has run for a given company is not something the screen says.
+
+## Verified
+
+`tests/leave-notice.test.ts` (6), four new cases in `leave-book-with-files` and
+`leave-approval-rules-honest` (2). Three deliberate breaks (the wiring dropped, the card
+still offering switches connected, a short request never flagged), each caught, then
+restored. Not exercised in a browser: nothing was signed into for this pass.
