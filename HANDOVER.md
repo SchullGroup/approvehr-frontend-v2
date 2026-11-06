@@ -11972,3 +11972,32 @@ Either side can close it (the route, or a fallback to the single-id one). Also: 
 - **A walkthrough update.** There is no leave walkthrough in `docs/walkthroughs/`.
 - **Other places that attach a file** (task files, CVs, documents). They use the API's own signed upload and are untouched.
 - **A way to say who may see a linked file.** There is none: that is the cost of the route, and the picker says so.
+
+---
+
+# Renaming an appraisal period was built twice, and one dialog is left
+
+On 6 November a rename of an appraisal period reached `dev` twice in one day. Joseph Chinedu's #587
+(`performance/periods/[id]/rename-period.tsx`) merged at 12:20 UTC, while my own #589 was open with a different dialog
+(`rename-period-dialog.tsx`, plus a shared name helper). Same **Rename** button at the top of the period page, same call
+(`PATCH /cycles/:id` with `name`), same rule (any stage, for `MANAGE_SETTINGS`). Two dialogs for one act is the mistake the
+generated inventories exist to stop, so #589 was closed unmerged and only what it had that his lacked was kept.
+
+## What was kept
+
+- **`save` returns while a save is in flight.** The Save name button is off while the request runs, but Enter in the box
+  submits the form and does not read the button, so a second Enter sent the same name twice. `tests/rename-period-double-submit.test.tsx`
+  sends two submits and expects one request, and a refused save that can be tried again (the guard is not permanent).
+  Without the guard the first case fails with "called 2 times".
+- **A paragraph in `docs/walkthroughs/performance.md`** under the weights step, in the words the dialog actually shows
+  (**Rename**, **Period name**, **Save name**, the toast **Renamed to …**, the two length messages).
+
+## What was not kept
+
+- The shared name helper (`lib/performance/period-name.ts`). Joseph's dialog writes the API's 3 and 80 characters inline, and
+  `start-period.tsx` has its own copy, so the limits of `cycleName` are written in two places. Not changed here.
+- The sentence that a period which has started keeps its old name in notifications already sent. #589's dialog said it
+  (a notification's title is written when it is sent); Joseph's does not, and I did not re-check the API for this change.
+
+The row for `rename-period.tsx` was missing from `docs/components/frontend-v2.md` on `dev` and was added when the inventory
+was re-derived in the merge that carried #588.
