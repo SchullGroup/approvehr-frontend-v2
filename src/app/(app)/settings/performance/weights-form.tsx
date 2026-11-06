@@ -27,6 +27,7 @@ import {
   FULL_WEIGHT_BP,
   SCORE_COMPONENT_ORDER,
   scoringWeightProblem,
+  shareOfTotalBp,
   weightLabel,
   type ApiScoringWeights,
   type ScoreComponent,
@@ -45,27 +46,20 @@ const TAB_ITEMS: TabItem[] = [
 /**
  * How much each part of an appraisal counts.
  *
- * ## Why this is one form and not five fields
+ * ## Proportional weights, saved as one set
  *
- * The API refuses any set that does not total exactly 10000 basis points, so a
- * field-at-a-time form would be unsubmittable at every intermediate state: move
- * objectives from 40% to 30% and the set is at 90% until the second field is
- * saved, and there is no second save. `PUT /performance/scoring-weights` takes
- * the **whole set** for that reason, and this screen is shaped by that endpoint
- * rather than in spite of it.
+ * The weights need not make 100%. Each part counts in proportion to the total,
+ * so 2, 1 and 1 are 50%, 25% and 25% of a mark, and each row shows the share it
+ * comes to. The one set refused is every part at zero, locally in the server's
+ * own words (`scoringWeightProblem`) as well as by the server.
+ * `PUT /performance/scoring-weights` still takes the **whole set**, names
+ * included, so a company's set is never half-saved.
  *
- * That is also why there is no *Resolve weights* button here. The incumbent ships
- * one, and an `Avg Weight Used` column beside it, because their weights are
- * allowed to drift out of balance and then need patching after the fact — and a
- * mark assembled from weights that drifted is exactly the indefensible artefact
- * this module exists to beat. There is never an unbalanced state to resolve.
+ * ## The parts' names are the company's
  *
- * ## The running total is the whole interface
- *
- * It is the first thing rendered and it refuses locally in the server's own
- * words, character for character (`scoringWeightProblem`). Checking here as well
- * as on the server, never instead of it: the server is where the rule is real,
- * and this exists so nobody meets the refusal by surprise after pressing Save.
+ * Each part can be renamed. An empty name goes back to the built-in one. A
+ * period freezes the names with the weights when it starts, so renaming a part
+ * never re-words a period already running.
  *
  * ## Integers, in basis points
  *
@@ -81,9 +75,8 @@ const TAB_ITEMS: TabItem[] = [
 /**
  * One basis point, which is the smallest weight the API can hold.
  *
- * Not `1`: a whole-percent step would make 33.33% untypeable with the arrows,
- * and a three-way split has to be reachable or the rule that the set totals
- * exactly 100% becomes a rule that only round numbers can satisfy. `toBp`
+ * Not `1`: a whole-percent step would make 33.33% untypeable with the arrows.
+ * `toBp`
  * rounds to the same resolution, so nothing a field can produce is a figure the
  * payload has to lose.
  */
@@ -130,13 +123,28 @@ function invalid(text: string): boolean {
   );
 }
 
-type Draft = Record<ScoreComponent, string>;
+type Draft = {
+  weights: Record<ScoreComponent, string>;
+  labels: Record<ScoreComponent, string>;
+};
 
 const draftFrom = (weights: ApiScoringWeights): Draft =>
   weights.rows.reduce<Draft>(
-    (out, row) => ({ ...out, [row.component]: toText(row.weightBp) }),
-    {} as Draft,
+    (out, row) => ({
+      weights: { ...out.weights, [row.component]: toText(row.weightBp) },
+      labels: { ...out.labels, [row.component]: row.label },
+    }),
+    { weights: {}, labels: {} } as Draft,
   );
+
+/** A part's name as it would be saved: trimmed, and the built-in one when blank. */
+const nameOf = (
+  typed: string | undefined,
+  row: { label: string; defaultLabel?: string },
+): string => {
+  const trimmed = (typed ?? row.label).trim();
+  return trimmed === "" ? (row.defaultLabel ?? row.label) : trimmed;
+};
 
 export function ScoringWeightsForm({
   scale,
@@ -171,34 +179,56 @@ export function ScoringWeightsForm({
 
   const set = (component: ScoreComponent, text: string) => {
     if (weights === null || draft === null) return;
-    setEdited({ from: weights, value: { ...draft, [component]: text } });
+    setEdited({
+      from: weights,
+      value: { ...draft, weights: { ...draft.weights, [component]: text } },
+    });
+  };
+
+  const rename = (component: ScoreComponent, text: string) => {
+    if (weights === null || draft === null) return;
+    setEdited({
+      from: weights,
+      value: { ...draft, labels: { ...draft.labels, [component]: text } },
+    });
   };
 
   const rows = weights?.rows ?? [];
   const entries = rows.map((row) => ({
     ...row,
-    text: draft?.[row.component] ?? "0",
-    weightBp: toBp(draft?.[row.component] ?? "0"),
+    text: draft?.weights[row.component] ?? "0",
+    weightBp: toBp(draft?.weights[row.component] ?? "0"),
+    name: draft?.labels[row.component] ?? row.label,
   }));
   const totalBp = entries.reduce((sum, row) => sum + row.weightBp, 0);
   const problem = scoringWeightProblem(entries);
   const anyInvalid = entries.some((row) => invalid(row.text));
-  const dirty = entries.some(
-    (row) =>
-      row.weightBp !==
-      (weights?.rows.find((saved) => saved.component === row.component)
-        ?.weightBp ?? 0),
-  );
+  const renamed = entries.filter((row) => nameOf(row.name, row) !== row.label);
+  const dirty =
+    renamed.length > 0 ||
+    entries.some(
+      (row) =>
+        row.weightBp !==
+        (weights?.rows.find((saved) => saved.component === row.component)
+          ?.weightBp ?? 0),
+    );
 
   /* The gap a self-rating can move, expressed once. A person who rates
      themselves 5 out of 5 instead of 3 out of 5 moves that component by half its
      range — 5000 of 10000 basis points — so the effect on the final mark is half
-     the component's weight. Integer arithmetic on a hypothetical, not a score. */
+     the component's share. Integer arithmetic on a hypothetical, not a score. */
   const selfBp = entries.find((row) => row.component === "SELF_ASSESSMENT");
-  const selfSwingBp = Math.round((selfBp?.weightBp ?? 0) / 2);
-  const savedSelfBp =
+  const selfShareBp = shareOfTotalBp(selfBp?.weightBp ?? 0, totalBp);
+  const selfSwingBp = Math.round(selfShareBp / 2);
+  const savedTotalBp = (weights?.rows ?? []).reduce(
+    (sum, row) => sum + row.weightBp,
+    0,
+  );
+  const savedSelfBp = shareOfTotalBp(
     weights?.rows.find((row) => row.component === "SELF_ASSESSMENT")
-      ?.weightBp ?? 0;
+      ?.weightBp ?? 0,
+    savedTotalBp,
+  );
 
   const onSave = async () => {
     if (draft === null) return;
@@ -214,7 +244,13 @@ export function ScoringWeightsForm({
         }),
         {} as WeightSet,
       );
-      const saved = await save(payload);
+      /* Only the parts whose name changed: one left out keeps its name, and a
+         blank goes back to the built-in one (the API reads "" that way). */
+      const labels = Object.fromEntries(
+        renamed.map((row) => [row.component, row.name.trim()]),
+      ) as Partial<Record<ScoreComponent, string>>;
+      const saved =
+        renamed.length > 0 ? await save(payload, labels) : await save(payload);
       setEdited(null);
       toast.push({
         tone: "success",
@@ -290,9 +326,12 @@ export function ScoringWeightsForm({
               <>
                 <Callout tone="info" title="What these weights do">
                   <p>
-                    A mark is the weighted average of the parts below. They have
-                    to make 100% exactly, checked when they are saved, so there
-                    is never an unbalanced set to patch up afterwards.
+                    A mark is the weighted average of the parts below. The
+                    weights do not have to make 100%: each part counts in
+                    proportion to the total, so weights of 2, 1 and 1 come to
+                    50%, 25% and 25% of a mark. The share each part comes to is
+                    shown beside it. You can rename any part, and set one to 0%
+                    to leave it out of the mark.
                   </p>
                   <p className="mt-2">
                     A part with{" "}
@@ -326,7 +365,7 @@ export function ScoringWeightsForm({
                 <Card>
                   <CardHeader
                     title="The parts of a mark"
-                    description="Percentages. They must total 100% exactly."
+                    description="Each part counts in proportion to the total. Rename any part, or set it to 0% to leave it out."
                     action={<Total totalBp={totalBp} />}
                   />
                   <CardBody className="flex flex-col gap-5">
@@ -338,12 +377,39 @@ export function ScoringWeightsForm({
                         key={row.component}
                         className="grid gap-3 sm:grid-cols-[1fr_9rem] sm:items-start"
                       >
-                        <div className="min-w-0">
-                          <p className="text-body-sm font-medium text-ink">
-                            {row.label}
-                          </p>
-                          <p className="mt-0.5 text-meta text-muted">
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                          {canManage && editable ? (
+                            <Field
+                              label="Part name"
+                              help={
+                                row.defaultLabel &&
+                                row.defaultLabel !== nameOf(row.name, row)
+                                  ? `Built-in name: ${row.defaultLabel}. Clear the box to go back to it.`
+                                  : undefined
+                              }
+                            >
+                              <Input
+                                value={row.name}
+                                maxLength={60}
+                                placeholder={row.defaultLabel ?? row.label}
+                                onChange={(event) => {
+                                  const next = event.target.value;
+                                  rename(row.component, next);
+                                }}
+                              />
+                            </Field>
+                          ) : (
+                            <p className="text-body-sm font-medium text-ink">
+                              {row.label}
+                            </p>
+                          )}
+                          <p className="text-meta text-muted">
                             {COMPONENT_SOURCE[row.component]}
+                          </p>
+                          <p className="tabular text-meta text-muted">
+                            {row.weightBp === 0
+                              ? "Left out of the mark"
+                              : `${weightLabel(shareOfTotalBp(row.weightBp, totalBp))} of a mark`}
                           </p>
                         </div>
                         {canManage && editable ? (
@@ -382,7 +448,7 @@ export function ScoringWeightsForm({
 
                 <SelfAssessment
                   note={weights?.selfAssessmentNote ?? ""}
-                  weightBp={selfBp?.weightBp ?? 0}
+                  weightBp={selfShareBp}
                   savedWeightBp={savedSelfBp}
                   swingBp={selfSwingBp}
                 />
@@ -430,7 +496,7 @@ export function ScoringWeightsForm({
                         </p>
                       ) : dirty ? (
                         <p className="text-body-sm text-muted">
-                          These make 100%. Saving replaces the whole set.
+                          Saving replaces the whole set, names included.
                         </p>
                       ) : (
                         <p className="text-body-sm text-muted">
@@ -479,13 +545,15 @@ export function ScoringWeightsForm({
 
 /* -------------------------------------------------------------------------- */
 
-/** The running total, and the only place the local refusal shows a figure. */
+/**
+ * The running total. Any total above zero makes a mark, since weights are
+ * proportional, so only zero is shown as a problem.
+ */
 function Total({ totalBp }: { totalBp: number }) {
-  const whole = totalBp === FULL_WEIGHT_BP;
   return (
     <span className="flex items-center gap-2">
       <span className="text-meta text-muted">Total</span>
-      <Badge tone={whole ? "success" : "danger"} size="md" dot>
+      <Badge tone={totalBp > 0 ? "neutral" : "danger"} size="md" dot>
         {weightLabel(totalBp)}
       </Badge>
     </span>
