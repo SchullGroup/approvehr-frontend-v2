@@ -1181,6 +1181,12 @@ export type ProjectActions = {
   ) => Promise<Result<Issue>>;
   /** Re-read one issue from the API. A no-op in the demo, which has no bridge to ask. */
   refreshIssue: (issue: Pick<Issue, "id">) => Promise<Result<Issue | null>>;
+  /**
+   * Re-read the whole project, its tasks included, for a change made outside this
+   * store (the batch link). A failed read leaves what is on screen, and a no-op in
+   * the demo, which is its own source.
+   */
+  refreshProject: () => void;
   deleteIssue: (
     issue: Pick<Issue, "id" | "key">,
     options?: Quiet,
@@ -1303,6 +1309,10 @@ export function useProjectActions(projectId: string): ProjectActions {
 
       refreshIssue: async (issue) =>
         api ? apiRefreshIssue(api, projectId, issue.id) : ok(null),
+
+      refreshProject: () => {
+        if (api) refreshProject(api, projectId);
+      },
 
       deleteIssue: async (issue, options) =>
         settle(

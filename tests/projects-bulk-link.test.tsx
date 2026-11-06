@@ -13,9 +13,11 @@ import { contextFor, fakeActions, sampleData } from "./projects-fixture";
  *
  * What is proved: the column of choices is there only for the people who may link
  * something here, and a tick only on the tasks each may link; choosing and
- * pressing makes one quiet change per task through the project's own write; the
- * answer is one line and a plain reason for any task that did not change; and no
- * task is required to be linked, so nothing here ever says one is missing.
+ * pressing is one call for all of them, the same one the manager's Completed view
+ * makes, and each task answers for itself; the answer is one line and a plain
+ * reason for any task that did not change; the project is read again once the
+ * answer has been read and closed; and no task is required to be linked, so
+ * nothing here ever says one is missing.
  */
 
 const actor = vi.hoisted(() => ({
@@ -26,6 +28,12 @@ const actor = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/store/project-session", () => ({
   useProjectActor: () => actor,
+}));
+
+/** The batch link, as the Completed view uses it: one call, one answer per task. */
+const bulk = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/lib/store/completions", () => ({
+  useBulkLink: () => bulk.run,
 }));
 
 const goals = [
@@ -95,6 +103,8 @@ const ticks = () =>
 beforeEach(() => {
   actor.employeeId = "p-03";
   actor.editRecords = false;
+  bulk.run.mockReset();
+  bulk.run.mockResolvedValue({ changed: 1, failed: [] });
 });
 
 describe("who is offered the choice", () => {
@@ -171,8 +181,9 @@ describe("linking the ones chosen", () => {
     expect(screen.getByText("1 chosen")).toBeInTheDocument();
   });
 
-  it("makes one quiet change per task, with the objective and no measure", async () => {
+  it("makes one call for all the chosen tasks, with the objective and no measure", async () => {
     const { actions } = mount();
+    bulk.run.mockResolvedValue({ changed: 2, failed: [] });
     await choose(/Cart drawer slides in/);
     await choose(/Address autocomplete/);
     await userEvent.click(
@@ -186,18 +197,25 @@ describe("linking the ones chosen", () => {
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Link 2 tasks" }),
     );
-    await waitFor(() => expect(actions.patchIssue).toHaveBeenCalledTimes(2));
-    for (const call of actions.patchIssue.mock.calls) {
-      expect(call[1]).toEqual({ goalId: "g1", keyResultId: null });
-      expect(call[2]).toEqual({ quiet: true });
-    }
     expect(
       await screen.findByText("Linked 2 tasks to Grow revenue."),
     ).toBeInTheDocument();
+    expect(bulk.run).toHaveBeenCalledTimes(1);
+    const [items, target] = bulk.run.mock.calls[0]!;
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({
+      id: expect.any(String),
+      key: expect.stringMatching(/^[A-Z]+-\d+$/),
+      personId: expect.anything(),
+    });
+    expect(target).toEqual({ goalId: "g1", keyResultId: null });
+    /* No per-task write behind it. */
+    expect(actions.patchIssue).not.toHaveBeenCalled();
   });
 
   it("sends the measure when one is chosen", async () => {
-    const { actions } = mount();
+    mount();
+    bulk.run.mockResolvedValue({ changed: 1, failed: [] });
     await choose(/Cart drawer slides in/);
     await userEvent.click(
       screen.getByRole("button", { name: "Link to an objective" }),
@@ -214,15 +232,16 @@ describe("linking the ones chosen", () => {
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Link 1 task" }),
     );
-    await waitFor(() => expect(actions.patchIssue).toHaveBeenCalledTimes(1));
-    expect(actions.patchIssue.mock.calls[0]![1]).toEqual({
+    await waitFor(() => expect(bulk.run).toHaveBeenCalledTimes(1));
+    expect(bulk.run.mock.calls[0]![1]).toEqual({
       goalId: "g2",
       keyResultId: "kr1",
     });
   });
 
   it("clears the links when none is chosen", async () => {
-    const { actions } = mount();
+    mount();
+    bulk.run.mockResolvedValue({ changed: 1, failed: [] });
     await choose(/Cart drawer slides in/);
     await userEvent.click(
       screen.getByRole("button", { name: "Link to an objective" }),
@@ -232,24 +251,26 @@ describe("linking the ones chosen", () => {
         name: "Clear the link on 1 task",
       }),
     );
-    await waitFor(() => expect(actions.patchIssue).toHaveBeenCalled());
-    expect(actions.patchIssue.mock.calls[0]![1]).toEqual({
-      goalId: null,
-      keyResultId: null,
-    });
     expect(
       await screen.findByText("Cleared the link on 1 task."),
     ).toBeInTheDocument();
+    expect(bulk.run.mock.calls[0]![1]).toBeNull();
   });
 
-  it("lists the task that did not change with its reason, plainly, and still changes the rest", async () => {
-    const { actions } = mount();
-    actions.patchIssue
-      .mockResolvedValueOnce({ ok: true, value: {} })
-      .mockResolvedValueOnce({
-        ok: false,
-        message: "Only the people this task is assigned to can link it.",
-      });
+  it("lists the task that did not change with its reason, plainly, and still counts the rest", async () => {
+    mount();
+    bulk.run.mockImplementation(
+      async (items: { id: string; key: string }[]) => ({
+        changed: 1,
+        failed: [
+          {
+            id: items[1]!.id,
+            key: items[1]!.key,
+            reason: "Only the people this task is assigned to can link it.",
+          },
+        ],
+      }),
+    );
     await choose(/Cart drawer slides in/);
     await choose(/Address autocomplete/);
     await userEvent.click(
@@ -273,11 +294,59 @@ describe("linking the ones chosen", () => {
         /Only the people this task is assigned to can link it\./,
       ),
     ).toBeInTheDocument();
-    expect(actions.patchIssue).toHaveBeenCalledTimes(2);
+    expect(bulk.run).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(
       screen.getByRole("dialog").querySelector("[class*=danger]"),
     ).toBeNull();
+  });
+
+  it("reads the project again once the answer is closed, not behind it", async () => {
+    const { actions } = mount();
+    bulk.run.mockResolvedValue({ changed: 1, failed: [] });
+    await choose(/Cart drawer slides in/);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Link to an objective" }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Clear the link on 1 task",
+      }),
+    );
+    await screen.findByText("Cleared the link on 1 task.");
+    expect(actions.refreshProject).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(actions.refreshProject).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not read the project again when nothing was changed", async () => {
+    const { actions } = mount();
+    bulk.run.mockImplementation(
+      async (items: { id: string; key: string }[]) => ({
+        changed: 0,
+        failed: [
+          {
+            id: items[0]!.id,
+            key: items[0]!.key,
+            reason: "It could not be found, or it is not yours to link.",
+          },
+        ],
+      }),
+    );
+    await choose(/Cart drawer slides in/);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Link to an objective" }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Clear the link on 1 task",
+      }),
+    );
+    expect(
+      await screen.findByText("That task could not be changed."),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(actions.refreshProject).not.toHaveBeenCalled();
   });
 
   it("never says anything is missing a link", async () => {

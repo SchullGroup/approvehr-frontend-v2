@@ -33,6 +33,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/projects/pj-chk",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
 }));
+vi.mock("@/lib/store/completions", () => ({ useBulkLink: () => vi.fn() }));
 vi.mock("@/lib/store/departments", () => ({
   useDepartments: () => ({ flat: [] }),
 }));

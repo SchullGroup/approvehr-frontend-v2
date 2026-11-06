@@ -26,7 +26,8 @@ import {
 import { BulkLinkDialog } from "@/components/projects/bulk-link-dialog";
 import { IssueFilterBar } from "@/components/projects/issue-filter-bar";
 import { useMayLinkIssue } from "@/components/projects/objective-link";
-import { BULK_LINK_LIMIT, runBulkLink } from "@/lib/projects/bulk-link";
+import { BULK_LINK_LIMIT } from "@/lib/projects/bulk-link";
+import { useBulkLink } from "@/lib/store/completions";
 import { PersonName } from "@/components/projects/person";
 import { assigneesOf } from "@/lib/projects/assignees";
 import { useProject } from "@/components/projects/project-context";
@@ -76,6 +77,9 @@ export function IssuesView() {
   const mayLink = useMayLinkIssue();
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [linking, setLinking] = useState(false);
+  /* Something was changed, so the project is read again when the dialog closes. */
+  const [stale, setStale] = useState(false);
+  const bulkLink = useBulkLink();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const rows = useMemo(
@@ -333,25 +337,31 @@ export function IssuesView() {
 
       <BulkLinkDialog
         open={linking}
-        onClose={() => setLinking(false)}
+        onClose={() => {
+          setLinking(false);
+          /* The list is read again once the answer has been read and closed,
+             not behind it. */
+          if (stale) {
+            setStale(false);
+            actions.refreshProject();
+          }
+        }}
         tasks={chosen}
         focusAfter={() => headingRef.current}
         run={(target) =>
-          runBulkLink(chosen, async (issue) => {
-            const result = await actions.patchIssue(
-              issue,
-              {
-                goalId: target?.goalId ?? null,
-                keyResultId: target?.keyResultId ?? null,
-              },
-              { quiet: true },
-            );
-            return result.ok
-              ? { ok: true }
-              : { ok: false, message: result.message };
-          })
+          bulkLink(
+            chosen.map((issue) => ({
+              id: issue.id,
+              key: issue.key,
+              personId: issue.assigneeId ?? null,
+            })),
+            target,
+          )
         }
-        onDone={() => setPicked(new Set())}
+        onDone={(result) => {
+          setPicked(new Set());
+          if (result.changed > 0) setStale(true);
+        }}
       />
     </div>
   );

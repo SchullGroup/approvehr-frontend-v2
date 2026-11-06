@@ -1249,7 +1249,10 @@ never as a score, in four more places:
 
 - **Team tasks, Completed** (`/projects/team?view=completed`): for somebody who leads people, what they
   finished over a **Week**, **Month** or **Quarter**, a person at a time, with the project, the day and on
-  time or late. It is paged, and has no grade control anywhere.
+  time or late. It is paged, and has no grade control anywhere. **HR** have the row whether or not anybody
+  reports to them: they read everybody, can narrow to one person, and open on this view (a person with no
+  people of their own has no Open work to show, so it is not offered). Somebody with nobody reporting to them
+  who finds the page by its address sees one plain line saying so.
 - **Work this cycle**, inside a self review and a manager review (on the record, and from **Your work** or
   the person's name at the top of the answering form): totals, by project and objective, how many were done by
   the due date, how many are linked, and the list. It is collapsed on a phone, and it does not change the mark.
@@ -1257,7 +1260,8 @@ never as a score, in four more places:
   by person for a team objective; for a personal KPI also the owner's tasks linked to an objective above it,
   each marked with the level it was linked at.
 - **Link to an objective (optional)**, in a task's details and in project settings, and in bulk from a project's
-  Tasks list and from a person's completed list. Anybody who may link (the people on the task, the project's
+  Tasks list and from a person's completed list, both as one request for the tasks chosen, each task
+  answering for itself. Anybody who may link (the people on the task, the project's
   lead, their manager or department head, HR) can choose any objective or KPI they can see, a draft included, and
   one of its measures, at any time. A task that is not linked is never mentioned.
 
