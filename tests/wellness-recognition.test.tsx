@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
+import { company, fakeDirectory } from "./employee-directory-fake";
 import { kudos, paged } from "./wellness-fixtures";
 
 /**
@@ -31,31 +32,16 @@ vi.mock("@/lib/store/session", async (original) => ({
   useOrgTimezone: () => "Africa/Lagos",
 }));
 
-vi.mock("@/lib/store/employees-api", () => ({
-  useEmployeeDirectory: () => ({
-    people: [
-      {
-        id: "e-me",
-        fullName: "Me Myself",
-        jobTitle: "Engineer",
-        department: null,
-      },
-      {
-        id: "e-ada",
-        fullName: "Ada Obi",
-        jobTitle: "Designer",
-        department: null,
-      },
-      {
-        id: "e-tunde",
-        fullName: "Tunde Bello",
-        jobTitle: "Analyst",
-        department: null,
-      },
-    ],
-    loading: false,
-    error: null,
-  }),
+/* The real search hook over a fake directory that answers as the API does, so
+   what is pinned is the screen's own wiring: yourself is left out, and the
+   person chosen is the one whose id goes to the API. */
+const directory = vi.hoisted(() => ({ list: vi.fn() }));
+vi.mock("@/lib/api/endpoints", async (original) => ({
+  ...(await original<typeof import("@/lib/api/endpoints")>()),
+  employees: {
+    ...(await original<typeof import("@/lib/api/endpoints")>()).employees,
+    list: (...args: unknown[]) => directory.list(...args),
+  },
 }));
 
 import { RecognitionScreen } from "@/app/(app)/wellness/recognition-screen";
@@ -64,6 +50,18 @@ beforeEach(() => {
   vi.resetAllMocks();
   api.recognitions.mockResolvedValue(paged([kudos()]));
   api.myRecognitions.mockResolvedValue(paged([]));
+  directory.list.mockImplementation(
+    fakeDirectory([
+      { id: "e-me", firstName: "Me", lastName: "Myself", jobTitle: "Engineer" },
+      { id: "e-ada", firstName: "Ada", lastName: "Obi", jobTitle: "Designer" },
+      {
+        id: "e-tunde",
+        firstName: "Tunde",
+        lastName: "Bello",
+        jobTitle: "Analyst",
+      },
+    ]).list,
+  );
 });
 
 describe("the company feed", () => {
@@ -209,6 +207,7 @@ describe("giving kudos", () => {
     await userEvent.click(
       within(dialog).getByRole("combobox", { name: "Who" }),
     );
+    await screen.findAllByRole("option");
     return dialog;
   };
 
@@ -266,6 +265,56 @@ describe("giving kudos", () => {
       toEmployeeId: "e-tunde",
       message: "Quietly, thank you",
       shared: false,
+    });
+  });
+
+  it("thanks a colleague who is past the first two hundred, found by typing her name", async () => {
+    /* Four hundred and fifty people, and number 380 sorts after the page the
+       picker used to read. She could not be thanked before. */
+    directory.list.mockImplementation(
+      fakeDirectory(
+        company(450, {
+          380: {
+            id: "e-zainab",
+            firstName: "Zainab",
+            lastName: "Okafor",
+            jobTitle: "Auditor",
+          },
+        }),
+      ).list,
+    );
+    api.giveRecognition.mockResolvedValue(kudos());
+    render(<RecognitionScreen />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Give kudos/ }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(
+      within(dialog).getByRole("combobox", { name: "Who" }),
+      "Zainab Okafor",
+    );
+    await userEvent.click(
+      await screen.findByRole("option", { name: /Zainab Okafor/ }),
+    );
+
+    /* The list has since changed under her; she is still the one chosen. */
+    expect(within(dialog).getByRole("combobox", { name: "Who" })).toHaveValue(
+      "Zainab Okafor",
+    );
+    expect(
+      within(dialog).getByText(
+        "Off, and only you and Zainab Okafor can read it.",
+      ),
+    ).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText(/What for/), "Thanks");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Send kudos" }),
+    );
+
+    expect(api.giveRecognition).toHaveBeenCalledWith({
+      toEmployeeId: "e-zainab",
+      message: "Thanks",
+      shared: true,
     });
   });
 

@@ -25,6 +25,7 @@ import { useEmployeeStore } from "./employees";
 import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 import { todayIn } from "@/lib/time";
+import { useDebounced } from "@/lib/use-debounced";
 
 /**
  * The employee directory, from whichever source is available.
@@ -89,6 +90,17 @@ export type DirectoryState = {
    * not of the person.
    */
   archivedIds: Set<string>;
+  /**
+   * The request these rows answer, as the params serialised. `null` until the
+   * first answer.
+   *
+   * Rows stay on screen while the next query is on its way, so `loading` alone
+   * cannot say whether they belong to the query now being asked: for the one
+   * render between a changed query and the effect that starts its request,
+   * `loading` is still false and the rows are the old ones. A type-ahead
+   * compares this to its own key instead of trusting that render.
+   */
+  answeredKey: string | null;
 };
 
 export function useEmployeeDirectory(params: EmployeeListParams = {}) {
@@ -104,6 +116,7 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
     error: null,
     connected: isConnected,
     archivedIds: new Set(),
+    answeredKey: null,
   });
 
   /* Serialised so the effect re-runs on a *value* change rather than on every
@@ -141,6 +154,7 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
         archivedIds: new Set(
           full.filter((row) => row.archived).map((row) => row.id),
         ),
+        answeredKey: key,
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -187,11 +201,151 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
       error: null,
       connected: false,
       archivedIds: new Set(local.archived),
+      answeredKey: key,
       reload: () => {},
     };
   }
 
   return { ...state, reload: load };
+}
+
+/* --------------------------------------------------------- finding a person */
+
+/**
+ * What the search box turned into: the one word the server is asked about, and
+ * the words every row it sends back must still contain.
+ *
+ * ## Why a name cannot go to the API as it is typed
+ *
+ * `q` on `GET /employees` is matched field by field: first name, last name,
+ * email, employee number, job title, each on its own (`whereFor`). "Ada Obi" is
+ * none of those, so typing a full name returns nobody, in a company of three and
+ * in a company of three thousand. The demo's `filterLocally` has the same shape.
+ *
+ * So a multi-word box sends its **longest** word, which is the most selective,
+ * and keeps every word to check the answer against the name, title and
+ * department the row carries. One word goes through untouched: it is what the
+ * server is good at, and it also reaches an employee number or an email, which
+ * a lookup row has no field to check afterwards.
+ */
+export function employeeSearchPlan(text: string): {
+  q: string | undefined;
+  /** Lower-cased. Empty for none or one word: nothing to check afterwards. */
+  words: string[];
+} {
+  const words = text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word !== "");
+  if (words.length === 0) return { q: undefined, words: [] };
+  if (words.length === 1) return { q: words[0], words: [] };
+  const longest = words.reduce((best, word) =>
+    word.length > best.length ? word : best,
+  );
+  return { q: longest, words: words.map((word) => word.toLowerCase()) };
+}
+
+/** Rows asked for when nothing needs checking afterwards, and when it does. */
+const SEARCH_PAGE = 10;
+const SEARCH_PAGE_CHECKED = 50;
+
+/**
+ * Colleagues found by typing, for a picker that must reach all of them.
+ *
+ * ## What it is for
+ *
+ * `useEmployeeDirectory({ pageSize: 200 })` fills a picker with the first two
+ * hundred people, and the API's page ceiling is two hundred. Past that there is
+ * no colleague 201 to pick. This asks the server for a handful at a time and
+ * lets the person narrow it by typing, which has no ceiling.
+ *
+ * It is `useEmployeeDirectory` underneath, so everything that hook already gets
+ * right comes with it: the stale-answer ticket (a slow reply for "ad" cannot
+ * overwrite the reply for "ada"), lookup rows for callers without
+ * `EDIT_RECORDS` (read through `people`, which is complete for everybody), and
+ * the demo's local search when there is no API.
+ *
+ * ## What it adds
+ *
+ * - **A debounce of 250ms** on the box, so a request goes out when typing
+ *   pauses and not on every letter.
+ * - **`pending`, which is true until the list answers the box.** Not only while
+ *   a request is in flight: also in the 250ms before it is sent, and for the
+ *   render in which the query has changed and its request has not started.
+ *   `answeredKey` closes the last of those.
+ * - **A name that works** (`employeeSearchPlan`).
+ * - **You are left out** (`excludeId`), and the list is cut to `limit`.
+ *
+ * Reads no storage and keeps nothing past the component that asked.
+ */
+export function useEmployeeSearch({
+  excludeId = null,
+  limit = 8,
+  debounceMs = 250,
+}: {
+  /** Left out of the list: yourself, when the picker is for somebody else. */
+  excludeId?: string | null;
+  /** The most rows shown. */
+  limit?: number;
+  debounceMs?: number;
+} = {}) {
+  const [typed, setTyped] = useState("");
+  const wanted = typed.trim();
+  const sent = useDebounced(wanted, debounceMs);
+  const plan = useMemo(() => employeeSearchPlan(sent), [sent]);
+  const checking = plan.words.length > 0;
+
+  const params: EmployeeListParams = {
+    pageSize: checking ? SEARCH_PAGE_CHECKED : SEARCH_PAGE,
+    ...(plan.q ? { q: plan.q } : {}),
+  };
+  const directory = useEmployeeDirectory(params);
+
+  const typingAhead = wanted !== sent;
+  const answered = directory.answeredKey === JSON.stringify(params);
+  const failed =
+    !typingAhead && !directory.loading && !answered && directory.error !== null;
+  const pending = !failed && (typingAhead || directory.loading || !answered);
+
+  /* Only a current answer is checked against the words: an old one belongs to
+     a different query and would be cut by this one's. */
+  const rows = directory.people
+    .filter((person) => person.id !== excludeId)
+    .filter(
+      (person) =>
+        !(answered && checking) ||
+        plan.words.every((word) =>
+          `${person.fullName} ${person.jobTitle} ${person.department ?? ""}`
+            .toLowerCase()
+            .includes(word),
+        ),
+    );
+  const people = rows.slice(0, limit);
+
+  return {
+    /** Call with the text as typed, on every change. */
+    search: setTyped,
+    people,
+    /** The same people as `{ value, label, hint }`, for a picker. */
+    options: people.map((person) => ({
+      value: person.id,
+      label: person.fullName,
+      ...(person.jobTitle || person.department
+        ? {
+            hint: [person.jobTitle, person.department]
+              .filter((part): part is string => Boolean(part))
+              .join(" · "),
+          }
+        : {}),
+    })),
+    pending,
+    failed,
+    /** More people match than are listed. */
+    more:
+      answered &&
+      (directory.total > directory.people.length || rows.length > limit),
+    retry: directory.reload,
+  };
 }
 
 /**
