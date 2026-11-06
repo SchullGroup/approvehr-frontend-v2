@@ -12004,15 +12004,20 @@ was re-derived in the merge that carried #588.
 
 ---
 
-# Leave settings: two that reached nothing, now said where they apply
+# Leave settings that reached nothing, now said where they apply
 
 A pass over every setting on `/settings/leave` against whatever should read it. Most
 reach their screen (entitlement, accrual and carry-over into balances, "Who" into the
 booking form's type list, the supporting-file and reason switches into booking, the
-two-step approval flag into approvals, holidays into day counts). Two did not, and the
-third is a finding that is not fixed.
+two-step approval flag into approvals, holidays into day counts). Five did not, and what
+was done about each differs, because "fix" is not always "add a control".
 
-## What was wrong
+The backend half is `approvehr-backend` branch `fix/leave-unreached-settings-20261106`
+(note: `docs/backend/leave-unreached-settings-handover.md` there). **Merge it first.**
+Against a server without it the carry-over line is simply absent, and nothing else here
+depends on it.
+
+## What was wrong, and what was done
 
 - **The two Approval rules switches did nothing connected.** "Allow approval into a
   negative balance" and "Hold pending days against the remaining figure" are written to
@@ -12029,21 +12034,47 @@ third is a finding that is not fixed.
   API accepts a short request and the screen must not refuse what the server allows.
   `lib/leave-notice.ts` is the one place the sentence is written and is counted in the
   company's zone through `todayIn` and `daysBetweenIn`, never the browser's.
-
-## Not fixed
-
-- **`requiresEvidence` and `isPaid` have no control.** Both are on every leave type the
-  API returns, and nothing in the web edits them. `requiresEvidence` is superseded by the
-  supporting-file switch and only drives the demo's "needs evidence" callout; `isPaid` is
-  read by nothing. Whether either should come back as a control, or be removed from the
-  type, is a product call.
-- **Carry-over and its expiry are edited in the table and applied by the API's rollover
-  job**, which this pass did not run. The settings are stored and the balance maths reads
-  them; whether the job has run for a given company is not something the screen says.
+- **Carry-over was edited here and applied by a job nobody can see.** The sweep runs
+  every six hours on the server and writes a marker per company per year, and nothing said
+  whether it had. `GET /leave/rollover` reads that marker, `lib/store/leave-rollover.ts`
+  fetches it (connected only), and `lib/leave-rollover.ts` is the one place the sentence is
+  written, shown under the types table. Four states, each its own sentence: **not applied
+  yet**, **the first run, which carries nothing by design**, **applied on a date, with the
+  job's own figures**, and nothing when no type carries days or the status is unknown.
+  **No row is "not applied yet", never "carried 0 days"**: the job writes a marker even
+  when nothing could carry, so absence really does mean no pass, and reading it as zero
+  would claim a run that did not happen. After a run the line also says that changing the
+  maximum does not change what was already carried, which is the consequence somebody
+  editing the figure at that point needs and the job's idempotency guarantees.
+- **`isPaid` moves no pay, and no control was added for it.** A payroll run pays the
+  contractual figure whatever leave was taken (the backend's `payroll/assemble.ts`,
+  "Attendance does not decide pay"), so marking a type unpaid docks nothing. A switch
+  would look saved and change no payslip, which is the failure this file keeps recording.
+  The schema comment that claimed unpaid leave prorates was false and is corrected, and the
+  assistant, which was listing it as "whether it is paid leave", is now told it is a label
+  and that pay is not deducted because of it. **Docking pay for unpaid leave would be a
+  payroll feature**, with the timesheet and the payslip having to agree about the same day,
+  and nobody has asked for it. If it is wanted, that is where the control comes from.
+- **`requiresEvidence` refuses nothing and is superseded by the supporting-file switch.**
+  Nothing in the web edits it; offline it still drives the demo's "needs evidence" callout,
+  which is left alone because the demo reads it. The assistant was told "whether a document
+  has to be attached" and is now offered `attachmentPolicy`, its day threshold and
+  `reasonRequired`, which are what is enforced.
 
 ## Verified
 
-`tests/leave-notice.test.ts` (6), four new cases in `leave-book-with-files` and
-`leave-approval-rules-honest` (2). Three deliberate breaks (the wiring dropped, the card
-still offering switches connected, a short request never flagged), each caught, then
-restored. Not exercised in a browser: nothing was signed into for this pass.
+Web: `tests/leave-notice.test.ts` (6), `leave-rollover-line` (9), `leave-rollover-status-screen`
+(5), `leave-rollover-hook` (2), four cases in `leave-book-with-files` and
+`leave-approval-rules-honest` (2). Deliberate breaks, each caught and restored: for the
+earlier two (the wiring dropped, the card still offering switches connected, a short request
+never flagged), and for carry-over (a missing run read as a run, no guard for a company with
+no carrying type, the baseline called a run, the date read in another zone, the screen never
+rendering it, and the hook asking while offline).
+
+Backend: `tests/leave-unreached-settings.test.ts` (11) with the existing carry-over and
+`ai2-query` files, 62 passing; six breaks caught (no permission gate, an absent marker read
+as a run, the baseline never flagged, another company's marker visible, `requiresEvidence`
+offered again, the `isPaid` description claiming pay).
+
+Not exercised in a browser: nothing was signed into for this pass, and the backend route has
+not run on a deployed server.

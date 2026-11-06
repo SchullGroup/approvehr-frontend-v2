@@ -57,7 +57,9 @@ import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { useCompanySettings } from "@/lib/store/company";
 import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
+import { carryOverLine } from "@/lib/leave-rollover";
 import { useLeaveFileLimits } from "@/lib/store/leave-files";
+import { useLeaveRollover } from "@/lib/store/leave-rollover";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
 import { todayIn } from "@/lib/time";
@@ -371,6 +373,8 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
      made to require one. Unknown (not loaded, or the read failed) is not "no":
      only an answer of false disables the switch. */
   const { limits: fileLimits } = useLeaveFileLimits();
+  const rollover = useLeaveRollover();
+  const carryOver = rollover ? carryOverLine(rollover, timeZone) : null;
   const available = filesAvailable(fileLimits);
 
   /**
@@ -1126,6 +1130,9 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                           See them on Leave
                         </TextLink>
                       </p>
+                      {carryOver && (
+                        <p className="mt-1 text-meta text-muted">{carryOver}</p>
+                      )}
                     </CardBody>
                   )}
                 </Card>
