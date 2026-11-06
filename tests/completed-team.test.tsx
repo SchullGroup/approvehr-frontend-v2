@@ -62,15 +62,19 @@ const goals: ApiGoal[] = [
   },
 ] as unknown as ApiGoal[];
 
+const kpiCalls = vi.hoisted(() => [] as unknown[][]);
 vi.mock("@/lib/store/performance", () => ({
-  useKpis: () => ({
-    goals,
-    cascade: [],
-    loading: false,
-    error: null,
-    source: "api",
-    reload: vi.fn(),
-  }),
+  useKpis: (...args: unknown[]) => {
+    kpiCalls.push(args);
+    return {
+      goals,
+      cascade: [],
+      loading: false,
+      error: null,
+      source: "api",
+      reload: vi.fn(),
+    };
+  },
 }));
 
 const { CompletedTeam } =
@@ -331,6 +335,43 @@ describe("paging", () => {
       screen.getByRole("button", { name: "Try again" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Bola Projects")).toBeInTheDocument();
+  });
+});
+
+describe("asking for objectives", () => {
+  it("asks for none while no dialog is open, however many people are listed, and asks when one opens", async () => {
+    hook.list = listOf({
+      people: [
+        person(),
+        person({
+          employee: {
+            id: "chi",
+            name: "Chi Ada",
+            jobTitle: "",
+            departmentName: null,
+          },
+          items: [
+            item({
+              id: "c1",
+              key: "C-1",
+              title: "Chi's task",
+              personId: "chi",
+            }),
+          ],
+        }),
+      ],
+    });
+    kpiCalls.length = 0;
+    render(<CompletedTeam />);
+    expect(kpiCalls.length).toBeGreaterThan(0);
+    expect(kpiCalls.every((c) => c[1] === false)).toBe(true);
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Select PRF-1/ }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Link to an objective" }),
+    );
+    expect(kpiCalls.some((c) => c[1] === true)).toBe(true);
   });
 });
 

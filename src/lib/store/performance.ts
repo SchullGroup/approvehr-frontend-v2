@@ -1540,7 +1540,15 @@ const PAGE = 200;
  * tree is present whichever reading you asked for — a personal goal shown with
  * no company goal above it loses the only thing a cascade is for.
  */
-export function useKpis(scope: KpiScope): {
+export function useKpis(
+  scope: KpiScope,
+  /**
+   * False holds the request: the cascade is asked for only once something needs
+   * it (a dialog that has been opened), so a list with a dialog behind every row
+   * does not ask once per row. The demo has nothing to ask and ignores it.
+   */
+  enabled = true,
+): {
   goals: ApiGoal[];
   cascade: GoalNode[];
   loading: boolean;
@@ -1585,7 +1593,7 @@ export function useKpis(scope: KpiScope): {
     [scope],
   );
 
-  const fetched = useFetched<ApiGoal[]>(scope, isConnected, load);
+  const fetched = useFetched<ApiGoal[]>(scope, isConnected && enabled, load);
 
   const goals = useMemo(() => {
     if (isConnected) return fetched.data ?? [];

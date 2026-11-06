@@ -45,7 +45,9 @@ export function BulkLinkDialog({
   /** The changes are made; refresh whatever is showing them. */
   onDone: (result: BulkLinkResult) => void;
 }) {
-  const { goals, loading, error, reload } = useKpis("company");
+  /* Asked for only once the dialog is open: one of these sits behind every list
+     that offers it, and none of them should cost a request until it is used. */
+  const { goals, loading, error, reload } = useKpis("company", open);
   const [goalId, setGoalId] = useState<string | null>(null);
   const [keyResultId, setKeyResultId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
