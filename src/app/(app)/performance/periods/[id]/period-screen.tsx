@@ -8,6 +8,7 @@ import {
   CheckCheck,
   ListChecks,
   Lock,
+  PencilLine,
   Play,
   Trash2,
   UserX,
@@ -78,6 +79,7 @@ import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { FairnessStatus, publishLock } from "./fairness/fairness-status";
 import { PeriodWeightsSection } from "./period-weights-section";
+import { RenamePeriodDialog } from "./rename-period";
 
 /**
  * Running one appraisal period.
@@ -165,6 +167,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [sectionsOpen, setSectionsOpen] = useState(false);
   /* Latches on the first open and never clears — see the mount below. */
   const [sectionsEverOpened, setSectionsEverOpened] = useState(false);
@@ -391,6 +394,19 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         }
         action={
           <>
+            {/* The name was only ever set when the period was created, so a
+                typo there had no way out. Open at every stage: renaming
+                changes nothing anybody wrote. */}
+            {canManage && period && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setRenaming(true)}
+              >
+                <PencilLine aria-hidden="true" className="size-3.5" />
+                Rename
+              </Button>
+            )}
             {/* The sections the whole company is appraised against, reachable
                 at every stage.
 
@@ -750,6 +766,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         <SectionsDialog
           open={sectionsOpen}
           onClose={() => setSectionsOpen(false)}
+        />
+      )}
+
+      {period && (
+        <RenamePeriodDialog
+          period={period}
+          open={renaming}
+          onClose={() => setRenaming(false)}
+          onRenamed={() => detail.reload()}
         />
       )}
 
