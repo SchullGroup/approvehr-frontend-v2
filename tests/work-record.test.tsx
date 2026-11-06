@@ -150,11 +150,10 @@ describe("the Work record panel", () => {
     expect(
       screen.getByRole("radio", { name: "Week" }).getAttribute("aria-checked"),
     ).toBe("true");
-    expect(workRecord).toHaveBeenCalledWith(
-      "emp-1",
-      { period: "week", date: undefined },
-      expect.anything(),
-    );
+    expect(workRecord).toHaveBeenCalledWith("emp-1", {
+      period: "week",
+      date: undefined,
+    });
   });
 
   it("shows a personal task as Personal, linked to the task's own page by id", async () => {
@@ -192,10 +191,10 @@ describe("the Work record panel", () => {
   it("uses the my-record route when there is no employee id", async () => {
     render(<WorkRecordPanel />);
     await screen.findByText("Week of 19 Oct 2026");
-    expect(myWorkRecord).toHaveBeenCalledWith(
-      { period: "week", date: undefined },
-      expect.anything(),
-    );
+    expect(myWorkRecord).toHaveBeenCalledWith({
+      period: "week",
+      date: undefined,
+    });
     expect(workRecord).not.toHaveBeenCalled();
   });
 
@@ -205,11 +204,10 @@ describe("the Work record panel", () => {
     await screen.findByText("Week of 19 Oct 2026");
     await user.click(screen.getByRole("radio", { name: "Month" }));
     await waitFor(() =>
-      expect(workRecord).toHaveBeenLastCalledWith(
-        "emp-1",
-        { period: "month", date: undefined },
-        expect.anything(),
-      ),
+      expect(workRecord).toHaveBeenLastCalledWith("emp-1", {
+        period: "month",
+        date: undefined,
+      }),
     );
   });
 
@@ -220,20 +218,18 @@ describe("the Work record panel", () => {
 
     await user.click(screen.getByRole("button", { name: "Previous period" }));
     await waitFor(() =>
-      expect(workRecord).toHaveBeenLastCalledWith(
-        "emp-1",
-        { period: "week", date: "2026-10-18" },
-        expect.anything(),
-      ),
+      expect(workRecord).toHaveBeenLastCalledWith("emp-1", {
+        period: "week",
+        date: "2026-10-18",
+      }),
     );
 
     await user.click(screen.getByRole("button", { name: "Next period" }));
     await waitFor(() =>
-      expect(workRecord).toHaveBeenLastCalledWith(
-        "emp-1",
-        { period: "week", date: "2026-10-26" },
-        expect.anything(),
-      ),
+      expect(workRecord).toHaveBeenLastCalledWith("emp-1", {
+        period: "week",
+        date: "2026-10-26",
+      }),
     );
   });
 
@@ -323,6 +319,32 @@ describe("the Work record panel", () => {
     expect(screen.getByText(/Grow pipeline · KPI: Demos booked/)).toBeTruthy();
     expect(screen.getByText("Not linked to an objective")).toBeTruthy();
     expect(screen.getByText("2 finished · 100% complete")).toBeTruthy();
+  });
+
+  it("says work under an objective the reader may not open is under one, without naming it", async () => {
+    workRecord.mockResolvedValue(
+      record({
+        byObjective: [
+          {
+            goalId: null,
+            title: "",
+            finished: 2,
+            completionRate: null,
+            hidden: true,
+          },
+          {
+            goalId: null,
+            title: "Not linked to an objective",
+            finished: 1,
+            completionRate: null,
+          },
+        ],
+      }),
+    );
+    render(<WorkRecordPanel employeeId="emp-1" />);
+    await screen.findByText("Week of 19 Oct 2026");
+    expect(screen.getByText("An objective you can't open")).toBeTruthy();
+    expect(screen.getByText("Not linked to an objective")).toBeTruthy();
   });
 
   it("lists each day's issues with project, labels and a grade where one was given", async () => {

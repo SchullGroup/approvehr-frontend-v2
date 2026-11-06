@@ -11,7 +11,7 @@ import {
   withCurrentGroup,
 } from "@/lib/projects/objectives";
 import type { Issue } from "@/lib/projects/types";
-import { useKpis } from "@/lib/store/performance";
+import { useDemoObjectives, useKpis } from "@/lib/store/performance";
 import { useProjectActor } from "@/lib/store/project-session";
 import { MeasurePicker, ObjectivePicker } from "./objective-picker";
 import { useProject } from "./project-context";
@@ -78,7 +78,10 @@ export function useMayLinkIssue(): (issue: Issue) => boolean {
 /** The read-only half: one plain line, or nothing when the task is not linked. */
 function LinkLine({ issue }: { issue: Issue }) {
   const { project } = useProject();
-  const line = objectiveLine(issue, undefined, project.goalId);
+  /* The demo has no server to word the link, so it is worded from the demo's own
+     objectives (none are asked for when connected: the API's sentence is used). */
+  const known = useDemoObjectives();
+  const line = objectiveLine(issue, known, project.goalId);
   if (!line) return null;
   return <p className="text-meta leading-snug text-muted">{line}</p>;
 }

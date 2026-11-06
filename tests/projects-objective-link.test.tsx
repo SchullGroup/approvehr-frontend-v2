@@ -60,6 +60,7 @@ vi.mock("@/lib/store/project-session", () => ({
 }));
 
 vi.mock("@/lib/store/performance", () => ({
+  useDemoObjectives: () => [],
   useKpis: (scope: "mine" | "team" | "company") => ({
     goals: scope === "mine" ? mineGoals : companyGoals,
     cascade: [],

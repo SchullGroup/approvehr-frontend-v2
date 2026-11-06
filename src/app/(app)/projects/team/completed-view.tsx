@@ -253,7 +253,7 @@ function PersonCompleted({
               Showing the latest {String(items.length)} of {String(itemsTotal)}.{" "}
               <Link
                 href={`/performance/history/${employee.id}`}
-                className="font-medium text-accent hover:underline"
+                className="font-medium text-accent-text hover:underline"
               >
                 Open {employee.name}&apos;s work record
               </Link>{" "}

@@ -70,6 +70,37 @@ export type Read<T> = {
 
 const noReload = () => undefined;
 
+/**
+ * One request for one question, however many times it is asked at once.
+ *
+ * React's development StrictMode runs an effect, undoes it and runs it again, so
+ * a read started in an effect is asked twice for one screen. The first ask is
+ * aborted by the undo, which is right for what it was doing and wrong for the
+ * request itself, so the request is shared: the second ask finds the first still
+ * in flight and waits for it. Each reader still gives up when its own signal
+ * aborts, and the request is never cancelled out from under the other one.
+ */
+const inflight = new Map<string, Promise<unknown>>();
+
+function shared<T>(
+  key: string,
+  signal: AbortSignal,
+  run: () => Promise<T>,
+): Promise<T> {
+  let held = inflight.get(key) as Promise<T> | undefined;
+  if (!held) {
+    held = run().finally(() => inflight.delete(key));
+    inflight.set(key, held);
+  }
+  const answer = held;
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(new DOMException("Aborted", "AbortError"));
+    if (signal.aborted) return abort();
+    signal.addEventListener("abort", abort, { once: true });
+    answer.then(resolve, reject);
+  });
+}
+
 /** Everything the demo's answers are worked out from, none of it fetched. */
 function useDemoWorld() {
   const { isConnected, isLoading, actingId } = useSession();
@@ -145,9 +176,14 @@ export function useWorkRecord(
 
   const load = useCallback(
     (signal: AbortSignal) =>
-      employeeId
-        ? performanceApi.workRecord(employeeId, { period, date }, signal)
-        : performanceApi.myWorkRecord({ period, date }, signal),
+      shared(
+        `work-record|${employeeId ?? "mine"}|${period}|${date ?? "today"}`,
+        signal,
+        () =>
+          employeeId
+            ? performanceApi.workRecord(employeeId, { period, date })
+            : performanceApi.myWorkRecord({ period, date }),
+      ),
     [employeeId, period, date],
   );
   const fetched = useFetched<ApiWorkRecord>(
@@ -280,9 +316,16 @@ export function useTeamCompleted(
     enabled: isConnected,
     idOf: (row) => row.id,
     fetchPage: async (cursor, signal) => {
-      const page = await completionsApi.teamCompleted(
-        { period: kind, date: anchor, cursor, limit: TEAM_PAGE },
+      const page = await shared(
+        `team|${kind}|${anchor ?? ""}|${cursor ?? ""}`,
         signal,
+        () =>
+          completionsApi.teamCompleted({
+            period: kind,
+            date: anchor,
+            cursor,
+            limit: TEAM_PAGE,
+          }),
       );
       return { rows: page.rows, total: page.total, next: page.next };
     },
@@ -457,11 +500,10 @@ export function useWorkThisCycle(args: {
 
   const load = useCallback(
     (signal: AbortSignal) =>
-      completionsApi.workForCycle(
-        cycleId ?? "",
-        subjectId ?? "",
-        { limit: REVIEW_LIST_CAP },
-        signal,
+      shared(`cycle|${cycleId ?? ""}|${subjectId ?? ""}`, signal, () =>
+        completionsApi.workForCycle(cycleId ?? "", subjectId ?? "", {
+          limit: REVIEW_LIST_CAP,
+        }),
       ),
     [cycleId, subjectId],
   );
@@ -524,7 +566,9 @@ export function useCompletedWork(args: {
 
   const load = useCallback(
     (signal: AbortSignal) =>
-      completionsApi.completedWork(goalId ?? "", { limit: 100 }, signal),
+      shared(`goal|${goalId ?? ""}`, signal, () =>
+        completionsApi.completedWork(goalId ?? "", { limit: 100 }),
+      ),
     [goalId],
   );
   const fetched = useFetched<CompletedWork>(

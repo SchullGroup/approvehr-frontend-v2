@@ -92,7 +92,7 @@ export function CompletedItem({
           ) : (
             <Link
               href={workIssueHref(item)}
-              className="tabular text-body-sm font-medium text-accent hover:underline"
+              className="tabular text-body-sm font-medium text-accent-text hover:underline"
             >
               {item.key}
             </Link>
@@ -101,12 +101,9 @@ export function CompletedItem({
             {item.title}
           </span>
         </p>
-        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-meta text-muted">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-muted">
           {facts.map((fact, index) => (
-            <span key={index} className="inline-flex items-center gap-1.5">
-              {index > 0 && <span aria-hidden="true">·</span>}
-              {fact}
-            </span>
+            <span key={index}>{fact}</span>
           ))}
         </p>
         {link && <p className="text-meta text-muted">{link}</p>}

@@ -428,6 +428,16 @@ describe("the Work record in the demo", () => {
     }
   });
 
+  it("names an objective and its measure apart, so the screen joins them once", () => {
+    const q = record("p-03", "quarter", "2026-03-10");
+    const measured = q.byObjective.filter((o) => o.keyResultTitle);
+    expect(measured.length).toBeGreaterThan(0);
+    for (const row of measured) {
+      expect(row.title).not.toContain("(");
+      expect(row.title).not.toContain(row.keyResultTitle!);
+    }
+  });
+
   it("an empty period is empty, not zeros pretending to be a result", () => {
     const q = record("p-03", "week", "2025-03-03");
     expect(q.summary.finished).toBe(0);

@@ -220,11 +220,13 @@ function Record({ record }: { record: ApiWorkRecord }) {
                 className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 first:pt-0 last:pb-0"
               >
                 <p className="text-body-sm text-ink">
-                  {row.goalId === null
-                    ? "Not linked to an objective"
-                    : row.keyResultTitle
-                      ? `${row.title} · KPI: ${row.keyResultTitle}`
-                      : row.title}
+                  {row.hidden
+                    ? "An objective you can't open"
+                    : row.goalId === null
+                      ? "Not linked to an objective"
+                      : row.keyResultTitle
+                        ? `${row.title} · KPI: ${row.keyResultTitle}`
+                        : row.title}
                 </p>
                 <p className="tabular text-body-sm text-muted">
                   {row.finished} finished
@@ -262,7 +264,7 @@ function IssueRow({ issue }: { issue: ApiWorkRecordIssue }) {
             the app's usual not-found, which is acceptable. */}
         <Link
           href={workIssueHref(issue)}
-          className="tabular text-body-sm font-medium text-accent hover:underline"
+          className="tabular text-body-sm font-medium text-accent-text hover:underline"
         >
           {issue.key}
         </Link>

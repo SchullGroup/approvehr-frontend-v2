@@ -22,7 +22,7 @@ import { categoryOf } from "./workflow";
 import {
   BULK_LINK_LIMIT,
   byObjective,
-  objectiveCountLabel,
+  objectiveCountTitle,
   byPerson,
   byProject,
   completedUnder,
@@ -125,7 +125,7 @@ export function demoWorkRecord(args: {
 
   const byObjectiveRows = byObjective(items).map((row) => ({
     goalId: row.goalId,
-    title: objectiveCountLabel(row),
+    title: objectiveCountTitle(row),
     ...(row.keyResultTitle ? { keyResultTitle: row.keyResultTitle } : {}),
     finished: row.finished,
     completionRate: null,

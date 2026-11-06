@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, Field, Modal } from "@/components/ui";
 import {
   bulkLinkLine,
@@ -45,7 +45,6 @@ export function BulkLinkDialog({
   /** The changes are made; refresh whatever is showing them. */
   onDone: (result: BulkLinkResult) => void;
 }) {
-  const base = useId();
   const { goals, loading, error, reload } = useKpis("company");
   const [goalId, setGoalId] = useState<string | null>(null);
   const [keyResultId, setKeyResultId] = useState<string | null>(null);
@@ -143,7 +142,6 @@ export function BulkLinkDialog({
         <div className="space-y-4">
           <Field label="Objective" optional>
             <ObjectivePicker
-              id={`${base}-objective`}
               groups={groups}
               value={goalId}
               loading={loading}
@@ -156,6 +154,7 @@ export function BulkLinkDialog({
           {chosen && chosen.measures.length > 0 && (
             <Field label="Measure" optional>
               <MeasurePicker
+                labelled
                 measures={chosen.measures}
                 value={keyResultId}
                 onChange={setKeyResultId}

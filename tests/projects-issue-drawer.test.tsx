@@ -55,6 +55,7 @@ vi.mock("@/lib/store/project-session", () => ({
 
 /* Objectives are not what this file is about: a company with none to offer. */
 vi.mock("@/lib/store/performance", () => ({
+  useDemoObjectives: () => [],
   useKpis: () => ({
     goals: [],
     cascade: [],

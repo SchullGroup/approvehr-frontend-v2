@@ -94,13 +94,21 @@ export type ObjectiveCount = {
   finished: number;
 };
 
-/** What a row of "By objective" reads as: the name, the measure, or the plain fact. */
-export function objectiveCountLabel(row: ObjectiveCount): string {
+/** The objective's own name for a row, or the plain fact when there is none to give. */
+export function objectiveCountTitle(
+  row: Pick<ObjectiveCount, "unlinked" | "visible" | "title">,
+): string {
   if (row.unlinked) return "Not linked to an objective";
   if (!row.visible || !row.title) return "An objective you can't open";
-  return row.keyResultTitle
-    ? `${row.title} (${row.keyResultTitle})`
-    : row.title;
+  return row.title;
+}
+
+/** What a row of "By objective" reads as: the name and the measure, or the plain fact. */
+export function objectiveCountLabel(row: ObjectiveCount): string {
+  const title = objectiveCountTitle(row);
+  return !row.unlinked && row.visible && row.keyResultTitle
+    ? `${title} (${row.keyResultTitle})`
+    : title;
 }
 
 /* ------------------------------------------------------------------ the sums */

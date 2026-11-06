@@ -72,6 +72,7 @@ export function MeasurePicker({
   disabled = false,
   id,
   compact = false,
+  labelled = false,
 }: {
   measures: readonly ObjectiveMeasure[];
   value: string | null;
@@ -79,11 +80,13 @@ export function MeasurePicker({
   disabled?: boolean;
   id?: string;
   compact?: boolean;
+  /** A visible label already names it (a `Field`), so it carries no name of its own. */
+  labelled?: boolean;
 }) {
   return (
     <Select
       {...(id ? { id } : {})}
-      aria-label="Measure (optional)"
+      {...(labelled ? {} : { "aria-label": "Measure (optional)" })}
       value={value ?? ""}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value || null)}

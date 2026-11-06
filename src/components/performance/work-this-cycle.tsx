@@ -254,7 +254,7 @@ function Body({
               {String(work.total)}.{" "}
               <Link
                 href={seeAll}
-                className="font-medium text-accent hover:underline"
+                className="font-medium text-accent-text hover:underline"
               >
                 Open the work record
               </Link>{" "}
