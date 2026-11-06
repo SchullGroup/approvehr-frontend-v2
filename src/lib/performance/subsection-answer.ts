@@ -47,6 +47,14 @@ import type {
  * only ever read for display. Scores are never on the wire to a form: a person
  * answering decides which description fits, not which number they want.
  *
+ * ## Words are an answer, and never a figure
+ *
+ * A subsection can also be answered in the person's own words (`TEXT`). It is drawn
+ * as a box to write in, held and sent as `textValue` and never as a pick, and read
+ * back as what was written. Blank is not an answer: a box of spaces is `null` here,
+ * so a required written question is not called done on the strength of one. It is
+ * never turned into a score or a count, and the words are shown in full.
+ *
  * ## Absent is not zero
  *
  * Nothing here ever turns a missing answer into a figure. The subject's own answer
@@ -183,13 +191,16 @@ export type AnswerParts = {
    * not pass it.
    */
   choiceLabel?: string | null | undefined;
+  /** The words, for a subsection that is answered in them. */
+  text?: string | null | undefined;
 };
 
 /**
  * What a subsection answer says, in words, or `null` for no answer.
  *
  * One function for the preview, the record and the line beside a manager's
- * control, so a level cannot be a word in one and a digit in another.
+ * control, so a level cannot be a word in one and a digit in another. A written
+ * answer is its own words, in full.
  *
  * A pick is read by the **label saved with the answer** where there is one, which
  * is what the API sends for exactly this, and the record must say what was chosen
@@ -222,6 +233,11 @@ export function answerWords(
       );
       return live ? live.label : null;
     }
+    case "TEXT": {
+      /* The words as written, trimmed. Nothing but spaces is not an answer. */
+      const written = answer.text?.trim();
+      return written ? written : null;
+    }
   }
 }
 
@@ -243,6 +259,7 @@ export function selfAnswerWords(
       boolValue: own.boolValue,
       choiceOptionId: own.choiceOptionId,
       choiceLabel: own.choiceValue,
+      text: own.textValue,
     },
     scale,
   );

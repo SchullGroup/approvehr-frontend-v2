@@ -320,3 +320,14 @@ export function findingsHeadline(count: number): string {
 export const FINDINGS_CAVEAT =
   "Nothing here stops you sending the review. It checks for four specific " +
   "things and cannot tell whether what you wrote is fair. Only you can.";
+
+/**
+ * The same caveat, for words that are saved and not a review that is sent: a written
+ * answer recorded under Competency ratings. Saying "sending the review" under a box
+ * in a dialog that has no review in it would be a sentence about something that is
+ * not there, and the gate holds both to the same two halves (it does not block, and
+ * it does not know whether it is fair).
+ */
+export const ANSWER_CAVEAT =
+  "Nothing here stops you saving it. It checks for four specific " +
+  "things and cannot tell whether what you wrote is fair. Only you can.";

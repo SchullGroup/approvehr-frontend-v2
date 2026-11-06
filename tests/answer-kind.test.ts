@@ -326,11 +326,12 @@ describe("the words for each kind", () => {
     expect(kindLine("RATING", 5)).not.toContain("left out");
   });
 
-  it("label the three on a row", () => {
+  it("label the four on a row", () => {
     expect(KIND_BADGE).toEqual({
       RATING: "Rated",
       BOOLEAN: "Yes or no",
       CHOICE: "Pick one",
+      TEXT: "Written",
     });
   });
 });

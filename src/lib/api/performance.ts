@@ -339,10 +339,12 @@ export type ApiSection = {
  * somebody set by hand. Whatever the kind, an answer reduces to the same 0 to
  * 10,000 basis points on the API, so nothing about weights or bands changed.
  *
- * Text and file answers are deliberately not a kind: a score is never made up
- * from a paragraph (ADR 0003, an absent figure is never a zero).
+ * `TEXT` is a written answer, 1 to 4,000 characters, read by people and **never
+ * scored**: the API leaves it out of every average and every part of the mark
+ * (absent, never zero; ADR 0003), because a score is never made up from a
+ * paragraph. A file answer is deliberately not a kind.
  */
-export type AnswerKind = "RATING" | "BOOLEAN" | "CHOICE";
+export type AnswerKind = "RATING" | "BOOLEAN" | "CHOICE" | "TEXT";
 
 /** One pick on a `CHOICE` subsection, and what picking it is worth. */
 export type ApiChoiceOption = {
@@ -436,6 +438,12 @@ export type ApiCompetencyRow = {
   /** `BOOLEAN` only. `null` until somebody answers it. */
   boolValue?: boolean | null;
   /**
+   * `TEXT` only: the words, in full. `null` on any other kind and while
+   * unanswered. Optional because a server one deploy behind does not send it, and
+   * an absent value draws nothing: never "No answer", never a zero.
+   */
+  textValue?: string | null;
+  /**
    * `CHOICE` only: the id of the pick, which is what a form preselects by. Labels
    * are not unique and the pick may have been taken off the list since, so the
    * label below cannot stand in for it. `null` on any other kind and while
@@ -513,10 +521,12 @@ export type ApiRating = {
   employeeId: string;
   /** Absent from a server that predates answer kinds, which means `RATING`. */
   answerKind?: AnswerKind;
-  /** `RATING` only. A yes or no and a pick have no level. */
+  /** `RATING` only. A yes or no, a pick and a written answer have no level. */
   level: number | null;
   /** `BOOLEAN` only. */
   boolValue?: boolean | null;
+  /** `TEXT` only: the words. */
+  textValue?: string | null;
   /** `CHOICE` only. */
   choiceOptionId?: string | null;
   /** `CHOICE` only. */
@@ -754,6 +764,12 @@ export type ApiSelfAnswer = {
   choiceOptionId: string | null;
   /** The label of the pick, for display. */
   choiceValue: string | null;
+  /**
+   * The person's own words, for a subsection that is answered in words. Optional
+   * because a server that predates written answers sends no such key, and an
+   * absent or blank one draws nothing.
+   */
+  textValue?: string | null;
   answeredAt: string | null;
 };
 
@@ -2063,9 +2079,9 @@ export type GapListParams = {
 /**
  * One answer on one subsection.
  *
- * **Exactly one of `level`, `boolValue` and `choiceOptionId`, the one the
- * subsection's kind names.** The API refuses any other of the three by name, so
- * a form builds the body from the kind rather than sending all of them.
+ * **Exactly one of `level`, `boolValue`, `choiceOptionId` and `textValue`, the
+ * one the subsection's kind names.** The API refuses any other of the four by
+ * name, so a form builds the body from the kind rather than sending all of them.
  */
 export type RateBody = {
   employeeId: string;
@@ -2075,10 +2091,13 @@ export type RateBody = {
   boolValue?: boolean;
   /** `CHOICE` only: one of the subsection's own live choices. */
   choiceOptionId?: string;
+  /** `TEXT` only: 1 to 4,000 characters once trimmed. */
+  textValue?: string;
   /**
    * `RATING` only. Where the company wants them, so a gap is arithmetic rather
-   * than opinion. A yes or no and a pick have no target, because there is no
-   * honest distance between two answers that are not on a scale.
+   * than opinion. A yes or no, a pick and a written answer have no target,
+   * because there is no honest distance between two answers that are not on a
+   * scale.
    */
   target?: number;
   reviewCycleId?: string;
@@ -3220,8 +3239,8 @@ export const performanceApi = {
 
   /**
    * `scaleMax` is **still required whatever the kind**, and means nothing for a
-   * yes or no and a pick: send 5. An absent `answerKind` is `RATING`, which is
-   * what a body that never mentions it has always meant.
+   * yes or no, a pick and a written answer: send 5. An absent `answerKind` is
+   * `RATING`, which is what a body that never mentions it has always meant.
    */
   createCompetency: (body: {
     name: string;

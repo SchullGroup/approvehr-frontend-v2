@@ -1,4 +1,8 @@
-import type { ReviewAudience, SubsectionAudience } from "@/lib/api/performance";
+import type {
+  AnswerKind,
+  ReviewAudience,
+  SubsectionAudience,
+} from "@/lib/api/performance";
 
 /**
  * Whether an appraisal period asks a directly rated subsection on its review
@@ -87,6 +91,8 @@ export function askedOfChoice(
  *
  * **Not asked says nothing**: it is the default, and a line to say that a
  * subsection nobody asked is not asked is a sentence with no job.
+ *
+ * These are for a subsection whose answer is scored: a level, a yes or no, a pick.
  */
 export const ASKED_CONSEQUENCE: Record<AskedChoice, string | null> = {
   none: null,
@@ -94,6 +100,33 @@ export const ASKED_CONSEQUENCE: Record<AskedChoice, string | null> = {
   employee: "Their own answer counts towards the mark.",
   both: "The manager's answer counts. The employee's is shown beside it.",
 };
+
+/**
+ * The same lines, true of a written answer, which never counts towards the mark.
+ *
+ * "Their own answer counts towards the mark" would be false here, and so would "The
+ * manager's answer counts". What stays true is where the words go: the manager's, or
+ * the employee's when only they are asked, are recorded when that review is sent, and
+ * where both are asked the employee's is shown on the manager's form beside the
+ * manager's own box. That a written answer never counts is said once, under the
+ * picker, by `WRITTEN_NEVER_COUNTS`, and not again in every line.
+ */
+const ASKED_CONSEQUENCE_WRITTEN: Record<AskedChoice, string | null> = {
+  none: null,
+  manager: "Recorded when the manager sends their review.",
+  employee: "Recorded when they send their review.",
+  both: "The manager's words are recorded. The employee's are shown beside them.",
+};
+
+/** What choosing an audience means, for the way the subsection is answered. */
+export function askedConsequence(
+  choice: AskedChoice,
+  kind: AnswerKind,
+): string | null {
+  return (kind === "TEXT" ? ASKED_CONSEQUENCE_WRITTEN : ASKED_CONSEQUENCE)[
+    choice
+  ];
+}
 
 /**
  * What pressing the button would do, from what the period holds to what is chosen.

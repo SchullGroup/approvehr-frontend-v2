@@ -63,6 +63,9 @@ const yesNo = (): PickOption[] => [
  * picks a choice, and one past what a single key can name has no key at all
  * (`""`, which the key handler never matches) rather than being left out of the
  * list: a tenth level and a twenty-seventh choice are still answers somebody gave.
+ *
+ * A subsection answered in words has nothing to pick: `null`, which is what sends
+ * the question to the box to write in, exactly as an ordinary text question goes.
  */
 function subsectionPickOptions(
   question: SubsectionQuestion,
@@ -87,6 +90,8 @@ function subsectionPickOptions(
         label: choice.label,
         key: index < 26 ? letter(index) : "",
       }));
+    case "TEXT":
+      return null;
   }
 }
 

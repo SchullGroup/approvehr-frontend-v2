@@ -389,10 +389,18 @@ export function AppraiserStrip({
  * Absent for a form that is not a manager's, and absent until the person has
  * sent their self-review, and then nothing is drawn at all: not "No answer",
  * which would read as a gap somebody left, and never a nought.
+ *
+ * A written answer is shown in full, with its paragraphs, because it is the
+ * person's own words and a manager who can only read the start of them has not read
+ * what they were told.
  */
 export function SelfAnswerLine({ words }: { words: string | null }) {
   if (words === null) return null;
-  return <p className="text-meta text-muted">Their own answer: {words}</p>;
+  return (
+    <p className="whitespace-pre-line break-words text-meta text-muted">
+      Their own answer: {words}
+    </p>
+  );
 }
 
 /**
@@ -459,6 +467,7 @@ export function ReadAnswerBody({
         {
           ratingValue: held.rating ? Number(held.rating) : null,
           boolValue: held.bool ? held.bool === "yes" : null,
+          text: held.text,
           choiceOptionId: held.choice,
           /* The label the API saved with the pick, for the very choice it was
              saved with and no other: the record says what was chosen when it was
@@ -503,8 +512,11 @@ export function ReadAnswerBody({
       <p className="text-body-sm leading-relaxed text-ink">Nothing attached</p>
     );
   }
+  /* `whitespace-pre-line` keeps the paragraphs somebody wrote, and `break-words` a
+     long unbroken string (a link) from running out of its row. A level, a yes or no
+     and a pick are one short word and look as they did. */
   return (
-    <p className="text-body-sm leading-relaxed text-ink">
+    <p className="whitespace-pre-line break-words text-body-sm leading-relaxed text-ink">
       {answer ?? "Not answered"}
     </p>
   );

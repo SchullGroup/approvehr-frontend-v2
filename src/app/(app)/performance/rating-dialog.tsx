@@ -3,8 +3,19 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Modal, Select, Textarea } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
+import { LanguageCheck } from "@/components/performance/language-check";
 import type { RateBody } from "@/lib/api/performance";
-import { answerKindOf, choicesOf } from "@/lib/performance/answer-kind";
+import {
+  WRITTEN_NEVER_COUNTS,
+  answerKindOf,
+  choicesOf,
+} from "@/lib/performance/answer-kind";
+import { ANSWER_CAVEAT } from "@/lib/performance/review-language";
+import {
+  writtenAnswerCounter,
+  writtenAnswerIsOver,
+  writtenAnswerProblem,
+} from "@/lib/performance/question-limits";
 import {
   useAppraisals,
   useFramework,
@@ -48,17 +59,41 @@ import { useSession } from "@/lib/store/session";
  *
  * ## What is asked depends on how the subsection is answered
  *
- * A subsection is answered one of three ways, and the form asks for the one the
- * chosen subsection names: a level and a target, a yes or a no, or one of the
- * subsection's own choices. **Exactly one of the three goes in the body**, because
- * the API refuses any other by name, and a form that always sent a level would be
- * refused on two of the three. A yes or no and a pick have no target: there is no
- * honest distance between two answers that are not on a scale, so the field is not
- * offered and not sent.
+ * A subsection is answered one of four ways, and the form asks for the one the
+ * chosen subsection names: a level and a target, a yes or a no, one of the
+ * subsection's own choices, or words. **Exactly one of the four goes in the body**,
+ * because the API refuses any other by name, and a form that always sent a level
+ * would be refused on three of the four. A yes or no, a pick and a written answer
+ * have no target: there is no honest distance between two answers that are not on a
+ * scale, so the field is not offered and not sent.
  *
  * What a pick is worth is the choice's own score, set by whoever built the list,
  * and is worked out on the API. This form shows the choice and never a number, so
  * the person marking decides which description fits and not which score they want.
+ *
+ * ## Words are required, limited, and never scored
+ *
+ * A written answer is 1 to 4,000 characters once trimmed (`question-limits.ts`,
+ * which the page-by-page review form reads too), and the form says so before the
+ * request: a blank box is refused on the field, and the count appears when the
+ * answer is long enough to need it and keeps counting past the limit. It is not a
+ * `maxLength`, which would cut a pasted paragraph without a word. The sentence
+ * `WRITTEN_NEVER_COUNTS` is under the box, on the page and not behind an icon,
+ * because it is the consequence of choosing a subsection like this: it is read by
+ * people, and it is left out of the mark. That is also why the appraisal-period
+ * help below says nothing about counting towards a mark for a written answer.
+ *
+ * The box is already filled with what is on record for that person, found in their
+ * skills the way a pick is, so recording it again corrects the words instead of
+ * starting from nothing. What was typed over it is kept until the person or the
+ * skill changes.
+ *
+ * ## The language check runs here too
+ *
+ * This is a manager writing about a named person, which is exactly what
+ * `LanguageCheck` is for, so it is drawn under the box while they write. It never
+ * blocks: the form saves either way, as the review form does. The person is never
+ * the one recording (a self-rating is refused), so there is nothing to exempt.
  *
  * ## The person's current pick is already chosen
  *
@@ -104,6 +139,9 @@ export function RecordLevelDialog({
   const [target, setTarget] = useState("");
   /** `""` until somebody picks, then `"yes"` or `"no"`. */
   const [boolValue, setBoolValue] = useState("");
+  /* What was typed over the person's current words, or `null` while nothing has
+     been, for the reason `typedChoice` below gives. */
+  const [typedWords, setTypedWords] = useState<string | null>(null);
   /* What was picked over the person's current answer, or `null` while nothing has
      been. It is cleared whenever the person or the skill changes, so the default is
      always the current answer of whoever is chosen, never a pick left over from
@@ -181,8 +219,17 @@ export function RecordLevelDialog({
     currentPickId !== null && preselected === ""
       ? (current?.choiceOptionLabel ?? null)
       : null;
+  /* The words on record, so recording again corrects them. Absent from a server
+     one deploy behind, and then the box starts empty. */
+  const currentWords = kind === "TEXT" ? (current?.textValue ?? "") : "";
+  const words = typedWords ?? currentWords;
+  /* The problem is shown from the first press of Save, and then follows what is in
+     the box: it goes the moment the box is fixed and changes if the fault does. */
+  const wordsProblem =
+    kind === "TEXT" && errors["answer"] ? writtenAnswerProblem(words) : null;
   const scaleMax = chosen?.scaleMax ?? 5;
   const steps = Array.from({ length: scaleMax }, (_, index) => index + 1);
+  const personName = people.find((one) => one.id === person)?.fullName;
 
   const submit = async () => {
     const found: Record<string, string> = {};
@@ -195,20 +242,26 @@ export function RecordLevelDialog({
     if (kind === "CHOICE" && !choiceOptionId) {
       found["answer"] = "Pick one of the choices.";
     }
+    if (kind === "TEXT") {
+      const problem = writtenAnswerProblem(words);
+      if (problem) found["answer"] = problem;
+    }
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
     setSaving(true);
     try {
-      /* Exactly one of level, boolValue and choiceOptionId, the one this
-         subsection's kind names. The API refuses the other two by name, so
-         sending all three and letting it sort them out would be a refusal. */
+      /* Exactly one of level, boolValue, choiceOptionId and textValue, the one
+         this subsection's kind names. The API refuses the other three by name, so
+         sending all four and letting it sort them out would be a refusal. */
       const body: RateBody = { employeeId: person };
       if (kind === "RATING") {
         body.level = Number(level);
         if (target) body.target = Number(target);
       } else if (kind === "BOOLEAN") {
         body.boolValue = boolValue === "yes";
+      } else if (kind === "TEXT") {
+        body.textValue = words.trim();
       } else {
         body.choiceOptionId = choiceOptionId;
       }
@@ -252,6 +305,7 @@ export function RecordLevelDialog({
             onChange={(event) => {
               setPerson(event.target.value);
               setTypedChoice(null);
+              setTypedWords(null);
             }}
           >
             {options.map((one) => (
@@ -278,6 +332,7 @@ export function RecordLevelDialog({
               setLevel("");
               setTarget("");
               setBoolValue("");
+              setTypedWords(null);
               setTypedChoice(null);
             }}
           >
@@ -379,6 +434,44 @@ export function RecordLevelDialog({
             </Field>
           ))}
 
+        {kind === "TEXT" && (
+          <div className="flex flex-col gap-2">
+            <Field
+              label="Answer"
+              required
+              {...(wordsProblem ? { error: wordsProblem } : {})}
+            >
+              <Textarea
+                rows={5}
+                value={words}
+                placeholder="Write the answer"
+                onChange={(event) => setTypedWords(event.target.value)}
+              />
+            </Field>
+            {writtenAnswerCounter(words) && (
+              <p
+                className={
+                  writtenAnswerIsOver(words)
+                    ? "text-meta font-medium text-danger-text"
+                    : "text-meta text-muted"
+                }
+              >
+                {writtenAnswerCounter(words)}
+              </p>
+            )}
+            <NoticeLine tone="muted">
+              <span>{WRITTEN_NEVER_COUNTS}</span>
+            </NoticeLine>
+            {/* Findings are about the words as they stand, quoted back, and never
+                stop the save. */}
+            <LanguageCheck
+              texts={[words]}
+              caveat={ANSWER_CAVEAT}
+              {...(personName ? { subjectName: personName } : {})}
+            />
+          </div>
+        )}
+
         {kind === "CHOICE" && takenOffPick !== null && (
           <NoticeLine tone="muted">
             <span>
@@ -393,11 +486,17 @@ export function RecordLevelDialog({
             optional
             label="Appraisal period"
             help={
+              /* A written answer never counts towards a mark, so nothing here
+                 says it might: the sentence under its box says it once. */
               reviewCycleId
-                ? "Counts towards this person's mark for that period. Each person has one rating per period, so rating them again corrects this one."
+                ? kind === "TEXT"
+                  ? "Filed under that period. Each person has one answer per period, so writing it again replaces this one."
+                  : "Counts towards this person's mark for that period. Each person has one rating per period, so rating them again corrects this one."
                 : kind === "RATING"
                   ? "This will not affect any appraisal mark. It is a snapshot of where they are now, and it fills the skills gap table and heatmap."
-                  : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it does not appear in the skills gap table or heatmap, which are about levels."
+                  : kind === "TEXT"
+                    ? "A snapshot of where they are now."
+                    : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it does not appear in the skills gap table or heatmap, which are about levels."
             }
           >
             <Select
