@@ -11612,3 +11612,53 @@ The QA site, and the route on any deployed server (the backend is not merged: un
 is and the API answers 404); iOS Safari or any real device; a **published** period's form after a new version, and the job-role
 note, in a browser (the backend tests cover both and no walk did); demo mode in a browser (a test covers the refusal); a company
 with real data; the whole backend suite in one run.
+
+---
+
+# dev lost the new-version dialog to a revert that was never meant for it, and staging brought it back
+
+On 5 November the "Start a new version" dialog and part of the Projects work disappeared from `dev`, and a few minutes later
+from `test`, which is the QA site. Nothing was deleted on purpose.
+
+## What happened
+
+- `#578` promoted `preprod` into `main` (merged 13:40:50Z on 4 November) and was reverted on `main` by `#579` (13:45:09Z, commit
+  `3ad9940f`).
+- A **second** commit with the same message, `862bfb0f` "Revert "Preprod"", was made on top of `dev`'s tip of that day
+  (`5c2080fd`). It undoes the same promotion: 85 files and 4,480 deleted lines, among them `new-version-dialog.tsx`,
+  `new-version.ts` and their tests.
+- Joseph Chinedu's sub-task fix (`f01064f5`, `4ca2bff4`) was built on top of that commit, so merging `#580` into `dev` (16:50:34Z
+  on 5 November) carried the revert into `dev`, and `#581` (`dev` into `test`, 16:56:36Z) carried it into `test`. `preprod` and
+  `staging` never had it.
+
+## Why a plain merge of staging would not have fixed it
+
+Git treats a revert as a change somebody made on purpose. The files it deleted were not touched on `staging` after the common
+ancestor, so merging `staging` into `dev` leaves them deleted; the 36 conflicts were only the files `staging` had also changed.
+The way back from a revert is to revert the revert, or, as here, to take the tree of the side that never had it.
+
+## What was done
+
+A merge commit with `dev` and `staging` as its parents, and the tree of `staging` with Joseph's two commits applied to it, which
+are the only work `dev` had that `staging` lacked. Against `staging` it differs in five files (his board change); against `dev` in
+169. Putting his change on `staging`'s code needed two reconciliations:
+
+- `hiddenDoneCount` (added on `staging`) counted every finished task that was not an epic. After his change a sub-task has no
+  board card, so a finished one is not "hidden": it now uses the same `onBoard` rule that `boardScope` does.
+- Two of `staging`'s test expectations read one task more than the board now shows (In Progress is two cards, not three).
+
+## Still open, on `main`
+
+`main` still holds `#579`. `preprod` has everything `#578` promoted, so the next `preprod` into `main` merge will **not** bring
+those changes back: git already counts them as merged and reverted. Revert `3ad9940f` on `main` first, then promote, and read the
+diff of that promotion before merging it.
+
+**Rule.** A revert belongs on the branch that needs it. Do not start other work from a revert branch, because whatever merges that
+work merges the revert with it.
+
+## Verified, and what was not
+
+`tsc --noEmit` exit 0. ESLint and Prettier exit 0 on the five files the change touches. The 17 test files that import the changed
+source pass (429 tests), among them the board, the board view, the issue drawer, the backlog, the shell, Team tasks, the
+new-version dialog and the subsection tree. Not exercised: a browser, the whole vitest suite, and the QA site (it gets this
+through `dev` into `test`).
