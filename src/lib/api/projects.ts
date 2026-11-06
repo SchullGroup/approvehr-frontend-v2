@@ -12,7 +12,7 @@ import type {
   IssueComment,
   IssuePatch,
   IssueThread,
-  IssueWeeklyTask,
+  IssueObjective,
   NewIssueInput,
   NewProjectInput,
   NewSprintInput,
@@ -186,30 +186,32 @@ export function toSprint(raw: Raw): Sprint {
 }
 
 /**
- * The bridge's note on an issue. Absent or unrecognised is "nothing to say",
- * never "filed": a screen must not claim an outcome the API did not report.
+ * What the API says about a task's link to an objective.
+ *
+ * Read defensively: the objective's name and measure are there when the reader
+ * may see them, `closed` only when the API says so, and anything missing is
+ * simply not claimed. Never a refusal and never a warning: an unlinked task has
+ * no objective line at all, which is `null` here.
  */
-export function toWeeklyTask(raw: unknown): IssueWeeklyTask | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Raw;
-  if (r["state"] === "FILED") {
-    return {
-      state: "FILED",
-      taskId: str(r["taskId"]),
-      graded: r["graded"] === true,
-    };
-  }
-  if (r["state"] === "NOT_COUNTED") {
-    return {
-      state: "NOT_COUNTED",
-      reason: str(r["reason"], "NO_OBJECTIVE") as Extract<
-        IssueWeeklyTask,
-        { state: "NOT_COUNTED" }
-      >["reason"],
-      message: str(r["message"]),
-    };
-  }
-  return null;
+export function toIssueObjective(
+  raw: unknown,
+  goalId: string | null,
+  keyResultId: string | null,
+): IssueObjective | null {
+  const r = raw && typeof raw === "object" ? (raw as Raw) : null;
+  const id = r ? (strOrNull(r["goalId"]) ?? strOrNull(r["id"])) : goalId;
+  if (!id) return null;
+  const title = r ? strOrNull(r["title"]) : null;
+  const measure = r
+    ? (strOrNull(r["keyResultTitle"]) ?? strOrNull(r["measureTitle"]))
+    : null;
+  return {
+    goalId: id,
+    title: title && title.trim() !== "" ? title : null,
+    keyResultId: r ? (strOrNull(r["keyResultId"]) ?? keyResultId) : keyResultId,
+    keyResultTitle: measure && measure.trim() !== "" ? measure : null,
+    closed: r ? r["closed"] === true : false,
+  };
 }
 
 export function toIssue(raw: Raw): Issue {
@@ -249,7 +251,15 @@ export function toIssue(raw: Raw): Issue {
     rank: num(raw["rank"]),
     doneAt: strOrNull(raw["doneAt"]),
     goalId: strOrNull(raw["goalId"]),
-    weeklyTask: toWeeklyTask(raw["weeklyTask"]),
+    keyResultId: strOrNull(raw["keyResultId"]),
+    objective: toIssueObjective(
+      raw["objective"],
+      strOrNull(raw["goalId"]),
+      strOrNull(raw["keyResultId"]),
+    ),
+    ...(typeof raw["canLinkObjective"] === "boolean"
+      ? { canLinkObjective: raw["canLinkObjective"] }
+      : {}),
     commentCount: num(raw["commentCount"]),
     createdAt: str(raw["createdAt"]),
     updatedAt: str(raw["updatedAt"]),

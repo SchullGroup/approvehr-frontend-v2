@@ -2,26 +2,24 @@ import { describe, expect, it } from "vitest";
 import type { ApiGoal } from "@/lib/api/performance";
 import { describeActivity, type HistoryLookup } from "@/lib/projects/history";
 import {
-  bridgeApplies,
-  issueObjectiveOptions,
-  mayClearIssueObjective,
-  mayLinkIssueObjective,
-  projectObjectiveOptions,
+  countsAsWork,
+  flattenGroups,
+  mayLinkIssue,
+  objectiveGroups,
+  objectiveLine,
   projectSourceHref,
   workIssueHref,
   readProjectSource,
-  weeklyTaskLine,
-  withCurrent,
+  withCurrentGroup,
 } from "@/lib/projects/objectives";
 
 /**
- * Which objectives each picker may offer, who may link what, and the one line the
- * weekly-task bridge gets.
+ * Linking a task to an objective is optional and forgiving: which objectives are
+ * offered (every one the person can see, a draft included, grouped by level), who
+ * is offered the picker, and the one neutral line a link reads as.
  *
- * The rules are the API's (`assertMayLinkGoal`, `assertProjectGoal`,
- * `ownObjectiveFor`): an issue links only to its assignee's own agreed
- * objectives, a project to any objective its lead can read. These tests pin the
- * screen to that so it never offers a choice the API will refuse.
+ * Nothing here is a fault. There is no refusal for the kind of objective, no
+ * "not counted" line and no warning for a task that is not linked.
  */
 
 const goal = (extra: Partial<ApiGoal> & { id: string }): ApiGoal =>
@@ -57,218 +55,245 @@ const goal = (extra: Partial<ApiGoal> & { id: string }): ApiGoal =>
     ...extra,
   }) as ApiGoal;
 
-const mine = goal({ id: "g-mine", title: "Lift checkout conversion" });
-const mineToo = goal({ id: "g-mine-2", title: "Cut support tickets" });
-const draft = goal({
-  id: "g-draft",
-  title: "Learn the ledger",
-  approval: "DRAFT",
-});
-const awaiting = goal({
-  id: "g-wait",
-  title: "Waiting to be agreed",
-  approval: "AWAITING_APPROVAL",
-});
-const someoneElses = goal({
-  id: "g-theirs",
-  title: "Their objective",
-  ownerId: "ngozi",
-  ownerName: "Ngozi Eze",
-});
 const company = goal({
-  id: "g-co",
+  id: "g-company",
   title: "Grow online revenue",
   ownerId: null,
   ownerName: null,
   level: "company",
   companyWide: true,
-  /* A company objective has no one to agree it: it stays a draft. */
-  approval: "DRAFT",
 });
 const department = goal({
   id: "g-dept",
-  title: "Halve onboarding time",
+  title: "Engineering ships on time",
   ownerId: null,
   ownerName: null,
   level: "department",
-  departmentId: "d1",
-  departmentName: "People",
+  departmentName: "Engineering",
+});
+const mine = goal({
+  id: "g-mine",
+  title: "Lift checkout conversion",
+  keyResults: [
+    { id: "kr-1", label: "Conversion rate" },
+    { id: "kr-2", label: "Cart errors" },
+  ] as ApiGoal["keyResults"],
+});
+const draftMine = goal({
+  id: "g-draft",
+  title: "Learn the ledger",
   approval: "DRAFT",
 });
-
-const ALL = [someoneElses, draft, mineToo, company, awaiting, mine, department];
-
-describe("what an issue may be linked to", () => {
-  it("offers only the assignee's own agreed objectives", () => {
-    const options = issueObjectiveOptions(ALL, "me");
-    expect(options.map((o) => o.id)).toEqual(["g-mine-2", "g-mine"]);
-  });
-
-  it("never offers a draft, one awaiting agreement, somebody else's, or a company one", () => {
-    const ids = issueObjectiveOptions(ALL, "me").map((o) => o.id);
-    for (const refused of ["g-draft", "g-wait", "g-theirs", "g-co", "g-dept"]) {
-      expect(ids).not.toContain(refused);
-    }
-  });
-
-  it("offers nothing to somebody with no staff record", () => {
-    expect(issueObjectiveOptions(ALL, null)).toEqual([]);
-  });
-
-  it("offers nothing when none is agreed, rather than a list of refusals", () => {
-    expect(issueObjectiveOptions([draft, awaiting], "me")).toEqual([]);
-  });
+const theirs = goal({
+  id: "g-theirs",
+  title: "Their objective",
+  ownerId: "other",
+  ownerName: "Ngozi Eze",
 });
+const closedOne = goal({ id: "g-done", title: "Old goal", status: "DONE" });
 
-describe("what a project may be linked to", () => {
-  it("offers agreed objectives and the company and department ones, whatever their approval says", () => {
-    const ids = projectObjectiveOptions(ALL, "lead").map((o) => o.id);
-    expect(ids).toEqual(
-      expect.arrayContaining([
-        "g-co",
-        "g-dept",
-        "g-mine",
-        "g-mine-2",
-        "g-theirs",
-      ]),
-    );
-  });
+describe("what a person may link a task to", () => {
+  const groups = objectiveGroups(
+    [theirs, draftMine, mine, department, company, closedOne],
+    { meId: "me", assigneeId: "me" },
+  );
 
-  it("leaves out a personal objective that is not agreed yet", () => {
-    const ids = projectObjectiveOptions(ALL, "lead").map((o) => o.id);
-    expect(ids).not.toContain("g-draft");
-    expect(ids).not.toContain("g-wait");
-  });
-
-  it("says whose a personal one is, and what level a shared one is", () => {
-    const labels = Object.fromEntries(
-      projectObjectiveOptions(ALL, "lead").map((o) => [o.id, o.label]),
-    );
-    expect(labels["g-co"]).toBe("Grow online revenue (Company)");
-    expect(labels["g-dept"]).toBe(
-      "Halve onboarding time (Department · People)",
-    );
-    expect(labels["g-theirs"]).toBe("Their objective (Ngozi Eze)");
-  });
-
-  it("does not put a person's name on their own objective", () => {
-    const labels = projectObjectiveOptions([mine], "me").map((o) => o.label);
-    expect(labels).toEqual(["Lift checkout conversion"]);
-  });
-
-  it("marks the shared ones, which file under a KPI beneath", () => {
-    const shared = Object.fromEntries(
-      projectObjectiveOptions(ALL, "lead").map((o) => [o.id, o.shared]),
-    );
-    expect(shared["g-co"]).toBe(true);
-    expect(shared["g-mine"]).toBe(false);
-  });
-});
-
-describe("keeping the saved choice visible", () => {
-  it("adds a saved objective that is no longer on offer, with its title when known", () => {
-    const options = issueObjectiveOptions([mine], "me");
-    const withDraft = withCurrent(options, "g-draft", ALL, "me");
-    expect(withDraft.map((o) => o.id)).toEqual(["g-mine", "g-draft"]);
-    expect(withDraft[1]!.label).toBe("Learn the ledger");
-  });
-
-  it("names one it has never heard of as a linked objective, never an id", () => {
-    const withUnknown = withCurrent([], "g-gone", [], "me");
-    expect(withUnknown).toEqual([
-      { id: "g-gone", label: "A linked objective", shared: false },
+  it("groups every objective the person can see by level: company, department, personal", () => {
+    expect(groups.map((g) => g.label)).toEqual([
+      "Company",
+      "Department",
+      "Personal",
     ]);
   });
 
-  it("changes nothing when the saved one is already offered, or there is none", () => {
-    const options = issueObjectiveOptions([mine], "me");
-    expect(withCurrent(options, "g-mine", [mine], "me")).toEqual(options);
-    expect(withCurrent(options, null, [mine], "me")).toEqual(options);
-  });
-});
-
-describe("who may link and unlink", () => {
-  const story = { type: "STORY", assigneeId: "me", goalId: "g-mine" } as const;
-
-  it("lets only the assignee link an issue", () => {
-    expect(mayLinkIssueObjective("me", story)).toBe(true);
-    expect(mayLinkIssueObjective("lead", story)).toBe(false);
-    expect(mayLinkIssueObjective(null, story)).toBe(false);
-    expect(
-      mayLinkIssueObjective("me", { type: "STORY", assigneeId: null }),
-    ).toBe(false);
+  it("includes a draft and somebody else's personal KPI, never filtering by approval or owner", () => {
+    const labels = flattenGroups(groups).map((o) => o.label);
+    expect(labels).toContain("Learn the ledger");
+    expect(labels).toContain("Their objective (Ngozi Eze)");
   });
 
-  it("never offers a link on an epic or a sub-task, which never file", () => {
-    expect(bridgeApplies({ type: "EPIC" })).toBe(false);
-    expect(bridgeApplies({ type: "SUBTASK" })).toBe(false);
-    expect(
-      mayLinkIssueObjective("me", { type: "SUBTASK", assigneeId: "me" }),
-    ).toBe(false);
-    for (const type of ["STORY", "TASK", "BUG"] as const) {
-      expect(bridgeApplies({ type })).toBe(true);
-    }
-  });
-
-  it("lets the assignee, the lead or HR take a link off, and nobody else", () => {
-    expect(mayClearIssueObjective("me", story, false)).toBe(true);
-    expect(mayClearIssueObjective("lead", story, true)).toBe(true);
-    expect(mayClearIssueObjective("other", story, false)).toBe(false);
-  });
-
-  it("has nothing to take off when there is no link", () => {
-    expect(
-      mayClearIssueObjective("lead", { ...story, goalId: null }, true),
-    ).toBe(false);
-  });
-});
-
-describe("the weekly-task line", () => {
-  it("is silence when the API has nothing to say", () => {
-    expect(weeklyTaskLine(null)).toBeNull();
-  });
-
-  it("says a task was filed, and graded when it was, and never claims a week", () => {
-    expect(
-      weeklyTaskLine({ state: "FILED", taskId: "t1", graded: false }),
-    ).toBe("Filed as a weekly task");
-    expect(weeklyTaskLine({ state: "FILED", taskId: "t1", graded: true })).toBe(
-      "Filed as a weekly task, and graded",
+  it("names the level on shared ones", () => {
+    const labels = flattenGroups(groups).map((o) => o.label);
+    expect(labels).toContain("Grow online revenue (Company)");
+    expect(labels).toContain(
+      "Engineering ships on time (Department · Engineering)",
     );
-    expect(
-      weeklyTaskLine({ state: "FILED", taskId: "t1", graded: false }),
-    ).not.toMatch(/week\b.*\bthis\b|this week/i);
   });
 
-  it("shows the API's own sentence for each of the three reasons", () => {
-    for (const [reason, message] of [
-      [
-        "NO_OBJECTIVE",
-        "Not counted toward a weekly task, link this issue or the project to an objective.",
-      ],
-      [
-        "OBJECTIVE_NOT_USABLE",
-        "Not counted toward a weekly task, the linked objective is not an agreed one that the assignee owns.",
-      ],
-      [
-        "WEEK_CLOSED",
-        "Not counted toward a weekly task, it was finished in a week that has closed.",
-      ],
-    ] as const) {
-      expect(weeklyTaskLine({ state: "NOT_COUNTED", reason, message })).toBe(
-        message,
-      );
-    }
+  it("puts the assignee's own KPIs first among the personal ones", () => {
+    const personal = groups.find((g) => g.level === "personal")!;
+    expect(personal.options[0]!.title).not.toBe("Their objective");
+    expect(personal.options.at(-1)!.title).toBe("Their objective");
   });
 
-  it("falls back to a line that asserts no reason when the API sent no sentence", () => {
+  it("offers a closed objective too, marked closed, so an old link can be chosen", () => {
+    const row = flattenGroups(groups).find((o) => o.id === "g-done")!;
+    expect(row.closed).toBe(true);
+  });
+
+  it("carries each objective's measures, for narrowing a link to one", () => {
+    const row = flattenGroups(groups).find((o) => o.id === "g-mine")!;
+    expect(row.measures).toEqual([
+      { id: "kr-1", label: "Conversion rate" },
+      { id: "kr-2", label: "Cart errors" },
+    ]);
+  });
+
+  it("keeps a saved link visible when the person cannot list it", () => {
+    const kept = withCurrentGroup(
+      groups,
+      { goalId: "g-gone", objective: null },
+      [],
+      "me",
+    );
+    const row = flattenGroups(kept).find((o) => o.id === "g-gone")!;
+    expect(row.label).toBe("A linked objective");
     expect(
-      weeklyTaskLine({
-        state: "NOT_COUNTED",
-        reason: "NO_OBJECTIVE",
-        message: "",
+      flattenGroups(
+        withCurrentGroup(groups, { goalId: "g-mine" }, [mine], "me"),
+      ).filter((o) => o.id === "g-mine"),
+    ).toHaveLength(1);
+  });
+
+  it("is empty, not an error, when there is nothing to choose from", () => {
+    expect(objectiveGroups([], { meId: "me" })).toEqual([]);
+  });
+});
+
+describe("who is offered the picker", () => {
+  const issue = { type: "TASK" as const, assigneeIds: ["me"] };
+  const base = {
+    meId: "me",
+    canManageProject: false,
+    editRecords: false,
+    leadsAssignee: false,
+  };
+
+  it("the assignee, the project's lead or HR, the assignee's manager and HR may", () => {
+    expect(mayLinkIssue({ ...base, issue })).toBe(true);
+    expect(
+      mayLinkIssue({ ...base, issue, meId: "x", canManageProject: true }),
+    ).toBe(true);
+    expect(
+      mayLinkIssue({ ...base, issue, meId: "x", leadsAssignee: true }),
+    ).toBe(true);
+    expect(mayLinkIssue({ ...base, issue, meId: "x", editRecords: true })).toBe(
+      true,
+    );
+  });
+
+  it("anybody else is offered nothing", () => {
+    expect(mayLinkIssue({ ...base, issue, meId: "x" })).toBe(false);
+    expect(mayLinkIssue({ ...base, issue, meId: null })).toBe(false);
+  });
+
+  it("the API's own answer wins, either way", () => {
+    expect(
+      mayLinkIssue({
+        ...base,
+        issue: { ...issue, canLinkObjective: false },
       }),
-    ).toBe("Not counted toward a weekly task.");
+    ).toBe(false);
+    expect(
+      mayLinkIssue({
+        ...base,
+        meId: "x",
+        issue: { ...issue, canLinkObjective: true },
+      }),
+    ).toBe(true);
+  });
+
+  it("only a top-level task is linkable: not an initiative, not a subtask", () => {
+    expect(countsAsWork({ type: "TASK" })).toBe(true);
+    expect(countsAsWork({ type: "STORY" })).toBe(true);
+    expect(countsAsWork({ type: "BUG" })).toBe(true);
+    expect(countsAsWork({ type: "EPIC" })).toBe(false);
+    expect(countsAsWork({ type: "SUBTASK" })).toBe(false);
+    expect(
+      mayLinkIssue({
+        ...base,
+        issue: { type: "SUBTASK", assigneeIds: ["me"] },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("the one line a link reads as", () => {
+  it("is nothing at all for a task that is not linked", () => {
+    expect(
+      objectiveLine({ goalId: null, keyResultId: null, objective: null }),
+    ).toBeNull();
+  });
+
+  it("says what it is linked to, and the measure when narrowed", () => {
+    expect(
+      objectiveLine(
+        {
+          goalId: "g-mine",
+          keyResultId: "kr-1",
+          objective: null,
+        },
+        [mine],
+      ),
+    ).toBe("Linked to Lift checkout conversion, Conversion rate");
+    expect(
+      objectiveLine({ goalId: "g-mine", keyResultId: null, objective: null }, [
+        mine,
+      ]),
+    ).toBe("Linked to Lift checkout conversion");
+  });
+
+  it("prefers what the API said about it", () => {
+    expect(
+      objectiveLine({
+        goalId: "g1",
+        keyResultId: null,
+        objective: {
+          goalId: "g1",
+          title: "From the API",
+          keyResultId: null,
+          keyResultTitle: null,
+          closed: false,
+        },
+      }),
+    ).toBe("Linked to From the API");
+  });
+
+  it("says a closed objective is closed, in plain text", () => {
+    expect(
+      objectiveLine({ goalId: "g-done", keyResultId: null, objective: null }, [
+        closedOne,
+      ]),
+    ).toBe("Linked objective is closed");
+    expect(
+      objectiveLine({
+        goalId: "g1",
+        keyResultId: null,
+        objective: {
+          goalId: "g1",
+          title: "X",
+          keyResultId: null,
+          keyResultTitle: null,
+          closed: true,
+        },
+      }),
+    ).toBe("Linked objective is closed");
+  });
+
+  it("does not guess a name it was not given", () => {
+    expect(
+      objectiveLine({ goalId: "g1", keyResultId: null, objective: null }),
+    ).toBe("Linked to an objective");
+  });
+
+  it("never uses the old words", () => {
+    const lines = [
+      objectiveLine({ goalId: "g-done", keyResultId: null, objective: null }, [
+        closedOne,
+      ]),
+      objectiveLine({ goalId: "g1", keyResultId: null, objective: null }),
+    ].join(" ");
+    expect(lines).not.toMatch(/not counted|weekly task|waiting|!/i);
   });
 });
 

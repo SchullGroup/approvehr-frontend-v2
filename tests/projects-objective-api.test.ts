@@ -59,18 +59,77 @@ describe("linking an issue", () => {
     expect(request.mock.calls[0]![1].body).toEqual({ goalId: null });
   });
 
-  it("reads the link and the bridge's answer from the same response", () => {
+  it("sends the measure with the objective, and clears both together", async () => {
+    await projectsApi.updateIssue("i1", { goalId: "g1", keyResultId: "kr1" });
+    expect(request.mock.calls[0]![1].body).toEqual({
+      goalId: "g1",
+      keyResultId: "kr1",
+    });
+    request.mockClear();
+    await projectsApi.updateIssue("i1", { goalId: null, keyResultId: null });
+    expect(request.mock.calls[0]![1].body).toEqual({
+      goalId: null,
+      keyResultId: null,
+    });
+  });
+
+  it("reads the link and what it reads as from the same response", () => {
     const issue = toIssue({
       id: "i1",
       goalId: "g1",
-      weeklyTask: { state: "FILED", taskId: "t1", graded: false },
+      keyResultId: "kr1",
+      objective: {
+        goalId: "g1",
+        title: "Cut support tickets",
+        keyResultId: "kr1",
+        keyResultTitle: "Tickets a week",
+        closed: false,
+      },
     });
     expect(issue.goalId).toBe("g1");
-    expect(issue.weeklyTask).toEqual({
-      state: "FILED",
-      taskId: "t1",
-      graded: false,
+    expect(issue.keyResultId).toBe("kr1");
+    expect(issue.objective).toEqual({
+      goalId: "g1",
+      title: "Cut support tickets",
+      keyResultId: "kr1",
+      keyResultTitle: "Tickets a week",
+      closed: false,
     });
     expect(toIssue({ id: "i1" }).goalId).toBeNull();
+  });
+
+  it("an unlinked task has no objective line, and the old bridge note is ignored", () => {
+    const issue = toIssue({
+      id: "i1",
+      goalId: null,
+      weeklyTask: {
+        state: "NOT_COUNTED",
+        reason: "NO_OBJECTIVE",
+        message: "Not counted toward a weekly task",
+      },
+    });
+    expect(issue.objective).toBeNull();
+    expect("weeklyTask" in issue).toBe(false);
+  });
+
+  it("a link with no objective detail still reads as linked, never as a fault", () => {
+    const issue = toIssue({ id: "i1", goalId: "g1" });
+    expect(issue.objective).toEqual({
+      goalId: "g1",
+      title: null,
+      keyResultId: null,
+      keyResultTitle: null,
+      closed: false,
+    });
+  });
+
+  it("reads whether the person may link it, only when the API says", () => {
+    expect(toIssue({ id: "i1", canLinkObjective: true }).canLinkObjective).toBe(
+      true,
+    );
+    expect(
+      toIssue({ id: "i1", canLinkObjective: false }).canLinkObjective,
+    ).toBe(false);
+    expect("canLinkObjective" in toIssue({ id: "i1" })).toBe(false);
   });
 });

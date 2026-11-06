@@ -2325,6 +2325,16 @@ export type ApiWorkRecordIssue = {
   waitingForGrade: boolean;
   /** `otherKey` is `null` when the viewer may not open the other task. */
   links: { label: string; otherKey: string | null }[];
+  /**
+   * The objective or KPI it is linked to, when it is. Optional: a task with no
+   * link has none, and that is not a gap.
+   */
+  objective?: {
+    goalId: string;
+    title: string;
+    keyResultTitle: string | null;
+    closed: boolean;
+  } | null;
 };
 
 /**

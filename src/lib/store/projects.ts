@@ -540,11 +540,11 @@ async function apiPatchIssue(
 /**
  * Ask the server for one issue again and lay it over the cached one.
  *
- * For what a write changes beyond the fields it sent: linking a finished issue
- * to an objective makes the weekly-task bridge file a task, and that line
- * (`issue.weeklyTask`) is the server's to say, so the prediction in
- * `apiPatchIssue` cannot know it and kept the old "Not counted" until a reload.
- * Quiet on failure: the next load corrects it, and the write itself succeeded.
+ * For what a write changes beyond the fields it sent: linking a task to an
+ * objective makes the server say what the link reads as (`issue.objective`: the
+ * objective's name and measure, or that it has closed), which the prediction in
+ * `apiPatchIssue` cannot know. Quiet on failure: the next load corrects it, and
+ * the write itself succeeded.
  */
 async function apiRefreshIssue(
   owner: string,
@@ -843,12 +843,13 @@ async function apiSprint<T>(
 /*  The demo book                                                           */
 /* ======================================================================== */
 
-/* Version 2: the book holds programs and who is in them. A browser still
-   holding version 1 starts again from the new sample. */
+/* Version 3: the demo's finished tasks span the review periods and some carry a
+   link to an objective (and a measure). Version 2 held programs and who is in
+   them. A browser still holding an older book starts again from the new sample. */
 const demoStore = createPersistedState<DemoBook>({
   key: "approvehr.projects.book",
   empty: EMPTY_BOOK,
-  version: 2,
+  version: 3,
 });
 
 /** The employees the sample is written for, kept to ones the directory has. */
@@ -1108,8 +1109,9 @@ const NO_THREAD: IssueThread = { comments: [], activity: [] };
 /**
  * An issue's comments and history, oldest first.
  *
- * The weekly-task bridge's note is not here: it rides on the issue itself
- * (`issue.weeklyTask`), so it is as fresh as the issue and needs no request.
+ * What a task's link to an objective reads as is not here: it rides on the
+ * issue itself (`issue.objective`), so it is as fresh as the issue and needs no
+ * request.
  */
 export function useIssueThread(issueId: string | null): {
   thread: IssueThread;

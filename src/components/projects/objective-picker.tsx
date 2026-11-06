@@ -1,19 +1,21 @@
 "use client";
 
 import { Select } from "@/components/ui";
-import type { ObjectiveOption } from "@/lib/projects/objectives";
+import type {
+  ObjectiveGroup,
+  ObjectiveMeasure,
+} from "@/lib/projects/objectives";
 
 /**
- * A choice of objective, with "None".
+ * A choice of objective, with "No link".
  *
- * Only draws what it is given. Which objectives are valid to offer is decided in
- * `lib/projects/objectives.ts` and passed in as `options`; this never filters,
- * so what a person can pick is exactly what the caller decided the API will take.
- * A native select, like the sprint and epic pickers beside it: it is a short list
- * of titles and a phone gives it a good one for free.
+ * Only draws what it is given. Which objectives are on offer is decided in
+ * `lib/projects/objectives.ts` and passed in as `groups`; this never filters.
+ * A native select, grouped Company, Department and Personal: it is a list of
+ * titles, and a phone gives it a good picker for free.
  */
 export function ObjectivePicker({
-  options,
+  groups,
   value,
   onChange,
   disabled = false,
@@ -22,10 +24,10 @@ export function ObjectivePicker({
   label,
   compact = false,
 }: {
-  options: readonly ObjectiveOption[];
+  groups: readonly ObjectiveGroup[];
   /** The linked objective's id, or `null` for none. */
   value: string | null;
-  /** `null` is "None". */
+  /** `null` is "No link". */
   onChange: (next: string | null) => void;
   disabled?: boolean;
   /** The objectives have not arrived yet: the control is there but cannot be used. */
@@ -45,10 +47,52 @@ export function ObjectivePicker({
       onChange={(event) => onChange(event.target.value || null)}
       {...(compact ? { className: "h-9" } : {})}
     >
-      <option value="">{loading ? "Loading objectives" : "None"}</option>
-      {options.map((option) => (
-        <option key={option.id} value={option.id}>
-          {option.label}
+      <option value="">{loading ? "Loading objectives" : "No link"}</option>
+      {groups.map((group) => (
+        <optgroup key={group.label} label={group.label}>
+          {group.options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </Select>
+  );
+}
+
+/**
+ * Narrows a link to one measure of the objective, or leaves it on the whole
+ * objective. Drawn only when the chosen objective has measures.
+ */
+export function MeasurePicker({
+  measures,
+  value,
+  onChange,
+  disabled = false,
+  id,
+  compact = false,
+}: {
+  measures: readonly ObjectiveMeasure[];
+  value: string | null;
+  onChange: (next: string | null) => void;
+  disabled?: boolean;
+  id?: string;
+  compact?: boolean;
+}) {
+  return (
+    <Select
+      {...(id ? { id } : {})}
+      aria-label="Measure (optional)"
+      value={value ?? ""}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.value || null)}
+      {...(compact ? { className: "h-9" } : {})}
+    >
+      <option value="">Whole objective</option>
+      {measures.map((measure) => (
+        <option key={measure.id} value={measure.id}>
+          {measure.label}
         </option>
       ))}
     </Select>

@@ -2,81 +2,116 @@
 
 import { useId, useMemo } from "react";
 import { Button, Field, useToast } from "@/components/ui";
+import { employeeById } from "@/lib/mock/people";
 import {
-  issueObjectiveOptions,
-  mayClearIssueObjective,
-  mayLinkIssueObjective,
-  projectObjectiveOptions,
-  withCurrent,
+  flattenGroups,
+  mayLinkIssue,
+  objectiveGroups,
+  objectiveLine,
+  withCurrentGroup,
 } from "@/lib/projects/objectives";
 import type { Issue } from "@/lib/projects/types";
 import { useKpis } from "@/lib/store/performance";
-import { ObjectivePicker } from "./objective-picker";
+import { useProjectActor } from "@/lib/store/project-session";
+import { MeasurePicker, ObjectivePicker } from "./objective-picker";
 import { useProject } from "./project-context";
 
 /**
- * The two places a Projects record is tied to an objective.
+ * The two places a Projects record may be linked to an objective.
  *
- * Both exist only against the real API: the demo has no objectives to choose
- * from and no bridge to file anything, so neither draws there.
+ * ## Optional, quiet, and the same demo and connected
+ *
+ * Linking is never required and never a fault. The task drawer says nothing
+ * about a task that is not linked; a linked one reads "Linked to <objective>".
+ * A person offered the picker may choose any objective or personal KPI they can
+ * see, narrow it to one measure, change it or clear it at any time. A person
+ * who may not link is drawn no control at all.
  */
 
 /* ------------------------------------------------------------------- an issue -- */
 
 /**
- * "Count toward", in the issue drawer.
+ * "Link to an objective (optional)", in the task drawer.
  *
- * Shown to the person the issue is assigned to, who is the only one the API lets
- * link it, and to the lead or HR as a way to remove a link somebody else made.
- * Everyone else sees nothing: the weekly-task line under it already says what
- * happened. Epics and sub-tasks never file, so they get no control for it.
+ * Offered to the people the contract lets link a task: the assignee, whoever
+ * manages the project, the assignee's manager or department head, and HR (the
+ * API's own `canLinkObjective` wins where it says). Everybody who can read the
+ * task still sees the one neutral line about it.
  */
 export function IssueObjectiveLink({ issue }: { issue: Issue }) {
-  const { connected, meId, canManage } = useProject();
-  if (!connected) return null;
-  if (mayLinkIssueObjective(meId, issue)) return <AssigneeLink issue={issue} />;
-  if (mayClearIssueObjective(meId, issue, canManage)) {
-    return <ClearLink issue={issue} />;
-  }
-  return null;
+  const { meId, canManage, canWork, connected } = useProject();
+  const actor = useProjectActor();
+  const may = mayLinkIssue({
+    issue,
+    meId,
+    canManageProject: canManage,
+    editRecords: actor.editRecords,
+    /* Connected, the API says (`canLinkObjective`); the directory below is only
+       the demo's stand-in for "this person's manager". */
+    leadsAssignee:
+      !connected &&
+      issue.assigneeId !== null &&
+      meId !== null &&
+      employeeById(issue.assigneeId)?.managerId === meId,
+  });
+  /* Somebody who can read the task and change nothing (a program's read access,
+     or the Master grant) is drawn the line and no control, switched off or not. */
+  if (may && canWork) return <Linker issue={issue} />;
+  return <LinkLine issue={issue} />;
 }
 
-const NO_OBJECTIVES = "You have no agreed objective to count this toward yet.";
-const LOAD_FAILED = "Your objectives could not be loaded.";
+/** The read-only half: one plain line, or nothing when the task is not linked. */
+function LinkLine({ issue }: { issue: Issue }) {
+  const line = objectiveLine(issue);
+  if (!line) return null;
+  return <p className="text-meta leading-snug text-muted">{line}</p>;
+}
 
-function AssigneeLink({ issue }: { issue: Issue }) {
-  const { actions, meId, canWork } = useProject();
+const LOAD_FAILED = "Objectives could not be loaded.";
+
+function Linker({ issue }: { issue: Issue }) {
+  const { actions, meId } = useProject();
   const toast = useToast();
   const base = useId();
-  const { goals, loading, error, reload } = useKpis("mine");
+  const { goals, loading, error, reload } = useKpis("company");
 
-  const options = useMemo(
+  const groups = useMemo(
     () =>
-      withCurrent(
-        issueObjectiveOptions(goals, meId),
-        issue.goalId,
+      withCurrentGroup(
+        objectiveGroups(goals, { meId, assigneeId: issue.assigneeId }),
+        issue,
         goals,
         meId,
       ),
-    [goals, meId, issue.goalId],
+    [goals, meId, issue],
   );
+  const chosen = flattenGroups(groups).find((o) => o.id === issue.goalId);
+  const line = objectiveLine(issue, goals);
 
-  async function change(next: string | null) {
-    const result = await actions.patchIssue(issue, { goalId: next });
+  async function change(patch: {
+    goalId: string | null;
+    keyResultId: string | null;
+  }) {
+    const result = await actions.patchIssue(issue, patch);
     if (!result.ok) return;
-    /* The weekly-task line under this field is the bridge's answer, which only
-       the server has: the save above returns the issue as it was before the
-       bridge ran, so without this it kept saying "Not counted" until a reload. */
+    /* What the link reads as (the objective's name, whether it has closed) is
+       the server's to say, so ask once more rather than guess it. */
     void actions.refreshIssue(issue);
-    const title = options.find((o) => o.id === next)?.label;
+    const title = flattenGroups(groups).find(
+      (o) => o.id === patch.goalId,
+    )?.title;
     toast.push({
       tone: "success",
       title:
-        next && title
-          ? `${issue.key} counts toward ${title}`
-          : `${issue.key} no longer counts toward an objective`,
+        patch.goalId && title
+          ? `${issue.key} linked to ${title}`
+          : `${issue.key} is no longer linked to an objective`,
     });
   }
+
+  /* Nothing to choose from and nothing linked: the control would be a lone "No
+     link", so it is absent rather than empty. */
+  if (!loading && !error && groups.length === 0) return null;
 
   return (
     <div className="space-y-1.5">
@@ -84,64 +119,35 @@ function AssigneeLink({ issue }: { issue: Issue }) {
         htmlFor={`${base}-objective`}
         className="block text-meta font-medium text-muted"
       >
-        Count toward
+        Link to an objective (optional)
       </label>
       <ObjectivePicker
         id={`${base}-objective`}
         compact
-        options={options}
+        groups={groups}
         value={issue.goalId}
         loading={loading}
-        disabled={!canWork}
-        onChange={(next) => void change(next)}
+        onChange={(next) => void change({ goalId: next, keyResultId: null })}
       />
-      {error ? (
-        <p className="flex flex-wrap items-center gap-x-2 text-meta text-danger-text">
+      {chosen && chosen.measures.length > 0 && (
+        <MeasurePicker
+          compact
+          measures={chosen.measures}
+          value={issue.keyResultId ?? null}
+          onChange={(next) =>
+            void change({ goalId: issue.goalId, keyResultId: next })
+          }
+        />
+      )}
+      {line && <p className="text-meta leading-snug text-muted">{line}</p>}
+      {error && (
+        <p className="flex flex-wrap items-center gap-x-2 text-meta text-muted">
           {LOAD_FAILED}
           <Button size="sm" variant="ghost" onClick={reload}>
             Try again
           </Button>
         </p>
-      ) : (
-        !loading &&
-        options.length === 0 && (
-          <p className="text-meta leading-snug text-muted">{NO_OBJECTIVES}</p>
-        )
       )}
-    </div>
-  );
-}
-
-/**
- * The lead's and HR's half: the link is somebody else's choice, so it is named
- * only as that, and the one thing they may do is take it off.
- */
-function ClearLink({ issue }: { issue: Issue }) {
-  const { actions } = useProject();
-  const toast = useToast();
-
-  async function clear() {
-    const result = await actions.patchIssue(issue, { goalId: null });
-    if (result.ok) {
-      void actions.refreshIssue(issue);
-      toast.push({
-        tone: "success",
-        title: `${issue.key} no longer counts toward an objective`,
-      });
-    }
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <p className="text-meta font-medium text-muted">Count toward</p>
-      <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 text-body-sm text-ink">
-          An objective the assignee chose
-        </p>
-        <Button size="sm" variant="ghost" onClick={() => void clear()}>
-          Remove link
-        </Button>
-      </div>
     </div>
   );
 }
@@ -149,20 +155,17 @@ function ClearLink({ issue }: { issue: Issue }) {
 /* ----------------------------------------------------------------- a project -- */
 
 const PROJECT_HELP =
-  "When someone finishes a task assigned to them, a weekly task is filed under this objective for the week it was finished. A manager still grades it. Tasks finished before you link it are not counted.";
-const SHARED_HELP =
-  "It is a company or department objective, so each person's work is filed under their own objective beneath it.";
+  "Tasks in this project use this link unless they have one of their own. You can leave it empty.";
 
 /**
- * "Count finished work toward", in project settings.
+ * "Link to an objective (optional)", in project settings.
  *
- * The lead's and HR's to set, so the settings page draws it only for them. The
- * list is what they can read: agreed objectives, and the company and department
- * ones those sit under. The API refuses anything else.
+ * The lead's and HR's to set, so the settings page draws it only for them. It is
+ * the project's default: a task with no link of its own shows under it.
  */
 export function ProjectObjectiveField() {
-  const { connected, canManage } = useProject();
-  if (!connected || !canManage) return null;
+  const { canManage } = useProject();
+  if (!canManage) return null;
   return <ProjectObjective />;
 }
 
@@ -171,54 +174,48 @@ function ProjectObjective() {
   const toast = useToast();
   const { goals, loading, error, reload } = useKpis("company");
 
-  const options = useMemo(
+  const groups = useMemo(
     () =>
-      withCurrent(
-        projectObjectiveOptions(goals, meId),
-        project.goalId,
+      withCurrentGroup(
+        objectiveGroups(goals, { meId }),
+        { goalId: project.goalId },
         goals,
         meId,
       ),
     [goals, meId, project.goalId],
   );
-  const chosen = options.find((o) => o.id === project.goalId);
 
   async function change(next: string | null) {
     const result = await actions.updateProject({ goalId: next });
     if (!result.ok) return;
-    const title = options.find((o) => o.id === next)?.label;
+    const title = flattenGroups(groups).find((o) => o.id === next)?.title;
     toast.push({
       tone: "success",
       title:
         next && title
-          ? `${project.name} counts toward ${title}`
-          : `${project.name} no longer counts toward an objective`,
+          ? `${project.name} linked to ${title}`
+          : `${project.name} is no longer linked to an objective`,
     });
   }
 
+  if (!loading && !error && groups.length === 0) return null;
+
   return (
     <div className="space-y-2">
-      <Field
-        label="Count finished work toward"
-        optional
-        help={chosen?.shared ? `${PROJECT_HELP} ${SHARED_HELP}` : PROJECT_HELP}
-        {...(error ? { error: "Objectives could not be loaded." } : {})}
-      >
+      <Field label="Link to an objective" optional help={PROJECT_HELP}>
         <ObjectivePicker
-          options={options}
+          groups={groups}
           value={project.goalId}
           loading={loading}
           onChange={(next) => void change(next)}
         />
       </Field>
       {error && (
-        <Button size="sm" variant="ghost" onClick={reload}>
-          Try again
-        </Button>
-      )}
-      {!loading && !error && options.length === 0 && (
-        <p className="text-meta text-muted">
-          There are no agreed objectives to choose from yet.
+        <p className="flex flex-wrap items-center gap-x-2 text-meta text-muted">
+          {LOAD_FAILED}
+          <Button size="sm" variant="ghost" onClick={reload}>
+            Try again
+          </Button>
         </p>
       )}
     </div>

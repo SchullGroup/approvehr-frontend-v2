@@ -1,161 +1,234 @@
 /**
- * Linking Projects to objectives, and what the weekly-task bridge says back.
+ * Linking Projects to objectives, which is optional.
  *
- * ## What the API will accept
+ * ## What linking is, and is not
  *
- * The bridge files a finished issue under **the assignee's own agreed
- * objective**, resolved from the issue's `goalId` and then the project's. That
- * decides what each picker may offer, and none of it is a guess made here:
+ * A task is not hard-tied to an objective. Every finished task counts on the
+ * person's work record and in their review whether or not it is linked. A link
+ * only decides *where else* the task is shown: under that objective or KPI, so
+ * whoever reads that objective sees the finished work that went into it.
  *
- * - **An issue** can be linked only by the person it is assigned to, and only to
- *   one of their own agreed objectives. Offering anything else is offering a 422.
- * - **A project** can be linked by its lead (or HR) to any objective they can
- *   read. A company or department objective has no agreement step of its own (it
- *   belongs to nobody, so nobody agrees it), so those are offered whatever their
- *   `approval` says; each person's work then files under their own KPI beneath
- *   it. A personal objective is offered only once it is agreed.
- *
- * The API is still the authority. These functions only stop the screen offering
- * what it already knows will be refused.
+ * So nothing here is ever a fault. There is no "not counted" line, no refusal
+ * for an objective of the wrong kind, no week that closes. A person may link a
+ * task to any objective or personal KPI they can see (company, department,
+ * personal; a draft too), optionally narrowed to one measure, whenever they
+ * like, including after it is finished. The API is still the authority on who
+ * may and on ids from outside the company; these functions only decide what the
+ * screen offers and how the link reads.
  */
 
-import type { ApiGoal } from "@/lib/api/performance";
-import type { Issue, IssueType, IssueWeeklyTask } from "./types";
+import type { ApiGoal, ApiKeyResult } from "@/lib/api/performance";
+import type { Issue, IssueObjective, IssueType } from "./types";
+
+export type ObjectiveLevel = "company" | "department" | "personal";
+
+export type ObjectiveMeasure = { id: string; label: string };
 
 export type ObjectiveOption = {
   id: string;
   /** What the choice reads as in a list: the title, and whose or what level when it helps. */
   label: string;
-  /** Company and department objectives are shared: the work files under a KPI beneath. */
+  /** The bare title, for a sentence about the link. */
+  title: string;
+  level: ObjectiveLevel;
+  /** Company and department objectives are shared: nobody owns them. */
   shared: boolean;
+  /** Done, so no more work is expected under it. Still a valid link. */
+  closed: boolean;
+  /** Its measures, for narrowing a link to one of them. */
+  measures: ObjectiveMeasure[];
 };
 
-/** Only these count as a unit of somebody's work, as the API's bridge has it. */
-const FILEABLE: readonly IssueType[] = ["STORY", "TASK", "BUG"];
+/** A heading in the picker and the options under it. */
+export type ObjectiveGroup = {
+  level: ObjectiveLevel;
+  label: string;
+  options: ObjectiveOption[];
+};
 
-/** Whether the bridge can ever file this issue: not an epic, not a sub-task. */
-export function bridgeApplies(issue: Pick<Issue, "type">): boolean {
-  return FILEABLE.includes(issue.type);
+/** Only these count as a unit of somebody's work. A subtask or an initiative does not. */
+const COUNTS: readonly IssueType[] = ["STORY", "TASK", "BUG"];
+
+/** Whether the task is a top-level unit of work: not an initiative, not a subtask. */
+export function countsAsWork(issue: Pick<Issue, "type">): boolean {
+  return COUNTS.includes(issue.type);
 }
 
-/** Only the person an issue is assigned to may link it to their objective. */
-export function mayLinkIssueObjective(
-  meId: string | null,
-  issue: Pick<Issue, "type" | "assigneeId">,
-): boolean {
-  return meId !== null && issue.assigneeId === meId && bridgeApplies(issue);
-}
-
-/**
- * Taking a link off is wider than putting one on: the assignee, or whoever
- * manages the project. Removing a wrong link harms nobody's record.
- */
-export function mayClearIssueObjective(
-  meId: string | null,
-  issue: Pick<Issue, "type" | "assigneeId" | "goalId">,
-  canManage: boolean,
-): boolean {
-  if (!bridgeApplies(issue) || issue.goalId === null) return false;
-  return canManage || (meId !== null && issue.assigneeId === meId);
-}
+const LEVEL_HEADING: Record<ObjectiveLevel, string> = {
+  company: "Company",
+  department: "Department",
+  personal: "Personal",
+};
 
 const isShared = (goal: Pick<ApiGoal, "ownerId">) => goal.ownerId === null;
 
-function levelNote(goal: ApiGoal): string {
+function levelNote(goal: ApiGoal, meId: string | null): string {
   if (goal.level === "company") return "Company";
   if (goal.level === "department") {
     return goal.departmentName
       ? `Department · ${goal.departmentName}`
       : "Department";
   }
-  return "";
+  return goal.ownerId === meId ? "" : (goal.ownerName ?? "");
 }
 
+const isClosed = (goal: Pick<ApiGoal, "status">) => goal.status === "DONE";
+
+const measureOf = (
+  kr: Pick<ApiKeyResult, "id" | "label">,
+): ObjectiveMeasure => ({
+  id: kr.id,
+  label: kr.label,
+});
+
 function option(goal: ApiGoal, meId: string | null): ObjectiveOption {
-  const note = isShared(goal)
-    ? levelNote(goal)
-    : goal.ownerId === meId
-      ? ""
-      : (goal.ownerName ?? "");
+  const note = levelNote(goal, meId);
   return {
     id: goal.id,
     label: note ? `${goal.title} (${note})` : goal.title,
+    title: goal.title,
+    level: goal.level,
     shared: isShared(goal),
+    closed: isClosed(goal),
+    measures: (goal.keyResults ?? []).map(measureOf),
   };
 }
 
 const byLabel = (a: ObjectiveOption, b: ObjectiveOption) =>
   a.label.localeCompare(b.label);
 
-/** An issue's choices: the assignee's own objectives that have been agreed. */
-export function issueObjectiveOptions(
+/**
+ * Everything a person may link to, grouped Company, Department, Personal.
+ *
+ * `goals` is what the person can see, so this never filters by owner or by
+ * approval: a draft is allowed, and so is somebody else's personal KPI the
+ * reader is permitted to read. The assignee's own KPIs come first among the
+ * personal ones, because that is where most links go.
+ */
+export function objectiveGroups(
   goals: readonly ApiGoal[],
-  employeeId: string | null,
-): ObjectiveOption[] {
-  if (employeeId === null) return [];
-  return goals
-    .filter((g) => g.ownerId === employeeId && g.approval === "AGREED")
-    .map((g) => option(g, employeeId))
-    .sort(byLabel);
+  args: { meId: string | null; assigneeId?: string | null },
+): ObjectiveGroup[] {
+  const mine = (goal: ApiGoal) =>
+    goal.ownerId !== null &&
+    (goal.ownerId === args.assigneeId || goal.ownerId === args.meId);
+  const out: ObjectiveGroup[] = [];
+  for (const level of ["company", "department", "personal"] as const) {
+    const rows = goals.filter((g) => g.level === level);
+    if (rows.length === 0) continue;
+    const ordered =
+      level === "personal"
+        ? [
+            ...rows
+              .filter(mine)
+              .map((g) => option(g, args.meId))
+              .sort(byLabel),
+            ...rows
+              .filter((g) => !mine(g))
+              .map((g) => option(g, args.meId))
+              .sort(byLabel),
+          ]
+        : rows.map((g) => option(g, args.meId)).sort(byLabel);
+    out.push({ level, label: LEVEL_HEADING[level], options: ordered });
+  }
+  return out;
 }
 
-/** A project's choices: agreed objectives, and the company and department ones above them. */
-export function projectObjectiveOptions(
-  goals: readonly ApiGoal[],
-  meId: string | null,
-): ObjectiveOption[] {
-  return goals
-    .filter((g) => isShared(g) || g.approval === "AGREED")
-    .map((g) => option(g, meId))
-    .sort(byLabel);
-}
+/** Every option of every group, in the order a person meets them. */
+export const flattenGroups = (groups: readonly ObjectiveGroup[]) =>
+  groups.flatMap((g) => g.options);
 
 /**
- * The choices with the one already saved among them, so a select never shows a
- * value it has no option for. A link to something no longer on offer (an
- * objective reopened for revision, or one this person cannot list) stays
- * visible and can be cleared.
+ * The groups with the one already saved among them, so a select never shows a
+ * value it has no option for. A link to something this person cannot list (or an
+ * objective since removed) stays visible and can be cleared.
  */
-export function withCurrent(
-  options: readonly ObjectiveOption[],
-  currentId: string | null,
+export function withCurrentGroup(
+  groups: readonly ObjectiveGroup[],
+  link: { goalId: string | null; objective?: IssueObjective | null },
   goals: readonly ApiGoal[],
   meId: string | null,
-): ObjectiveOption[] {
-  if (!currentId || options.some((o) => o.id === currentId)) {
-    return [...options];
-  }
+): ObjectiveGroup[] {
+  const currentId = link.goalId;
+  if (!currentId) return [...groups];
+  if (flattenGroups(groups).some((o) => o.id === currentId)) return [...groups];
   const known = goals.find((g) => g.id === currentId);
+  const title = known?.title ?? link.objective?.title ?? null;
+  const kept: ObjectiveOption = known
+    ? option(known, meId)
+    : {
+        id: currentId,
+        label: title ?? "A linked objective",
+        title: title ?? "an objective",
+        level: "personal",
+        shared: false,
+        closed: link.objective?.closed ?? false,
+        measures: [],
+      };
   return [
-    ...options,
-    known
-      ? option(known, meId)
-      : { id: currentId, label: "A linked objective", shared: false },
+    ...groups,
+    { level: kept.level, label: "Linked now", options: [kept] },
   ];
 }
 
-/* ------------------------------------------------------------ the status line */
-
-const NOT_COUNTED_FALLBACK = "Not counted toward a weekly task.";
+/* ------------------------------------------------------------ who may link */
 
 /**
- * The one line under an issue about its weekly task, or `null` for nothing.
+ * Whether the signed-in person is offered the picker.
  *
- * Only what the API said. A task that is `FILED` is said to be filed and, if it
- * is, graded, and no more: the API does not report which week it went into, and
- * an issue reopened and finished again keeps the task it already had, so "for
- * this week" would sometimes be wrong. A `NOT_COUNTED` issue shows the server's
- * own sentence as it is, whichever of the three reasons it carries. Absent or
- * unrecognised is silence, which is also all the demo ever has.
+ * The API says first (`canLinkObjective` on the task). Where it does not (the
+ * demo, or an older server) the rule is the contract's: the assignee, whoever
+ * manages the project (its lead, or HR), the assignee's manager or department
+ * head, and HR. Anybody else is offered nothing at all, not a switched-off
+ * control: the API would refuse them.
  */
-export function weeklyTaskLine(weekly: IssueWeeklyTask | null): string | null {
-  if (!weekly) return null;
-  if (weekly.state === "FILED") {
-    return weekly.graded
-      ? "Filed as a weekly task, and graded"
-      : "Filed as a weekly task";
+export function mayLinkIssue(args: {
+  issue: Pick<Issue, "type" | "assigneeIds" | "canLinkObjective">;
+  meId: string | null;
+  canManageProject: boolean;
+  editRecords: boolean;
+  leadsAssignee: boolean;
+}): boolean {
+  const { issue, meId } = args;
+  if (!countsAsWork(issue)) return false;
+  if (typeof issue.canLinkObjective === "boolean") {
+    return issue.canLinkObjective;
   }
-  return weekly.message.trim() !== "" ? weekly.message : NOT_COUNTED_FALLBACK;
+  if (args.canManageProject || args.editRecords || args.leadsAssignee) {
+    return true;
+  }
+  return meId !== null && issue.assigneeIds.includes(meId);
+}
+
+/* --------------------------------------------------------- the state line */
+
+/**
+ * The one neutral line about a task's link, or `null` for nothing.
+ *
+ * - not linked: nothing at all, which is the ordinary case and not a gap
+ * - linked: "Linked to <objective>", with the measure when it is narrowed
+ * - linked and the objective has closed: "Linked objective is closed"
+ *
+ * Plain text, never a warning: a closed objective is a fact about the past.
+ */
+export function objectiveLine(
+  issue: Pick<Issue, "goalId" | "keyResultId" | "objective">,
+  known?: readonly ApiGoal[],
+): string | null {
+  if (!issue.goalId) return null;
+  const goal = known?.find((g) => g.id === issue.goalId);
+  const closed =
+    issue.objective?.closed === true || (goal ? isClosed(goal) : false);
+  if (closed) return "Linked objective is closed";
+  const title = issue.objective?.title ?? goal?.title ?? null;
+  if (!title) return "Linked to an objective";
+  const measureId = issue.keyResultId ?? issue.objective?.keyResultId ?? null;
+  const measure =
+    issue.objective?.keyResultTitle ??
+    (measureId
+      ? (goal?.keyResults?.find((kr) => kr.id === measureId)?.label ?? null)
+      : null);
+  return measure ? `Linked to ${title}, ${measure}` : `Linked to ${title}`;
 }
 
 /* ---------------------------------------------------------- the "From project" tag */

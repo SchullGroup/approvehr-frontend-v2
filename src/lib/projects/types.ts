@@ -227,9 +227,27 @@ export type Issue = {
   /** Position within a column or section. Insert between neighbours is the midpoint. */
   rank: number;
   doneAt: string | null;
+  /**
+   * The objective or personal KPI this task is linked to, or null. Optional and
+   * never a fault: a task with no link is simply on the person's work record.
+   */
   goalId: string | null;
-  /** What the weekly-task bridge says about this issue, when the API says anything. */
-  weeklyTask: IssueWeeklyTask | null;
+  /**
+   * The one measure of that objective the link is narrowed to, or null/absent
+   * for the objective as a whole. Never set without a `goalId`.
+   */
+  keyResultId?: string | null;
+  /**
+   * What the API says about the link, in neutral terms (`null` or absent when
+   * the task is not linked). The demo derives the same from its own objectives.
+   */
+  objective?: IssueObjective | null;
+  /**
+   * Whether the signed-in person may link or unlink this task, as the API says
+   * it. Absent where it did not say, and the screen works the same rule out
+   * from what it knows (the assignee, the lead, the assignee's manager, HR).
+   */
+  canLinkObjective?: boolean | null;
   commentCount: number;
   createdAt: string;
   updatedAt: string;
@@ -287,20 +305,20 @@ export type IssueActivity = {
 };
 
 /**
- * What the weekly-task bridge says about an issue, only when the API says it.
+ * What a task's link to an objective reads as, in plain terms.
  *
- * `null` is "nothing to say": an epic, a sub-task, an unassigned or unfinished
- * issue. `NOT_COUNTED` carries the API's own sentence, to be shown as it is.
- * Demo mode never has one — it files nothing, so claiming either outcome would
- * be inventing it.
+ * Only ever a statement of fact: "Linked to X", or "Linked objective is closed".
+ * Never a warning. A task that is not linked has no `IssueObjective` at all.
  */
-export type IssueWeeklyTask =
-  | { state: "FILED"; taskId: string; graded: boolean }
-  | {
-      state: "NOT_COUNTED";
-      reason: "NO_OBJECTIVE" | "OBJECTIVE_NOT_USABLE" | "WEEK_CLOSED";
-      message: string;
-    };
+export type IssueObjective = {
+  goalId: string;
+  /** The objective's title, when the reader may see it. */
+  title: string | null;
+  keyResultId: string | null;
+  keyResultTitle: string | null;
+  /** The objective has closed (done, or gone since the link was made). */
+  closed: boolean;
+};
 
 export type IssueThread = {
   comments: IssueComment[];
@@ -403,6 +421,7 @@ export type IssuePatch = Partial<{
   dueTime: string | null;
   rank: number;
   goalId: string | null;
+  keyResultId: string | null;
 }>;
 
 export type NewSprintInput = {
