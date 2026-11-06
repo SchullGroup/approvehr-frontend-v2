@@ -11675,11 +11675,12 @@ Two requests in one change, and the second is the one to read twice.
 > _"I can't see where to upload files. For now, let's use `approvehr-platform-frontend/src/services/api/s3.service.ts` for upload,
 > we'll change it later."_
 
-The backend half is built separately (`reasonRequired` on a leave type, `links` on the limits, a `fileUrl` ref beside `storageKey`,
-`attachment_link_refused`) and was not available to this change. **Merge it first.** Against a server that has none of it every new
-field is absent, no switch is drawn for the reason, and the picker stays dark exactly as it was. The one thing that is not
-symmetrical: the Add dialog always sends `reasonRequired`, so a server whose schema refuses an unknown key would refuse the dialog,
-which is another reason for the order.
+The backend half is built (`approvehr-backend`, branch `feat/leave-switches-links-20261106`: `reasonRequired` on a leave type,
+`links` on the limits, a `fileUrl` ref beside `storageKey`, `attachment_link_refused`). **Merge it first.** Against a server that has
+none of it every new field is absent, no switch is drawn for the reason, and the picker stays dark exactly as it was. The one thing
+that is not symmetrical: the Add dialog always sends `reasonRequired`, so a server whose schema refuses an unknown key would refuse the
+dialog, which is another reason for the order. (The backend's create schema strips an unknown key rather than refusing it, so an older
+server would not refuse, it would silently ignore the switch.)
 
 ## The two switches
 
@@ -11697,9 +11698,10 @@ which is another reason for the order.
 - **An absent `reasonRequired` is `null`, not `false`, and a `null` row has no switch.** A switch over a value nobody sent would look
   saved and change no booking. The table shows a dash with words for a screen reader; the booking form never holds the form on
   anything but `true`; the demo has no such setting and the columns are absent there.
-- **A refusal about the reason goes under the reason, only where the API attributes it** (`details[].field === "reason"`). The
-  sentence the brief gives for a missing reason names no field or code, so one that arrives without a field is shown verbatim where
-  every other refusal of that dialog has always been shown, under the dates.
+- **A refusal about the reason goes under the reason only where the API attributes it** (`details[].field === "reason"`). The backend
+  does not: its "needs a reason" is a plain 422 (`unprocessable`) with the type's name in the sentence and no field, so it is shown
+  verbatim where every other refusal of the booking dialog is shown, under the dates. In practice the form's own check, on the trimmed
+  text and before anything is uploaded, answers first, so the server's sentence is reached only by a request the form did not make.
 - **The Add dialog is a new form on every open.** The screen keeps it mounted so it can animate out, and the old one kept the last name
   and answers. `AddLeaveTypeDialog` hands `AddLeaveTypeForm` a new `key` when it opens, the `RoleEditor` pattern, and not when it closes.
 - **The file switch in the Add dialog follows availability, live.** The limits read can land after the dialog opens, so "no file can
@@ -11779,23 +11781,41 @@ server's own storage, no public note in the drawer, and one size quoted for ever
 "checked only after the files are uploaded" removes the reason check from the pre-send validation altogether rather than moving it, so
 it overlaps the one before it. The test that says a refused request leaves no file behind is what pins the order.
 
-**Not exercised: a browser, at all.** Nothing here was walked on screen, connected or demo, and no request was sent to any uploader,
-real or stand-in. Everything above is jsdom against mocked `fetch` and mocked store hooks. What a browser would add and nobody has
-seen: the real Content-Security-Policy letting the request out, the uploader's own CORS answer to a JSON POST from this origin
-(`Content-Type: application/json` is not a simple request, so there is a preflight), the layout of the new column and the Add dialog at
-phone width, and the Reason switch on a real `GET /leave/types`. **The backend half was not available to this change**, so the wire
-contract is the one in the brief and nothing else: `reasonRequired`, `links`, `linked`, `fileUrl`, `expiresAt: null` and
-`attachment_link_refused` are read exactly as that says, and nothing was checked against a server that sends them.
+**In a browser, against the real backend half.** A production build of this branch (`NEXT_PUBLIC_DEMO=off`) against a scratch API running
+the backend branch with `LINKED_FILE_HOSTS=files.example.test` and no bucket, signed in as the administrator, an employee and that
+employee's manager. The old uploader was **not** used: a local stand-in answered `upload-file` and `upload-image` the way
+`s3.service.ts` expects, over plain http and over self-signed https, and a script preloaded into the API process sent the API's own
+fetch of the returned address to that stand-in. The stand-in's log is the evidence that nothing else was asked: one `POST /upload-image`,
+with no `Authorization` header and no cookie. Seen on screen:
 
-Two places depend on a shape the brief did not give:
+- **The types table**: a **Reason** column and a **Required** supporting-file switch on every type, all off for types that existed
+  before the column. Switching Sick's reason on sent `{"reasonRequired":true}` alone. Switching its file requirement on wrote
+  `REQUIRED`, **After N days** appeared, and typing 2 saved `attachmentRequiredOverDays: 2`. No sideways scroll at 375px.
+- **Add leave type**: both switches on to begin with; the request carried `reasonRequired: true`, `attachmentPolicy: "REQUIRED"` and no
+  days; a second dialog opened blank and on again; with both switched off the request stored `false` and `OPTIONAL`.
+- **Booking** as the employee, on a type that asks for both: Reason shown as required; an empty reason, and spaces alone, refused on the
+  field with nothing sent; a reason and no file refused in words; a `.txt` refused with "You can attach PDF, JPEG and PNG." beside the
+  good file; the PNG uploaded to the stand-in, and the request sent once with
+  `{"fileUrl":"https://files.example.test/approvehr-leave/1-certificate.png","filename":"certificate.png","contentType":"image/png"}`
+  and no key. The API listed the file as `linked: true`. A one-day Sick request (under its 2-day threshold) went through with a reason
+  and no file, and was refused without a reason. A type with the reason off still says **optional**.
+- **The manager**: the request shows the reason and the file with **Open** only (no add, no remove); **Open** put the file's own address
+  into a new tab and did not navigate the page; **Approve** with a note stored the note.
+- **The employee** added a PDF to a request that was still open, then removed it: the confirmation said "The copy that was uploaded
+  stays where it was stored." and did not say "deleted".
+- No page error and no 5xx in any of it. The console's 404s are the known `GET /leave/balances?employeeIds=`
+  (see below), not this change.
 
-- **Where a refusal about the reason arrives.** The sentence is known; its field and code are not. It goes under the Reason only if the
-  API attributes it (`details[].field === "reason"`), and is otherwise shown verbatim under the dates. The same for the Add dialog:
-  `attachmentPolicy`, `reasonRequired` and `name` details are placed under their own controls, a 409 under the name, anything else
-  under the form.
-- **`types` on the limits when `storage` is false.** The linked route offers the kinds the server lists, narrowed to PDF, JPEG and PNG.
-  A server that lists **none** is read as saying nothing about kinds, and the uploader's three are offered; one that lists kinds and
-  none of the three gets no route.
+**Not exercised.** The real uploader: what it answers to a browser's preflight and to a JSON `POST` from this origin is unknown, and
+the stand-in was written to allow it. The real address was never used. A bucket on the API (`storage: true`, so the stored route);
+Safari and any real phone; demo mode in a browser (the columns are absent there by a test); an office or department head as the
+approver; and the whole vitest suite (`vitest related` and the gates were run, `npm run check` exit 0 with the backend branch beside it).
+
+**Found, not changed.** The web calls `GET /leave/balances?employeeIds=` (`balancesForMany`) and `origin/staging` has only
+`GET /leave/balances/:id`, so on a real API `/people/leave` logs 404s and shows no balances ("Annual leave used —") and the booking
+dialog never says "N days left afterwards". It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and was true before this change.
+Either side can close it (the route, or a fallback to the single-id one). Also: the drawer title of a type whose own name ends in
+"leave" reads "Study leave leave", because it appends "leave" to every type.
 
 ## Deliberately not done
 
