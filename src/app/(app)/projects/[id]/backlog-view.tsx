@@ -27,6 +27,18 @@ import {
 } from "@/lib/projects/backlog";
 import { applyFilter, isFiltering } from "@/lib/projects/filters";
 import { nextSprintDraft, startBlocker } from "@/lib/projects/sprints";
+import {
+  COMPLETE_CYCLE,
+  CYCLE,
+  EFFORT,
+  EMPTY,
+  LATER,
+  NEW_CYCLE,
+  START_CYCLE,
+  TAB_LABEL,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import type { Issue } from "@/lib/projects/types";
 import { effectiveStatus, isDone } from "@/lib/projects/workflow";
 import { shortDate } from "@/lib/today";
@@ -79,7 +91,14 @@ export function BacklogView() {
         today,
         doneDayOf: dayOf,
         visible: isFiltering(filter)
-          ? (issue) => applyFilter([issue], filter, meId).length > 0
+          ? (issue) =>
+              applyFilter(
+                [issue],
+                filter,
+                meId,
+                project.statuses,
+                project.memberDepartments,
+              ).length > 0
           : () => true,
       }),
     [project, issues, sprints, today, dayOf, filter, meId],
@@ -148,9 +167,9 @@ export function BacklogView() {
           : choice.kind === "bottom"
             ? "the bottom of the list"
             : choice.section === BACKLOG
-              ? "the backlog"
+              ? LATER
               : (sprints.find((s) => s.id === choice.section)?.name ??
-                "the sprint");
+                `the ${CYCLE.one}`);
       toast.push({ tone: "success", title: `${issue.key} moved to ${where}` });
     },
     [layout, sprints, project.statuses, actions, toast],
@@ -213,17 +232,17 @@ export function BacklogView() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-h4 text-ink">Backlog</h2>
+          <h2 className="text-h4 text-ink">{TAB_LABEL.backlog}</h2>
           <p className="mt-1 text-body-sm text-muted">
             {scrum
-              ? "Plan sprints by dragging issues into them, or use Move to on a row. The top of each list comes first."
+              ? `Plan ${CYCLE.many} by dragging ${TASK.many} into them, or use Move to on a row. The top of each list comes first.`
               : "Order the queue. The top of the list gets picked up first. Done work drops off after 14 days."}
           </p>
         </div>
         {canWork && scrum && !noSprintYet && (
           <Button onClick={() => void createSprint()} loading={creating}>
             <Plus aria-hidden="true" className="size-4" />
-            Create sprint
+            {NEW_CYCLE}
           </Button>
         )}
       </div>
@@ -234,12 +253,14 @@ export function BacklogView() {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-line-strong px-4 py-4">
           <div className="min-w-0">
             <p className="font-semibold text-ink">
-              {sprints.length === 0 ? "No sprints yet" : "No sprint is planned"}
+              {sprints.length === 0
+                ? EMPTY.noCycles
+                : `No ${CYCLE.one} is planned`}
             </p>
             <p className="mt-0.5 text-body-sm text-muted">
               {canWork
-                ? "Create one, then drag issues into it to plan the work."
-                : "A sprint has not been planned yet."}
+                ? `Create one, then drag ${TASK.many} into it to plan the work.`
+                : `A ${CYCLE.one} has not been planned yet.`}
             </p>
           </div>
           {canWork && (
@@ -250,8 +271,8 @@ export function BacklogView() {
             >
               <Plus aria-hidden="true" className="size-4" />
               {sprints.length === 0
-                ? "Create your first sprint"
-                : "Create sprint"}
+                ? `Create your first ${CYCLE.one}`
+                : NEW_CYCLE}
             </Button>
           )}
         </div>
@@ -277,10 +298,10 @@ export function BacklogView() {
       <ListFrame
         id={BACKLOG}
         over={drag?.over === BACKLOG}
-        heading="Backlog"
+        heading={LATER}
         info={[
-          `${layout.backlog.count} ${layout.backlog.count === 1 ? "issue" : "issues"}`,
-          `${layout.backlog.points} pts`,
+          countNoun(layout.backlog.count, "task"),
+          `${layout.backlog.points} ${EFFORT.one}`,
           ...(filtering && layout.backlog.shown.length < layout.backlog.count
             ? [`${layout.backlog.shown.length} shown`]
             : []),
@@ -291,14 +312,14 @@ export function BacklogView() {
           {layout.backlog.shown.length === 0 && (
             <EmptyRow>
               {filtering && layout.backlog.count > 0
-                ? "No issues here match these filters."
+                ? `No ${TASK.many} here match these filters.`
                 : canWork
-                  ? "Your backlog is empty. Add an issue below."
-                  : "Your backlog is empty."}
+                  ? `${EMPTY.laterIsEmpty} Add a ${TASK.one} below.`
+                  : EMPTY.laterIsEmpty}
             </EmptyRow>
           )}
         </RowList>
-        {canWork && <QuickAdd label="the backlog" sprintId={null} />}
+        {canWork && <QuickAdd label={LATER} sprintId={null} />}
       </ListFrame>
 
       {drag && held && (
@@ -368,8 +389,8 @@ function SprintBlock({
     ...(sprint.startDate && sprint.endDate
       ? [`${shortDate(sprint.startDate)} – ${shortDate(sprint.endDate)}`]
       : []),
-    `${count} ${count === 1 ? "issue" : "issues"}`,
-    `${points} pts`,
+    countNoun(count, "task"),
+    `${points} ${EFFORT.one}`,
     ...(count > 0 ? [`${done} done`] : []),
     ...(filtering && shown.length < count ? [`${shown.length} shown`] : []),
   ];
@@ -390,7 +411,7 @@ function SprintBlock({
           <>
             {active ? (
               <Button size="sm" onClick={onComplete}>
-                Complete sprint
+                {COMPLETE_CYCLE}
               </Button>
             ) : (
               <Button
@@ -400,7 +421,7 @@ function SprintBlock({
                 {...(blocker ? { "aria-describedby": hintId } : {})}
                 onClick={onStart}
               >
-                Start sprint
+                {START_CYCLE}
               </Button>
             )}
             <IconButton
@@ -438,10 +459,10 @@ function SprintBlock({
         {shown.length === 0 && (
           <EmptyRow>
             {filtering && count > 0
-              ? "No issues here match these filters."
+              ? `No ${TASK.many} here match these filters.`
               : canWork
-                ? "Drag issues here from the backlog to plan this sprint."
-                : "No issues are planned into this sprint."}
+                ? `Drag ${TASK.many} here from ${LATER} to plan this ${CYCLE.one}.`
+                : `No ${TASK.many} are planned into this ${CYCLE.one}.`}
           </EmptyRow>
         )}
       </RowList>

@@ -11,6 +11,8 @@ import {
   locate,
   tokensOf,
 } from "@/components/portal/sidebar-model";
+import { withPrograms } from "@/components/portal/programs-nav";
+import { RETIRED_WORDS } from "@/lib/projects/retired-words";
 import { PERSONAS, groupsFor } from "./sidebar-personas";
 
 /**
@@ -48,7 +50,9 @@ describe("the model's own groups", () => {
   });
 
   it("files every company-wide door under Reports or Settings, and none under neither", () => {
-    const company = NAV.filter((g) => g.heading && !g.billingModule);
+    const company = NAV.filter(
+      (g) => g.heading && !g.billingModule && g.zone !== "yours",
+    );
     expect(company.map((g) => g.id)).toEqual(["reports", "settings"]);
     expect(company.flatMap((g) => g.items.map((i) => i.href))).toEqual([
       "/reports",
@@ -64,8 +68,27 @@ describe("the model's own groups", () => {
   });
 
   it("holds every synonym key to a group or door that exists", () => {
+    /* The program rows are made at run time, so the doors are the static ones
+       plus what a company with programs adds. */
     const doors = new Set(
-      NAV.flatMap((g) => [g.id!, ...g.items.map((i) => `${g.id}/${i.label}`)]),
+      withPrograms(
+        NAV,
+        {
+          programs: [
+            {
+              id: "p1",
+              name: "Operations",
+              color: "#000000",
+              openTaskCount: 1,
+            },
+          ],
+          canCreate: true,
+          seesAll: true,
+          unassigned: true,
+          loaded: true,
+        },
+        { programId: null, hint: null },
+      ).flatMap((g) => [g.id!, ...g.items.map((i) => `${g.id}/${i.label}`)]),
     );
     for (const key of KEYWORD_KEYS) {
       expect(doors.has(key), `synonyms for "${key}" point at nothing`).toBe(
@@ -319,6 +342,28 @@ describe("Find", () => {
     expect(names("laptop")[0]).toBe("Core HR › Equipment");
     expect(names("paye")[0]).toBe("Payroll › Statutory filings");
     expect(names("permissions")[0]).toBe("Settings › Roles");
+  });
+
+  it("still finds Projects by the words the module used to speak", () => {
+    /* The module says task, cycle, Later and initiative now. Somebody who has
+       used a ticket tracker types the old word, and Find still lands on it. */
+    for (const old of RETIRED_WORDS) {
+      expect(names(old), `"${old}"`).toContain("Projects › All projects");
+    }
+    expect(names("sprint")[0]).toBe("Projects › All projects");
+    expect(names("backlog")[0]).toBe("Projects › All projects");
+    expect(names("epic")[0]).toBe("Projects › All projects");
+    expect(names("story points")[0]).toBe("Projects › All projects");
+  });
+
+  it("finds Projects by the words it speaks now", () => {
+    for (const word of ["cycle", "initiative", "problem", "timeline", "task"]) {
+      expect(names(word), `"${word}"`).toContain("Projects › All projects");
+    }
+  });
+
+  it("finds My tasks by the old word for a task", () => {
+    expect(names("issues")).toContain("Projects › My tasks");
   });
 
   it("finds every door in a group by the group's name, label matches first", () => {

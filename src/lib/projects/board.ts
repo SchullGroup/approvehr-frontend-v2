@@ -9,6 +9,7 @@
 import { leadingWith } from "./assignees";
 import { daysBetween, daysLeft } from "./dates";
 import { byRank, rankForInsert } from "./rank";
+import { INITIATIVE, SWIMLANE_LABEL as TERMS_SWIMLANE_LABEL } from "./terms";
 import type {
   Issue,
   IssuePatch,
@@ -18,16 +19,17 @@ import type {
 } from "./types";
 import { effectiveStatus, isDone } from "./workflow";
 
-/** Done issues disappear from a Kanban board after this many days. */
-export const KANBAN_DONE_DAYS = 14;
+/**
+ * Finished tasks stay in view this many whole company days, then leave a Kanban
+ * board (and, on My tasks, move to the Archive). One number for both places.
+ */
+export const DONE_VISIBLE_DAYS = 14;
+/** The board's older name for `DONE_VISIBLE_DAYS`. */
+export const KANBAN_DONE_DAYS = DONE_VISIBLE_DAYS;
 
 export type Swimlanes = "none" | "assignee" | "epic";
 
-export const SWIMLANE_LABEL: Record<Swimlanes, string> = {
-  none: "No swimlanes",
-  assignee: "Lanes by assignee",
-  epic: "Lanes by epic",
-};
+export const SWIMLANE_LABEL: Record<Swimlanes, string> = TERMS_SWIMLANE_LABEL;
 
 export function activeSprint(sprints: readonly Sprint[]): Sprint | null {
   return sprints.find((s) => s.state === "ACTIVE") ?? null;
@@ -55,7 +57,7 @@ export function isStaleDone(
 ): boolean {
   if (!issue.doneAt || !doneDay) return false;
   const age = daysBetween(doneDay, today);
-  return age !== null && age > KANBAN_DONE_DAYS;
+  return age !== null && age > DONE_VISIBLE_DAYS;
 }
 
 export type BoardScope = {
@@ -104,6 +106,28 @@ export function boardScope(args: {
 /** Epics and sub-tasks never get a card of their own. */
 const onBoard = (issue: Issue): boolean =>
   issue.type !== "EPIC" && issue.type !== "SUBTASK";
+
+/**
+ * How many finished tasks a Kanban board is hiding because they finished more
+ * than `DONE_VISIBLE_DAYS` ago. Zero for a Scrum board, which shows its sprint.
+ * It counts what would otherwise have a card (`onBoard`): a finished sub-task
+ * never had one, so it is not "hidden".
+ */
+export function hiddenDoneCount(args: {
+  project: Pick<Project, "type" | "statuses">;
+  issues: readonly Issue[];
+  today: string;
+  doneDayOf: (iso: string) => string | null;
+}): number {
+  const { project, issues, today, doneDayOf } = args;
+  if (project.type !== "KANBAN") return 0;
+  return issues.filter(
+    (issue) =>
+      onBoard(issue) &&
+      isDone(project.statuses, issue) &&
+      isStaleDone(issue, issue.doneAt ? doneDayOf(issue.doneAt) : null, today),
+  ).length;
+}
 
 /** How many of an issue's sub-tasks are finished, for the count on its card. */
 export type SubtaskTally = { done: number; total: number };
@@ -190,7 +214,12 @@ export function laneGroups(args: {
     const placed = new Set(epics.map((e) => e.id));
     const rest = issues.filter((i) => !i.epicId || !placed.has(i.epicId));
     if (rest.length > 0) {
-      lanes.push({ key: "none", kind: "epic", label: "No epic", items: rest });
+      lanes.push({
+        key: "none",
+        kind: "epic",
+        label: `No ${INITIATIVE.one}`,
+        items: rest,
+      });
     }
     return lanes;
   }

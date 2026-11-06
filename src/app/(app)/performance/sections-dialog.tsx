@@ -29,6 +29,7 @@ import type {
   ApiSection,
   ScoreComponent,
 } from "@/lib/api/performance";
+import { answerKindOf } from "@/lib/performance/answer-kind";
 import {
   useFramework,
   useFrameworkActions,
@@ -37,6 +38,7 @@ import {
 import { actionMessage } from "@/lib/use-action";
 import { useCan } from "@/lib/permissions";
 import { NoticeLine } from "@/components/portal/notice-line";
+import { KindTag } from "./subsection-title";
 
 /**
  * The appraisal framework: sections, and the subsections filed under them.
@@ -778,6 +780,9 @@ function Subsections({
           ) : (
             <>
               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                {/* In front of the name, as in By section, so two that read
+                    alike are told apart here as well. */}
+                <KindTag kind={answerKindOf(competency)} />
                 <span className="text-body-sm font-medium text-ink">
                   {competency.name}
                 </span>

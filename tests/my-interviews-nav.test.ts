@@ -27,6 +27,7 @@ const facts = (interviews: boolean): NavFacts => ({
     signatures: false,
     interviews,
     "team-tasks": false,
+    "master-view": false,
   },
 });
 

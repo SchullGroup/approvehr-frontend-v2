@@ -1,5 +1,6 @@
 "use client";
 
+import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import {
@@ -25,7 +26,6 @@ import { IssueFilterBar } from "@/components/projects/issue-filter-bar";
 import { PersonName } from "@/components/projects/person";
 import { assigneesOf } from "@/lib/projects/assignees";
 import { useProject } from "@/components/projects/project-context";
-import { isBefore } from "@/lib/projects/dates";
 import { applyFilter, isFiltering } from "@/lib/projects/filters";
 import {
   DEFAULT_SORT,
@@ -33,10 +33,21 @@ import {
   sortIssues,
   type SortKey,
 } from "@/lib/projects/sort";
+import {
+  CYCLE,
+  EFFORT,
+  EMPTY,
+  INITIATIVE,
+  NEW_TASK,
+  PROBLEM,
+  STAGE,
+  TAB_LABEL,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import { PRIORITY_LABEL } from "@/lib/projects/types";
 import { effectiveStatus, isDone } from "@/lib/projects/workflow";
 import { formatDateShort } from "@/lib/time";
-import { shortDate } from "@/lib/today";
 
 /**
  * All issues: every issue of the project in one sortable table, epics and
@@ -60,12 +71,31 @@ export function IssuesView() {
 
   const rows = useMemo(
     () =>
-      sortIssues(applyFilter(issues, filter, meId), sort, {
-        statuses: project.statuses,
-        sprints,
-        nameOf: people.nameOf,
-      }),
-    [issues, filter, meId, sort, project.statuses, sprints, people.nameOf],
+      sortIssues(
+        applyFilter(
+          issues,
+          filter,
+          meId,
+          project.statuses,
+          project.memberDepartments,
+        ),
+        sort,
+        {
+          statuses: project.statuses,
+          sprints,
+          nameOf: people.nameOf,
+        },
+      ),
+    [
+      issues,
+      filter,
+      meId,
+      sort,
+      project.statuses,
+      project.memberDepartments,
+      sprints,
+      people.nameOf,
+    ],
   );
 
   const onSort = (column: string) => setSort(nextSort(sort, column as SortKey));
@@ -85,14 +115,14 @@ export function IssuesView() {
   if (issues.length === 0) {
     return (
       <EmptyState
-        title="No issues yet"
-        description="Issues are the work in a project: stories, tasks, bugs and epics. Create the first one and it shows up here and on the board."
+        title={EMPTY.noTasks}
+        description={`${TASK.Many} are the work in a project: plain ${TASK.many}, ${PROBLEM.many} and ${INITIATIVE.many}. Create the first one and it shows up here and on the board.`}
         {...(canWork
           ? {
               action: (
                 <Button variant="primary" onClick={() => openCreate()}>
                   <Plus aria-hidden="true" className="size-4" />
-                  Create an issue
+                  {NEW_TASK}
                 </Button>
               ),
             }
@@ -104,27 +134,26 @@ export function IssuesView() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-h4 text-ink">All issues</h2>
+        <h2 className="text-h4 text-ink">{TAB_LABEL.issues}</h2>
         <p className="tabular mt-1 text-body-sm text-muted">
-          {rows.length} of {issues.length}{" "}
-          {issues.length === 1 ? "issue" : "issues"}
+          {rows.length} of {countNoun(issues.length, "task")}
         </p>
       </div>
 
       <IssueFilterBar />
 
-      <TableWrap caption="All issues in this project">
+      <TableWrap caption={`${TASK.Many} in this project`}>
         <THead>
           <TH className="w-10">
             <span className="sr-only">Type</span>
           </TH>
           {th("key", "Key")}
           {th("title", "Summary")}
-          {th("status", "Status")}
+          {th("status", STAGE.One)}
           {th("assignee", "Assignee")}
           {th("priority", "Priority")}
-          {th("points", "Points", "right")}
-          {th("sprint", "Sprint")}
+          {th("points", EFFORT.One, "right")}
+          {th("sprint", CYCLE.One)}
           {th("due", "Due")}
           {th("updated", "Updated")}
         </THead>
@@ -132,7 +161,8 @@ export function IssuesView() {
           {rows.map((issue) => {
             const status = effectiveStatus(project.statuses, issue.statusId);
             const done = isDone(project.statuses, issue);
-            const overdue = !done && isBefore(issue.dueDate, today);
+            const overdue =
+              !done && isPastDue(issue, today, nowHHMMIn(timeZone));
             const sprint = sprints.find((s) => s.id === issue.sprintId);
             return (
               <TR
@@ -188,7 +218,7 @@ export function IssuesView() {
                     overdue ? "font-medium text-warning-text" : "text-muted",
                   )}
                 >
-                  {issue.dueDate ? shortDate(issue.dueDate) : ""}
+                  {issue.dueDate ? dueLabel(issue, today, "card") : ""}
                 </TD>
                 <TD className="tabular whitespace-nowrap text-muted">
                   {formatDateShort(issue.updatedAt, timeZone)}
@@ -200,8 +230,8 @@ export function IssuesView() {
             <TR>
               <TD colSpan={10} className="py-8 text-center text-muted">
                 {isFiltering(filter)
-                  ? "No issues match these filters."
-                  : "No issues."}
+                  ? `No ${TASK.many} match these filters.`
+                  : `No ${TASK.many}.`}
               </TD>
             </TR>
           )}

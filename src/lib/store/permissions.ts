@@ -327,6 +327,13 @@ const DEMO_COPY: Record<
       "How an appraisal period's marks compare by gender, age, time at the company, location, contract type and department. Group averages only, never one person's.",
     section: "people",
   },
+  SEE_ALL_WORK: {
+    label: "See all work",
+    description:
+      "Read every project, program and task in the company, and open the Master view of Projects. Changes nothing, and never reaches anybody's personal task list.",
+    section: "people",
+    sensitive: true,
+  },
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
@@ -370,6 +377,7 @@ const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   access: "Access and roles",
   records: "Data in and out",
   audit: "Audit trail",
+  projects: "Projects",
 };
 
 /** Narrowest first, so a scope control reads left to right as it widens. */

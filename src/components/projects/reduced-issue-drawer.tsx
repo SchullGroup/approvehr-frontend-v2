@@ -7,6 +7,7 @@ import {
   type IssueLink,
   type ReducedIssueDetail,
 } from "@/lib/api/projects";
+import { STAGE, SUBTASK } from "@/lib/projects/terms";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
 
@@ -64,7 +65,7 @@ export function ReducedIssueDrawer({
           </p>
 
           <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-body-sm">
-            <dt className="text-muted">Status</dt>
+            <dt className="text-muted">{STAGE.One}</dt>
             <dd className="text-ink">{detail.statusName}</dd>
             <dt className="text-muted">Start date</dt>
             <dd className="text-ink">
@@ -89,9 +90,9 @@ export function ReducedIssueDrawer({
           </dl>
 
           {detail.subtasks.length > 0 && (
-            <section aria-label="Sub-tasks">
+            <section aria-label={SUBTASK.Many}>
               <h3 className="mb-2 text-body-sm font-semibold text-ink">
-                Sub-tasks
+                {SUBTASK.Many}
               </h3>
               <ul className="divide-y divide-line rounded-md border border-line">
                 {detail.subtasks.map((s) => (

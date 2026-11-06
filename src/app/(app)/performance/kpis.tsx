@@ -98,6 +98,9 @@ import {
 } from "./goal-dialogs";
 import { TaskLogPanel } from "./task-log";
 import { useCanUploadObjectives } from "./kpis/import/access";
+import { PlanWorkDialog } from "./plan-work-dialog";
+import { useAssistantAvailable } from "@/lib/store/ai";
+import { useFeatures } from "@/lib/store/features";
 import {
   DoneMeasureRow,
   MeasureConfirmProvider,
@@ -219,6 +222,10 @@ export function KpisTab({
   const [completing, setCompleting] = useState<ApiGoal | null>(null);
   const [sending, setSending] = useState<ApiGoal | null>(null);
   const [reopening, setReopening] = useState<ApiGoal | null>(null);
+  const [planning, setPlanning] = useState<ApiGoal | null>(null);
+  const assistant = useAssistantAvailable();
+  const features = useFeatures();
+  const canPlan = assistant.available && features.projects;
 
   /**
    * Narrowing the cascade.
@@ -831,6 +838,7 @@ export function KpisTab({
                     depth={node.depth}
                     editable={mutations.editable}
                     actingId={actingId}
+                    canPlan={canPlan}
                     onAddMeasure={setAddingTo}
                     onAddChild={(parentId) => setCreating({ parentId })}
                     onAssign={setAssigning}
@@ -842,6 +850,7 @@ export function KpisTab({
                     onSubmit={setSending}
                     onReopen={setReopening}
                     onRecord={recordMeasure}
+                    onPlan={setPlanning}
                   />
                 ))}
               </div>
@@ -853,6 +862,7 @@ export function KpisTab({
                 node={node}
                 editable={mutations.editable}
                 actingId={actingId}
+                canPlan={canPlan}
                 onAddMeasure={setAddingTo}
                 onAddChild={(parentId) => setCreating({ parentId })}
                 onAssign={setAssigning}
@@ -864,6 +874,7 @@ export function KpisTab({
                 onSubmit={setSending}
                 onReopen={setReopening}
                 onRecord={recordMeasure}
+                onPlan={setPlanning}
               />
             ))}
           </CardBody>
@@ -895,6 +906,7 @@ export function KpisTab({
           );
           if (!outcome.ok) return;
           setCreating(null);
+
           /* An objective on its own is not much — what comes next is putting
              KPIs under it. So its detail opens, and that is where "Add a KPI
              under this", "Give a KPI to people" and "Add a measure" already
@@ -914,6 +926,7 @@ export function KpisTab({
           onClose={() => setCreated(null)}
           {...goalFacts(justMade, actingId)}
           editable={mutations.editable}
+          canPlan={canPlan}
           onAddMeasure={setAddingTo}
           onAddChild={(parentId) => setCreating({ parentId })}
           onAssign={setAssigning}
@@ -925,6 +938,7 @@ export function KpisTab({
           onSubmit={setSending}
           onReopen={setReopening}
           onRecord={recordMeasure}
+          onPlan={setPlanning}
         />
       )}
 
@@ -1100,6 +1114,14 @@ export function KpisTab({
             : "Progress goes to 100% and it leaves the tracked list."
         }
       />
+
+      {planning && (
+        <PlanWorkDialog
+          goal={planning}
+          open
+          onClose={() => setPlanning(null)}
+        />
+      )}
     </div>
   );
 
@@ -1117,6 +1139,7 @@ function GoalBranch({
   node,
   editable,
   actingId,
+  canPlan,
   onAddMeasure,
   onAddChild,
   onAssign,
@@ -1128,11 +1151,13 @@ function GoalBranch({
   onSubmit,
   onReopen,
   onRecord,
+  onPlan,
 }: {
   node: GoalNode;
   editable: boolean;
   /** Signed-in person's own employee id — decides who may log a task. */
   actingId: string | null;
+  canPlan: boolean;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
   onAssign: (goal: ApiGoal) => void;
@@ -1144,6 +1169,7 @@ function GoalBranch({
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
+  onPlan: (goal: ApiGoal) => void;
 }) {
   /**
    * Siblings with nothing under them sit side by side. Anything that is itself
@@ -1171,6 +1197,7 @@ function GoalBranch({
         depth={node.depth}
         editable={editable}
         actingId={actingId}
+        canPlan={canPlan}
         onAddMeasure={onAddMeasure}
         onAddChild={onAddChild}
         onAssign={onAssign}
@@ -1182,6 +1209,7 @@ function GoalBranch({
         onSubmit={onSubmit}
         onReopen={onReopen}
         onRecord={onRecord}
+        onPlan={onPlan}
       />
 
       {leaves.length > 0 && (
@@ -1193,6 +1221,7 @@ function GoalBranch({
               depth={child.depth}
               editable={editable}
               actingId={actingId}
+              canPlan={canPlan}
               onAddMeasure={onAddMeasure}
               onAddChild={onAddChild}
               onAssign={onAssign}
@@ -1204,6 +1233,7 @@ function GoalBranch({
               onSubmit={onSubmit}
               onReopen={onReopen}
               onRecord={onRecord}
+              onPlan={onPlan}
             />
           ))}
         </div>
@@ -1215,6 +1245,7 @@ function GoalBranch({
           node={child}
           editable={editable}
           actingId={actingId}
+          canPlan={canPlan}
           onAddMeasure={onAddMeasure}
           onAddChild={onAddChild}
           onAssign={onAssign}
@@ -1226,6 +1257,7 @@ function GoalBranch({
           onSubmit={onSubmit}
           onReopen={onReopen}
           onRecord={onRecord}
+          onPlan={onPlan}
         />
       ))}
     </div>
@@ -1237,6 +1269,7 @@ export function GoalCard({
   depth,
   editable,
   actingId,
+  canPlan,
   onAddMeasure,
   onAddChild,
   onAssign,
@@ -1248,12 +1281,14 @@ export function GoalCard({
   onSubmit,
   onReopen,
   onRecord,
+  onPlan,
 }: {
   goal: ApiGoal;
   depth: number;
   editable: boolean;
   /** Signed-in person's own employee id — decides who may log a task. */
   actingId: string | null;
+  canPlan?: boolean | undefined;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
   onAssign: (goal: ApiGoal) => void;
@@ -1265,6 +1300,7 @@ export function GoalCard({
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
+  onPlan?: ((goal: ApiGoal) => void) | undefined;
 }) {
   const facts = goalFacts(goal, actingId);
   const { progress, done, reads } = facts;
@@ -1394,6 +1430,7 @@ export function GoalCard({
         onClose={() => setOpen(false)}
         {...facts}
         editable={editable}
+        canPlan={canPlan}
         onAddMeasure={onAddMeasure}
         onAddChild={onAddChild}
         onAssign={onAssign}
@@ -1405,6 +1442,7 @@ export function GoalCard({
         onSubmit={onSubmit}
         onReopen={onReopen}
         onRecord={onRecord}
+        onPlan={onPlan}
       />
     </>
   );
@@ -1444,6 +1482,7 @@ function GoalDetailModal({
   noPeriod,
   reads,
   editable,
+  canPlan,
   onAddMeasure,
   onAddChild,
   onAssign,
@@ -1455,6 +1494,7 @@ function GoalDetailModal({
   onSubmit,
   onReopen,
   onRecord,
+  onPlan,
 }: {
   goal: ApiGoal;
   open: boolean;
@@ -1468,6 +1508,8 @@ function GoalDetailModal({
   /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
   reads: { read: number; of: number } | null;
   editable: boolean;
+  /** Assistant connected and Projects switched on. */
+  canPlan?: boolean | undefined;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
   onAssign: (goal: ApiGoal) => void;
@@ -1479,6 +1521,7 @@ function GoalDetailModal({
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
+  onPlan?: ((goal: ApiGoal) => void) | undefined;
 }) {
   /* Every action closes the dialog before it runs. All eight open a second
      dialog of their own — a confirm, a form, a share sheet — and two stacked
@@ -1623,6 +1666,11 @@ function GoalDetailModal({
           {goal.approval === "AGREED" && !done && (
             <Button size="sm" onClick={act(() => onReopen(goal))}>
               Reopen the target
+            </Button>
+          )}
+          {goal.approval === "AGREED" && !done && canPlan && onPlan && (
+            <Button size="sm" onClick={act(() => onPlan(goal))}>
+              Plan work
             </Button>
           )}
 

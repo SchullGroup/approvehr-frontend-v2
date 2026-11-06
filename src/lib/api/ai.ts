@@ -218,3 +218,87 @@ export const runAssistantAction = (
     method: "POST",
     body: args,
   });
+
+/* ------------------------------------------------------ work planning (plan) */
+
+/**
+ * What the API read to build this plan. Used to ground the draft
+ * in the same way as other suggestion endpoints.
+ */
+export type ApiPlanCandidate = {
+  employeeId: string;
+  /** Reason sentences the ranking produced, e.g. "Has a KPI under this objective". */
+  reasons: string[];
+};
+
+export type ApiPlanStory = {
+  title: string;
+  detail: string;
+  /** Which key-result id this story moves most, or null. */
+  keyResultId: string | null;
+  /** Fibonacci points: 1, 2, 3, 5, 8 or 13. Null when the model had no idea. */
+  points: number | null;
+  /** Short lowercase labels, e.g. ["design", "outreach"]. At most 3. */
+  labels: string[];
+  /** Short step titles. At most 6. */
+  subtasks: string[];
+  /** Up to 3 members, best first. */
+  candidates: ApiPlanCandidate[];
+};
+
+export type ApiPlanPerson = {
+  employeeId: string;
+  name: string;
+  jobTitle: string | null;
+  /** True when leave and other-project load were read for this person. */
+  led: boolean;
+  openIssues: number;
+  openPoints: number;
+  leave: { start: string; end: string } | null;
+  /** Their own agreed KPI under this objective, if any. */
+  ownKpiId: string | null;
+};
+
+/**
+ * "this" → project already linked to this objective.
+ * "other" → linked to a different one.
+ * "none" → not linked yet.
+ */
+export type ApiGoalLink = "this" | "none" | "other";
+
+export type ApiWorkPlanOutcome =
+  | {
+      available: true;
+      groundedIn: ApiGrounding;
+      project: {
+        id: string;
+        key: string;
+        name: string;
+        goalLink: ApiGoalLink;
+        linkedGoalTitle: string | null;
+      };
+      epic: { title: string; description: string };
+      stories: ApiPlanStory[];
+      people: ApiPlanPerson[];
+    }
+  | {
+      available: false;
+      reason: string;
+      groundedIn: ApiGrounding;
+      cause?: string;
+    };
+
+/**
+ * Draft a work plan from an agreed objective.
+ *
+ * - Writes nothing: the draft is side-effect free.
+ * - The model never sees a person's name — candidates come from code.
+ * - `available: false` is a refusal, not an empty list.
+ * - Requires the caller to be the project lead or hold `EDIT_RECORDS`.
+ */
+export const draftObjectivePlan = (body: {
+  goalId: string;
+  projectId: string;
+  count?: number;
+}): Promise<ApiWorkPlanOutcome> =>
+  request<ApiWorkPlanOutcome>("/ai/plan/objective", { method: "POST", body });

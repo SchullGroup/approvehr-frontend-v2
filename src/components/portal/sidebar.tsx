@@ -500,7 +500,7 @@ export function SidebarNav({
                   {!folded && (
                     <ul id={panelId} className="flex flex-col gap-0.5">
                       {section.items.map((item) => (
-                        <li key={item.label}>
+                        <li key={`${item.href}|${item.label}`}>
                           <NavLinkRow
                             item={item}
                             active={isNavItemActive(item, here.activeHref)}
