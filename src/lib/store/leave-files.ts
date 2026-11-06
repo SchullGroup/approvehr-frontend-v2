@@ -56,9 +56,13 @@ export type LeaveFileLimitsState = {
   /** Null until it answers, offline, and when the read failed. */
   limits: LeaveFileLimits | null;
   /**
-   * Whether files can be kept here at all. **Null is unknown**, which is not
-   * `false`: only an answer of `storage: false` disables a control, and only an
-   * answer of `true` offers a picker.
+   * Whether the server keeps files itself. **Null is unknown**, which is not
+   * `false`.
+   *
+   * This is **not** whether a file can be attached: a server with no storage
+   * may still take a link to one uploaded elsewhere. What a screen decides on
+   * is `fileRoute(limits)` or `filesAvailable(limits)` in `lib/api/leave-files`,
+   * which read `links` and whether this build knows where the uploader is.
    */
   storage: boolean | null;
 };

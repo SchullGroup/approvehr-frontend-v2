@@ -5,11 +5,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { ToastProvider } from "@/components/ui";
 import type { LeaveFileLimits } from "@/lib/api/leave-files";
 import { UPLOAD_BLOCKED, UploadBlockedError } from "@/lib/api/uploads";
+import { LINKED_FILES_NOTE } from "@/lib/api/linked-upload";
 import type { LeaveRow, LeaveTypeRow } from "@/lib/api/leave";
 
 /**
@@ -30,6 +31,8 @@ const mocks = vi.hoisted(() => ({
   storage: true as boolean | null,
   rule: null as unknown,
   connected: true,
+  /** What the chosen type says. Null is a server that says nothing. */
+  reasonRequired: null as boolean | null,
 }));
 
 const LIMITS: LeaveFileLimits = {
@@ -57,6 +60,7 @@ const SICK: LeaveTypeRow = {
   eligibleGender: null,
   attachmentPolicy: "OPTIONAL",
   attachmentRequiredOverDays: null,
+  reasonRequired: null,
 };
 
 vi.mock("@/lib/permissions", async (original) => ({
@@ -83,7 +87,9 @@ vi.mock("@/lib/store/holidays", () => ({
   usePublicHolidays: () => ({ holidays: [] }),
 }));
 vi.mock("@/lib/store/leave-api", () => ({
-  useLeaveTypes: () => ({ types: [SICK] }),
+  useLeaveTypes: () => ({
+    types: [{ ...SICK, reasonRequired: mocks.reasonRequired }],
+  }),
   useLeaveBalancesFor: () => ({ of: () => undefined }),
   useLeaveMutations: () => ({
     create: mocks.create,
@@ -170,7 +176,10 @@ beforeEach(() => {
   mocks.storage = true;
   mocks.rule = { policy: "OPTIONAL", requiredOverDays: null, required: false };
   mocks.connected = true;
+  mocks.reasonRequired = null;
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("when the picker is offered", () => {
   it("offers it where the server can keep a file, saying what it takes", () => {
@@ -523,5 +532,333 @@ describe("a refusal from the request itself", () => {
         /That overlaps an existing approved Annual request/,
       ),
     ).toBeInTheDocument();
+  });
+});
+
+/** The Reason box, whose label says whether it is asked for. */
+const reasonBox = () => screen.getByLabelText(/^Reason/) as HTMLTextAreaElement;
+const reasonLabel = () =>
+  document.querySelector(`label[for="${reasonBox().id}"]`)!;
+
+const REASON_MISSING = "Say why you are asking for this leave.";
+
+describe("when the leave type asks for a reason", () => {
+  beforeEach(() => {
+    mocks.reasonRequired = true;
+  });
+
+  it("marks the Reason required and does not call it optional", () => {
+    mount();
+    expect(reasonLabel().textContent).toBe("Reason* required");
+    expect(reasonLabel().textContent).not.toMatch(/optional/);
+  });
+
+  it("does not send without one, says so under the box, and sends nothing at all", () => {
+    mount();
+    pickDates();
+    send();
+    expect(screen.getByText(REASON_MISSING)).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("takes spaces for nothing", () => {
+    mount();
+    pickDates();
+    fireEvent.change(reasonBox(), { target: { value: "   \n  " } });
+    send();
+    expect(screen.getByText(REASON_MISSING)).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("checks the reason before it uploads anything, so a refused request leaves no file behind", () => {
+    mount();
+    pickDates();
+    choose(pdf("a.pdf"));
+    send();
+    expect(screen.getByText(REASON_MISSING)).toBeInTheDocument();
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("takes the sentence down once there is something to read", () => {
+    mount();
+    pickDates();
+    send();
+    expect(screen.getByText(REASON_MISSING)).toBeInTheDocument();
+    fireEvent.change(reasonBox(), { target: { value: "Flu" } });
+    expect(screen.queryByText(REASON_MISSING)).toBeNull();
+  });
+
+  it("sends the reason with its spaces trimmed", async () => {
+    mount();
+    pickDates();
+    fireEvent.change(reasonBox(), { target: { value: "  Down with flu.  " } });
+    send();
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+    expect(mocks.create.mock.calls[0]![0].reason).toBe("Down with flu.");
+  });
+
+  it("says the server's own sentence, under the reason, when it is the one to refuse", async () => {
+    mocks.create.mockRejectedValue(
+      new ApiError(422, "validation_failed", "Invalid", [
+        {
+          field: "reason",
+          message: "Annual needs a reason. Say why you are asking for it.",
+        },
+      ]),
+    );
+    mount();
+    pickDates();
+    fireEvent.change(reasonBox(), { target: { value: "Rest" } });
+    send();
+    const sentence = await screen.findByText(
+      "Annual needs a reason. Say why you are asking for it.",
+    );
+    expect(sentence.closest("[id$=error]")).not.toBeNull();
+    /* Typed text is still there. */
+    expect(reasonBox().value).toBe("Rest");
+  });
+
+  it("says the server's own sentence verbatim even where it names no field", async () => {
+    mocks.create.mockRejectedValue(
+      new ApiError(
+        422,
+        "unprocessable",
+        "Annual needs a reason. Say why you are asking for it.",
+      ),
+    );
+    mount();
+    pickDates();
+    fireEvent.change(reasonBox(), { target: { value: "Rest" } });
+    send();
+    expect(
+      await screen.findByText(
+        "Annual needs a reason. Say why you are asking for it.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("when the leave type does not ask for a reason, or the server does not say", () => {
+  it.each([
+    ["says it does not", false],
+    ["says nothing", null],
+  ])(
+    "a server that %s: optional, and sends without one",
+    async (_name, setting) => {
+      mocks.reasonRequired = setting;
+      mount();
+      expect(reasonLabel().textContent).toBe("Reason (optional)");
+      pickDates();
+      send();
+      await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+      expect(mocks.create.mock.calls[0]![0]).not.toHaveProperty("reason");
+      expect(screen.queryByText(REASON_MISSING)).toBeNull();
+    },
+  );
+
+  it("the demo has no setting and never holds the form on one", async () => {
+    mocks.connected = false;
+    mocks.reasonRequired = null;
+    mount();
+    pickDates();
+    send();
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("files that go to the uploader and are linked by their address", () => {
+  const UPLOADER = "https://uploader.example.test/prod";
+  const linked = (over: Partial<LeaveFileLimits> = {}): LeaveFileLimits => ({
+    ...LIMITS,
+    storage: false,
+    links: true,
+    types: [
+      { contentType: "application/pdf", label: "PDF", extensions: [".pdf"] },
+      { contentType: "image/jpeg", label: "JPEG", extensions: [".jpg"] },
+      { contentType: "image/png", label: "PNG", extensions: [".png"] },
+      { contentType: "image/heic", label: "HEIC", extensions: [".heic"] },
+    ],
+    ...over,
+  });
+  const png = (name = "scan.png", size = 2000) =>
+    new File([new Uint8Array(size)], name, { type: "image/png" });
+
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", UPLOADER);
+    mocks.storage = false;
+    mocks.limits = linked();
+    mocks.upload.mockImplementation(async (f: File) => ({
+      fileUrl: `https://files.example.test/${f.name}`,
+      filename: f.name,
+      contentType: f.type,
+    }));
+  });
+
+  it("offers the picker, says what the route takes, and says the files are public to anyone with the address", () => {
+    mount();
+    expect(legend()).toBe("Supporting file (optional)");
+    expect(
+      screen.getByText(
+        "PDF up to 2 MB, JPEG and PNG up to 3 MB, up to 5 files.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(LINKED_FILES_NOTE)).toBeInTheDocument();
+  });
+
+  it("offers no picker where the server takes links and this build has nowhere to send them", () => {
+    vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", "");
+    mount();
+    expect(screen.queryByLabelText("Attach files")).toBeNull();
+    expect(screen.queryByText(LINKED_FILES_NOTE)).toBeNull();
+  });
+
+  it("offers none where the server says nothing about links", () => {
+    mocks.limits = linked({ links: undefined });
+    mount();
+    expect(screen.queryByLabelText("Attach files")).toBeNull();
+  });
+
+  it("goes the server's own way, with no note, wherever it can store a file", () => {
+    mocks.storage = true;
+    mocks.limits = linked({ storage: true });
+    mount();
+    expect(screen.getByLabelText("Attach files")).toBeInTheDocument();
+    expect(screen.queryByText(LINKED_FILES_NOTE)).toBeNull();
+    /* Every kind and size the API said, not the uploader's three. */
+    expect(
+      screen.getByText("PDF, JPEG, PNG and HEIC, up to 5 files of 5 MB each."),
+    ).toBeInTheDocument();
+  });
+
+  it("refuses a kind the uploader does not take, beside the file, naming the three that it does", () => {
+    mount();
+    choose(new File([new Uint8Array(10)], "scan.heic", { type: "image/heic" }));
+    expect(
+      screen.getByText(
+        "That kind of file cannot be attached. You can attach PDF, JPEG and PNG.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("refuses a document over 2 MB but takes an image of the same size", () => {
+    mount();
+    choose(pdf("big.pdf", 2 * 1024 * 1024 + 1));
+    expect(
+      screen.getByText("That file is 2.0 MB. Keep files under 2 MB."),
+    ).toBeInTheDocument();
+    choose(png("photo.png", 2 * 1024 * 1024 + 1));
+    expect(screen.queryByText(/Keep files under 3 MB/)).toBeNull();
+  });
+
+  it("uploads with what the server said, then sends the request with each file's address", async () => {
+    mount();
+    pickDates();
+    choose(pdf("a.pdf"), png("b.png"));
+    send();
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+    /* The upload is given the server's own limits, not the narrowed ones the
+       picker checked with: the route narrows them again, once. */
+    expect(mocks.upload.mock.calls[0]![1]).toBe(mocks.limits);
+    expect(mocks.create.mock.calls[0]![0].attachments).toEqual([
+      {
+        fileUrl: "https://files.example.test/a.pdf",
+        filename: "a.pdf",
+        contentType: "application/pdf",
+      },
+      {
+        fileUrl: "https://files.example.test/b.png",
+        filename: "b.png",
+        contentType: "image/png",
+      },
+    ]);
+  });
+
+  it("does not upload a file twice when a send is tried again", async () => {
+    mocks.upload.mockImplementationOnce(async (f: File) => ({
+      fileUrl: `https://files.example.test/${f.name}`,
+      filename: f.name,
+      contentType: f.type,
+    }));
+    mocks.upload.mockRejectedValueOnce(
+      new Error(
+        "The upload did not finish. Check your connection and try again.",
+      ),
+    );
+    mount();
+    pickDates();
+    choose(pdf("a.pdf"), pdf("b.pdf"));
+    send();
+    expect(
+      await screen.findByText(
+        "The upload did not finish. Check your connection and try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.upload).toHaveBeenCalledTimes(2);
+
+    mocks.upload.mockImplementation(async (f: File) => ({
+      fileUrl: `https://files.example.test/${f.name}`,
+      filename: f.name,
+      contentType: f.type,
+    }));
+    send();
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+    /* a.pdf was already sent; only b.pdf goes again. */
+    expect(mocks.upload).toHaveBeenCalledTimes(3);
+  });
+
+  it("says the connection, under the file, and never the file's name, when the uploader did not answer", async () => {
+    mocks.upload.mockRejectedValue(
+      new Error(
+        "The upload did not finish. Check your connection and try again.",
+      ),
+    );
+    mount();
+    pickDates();
+    choose(pdf("my-private-note.pdf"));
+    send();
+    const sentence = await screen.findByText(
+      "The upload did not finish. Check your connection and try again.",
+    );
+    expect(sentence.textContent).not.toMatch(/private/);
+    expect(
+      screen.getByText(/The request was not sent\. Fix or remove the file/),
+    ).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("says the server's own sentence for a link it would not take", async () => {
+    mocks.create.mockRejectedValue(
+      new ApiError(
+        422,
+        "attachment_link_refused",
+        "That address is not on the list of places files may be linked from.",
+      ),
+    );
+    mount();
+    pickDates();
+    choose(pdf("a.pdf"));
+    send();
+    expect(
+      await screen.findByText(
+        "That address is not on the list of places files may be linked from.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("still requires a file where the API says one is required, and sends nothing without one", () => {
+    mocks.rule = { policy: "REQUIRED", requiredOverDays: 2, required: true };
+    mount();
+    pickDates();
+    send();
+    expect(
+      screen.getByText(
+        "A supporting file is required. Attach one and send the request again.",
+      ),
+    ).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
   });
 });

@@ -11809,3 +11809,166 @@ the server would refuse it, which was reasoned and not run); a real assistant ke
 backend's tests and not on a call; a company with real data (the walk's has ten people and a few periods); two appraisers
 sending a written answer at once; the migration against a database of production size; and the whole web suite in one run (the
 176 files above are the ones that bear on this) and the whole backend suite in one run (CI does that).
+
+---
+
+# A leave type decides whether it asks for a reason, and a file can go on a request with no bucket behind it
+
+Two requests in one change, and the second is the one to read twice.
+
+> _"When creating a leave type, I want the fields that determines if reason, attachment fields will be required for that leave
+> type or not. And the default will be yes (use a switch field), so this must reflect wherever it needs to."_
+>
+> _"I can't see where to upload files. For now, let's use `approvehr-platform-frontend/src/services/api/s3.service.ts` for upload,
+> we'll change it later."_
+
+The backend half is built (`approvehr-backend`, branch `feat/leave-switches-links-20261106`: `reasonRequired` on a leave type,
+`links` on the limits, a `fileUrl` ref beside `storageKey`, `attachment_link_refused`). **Merge it first.** Against a server that has
+none of it every new field is absent, no switch is drawn for the reason, and the picker stays dark exactly as it was. The one thing
+that is not symmetrical: the Add dialog always sends `reasonRequired`, so a server whose schema refuses an unknown key would refuse the
+dialog, which is another reason for the order. (The backend's create schema strips an unknown key rather than refusing it, so an older
+server would not refuse, it would silently ignore the switch.)
+
+## The two switches
+
+| Where | What |
+| ----- | ---- |
+| `/settings/leave`, **Add leave type** | Two switches, **Ask for a reason** and **Ask for a supporting file**, **both on**, each with a line of visible text saying what it does in either position. It always sends both answers explicitly (`reasonRequired` and an `attachmentPolicy` of `REQUIRED` or `OPTIONAL`) and never a number of days, which it says is set in the table afterwards. |
+| `/settings/leave`, the types table | The three-way **Supporting file** select is a switch, **Required**, with **After N days** while on, and a new **Reason** column with its own **Required** switch. The phone card has both as **Supporting file required** and **Reason required**. Connected only, as the file column always was. |
+| `/people/leave`, **Book leave** | **Reason** is required (the `Field` `required`, no "(optional)") when the chosen type says so, checked and trimmed **before anything is uploaded or sent**, and the trimmed text is what is sent. |
+
+### Decisions not to undo
+
+- **On is Required, off is Optional, and `NONE` is never written again.** The product never told "not asked for" from "optional":
+  a file may go on a request of any type and the booking picker is labelled optional under both. The third word described a difference
+  nobody could see. A type stored as `NONE` shows the switch off and becomes `OPTIONAL` the first time anybody touches it.
+- **An absent `reasonRequired` is `null`, not `false`, and a `null` row has no switch.** A switch over a value nobody sent would look
+  saved and change no booking. The table shows a dash with words for a screen reader; the booking form never holds the form on
+  anything but `true`; the demo has no such setting and the columns are absent there.
+- **A refusal about the reason goes under the reason only where the API attributes it** (`details[].field === "reason"`). The backend
+  does not: its "needs a reason" is a plain 422 (`unprocessable`) with the type's name in the sentence and no field, so it is shown
+  verbatim where every other refusal of the booking dialog is shown, under the dates. In practice the form's own check, on the trimmed
+  text and before anything is uploaded, answers first, so the server's sentence is reached only by a request the form did not make.
+- **The Add dialog is a new form on every open.** The screen keeps it mounted so it can animate out, and the old one kept the last name
+  and answers. `AddLeaveTypeDialog` hands `AddLeaveTypeForm` a new `key` when it opens, the `RoleEditor` pattern, and not when it closes.
+- **The file switch in the Add dialog follows availability, live.** The limits read can land after the dialog opens, so "no file can
+  be kept" is derived on every render (`askFile && !noFiles`) and never copied into state.
+- **A switch that cannot be turned on says why in text on its row**, not behind an icon. The header mark that said it before is gone.
+
+## Files through the old uploader: "linked files"
+
+`src/lib/api/linked-upload.ts` is a port of `s3.service.ts`, using `fetch` because this app does not carry axios. The same name
+cleaning, the same JSON body of one base64 string, `upload-file` for a PDF and `upload-image` for an image with `fileFormat`, the same
+two response fields (`responseObj.pdf_url`, `uploadResult.Location`), thirty seconds. Narrowed to PDF, JPEG and PNG: the three kinds
+the original routes and the leave API accepts.
+
+**A file sent this way is public to anybody who has its address.** The uploader has no login. That is the whole design, and four
+things follow from it:
+
+- **The address is configuration, not code.** `NEXT_PUBLIC_LINKED_UPLOAD_URL`, the base without `/upload-file`. Unset, which is every
+  environment until somebody sets it, the path is **off**: `linkedUploadConfigured()` is false, no picker is drawn on a server with no
+  storage, and nothing is ever sent. `https` only, and `http://localhost` outside production. The real address is in no file in this
+  repository except the example comment in `.env.example`, and a test fails if one appears in the source.
+- **The route is chosen in one place, and `storage` wins.** `fileRoute(limits)` returns `stored`, `linked` or `none`. A server that
+  can keep a file privately is never sent down the public route, whatever else is configured. `none` draws nothing.
+- **`LINKED_FILES_NOTE` is said beside the picker** in the booking form and the drawer, every time a file is going this way: _"For now
+  these files are kept where anyone with their address can open them. Do not attach anything you would not want shared."_ One
+  constant, so one edit changes it everywhere, or removes it.
+- **Nothing of this app leaves with the file.** No `Authorization` header, no cookies (`credentials: "omit"`), a third party's origin.
+  The CSP's `connect-src` names the uploader's origin only when the variable is set, by the same https-only rule as the storage
+  origins, so a build that does not use the path keeps the policy it had.
+
+### Smaller decisions
+
+- **Limits are per kind.** The original's defaults are 2 MB for a document and 3 MB for an image, and the API has its own; the limit
+  that applies is the smaller of the two for that kind and the sentence names it. `LeaveFileType` gained an optional `maxBytes`,
+  which only `fileRoute` sets, and `fileHint` says each limit against the kinds it applies to ("PDF up to 2 MB, JPEG and PNG up to 3
+  MB, up to 5 files.") and prints the old one-size sentence unchanged whenever every kind shares a size. The sizes are binary
+  megabytes, as the rest of this app prints them: the original's 2,000,000 would read "Keep files under 1.9 MB" for a file shown as
+  "1.9 MB".
+- **The kind comes from the browser's type, then the extension only where the browser said nothing useful.** A `.jpg` with no type is a
+  JPEG; a GIF called `.png` is refused, not sent under a name that says it is something it is not.
+- **`fetch` has no upload progress.** `onProgress` reports the read of the file, as `readAsAttachment` does, and the picker's bar full
+  while the request is out means "sent, waiting for the answer".
+- **Opening a linked file goes to its own address in the tab that was opened for it,** even if the API calls it a download: it has no
+  `Content-Disposition`, and sending this window to it would replace the page. `OpenedFile.expiresAt` is `string | null`.
+- **Removing a linked file says only the request's record goes.** _"The copy that was uploaded stays where it was stored."_ Nothing
+  here can delete it, and "deleted" would be a claim about a copy this app does not hold. The sentence is chosen when the dialog opens
+  and not while it closes, or it would flip on the way out.
+- **A refusal before anything is sent, a connection that did not finish and an answer with no usable address are three sentences,**
+  none with a status code or a file's name. An address that is not `https` or is over 500 characters is the third.
+- **`megabytes` moved to `lib/file-size.ts`** so the uploader and the leave module share one, and is re-exported from `leave-files.ts`.
+
+## Verified
+
+New and rewritten test files, all passing: `leave-type-supporting-file` (23: the table's two switches, desktop and phone, optimistic
+revert, availability, the absent setting, the demo), `leave-add-type-dialog` (17: both on, all four combinations sent explicitly,
+files unavailable and arriving late, a fresh form per open, every kind of refusal), `leave-book-with-files` (extended: a required
+reason, and the linked route end to end), `leave-request-files` (extended: linked files in the drawer), `leave-linked-files` (27:
+which route, what the picker may promise, what the leave API is told, opening a linked file), `linked-upload` (the port: routes,
+parameters, response fields, refusals before sending, the three failure sentences, no cookies, no real address in the source),
+`leave-types-reason-api` and `csp-linked-upload-origin`. With every test that imports what changed, `vitest related` ran 93 files and
+1,256 tests, all passing. `tsc --noEmit` exit 0. ESLint and Prettier exit 0 on every file touched. `verify-no-banners`,
+`verify-typescale`, `verify-demo`, `verify-stores`, `verify-load-rule`, `verify-revalidate` and `verify-adr` exit 0.
+
+**Forty-eight deliberate breaks, each made in one source file and each caught** by a test written for it, the file restored byte for
+byte afterwards (the harness asserts it): the file switch writing `NONE`; a reason switch drawn over an absent setting; the file
+switch turnable on where nothing could meet it, and blocked on a type that already requires one; the reason switch never reaching the
+API; the Reason column in the demo; the Add dialog's reason starting off, sending `REQUIRED` whatever the availability, keeping one form
+across opens, saying every refusal under the name, leaving the reason to the API's default, sending a number of days, and copying
+availability once; an absent setting read as `false`, and as `true`; the reason check skipped, counting spaces, sending untrimmed,
+labelled optional, removed from the pre-send checks, and a refusal put under the dates; the linked note missing; the upload given the
+narrowed limits; links preferred over storage; the route on with no configured uploader; a linked file also asking for an upload link;
+one limit for every kind; kinds the uploader does not take offered; a linked file sent to this window; no sentence for a refused link;
+availability always true; the uploader called with cookies, an image with no `fileFormat`, a document read from the image field, the
+API's smaller limit ignored, an extension overriding a browser type, the path on with no address, an address that is not `https`
+accepted, a different folder, a file's name in a failure sentence; the policy accepting `http` in production, naming the origin in
+`img-src`, adding a wildcard when none is configured; a linked file's removal saying "deleted", the drawer offering to add only on the
+server's own storage, no public note in the drawer, and one size quoted for every kind. One of the list is mislabelled in the harness:
+"checked only after the files are uploaded" removes the reason check from the pre-send validation altogether rather than moving it, so
+it overlaps the one before it. The test that says a refused request leaves no file behind is what pins the order.
+
+**In a browser, against the real backend half.** A production build of this branch (`NEXT_PUBLIC_DEMO=off`) against a scratch API running
+the backend branch with `LINKED_FILE_HOSTS=files.example.test` and no bucket, signed in as the administrator, an employee and that
+employee's manager. The old uploader was **not** used: a local stand-in answered `upload-file` and `upload-image` the way
+`s3.service.ts` expects, over plain http and over self-signed https, and a script preloaded into the API process sent the API's own
+fetch of the returned address to that stand-in. The stand-in's log is the evidence that nothing else was asked: one `POST /upload-image`,
+with no `Authorization` header and no cookie. Seen on screen:
+
+- **The types table**: a **Reason** column and a **Required** supporting-file switch on every type, all off for types that existed
+  before the column. Switching Sick's reason on sent `{"reasonRequired":true}` alone. Switching its file requirement on wrote
+  `REQUIRED`, **After N days** appeared, and typing 2 saved `attachmentRequiredOverDays: 2`. No sideways scroll at 375px.
+- **Add leave type**: both switches on to begin with; the request carried `reasonRequired: true`, `attachmentPolicy: "REQUIRED"` and no
+  days; a second dialog opened blank and on again; with both switched off the request stored `false` and `OPTIONAL`.
+- **Booking** as the employee, on a type that asks for both: Reason shown as required; an empty reason, and spaces alone, refused on the
+  field with nothing sent; a reason and no file refused in words; a `.txt` refused with "You can attach PDF, JPEG and PNG." beside the
+  good file; the PNG uploaded to the stand-in, and the request sent once with
+  `{"fileUrl":"https://files.example.test/approvehr-leave/1-certificate.png","filename":"certificate.png","contentType":"image/png"}`
+  and no key. The API listed the file as `linked: true`. A one-day Sick request (under its 2-day threshold) went through with a reason
+  and no file, and was refused without a reason. A type with the reason off still says **optional**.
+- **The manager**: the request shows the reason and the file with **Open** only (no add, no remove); **Open** put the file's own address
+  into a new tab and did not navigate the page; **Approve** with a note stored the note.
+- **The employee** added a PDF to a request that was still open, then removed it: the confirmation said "The copy that was uploaded
+  stays where it was stored." and did not say "deleted".
+- No page error and no 5xx in any of it. The console's 404s are the known `GET /leave/balances?employeeIds=`
+  (see below), not this change.
+
+**Not exercised.** The real uploader: what it answers to a browser's preflight and to a JSON `POST` from this origin is unknown, and
+the stand-in was written to allow it. The real address was never used. A bucket on the API (`storage: true`, so the stored route);
+Safari and any real phone; demo mode in a browser (the columns are absent there by a test); an office or department head as the
+approver; and the whole vitest suite (`vitest related` and the gates were run, `npm run check` exit 0 with the backend branch beside it).
+
+**Found, not changed.** The web calls `GET /leave/balances?employeeIds=` (`balancesForMany`) and `origin/staging` has only
+`GET /leave/balances/:id`, so on a real API `/people/leave` logs 404s and shows no balances ("Annual leave used —") and the booking
+dialog never says "N days left afterwards". It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and was true before this change.
+Either side can close it (the route, or a fallback to the single-id one). Also: the drawer title of a type whose own name ends in
+"leave" reads "Study leave leave", because it appends "leave" to every type.
+
+## Deliberately not done
+
+- **The real uploader's address.** It is the user's, it is open, and it makes files public. It is `NEXT_PUBLIC_LINKED_UPLOAD_URL` in
+  whichever environment decides to use it, and the example in `.env.example` is a placeholder.
+- **A progress bar that measures the upload.** It would mean `XMLHttpRequest`, which is not the port that was asked for. See above.
+- **A walkthrough update.** There is no leave walkthrough in `docs/walkthroughs/`.
+- **Other places that attach a file** (task files, CVs, documents). They use the API's own signed upload and are untouched.
+- **A way to say who may see a linked file.** There is none: that is the cost of the route, and the picker says so.

@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   leaveApi,
   type LeaveAccrualWire,
+  type LeaveAttachmentRef,
   type LeaveBalanceRow,
   type LeaveDetail,
   type LeaveListParams,
@@ -430,6 +431,8 @@ export function useLeaveTypes(): LeaveTypesState {
         /* Files need the API. A demo type asks for none. */
         attachmentPolicy: "NONE",
         attachmentRequiredOverDays: null,
+        /* Nor has a demo type any such setting: no claim, not "optional". */
+        reasonRequired: null,
       })),
     [settings.leave.types],
   );
@@ -586,7 +589,7 @@ export type NewLeave = {
   approverId?: string;
   /** Already uploaded: they go in the same request, so it is one write. Not in
    *  demo mode, which has nowhere to keep a file and never offers one. */
-  attachments?: { storageKey: string; filename: string; contentType: string }[];
+  attachments?: LeaveAttachmentRef[];
 };
 
 /**
