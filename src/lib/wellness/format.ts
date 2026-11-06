@@ -5,7 +5,7 @@ import type {
   WellnessMetric,
 } from "@/lib/api/wellness";
 import { WELLNESS_LIMITS } from "@/lib/api/wellness";
-import { addDays } from "@/lib/projects/dates";
+import { addDays, daysBetween } from "@/lib/projects/dates";
 import { shortDate } from "@/lib/today";
 import { weekdayIn } from "@/lib/time";
 
@@ -126,4 +126,49 @@ export function windowText(startsOn: string, endsOn: string): string {
 /** The last day a challenge starting on `startsOn` may end on. */
 export function lastAllowedEnd(startsOn: string, maxDays: number): string {
   return addDays(startsOn, maxDays - 1);
+}
+
+/** How many days a challenge runs, counting both ends. */
+export function durationDays(startsOn: string, endsOn: string): number {
+  return (daysBetween(startsOn, endsOn) ?? 0) + 1;
+}
+
+/** `30 days`, `1 day`. */
+export function daysText(days: number): string {
+  return `${String(days)} ${days === 1 ? "day" : "days"}`;
+}
+
+/**
+ * Where a challenge is right now, in a few words: `Ends in 16 days`, `Starts
+ * tomorrow`, `Ended 12 days ago`. The status itself (cancelled included) is the
+ * API's; this only words the distance.
+ */
+export function statusText(
+  challenge: {
+    status: ChallengeStatus;
+    startsOn: string;
+    endsOn: string;
+  },
+  today: string,
+): string {
+  switch (challenge.status) {
+    case "CANCELLED":
+      return "Cancelled";
+    case "UPCOMING": {
+      const gap = daysBetween(today, challenge.startsOn) ?? 0;
+      return gap <= 1 ? "Starts tomorrow" : `Starts in ${daysText(gap)}`;
+    }
+    case "ACTIVE": {
+      const left = daysBetween(today, challenge.endsOn) ?? 0;
+      return left <= 0
+        ? "Last day"
+        : left === 1
+          ? "Ends tomorrow"
+          : `Ends in ${daysText(left)}`;
+    }
+    case "ENDED": {
+      const gone = daysBetween(challenge.endsOn, today) ?? 0;
+      return gone <= 1 ? "Ended yesterday" : `Ended ${daysText(gone)} ago`;
+    }
+  }
 }
