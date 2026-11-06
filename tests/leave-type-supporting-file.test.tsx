@@ -1,31 +1,30 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { ToastProvider } from "@/components/ui";
 import type { LeaveTypeRow } from "@/lib/api/leave";
+import type { LeaveFileLimits } from "@/lib/api/leave-files";
 
 /**
- * The leave type's supporting-file setting, on the Leave policies screen.
+ * The leave type's two settings on the Leave policies screen: whether a
+ * supporting file is required, and whether a reason is.
  *
  * Every field on that table saves as it changes, so what is checked is what is
- * *sent*: the policy alone when it changes, the number alone when it changes,
- * `null` for "any length". The API refuses a number under any policy but
+ * *sent*: the policy alone when it changes (and `OPTIONAL`, never `NONE`, when it
+ * is switched off), the number alone when it changes, `null` for "any length",
+ * and the reason switch alone. The API refuses a number under any policy but
  * Required and clears one itself when the policy moves off it, so sending both
- * would turn a harmless edit into a 422. And the old informational evidence
- * flag is not shown beside it, because two switches for one question is how a
- * screen contradicts itself.
+ * would turn a harmless edit into a 422. The old informational evidence flag is
+ * not shown beside it, because two switches for one question is how a screen
+ * contradicts itself. And a setting the server did not send gets **no switch**:
+ * a switch over nothing would write into nothing.
  */
 
 const mocks = vi.hoisted(() => ({
   types: vi.fn(),
   updateType: vi.fn(),
-  storage: true as boolean | null,
+  limits: null as unknown,
+  connected: true,
 }));
 
 vi.mock("@/lib/api/leave", async (original) => ({
@@ -38,8 +37,8 @@ vi.mock("@/lib/api/leave", async (original) => ({
 
 vi.mock("@/lib/store/leave-files", () => ({
   useLeaveFileLimits: () => ({
-    limits: null,
-    storage: mocks.storage,
+    limits: mocks.limits,
+    storage: null,
   }),
 }));
 
@@ -54,7 +53,11 @@ vi.mock("@/lib/permissions", async (original) => ({
 
 vi.mock("@/lib/store/session", async (original) => ({
   ...(await original<typeof import("@/lib/store/session")>()),
-  useSession: () => ({ isConnected: true, user: null, employeeId: null }),
+  useSession: () => ({
+    isConnected: mocks.connected,
+    user: null,
+    employeeId: null,
+  }),
   useOrgTimezone: () => "Africa/Lagos",
 }));
 
@@ -77,6 +80,18 @@ vi.mock("@/app/(app)/settings/leave/holidays-panel", () => ({
 
 const { LeavePolicyForm } = await import("@/app/(app)/settings/leave/form");
 
+const limits = (over: Partial<LeaveFileLimits> = {}): LeaveFileLimits => ({
+  maxFiles: 5,
+  maxBytes: 5 * 1024 * 1024,
+  storage: true,
+  types: [
+    { contentType: "application/pdf", label: "PDF", extensions: [".pdf"] },
+    { contentType: "image/png", label: "PNG", extensions: [".png"] },
+    { contentType: "image/jpeg", label: "JPEG", extensions: [".jpg", ".jpeg"] },
+  ],
+  ...over,
+});
+
 const type = (over: Partial<LeaveTypeRow> = {}): LeaveTypeRow => ({
   id: "t-sick",
   name: "Sick",
@@ -90,8 +105,13 @@ const type = (over: Partial<LeaveTypeRow> = {}): LeaveTypeRow => ({
   eligibleGender: null,
   attachmentPolicy: "NONE",
   attachmentRequiredOverDays: null,
+  reasonRequired: true,
   ...over,
 });
+
+const FILE_SWITCH = "Sick supporting file required";
+const REASON_SWITCH = "Sick reason required";
+const AFTER_DAYS = /a supporting file after how many days/;
 
 async function open(rows: LeaveTypeRow[]) {
   mocks.types.mockResolvedValue(rows);
@@ -100,29 +120,44 @@ async function open(rows: LeaveTypeRow[]) {
       <LeavePolicyForm />
     </ToastProvider>,
   );
-  await screen.findAllByLabelText("Sick supporting file");
-  /* The table and the phone cards both render; the table is the first. */
-  return screen.getAllByLabelText(
-    "Sick supporting file",
-  )[0] as HTMLSelectElement;
+  await screen.findAllByLabelText(FILE_SWITCH);
 }
+
+/** Opens the phone card for a type: it mounts its fields only once open. */
+const openCard = () =>
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /^Sick.*days a year/,
+      expanded: false,
+    }),
+  );
+
+/** The table's copy of a control: the phone cards render a second one. */
+const table = (label: string | RegExp) =>
+  screen.getAllByLabelText(label)[0] as HTMLInputElement;
 
 beforeEach(() => {
   mocks.types.mockReset();
   mocks.updateType.mockReset().mockResolvedValue({});
-  mocks.storage = true;
+  mocks.limits = limits();
+  mocks.connected = true;
 });
 
-describe("the supporting-file setting", () => {
-  it("is a choice of not asked for, optional and required, set from the type", async () => {
-    const select = await open([type({ attachmentPolicy: "OPTIONAL" })]);
-    expect(select.value).toBe("OPTIONAL");
-    expect(
-      within(select)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
-    ).toEqual(["Not asked for", "Optional", "Required"]);
+afterEach(() => vi.unstubAllEnvs());
+
+describe("the supporting-file switch", () => {
+  it("is on for a type that requires one", async () => {
+    await open([type({ attachmentPolicy: "REQUIRED" })]);
+    expect(table(FILE_SWITCH).checked).toBe(true);
   });
+
+  it.each(["OPTIONAL", "NONE"] as const)(
+    "reads %s as off: the product never told them apart",
+    async (attachmentPolicy) => {
+      await open([type({ attachmentPolicy })]);
+      expect(table(FILE_SWITCH).checked).toBe(false);
+    },
+  );
 
   it("does not show the old evidence flag beside it", async () => {
     await open([type()]);
@@ -130,24 +165,34 @@ describe("the supporting-file setting", () => {
     expect(screen.queryByText("Not required")).toBeNull();
   });
 
-  it("sends the policy alone when it changes", async () => {
-    const select = await open([type()]);
-    fireEvent.change(select, { target: { value: "REQUIRED" } });
+  it("sends REQUIRED alone when it is switched on", async () => {
+    await open([type()]);
+    fireEvent.click(table(FILE_SWITCH));
     await waitFor(() => expect(mocks.updateType).toHaveBeenCalledTimes(1));
     expect(mocks.updateType).toHaveBeenCalledWith("t-sick", {
       attachmentPolicy: "REQUIRED",
     });
   });
 
-  it("asks 'after how many days' only under Required, and sends the number alone", async () => {
-    const select = await open([type({ attachmentPolicy: "OPTIONAL" })]);
-    expect(
-      screen.queryAllByLabelText(/a supporting file after how many days/),
-    ).toHaveLength(0);
+  it("sends OPTIONAL, never NONE, when it is switched off", async () => {
+    await open([
+      type({ attachmentPolicy: "REQUIRED", attachmentRequiredOverDays: 2 }),
+    ]);
+    fireEvent.click(table(FILE_SWITCH));
+    await waitFor(() => expect(mocks.updateType).toHaveBeenCalledTimes(1));
+    /* A number under Optional is a 422, and the API clears it itself. */
+    expect(mocks.updateType).toHaveBeenCalledWith("t-sick", {
+      attachmentPolicy: "OPTIONAL",
+    });
+  });
 
-    fireEvent.change(select, { target: { value: "REQUIRED" } });
+  it("asks 'after how many days' only while on, and sends the number alone", async () => {
+    await open([type({ attachmentPolicy: "OPTIONAL" })]);
+    expect(screen.queryAllByLabelText(AFTER_DAYS)).toHaveLength(0);
+
+    fireEvent.click(table(FILE_SWITCH));
     const days = (
-      await screen.findAllByLabelText(/a supporting file after how many days/)
+      await screen.findAllByLabelText(AFTER_DAYS)
     )[0] as HTMLInputElement;
     mocks.updateType.mockClear();
 
@@ -162,9 +207,7 @@ describe("the supporting-file setting", () => {
     await open([
       type({ attachmentPolicy: "REQUIRED", attachmentRequiredOverDays: 2 }),
     ]);
-    const days = screen.getAllByLabelText(
-      /a supporting file after how many days/,
-    )[0] as HTMLInputElement;
+    const days = screen.getAllByLabelText(AFTER_DAYS)[0] as HTMLInputElement;
     expect(days.value).toBe("2");
 
     fireEvent.change(days, { target: { value: "" } });
@@ -174,20 +217,13 @@ describe("the supporting-file setting", () => {
     });
   });
 
-  it("moves off Required without mentioning the number, and drops it from the row", async () => {
-    const select = await open([
+  it("drops the number from the row when it is switched off", async () => {
+    await open([
       type({ attachmentPolicy: "REQUIRED", attachmentRequiredOverDays: 2 }),
     ]);
-    fireEvent.change(select, { target: { value: "OPTIONAL" } });
-    await waitFor(() => expect(mocks.updateType).toHaveBeenCalledTimes(1));
-    /* A number under Optional is a 422, and the API clears it itself. */
-    expect(mocks.updateType).toHaveBeenCalledWith("t-sick", {
-      attachmentPolicy: "OPTIONAL",
-    });
+    fireEvent.click(table(FILE_SWITCH));
     await waitFor(() =>
-      expect(
-        screen.queryAllByLabelText(/a supporting file after how many days/),
-      ).toHaveLength(0),
+      expect(screen.queryAllByLabelText(AFTER_DAYS)).toHaveLength(0),
     );
   });
 
@@ -199,64 +235,161 @@ describe("the supporting-file setting", () => {
         "A supporting file cannot be required on a server with no file storage.",
       ),
     );
-    const select = await open([type()]);
-    fireEvent.change(select, { target: { value: "REQUIRED" } });
+    await open([type()]);
+    fireEvent.click(table(FILE_SWITCH));
 
     expect(
       await screen.findByText(/a server with no file storage/),
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(
-        (
-          screen.getAllByLabelText(
-            "Sick supporting file",
-          )[0] as HTMLSelectElement
-        ).value,
-      ).toBe("NONE"),
-    );
+    await waitFor(() => expect(table(FILE_SWITCH).checked).toBe(false));
+  });
+
+  it("is in the phone card too, with its own words", async () => {
+    await open([type({ attachmentPolicy: "REQUIRED" })]);
+    openCard();
+    /* Two copies of the same control: one in the table, one in the card. */
+    const copies = screen.getAllByLabelText(FILE_SWITCH);
+    expect(copies).toHaveLength(2);
+    expect(
+      screen.getAllByText("Supporting file required").length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(copies[1]!);
+    await waitFor(() => expect(mocks.updateType).toHaveBeenCalledTimes(1));
+    expect(mocks.updateType).toHaveBeenCalledWith("t-sick", {
+      attachmentPolicy: "OPTIONAL",
+    });
   });
 });
 
-describe("on a server that cannot keep a file", () => {
-  it("does not offer Required, and says why beside the heading", async () => {
-    mocks.storage = false;
-    const select = await open([type()]);
-    const required = within(select).getByRole("option", { name: "Required" });
-    expect((required as HTMLOptionElement).disabled).toBe(true);
+describe("where a file cannot be attached at all", () => {
+  it("does not let it be switched on, and says why beside the switch, in words", async () => {
+    mocks.limits = limits({ storage: false });
+    await open([type()]);
+    expect(table(FILE_SWITCH).disabled).toBe(true);
+    /* Plain text on the row, not behind an icon. */
     expect(
-      screen.getAllByRole("button", {
-        name: /cannot store files yet, so a supporting file cannot be required/,
-      }).length,
+      screen.getAllByText(
+        "This server cannot store files yet, so a file cannot be required.",
+      ).length,
     ).toBeGreaterThan(0);
   });
 
-  it("keeps showing Required on a type that already is, rather than hiding a rule that is set", async () => {
-    mocks.storage = false;
-    const select = await open([
+  it("keeps showing a type that is already required as on, and lets it be switched off", async () => {
+    mocks.limits = limits({ storage: false });
+    await open([
       type({ attachmentPolicy: "REQUIRED", attachmentRequiredOverDays: 2 }),
     ]);
-    expect(select.value).toBe("REQUIRED");
-    expect(
-      (
-        within(select).getByRole("option", {
-          name: "Required",
-        }) as HTMLOptionElement
-      ).disabled,
-    ).toBe(false);
+    expect(table(FILE_SWITCH).checked).toBe(true);
+    expect(table(FILE_SWITCH).disabled).toBe(false);
+    expect(screen.queryByText(/cannot store files yet/)).toBeNull();
   });
 
   it("does not disable anything while it is not known whether files can be kept", async () => {
-    mocks.storage = null;
-    const select = await open([type()]);
+    mocks.limits = null;
+    await open([type()]);
+    expect(table(FILE_SWITCH).disabled).toBe(false);
+    expect(screen.queryByText(/cannot store files yet/)).toBeNull();
+  });
+
+  it("allows it where the server takes links and this build is set up to send them", async () => {
+    vi.stubEnv(
+      "NEXT_PUBLIC_LINKED_UPLOAD_URL",
+      "https://uploader.example.test/prod",
+    );
+    mocks.limits = limits({ storage: false, links: true });
+    await open([type()]);
+    expect(table(FILE_SWITCH).disabled).toBe(false);
+    expect(screen.queryByText(/cannot store files yet/)).toBeNull();
+  });
+
+  it("does not allow it where the server takes links and this build has nowhere to send them", async () => {
+    vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", "");
+    mocks.limits = limits({ storage: false, links: true });
+    await open([type()]);
+    expect(table(FILE_SWITCH).disabled).toBe(true);
+  });
+});
+
+describe("the reason switch", () => {
+  it("shows what the server says, on and off", async () => {
+    await open([
+      type({ reasonRequired: true }),
+      type({ id: "t-annual", name: "Annual", reasonRequired: false }),
+    ]);
+    expect(table(REASON_SWITCH).checked).toBe(true);
+    expect(table("Annual reason required").checked).toBe(false);
+  });
+
+  it("sends the reason alone when it changes", async () => {
+    await open([type({ reasonRequired: true })]);
+    fireEvent.click(table(REASON_SWITCH));
+    await waitFor(() => expect(mocks.updateType).toHaveBeenCalledTimes(1));
+    expect(mocks.updateType).toHaveBeenCalledWith("t-sick", {
+      reasonRequired: false,
+    });
+  });
+
+  it("sends true when it is switched on", async () => {
+    await open([type({ reasonRequired: false })]);
+    fireEvent.click(table(REASON_SWITCH));
+    await waitFor(() => expect(mocks.updateType).toHaveBeenCalledTimes(1));
+    expect(mocks.updateType).toHaveBeenCalledWith("t-sick", {
+      reasonRequired: true,
+    });
+  });
+
+  it("puts the row back and says the API's sentence when it is refused", async () => {
+    mocks.updateType.mockRejectedValue(
+      new ApiError(403, "forbidden", "You cannot change leave settings."),
+    );
+    await open([type({ reasonRequired: true })]);
+    fireEvent.click(table(REASON_SWITCH));
     expect(
-      (
-        within(select).getByRole("option", {
-          name: "Required",
-        }) as HTMLOptionElement
-      ).disabled,
-    ).toBe(false);
+      await screen.findByText("You cannot change leave settings."),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(table(REASON_SWITCH).checked).toBe(true));
+  });
+
+  it("is in the phone card with its own words", async () => {
+    await open([type({ reasonRequired: true })]);
+    openCard();
+    const copies = screen.getAllByLabelText(REASON_SWITCH);
+    expect(copies).toHaveLength(2);
+    expect(screen.getAllByText("Reason required").length).toBeGreaterThan(0);
+    fireEvent.click(copies[1]!);
+    await waitFor(() => expect(mocks.updateType).toHaveBeenCalledTimes(1));
+    expect(mocks.updateType).toHaveBeenCalledWith("t-sick", {
+      reasonRequired: false,
+    });
+  });
+
+  it("has no switch where the server did not send the setting, rather than one showing a default nobody chose", async () => {
+    await open([type({ reasonRequired: null })]);
+    openCard();
+    expect(screen.queryAllByLabelText(REASON_SWITCH)).toHaveLength(0);
+    /* The table says so in a way a screen reader can read. */
     expect(
-      screen.queryByRole("button", { name: /cannot store files yet/ }),
-    ).toBeNull();
+      screen.getByText(/this server does not say whether a reason is required/),
+    ).toBeInTheDocument();
+    /* The file switch beside it is untouched. */
+    expect(screen.getAllByLabelText(FILE_SWITCH).length).toBeGreaterThan(0);
+  });
+});
+
+describe("in the demo", () => {
+  it("draws neither setting: there is no API to keep them, and a switch over nothing would write into nothing", async () => {
+    mocks.connected = false;
+    render(
+      <ToastProvider>
+        <LeavePolicyForm />
+      </ToastProvider>,
+    );
+    await screen.findAllByText("Leave types");
+    expect(screen.queryAllByLabelText(/supporting file required/)).toHaveLength(
+      0,
+    );
+    expect(screen.queryAllByLabelText(/reason required/)).toHaveLength(0);
+    expect(screen.queryByText("Reason")).toBeNull();
+    expect(screen.queryByText("Supporting file")).toBeNull();
   });
 });

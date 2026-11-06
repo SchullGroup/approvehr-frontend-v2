@@ -232,13 +232,27 @@ export function DraftHeading({
     el.style.height = `${el.scrollHeight}px`;
   }, [field.draft]);
 
+  /* Somebody who may not edit it is shown the words, not a switched-off box: a
+     control they cannot use is noise, and a screen reader would announce it. */
+  if (disabled) {
+    return (
+      <h3
+        className={cn(
+          "-mx-2 break-words px-2 py-1 text-h4 text-ink",
+          className,
+        )}
+      >
+        {value}
+      </h3>
+    );
+  }
+
   return (
     <div>
       <textarea
         ref={ref}
         rows={1}
         value={field.draft}
-        disabled={disabled}
         aria-label={ariaLabel}
         maxLength={240}
         onChange={(event) => field.setDraft(event.target.value)}

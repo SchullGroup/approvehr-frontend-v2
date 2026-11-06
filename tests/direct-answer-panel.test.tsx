@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ToastProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiChoiceOption, ApiCompetency } from "@/lib/api/performance";
+import { GIVE_A_LABEL, SCORE_RANGE } from "@/lib/performance/answer-kind";
 import {
-  GIVE_A_LABEL,
-  KIND_FROZEN,
-  SCORE_RANGE,
-} from "@/lib/performance/answer-kind";
+  NEW_VERSION_BUTTON,
+  lockedReason,
+} from "@/lib/performance/new-version";
 
 /**
  * How one subsection is answered, set from the panel under it.
@@ -88,7 +88,7 @@ beforeEach(() => {
 });
 
 describe("how it is answered", () => {
-  it("offers the three ways and shows the one the subsection has", () => {
+  it("offers the four ways and shows the one the subsection has", () => {
     show(competency());
     expect(
       within(kindSelect())
@@ -98,6 +98,7 @@ describe("how it is answered", () => {
       "A level on a scale, 1 to 5",
       "Yes or no",
       "Pick one from a list",
+      "In their own words",
     ]);
     expect(kindSelect().value).toBe("RATING");
   });
@@ -171,13 +172,48 @@ describe("how it is answered", () => {
   it("is fixed once a rating exists, and says why before anybody tries", () => {
     show(competency({ ratingCount: 3 }));
     expect(kindSelect()).toBeDisabled();
-    expect(screen.getByText(KIND_FROZEN)).toBeInTheDocument();
+    expect(screen.getByText(lockedReason(3))).toBeInTheDocument();
+  });
+
+  it("puts the reason above the control it explains, not under it", () => {
+    show(competency({ ratingCount: 3 }));
+    const reason = screen.getByText(lockedReason(3));
+    expect(
+      reason.compareDocumentPosition(kindSelect()) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("gives the count, and says it applies to every period, which is the part that is not obvious", () => {
+    show(competency({ ratingCount: 12 }));
+    const reason = screen.getByText(lockedReason(12));
+    expect(reason).toHaveTextContent("12 ratings are recorded");
+    expect(reason).toHaveTextContent("in any period");
+    expect(reason).toHaveTextContent("applies to every period");
   });
 
   it("is not frozen, and says nothing of it, while no rating exists", () => {
     show(competency({ ratingCount: 0 }));
     expect(kindSelect()).toBeEnabled();
-    expect(screen.queryByText(KIND_FROZEN)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fixed:/)).not.toBeInTheDocument();
+  });
+
+  it("says once that how it is answered is shared by every period: in the intro while it can change, in the reason once it is fixed", () => {
+    const { unmount } = show(competency({ ratingCount: 0 }));
+    expect(
+      screen.getByText(
+        /How it is answered is shared by every appraisal period/,
+      ),
+    ).toBeInTheDocument();
+    unmount();
+
+    show(competency({ ratingCount: 3 }));
+    expect(
+      screen.queryByText(
+        /How it is answered is shared by every appraisal period/,
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/every (appraisal )?period/)).toHaveLength(1);
   });
 
   it("is read only, with the reason beside it, for somebody who may not change it", () => {
@@ -234,6 +270,73 @@ describe("how it is answered", () => {
        choices and the API still lists them. */
     show(competency({ answerKind: "BOOLEAN", choiceOptions: TWO }));
     expect(screen.queryByLabelText("Choice 1")).not.toBeInTheDocument();
+  });
+});
+
+describe("the way through a fixed kind: starting a new version", () => {
+  const startButton = () =>
+    screen.queryByRole("button", { name: NEW_VERSION_BUTTON });
+
+  it("is offered beside the fixed control, and only there", () => {
+    show(competency({ ratingCount: 3 }), { onStartNewVersion: vi.fn() });
+    const button = screen.getByRole("button", { name: NEW_VERSION_BUTTON });
+    expect(kindSelect()).toBeDisabled();
+    /* Beside it: the two share one row, so the button is not a separate section
+       somebody has to find. The select sits in its own wrapper, so the row is the
+       button's parent, and it holds the control and the button and nothing else. */
+    const row = button.parentElement as HTMLElement;
+    expect(row.contains(kindSelect())).toBe(true);
+    expect(row.children).toHaveLength(2);
+  });
+
+  it("hands the subsection to whoever opens the dialog, and sends nothing itself", async () => {
+    const onStartNewVersion = vi.fn();
+    const subject = competency({ ratingCount: 3 });
+    show(subject, { onStartNewVersion });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: NEW_VERSION_BUTTON }),
+    );
+
+    expect(onStartNewVersion).toHaveBeenCalledTimes(1);
+    expect(onStartNewVersion).toHaveBeenCalledWith(subject);
+    expect(updateCompetency).not.toHaveBeenCalled();
+  });
+
+  it("is not offered while the kind can still be changed, because changing it is the way", () => {
+    show(competency({ ratingCount: 0 }), { onStartNewVersion: vi.fn() });
+    expect(kindSelect()).toBeEnabled();
+    expect(startButton()).not.toBeInTheDocument();
+  });
+
+  it("is not offered to somebody who cannot change the framework", () => {
+    show(competency({ ratingCount: 3 }), {
+      editable: false,
+      whyNot: "Only somebody who can manage settings can change this.",
+      onStartNewVersion: vi.fn(),
+    });
+    expect(kindSelect()).toBeDisabled();
+    expect(startButton()).not.toBeInTheDocument();
+  });
+
+  it("is not offered where nothing can open the dialog", () => {
+    show(competency({ ratingCount: 3 }));
+    expect(startButton()).not.toBeInTheDocument();
+  });
+
+  it("is offered for every kind that is fixed, not only a level", () => {
+    for (const answerKind of ["RATING", "BOOLEAN", "CHOICE", "TEXT"] as const) {
+      const { unmount } = show(
+        competency({
+          ratingCount: 3,
+          answerKind,
+          ...(answerKind === "CHOICE" ? { choiceOptions: TWO } : {}),
+        }),
+        { onStartNewVersion: vi.fn() },
+      );
+      expect(startButton()).toBeInTheDocument();
+      unmount();
+    }
   });
 });
 

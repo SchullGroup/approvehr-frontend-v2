@@ -4,7 +4,7 @@ import { describeActivity, type HistoryLookup } from "@/lib/projects/history";
 const lookup: HistoryLookup = {
   statusName: (id) => ({ s1: "To Do", s2: "In Progress" })[id] ?? null,
   personName: (id) => (id === "p-01" ? "Adaeze Okonkwo" : "Someone"),
-  sprintName: (id) => (id === "sp1" ? "CHK Sprint 3" : null),
+  sprintName: (id) => (id === "sp1" ? "Cycle 3" : null),
   issueKey: (id) => (id === "e1" ? "CHK-1" : null),
 };
 
@@ -16,7 +16,7 @@ describe("describing an issue's history", () => {
         lookup,
       ),
     ).toEqual({
-      verb: "created the issue",
+      verb: "created the task",
       from: null,
       to: null,
     });
@@ -32,7 +32,7 @@ describe("describing an issue's history", () => {
     expect(
       describeActivity({ field: "statusId", from: "s1", to: "s2" }, lookup),
     ).toEqual({
-      verb: "changed status",
+      verb: "changed stage",
       from: "To Do",
       to: "In Progress",
     });
@@ -52,16 +52,16 @@ describe("describing an issue's history", () => {
     expect(
       describeActivity({ field: "sprintId", from: "gone", to: "sp1" }, lookup),
     ).toMatchObject({
-      from: "a sprint",
-      to: "CHK Sprint 3",
+      from: "a cycle",
+      to: "Cycle 3",
     });
   });
 
-  it("names a status that has since been removed rather than showing its id", () => {
+  it("names a stage that has since been removed rather than showing its id", () => {
     expect(
       describeActivity({ field: "statusId", from: "old", to: "s1" }, lookup)
         .from,
-    ).toBe("a status that has been removed");
+    ).toBe("a stage that has been removed");
   });
 
   it("formats priority, type, labels, points and dates", () => {
@@ -78,7 +78,7 @@ describe("describing an issue's history", () => {
       describeActivity({ field: "type", from: "TASK", to: "BUG" }, lookup),
     ).toMatchObject({
       from: "Task",
-      to: "Bug",
+      to: "Problem",
     });
     expect(
       describeActivity(
@@ -92,7 +92,7 @@ describe("describing an issue's history", () => {
     expect(
       describeActivity({ field: "points", from: null, to: 5 }, lookup),
     ).toMatchObject({
-      verb: "changed story points",
+      verb: "changed effort",
       from: "none",
       to: "5",
     });

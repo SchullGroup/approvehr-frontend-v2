@@ -2737,6 +2737,23 @@ export function useFrameworkActions() {
       },
       [guard],
     ),
+
+    /**
+     * Start a new version of a subsection, answered another way.
+     *
+     * No demo simulation, for the reason every write in this hook has none: it
+     * retires a subsection and creates another, and a framework change kept in
+     * one browser would reach no period and move no mark.
+     */
+    newCompetencyVersion: useCallback(
+      async (id: string, answerKind: AnswerKind) => {
+        guard(
+          "Starting a new version needs the API: the demo framework is fixed.",
+        );
+        return performanceApi.newCompetencyVersion(id, { answerKind });
+      },
+      [guard],
+    ),
   };
 }
 
@@ -3104,6 +3121,8 @@ export function useCycleMutations() {
       async (
         id: string,
         body: {
+          /** A corrected name; refused when another period already has it. */
+          name?: string;
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;

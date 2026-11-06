@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api/client";
 import { projectsApi, type PersonalTaskDetail } from "@/lib/api/projects";
 import { isOn } from "@/lib/projects/assignees";
 import { EMPTY_FILTER } from "@/lib/projects/filters";
+import { SUBTASK } from "@/lib/projects/terms";
 import type {
   AttachmentRef,
   Issue,
@@ -159,14 +160,14 @@ export function PersonalIssueDrawer({
     return {
       createIssue: async (input: NewIssueInput) => {
         const projectId = detail?.issue.projectId;
-        if (!projectId) return failed("Could not add the sub-task", null);
+        if (!projectId) return failed(`Could not add the ${SUBTASK.one}`, null);
         try {
           const made = await projectsApi.createIssue(projectId, input);
           remember(made.id, made);
           onChanged?.();
           return { ok: true as const, value: made };
         } catch (error) {
-          return failed("Could not add the sub-task", error);
+          return failed(`Could not add the ${SUBTASK.one}`, error);
         }
       },
       patchIssue: async (

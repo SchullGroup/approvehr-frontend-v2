@@ -341,6 +341,22 @@ when this period started.** (a period from before this existed reads **This peri
 weights as they are today.**). The assistant's draft (step 5) shows the same card on its first page, under
 the description, and **Draft it** stays off while a total you typed is not 100%.
 
+**Changing the name afterwards.** A name typed wrongly can be fixed at any stage, a running or published
+period as well as a draft.
+
+|                |                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/performance/periods/{id}`, **Rename** in the buttons at the top                                                            |
+| **Who**        | HR / Owner (the same people who may change the period)                                                                       |
+| **Click**      | **Rename**, type the new name in **Period name**, then **Save name**. **Enter** saves too                                    |
+| **You'll see** | A toast, **Renamed to …**, and the heading changes. **Save name** stays off until the name is different from what it was    |
+
+The box starts on the period's current name every time it opens; a half-typed name is not kept when you
+cancel. The dialog says the new name shows on everybody's form, inbox and report. A name under 3 characters
+reads *Name it: people will see this in their inbox.* and one over 80 reads *Keep it to 80 characters: it is
+a heading.*, both before anything is sent. If another period already has the name, the field shows the API's
+own sentence with what you typed still in it. Pressing **Save name** or **Enter** twice sends one request.
+
 #### 5. _Optional_ — let the assistant draft it instead
 
 Describe the period in a paragraph of your own words and it drafts the company goals and the review
@@ -383,11 +399,14 @@ The three settings on a question:
   22, **Record a level**), and the dialog says so under the two pickers. A question filed under
   nothing is still asked and answered. Choosing a section and leaving **Subsection** on _None_ files
   it under nothing, and the dialog warns you before you save. The **Subsection** list says beside a
-  subsection that a manager answers yes or no, or by picking, as _Teamwork, yes or no_ and _Customer
-  feedback, pick one_; one rated by a level is just its name. Such a subsection is not an ordinary
-  question, and it has a row in **All questions** only when this period asks it on the review form
-  (_Ask it on the review form_, under **By section**, below). Otherwise only the questions filed under it
-  do, with its name on them, and it is rated under **Record a level**.
+  subsection that a manager answers yes or no, by picking or in words, as _Teamwork, yes or no_,
+  _Customer feedback, pick one_ and _Communication, written_; one rated by a level is just its name.
+  Such a subsection is not an ordinary question, and it has a row in **All questions** only when this
+  period asks it on the review form (_Ask it on the review form_, under **By section**, below). Otherwise
+  only the questions filed under it do, with its name on them, and it is answered under **Record a level**.
+  Under a subsection answered in words the sentence is shorter and says one thing, because nothing
+  recorded on it reaches the mark, whatever its section is worth: _Answers to questions written here do
+  not count towards the mark. Nor does the written answer recorded on Communication._
 
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step. If that period asked a subsection on its review
@@ -416,9 +435,10 @@ Writing them, in either view:
   more, and there is no undo (hover it for that). The one thing the server refuses is a question somebody has
   already answered; nothing is deleted, and the reason is under that row in the server's own words (_2 answers
   already reference this question. Leave it, or mark it not required._). A press in the half second after the
-  bin is ignored, so a double tap cannot remove a question. On a row that says **Rated directly** the same
-  bin turns into **Remove**, which only stops asking that subsection on this period's form: the subsection
-  and anything already recorded on it stay (hover it for that).
+  bin is ignored, so a double tap cannot remove a question. On a row that says **Rated directly** (or
+  **Written directly**, for a subsection answered in words) the same bin turns into **Remove**, which only
+  stops asking that subsection on this period's form: the subsection and anything already recorded on it
+  stay (hover it for that).
 - A question can be up to 300 characters. The box counts from 250 (_260 of 300 characters_), and one over
   the limit is refused before it is sent. A pick-from-a-list question takes up to ten choices, and **Add a
   choice** is switched off at ten (_Ten is the most a question can have._).
@@ -438,6 +458,15 @@ its questions and puts the cursor in the question box (it never closes a subsect
 and it drops a change you had half made to another question). It is there for somebody who cannot change
 the framework too, because a question belongs to the period and not to the framework.
 
+Each row begins with **how that subsection is answered**, as a plain grey word: **Rated** (a level on a
+scale), **Yes or no**, **Pick one** or **Written** (in their own words), then its name. It is in front of
+the name so that two subsections that read alike can be told apart at a glance, and the words line up in a
+column so the names do too. The
+**Sections and subsections** dialog puts the same word in front of each name. A subsection that has ratings
+recorded on it also has a small grey lock directly after its name; hover it for _Fixed: 12 ratings are
+recorded, in any period._ It is a picture and not a button. The reason, and the way through it, are on **How
+it is rated**, below.
+
 Open a subsection and it has two tabs, which are two views of one subsection and never a choice between them:
 
 - **Questions** — this period's questions filed under that subsection, as read-only rows with a pencil and a
@@ -445,12 +474,40 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   whatever its kind. The count is on the tab.
 - **How it is rated** — how a manager records an answer on the subsection itself, under **Competency
   ratings** (step 22). **How it is answered** is **A level on a scale, 1 to 5**, **Yes or no** (yes scores
-  100%, no scores 0%) or **Pick one from a list**, where you write the choices and give each a score in
-  percent, then **Save choices**. A choice that anybody has picked keeps its score for good: its score box is
-  greyed and reads _Picked 1 time, so its score is fixed. Add a new choice to score it differently._ Its name
-  and its place in the list can still change. The kind is written the moment you pick it, and it is fixed once anybody has
-  recorded an answer on the subsection (the screen says so; start a new subsection to change it). A yes or
-  no and a pick have no target, so they are left out of the gap list and the heatmap.
+  100%, no scores 0%), **Pick one from a list**, where you write the choices and give each a score in
+  percent, then **Save choices**, or **In their own words**, which has nothing more to set. A choice that
+  anybody has picked keeps its score for good: its score box is greyed and reads _Picked 1 time, so its
+  score is fixed. Add a new choice to score it differently._ Its name and its place in the list can still
+  change. The kind is written the moment you pick it, until anybody
+  records an answer on the subsection, in any period. From then on it is fixed, because how a subsection is
+  answered is the same in every period and changing it would make last period's answers mean something else.
+  A line **above** the control says so, with the count: _Fixed: 12 ratings are recorded on this subsection, in
+  any period, and how it is answered applies to every period._ The control is greyed, and **Start a new
+  version** beside it is the way through (below). A yes or no and a pick have no target, so they are left out
+  of the gap list and the heatmap. Words have no target and no score either, and the one line under the picker
+  says the larger thing: _A written answer is read by people and never counts towards the mark._ It has no
+  list of choices, and none of the lines that quote what its section is worth or warn that the section is
+  worth nothing, because a written answer reaches no part of the mark.
+
+  **Start a new version** is there for somebody who can manage settings on a connected company, on a
+  subsection that has ratings. It opens a dialog with **How the new version is answered**, which offers the
+  three other ways (**A level on a scale, 1 to 5**, **Yes or no**, **Pick one from a list** and **In their own
+  words**, less the one the subsection has now) and chooses nothing for you, and three lines of what will
+  happen: the old subsection keeps its ratings and every mark made from them, is marked retired and leaves
+  the list; the new one has the same name and section and starts with no ratings; and periods that have not
+  started use the new one (for a pick-one version they stop asking it until its choices are in), while
+  published periods keep the old one, so their forms read as they did. Choosing **In their own words** adds a
+  fourth line, the sentence that says what is different about it: _A written answer is read by people and
+  never counts towards the mark._ When the subsection being retired was itself answered in words, the first
+  line says only that it keeps its ratings, and nothing of marks, because none was ever made from them.
+  **Start new version** is switched off until a way is chosen. It cannot go
+  ahead while a period that is running asks the subsection on its review form: the API names the period, its
+  sentence is shown in the dialog with your choice still made, and nothing has changed. When it works the new
+  subsection opens, on **How it is rated** for a pick-one version (it needs its choices) and on
+  **Questions** otherwise. A toast says _Started a new version of Teamwork_ with _Teamwork (retired) keeps its
+  12 ratings._ When the API has more to say (which draft periods ask the new one, how many filed questions
+  moved, which job roles no longer expect it, which draft periods stopped asking a pick-one version) the
+  dialog stays up with those sentences, as they came, until **Done**.
 
   Under that, and drawn only for somebody who can manage settings on a connected company, is
   **Ask it on the review form**. It is **this period's**, not the company's (hover the (i) beside the
@@ -464,11 +521,14 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   review form_ or _…taken off the review form_, and, under the first two, _Asked of both. Find it under
   All questions._). The message only comes after the API has said yes, so a refusal shows its own sentence
   instead. One short line under the control says whose answer counts, for the choice you have made even
-  before you press the button: _Recorded when the manager sends their review._ for the manager, _Their own answer counts towards the mark._ for the employee, and _The
-  manager's answer counts. The employee's is shown beside it._ for both. Colleagues cannot be asked a
-  subsection. The API's refusals (the period has started, the subsection is switched off, somebody has
-  already answered it) are under the control in the server's own
-  words, and the control goes back to what the period holds. **Write the questions** is on a draft's
+  before you press the button: _Recorded when the manager sends their review._ for the manager, _Their own
+  answer counts towards the mark._ for the employee, and _The manager's answer counts. The employee's is
+  shown beside it._ for both. For a subsection answered in words the lines say where the words go and never
+  that they count: _Recorded when the manager sends their review._, _Recorded when they send their review._
+  and _The manager's words are recorded. The employee's are shown beside them._ It is held to no rule about
+  choices, so it can be asked as soon as it exists. Colleagues cannot be asked a subsection. The API's
+  refusals (the period has started, the subsection is switched off, somebody has already answered it) are
+  under the control in the server's own words, and the control goes back to what the period holds. **Write the questions** is on a draft's
   **Set it up, then start it** card and nowhere else, so you only meet a period that has already started
   if somebody starts it while this dialog is open: the control is then switched off, with no button,
   and says _H2 2026 Appraisal has started, so this can no longer change._ A pick-one subsection with fewer than two choices
@@ -476,8 +536,9 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   Until the period's questions have been read, or if reading them failed, the control is not drawn at all
   rather than saying **Not asked** about a form nobody has seen.
   What it puts on the form is a row in **All questions** and in the subsection's **Questions** tab: its
-  name, a **Rated directly** badge (not **Rating**), who is asked as **Manager**, **Employee** or **Both**,
-  **Must be answered**, and no pencil, because there is nothing on it to edit.
+  name, a **Rated directly** badge (not **Rating**; **Written directly** for a subsection answered in
+  words), who is asked as **Manager**, **Employee** or **Both**, **Must be answered**, and no pencil,
+  because there is nothing on it to edit.
 
 **Add a section** (a name and **Counts towards**: Core competencies, Behavioural competencies, Leadership, or
 _No part of the mark_) and, inside a section, **New subsection** with **Answered by** both stay open after
@@ -838,9 +899,14 @@ the module, so it is worth walking properly.
   prompt is the subsection's name and it is drawn from the subsection, not from the company's scale: a
   level for each of its **own** levels (_1 of 7_ to _7 of 7_, or the company's five words where the
   subsection is also five levels), a **Yes** or **No**, or its **choices** by name, with no score on
-  screen. A level is picked with its number and a choice with its letter. When the review is sent the
-  answer becomes the person's rating of that subsection: if only the employee is asked it counts, and if
-  both are asked it is the manager's that counts and the employee's is only shown to the manager.
+  screen, or, for a subsection answered in words, **a box to write in**, like any written question. A
+  level is picked with its number and a choice with its letter. When the review is sent the answer
+  becomes the person's rating of that subsection: if only the employee is asked it counts, and if both
+  are asked it is the manager's that counts and the employee's is only shown to the manager. Words are
+  recorded the same way and never count, whoever is asked. A written one is held to the rules of a written
+  question: it is needed if the question is, a box of spaces is not an answer (_This one needs an answer
+  before you can go on._), it is saved as you go, and the **Preview** reads it back in full with its
+  paragraphs, under the subsection's name.
 - **The leadership question is only on a form about somebody who leads others** — people report to
   them, they lead a team, or they head a department. A form about somebody who leads nobody never
   carries it, whether they fill it in themselves or their manager or a colleague does, so an
@@ -859,7 +925,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 | **Click**      | Pick an objective, write what you did, log it. The manager sees it under _Waiting on a grade_ |
 | **You'll see** | Rows grouped by the day each task was _logged_ — not the week it covers                       |
 
-A task that a finished issue on a project filed for you carries a small **From project KEY-n** tag, in
+A weekly task filed for you by a finished project task carries a small **From project KEY-n** tag, in
 **Your weeks**, in an objective's task log and in the grading queue. The tag says where the work came
 from; the grade is still the manager's. It is a link only if you can open that project, and plain
 text if you cannot.
@@ -913,9 +979,9 @@ text if you cannot.
 
 > 💡 **What the person said of themselves, on a directly rated subsection.** Where a subsection is asked of
 > both, the manager's form shows a muted line beside the control, _Their own answer: Exceeds Expectations_
-> (or _6 of 7_, _Yes_, _No_, or the choice's name), once the person has sent their self-review. Until then
-> there is no line at all: not _No answer_, and never a nought. It is shown beside the manager's control and
-> never chosen for them.
+> (or _6 of 7_, _Yes_, _No_, the choice's name, or their own words in full, with their paragraphs), once the
+> person has sent their self-review. Until then there is no line at all: not _No answer_, and never a nought.
+> It is shown beside the manager's control and never chosen for them.
 
 > 💡 **The language check — worth demonstrating.** Press Send and the product reads what you wrote
 > first. It flags language describing a _person_ rather than their _work_, absolutes, comparisons to
@@ -924,7 +990,8 @@ text if you cannot.
 >
 > Type _"Chidera is quite disorganised"_ into a manager review and watch it catch. Then type _"the
 > Lagos migration was difficult"_ and watch it correctly say nothing. This runs entirely inside the
-> product — no written appraisal comment is sent anywhere.
+> product — no written appraisal comment is sent anywhere. It reads a written subsection answer exactly as
+> it reads the closing note, and it never reads a person's own self-review.
 
 #### 22. Record competency levels
 
@@ -940,19 +1007,38 @@ built from their objectives alone.
 
 A line manager is offered the people who report to them, and somebody with **Edit records** is offered
 everybody but themselves. What the form then asks for follows how the skill is answered (step 6): a level and
-an optional target for a rated skill, **Answer** yes or no for a yes-or-no skill, and one of the skill's own
-choices for a pick-one skill (the choice, never its score). A pick-one skill opens on the choice the person
-already has, so correcting an answer is changing one choice; if that choice has since been taken off the list
-it says _Their current answer is “Meets”, which is no longer on the list. Pick one of the choices to replace
-it._ A pick-one skill with no choices yet says so and cannot be saved. On the **Your skills** list a yes, a no and a pick show as a plain label with no scale, and
-_Not assessed yet_ means nobody has answered it.
+an optional target for a rated skill, **Answer** yes or no for a yes-or-no skill, one of the skill's own
+choices for a pick-one skill (the choice, never its score), and a box to write in, **Answer**, for a skill
+answered in words. A pick-one skill opens on the choice the person already has, so correcting an answer is
+changing one choice; if that choice has since been taken off the list it says _Their current answer is
+“Meets”, which is no longer on the list. Pick one of the choices to replace it._ A pick-one skill with no
+choices yet says so and cannot be saved. On the **Your skills** list a yes, a no and a pick show as a plain
+label with no scale, and _Not assessed yet_ means nobody has answered it. Saving says _Level recorded_ for a
+level and _Answer recorded_ for any other answer.
+
+A skill answered in words asks for nothing but the words. **Answer** is a box for up to 4,000 characters, and
+it is already filled with what is on record for that person, so recording again corrects the words instead of
+starting from nothing (choose somebody else and it shows theirs). A box that is blank or only spaces is
+refused on the field (_Write the answer in words._), and so is one over the limit (_Keep it to 4000
+characters._, which is the server's own sentence). A count appears from 3,500 characters (_3,620 of 4,000
+characters_) and goes on counting past the limit, in red, because pasting more is allowed so that it can be
+shortened. There is no level and no target, and under the box one line says what it is: _A written answer is
+read by people and never counts towards the mark._ **Appraisal period** says nothing about a mark for it:
+with a period chosen, _Filed under that period. Each person has one answer per period, so writing it again
+replaces this one._, and with none, _A snapshot of where they are now._ **The language check runs here too.**
+Type _"Chidi is quite disorganised"_ and the phrase is quoted back under the box, with _Nothing here stops you
+saving it. It checks for four specific things and cannot tell whether what you wrote is fair. Only you can._
+It never stops the save. On the **Your skills** list a written answer shows its words in full, with
+**Written** beside it and no scale: a long one is folded to three lines with **Read all** under it, and
+**Show less** folds it again. An answered skill whose words did not arrive says _Answered_ and claims nothing
+about what it said.
 
 > 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
 
 A subsection the period asks on its review form is also recorded when the review is sent, as the same rating
-under the same period: the manager's send records the manager's answer, and an employee's send records theirs
-only where the employee alone is asked.
+under the same period (with the person's words in it, for a written one): the manager's send records the
+manager's answer, and an employee's send records theirs only where the employee alone is asked.
 
 #### 23. _Optional_ — ask colleagues for feedback
 
@@ -1369,7 +1455,9 @@ seeded accounts to use.
 period's own weights), 6 (the questions and the subsections), 16 (the no-appraiser warning), 17 and 21
 (answering a review), 22 (recording a level) and 32 (the report), the twelfth surprise and demo step 8, which
 were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated
-subsection asked on the review form). Every button label, field name and
+subsection asked on the review form, and step 6 on 3 November 2026, for the lock, the answer type in front of a
+subsection's name and starting a new version, and steps 6, 17, 21 and 22 again on 6 November 2026, for a
+subsection answered in the person's own words). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

@@ -23,8 +23,12 @@ import {
   withLead,
   type FieldChange,
 } from "./mutations";
+import { buildProgramSample } from "./demo-programs";
+import type { ProgramLevel } from "./access";
+import type { StoredProgram } from "./programs";
 import { buildSample } from "./sample";
 import { completeSprint, startBlocker, startSprint } from "./sprints";
+import { CYCLE, PROBLEM, SUBTASK, TASK, cycleName } from "./terms";
 import {
   PROJECT_COLORS,
   type CompleteSprintMove,
@@ -64,6 +68,10 @@ export type DemoBook = {
   activity: Record<string, IssueActivity[]>;
   /** The next issue number per project, which never goes backwards after a delete. */
   counters: Record<string, number>;
+  /** The programs, by id. A project names its program with `programId`. */
+  programs: Record<string, StoredProgram>;
+  /** Who is in each program and at what level. The lead is never listed. */
+  programAccess: Record<string, Record<string, ProgramLevel>>;
 };
 
 export const EMPTY_BOOK: DemoBook = {
@@ -72,6 +80,8 @@ export const EMPTY_BOOK: DemoBook = {
   comments: {},
   activity: {},
   counters: {},
+  programs: {},
+  programAccess: {},
 };
 
 /** How old a demo book may be before it is rebuilt, in days. */
@@ -83,18 +93,21 @@ export function sampleBook(args: {
   people: readonly string[];
 }): DemoBook {
   const sample = buildSample(args);
+  const programs = buildProgramSample({
+    today: args.today,
+    now: args.now,
+    sample,
+  });
   return {
     anchor: args.today,
-    projects: {
-      [sample.project.id]: {
-        project: sample.project,
-        issues: sample.issues,
-        sprints: sample.sprints,
-      },
-    },
+    projects: Object.fromEntries(
+      programs.projects.map((d) => [d.project.id, d]),
+    ),
     comments: sample.comments,
     activity: sample.activity,
-    counters: { [sample.project.id]: sample.lastNumber },
+    counters: programs.counters,
+    programs: programs.programs,
+    programAccess: programs.access,
   };
 }
 
@@ -141,6 +154,16 @@ export function createProject(
   }
   const name = input.name.trim();
   if (!name) throw new ProjectRuleError("Give the project a name.");
+  if (input.programId) {
+    const program = book.programs[input.programId];
+    if (!program)
+      throw new ProjectRuleError("That program could not be found.");
+    if (program.archivedAt) {
+      throw new ProjectRuleError(
+        `${program.name} is archived, so it cannot take a new project.`,
+      );
+    }
+  }
   const leadId = input.leadId ?? ctx.actorId ?? "";
   const project: Project = {
     id: ctx.makeId(),
@@ -166,6 +189,7 @@ export function createProject(
     issueCount: 0,
     activeSprintId: null,
     canManage: null,
+    programId: input.programId ?? null,
   };
   return {
     project,
@@ -278,12 +302,14 @@ export function createIssue(
   if (input.type === "SUBTASK") {
     const parent = d.issues.find((i) => i.id === input.parentId);
     if (!parent || parent.type === "EPIC" || parent.type === "SUBTASK") {
-      throw new ProjectRuleError("A sub-task belongs to a story, task or bug.");
+      throw new ProjectRuleError(
+        `A ${SUBTASK.one} belongs to a ${TASK.one} or a ${PROBLEM.one}.`,
+      );
     }
   }
   if (input.assigneeId && !d.project.memberIds.includes(input.assigneeId)) {
     throw new ProjectRuleError(
-      "Only members of the project can be assigned issues.",
+      `Only members of the project can be assigned ${TASK.many}.`,
     );
   }
   const number = nextIssueNumber(d.issues, book.counters[projectId] ?? 0);
@@ -321,16 +347,16 @@ export function patchIssueInBook(
   const projectId = projectIdOfIssue(book, issueId);
   if (!projectId)
     throw new ProjectRuleError(
-      "That issue is not here. It may have been deleted.",
+      "That task is not here. It may have been deleted.",
     );
   const d = data(book, projectId);
   if (patch.assigneeId && !d.project.memberIds.includes(patch.assigneeId)) {
     throw new ProjectRuleError(
-      "Only members of the project can be assigned issues.",
+      `Only members of the project can be assigned ${TASK.many}.`,
     );
   }
   const result = patchIssue(d, issueId, patch, ctx.now);
-  if (!result.issue) throw new ProjectRuleError("That issue is not here.");
+  if (!result.issue) throw new ProjectRuleError("That task is not here.");
   const rows: IssueActivity[] = result.changes.map((change) => ({
     id: ctx.makeId(),
     issueId,
@@ -383,7 +409,7 @@ export function addCommentToBook(
   if (!text) throw new ProjectRuleError("Write something first.");
   if (!projectIdOfIssue(book, issueId)) {
     throw new ProjectRuleError(
-      "That issue is not here. It may have been deleted.",
+      "That task is not here. It may have been deleted.",
     );
   }
   const comment: IssueComment = {
@@ -480,13 +506,12 @@ export function createSprintInBook(
 ): { book: DemoBook; sprint: Sprint } {
   const d = data(book, projectId);
   if (d.project.type === "KANBAN") {
-    throw new ProjectRuleError("Kanban projects do not use sprints.");
+    throw new ProjectRuleError(`Kanban projects do not use ${CYCLE.many}.`);
   }
   const sprint: Sprint = {
     id: ctx.makeId(),
     projectId,
-    name:
-      input.name.trim() || `${d.project.key} Sprint ${d.sprints.length + 1}`,
+    name: input.name.trim() || cycleName(d.sprints.length + 1),
     goal: input.goal ?? "",
     startDate: input.startDate ?? null,
     endDate: input.endDate ?? null,
@@ -506,7 +531,7 @@ const projectIdOfSprint = (book: DemoBook, sprintId: string): string => {
   for (const [id, d] of Object.entries(book.projects)) {
     if (d.sprints.some((s) => s.id === sprintId)) return id;
   }
-  throw new ProjectRuleError("That sprint is not here.");
+  throw new ProjectRuleError(`That ${CYCLE.one} is not here.`);
 };
 
 export function updateSprintInBook(
@@ -529,7 +554,7 @@ export function deleteSprintInBook(
   const d = data(book, projectIdOfSprint(book, sprintId));
   const sprint = d.sprints.find((s) => s.id === sprintId)!;
   if (sprint.state !== "PLANNED") {
-    throw new ProjectRuleError("Only a planned sprint can be deleted.");
+    throw new ProjectRuleError(`Only a planned ${CYCLE.one} can be deleted.`);
   }
   return withProject(book, {
     ...d,
@@ -568,7 +593,9 @@ export function completeSprintInBook(
   const d = data(book, projectIdOfSprint(book, sprintId));
   const sprint = d.sprints.find((s) => s.id === sprintId)!;
   if (sprint.state !== "ACTIVE") {
-    throw new ProjectRuleError("Only the active sprint can be completed.");
+    throw new ProjectRuleError(
+      `Only the active ${CYCLE.one} can be completed.`,
+    );
   }
   const created: Sprint | null =
     move === "new"
@@ -612,4 +639,243 @@ export function bookIsStale(book: DemoBook, today: string): boolean {
     (Date.parse(today) - Date.parse(book.anchor)) / 86_400_000,
   );
   return Number.isNaN(age) || age > BOOK_MAX_AGE_DAYS || age < 0;
+}
+
+/* ---------------------------------------------------------------- programs -- */
+
+const PROGRAM_COLORS = PROJECT_COLORS;
+
+const programOf = (book: DemoBook, programId: string): StoredProgram => {
+  const found = book.programs[programId];
+  if (!found) throw new ProjectRuleError("That program could not be found.");
+  return found;
+};
+
+function nameProblem(book: DemoBook, name: string, exceptId?: string) {
+  const trimmed = name.trim();
+  if (trimmed.length < 2 || trimmed.length > 80) {
+    throw new ProjectRuleError("Name the program in 2 to 80 characters.");
+  }
+  const taken = Object.values(book.programs).some(
+    (p) => p.id !== exceptId && p.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (taken) {
+    throw new ProjectRuleError(`Another program is already called ${trimmed}.`);
+  }
+  return trimmed;
+}
+
+export type NewProgramInput = {
+  name: string;
+  description?: string;
+  color?: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  leadId?: string | null;
+};
+
+export type ProgramPatch = Partial<{
+  name: string;
+  description: string;
+  color: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  leadId: string;
+}>;
+
+export function createProgramInBook(
+  book: DemoBook,
+  input: NewProgramInput,
+  ctx: Ctx,
+): { book: DemoBook; program: StoredProgram } {
+  const name = nameProblem(book, input.name);
+  const leadId = input.leadId ?? ctx.actorId;
+  if (!leadId) throw new ProjectRuleError("Choose who will lead it.");
+  const program: StoredProgram = {
+    id: ctx.makeId(),
+    name,
+    description: (input.description ?? "").trim(),
+    color:
+      input.color ??
+      PROGRAM_COLORS[
+        Object.keys(book.programs).length % PROGRAM_COLORS.length
+      ]!,
+    departmentId: input.departmentId ?? null,
+    departmentName: input.departmentId ? (input.departmentName ?? null) : null,
+    leadId,
+    archivedAt: null,
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  };
+  return {
+    program,
+    book: {
+      ...book,
+      programs: { ...book.programs, [program.id]: program },
+      programAccess: { ...book.programAccess, [program.id]: {} },
+    },
+  };
+}
+
+export function updateProgramInBook(
+  book: DemoBook,
+  programId: string,
+  patch: ProgramPatch,
+  now: string,
+): DemoBook {
+  const current = programOf(book, programId);
+  const next: StoredProgram = {
+    ...current,
+    ...(patch.name !== undefined
+      ? { name: nameProblem(book, patch.name, programId) }
+      : {}),
+    ...(patch.description !== undefined
+      ? { description: patch.description.trim() }
+      : {}),
+    ...(patch.color !== undefined ? { color: patch.color } : {}),
+    ...(patch.departmentId !== undefined
+      ? {
+          departmentId: patch.departmentId,
+          departmentName: patch.departmentId
+            ? (patch.departmentName ?? null)
+            : null,
+        }
+      : {}),
+    ...(patch.leadId !== undefined ? { leadId: patch.leadId } : {}),
+    updatedAt: now,
+  };
+  /* The lead is never on the list: making somebody the lead takes them off it. */
+  const levels = { ...(book.programAccess[programId] ?? {}) };
+  if (patch.leadId !== undefined) delete levels[patch.leadId];
+  return {
+    ...book,
+    programs: { ...book.programs, [programId]: next },
+    programAccess: { ...book.programAccess, [programId]: levels },
+  };
+}
+
+export function archiveProgramInBook(
+  book: DemoBook,
+  programId: string,
+  archived: boolean,
+  now: string,
+): DemoBook {
+  const current = programOf(book, programId);
+  return {
+    ...book,
+    programs: {
+      ...book.programs,
+      [programId]: {
+        ...current,
+        archivedAt: archived ? now : null,
+        updatedAt: now,
+      },
+    },
+  };
+}
+
+/** Adds people at one level, or moves those already on the list to it. The lead is never listed. */
+export function addProgramPeople(
+  book: DemoBook,
+  programId: string,
+  employeeIds: readonly string[],
+  level: ProgramLevel,
+  now: string,
+  options: { keepExisting?: boolean } = {},
+): { book: DemoBook; added: string[]; changed: string[]; unchanged: string[] } {
+  const program = programOf(book, programId);
+  if (program.archivedAt) {
+    throw new ProjectRuleError(
+      `${program.name} is archived, so nobody can be added to it.`,
+    );
+  }
+  const levels = { ...(book.programAccess[programId] ?? {}) };
+  const added: string[] = [];
+  const changed: string[] = [];
+  const unchanged: string[] = [];
+  for (const id of new Set(employeeIds)) {
+    if (id === program.leadId) continue;
+    const held = levels[id];
+    if (held === undefined) {
+      levels[id] = level;
+      added.push(id);
+    } else if (held === level || options.keepExisting) {
+      unchanged.push(id);
+    } else {
+      levels[id] = level;
+      changed.push(id);
+    }
+  }
+  return {
+    added,
+    changed,
+    unchanged,
+    book: {
+      ...book,
+      programs: {
+        ...book.programs,
+        [programId]: { ...program, updatedAt: now },
+      },
+      programAccess: { ...book.programAccess, [programId]: levels },
+    },
+  };
+}
+
+export function setProgramLevel(
+  book: DemoBook,
+  programId: string,
+  employeeId: string,
+  level: ProgramLevel,
+): DemoBook {
+  programOf(book, programId);
+  const levels = book.programAccess[programId] ?? {};
+  if (levels[employeeId] === undefined) {
+    throw new ProjectRuleError("That person is not on this program.");
+  }
+  return {
+    ...book,
+    programAccess: {
+      ...book.programAccess,
+      [programId]: { ...levels, [employeeId]: level },
+    },
+  };
+}
+
+export function removeProgramPerson(
+  book: DemoBook,
+  programId: string,
+  employeeId: string,
+): DemoBook {
+  programOf(book, programId);
+  const levels = { ...(book.programAccess[programId] ?? {}) };
+  if (levels[employeeId] === undefined) {
+    throw new ProjectRuleError("That person is not on this program.");
+  }
+  delete levels[employeeId];
+  return {
+    ...book,
+    programAccess: { ...book.programAccess, [programId]: levels },
+  };
+}
+
+/** Puts a project in a program, or takes it out (null). Nothing else about it changes. */
+export function moveProjectInBook(
+  book: DemoBook,
+  projectId: string,
+  programId: string | null,
+  now: string,
+): DemoBook {
+  const d = data(book, projectId);
+  if (programId) {
+    const program = programOf(book, programId);
+    if (program.archivedAt) {
+      throw new ProjectRuleError(
+        `${program.name} is archived, so it cannot take a project.`,
+      );
+    }
+  }
+  return withProject(book, {
+    ...d,
+    project: { ...d.project, programId, updatedAt: now },
+  });
 }

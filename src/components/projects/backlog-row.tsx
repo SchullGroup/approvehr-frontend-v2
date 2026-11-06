@@ -3,6 +3,7 @@
 import { ArrowRightLeft, GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { MoveOption } from "@/lib/projects/backlog";
+import { CYCLE } from "@/lib/projects/terms";
 import type { Issue, ProjectStatus } from "@/lib/projects/types";
 import type { People } from "@/lib/store/project-session";
 import {
@@ -83,7 +84,7 @@ export function BacklogRow({
               type="button"
               onPointerDown={onGrab}
               onClick={onOpen}
-              aria-label={`Move ${issue.key}. Or use Move to${hasSprints ? ", or open it and change its sprint" : ""}.`}
+              aria-label={`Move ${issue.key}. Or use Move to${hasSprints ? `, or open it and change its ${CYCLE.one}` : ""}.`}
               className={cn(
                 "relative z-10 -ml-1 flex size-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-faint",
                 "hover:bg-sunken hover:text-muted active:cursor-grabbing",

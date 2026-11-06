@@ -6,6 +6,12 @@ import { PersonName } from "@/components/projects/person";
 import { addDays, daysBetween } from "@/lib/projects/dates";
 import { formatDay } from "@/lib/projects/roadmap";
 import {
+  CYCLE,
+  EFFORT,
+  count as countNoun,
+  nounFor,
+} from "@/lib/projects/terms";
+import {
   pointsAxis,
   sprintShortName,
   type Burndown,
@@ -105,10 +111,6 @@ function useChartWidth(fallback: number) {
   return { ref, width };
 }
 
-function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
 /* ---------------------------------------------------------------- burndown -- */
 
 const HEIGHT = 272;
@@ -180,7 +182,7 @@ export function BurndownChart({
     todayAt === null ? 0 : Math.min(Math.max(todayAt, left + 24), W - 28);
 
   const summary =
-    `${sprintName} burndown: ${end.remaining} of ${data.total} points left` +
+    `${sprintName} progress: ${end.remaining} of ${data.total} ${EFFORT.one} left` +
     (data.todayIndex !== null ? " today" : " at the end");
 
   return (
@@ -308,7 +310,7 @@ export function BurndownChart({
             aria-hidden="true"
             className="h-0.5 w-5 rounded-full bg-cat-1"
           />
-          Points left
+          {EFFORT.One} left
         </li>
         <li className="flex items-center gap-2">
           <span
@@ -329,8 +331,8 @@ export function BurndownChart({
       </ul>
 
       <SrTable
-        caption={`${sprintName}: points left at the end of each day, against an even pace`}
-        columns={["Day", "Points left", "Even pace"]}
+        caption={`${sprintName}: ${EFFORT.one} left at the end of each day, against an even pace`}
+        columns={["Day", `${EFFORT.One} left`, "Even pace"]}
         rows={data.points.map((point) => [
           formatDay(point.day),
           point.remaining,
@@ -431,14 +433,14 @@ export function VelocityChart({
         {average !== null && (
           <li className="flex items-center gap-2">
             <span aria-hidden="true" className="h-3.5 w-0.5 bg-ink" />
-            Average {average} {average === 1 ? "point" : "points"}
+            Average {average} {EFFORT.one}
           </li>
         )}
       </ul>
 
       <SrTable
-        caption={`Points committed and completed in the last ${plural(rows.length, "closed sprint")}${average === null ? "" : `, averaging ${plural(average, "point")} completed`}`}
-        columns={["Sprint", "Committed", "Completed"]}
+        caption={`${EFFORT.One} committed and completed in the last ${rows.length} closed ${nounFor(rows.length, "cycle")}${average === null ? "" : `, averaging ${average} ${EFFORT.one} completed`}`}
+        columns={[CYCLE.One, "Committed", "Completed"]}
         rows={rows.map(({ sprint, committed, completed }) => [
           sprint.name,
           committed ?? "Not recorded",
@@ -476,11 +478,11 @@ export function WorkloadList({
               />
               <span className="tabular shrink-0 text-body-sm">
                 <span className="font-medium text-ink">
-                  {plural(row.points, "point")}
+                  {row.points} {EFFORT.one}
                 </span>
                 <span className="text-muted">
                   {" · "}
-                  {plural(row.issues, "issue")}
+                  {countNoun(row.issues, "task")}
                 </span>
               </span>
             </div>

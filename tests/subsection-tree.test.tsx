@@ -26,6 +26,7 @@ let createSection: Mock<(...args: unknown[]) => Promise<unknown>>;
 let createCompetency: Mock<(...args: unknown[]) => Promise<unknown>>;
 let updateCompetency: Mock<(...args: unknown[]) => Promise<unknown>>;
 let setChoiceOptions: Mock<(...args: unknown[]) => Promise<unknown>>;
+let newCompetencyVersion: Mock<(...args: unknown[]) => Promise<unknown>>;
 
 vi.mock("@/lib/store/performance", () => ({
   useFrameworkActions: () => ({
@@ -34,6 +35,7 @@ vi.mock("@/lib/store/performance", () => ({
     createCompetency: (...args: unknown[]) => createCompetency(...args),
     updateCompetency: (...args: unknown[]) => updateCompetency(...args),
     setChoiceOptions: (...args: unknown[]) => setChoiceOptions(...args),
+    newCompetencyVersion: (...args: unknown[]) => newCompetencyVersion(...args),
   }),
   /* `CountsTowards` lives in the sections dialog, which imports these. */
   useFramework: () => ({ competencies: [], groups: [], loading: false }),
@@ -144,6 +146,7 @@ beforeEach(() => {
   createCompetency = vi.fn().mockResolvedValue({});
   updateCompetency = vi.fn().mockResolvedValue({});
   setChoiceOptions = vi.fn().mockResolvedValue({});
+  newCompetencyVersion = vi.fn().mockResolvedValue({});
 });
 
 describe("reading the framework", () => {
@@ -606,7 +609,7 @@ describe("adding a subsection", () => {
     );
   });
 
-  it("offers the three kinds, with the scale spelled out for a level", async () => {
+  it("offers the four kinds, with the scale spelled out for a level", async () => {
     render(<Harness />);
     await openCore();
     expect(
@@ -617,6 +620,7 @@ describe("adding a subsection", () => {
       "A level on a scale, 1 to 5",
       "Yes or no",
       "Pick one from a list",
+      "In their own words",
     ]);
   });
 
@@ -794,5 +798,333 @@ describe("the sections to list", () => {
         [group({}), group({ sectionId: null, sectionName: "Other" })],
       ),
     ).toEqual([{ id: "g1", name: "From the framework", weightBp: undefined }]);
+  });
+});
+
+/**
+ * The word that says how a subsection is answered leads its name, so two that read
+ * alike are told apart before the name is read to the end. A company that has made
+ * "Teamwork" twice, once as a level and once as a yes or no, is the case it is for.
+ */
+describe("a row says how it is answered before what it is called", () => {
+  const rowText = (name: RegExp | string) =>
+    screen.getByRole("button", { name }).textContent ?? "";
+
+  it("puts the word in front of the name, for every kind", async () => {
+    render(<Harness />);
+    await open(/Core competency/);
+
+    for (const [name, word] of [
+      ["Punctuality", "Rated"],
+      ["Follows safety procedures", "Yes or no"],
+      ["Customer feedback", "Pick one"],
+    ] as const) {
+      const text = rowText(new RegExp(name));
+      expect(text.indexOf(word), name).toBeGreaterThanOrEqual(0);
+      expect(text.indexOf(word), name).toBeLessThan(text.indexOf(name));
+    }
+  });
+
+  it("says the word once, and not again after the name", async () => {
+    render(<Harness />);
+    await open(/Core competency/);
+    const text = rowText(/Follows safety procedures/);
+    expect(text.match(/Yes or no/g)).toHaveLength(1);
+  });
+
+  it("tells two subsections with the same name apart by what leads them", async () => {
+    render(
+      <Harness
+        competencies={[
+          competency({ id: "t1", name: "Teamwork" }),
+          competency({ id: "t2", name: "Teamwork", answerKind: "BOOLEAN" }),
+        ]}
+      />,
+    );
+    await open(/Core competency/);
+
+    const rows = screen
+      .getAllByRole("button", { name: /Teamwork/ })
+      .filter((button) => button.hasAttribute("aria-expanded"))
+      .map((button) => button.textContent);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatch(/^Rated.*Teamwork/);
+    expect(rows[1]).toMatch(/^Yes or no.*Teamwork/);
+  });
+});
+
+describe("a lock follows the name of a subsection whose answer type is fixed", () => {
+  const LOCKED = competency({
+    id: "c-locked",
+    name: "Teamwork",
+    answerKind: "BOOLEAN",
+    ratingCount: 12,
+  });
+  const reason = "Fixed: 12 ratings are recorded, in any period.";
+
+  it("is drawn for a subsection with ratings, and for none without", async () => {
+    render(
+      <Harness
+        competencies={[
+          LOCKED,
+          competency({ id: "c-free", name: "Initiative" }),
+        ]}
+      />,
+    );
+    await open(/Core competency/);
+
+    expect(rowOf(/Teamwork/)).toHaveTextContent(reason);
+    expect(rowOf(/Initiative/)).not.toHaveTextContent("Fixed:");
+  });
+
+  it("comes directly after the name, before anything else on the row", async () => {
+    render(
+      <Harness
+        competencies={[LOCKED]}
+        questionCounts={new Map([["c-locked", 2]])}
+      />,
+    );
+    await open(/Core competency/);
+
+    const text = rowOf(/Teamwork/).textContent ?? "";
+    expect(text.indexOf(reason)).toBeGreaterThan(text.indexOf("Teamwork"));
+    expect(text.indexOf(reason)).toBeLessThan(text.indexOf("2 questions"));
+  });
+
+  it("is a picture and not a control, because the row's own toggle is a button", async () => {
+    render(<Harness competencies={[LOCKED]} />);
+    await open(/Core competency/);
+    expect(within(rowOf(/Teamwork/)).queryByRole("button")).toBeNull();
+  });
+});
+
+/** The toggle of a subsection's row, which says whether it is open. */
+function rowOf(name: RegExp | string): HTMLElement {
+  const toggle = screen
+    .getAllByRole("button", { name })
+    .find((button) => button.hasAttribute("aria-expanded"));
+  if (!toggle) throw new Error(`No row for ${String(name)}`);
+  return toggle;
+}
+
+/**
+ * Starting a new version, from the way through the lock. The tree holds the dialog
+ * and not the panel: starting one retires the row the panel is on, so the list
+ * re-reads and that row goes, and a dialog owned by it would go with it.
+ */
+describe("starting a new version of a fixed subsection", () => {
+  const LOCKED = competency({
+    id: "c-locked",
+    name: "Teamwork",
+    answerKind: "BOOLEAN",
+    ratingCount: 12,
+  });
+
+  /** What the list holds once the API has replaced the subsection. */
+  const replacement = (answerKind: "RATING" | "CHOICE") =>
+    competency({
+      id: "c-new",
+      name: "Teamwork",
+      answerKind,
+      ratingCount: 0,
+      ...(answerKind === "CHOICE" ? { choiceOptions: [] } : {}),
+    });
+
+  /** The list the way the parent holds it: it swaps when it is told to re-read. */
+  function VersionHarness({
+    next,
+    onChanged,
+    onQuestionsMoved,
+    editable = true,
+  }: {
+    next: ApiCompetency;
+    onChanged?: () => void;
+    onQuestionsMoved?: () => void;
+    editable?: boolean;
+  }) {
+    const [list, setList] = useState<ApiCompetency[]>([LOCKED]);
+    const [selectedId, setSelectedId] = useState<string | null>(LOCKED.id);
+    return (
+      <ToastProvider>
+        <SubsectionTree
+          periodName="H2 2026 Appraisal"
+          sections={SECTIONS}
+          competencies={list}
+          loading={false}
+          questionCounts={new Map()}
+          unfiledQuestionCount={0}
+          editable={editable}
+          whyNot={null}
+          selectedId={selectedId}
+          onSelect={(chosen) => setSelectedId(chosen?.id ?? null)}
+          onChanged={() => {
+            onChanged?.();
+            setList([next]);
+          }}
+          renderQuestions={(one) => (
+            <div data-testid="questions-panel">Questions for {one.name}</div>
+          )}
+          {...(onQuestionsMoved ? { onQuestionsMoved } : {})}
+        />
+      </ToastProvider>
+    );
+  }
+
+  const resultFor = (made: ApiCompetency, notes: string[] = []) => ({
+    competency: made,
+    retired: { id: "c-locked", name: "Teamwork (retired)", ratingsKept: 12 },
+    notes,
+  });
+
+  const openRatedTab = async () => {
+    await open(/Core competency/);
+    await userEvent.click(ratedTab());
+  };
+
+  const start = async (way: string) => {
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start a new version" }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/How the new version is answered/),
+      way,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start new version" }),
+    );
+  };
+
+  it("is offered on the rated tab of a fixed subsection, beside the disabled control", async () => {
+    render(<VersionHarness next={replacement("RATING")} />);
+    await openRatedTab();
+
+    expect(screen.getByLabelText("How it is answered")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Start a new version" }),
+    ).toBeInTheDocument();
+  });
+
+  it("is not offered on a subsection that can still be changed", async () => {
+    render(
+      <Harness
+        competencies={[competency({ id: "c-free", name: "Initiative" })]}
+      />,
+    );
+    await open(/Core competency/);
+    await open(/Initiative/);
+    await userEvent.click(ratedTab());
+    expect(
+      screen.queryByRole("button", { name: "Start a new version" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("is not offered to somebody who cannot change the framework", async () => {
+    render(<VersionHarness next={replacement("RATING")} editable={false} />);
+    await openRatedTab();
+    expect(
+      screen.queryByRole("button", { name: "Start a new version" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the dialog for that subsection, and sends nothing until it is confirmed", async () => {
+    render(<VersionHarness next={replacement("RATING")} />);
+    await openRatedTab();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start a new version" }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Start a new version of Teamwork" }),
+    ).toBeInTheDocument();
+    expect(newCompetencyVersion).not.toHaveBeenCalled();
+  });
+
+  it("re-reads the framework, tells the owner of the period's questions, and opens the new subsection on its questions", async () => {
+    newCompetencyVersion.mockResolvedValue(resultFor(replacement("RATING")));
+    const onChanged = vi.fn();
+    const onQuestionsMoved = vi.fn();
+    render(
+      <VersionHarness
+        next={replacement("RATING")}
+        onChanged={onChanged}
+        onQuestionsMoved={onQuestionsMoved}
+      />,
+    );
+    await openRatedTab();
+    await start("A level on a scale, 1 to 5");
+
+    await waitFor(() =>
+      expect(newCompetencyVersion).toHaveBeenCalledWith("c-locked", "RATING"),
+    );
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+    expect(onQuestionsMoved).toHaveBeenCalledTimes(1);
+
+    /* The old row is gone and the new one is open, on its questions. */
+    await waitFor(() =>
+      expect(questionsTab(/Questions/)).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
+    expect(screen.getByTestId("questions-panel")).toHaveTextContent(
+      "Questions for Teamwork",
+    );
+    expect(rowOf(/Teamwork/)).toHaveAttribute("aria-expanded", "true");
+    expect(rowOf(/Teamwork/)).not.toHaveTextContent("Fixed:");
+  });
+
+  it("opens a pick-one version on its choices, because that is what it needs next", async () => {
+    newCompetencyVersion.mockResolvedValue(resultFor(replacement("CHOICE")));
+    render(<VersionHarness next={replacement("CHOICE")} />);
+    await openRatedTab();
+    await start("Pick one from a list");
+
+    await waitFor(() =>
+      expect(ratedTab()).toHaveAttribute("aria-selected", "true"),
+    );
+    expect(screen.getByLabelText("How it is answered")).toHaveValue("CHOICE");
+    expect(screen.queryByTestId("questions-panel")).not.toBeInTheDocument();
+  });
+
+  it("keeps its sentences on screen, with the new subsection already open behind them", async () => {
+    const note = '"H2 2026 Appraisal" asks the new one.';
+    newCompetencyVersion.mockResolvedValue(
+      resultFor(replacement("RATING"), [note]),
+    );
+    render(<VersionHarness next={replacement("RATING")} />);
+    await openRatedTab();
+    await start("A level on a scale, 1 to 5");
+
+    expect(await screen.findByText(note)).toBeInTheDocument();
+    /* The row the dialog was started from has gone, and the dialog has not. */
+    expect(
+      screen.getByRole("dialog", { name: "Started a new version of Teamwork" }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("leaves the subsection exactly as it was when the API refuses", async () => {
+    const refusal =
+      '"Teamwork" is asked on the review form of "H2 2026 Appraisal", which is running.';
+    newCompetencyVersion.mockRejectedValue(
+      new ApiError(409, "conflict", refusal),
+    );
+    const onChanged = vi.fn();
+    const onQuestionsMoved = vi.fn();
+    render(
+      <VersionHarness
+        next={replacement("RATING")}
+        onChanged={onChanged}
+        onQuestionsMoved={onQuestionsMoved}
+      />,
+    );
+    await openRatedTab();
+    await start("A level on a scale, 1 to 5");
+
+    expect(await screen.findByText(refusal)).toBeInTheDocument();
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(onQuestionsMoved).not.toHaveBeenCalled();
+    expect(rowOf(/Teamwork/)).toHaveTextContent("Fixed: 12 ratings");
   });
 });

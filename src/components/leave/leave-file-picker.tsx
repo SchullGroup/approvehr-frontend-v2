@@ -9,6 +9,7 @@ import {
   acceptedLabels,
   fileRefusal,
   filesFull,
+  joinLabels,
   megabytes,
   type FileRef,
   type LeaveFileLimits,
@@ -171,9 +172,29 @@ export function AttachFilesButton({
   );
 }
 
-/** What can be attached, in one line. */
-export const fileHint = (limits: LeaveFileLimits): string =>
-  `${acceptedLabels(limits)}, up to ${String(limits.maxFiles)} files of ${megabytes(limits.maxBytes)} each.`;
+/**
+ * What can be attached, in one line.
+ *
+ * One size when every kind shares it, which is every stored file. Where the
+ * route gives kinds different limits (a linked PDF and a linked image), each
+ * limit is said against the kinds it applies to, smallest first: a hint that
+ * quoted the larger would promise a size a PDF is refused at.
+ */
+export const fileHint = (limits: LeaveFileLimits): string => {
+  const groups = new Map<number, string[]>();
+  for (const type of limits.types) {
+    const cap = type.maxBytes ?? limits.maxBytes;
+    groups.set(cap, [...(groups.get(cap) ?? []), type.label]);
+  }
+  if (groups.size <= 1) {
+    const cap = groups.keys().next().value ?? limits.maxBytes;
+    return `${acceptedLabels(limits)}, up to ${String(limits.maxFiles)} files of ${megabytes(cap)} each.`;
+  }
+  const parts = [...groups.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([cap, labels]) => `${joinLabels(labels)} up to ${megabytes(cap)}`);
+  return `${parts.join(", ")}, up to ${String(limits.maxFiles)} files.`;
+};
 
 /** The files chosen and not yet sent: name, size, progress, and why not. */
 export function StagedLeaveFileList({
@@ -242,6 +263,7 @@ export function LeaveFilePicker({
   staged,
   limits,
   required,
+  note,
   error,
   disabled = false,
   className,
@@ -250,6 +272,9 @@ export function LeaveFilePicker({
   limits: LeaveFileLimits;
   /** The API's own answer for these dates: the leave type asks for a file. */
   required: boolean;
+  /** One plain sentence under the picker, for what the reader must know before
+   *  choosing: that a linked file is kept where its address opens it. */
+  note?: string | undefined;
   /** A refusal that belongs to the whole group, said in red under it. */
   error?: string | null;
   disabled?: boolean;
@@ -289,6 +314,8 @@ export function LeaveFilePicker({
         />
         <span className="min-w-0 text-meta text-muted">{fileHint(limits)}</span>
       </div>
+
+      {note && <p className="text-body-sm text-muted">{note}</p>}
 
       {unmet && !error && (
         <p className="text-body-sm text-muted">

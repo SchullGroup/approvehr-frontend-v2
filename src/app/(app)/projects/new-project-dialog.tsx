@@ -26,6 +26,8 @@ import {
 } from "@/lib/store/project-session";
 import { ApiError } from "@/lib/api/client";
 import { PersonPicker } from "@/components/projects/person";
+import { CYCLE, PROGRAM } from "@/lib/projects/terms";
+import { useProgramList } from "@/lib/store/programs";
 
 type Draft = {
   /** Only asked of a sign-in with no staff record, which cannot lead anything itself. */
@@ -37,6 +39,8 @@ type Draft = {
   type: ProjectType;
   departmentId: string;
   description: string;
+  /** The program it starts in; empty for none. */
+  programId: string;
 };
 
 const BLANK: Draft = {
@@ -47,6 +51,7 @@ const BLANK: Draft = {
   type: "SCRUM",
   departmentId: "",
   description: "",
+  programId: "",
 };
 
 /** People in a department, by id where the directory has it and by name where it only has that. */
@@ -65,6 +70,10 @@ function inDepartment(
  * New project: a name, a key, a board type, a department if there is one, and a
  * line about what it is for.
  *
+ * A program, when the person may start a project in one, is chosen here too, and
+ * starts as the one they came from. Only programs that will take the project are
+ * offered; the picker is absent when there are none.
+ *
  * The key follows the name until the person types in it, the way the design does:
  * "Checkout Revamp" suggests CR. Choosing a department adds its people as members
  * — said on the form, with the number, because adding forty people to a project
@@ -77,10 +86,13 @@ export function NewProjectDialog({
   open,
   onClose,
   takenKeys,
+  defaultProgramId = null,
 }: {
   open: boolean;
   onClose: () => void;
   takenKeys: readonly string[];
+  /** The program the person came from, which the new project starts in. */
+  defaultProgramId?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -88,6 +100,7 @@ export function NewProjectDialog({
   const people = usePeople();
   const actor = useProjectActor();
   const departments = useDepartments();
+  const programList = useProgramList();
   const formId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -102,7 +115,7 @@ export function NewProjectDialog({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setDraft(BLANK);
+      setDraft({ ...BLANK, programId: defaultProgramId ?? "" });
       setBusy(false);
       setNameError(undefined);
       setKeyError(undefined);
@@ -117,6 +130,9 @@ export function NewProjectDialog({
     return () => window.clearTimeout(timer);
   }, [open]);
 
+  const programs = (programList.data?.programs ?? []).filter(
+    (p) => p.canCreateProject && !p.archived,
+  );
   const liveDepartments = departments.flat.filter((d) => !d.archived);
   const department = liveDepartments.find((d) => d.id === draft.departmentId);
   const seeded = department ? inDepartment(people.people, department) : [];
@@ -152,6 +168,7 @@ export function NewProjectDialog({
         seedMembersFromDepartment: department !== undefined,
         memberIds: seeded.map((p) => p.id),
         ...(needsLead ? { leadId: draft.leadId } : {}),
+        programId: draft.programId || null,
       },
       { quiet: true },
     );
@@ -223,7 +240,7 @@ export function NewProjectDialog({
           <Field
             label="Key"
             required
-            help="2 to 6 letters or digits. It starts every issue number, like MOB-12, and cannot change later."
+            help="2 to 6 letters or digits. It starts every task number, like MOB-12, and cannot change later."
             {...(keyError ? { error: keyError } : {})}
           >
             <Input
@@ -247,7 +264,7 @@ export function NewProjectDialog({
             label="Board type"
             help={
               draft.type === "SCRUM"
-                ? "Plan work into sprints."
+                ? `Plan work into ${CYCLE.many}.`
                 : "Work flows through the columns."
             }
           >
@@ -268,6 +285,28 @@ export function NewProjectDialog({
             </Select>
           </Field>
         </div>
+
+        {programs.length > 0 && (
+          <Field
+            label={PROGRAM.One}
+            optional
+            help={`People with access to the ${PROGRAM.one} can see this project.`}
+          >
+            <Select
+              value={draft.programId}
+              onChange={(event) =>
+                setDraft((d) => ({ ...d, programId: event.target.value }))
+              }
+            >
+              <option value="">No {PROGRAM.one}</option>
+              {programs.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
 
         {liveDepartments.length > 0 && (
           <Field

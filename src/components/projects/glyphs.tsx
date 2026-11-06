@@ -1,5 +1,4 @@
 import {
-  Bookmark,
   Bug,
   ChevronDown,
   ChevronUp,
@@ -12,9 +11,9 @@ import {
 } from "lucide-react";
 import { Badge, type BadgeTone } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { EFFORT, TYPE_LABEL } from "@/lib/projects/terms";
 import {
   CATEGORY_LABEL,
-  ISSUE_TYPE_LABEL,
   PRIORITY_LABEL,
   type IssueType,
   type Priority,
@@ -35,7 +34,7 @@ import {
 
 const TYPE_ICON: Record<IssueType, typeof Zap> = {
   EPIC: Zap,
-  STORY: Bookmark,
+  STORY: SquareCheck,
   TASK: SquareCheck,
   BUG: Bug,
   SUBTASK: ListTree,
@@ -46,7 +45,7 @@ const TYPE_ICON: Record<IssueType, typeof Zap> = {
    them would not. */
 const TYPE_TONE: Record<IssueType, string> = {
   EPIC: "bg-cat-4/15 text-cat-4",
-  STORY: "bg-success-soft text-success-text",
+  STORY: "bg-info-soft text-info-text",
   TASK: "bg-info-soft text-info-text",
   BUG: "bg-warning-soft text-warning-text",
   SUBTASK: "bg-sunken text-muted",
@@ -63,8 +62,8 @@ export function TypeIcon({
   return (
     <span
       role="img"
-      aria-label={ISSUE_TYPE_LABEL[type]}
-      title={ISSUE_TYPE_LABEL[type]}
+      aria-label={TYPE_LABEL[type]}
+      title={TYPE_LABEL[type]}
       className={cn(
         "inline-flex size-5 shrink-0 items-center justify-center rounded-sm",
         TYPE_TONE[type],
@@ -173,7 +172,7 @@ export function PointsPill({
 }) {
   return (
     <span
-      title={`${points} ${points === 1 ? "point" : "points"}`}
+      title={`${points} ${EFFORT.one}`}
       className={cn(
         "tabular inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-sunken px-1.5 text-meta font-semibold text-body",
         className,
@@ -213,7 +212,30 @@ export function EpicChip({
   );
 }
 
-/** The project's coloured key, white on a dark hue. */
+/**
+ * White or near-black, whichever reads better on a project's colour.
+ *
+ * The colour is the project's own (the API picks one, and a person may too), so
+ * a pale hue cannot be ruled out: white on `#B0780A` is 3.8:1, under the 4.5:1 a
+ * small label needs. Returns white when it clears 4.5:1, else the dark ink.
+ */
+export function textOnColor(color: string): "#ffffff" | "#1a1815" {
+  const match = /^#?([0-9a-f]{6})$/i.exec(color.trim());
+  if (!match) return "#ffffff";
+  const n = parseInt(match[1]!, 16);
+  const channel = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance =
+    0.2126 * channel((n >> 16) & 255) +
+    0.7152 * channel((n >> 8) & 255) +
+    0.0722 * channel(n & 255);
+  const white = 1.05 / (luminance + 0.05);
+  return white >= 4.5 ? "#ffffff" : "#1a1815";
+}
+
+/** The project's coloured key, in the colour that reads best on its hue. */
 export function ProjectKeyChip({
   project,
   className,
@@ -223,9 +245,12 @@ export function ProjectKeyChip({
 }) {
   return (
     <span
-      style={{ backgroundColor: project.color }}
+      style={{
+        backgroundColor: project.color,
+        color: textOnColor(project.color),
+      }}
       className={cn(
-        "tabular inline-flex h-6 min-w-9 shrink-0 items-center justify-center rounded-sm px-1.5 text-meta font-semibold text-white",
+        "tabular inline-flex h-6 min-w-9 shrink-0 items-center justify-center rounded-sm px-1.5 text-meta font-semibold",
         className,
       )}
     >

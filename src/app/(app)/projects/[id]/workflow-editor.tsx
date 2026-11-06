@@ -11,6 +11,7 @@ import {
   type StatusCategory,
   type StatusInput,
 } from "@/lib/projects/types";
+import { LIMIT, STAGE, count as countNoun } from "@/lib/projects/terms";
 import {
   MAX_STATUSES,
   removalBlocker,
@@ -101,7 +102,7 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
   };
   const remove = (key: string) => change(rows.filter((r) => r.key !== key));
   const add = () => {
-    /* Before the last column, so a new status lands between the work and Done. */
+    /* Before the last column, so a new stage lands between the work and Done. */
     const next = [...rows];
     next.splice(Math.max(0, next.length - 1), 0, {
       key: newKey(),
@@ -116,15 +117,18 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
   /** Why a saved status cannot go, judged against the saved list and issues. */
   const blocker = (row: Row): string | null => {
     if (!row.id) {
-      return rows.length <= 2 ? "A workflow needs at least 2 statuses." : null;
+      return rows.length <= 2
+        ? `A workflow needs at least ${countNoun(2, "stage")}.`
+        : null;
     }
     const fromSavedList = removalBlocker(saved, issues, row.id);
     if (fromSavedList) return fromSavedList;
     /* The draft may already have shrunk below the minimum or lost its last Done. */
-    if (rows.length <= 2) return "A workflow needs at least 2 statuses.";
+    if (rows.length <= 2)
+      return `A workflow needs at least ${countNoun(2, "stage")}.`;
     const others = rows.filter((r) => r.key !== row.key);
     if (!others.some((r) => r.category === "DONE")) {
-      return "Keep at least one Done status.";
+      return `Keep at least one Done ${STAGE.one}.`;
     }
     return null;
   };
@@ -154,16 +158,16 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
             <li key={row.key} className="py-3">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 sm:grid-cols-[minmax(0,1fr)_9.5rem_6rem_auto]">
                 <Input
-                  aria-label={`Status ${index + 1} name`}
+                  aria-label={`${STAGE.One} ${index + 1} name`}
                   value={row.name}
                   disabled={!editable}
-                  placeholder="Status name"
+                  placeholder={`${STAGE.One} name`}
                   maxLength={40}
                   onChange={(e) => update(row.key, { name: e.target.value })}
                   className="col-span-2 sm:col-span-1"
                 />
                 <Select
-                  aria-label={`Status ${index + 1} category`}
+                  aria-label={`${STAGE.One} ${index + 1} category`}
                   value={row.category}
                   disabled={!editable}
                   onChange={(e) =>
@@ -179,20 +183,20 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
                   ))}
                 </Select>
                 <Input
-                  aria-label={`Status ${index + 1} WIP limit`}
+                  aria-label={`${STAGE.One} ${index + 1} ${LIMIT.one}`}
                   type="number"
                   min={1}
                   step={1}
                   inputMode="numeric"
                   value={row.wip}
                   disabled={!editable}
-                  placeholder="No limit"
+                  placeholder={`No ${LIMIT.one}`}
                   onChange={(e) => update(row.key, { wip: e.target.value })}
                 />
                 {editable && (
                   <span className="flex items-center gap-0.5 justify-self-end">
                     <IconButton
-                      label={`Move ${row.name || "this status"} up`}
+                      label={`Move ${row.name || `this ${STAGE.one}`} up`}
                       size="sm"
                       disabled={index === 0}
                       onClick={() => move(index, -1)}
@@ -200,7 +204,7 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
                       <ArrowUp className="size-4" />
                     </IconButton>
                     <IconButton
-                      label={`Move ${row.name || "this status"} down`}
+                      label={`Move ${row.name || `this ${STAGE.one}`} down`}
                       size="sm"
                       disabled={index === rows.length - 1}
                       onClick={() => move(index, 1)}
@@ -208,7 +212,7 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
                       <ArrowDown className="size-4" />
                     </IconButton>
                     <IconButton
-                      label={`Remove ${row.name || "this status"}`}
+                      label={`Remove ${row.name || `this ${STAGE.one}`}`}
                       size="sm"
                       aria-disabled={why !== null}
                       aria-describedby={showReason ? reasonId : undefined}
@@ -251,7 +255,7 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
               disabled={rows.length >= MAX_STATUSES}
             >
               <Plus aria-hidden="true" className="size-4" />
-              Add a status
+              Add a {STAGE.one}
             </Button>
             <span className="flex-1" />
             {dirty && (

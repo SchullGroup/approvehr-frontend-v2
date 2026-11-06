@@ -24,7 +24,7 @@ import type { Issue, ProjectData, Sprint } from "@/lib/projects/types";
 import { NOW, TODAY, sampleData } from "./projects-fixture";
 
 /**
- * The backlog's rules, without a screen: which list an issue is in, what a drop or
+ * The backlog's rules, without a screen: which list an task is in, what a drop or
  * a menu choice writes, and the figures the sprint dialogs and the closing line
  * are made from.
  *
@@ -60,8 +60,8 @@ describe("what the backlog lists", () => {
     const layout = layoutOf();
     expect(layout.kind).toBe("SCRUM");
     expect(layout.sprints.map((s) => s.sprint.name)).toEqual([
-      "CHK Sprint 3",
-      "CHK Sprint 4",
+      "Cycle 3",
+      "Cycle 4",
     ]);
     expect(keys(layout.sprints[1]!.all)).toEqual(["CHK-17", "CHK-18"]);
     expect(keys(layout.backlog.all)).toEqual([
@@ -115,7 +115,7 @@ describe("what the backlog lists", () => {
 
   it("sends an unfinished issue in a closed sprint back to the backlog, and hides a finished one", () => {
     const data = sampleData();
-    const closed = sprintNamed(data, "CHK Sprint 2");
+    const closed = sprintNamed(data, "Cycle 2");
     const reopened: ProjectData = {
       ...data,
       issues: data.issues.map((i) =>
@@ -182,21 +182,21 @@ describe("what a drop writes", () => {
 
   it("plans a backlog issue into a sprint, at the end of it", () => {
     const data = sampleData();
-    const planned = sprintNamed(data, "CHK Sprint 4");
+    const planned = sprintNamed(data, "Cycle 4");
     const patch = scrumMove(data, "CHK-19", planned.id, null);
     expect(patch).toEqual({ sprintId: planned.id, rank: 19 });
   });
 
   it("puts a dropped issue between its neighbours by the midpoint of their ranks", () => {
     const data = sampleData();
-    const planned = sprintNamed(data, "CHK Sprint 4");
+    const planned = sprintNamed(data, "Cycle 4");
     const patch = scrumMove(data, "CHK-19", planned.id, "CHK-18");
     expect(patch).toEqual({ sprintId: planned.id, rank: 17.5 });
   });
 
   it("puts it above the first row when dropped in front of it", () => {
     const data = sampleData();
-    const planned = sprintNamed(data, "CHK Sprint 4");
+    const planned = sprintNamed(data, "Cycle 4");
     expect(scrumMove(data, "CHK-19", planned.id, "CHK-17")).toEqual({
       sprintId: planned.id,
       rank: 16,
@@ -225,9 +225,9 @@ describe("what a drop writes", () => {
   it("keeps its own rank when the list it lands in is empty", () => {
     const data = sampleData();
     const empty: Sprint = {
-      ...sprintNamed(data, "CHK Sprint 4"),
+      ...sprintNamed(data, "Cycle 4"),
       id: "sp-new",
-      name: "CHK Sprint 5",
+      name: "Cycle 5",
     };
     const withEmpty: ProjectData = {
       ...data,
@@ -306,14 +306,14 @@ describe("the Move to menu", () => {
     const options = optionsFor(data, "CHK-20");
     const by = (label: string) => options.find((o) => o.label === label)!;
     expect(options.map((o) => o.label)).toEqual([
-      "CHK Sprint 3 (active)",
-      "CHK Sprint 4",
-      "Backlog",
+      "Cycle 3 (active)",
+      "Cycle 4",
+      "Later",
       "Top of this list",
       "Bottom of this list",
     ]);
-    expect(by("Backlog").disabled).toBe(true);
-    expect(by("CHK Sprint 4").disabled).toBe(false);
+    expect(by("Later").disabled).toBe(true);
+    expect(by("Cycle 4").disabled).toBe(false);
     expect(by("Top of this list").disabled).toBe(false);
     expect(by("Bottom of this list").disabled).toBe(false);
   });
@@ -352,7 +352,7 @@ describe("the Move to menu", () => {
   it("turns a choice into the same patch a drop would", () => {
     const data = sampleData();
     const layout = layoutOf(data);
-    const planned = sprintNamed(data, "CHK Sprint 4");
+    const planned = sprintNamed(data, "Cycle 4");
     const args = {
       issue: byKey(data, "CHK-20"),
       layout,
@@ -391,7 +391,7 @@ describe("the Move to menu", () => {
 describe("sprint figures and the closing line", () => {
   it("counts top-level issues only, as the API commits and completes them", () => {
     const data = sampleData();
-    const active = sprintNamed(data, "CHK Sprint 3");
+    const active = sprintNamed(data, "Cycle 3");
     expect(
       sprintFigures(data.project.statuses, data.issues, active.id),
     ).toEqual({
@@ -413,26 +413,24 @@ describe("sprint figures and the closing line", () => {
       openIssues: 3,
       openPoints: 4,
     };
-    expect(completionLine("CHK Sprint 3", figures, { kind: "backlog" })).toBe(
-      "CHK Sprint 3 completed, 22 of 26 points done; 3 issues moved to the backlog",
+    expect(completionLine("Cycle 3", figures, { kind: "backlog" })).toBe(
+      "Cycle 3 completed, 22 of 26 effort done; 3 tasks moved to Later",
     );
     expect(
-      completionLine("CHK Sprint 3", figures, {
+      completionLine("Cycle 3", figures, {
         kind: "sprint",
-        name: "CHK Sprint 4",
+        name: "Cycle 4",
       }),
-    ).toBe(
-      "CHK Sprint 3 completed, 22 of 26 points done; 3 issues moved to CHK Sprint 4",
-    );
-    expect(completionLine("CHK Sprint 3", figures, { kind: "new" })).toMatch(
-      /3 issues moved to a new sprint$/,
+    ).toBe("Cycle 3 completed, 22 of 26 effort done; 3 tasks moved to Cycle 4");
+    expect(completionLine("Cycle 3", figures, { kind: "new" })).toMatch(
+      /3 tasks moved to a new cycle$/,
     );
   });
 
   it("says nothing about moving when everything was done, and counts issues when nothing was estimated", () => {
     expect(
       completionLine(
-        "CHK Sprint 3",
+        "Cycle 3",
         {
           issues: 5,
           points: 20,
@@ -443,10 +441,10 @@ describe("sprint figures and the closing line", () => {
         },
         { kind: "backlog" },
       ),
-    ).toBe("CHK Sprint 3 completed, 20 of 20 points done");
+    ).toBe("Cycle 3 completed, 20 of 20 effort done");
     expect(
       completionLine(
-        "CHK Sprint 3",
+        "Cycle 3",
         {
           issues: 4,
           points: 0,
@@ -457,12 +455,10 @@ describe("sprint figures and the closing line", () => {
         },
         { kind: "backlog" },
       ),
-    ).toBe(
-      "CHK Sprint 3 completed, 3 of 4 issues done; 1 issue moved to the backlog",
-    );
+    ).toBe("Cycle 3 completed, 3 of 4 tasks done; 1 task moved to Later");
     expect(
       completionLine(
-        "CHK Sprint 3",
+        "Cycle 3",
         {
           issues: 0,
           points: 0,
@@ -473,16 +469,16 @@ describe("sprint figures and the closing line", () => {
         },
         { kind: "backlog" },
       ),
-    ).toBe("CHK Sprint 3 completed");
+    ).toBe("Cycle 3 completed");
   });
 });
 
 describe("the sprint rules the dialogs rely on", () => {
   it("refuses to start a sprint with nothing in it, or while another is running", () => {
     const data = sampleData();
-    const four = sprintNamed(data, "CHK Sprint 4");
+    const four = sprintNamed(data, "Cycle 4");
     expect(startBlocker(four, data.sprints, data.issues)).toBe(
-      "Complete the active sprint first.",
+      "Complete the active cycle first.",
     );
     const noneRunning = data.sprints.map((s) =>
       s.state === "ACTIVE" ? { ...s, state: "CLOSED" as const } : s,
@@ -491,21 +487,19 @@ describe("the sprint rules the dialogs rely on", () => {
     const empty = data.issues.map((i) =>
       i.sprintId === four.id ? { ...i, sprintId: null } : i,
     );
-    expect(startBlocker(four, noneRunning, empty)).toBe("Add issues first.");
+    expect(startBlocker(four, noneRunning, empty)).toBe("Add tasks first.");
   });
 
   it("names a new sprint past one that already exists after a deletion", () => {
     const data = sampleData();
-    /* Sprint 2 was deleted: three sprints left, and "CHK Sprint 4" is taken. */
-    const left = data.sprints.filter((s) => s.name !== "CHK Sprint 2");
+    /* Sprint 2 was deleted: three sprints left, and "Cycle 4" is taken. */
+    const left = data.sprints.filter((s) => s.name !== "Cycle 2");
     expect(left).toHaveLength(3);
-    expect(nextSprintDraft(data.project, left, TODAY).name).toBe(
-      "CHK Sprint 5",
-    );
+    expect(nextSprintDraft(data.project, left, TODAY).name).toBe("Cycle 5");
     expect(nextSprintDraft(data.project, data.sprints, TODAY).name).toBe(
-      "CHK Sprint 5",
+      "Cycle 5",
     );
-    expect(nextSprintDraft(data.project, [], TODAY).name).toBe("CHK Sprint 1");
+    expect(nextSprintDraft(data.project, [], TODAY).name).toBe("Cycle 1");
   });
 
   it("starts a draft the day after the last sprint's end", () => {
@@ -516,7 +510,7 @@ describe("the sprint rules the dialogs rely on", () => {
 
   it("keeps a finished parent's sub-tasks with it when a sprint is completed, as the API does", () => {
     const data = sampleData();
-    const active = sprintNamed(data, "CHK Sprint 3");
+    const active = sprintNamed(data, "Cycle 3");
     /* CHK-10 is open; its sub-tasks move with it. Make a *finished* parent
        (CHK-11) carry an unfinished sub-task, which must stay in the sprint. */
     const parent = byKey(data, "CHK-11");
