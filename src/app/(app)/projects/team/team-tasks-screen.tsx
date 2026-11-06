@@ -33,6 +33,7 @@ import {
   type TeamTask,
 } from "@/lib/api/projects";
 import { useDemoTeamOpen } from "@/lib/store/completions";
+import { useTeamScope } from "@/lib/store/team-tasks";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
@@ -90,30 +91,52 @@ export function TeamTasksScreen() {
 
 type View = "open" | "completed";
 
-/** Open work, or what the people you lead have finished. Kept in the address. */
+/**
+ * Open work, or what people have finished. Kept in the address.
+ *
+ * Somebody who leads people opens on their open work, as always. HR open on
+ * Completed, which is everybody's. HR who lead nobody have no open work of their
+ * own to look at, so for them Open work is left out altogether (absent, not a
+ * tab that opens onto an empty page) and the switch is not drawn. While the API
+ * has yet to say whether they lead anybody the switch is not drawn either, and
+ * appears when it is known, rather than appearing and being taken away.
+ */
 function Team() {
-  const [view, setView] = useQueryParam("view", "open");
-  const switcher = (
-    <SegmentedControl<View>
-      label="View"
-      value={view === "completed" ? "completed" : "open"}
-      onChange={(next) => setView(next === "open" ? null : next)}
-      options={[
-        { value: "open", label: "Open work" },
-        { value: "completed", label: "Completed" },
-      ]}
-    />
-  );
+  const scope = useTeamScope(true);
+  const [asked, setAsked] = useQueryParam("view", "");
+  const home: View = scope.everyone ? "completed" : "open";
+  const noOpenWork = scope.everyone && scope.leads === false;
+  const view: View = noOpenWork
+    ? "completed"
+    : asked === "open" || asked === "completed"
+      ? asked
+      : home;
+  const switcher =
+    scope.everyone && scope.leads !== true ? null : (
+      <SegmentedControl<View>
+        label="View"
+        value={view}
+        onChange={(next) => setAsked(next === home ? null : next)}
+        options={[
+          { value: "open", label: "Open work" },
+          { value: "completed", label: "Completed" },
+        ]}
+      />
+    );
   if (view === "completed") {
     return (
       <>
         <PageHeader
           title="Team tasks"
-          description="Everyone you manage or whose department you run."
+          description={
+            scope.everyone
+              ? "Everybody's finished work, by person."
+              : "Everyone you manage or whose department you run."
+          }
         />
         <PageBody className="space-y-4">
           {switcher}
-          <CompletedTeam />
+          <CompletedTeam everyone={scope.everyone} leads={scope.leads} />
         </PageBody>
       </>
     );

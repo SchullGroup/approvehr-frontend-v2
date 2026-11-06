@@ -307,22 +307,25 @@ export function groupTeamRows(rows: readonly TeamRow[]): TeamCompletedPerson[] {
 export function useTeamCompleted(
   kind: "week" | "month" | "quarter",
   anchor: string | undefined,
+  /** One person, or `null` for everybody the reader may see. */
+  employeeId: string | null = null,
 ): TeamCompletedList {
   const { isConnected } = useSession();
   const world = useDemoWorld();
 
   const paged = usePagedList<TeamRow>({
-    key: `team-completed|${kind}|${anchor ?? "today"}`,
+    key: `team-completed|${kind}|${anchor ?? "today"}|${employeeId ?? "all"}`,
     enabled: isConnected,
     idOf: (row) => row.id,
     fetchPage: async (cursor, signal) => {
       const page = await shared(
-        `team|${kind}|${anchor ?? ""}|${cursor ?? ""}`,
+        `team|${kind}|${anchor ?? ""}|${employeeId ?? ""}|${cursor ?? ""}`,
         signal,
         () =>
           completionsApi.teamCompleted({
             period: kind,
             date: anchor,
+            employeeId: employeeId ?? undefined,
             cursor,
             limit: TEAM_PAGE,
           }),
@@ -340,10 +343,12 @@ export function useTeamCompleted(
             directory: world.directory,
             kind,
             day: anchor ?? world.today,
+            everyone: world.viewer.editRecords,
+            employeeId,
             ctx: world.ctx,
           })
         : null,
-    [world, kind, anchor],
+    [world, kind, anchor, employeeId],
   );
 
   const connectedPeople = useMemo(

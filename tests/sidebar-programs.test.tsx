@@ -101,6 +101,7 @@ describe("the rows under Projects, by person", () => {
       "HR with programs",
       [
         "My tasks",
+        "Team tasks",
         "All projects",
         "Operations",
         "Technology",
@@ -127,6 +128,7 @@ describe("the rows under Projects, by person", () => {
     const { container } = projectsLevel(persona("HR with programs"));
     expect(hrefs(container)).toEqual([
       "/projects/mine",
+      "/projects/team",
       "/projects",
       "/projects/programs/pg-ops",
       "/projects/programs/pg-tech",
@@ -153,20 +155,26 @@ describe("the rows under Projects, by person", () => {
 });
 
 describe("a company with no programs", () => {
-  const OLD = [
-    "employee",
-    "line manager",
-    "HR manager",
-    "administrator",
-    "billing-locked company",
-    "no staff record",
-  ];
+  const OLD = ["employee", "line manager", "no staff record"];
+  /* HR hold the Team tasks row as well: everybody's finished work is theirs to
+     read whether or not anybody reports to them. */
+  const HR = ["HR manager", "administrator", "billing-locked company"];
 
   it.each(OLD)("%s reaches the same Projects doors as before", (name) => {
     const p = persona(name);
     const projects = groupsFor(p).find((g) => g.id === "projects");
     expect(projects?.items.map((i) => i.href)).toEqual([
       "/projects/mine",
+      "/projects",
+    ]);
+  });
+
+  it.each(HR)("%s reaches the same Projects doors, and Team tasks", (name) => {
+    const p = persona(name);
+    const projects = groupsFor(p).find((g) => g.id === "projects");
+    expect(projects?.items.map((i) => i.href)).toEqual([
+      "/projects/mine",
+      "/projects/team",
       "/projects",
     ]);
   });

@@ -121,6 +121,29 @@ describe("the manager's Completed view, connected", () => {
     expect(result.current.people.map((p) => p.employee.name)).toEqual(["Bola"]);
   });
 
+  it("asks for one person, and starts again from the first page when the person changes", async () => {
+    teamCompleted.mockResolvedValue({
+      rows: [row("a", "bola", "Bola")],
+      total: 1,
+      next: null,
+    });
+    const { result, rerender } = renderHook(
+      ({ who }: { who: string | null }) =>
+        useTeamCompleted("week", "2026-11-04", who),
+      { initialProps: { who: null as string | null } },
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    rerender({ who: "emp-7" });
+    await waitFor(() => expect(teamCompleted).toHaveBeenCalledTimes(2));
+    expect(teamCompleted).toHaveBeenLastCalledWith({
+      period: "week",
+      date: "2026-11-04",
+      employeeId: "emp-7",
+      cursor: null,
+      limit: 50,
+    });
+  });
+
   it("shows nothing while loading: no people, no count", async () => {
     let finish: (value: unknown) => void = () => undefined;
     teamCompleted.mockReturnValue(new Promise((r) => (finish = r)));

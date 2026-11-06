@@ -9,6 +9,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 let search = new URLSearchParams();
+/** What the API said of the reader: HR (`everyone`), and whether they lead people. */
+const scope = vi.hoisted(() => ({
+  value: { everyone: false, leads: true as boolean | null },
+}));
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({
   usePathname: () => "/projects/team",
@@ -38,6 +42,9 @@ vi.mock("@/lib/api/projects", async (original) => ({
   ...(await original<typeof import("@/lib/api/projects")>()),
   projectsApi: { teamTasks: vi.fn().mockResolvedValue([]) },
 }));
+vi.mock("@/lib/store/team-tasks", () => ({
+  useTeamScope: () => scope.value,
+}));
 vi.mock("@/lib/store/completions", () => ({
   useDemoTeamOpen: () => null,
   useBulkLink: () => vi.fn(),
@@ -60,6 +67,7 @@ const { TeamTasksScreen } =
 
 beforeEach(() => {
   search = new URLSearchParams();
+  scope.value = { everyone: false, leads: true };
   replace.mockClear();
 });
 
@@ -106,5 +114,76 @@ describe("the two views", () => {
     expect(
       await screen.findByRole("radio", { name: "Open work" }),
     ).toHaveAttribute("aria-checked", "true");
+  });
+});
+
+describe("for HR", () => {
+  it("who lead nobody, opens on Completed with no switch to open work", async () => {
+    scope.value = { everyone: true, leads: false };
+    render(<TeamTasksScreen />);
+    expect(
+      await screen.findByRole("radio", { name: "Quarter" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Open work" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Completed" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Overdue" })).toBeNull();
+    expect(
+      screen.getByText("Everybody's finished work, by person."),
+    ).toBeInTheDocument();
+  });
+
+  it("who lead nobody, never reach the empty open work, even by an old address", async () => {
+    scope.value = { everyone: true, leads: false };
+    search = new URLSearchParams("view=open");
+    render(<TeamTasksScreen />);
+    expect(
+      await screen.findByRole("radio", { name: "Quarter" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Nobody reports to you/)).toBeNull();
+  });
+
+  it("opens on Completed before it is known whether they lead anybody, and draws no switch yet", async () => {
+    scope.value = { everyone: true, leads: null };
+    render(<TeamTasksScreen />);
+    expect(
+      await screen.findByRole("radio", { name: "Quarter" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Open work" })).toBeNull();
+  });
+
+  it("who do lead people, open on Completed and may switch to their open work", async () => {
+    scope.value = { everyone: true, leads: true };
+    render(<TeamTasksScreen />);
+    expect(
+      await screen.findByRole("radio", { name: "Completed" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("radio", { name: "Open work" }));
+    expect(replace).toHaveBeenLastCalledWith("/projects/team?view=open", {
+      scroll: false,
+    });
+  });
+
+  it("who do lead people, can come back to Completed with a clean address", async () => {
+    scope.value = { everyone: true, leads: true };
+    search = new URLSearchParams("view=open");
+    render(<TeamTasksScreen />);
+    expect(
+      await screen.findByRole("radio", { name: "Open work" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("radio", { name: "Completed" }));
+    expect(replace).toHaveBeenLastCalledWith("/projects/team", {
+      scroll: false,
+    });
+  });
+
+  it("is not how a manager sees it: they keep opening on open work", async () => {
+    scope.value = { everyone: false, leads: true };
+    render(<TeamTasksScreen />);
+    expect(
+      await screen.findByRole("radio", { name: "Open work" }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByText("Everyone you manage or whose department you run."),
+    ).toBeInTheDocument();
   });
 });

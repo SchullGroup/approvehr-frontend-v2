@@ -459,9 +459,10 @@ export const PROJECT_ITEMS: NavItem[] = [
     always: true,
   },
   {
-    /* Only for somebody who leads people: the rows decide, because no
-       permission says who has anybody reporting to them or a department to
-       head. Absent rather than an empty page that explains itself. */
+    /* For somebody who leads people (the rows decide, because no permission
+       says who has anybody reporting to them or a department to head) and for
+       HR, who read everybody's finished work here. Absent for everyone else,
+       rather than an empty page that explains itself. */
     href: "/projects/team",
     label: "Team tasks",
     icon: <Users aria-hidden="true" />,

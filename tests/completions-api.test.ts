@@ -259,6 +259,21 @@ describe("the manager's Completed view", () => {
     expect(groups[0]!.summary.finished).toBe(3);
   });
 
+  it("asks for one person only when one is chosen", async () => {
+    requestPaged.mockResolvedValue({
+      data: { people: [] },
+      meta: { total: 0 },
+    });
+    await completionsApi.teamCompleted({
+      period: "week",
+      employeeId: "emp-7",
+      limit: 50,
+    });
+    expect(requestPaged).toHaveBeenCalledWith("/performance/team/completed", {
+      query: { period: "week", employeeId: "emp-7", limit: 50 },
+    });
+  });
+
   it("asks for the period, the date, the marker and the page size", async () => {
     requestPaged.mockResolvedValue({
       data: { people: [] },

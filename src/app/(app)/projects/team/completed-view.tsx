@@ -12,6 +12,7 @@ import {
 import { LoadMore } from "@/components/portal/load-more";
 import { CompletedItem } from "@/components/performance/completed-item";
 import { BulkLinkDialog } from "@/components/projects/bulk-link-dialog";
+import { PersonPicker } from "@/components/projects/person";
 import { BULK_LINK_LIMIT } from "@/lib/projects/bulk-link";
 import type { TeamCompletedPerson } from "@/lib/projects/completions";
 import {
@@ -21,6 +22,7 @@ import {
   type WorkPeriodKind,
 } from "@/lib/projects/work-periods";
 import { useBulkLink, useTeamCompleted } from "@/lib/store/completions";
+import { usePeople } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
 
@@ -45,15 +47,28 @@ const PERIODS: { value: Exclude<WorkPeriodKind, "day">; label: string }[] = [
   { value: "quarter", label: "Quarter" },
 ];
 
-export function CompletedTeam() {
+export function CompletedTeam({
+  everyone = false,
+  leads = null,
+}: {
+  /** HR: everybody's finished work, with a way to look at one person. */
+  everyone?: boolean;
+  /** Whether the reader has people reporting to them; `null` until known. */
+  leads?: boolean | null;
+}) {
   const timeZone = useOrgTimezone();
   const today = todayIn(timeZone);
+  const people = usePeople();
   const [kind, setKind] = useState<Exclude<WorkPeriodKind, "day">>("week");
   /* Any day inside the period; undefined is today. */
   const [anchor, setAnchor] = useState<string | undefined>(undefined);
+  /* One person, or "" for everybody. Only HR are offered it: a manager's few
+     people are already a person at a time. */
+  const [person, setPerson] = useState("");
 
   const period = periodAround(kind, anchor ?? today);
-  const list = useTeamCompleted(kind, anchor ?? today);
+  const list = useTeamCompleted(kind, anchor ?? today, person || null);
+  const chosen = person ? people.nameOf(person) : null;
 
   return (
     <div className="space-y-4">
@@ -88,6 +103,19 @@ export function CompletedTeam() {
             <ChevronRight aria-hidden="true" className="size-4" />
           </Button>
         </div>
+        {everyone && (
+          <div className="w-full sm:w-64">
+            <PersonPicker
+              people={people}
+              value={person}
+              onChange={setPerson}
+              allowNone
+              noneLabel="Everybody"
+              placeholder="Everybody"
+              aria-label="Person"
+            />
+          </div>
+        )}
       </div>
 
       {/* Loading, failure and the answer are one decision, so nothing is drawn
@@ -103,7 +131,13 @@ export function CompletedTeam() {
         {list.people.length === 0 ? (
           <EmptyState
             icon={<ListChecks aria-hidden="true" />}
-            title={`Nobody you lead finished a task in this ${period.kind}.`}
+            title={emptyTitle(period.kind, { everyone, leads, chosen })}
+            {...(!everyone && leads === false
+              ? {
+                  description:
+                    "When someone does, what they finish shows here.",
+                }
+              : {})}
           />
         ) : (
           <>
@@ -132,6 +166,21 @@ export function CompletedTeam() {
       </LoadState>
     </div>
   );
+}
+
+/**
+ * What an empty period says. Somebody who leads nobody is told that, once and
+ * plainly (it is the page they asked for by its address), not that the people
+ * they lead finished nothing.
+ */
+function emptyTitle(
+  kind: string,
+  who: { everyone: boolean; leads: boolean | null; chosen: string | null },
+): string {
+  if (who.chosen) return `${who.chosen} finished no tasks in this ${kind}.`;
+  if (who.everyone) return `Nobody finished a task in this ${kind}.`;
+  if (who.leads === false) return "Nobody reports to you yet";
+  return `Nobody you lead finished a task in this ${kind}.`;
 }
 
 /* ------------------------------------------------------------ one person */

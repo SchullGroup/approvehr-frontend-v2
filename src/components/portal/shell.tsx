@@ -199,8 +199,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const haveInterviews = useHaveInterviews(true);
 
   /* Team tasks: showing to somebody who leads people, which only the rows can
-     say. One request per session, never waited on. */
+     say (one request per session, never waited on), and to HR, who read
+     everybody's finished work there whether or not anybody reports to them. */
   const leadsTeam = useLeadsTeam(features.projects === true);
+  const readsEveryonesWork =
+    features.projects === true && hasPermission(permissions, "EDIT_RECORDS");
 
   /* Programs: the rows under Projects, and whether the Master view is theirs.
      One request for the list, made once Projects is known to be on, and nothing
@@ -217,7 +220,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
         interviews: haveInterviews || collaborator,
-        "team-tasks": leadsTeam,
+        "team-tasks": leadsTeam || readsEveryonesWork,
         /* Both must agree. The programs answer is the API's, read from the
            sign-in token, and a token outlives a revoked grant by minutes; the
            permission set is confirmed from the database once it arrives, which
@@ -239,6 +242,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       haveSignatures,
       haveInterviews,
       leadsTeam,
+      readsEveryonesWork,
       programsNav.seesAll,
       permissions,
       collaborator,

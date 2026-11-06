@@ -228,6 +228,8 @@ export function toCompletedWork(data: Raw, meta: Raw): CompletedWork {
 export type TeamCompletedParams = {
   period: "week" | "month" | "quarter";
   date?: string | undefined;
+  /** One person only: somebody the reader leads (anybody, for HR), or themselves. */
+  employeeId?: string | undefined;
   cursor?: string | null | undefined;
   limit?: number | undefined;
 };
@@ -242,6 +244,7 @@ export const completionsApi = {
       query: {
         period: params.period,
         date: params.date,
+        employeeId: params.employeeId,
         cursor: params.cursor ?? undefined,
         limit: params.limit,
       },

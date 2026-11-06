@@ -62,6 +62,26 @@ const goals: ApiGoal[] = [
   },
 ] as unknown as ApiGoal[];
 
+/* Three people to choose from, for the HR person filter. */
+vi.mock("@/lib/store/project-session", async (original) => {
+  const mod = await original<typeof import("@/lib/store/project-session")>();
+  const people = [
+    { id: "bola", name: "Bola Projects", jobTitle: "Analyst" },
+    { id: "chidi", name: "Chidi Nwosu", jobTitle: "Engineer" },
+    { id: "ngozi", name: "Ngozi Eze", jobTitle: "Designer" },
+  ];
+  return {
+    ...mod,
+    usePeople: () => ({
+      people,
+      byId: new Map(people.map((p) => [p.id, p])),
+      nameOf: (id: string | null | undefined) =>
+        people.find((p) => p.id === id)?.name ?? "Someone",
+      loading: false,
+    }),
+  };
+});
+
 const kpiCalls = vi.hoisted(() => [] as unknown[][]);
 vi.mock("@/lib/store/performance", () => ({
   useKpis: (...args: unknown[]) => {
@@ -579,4 +599,61 @@ describe("linking from a person's list", () => {
     expect(screen.getByText("Up to 100 at a time.")).toBeInTheDocument();
     expect(boxes[100]).toBeDisabled();
   }, 30_000);
+});
+
+describe("for HR, who read everybody", () => {
+  it("offers a person filter, and asks for that person only", async () => {
+    render(<CompletedTeam everyone leads={false} />);
+    expect(hook.args.at(-1)![2]).toBeNull();
+    await userEvent.click(screen.getByRole("combobox", { name: "Person" }));
+    await userEvent.click(screen.getByRole("option", { name: /Chidi Nwosu/ }));
+    expect(hook.args.at(-1)![2]).toBe("chidi");
+    await userEvent.click(screen.getByRole("combobox", { name: "Person" }));
+    await userEvent.click(screen.getByRole("option", { name: "Everybody" }));
+    expect(hook.args.at(-1)![2]).toBeNull();
+  });
+
+  it("is not offered to a manager, whose few people are already a person at a time", () => {
+    render(<CompletedTeam leads />);
+    expect(screen.queryByRole("combobox", { name: "Person" })).toBeNull();
+  });
+
+  it("says plainly that nobody finished anything, not that nobody they lead did", () => {
+    hook.list = listOf({ people: [], total: 0, shown: 0 });
+    render(<CompletedTeam everyone leads={false} />);
+    expect(
+      screen.getByText("Nobody finished a task in this week."),
+    ).toBeInTheDocument();
+  });
+
+  it("names the person when one is chosen and has finished nothing", async () => {
+    hook.list = listOf({ people: [], total: 0, shown: 0 });
+    render(<CompletedTeam everyone leads />);
+    await userEvent.click(screen.getByRole("combobox", { name: "Person" }));
+    await userEvent.click(screen.getByRole("option", { name: /Ngozi Eze/ }));
+    expect(
+      screen.getByText("Ngozi Eze finished no tasks in this week."),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("for somebody who leads nobody and found the page by its address", () => {
+  it("shows a calm empty state, once, and nothing that reads as a fault", () => {
+    hook.list = listOf({ people: [], total: 0, shown: 0 });
+    render(<CompletedTeam leads={false} />);
+    expect(screen.getByText("Nobody reports to you yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("When someone does, what they finish shows here."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/could not|couldn't|failed|error/i)).toBeNull();
+  });
+
+  it("keeps the ordinary wording for a manager whose people finished nothing", () => {
+    hook.list = listOf({ people: [], total: 0, shown: 0 });
+    render(<CompletedTeam leads />);
+    expect(
+      screen.getByText("Nobody you lead finished a task in this week."),
+    ).toBeInTheDocument();
+  });
 });

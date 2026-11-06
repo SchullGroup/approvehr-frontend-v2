@@ -111,12 +111,38 @@ describe("the manager's Completed view", () => {
     }
   });
 
-  it("is empty for somebody who leads nobody, and for HR who is not a manager", async () => {
+  it("is empty for somebody who leads nobody", async () => {
     who.id = "p-03";
     expect((await team()).people).toEqual([]);
+  });
+
+  it("is everybody's for HR, whether or not they lead anybody", async () => {
     who.id = "p-77";
     who.hr = true;
-    expect((await team()).people).toEqual([]);
+    const list = await team();
+    const ids = list.people.map((p) => p.employee.id);
+    expect(ids).toContain("p-03");
+    expect(ids.length).toBeGreaterThan(3);
+    /* Not only one manager's people. */
+    expect(ids.some((id) => !["p-03", "p-04", "p-09"].includes(id))).toBe(true);
+  });
+
+  it("narrows to one person: for HR anybody, for a manager only their own", async () => {
+    const one = async (who_: string | null) => {
+      const view = renderHook(() =>
+        useTeamCompleted("quarter", "2026-03-10", who_),
+      );
+      await waitFor(() => expect(view.result.current.loading).toBe(false));
+      return view.result.current.people.map((p) => p.employee.id);
+    };
+    who.id = "p-77";
+    who.hr = true;
+    expect(await one("p-03")).toEqual(["p-03"]);
+    who.id = "p-01";
+    who.hr = false;
+    expect(await one("p-03")).toEqual(["p-03"]);
+    /* Somebody the manager does not lead is nobody, as the API's 404 is. */
+    expect(await one("p-05")).toEqual([]);
   });
 });
 

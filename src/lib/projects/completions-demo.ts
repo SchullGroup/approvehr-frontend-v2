@@ -170,18 +170,29 @@ export const PERSON_ITEMS_CAP = 50;
 /** How many people one page of the Completed view holds. */
 export const PEOPLE_PAGE = 20;
 
-/** The people the viewer leads, and what each finished in the period. */
+/**
+ * The people the viewer leads, and what each finished in the period. HR
+ * (`everyone`) read everybody, as the API does for `EDIT_RECORDS`. `employeeId`
+ * narrows it to one person, who must be one of those; anybody else is nobody.
+ */
 export function demoTeamCompleted(args: {
   projects: readonly ProjectData[];
   viewerId: string | null;
   directory: readonly DirectoryEntry[];
   kind: WorkPeriodKind;
   day: string;
+  everyone?: boolean;
+  employeeId?: string | null;
   canOpen?: (project: Project) => boolean;
   ctx: CompletionContext;
 }): TeamCompleted {
   const period = periodAround(args.kind, args.day);
-  const team = ledBy(args.viewerId, args.directory);
+  const led = args.everyone
+    ? [...args.directory]
+    : ledBy(args.viewerId, args.directory);
+  const team = args.employeeId
+    ? led.filter((p) => p.id === args.employeeId)
+    : led;
   const all = completionsBetween(
     args.projects,
     {
