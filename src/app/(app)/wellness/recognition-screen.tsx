@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Heart, Lock, Trash2 } from "lucide-react";
 import {
+  type PickerOption,
   Avatar,
   Badge,
   Button,
@@ -13,7 +14,7 @@ import {
   FilterBar,
   LoadState,
   Modal,
-  Picker,
+  SearchPicker,
   Select,
   Switch,
   Textarea,
@@ -22,7 +23,7 @@ import {
 import { LoadMore } from "@/components/portal/load-more";
 import { ApiError } from "@/lib/api/client";
 import type { ApiRecognition } from "@/lib/api/wellness";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useEmployeeSearch } from "@/lib/store/employees-api";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import {
   useRecognitions,
@@ -295,18 +296,19 @@ function GiveDialog({
   const actions = useWellnessActions();
   const toast = useToast();
   const { employeeId } = useSession();
-  /* The first two hundred, which is the API's page ceiling. The same call the
-     signature dialog makes; a company larger than that needs a search that asks
-     the server, and the picker's own filter only narrows what is here. */
-  const directory = useEmployeeDirectory({ pageSize: 200 });
-  const [to, setTo] = useState("");
+  /* Found by typing, a handful at a time. This used to read the first two
+     hundred people and filter them in the browser, so in a company of two
+     hundred and one the last colleague could not be thanked. Yourself is left
+     out here, and the chosen person is held below, not looked up in a list
+     that changes under every search. */
+  const search = useEmployeeSearch({ excludeId: employeeId });
+  const [recipient, setRecipient] = useState<PickerOption | null>(null);
   const [message, setMessage] = useState("");
   const [shared, setShared] = useState(true);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  const people = directory.people.filter((person) => person.id !== employeeId);
-  const recipient = people.find((person) => person.id === to);
+  const to = recipient?.value ?? "";
   const ready = to !== "" && message.trim() !== "";
 
   const send = async () => {
@@ -355,17 +357,17 @@ function GiveDialog({
     >
       <div className="flex flex-col gap-4">
         <Field label="Who" required>
-          <Picker
-            value={to}
-            onChange={setTo}
-            placeholder="Choose a colleague"
-            loading={directory.loading}
+          <SearchPicker
+            selected={recipient}
+            onSelect={setRecipient}
+            onQueryChange={search.search}
+            options={search.options}
+            pending={search.pending}
+            failed={search.failed}
+            onRetry={search.retry}
+            more={search.more}
+            placeholder="Search for a colleague"
             aria-label="Who"
-            options={people.map((person) => ({
-              value: person.id,
-              label: person.fullName,
-              ...(person.jobTitle ? { hint: person.jobTitle } : {}),
-            }))}
           />
         </Field>
         <Field label="What for" required>
@@ -383,7 +385,7 @@ function GiveDialog({
           label="Share on the company feed"
           description={
             recipient
-              ? `Off, and only you and ${recipient.fullName} can read it.`
+              ? `Off, and only you and ${recipient.label} can read it.`
               : "Off, and only you and the person you thank can read it."
           }
           checked={shared}

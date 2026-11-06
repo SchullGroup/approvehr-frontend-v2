@@ -121,6 +121,15 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>(
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        /* A control with its own list open takes the first Escape, and the
+           dialog stays: it marks itself `data-escape-to-popup` while that is so
+           (`SearchPicker`). This listener runs in the capture phase, so without
+           the check it closes the dialog before the control ever hears the key,
+           and whatever the person had typed goes with it. Opt-in by attribute,
+           not by `role="combobox"`: the command palette is one and has no list
+           of its own to close. */
+        const focused = document.activeElement;
+        if (focused?.closest("[data-escape-to-popup]")) return;
         event.stopPropagation();
         closeRef.current?.();
         return;
