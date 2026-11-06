@@ -341,6 +341,22 @@ when this period started.** (a period from before this existed reads **This peri
 weights as they are today.**). The assistant's draft (step 5) shows the same card on its first page, under
 the description, and **Draft it** stays off while a total you typed is not 100%.
 
+**Changing the name afterwards.** A name typed wrongly can be fixed at any stage, a running or published
+period as well as a draft.
+
+|                |                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/performance/periods/{id}`, **Rename** in the buttons at the top                                                            |
+| **Who**        | HR / Owner (the same people who may change the period)                                                                       |
+| **Click**      | **Rename**, type the new name in **Period name**, then **Save name**. **Enter** saves too                                    |
+| **You'll see** | A toast, **Renamed to …**, and the heading changes. **Save name** stays off until the name is different from what it was    |
+
+The box starts on the period's current name every time it opens; a half-typed name is not kept when you
+cancel. The dialog says the new name shows on everybody's form, inbox and report. A name under 3 characters
+reads *Name it: people will see this in their inbox.* and one over 80 reads *Keep it to 80 characters: it is
+a heading.*, both before anything is sent. If another period already has the name, the field shows the API's
+own sentence with what you typed still in it. Pressing **Save name** or **Enter** twice sends one request.
+
 #### 5. _Optional_ — let the assistant draft it instead
 
 Describe the period in a paragraph of your own words and it drafts the company goals and the review
