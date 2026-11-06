@@ -1,4 +1,10 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ToastProvider } from "@/components/ui";
@@ -247,6 +253,26 @@ describe("while the request is in flight", () => {
     show();
     const user = await retype("H1 2027 Appraisal");
     await user.dblClick(save());
+    expect(updateCycle).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finish({});
+    });
+  });
+});
+
+describe("a second submit while one is in flight", () => {
+  it("is ignored, whatever sends it: the button being off is not the only guard", async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    updateCycle.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    show();
+    await retype("H1 2027 Appraisal");
+    const form = screen.getByRole("dialog").querySelector("form")!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
     expect(updateCycle).toHaveBeenCalledTimes(1);
     await act(async () => {
       finish({});
