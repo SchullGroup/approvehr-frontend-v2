@@ -2,6 +2,7 @@
 
 import { projectsApi } from "@/lib/api/projects";
 import { createSharedResource } from "@/lib/shared-resource";
+import { useEmployeeStore } from "@/lib/store/employees";
 import { useSession } from "@/lib/store/session";
 
 /**
@@ -25,9 +26,22 @@ const leadsAnyone = createSharedResource<boolean>((_key, signal) =>
   projectsApi.teamLeads(signal),
 );
 
-/** `enabled` is whether Projects is switched on: with it off nothing is asked. */
+/**
+ * `enabled` is whether Projects is switched on: with it off nothing is asked.
+ *
+ * The demo has no server to ask, so there the reporting lines in the demo
+ * directory answer it, which is the same fact the API reads (somebody has people
+ * reporting to them). That is what lets a manager's persona see the page.
+ */
 export function useLeadsTeam(enabled: boolean): boolean {
   const { isConnected, employeeId } = useSession();
+  const { directory } = useEmployeeStore();
   const key = enabled && isConnected && employeeId ? `api:${employeeId}` : null;
-  return leadsAnyone.use(key) === true;
+  const answered = leadsAnyone.use(key) === true;
+  if (isConnected) return answered;
+  return (
+    enabled &&
+    Boolean(employeeId) &&
+    directory.some((person) => person.managerId === employeeId)
+  );
 }

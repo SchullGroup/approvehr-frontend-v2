@@ -50,6 +50,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraiserStrip } from "../../review-parts";
 import { WorkEvidence } from "@/components/performance/work-evidence";
+import { WorkThisCycle } from "@/components/performance/work-this-cycle";
 import { FinaliseDialog } from "./finalise-dialog";
 import { ReviewFormCard } from "./review-form-card";
 import { SignOffDialog } from "./sign-off-dialog";
@@ -522,6 +523,19 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             employeeId={review.subjectId}
             range={review.cycleId ? { cycleId: review.cycleId } : {}}
             title="Work from connected tools this period"
+          />
+
+          {/* ------------------------------------------- finished on the project boards */}
+          {/* Read-only evidence beside the answers, for the self review and the
+              manager's. Peer feedback is an aggregate nobody signs, so it has none. */}
+          <WorkThisCycle
+            employeeId={review.subjectId}
+            cycleId={review.cycleId}
+            periodStart={review.periodStart}
+            periodEnd={review.periodEnd}
+            subjectName={review.subjectName}
+            own={isSubject}
+            enabled={review.kind !== "PEER"}
           />
 
           {/* ------------------------------------------------------------- the form */}

@@ -76,6 +76,14 @@ export type ProjectCount = {
   finished: number;
 };
 
+/** Finished tasks per objective (and measure); `goalId` null is the ones with no link. */
+export type ObjectiveCount = {
+  goalId: string | null;
+  title: string;
+  keyResultTitle: string | null;
+  finished: number;
+};
+
 /* ------------------------------------------------------------------ the sums */
 
 export function summarise(items: readonly Completion[]): CompletionSummary {
@@ -114,6 +122,31 @@ export function byProject(items: readonly Completion[]): ProjectCount[] {
     (a, b) =>
       b.finished - a.finished || a.projectName.localeCompare(b.projectName),
   );
+}
+
+/**
+ * Finished tasks per objective, the busiest first, and the ones with no link
+ * last. A count of tasks and nothing more: a task with no link is not a gap.
+ */
+export function byObjective(items: readonly Completion[]): ObjectiveCount[] {
+  const counts = new Map<string, ObjectiveCount>();
+  for (const item of items) {
+    const o = item.objective;
+    const key = o ? `${o.goalId}|${o.keyResultId ?? ""}` : "none";
+    const row = counts.get(key) ?? {
+      goalId: o?.goalId ?? null,
+      title: o?.title ?? "Not linked to an objective",
+      keyResultTitle: o?.keyResultTitle ?? null,
+      finished: 0,
+    };
+    row.finished += 1;
+    counts.set(key, row);
+  }
+  return [...counts.values()].sort((a, b) => {
+    if (a.goalId === null) return 1;
+    if (b.goalId === null) return -1;
+    return b.finished - a.finished || a.title.localeCompare(b.title);
+  });
 }
 
 export type PersonCompletions = {
@@ -322,6 +355,7 @@ export type TeamCompleted = {
 export type WorkThisCycle = {
   summary: CompletionSummary;
   byProject: ProjectCount[];
+  byObjective: ObjectiveCount[];
   items: Completion[];
   /** Every finished task in the period; `items` may be fewer when capped. */
   total: number;

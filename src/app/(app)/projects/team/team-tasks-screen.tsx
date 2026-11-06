@@ -32,9 +32,12 @@ import {
   type TeamPerson,
   type TeamTask,
 } from "@/lib/api/projects";
+import { useDemoTeamOpen } from "@/lib/store/completions";
 import { useProjectsGate } from "@/lib/store/project-session";
-import { useOrgTimezone } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
+import { useQueryParam } from "@/components/projects/use-query-param";
+import { CompletedTeam } from "./completed-view";
 
 /**
  * `/projects/team`: what the people you lead have on, as load rather than cards.
@@ -85,22 +88,61 @@ export function TeamTasksScreen() {
   return <Team />;
 }
 
+type View = "open" | "completed";
+
+/** Open work, or what the people you lead have finished. Kept in the address. */
 function Team() {
+  const [view, setView] = useQueryParam("view", "open");
+  const switcher = (
+    <SegmentedControl<View>
+      label="View"
+      value={view === "completed" ? "completed" : "open"}
+      onChange={(next) => setView(next === "open" ? null : next)}
+      options={[
+        { value: "open", label: "Open work" },
+        { value: "completed", label: "Completed" },
+      ]}
+    />
+  );
+  if (view === "completed") {
+    return (
+      <>
+        <PageHeader
+          title="Team tasks"
+          description="Everyone you manage or whose department you run."
+        />
+        <PageBody className="space-y-4">
+          {switcher}
+          <CompletedTeam />
+        </PageBody>
+      </>
+    );
+  }
+  return <OpenWork switcher={switcher} />;
+}
+
+function OpenWork({ switcher }: { switcher: React.ReactNode }) {
   const toast = useToast();
+  const { isConnected } = useSession();
   const router = useRouter();
   const timeZone = useOrgTimezone();
   const [filter, setFilter] = useState<TeamFilter>("open");
+  /* The demo has no server to ask, so it works its people out of the demo book. */
+  const demoPeople = useDemoTeamOpen(filter);
   /* A department id, `none`, or "" for everybody. */
   const [department, setDepartment] = useState("");
   const [loaded, setData] = useState<Loaded>({ status: "loading" });
   /* Another filter's answer is not this one's: show it loading until it lands. */
-  const data = useMemo<Loaded>(
-    () =>
-      loaded.status !== "loading" && loaded.filter !== filter
-        ? { status: "loading" }
-        : loaded,
-    [loaded, filter],
-  );
+  const data = useMemo<Loaded>(() => {
+    if (!isConnected) {
+      return demoPeople
+        ? { status: "ready", filter, people: demoPeople }
+        : { status: "loading" };
+    }
+    return loaded.status !== "loading" && loaded.filter !== filter
+      ? { status: "loading" }
+      : loaded;
+  }, [isConnected, demoPeople, loaded, filter]);
   const [opening, setOpening] = useState(false);
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
@@ -119,6 +161,7 @@ function Team() {
   const [team, setTeam] = useState<TeamPerson["employee"][]>([]);
 
   useEffect(() => {
+    if (!isConnected) return;
     const controller = new AbortController();
     projectsApi
       .teamTasks(filter, controller.signal)
@@ -140,7 +183,7 @@ function Team() {
         );
       });
     return () => controller.abort();
-  }, [filter, version]);
+  }, [filter, version, isConnected]);
 
   const departments = useMemo(() => {
     if (data.status !== "ready") return [];
@@ -237,6 +280,7 @@ function Team() {
         }
       />
       <PageBody className="space-y-4">
+        {switcher}
         {departments.length > 1 && (
           <div className="w-full sm:w-64">
             <Field label="Department" help="By the person's department">
@@ -300,7 +344,7 @@ function Team() {
                   person={person}
                   maxOpen={maxOpen}
                   timeZone={timeZone}
-                  onGive={() => setGiving(person.employee)}
+                  onGive={isConnected ? () => setGiving(person.employee) : null}
                   onOpen={(task) => void open(task, person)}
                   onMove={(task) =>
                     setMoving({ task, ownerId: person.employee.id })
@@ -361,7 +405,8 @@ function PersonRow({
   person: TeamPerson;
   maxOpen: number;
   timeZone: string;
-  onGive: () => void;
+  /** Absent where it cannot be done (the demo has no personal lists to give to). */
+  onGive: (() => void) | null;
   onOpen: (task: TeamTask) => void;
   onMove: (task: TeamTask) => void;
 }) {
@@ -418,15 +463,17 @@ function PersonRow({
           <span className="tabular">{counts.doneThisWeek} done this week</span>
         </div>
 
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="self-start sm:ml-auto sm:self-auto"
-          onClick={onGive}
-        >
-          Give a task
-        </Button>
+        {onGive && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="self-start sm:ml-auto sm:self-auto"
+            onClick={onGive}
+          >
+            Give a task
+          </Button>
+        )}
       </div>
 
       {expanded && (

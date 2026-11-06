@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import {
   Button,
+  Checkbox,
   EmptyState,
   SortableTH,
   TBody,
@@ -22,7 +23,10 @@ import {
   StatusPill,
   TypeIcon,
 } from "@/components/projects/glyphs";
+import { BulkLinkDialog } from "@/components/projects/bulk-link-dialog";
 import { IssueFilterBar } from "@/components/projects/issue-filter-bar";
+import { useMayLinkIssue } from "@/components/projects/objective-link";
+import { BULK_LINK_LIMIT, runBulkLink } from "@/lib/projects/bulk-link";
 import { PersonName } from "@/components/projects/person";
 import { assigneesOf } from "@/lib/projects/assignees";
 import { useProject } from "@/components/projects/project-context";
@@ -66,8 +70,12 @@ export function IssuesView() {
     timeZone,
     openIssue,
     openCreate,
+    actions,
   } = useProject();
   const [sort, setSort] = useState(DEFAULT_SORT);
+  const mayLink = useMayLinkIssue();
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [linking, setLinking] = useState(false);
 
   const rows = useMemo(
     () =>
@@ -97,6 +105,30 @@ export function IssuesView() {
       people.nameOf,
     ],
   );
+
+  /* Linking is optional, and offered only for the tasks this person may link: a
+     member sees a tick on their own, the lead and HR on every one. Nobody who may
+     link none of them is drawn a column of nothing. */
+  const linkable = useMemo(
+    () => rows.filter((i) => mayLink(i)),
+    [rows, mayLink],
+  );
+  const selectable = linkable.length > 0;
+  const chosen = useMemo(
+    () => linkable.filter((i) => picked.has(i.id)),
+    [linkable, picked],
+  );
+  const atLimit = chosen.length >= BULK_LINK_LIMIT;
+  const toggle = (id: string) =>
+    setPicked((now) => {
+      const next = new Set(now);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allShown = linkable.slice(0, BULK_LINK_LIMIT);
+  const allChosen =
+    allShown.length > 0 && allShown.every((i) => picked.has(i.id));
 
   const onSort = (column: string) => setSort(nextSort(sort, column as SortKey));
   const order = sort.dir === 1 ? "asc" : "desc";
@@ -142,8 +174,47 @@ export function IssuesView() {
 
       <IssueFilterBar />
 
+      {chosen.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-body-sm">
+          <span className="text-ink">
+            {chosen.length === 1
+              ? "1 chosen"
+              : `${String(chosen.length)} chosen`}
+          </span>
+          <Button size="sm" onClick={() => setLinking(true)}>
+            Link to an objective
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setPicked(new Set())}
+          >
+            Clear choice
+          </Button>
+          {atLimit && (
+            <span className="text-meta text-muted">
+              Up to {String(BULK_LINK_LIMIT)} at a time.
+            </span>
+          )}
+        </div>
+      )}
+
       <TableWrap caption={`${TASK.Many} in this project`}>
         <THead>
+          {selectable && (
+            <TH className="w-10 pr-0">
+              <Checkbox
+                hiddenLabel="Choose every task shown that you can link"
+                checked={allChosen}
+                indeterminate={chosen.length > 0 && !allChosen}
+                onChange={() =>
+                  setPicked(
+                    allChosen ? new Set() : new Set(allShown.map((i) => i.id)),
+                  )
+                }
+              />
+            </TH>
+          )}
           <TH className="w-10">
             <span className="sr-only">Type</span>
           </TH>
@@ -170,6 +241,18 @@ export function IssuesView() {
                 interactive
                 onClick={rowClick(() => openIssue(issue))}
               >
+                {selectable && (
+                  <TD className="pr-0" onClick={(e) => e.stopPropagation()}>
+                    {mayLink(issue) && (
+                      <Checkbox
+                        hiddenLabel={`Choose ${issue.key} ${issue.title}`}
+                        checked={picked.has(issue.id)}
+                        disabled={atLimit && !picked.has(issue.id)}
+                        onChange={() => toggle(issue.id)}
+                      />
+                    )}
+                  </TD>
+                )}
                 <TD className="pr-0">
                   <TypeIcon type={issue.type} />
                 </TD>
@@ -228,7 +311,10 @@ export function IssuesView() {
           })}
           {rows.length === 0 && (
             <TR>
-              <TD colSpan={10} className="py-8 text-center text-muted">
+              <TD
+                colSpan={selectable ? 11 : 10}
+                className="py-8 text-center text-muted"
+              >
                 {isFiltering(filter)
                   ? `No ${TASK.many} match these filters.`
                   : `No ${TASK.many}.`}
@@ -237,6 +323,28 @@ export function IssuesView() {
           )}
         </TBody>
       </TableWrap>
+
+      <BulkLinkDialog
+        open={linking}
+        onClose={() => setLinking(false)}
+        tasks={chosen}
+        run={(target) =>
+          runBulkLink(chosen, async (issue) => {
+            const result = await actions.patchIssue(
+              issue,
+              {
+                goalId: target?.goalId ?? null,
+                keyResultId: target?.keyResultId ?? null,
+              },
+              { quiet: true },
+            );
+            return result.ok
+              ? { ok: true }
+              : { ok: false, message: result.message };
+          })
+        }
+        onDone={() => setPicked(new Set())}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useCallback, useId, useMemo } from "react";
 import { Button, Field, useToast } from "@/components/ui";
 import { employeeById } from "@/lib/mock/people";
 import {
@@ -39,25 +39,40 @@ import { useProject } from "./project-context";
  * task still sees the one neutral line about it.
  */
 export function IssueObjectiveLink({ issue }: { issue: Issue }) {
-  const { meId, canManage, canWork, connected } = useProject();
-  const actor = useProjectActor();
-  const may = mayLinkIssue({
-    issue,
-    meId,
-    canManageProject: canManage,
-    editRecords: actor.editRecords,
-    /* Connected, the API says (`canLinkObjective`); the directory below is only
-       the demo's stand-in for "this person's manager". */
-    leadsAssignee:
-      !connected &&
-      issue.assigneeId !== null &&
-      meId !== null &&
-      employeeById(issue.assigneeId)?.managerId === meId,
-  });
+  const mayLink = useMayLinkIssue();
   /* Somebody who can read the task and change nothing (a program's read access,
      or the Master grant) is drawn the line and no control, switched off or not. */
-  if (may && canWork) return <Linker issue={issue} />;
+  if (mayLink(issue)) return <Linker issue={issue} />;
   return <LinkLine issue={issue} />;
+}
+
+/**
+ * Whether the signed-in person is offered the link for a task of this project.
+ *
+ * One rule for the drawer and for a list of tasks: the assignee, whoever manages
+ * the project, the assignee's manager and HR, and nobody who can only read. The
+ * API says first (`canLinkObjective`); the directory below is only the demo's
+ * stand-in for "this person's manager".
+ */
+export function useMayLinkIssue(): (issue: Issue) => boolean {
+  const { meId, canManage, canWork, connected } = useProject();
+  const { editRecords } = useProjectActor();
+  return useCallback(
+    (issue) =>
+      canWork &&
+      mayLinkIssue({
+        issue,
+        meId,
+        canManageProject: canManage,
+        editRecords,
+        leadsAssignee:
+          !connected &&
+          issue.assigneeId !== null &&
+          meId !== null &&
+          employeeById(issue.assigneeId)?.managerId === meId,
+      }),
+    [canWork, meId, canManage, editRecords, connected],
+  );
 }
 
 /** The read-only half: one plain line, or nothing when the task is not linked. */

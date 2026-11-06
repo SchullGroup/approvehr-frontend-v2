@@ -3,6 +3,11 @@
 import { useCallback, useMemo } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
+  projectsApi,
+  type TeamFilter,
+  type TeamPerson,
+} from "@/lib/api/projects";
+import {
   performanceApi,
   type ApiGoal,
   type ApiWorkRecord,
@@ -12,6 +17,7 @@ import { completionsApi, workRecordToThisCycle } from "@/lib/api/completions";
 import {
   demoCompletedWork,
   demoTeamCompleted,
+  demoTeamOpen,
   demoWorkRecord,
   demoWorkThisCycle,
   maySeeWorkOf,
@@ -21,14 +27,23 @@ import type {
   CompletedWork,
   CompletionContext,
   TeamCompleted,
+  TeamCompletedPerson,
   WorkThisCycle,
 } from "@/lib/projects/completions";
+import {
+  runBulkLink,
+  type BulkItem,
+  type BulkLinkResult,
+  type BulkTarget,
+} from "@/lib/projects/bulk-link";
+import { patchIssueInBook } from "@/lib/projects/demo-book";
 import { periodAround } from "@/lib/projects/work-periods";
 import type { ProjectData } from "@/lib/projects/types";
 import { useCan } from "@/lib/permissions";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { demoCyclePeriod, useDemoObjectives } from "@/lib/store/performance";
-import { useDemoBook } from "@/lib/store/projects";
+import { demoRun, useDemoBook } from "@/lib/store/projects";
+import { usePagedList } from "@/lib/store/paged-list";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
 import { useFetched } from "@/lib/use-fetched";
@@ -177,31 +192,184 @@ export function useLeadsAnyone(): boolean {
 }
 
 /**
+ * What the people you lead have on, worked out for the demo, which has no server
+ * to ask. `null` when connected: the page asks the API itself.
+ */
+export function useDemoTeamOpen(filter: TeamFilter): TeamPerson[] | null {
+  const world = useDemoWorld();
+  return useMemo(
+    () =>
+      world.ready
+        ? demoTeamOpen({
+            projects: world.projects,
+            viewerId: world.viewer.id,
+            directory: world.directory,
+            filter,
+            today: world.today,
+            timeZone: world.ctx.timeZone,
+          })
+        : null,
+    [world, filter],
+  );
+}
+
+/** How many people one page of the Completed view asks for. */
+export const TEAM_PAGE = 20;
+
+export type TeamCompletedList = {
+  people: TeamCompletedPerson[];
+  /** The count of people with finished work in the period, when known. */
+  total: number | null;
+  loading: boolean;
+  error: ApiError | null;
+  hasMore: boolean;
+  loadingMore: boolean;
+  moreError: ApiError | null;
+  loadMore: () => void;
+  reload: () => void;
+};
+
+/**
  * What the people you lead finished in a period (a week, a month or a quarter).
  *
- * The demo answers in one piece. Connected, the API pages by person and this
- * walks one page at a time (`usePagedTeam` in the screen) so no screen asks for
- * everybody at once.
+ * `anchor` is any day inside the period, or undefined for today. Connected, the
+ * API pages by person and this keeps what it has been given, so no screen ever
+ * asks for everybody at once; the demo answers in one piece.
  */
-export function useDemoTeamCompleted(
+export function useTeamCompleted(
   kind: "week" | "month" | "quarter",
-  date: string | undefined,
-): { enabled: boolean; data: TeamCompleted | null } {
+  anchor: string | undefined,
+): TeamCompletedList {
+  const { isConnected } = useSession();
   const world = useDemoWorld();
-  return useMemo(() => {
-    if (!world.ready) return { enabled: false, data: null };
+
+  const paged = usePagedList<TeamCompletedPerson>({
+    key: `team-completed|${kind}|${anchor ?? "today"}`,
+    enabled: isConnected,
+    idOf: (person) => person.employee.id,
+    fetchPage: async (cursor, signal) => {
+      const result = await completionsApi.teamCompleted(
+        { period: kind, date: anchor, cursor, limit: TEAM_PAGE },
+        signal,
+      );
+      return {
+        rows: result.page.people,
+        total: result.total,
+        next: result.next,
+      };
+    },
+  });
+
+  const demo = useMemo<TeamCompleted | null>(
+    () =>
+      world.ready
+        ? demoTeamCompleted({
+            projects: world.projects,
+            viewerId: world.viewer.id,
+            directory: world.directory,
+            kind,
+            day: anchor ?? world.today,
+            ctx: world.ctx,
+          })
+        : null,
+    [world, kind, anchor],
+  );
+
+  if (isConnected) {
+    /* A new period is a new list: while it is settling, the rows still on hand
+       belong to the last period, and showing them under this one's heading
+       would be a claim about the wrong weeks. */
     return {
-      enabled: true,
-      data: demoTeamCompleted({
-        projects: world.projects,
-        viewerId: world.viewer.id,
-        directory: world.directory,
-        kind,
-        day: date ?? world.today,
-        ctx: world.ctx,
-      }),
+      people: paged.settling ? [] : paged.rows,
+      total: paged.settling ? null : paged.total,
+      loading: paged.loading || paged.settling,
+      error: paged.error,
+      hasMore: paged.hasMore,
+      loadingMore: paged.loadingMore,
+      moreError: paged.moreError,
+      loadMore: paged.loadMore,
+      reload: paged.reload,
     };
-  }, [world, kind, date]);
+  }
+  return {
+    people: demo?.people ?? [],
+    total: demo ? demo.people.length : null,
+    loading: demo === null,
+    error: null,
+    hasMore: false,
+    loadingMore: false,
+    moreError: null,
+    loadMore: noReload,
+    reload: noReload,
+  };
+}
+
+/* ------------------------------------------------------------ bulk linking */
+
+/** A task to change, with who it is assigned to (the demo checks who may link it). */
+export type BulkLinkItem = BulkItem & { personId: string | null };
+
+/**
+ * Link or clear many tasks at once. One change per task, a few at a time, and
+ * the answer says how many changed and, for each that did not, why.
+ *
+ * Connected, each is the same `PATCH` as linking one task, so the API decides
+ * every one. In the demo each is applied to the demo book, and the same people
+ * may link: the assignee, the project's lead, the assignee's manager and HR.
+ */
+export function useBulkLink(): (
+  items: readonly BulkLinkItem[],
+  target: BulkTarget,
+) => Promise<BulkLinkResult> {
+  const { isConnected } = useSession();
+  const world = useDemoWorld();
+  const { viewer, directory, projects, today } = world;
+
+  return useCallback(
+    (items, target) =>
+      runBulkLink(items, async (item) => {
+        const patch = {
+          goalId: target?.goalId ?? null,
+          keyResultId: target?.keyResultId ?? null,
+        };
+        if (isConnected) {
+          try {
+            await projectsApi.updateIssue(item.id, patch);
+            return { ok: true };
+          } catch (error) {
+            return {
+              ok: false,
+              message:
+                error instanceof ApiError
+                  ? error.message
+                  : "It could not be changed.",
+            };
+          }
+        }
+        const owner = projects.find((p) =>
+          p.issues.some((i) => i.id === item.id),
+        );
+        const mayLink =
+          viewer.editRecords ||
+          (viewer.id !== null &&
+            (item.personId === viewer.id ||
+              owner?.project.leadId === viewer.id ||
+              directory.some(
+                (p) => p.id === item.personId && p.managerId === viewer.id,
+              )));
+        if (!mayLink) {
+          return { ok: false, message: "You can't link this task." };
+        }
+        const result = demoRun(viewer.id, today, (book, ctx) => {
+          const out = patchIssueInBook(book, item.id, patch, ctx);
+          return { book: out.book, value: out.issue };
+        });
+        return result.ok
+          ? { ok: true }
+          : { ok: false, message: result.message };
+      }),
+    [isConnected, viewer, directory, projects, today],
+  );
 }
 
 /* ------------------------------------------------------ work in a review */

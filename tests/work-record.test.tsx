@@ -236,7 +236,7 @@ describe("the Work record panel", () => {
     );
   });
 
-  it("shows the four tiles", async () => {
+  it("shows the tiles, the completion rate only because something was graded", async () => {
     render(<WorkRecordPanel employeeId="emp-1" />);
     await screen.findByText("Week of 19 Oct 2026");
     const tile = (label: string) =>
@@ -245,11 +245,11 @@ describe("the Work record panel", () => {
     expect(within(tile("Done by due date")).getByText("2 of 3")).toBeTruthy();
     expect(within(tile("Completion rate")).getByText("75%")).toBeTruthy();
     expect(
-      within(tile("Count toward an objective")).getByText("3 of 4"),
+      within(tile("Linked to an objective")).getByText("3 of 4"),
     ).toBeTruthy();
   });
 
-  it("shows a dash when nothing is graded", async () => {
+  it("has no completion rate tile at all when nothing was graded, not a dash or a nought", async () => {
     workRecord.mockResolvedValue(
       record({
         summary: {
@@ -264,10 +264,30 @@ describe("the Work record panel", () => {
     );
     render(<WorkRecordPanel employeeId="emp-1" />);
     await screen.findByText("Week of 19 Oct 2026");
-    const tile = screen
-      .getByText("Completion rate")
-      .closest("div.rounded-lg") as HTMLElement;
-    expect(within(tile).getByText("—")).toBeTruthy();
+    expect(screen.queryByText("Completion rate")).toBeNull();
+    expect(screen.getByText("Tasks finished")).toBeTruthy();
+  });
+
+  it("counts a finished task with no link like any other, and says nothing is missing", async () => {
+    workRecord.mockResolvedValue(
+      record({
+        summary: {
+          finished: 2,
+          withDueDate: 0,
+          onTime: 0,
+          completionRate: null,
+          graded: 0,
+          linkedToObjective: 0,
+        },
+      }),
+    );
+    render(<WorkRecordPanel employeeId="emp-1" />);
+    await screen.findByText("Week of 19 Oct 2026");
+    expect(screen.getByText("0 of 2")).toBeTruthy();
+    expect(
+      screen.queryByText(/not counted|missing|no objective|warning|!/i),
+    ).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("does not say 0 of 0 when none of the finished tasks had a due date", async () => {
@@ -304,7 +324,7 @@ describe("the Work record panel", () => {
     expect(screen.getByText("2 finished · 100% complete")).toBeTruthy();
   });
 
-  it("lists each day's issues with project, labels and grade wording", async () => {
+  it("lists each day's issues with project, labels and a grade where one was given", async () => {
     render(<WorkRecordPanel employeeId="emp-1" />);
     await screen.findByText("Week of 19 Oct 2026");
     expect(screen.getByText("21 Oct 2026")).toBeTruthy();
@@ -314,16 +334,129 @@ describe("the Work record panel", () => {
     expect(screen.getAllByText("Payroll").length).toBeGreaterThan(0);
     expect(screen.getByText("urgent")).toBeTruthy();
     expect(screen.getByText("Completed")).toBeTruthy();
-    expect(screen.getByText("Waiting for a grade")).toBeTruthy();
   });
 
-  it("says nothing about a grade for an issue with no weekly task", async () => {
+  it("never says anything is waiting for a grade, even where the API still says so", async () => {
     render(<WorkRecordPanel employeeId="emp-1" />);
-    await screen.findByText("Tidy board");
+    await screen.findByText("Write release notes");
+    expect(screen.queryByText(/waiting/i)).toBeNull();
     const row = screen.getByText("Tidy board").closest("li") as HTMLElement;
     expect(
       within(row).queryByText(/grade|Completed|completed|Rejected/),
     ).toBeNull();
+  });
+
+  it("says on time and late as plain facts, and nothing when there was no due date", async () => {
+    workRecord.mockResolvedValue(
+      record({
+        days: [
+          {
+            date: "2026-10-21",
+            issues: [
+              {
+                ...record().days[0]!.issues[0]!,
+                id: "a",
+                key: "K-1",
+                title: "On the day",
+                onTime: true,
+                grade: null,
+                links: [],
+              },
+              {
+                ...record().days[0]!.issues[0]!,
+                id: "b",
+                key: "K-2",
+                title: "After the day",
+                onTime: false,
+                grade: null,
+                links: [],
+              },
+              {
+                ...record().days[0]!.issues[0]!,
+                id: "c",
+                key: "K-3",
+                title: "No date",
+                onTime: null,
+                dueDate: null,
+                grade: null,
+                links: [],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    render(<WorkRecordPanel employeeId="emp-1" />);
+    await screen.findByText("On the day");
+    const row = (title: string) =>
+      screen.getByText(title).closest("li") as HTMLElement;
+    expect(within(row("On the day")).getByText("On time")).toBeTruthy();
+    expect(within(row("After the day")).getByText("Late")).toBeTruthy();
+    expect(within(row("No date")).queryByText(/on time|late/i)).toBeNull();
+    /* Late is a fact, not a verdict: no danger colour anywhere on the row. */
+    expect(row("After the day").querySelector("[class*=danger]")).toBeNull();
+  });
+
+  it("labels a linked task neutrally, and says a closed objective is closed", async () => {
+    const base = record().days[0]!.issues[0]!;
+    workRecord.mockResolvedValue(
+      record({
+        days: [
+          {
+            date: "2026-10-21",
+            issues: [
+              {
+                ...base,
+                id: "a",
+                key: "K-1",
+                title: "Linked work",
+                grade: null,
+                links: [],
+                objective: {
+                  goalId: "g1",
+                  title: "Grow pipeline",
+                  keyResultTitle: "Demos booked",
+                  closed: false,
+                },
+              },
+              {
+                ...base,
+                id: "b",
+                key: "K-2",
+                title: "Older work",
+                grade: null,
+                links: [],
+                objective: {
+                  goalId: "g2",
+                  title: "Old goal",
+                  keyResultTitle: null,
+                  closed: true,
+                },
+              },
+              {
+                ...base,
+                id: "c",
+                key: "K-3",
+                title: "Unlinked work",
+                grade: null,
+                links: [],
+                objective: null,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    render(<WorkRecordPanel employeeId="emp-1" />);
+    await screen.findByText("Linked work");
+    expect(
+      screen.getByText("Linked to Grow pipeline, Demos booked"),
+    ).toBeTruthy();
+    expect(screen.getByText("Linked objective is closed")).toBeTruthy();
+    const unlinked = screen
+      .getByText("Unlinked work")
+      .closest("li") as HTMLElement;
+    expect(within(unlinked).queryByText(/Linked/)).toBeNull();
   });
 
   it("words the other grades", async () => {

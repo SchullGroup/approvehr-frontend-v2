@@ -15,8 +15,13 @@
  */
 
 import type { ApiGoal, ApiWorkRecord } from "@/lib/api/performance";
+import type { TeamFilter, TeamPerson, TeamTask } from "@/lib/api/projects";
+import { dayIn } from "@/lib/time";
+import { countsAsWork } from "./objectives";
+import { categoryOf } from "./workflow";
 import {
   BULK_LINK_LIMIT,
+  byObjective,
   byPerson,
   byProject,
   completedUnder,
@@ -273,6 +278,7 @@ export function demoWorkThisCycle(args: {
   return {
     summary: summarise(items),
     byProject: byProject(items),
+    byObjective: byObjective(items),
     items: items.slice(0, cap),
     total: items.length,
     capped: items.length > cap,
@@ -310,4 +316,108 @@ export function demoCompletedWork(args: {
     total: under.length,
     capped: under.length > cap,
   };
+}
+
+/* ------------------------------------------------- the open view of the same page */
+
+/**
+ * What the people you lead have on, for the demo's Team tasks page: their open
+ * top-level tasks, counted the way the API counts them (overdue, due this week,
+ * later or no date) and finished this week.
+ */
+export function demoTeamOpen(args: {
+  projects: readonly ProjectData[];
+  viewerId: string | null;
+  directory: readonly DirectoryEntry[];
+  filter: TeamFilter;
+  today: string;
+  timeZone: string;
+}): TeamPerson[] {
+  const week = periodAround("week", args.today);
+  const team = ledBy(args.viewerId, args.directory);
+  return team
+    .map((person) => {
+      const open: TeamTask[] = [];
+      let doneThisWeek = 0;
+      for (const data of args.projects) {
+        for (const issue of data.issues) {
+          if (!countsAsWork(issue) || !issue.assigneeIds.includes(person.id)) {
+            continue;
+          }
+          const category = categoryOf(data.project.statuses, issue.statusId);
+          if (category === "DONE") {
+            const day = issue.doneAt
+              ? dayIn(issue.doneAt, args.timeZone)
+              : null;
+            if (day && day >= week.start && day < week.end) doneThisWeek += 1;
+            continue;
+          }
+          const overdue = issue.dueDate !== null && issue.dueDate < args.today;
+          open.push({
+            id: issue.id,
+            key: issue.key,
+            title: issue.title,
+            projectId: data.project.id,
+            projectName: data.project.name,
+            personal: false,
+            statusName:
+              data.project.statuses.find((s) => s.id === issue.statusId)
+                ?.name ?? "",
+            statusCategory: category,
+            dueDate: issue.dueDate,
+            dueTime: issue.dueTime ?? null,
+            overdue,
+            labels: issue.labels,
+          });
+        }
+      }
+      const dueThisWeek = open.filter(
+        (t) =>
+          !t.overdue &&
+          t.dueDate !== null &&
+          t.dueDate >= args.today &&
+          t.dueDate < week.end,
+      ).length;
+      const overdue = open.filter((t) => t.overdue).length;
+      const shown = open
+        .filter((t) =>
+          args.filter === "overdue"
+            ? t.overdue
+            : args.filter === "due-week"
+              ? !t.overdue &&
+                t.dueDate !== null &&
+                t.dueDate >= args.today &&
+                t.dueDate < week.end
+              : true,
+        )
+        .sort(
+          (a, b) =>
+            (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") ||
+            a.key.localeCompare(b.key),
+        );
+      return {
+        employee: {
+          id: person.id,
+          name: person.name,
+          jobTitle: person.jobTitle,
+          departmentId: person.departmentName
+            ? `dept-${person.departmentName}`
+            : null,
+          departmentName: person.departmentName,
+        },
+        counts: {
+          open: open.length,
+          overdue,
+          dueThisWeek,
+          laterOrNoDate: open.length - overdue - dueThisWeek,
+          doneThisWeek,
+        },
+        tasks: shown,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.counts.overdue - a.counts.overdue ||
+        a.employee.name.localeCompare(b.employee.name),
+    );
 }

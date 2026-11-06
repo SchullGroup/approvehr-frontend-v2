@@ -20,6 +20,7 @@ import {
   type Draft,
 } from "@/app/(app)/performance/review-parts";
 import { SelfEvidence } from "@/app/(app)/performance/self-evidence";
+import { WorkThisCycle } from "@/components/performance/work-this-cycle";
 import {
   clearLocalDraft,
   readLocalDraft,
@@ -504,7 +505,11 @@ export function FocusForm({
           ? "Skip"
           : "Next";
 
-  const showWork = review.kind === "SELF";
+  /* The self review shows what you did, and the manager's what they did: both
+     read-only, one press away at the top. Peer feedback has none. */
+  const ownReview = review.kind === "SELF";
+  const showWork = ownReview || review.kind === "MANAGER";
+  const firstName = review.subjectName.split(" ")[0] ?? review.subjectName;
 
   /* A fixed frame: the bar, the progress line and the buttons stay where they
      are, and only the middle scrolls. On a phone a tall page — a five-option
@@ -549,11 +554,17 @@ export function FocusForm({
         {showWork && (
           <Button
             size="sm"
-            aria-label="What you did this period"
+            aria-label={
+              ownReview
+                ? "What you did this period"
+                : `What ${firstName} did this period`
+            }
             onClick={() => setWorkOpen(true)}
           >
             <ListChecks aria-hidden="true" className="size-4" />
-            <span className="hidden sm:inline">Your work</span>
+            <span className="hidden sm:inline">
+              {ownReview ? "Your work" : `${firstName}'s work`}
+            </span>
           </Button>
         )}
       </header>
@@ -703,18 +714,35 @@ export function FocusForm({
         <Drawer
           open={workOpen}
           onClose={() => setWorkOpen(false)}
-          title="What you did this period"
+          title={
+            ownReview
+              ? "What you did this period"
+              : `What ${firstName} did this period`
+          }
           description="For reference while you answer."
         >
-          <SelfEvidence
-            periodStart={review.periodStart}
-            periodEnd={review.periodEnd}
-            whenNothing={
-              <p className="text-body-sm text-muted">
-                Nothing is logged for this period yet.
-              </p>
-            }
-          />
+          <div className="flex flex-col gap-6">
+            {ownReview && (
+              <SelfEvidence
+                periodStart={review.periodStart}
+                periodEnd={review.periodEnd}
+                whenNothing={
+                  <p className="text-body-sm text-muted">
+                    Nothing is logged for this period yet.
+                  </p>
+                }
+              />
+            )}
+            <WorkThisCycle
+              employeeId={review.subjectId}
+              cycleId={review.cycleId}
+              periodStart={review.periodStart}
+              periodEnd={review.periodEnd}
+              subjectName={review.subjectName}
+              own={ownReview}
+              startOpen
+            />
+          </div>
         </Drawer>
       )}
     </div>

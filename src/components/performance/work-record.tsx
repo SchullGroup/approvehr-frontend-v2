@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, ListChecks } from "lucide-react";
 import Link from "next/link";
 import {
@@ -19,14 +19,12 @@ import { ApiError } from "@/lib/api/client";
 import { isPersonalSource, workIssueHref } from "@/lib/projects/objectives";
 import {
   dayLabel,
-  performanceApi,
   type ApiTaskGrade,
   type ApiWorkRecord,
   type ApiWorkRecordIssue,
   type ApiWorkRecordPeriod,
 } from "@/lib/api/performance";
-import { useSession } from "@/lib/store/session";
-import { useFetched } from "@/lib/use-fetched";
+import { useWorkRecord } from "@/lib/store/completions";
 
 /**
  * What somebody finished on the project boards, a day, week, month or quarter
@@ -48,10 +46,18 @@ import { useFetched } from "@/lib/use-fetched";
  * midnight as an instant, and the UTC date of an instant a minute either side
  * of it can be the wrong calendar day for a company east of Greenwich.
  *
- * ## An issue with no weekly task has no grade text
+ * ## Every finished task counts, linked or not
  *
- * "Waiting for a grade" is said only where a weekly task of theirs is attached
- * and ungraded. An issue that never fed a weekly task has nothing to wait for.
+ * A finished top-level task is on this record whether or not anybody linked it
+ * to an objective. A link only says where else it shows, so a task with no link
+ * is listed like any other, with nothing said about it. On time and late are
+ * plain facts, in the same quiet badge, never a colour that reads as a verdict.
+ *
+ * ## No grade is waited for
+ *
+ * Finishing project work files nothing for a manager to grade, so nothing here
+ * waits on one. A task that was graded as a weekly task in the past keeps the
+ * grade it was given; no row ever says it is waiting for one.
  */
 
 const PERIODS: { value: ApiWorkRecordPeriod; label: string }[] = [
@@ -75,23 +81,11 @@ const dateAround = (iso: string, offsetMs: number): string =>
   new Date(new Date(iso).getTime() + offsetMs).toISOString().slice(0, 10);
 
 export function WorkRecordPanel({ employeeId }: { employeeId?: string }) {
-  const { isConnected } = useSession();
   const [period, setPeriod] = useState<ApiWorkRecordPeriod>("week");
   /* `undefined` is "today", which the API works out in the company's zone. */
   const [date, setDate] = useState<string | undefined>(undefined);
 
-  const load = useCallback(
-    (signal: AbortSignal) =>
-      employeeId
-        ? performanceApi.workRecord(employeeId, { period, date }, signal)
-        : performanceApi.myWorkRecord({ period, date }, signal),
-    [employeeId, period, date],
-  );
-  const fetched = useFetched<ApiWorkRecord>(
-    `work-record|${employeeId ?? "mine"}|${period}|${date ?? "today"}`,
-    isConnected,
-    load,
-  );
+  const fetched = useWorkRecord(employeeId, period, date);
   const record = fetched.data;
   const notAvailable =
     fetched.error instanceof ApiError && fetched.error.status === 404;
@@ -203,18 +197,15 @@ function Record({ record }: { record: ApiWorkRecord }) {
             ? { hint: "None of these had a due date" }
             : {})}
         />
+        {/* Only where something finished in this period was graded as a weekly
+            task, in the past. Finishing project work files nothing to grade, so
+            for most people this figure does not exist, and it is not shown as a
+            dash or a nought. */}
+        {summary.completionRate !== null && (
+          <Stat label="Completion rate" value={`${summary.completionRate}%`} />
+        )}
         <Stat
-          label="Completion rate"
-          value={
-            summary.completionRate === null ? (
-              <span className="text-faint">—</span>
-            ) : (
-              `${summary.completionRate}%`
-            )
-          }
-        />
-        <Stat
-          label="Count toward an objective"
+          label="Linked to an objective"
           value={`${summary.linkedToObjective} of ${summary.finished}`}
         />
       </div>
@@ -288,16 +279,25 @@ function IssueRow({ issue }: { issue: ApiWorkRecordIssue }) {
             {label}
           </Badge>
         ))}
-        {issue.grade ? (
+        {issue.onTime !== null && (
+          <Badge tone="neutral" size="sm">
+            {issue.onTime ? "On time" : "Late"}
+          </Badge>
+        )}
+        {/* Only where it was graded as a weekly task. Nothing says it is waiting. */}
+        {issue.grade && (
           <Badge tone={GRADE_WORDS[issue.grade].tone} size="sm">
             {GRADE_WORDS[issue.grade].label}
           </Badge>
-        ) : issue.waitingForGrade ? (
-          <Badge tone="neutral" size="sm">
-            Waiting for a grade
-          </Badge>
-        ) : null}
+        )}
       </div>
+      {issue.objective && (
+        <p className="text-meta text-muted">
+          {issue.objective.closed
+            ? "Linked objective is closed"
+            : `Linked to ${issue.objective.title}${issue.objective.keyResultTitle ? `, ${issue.objective.keyResultTitle}` : ""}`}
+        </p>
+      )}
       {issue.links.map((link, n) => (
         <p key={n} className="text-meta text-muted">
           {link.otherKey

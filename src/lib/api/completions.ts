@@ -169,6 +169,13 @@ export function workRecordToThisCycle(
       linked: record.summary.linkedToObjective,
     },
     byProject: byProject(all),
+    /* The API's own counts, which cover everything and not only what is listed. */
+    byObjective: record.byObjective.map((row) => ({
+      goalId: row.goalId,
+      title: row.title,
+      keyResultTitle: row.keyResultTitle ?? null,
+      finished: row.finished,
+    })),
     items: all.slice(0, cap),
     total: record.summary.finished,
     capped: all.length > cap || record.summary.finished > all.length,
