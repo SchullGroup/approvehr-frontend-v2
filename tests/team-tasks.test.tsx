@@ -82,6 +82,7 @@ const task = (over: Partial<TeamTask> = {}): TeamTask => {
     personal: false,
     statusName: "To do",
     statusCategory: "TODO",
+    dueTime: null,
     dueDate: "2026-10-30",
     overdue: false,
     labels: [],
@@ -95,7 +96,13 @@ const person = (
   counts: Partial<TeamPerson["counts"]>,
   tasks: TeamTask[],
 ): TeamPerson => ({
-  employee: { id, name, jobTitle: "Engineer" },
+  employee: {
+    id,
+    name,
+    jobTitle: "Engineer",
+    departmentId: null,
+    departmentName: null,
+  },
   counts: {
     open: 0,
     overdue: 0,
@@ -339,6 +346,42 @@ describe("team tasks", () => {
     expect(within(dialog).getByText("finance")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
     expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+});
+
+describe("the department filter", () => {
+  it("narrows the team to one person's department, and offers to show everybody again", async () => {
+    const inFinance = {
+      ...ada(),
+      employee: {
+        ...ada().employee,
+        departmentId: "d-fin",
+        departmentName: "Finance",
+      },
+    };
+    const inSales = {
+      ...bola(),
+      employee: {
+        ...bola().employee,
+        departmentId: "d-sales",
+        departmentName: "Sales",
+      },
+    };
+    teamTasks.mockResolvedValue([inFinance, inSales]);
+    render(<TeamTasksScreen />);
+    await screen.findByText("Bola Ade");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Department"),
+      "Finance",
+    );
+    expect(screen.getByText("Ada Okafor")).toBeInTheDocument();
+    expect(screen.queryByText("Bola Ade")).not.toBeInTheDocument();
+  });
+
+  it("is not offered when everybody is in the same department", async () => {
+    render(<TeamTasksScreen />);
+    await screen.findByText("Bola Ade");
+    expect(screen.queryByLabelText("Department")).toBeNull();
   });
 });
 

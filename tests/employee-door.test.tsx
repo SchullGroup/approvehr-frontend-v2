@@ -37,6 +37,7 @@ const EVERYTHING_ANSWERED: NavFacts = {
     signatures: true,
     interviews: true,
     "team-tasks": false,
+    "master-view": false,
   },
 };
 

@@ -66,6 +66,7 @@ const facts = (has: boolean): NavFacts => ({
     signatures: has,
     interviews: true,
     "team-tasks": false,
+    "master-view": false,
   },
 });
 

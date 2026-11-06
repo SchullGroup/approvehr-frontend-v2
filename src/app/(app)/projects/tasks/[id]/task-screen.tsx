@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ListChecks } from "lucide-react";
 import {
   Button,
@@ -58,6 +58,8 @@ export function TaskScreen({ id }: { id: string }) {
 
 function Opened({ id }: { id: string }) {
   const router = useRouter();
+  /* Opened from a My tasks row: the board it lands on knows to come back. */
+  const fromMyTasks = useSearchParams().get("from") === "my-tasks";
   const people = usePeople();
   const [state, setState] = useState<State>({ status: "loading" });
   const [open, setOpen] = useState(true);
@@ -78,7 +80,7 @@ function Opened({ id }: { id: string }) {
       .then((target) => {
         if (target.kind === "board") {
           router.replace(
-            `/projects/${target.projectId}?issue=${encodeURIComponent(target.key)}`,
+            `/projects/${target.projectId}?issue=${encodeURIComponent(target.key)}${fromMyTasks ? "&from=my-tasks" : ""}`,
           );
         }
         setState({ status: "ready", target });
@@ -101,7 +103,20 @@ function Opened({ id }: { id: string }) {
       <>
         <PageHeader title="Page not found" />
         <PageBody>
-          <NotFoundState subject="that task" />
+          {fromMyTasks ? (
+            <EmptyState
+              icon={<ListChecks />}
+              title="This task is not here any more"
+              description="This task was removed or you're no longer on its project."
+              action={
+                <ButtonLink href="/projects/mine" variant="secondary">
+                  Back to My tasks
+                </ButtonLink>
+              }
+            />
+          ) : (
+            <NotFoundState subject="that task" />
+          )}
         </PageBody>
       </>
     );

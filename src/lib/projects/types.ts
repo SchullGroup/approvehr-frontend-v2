@@ -22,6 +22,13 @@
  * are full ISO instants.
  */
 
+import {
+  CATEGORY_LABEL as TERMS_CATEGORY_LABEL,
+  PICKABLE_TYPES,
+  PROJECT_TYPE_LABEL as TERMS_PROJECT_TYPE_LABEL,
+  TYPE_LABEL,
+} from "./terms";
+
 export const PROJECT_TYPES = ["SCRUM", "KANBAN"] as const;
 export type ProjectType = (typeof PROJECT_TYPES)[number];
 
@@ -31,8 +38,12 @@ export type StatusCategory = (typeof STATUS_CATEGORIES)[number];
 export const ISSUE_TYPES = ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"] as const;
 export type IssueType = (typeof ISSUE_TYPES)[number];
 
-/** What a person can pick when creating or retyping an issue. A sub-task is made from a parent. */
-export const PICKABLE_ISSUE_TYPES = ["EPIC", "STORY", "TASK", "BUG"] as const;
+/**
+ * What a person can pick when creating or retyping a task: Task, Problem,
+ * Initiative, in that order. A subtask is made from a parent, and a STORY is
+ * shown and picked as a Task (see `terms.ts`).
+ */
+export const PICKABLE_ISSUE_TYPES: readonly IssueType[] = PICKABLE_TYPES;
 
 export const PRIORITIES = [
   "HIGHEST",
@@ -72,18 +83,11 @@ export const PROJECT_COLOR_NAMES: Record<string, string> = {
   "#3F6212": "Olive",
 };
 
-export const PROJECT_TYPE_LABEL: Record<ProjectType, string> = {
-  SCRUM: "Scrum",
-  KANBAN: "Kanban",
-};
+/* The words for these live in `terms.ts`, which is the one place they are written. */
+export const PROJECT_TYPE_LABEL: Record<ProjectType, string> =
+  TERMS_PROJECT_TYPE_LABEL;
 
-export const ISSUE_TYPE_LABEL: Record<IssueType, string> = {
-  EPIC: "Epic",
-  STORY: "Story",
-  TASK: "Task",
-  BUG: "Bug",
-  SUBTASK: "Sub-task",
-};
+export const ISSUE_TYPE_LABEL: Record<IssueType, string> = TYPE_LABEL;
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
   HIGHEST: "Highest",
@@ -102,11 +106,8 @@ export const PRIORITY_WEIGHT: Record<Priority, number> = {
   LOWEST: 1,
 };
 
-export const CATEGORY_LABEL: Record<StatusCategory, string> = {
-  TODO: "To do",
-  IN_PROGRESS: "In progress",
-  DONE: "Done",
-};
+export const CATEGORY_LABEL: Record<StatusCategory, string> =
+  TERMS_CATEGORY_LABEL;
 
 export type ProjectStatus = {
   id: string;
@@ -134,6 +135,14 @@ export type Project = {
   goalId: string | null;
   /** The lead is always among them. */
   memberIds: string[];
+  /**
+   * Each member's department id (null for none), for the board's "Assignee's
+   * department" filter. Sent with one project, not with the list; absent in the
+   * demo, where the filter is not offered.
+   */
+  memberDepartments?: Record<string, string | null>;
+  /** Names of the departments in `memberDepartments`, by id. */
+  departmentNames?: Record<string, string>;
   statuses: ProjectStatus[];
   createdById: string;
   createdAt: string;
@@ -155,6 +164,20 @@ export type Project = {
    * rule worked out from the project: the lead, or somebody who manages records.
    */
   canManage: boolean | null;
+  /**
+   * The program this project belongs to, or null (or absent) for none. Moving a
+   * project changes only this: members, tasks and keys stay as they are.
+   */
+  programId?: string | null;
+  programName?: string | null;
+  programColor?: string | null;
+  /**
+   * What the signed-in person may do here, as the API says it: READ, WRITE or
+   * MANAGE. Absent where the API did not say (the demo works it out with
+   * `accessFor`, the same rule).
+   */
+  access?: "READ" | "WRITE" | "MANAGE" | null;
+  canWrite?: boolean | null;
 };
 
 export type Sprint = {
@@ -194,6 +217,13 @@ export type Issue = {
   labels: string[];
   startDate: string | null;
   dueDate: string | null;
+  /**
+   * `HH:MM`, 24-hour, on `dueDate` in the company's time zone; null (or absent)
+   * for "by the end of the day". Never set without a `dueDate`.
+   */
+  dueTime?: string | null;
+  /** The deadline instant the API worked out from the two (ISO); read-only. */
+  dueAt?: string | null;
   /** Position within a column or section. Insert between neighbours is the midpoint. */
   rank: number;
   doneAt: string | null;
@@ -313,6 +343,8 @@ export type NewProjectInput = {
    * sign-in with no staff record behind it, which cannot lead anything itself.
    */
   leadId?: string;
+  /** The program it starts in. Null or absent: Unassigned. */
+  programId?: string | null;
 };
 
 export type ProjectPatch = Partial<{
@@ -323,6 +355,8 @@ export type ProjectPatch = Partial<{
   departmentId: string | null;
   leadId: string;
   goalId: string | null;
+  /** Moves the project into a program, or out of one (null). Nothing else about it changes. */
+  programId: string | null;
 }>;
 
 export type StatusInput = {
@@ -349,6 +383,7 @@ export type NewIssueInput = {
   labels?: string[];
   startDate?: string | null;
   dueDate?: string | null;
+  dueTime?: string | null;
 };
 
 export type IssuePatch = Partial<{
@@ -365,6 +400,7 @@ export type IssuePatch = Partial<{
   labels: string[];
   startDate: string | null;
   dueDate: string | null;
+  dueTime: string | null;
   rank: number;
   goalId: string | null;
 }>;

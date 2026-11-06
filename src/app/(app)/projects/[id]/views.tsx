@@ -14,6 +14,9 @@ import { IssuesView } from "./issues-view";
 import { ReportsView } from "./reports-view";
 import { RoadmapView } from "./roadmap-view";
 import { SettingsView } from "./settings-view";
+import { TAB_LABEL, type ProjectViewId } from "@/lib/projects/terms";
+
+export type { ProjectViewId };
 
 /**
  * The views of a project, and where a new one plugs in.
@@ -21,9 +24,13 @@ import { SettingsView } from "./settings-view";
  * ## How a view is chosen
  *
  * `?view=<id>` on `/projects/[id]`. No `view` is the default (`board`). It is a
- * query parameter rather than a sub-route so the open issue (`?issue=KEY-12`),
+ * query parameter rather than a sub-route so the open task (`?issue=KEY-12`),
  * the filter and the project's data stay in one component tree — switching tabs
  * does not reload the project or close an open drawer's context.
+ *
+ * The ids are the old names (`backlog`, `roadmap`, `reports`, `issues`) on
+ * purpose, so a link saved before the tabs were renamed still opens the right
+ * one. What people read is `TAB_LABEL` in `lib/projects/terms.ts`.
  *
  * ## How to add or replace one
  *
@@ -43,9 +50,6 @@ import { SettingsView } from "./settings-view";
  * `completeSprint`).
  */
 
-export type ProjectViewId =
-  "board" | "backlog" | "roadmap" | "reports" | "issues" | "settings";
-
 export type ProjectViewDef = {
   id: ProjectViewId;
   label: string;
@@ -58,37 +62,37 @@ export const DEFAULT_VIEW: ProjectViewId = "board";
 export const PROJECT_VIEWS: readonly ProjectViewDef[] = [
   {
     id: "board",
-    label: "Board",
+    label: TAB_LABEL.board,
     icon: <Kanban />,
     Component: BoardView,
   },
   {
     id: "backlog",
-    label: "Backlog",
+    label: TAB_LABEL.backlog,
     icon: <ListChecks />,
     Component: BacklogView,
   },
   {
     id: "roadmap",
-    label: "Roadmap",
+    label: TAB_LABEL.roadmap,
     icon: <MapIcon />,
     Component: RoadmapView,
   },
   {
     id: "reports",
-    label: "Reports",
+    label: TAB_LABEL.reports,
     icon: <ChartLine />,
     Component: ReportsView,
   },
   {
     id: "issues",
-    label: "All issues",
+    label: TAB_LABEL.issues,
     icon: <Table2 />,
     Component: IssuesView,
   },
   {
     id: "settings",
-    label: "Settings",
+    label: TAB_LABEL.settings,
     icon: <Settings />,
     Component: SettingsView,
   },

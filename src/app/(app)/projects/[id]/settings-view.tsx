@@ -9,6 +9,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   Field,
   Input,
   Modal,
@@ -30,8 +31,17 @@ import {
   PROJECT_TYPE_LABEL,
   type ProjectType,
 } from "@/lib/projects/types";
+import {
+  CYCLE,
+  LIMIT,
+  STAGE,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import { boardTypeChangeBlocker } from "@/lib/projects/workflow";
 import { useDepartments } from "@/lib/store/departments";
+import { useProgramActions, useProgramList } from "@/lib/store/programs";
+import { PROGRAM } from "@/lib/projects/terms";
 import { WorkflowEditor } from "./workflow-editor";
 
 /**
@@ -55,7 +65,7 @@ export function SettingsView() {
       <Card>
         <CardHeader
           title="Workflow"
-          description="The board's columns, in order. A status's category decides whether an issue in it counts as done. A WIP limit turns a column's count red when it has more than that many issues; nothing is blocked."
+          description={`The board's columns, in order. A ${STAGE.one}'s category decides whether a ${TASK.one} in it counts as done. A ${LIMIT.one} turns a column's count red when it has more than that many ${TASK.many}; nothing is blocked.`}
         />
         <CardBody>
           <WorkflowEditor editable={canManage} />
@@ -68,6 +78,108 @@ export function SettingsView() {
 }
 
 /* ----------------------------------------------------------------- details -- */
+
+/**
+ * Which program the project is in, and a way to move it.
+ *
+ * Only the people who manage the project see a picker, and only programs that
+ * will take a new project are offered (the API says which: `canCreateProject`),
+ * plus "No program" when the project's own program is one they manage. Moving
+ * asks first and says what changes for who can see it: the project's members,
+ * tasks and key do not change, but the people who reach it through its program do.
+ */
+function ProgramField({ editable }: { editable: boolean }) {
+  const { project } = useProject();
+  const programs = useProgramList();
+  const actions = useProgramActions();
+  const toast = useToast();
+  const [target, setTarget] = useState<string | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+
+  const all = programs.data?.programs ?? [];
+  const current = all.find((p) => p.id === project.programId) ?? null;
+  const here = project.programName ?? current?.name ?? null;
+  const mayLeave = project.programId === null || current?.canManage === true;
+  const offers = all.filter(
+    (p) => p.canCreateProject && !p.archived && p.id !== project.programId,
+  );
+  if (!editable) return null;
+  if (!programs.data) return null;
+  /* Nothing to choose between: say where it is, and offer nothing. */
+  if (offers.length === 0 && !(project.programId && mayLeave)) {
+    return all.length === 0 && !project.programId ? null : (
+      <Field label={PROGRAM.One}>
+        <p className="text-body-sm text-ink">{here ?? "No program"}</p>
+      </Field>
+    );
+  }
+
+  const destination =
+    target === undefined
+      ? null
+      : target === null
+        ? null
+        : (all.find((p) => p.id === target) ?? null);
+
+  async function move() {
+    if (target === undefined) return;
+    setBusy(true);
+    const result = await actions.moveProject(project, target);
+    setBusy(false);
+    if (result.ok) {
+      toast.push({
+        tone: "success",
+        title: `${project.name} moved`,
+        detail: destination
+          ? `It is now in ${destination.name}.`
+          : `It is now in no ${PROGRAM.one}.`,
+      });
+    }
+    setTarget(undefined);
+  }
+
+  return (
+    <>
+      <Field
+        label={PROGRAM.One}
+        help={`People with access to the ${PROGRAM.one} can see this project. Moving it does not change its members, tasks or key.`}
+      >
+        <Select
+          value={project.programId ?? ""}
+          onChange={(event) => setTarget(event.target.value || null)}
+        >
+          {project.programId && (
+            <option value={project.programId}>{here ?? "Current"}</option>
+          )}
+          {mayLeave && <option value="">No {PROGRAM.one}</option>}
+          {offers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <ConfirmDialog
+        open={target !== undefined}
+        onClose={() => setTarget(undefined)}
+        onConfirm={() => void move()}
+        title={`Move ${project.name} to ${destination?.name ?? `no ${PROGRAM.one}`}?`}
+        body={`${
+          destination
+            ? `People with access to ${destination.name} will be able to see it. `
+            : ""
+        }${
+          here
+            ? `People who see it only through ${here} will no longer see it, unless they are members. `
+            : ""
+        }Its members, tasks and key stay as they are.`}
+        confirmLabel="Move project"
+        tone="primary"
+        loading={busy}
+      />
+    </>
+  );
+}
 
 function DetailsCard({ editable }: { editable: boolean }) {
   const { project, issues, sprints, actions, people } = useProject();
@@ -128,6 +240,8 @@ function DetailsCard({ editable }: { editable: boolean }) {
           />
         </Field>
 
+        <ProgramField editable={editable} />
+
         <div className="grid gap-5 sm:grid-cols-2">
           <Field
             label="Board type"
@@ -136,8 +250,8 @@ function DetailsCard({ editable }: { editable: boolean }) {
               typeNotice
                 ? undefined
                 : project.type === "SCRUM"
-                  ? "Work is planned into sprints and the board shows the active one."
-                  : "Work flows through the columns with no sprints."
+                  ? `Work is planned into ${CYCLE.many} and the board shows the active one.`
+                  : `Work flows through the columns with no ${CYCLE.many}.`
             }
           >
             <Select
@@ -203,7 +317,7 @@ function DetailsCard({ editable }: { editable: boolean }) {
             <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
               <ProjectKeyChip project={project} />
               <span>
-                Issue keys look like {project.key}-42. The key cannot change
+                Task keys look like {project.key}-42. The key cannot change
                 after the project is created.
               </span>
             </p>
@@ -288,7 +402,7 @@ function MembersCard({ editable }: { editable: boolean }) {
     <Card>
       <CardHeader
         title="Members"
-        description="Only members can see this project, and only members can be given its issues."
+        description={`Only members can see this project, and only members can be given its ${TASK.many}.`}
       />
       <CardBody className="space-y-4">
         <ul className="divide-y divide-line">
@@ -392,7 +506,7 @@ function DangerCard() {
     <Card className="border-danger-line">
       <CardHeader
         title="Delete this project"
-        description={`Removes ${project.name} with all ${issues.length} ${issues.length === 1 ? "issue" : "issues"} and ${sprints.length} ${sprints.length === 1 ? "sprint" : "sprints"}. This cannot be undone.`}
+        description={`Removes ${project.name} with all ${countNoun(issues.length, "task")} and ${countNoun(sprints.length, "cycle")}. This cannot be undone.`}
       />
       <CardBody>
         <Button variant="danger" onClick={() => setOpen(true)}>
@@ -422,7 +536,8 @@ function DangerCard() {
       >
         <div className="space-y-4">
           <p className="text-body-sm leading-relaxed text-body">
-            Every issue, comment and sprint in {project.name} goes with it.
+            Every {TASK.one}, comment and {CYCLE.one} in {project.name} goes
+            with it.
           </p>
           <Field label={`Type ${project.key} to confirm`}>
             <Input

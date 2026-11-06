@@ -77,7 +77,12 @@ export type BadgeSource =
  * the item, would let one be added that nobody ever calls.
  */
 export type NavRowFact =
-  "one-on-ones" | "signatures" | "interviews" | "team-tasks";
+  | "one-on-ones"
+  | "signatures"
+  | "interviews"
+  | "team-tasks"
+  /** Holds the Master grant (`SEE_ALL_WORK`): the Overview row of Projects. */
+  | "master-view";
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -132,6 +137,7 @@ export const NOTHING_ANSWERED_YET: NavFacts = {
     signatures: false,
     interviews: false,
     "team-tasks": false,
+    "master-view": false,
   },
   collaborator: false,
 };
@@ -160,6 +166,17 @@ export type NavItem = {
    * itself, being a longer match that is not excluded.
    */
   activeExcept?: string[];
+  /**
+   * The small heading this row is filed under inside its level, for rows that
+   * are made at run time (one per program) and so cannot be named in
+   * `SECTION_OF`. Rows with none inherit the heading before them.
+   */
+  section?: string;
+  /**
+   * Reached by Find and by nothing in the level: a program past the ones the level
+   * lists. The level stays short; typing the name still lands on the page.
+   */
+  findOnly?: true;
   /** A fixed count, for modules with no store behind them yet. */
   badge?: number;
   /** Computed in the shell from a store. Takes precedence over `badge`. */
@@ -316,6 +333,14 @@ export type NavGroup = {
   billingModule?: BillingModule;
 
   /**
+   * Which block of the top level the group sits in, when it is not the one its
+   * other fields say. `"yours"` is the personal block: a headed group there is
+   * still a row that opens (Projects), filed with Home and My approvals rather
+   * than with the company's modules.
+   */
+  zone?: "yours";
+
+  /**
    * A stable key for the group, which the sidebar uses to say which drill-down
    * level it is on. Optional so every fixture that builds a `NavGroup` by hand
    * still compiles; the sidebar falls back to a slug of `heading`.
@@ -370,40 +395,6 @@ const PERSONAL: NavItem[] = [
     always: true,
   },
   {
-    /* Here rather than under a module, because the six the site sells are not
-       this one's and a seventh heading for a single row would be furniture.
-       No permission: who sees which project is the API's rule (members, and
-       anybody who manages records), and a person on none sees an empty list with
-       a way to start one if they lead people. The feature flag is what keeps it
-       out of a company that has not switched it on. */
-    href: "/projects",
-    label: "Projects",
-    icon: <FolderKanban aria-hidden="true" />,
-    feature: "projects",
-    always: true,
-  },
-  {
-    /* Under Projects, for the reason Projects is here. Everybody with a staff
-       record has a list of their own; a sign-in with none is told so by the page
-       (the API refuses it) rather than the row vanishing and reappearing. */
-    href: "/projects/mine",
-    label: "My tasks",
-    icon: <ListChecks aria-hidden="true" />,
-    feature: "projects",
-    always: true,
-  },
-  {
-    /* Only for somebody who leads people: the rows decide, because no
-       permission says who has anybody reporting to them or a department to
-       head. Absent rather than an empty page that explains itself. */
-    href: "/projects/team",
-    label: "Team tasks",
-    icon: <Users aria-hidden="true" />,
-    feature: "projects",
-    rows: "team-tasks",
-    always: true,
-  },
-  {
     /* Here for the reason Projects is: it belongs to the person using it and to
        no module the site sells. No permission, because every employee keeps
        their own log and gives kudos; the screens narrow what a role sees (the
@@ -428,6 +419,67 @@ const PERSONAL: NavItem[] = [
    *
    * PARITY.md Rule 2. The sidebar is for the work, not for the account.
    */
+];
+
+/**
+ * Projects, as a level of its own.
+ *
+ * It was three flat links at the top (Projects, My tasks, Team tasks) and is one
+ * row that opens, because the module now has a hierarchy: the Master view, then
+ * programs, then projects. The static rows are here; the **Programs** section (one
+ * row per program the person can see, All programs, Unassigned) is added at run
+ * time by `withPrograms` in `programs-nav.tsx`, because which programs there are
+ * is a question for the API, not for this file.
+ *
+ * No permission on any row: who sees which project is the API's rule, and a
+ * person on none sees an empty list with a way to start one if they lead people.
+ * The feature flag is what keeps it out of a company that has not switched it on.
+ * Overview needs a fact because the Master grant is a permission the rows answer
+ * sooner than the permission set does (see `programsNav.seesAll`).
+ */
+export const PROJECT_ITEMS: NavItem[] = [
+  {
+    /* Everything the person is allowed to see, across programs. Absent, not
+       disabled, for everybody without the grant. */
+    href: "/projects/master",
+    label: "Overview",
+    icon: <LayoutDashboard aria-hidden="true" />,
+    feature: "projects",
+    rows: "master-view",
+    always: true,
+  },
+  {
+    /* Everybody with a staff record has a list of their own; a sign-in with none
+       is told so by the page (the API refuses it) rather than the row vanishing
+       and reappearing. */
+    href: "/projects/mine",
+    label: "My tasks",
+    icon: <ListChecks aria-hidden="true" />,
+    feature: "projects",
+    always: true,
+  },
+  {
+    /* Only for somebody who leads people: the rows decide, because no
+       permission says who has anybody reporting to them or a department to
+       head. Absent rather than an empty page that explains itself. */
+    href: "/projects/team",
+    label: "Team tasks",
+    icon: <Users aria-hidden="true" />,
+    feature: "projects",
+    rows: "team-tasks",
+    always: true,
+  },
+  {
+    /* The list the module has always had: the projects you are on. It does not
+       claim the Master view or the program pages, which are their own rows, so
+       it never lights beside them. */
+    href: "/projects",
+    label: "All projects",
+    icon: <FolderKanban aria-hidden="true" />,
+    activeExcept: ["/projects/master", "/projects/programs"],
+    feature: "projects",
+    always: true,
+  },
 ];
 
 /**
@@ -1078,6 +1130,13 @@ const MODULE_ICON: Record<ModuleId, React.ReactNode> = {
 
 export const NAV: NavGroup[] = [
   { id: "home", items: PERSONAL },
+  {
+    id: "projects",
+    heading: "Projects",
+    zone: "yours",
+    icon: <FolderKanban aria-hidden="true" />,
+    items: PROJECT_ITEMS,
+  },
   ...MODULES.map((module) => ({
     id: module.id,
     heading: module.label,

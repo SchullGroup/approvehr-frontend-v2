@@ -72,6 +72,7 @@ export function LoadMore({
           <Button
             variant="secondary"
             size="sm"
+            className="max-sm:h-10"
             loading={loading}
             disabled={loading}
             onClick={onLoadMore}

@@ -68,9 +68,9 @@ describe("the view's place in the project", () => {
 describe("the tiles", () => {
   it("shows open issues and the points left", () => {
     renderReports();
-    expect(tile("Open issues")).toMatchObject({
+    expect(tile("Open tasks")).toMatchObject({
       value: "13",
-      hint: "46 points left",
+      hint: "46 effort left",
     });
   });
 
@@ -78,15 +78,13 @@ describe("the tiles", () => {
     renderReports();
     expect(tile("Done in 7 days")).toMatchObject({
       value: "4",
-      hint: "9 points shipped",
+      hint: "9 effort finished",
     });
   });
 
-  it("shows open bugs and how many are high priority, in the warning colour while there are any", () => {
+  it("has no Open bugs tile", () => {
     renderReports();
-    const bugs = tile("Open bugs");
-    expect(bugs).toMatchObject({ value: "2", hint: "1 high priority" });
-    expect(within(bugs.el).getByText("2")).toHaveClass("text-warning-text");
+    expect(screen.queryByText("Open problems")).toBeNull();
   });
 
   it("shows what is overdue, in the warning colour while there is any", () => {
@@ -102,9 +100,10 @@ describe("the tiles", () => {
       ...data,
       issues: data.issues.filter((i) => i.type !== "BUG" && i.dueDate === null),
     });
-    const bugs = tile("Open bugs");
-    expect(bugs.value).toBe("0");
-    expect(within(bugs.el).getByText("0")).not.toHaveClass("text-warning-text");
+    const overdue = tile("Overdue");
+    expect(within(overdue.el).getByText("0")).not.toHaveClass(
+      "text-warning-text",
+    );
     expect(tile("Overdue").value).toBe("0");
   });
 
@@ -115,7 +114,7 @@ describe("the tiles", () => {
       points: 1,
     };
     renderReports({ ...data, issues: [lone] });
-    expect(tile("Open issues").hint).toBe("1 point left");
+    expect(tile("Open tasks").hint).toBe("1 effort left");
   });
 });
 
@@ -123,7 +122,7 @@ describe("the sprint burndown", () => {
   it("draws the running sprint, with its figures in words and in a table", () => {
     renderReports();
     const chart = screen.getByRole("img", {
-      name: "CHK Sprint 3 burndown: 18 of 27 points left today",
+      name: "Cycle 3 progress: 18 of 27 effort left today",
     });
     expect(chart).toBeInTheDocument();
     expect(within(chart).getByText("18 left")).toBeInTheDocument();
@@ -131,11 +130,11 @@ describe("the sprint burndown", () => {
       screen.getByText(
         (_, el) =>
           el?.tagName === "P" &&
-          /^18 of 27 points left\./.test(el.textContent ?? ""),
+          /^18 of 27 effort left\./.test(el.textContent ?? ""),
       ),
-    ).toHaveTextContent("18 of 27 points left. 7 days left in the sprint.");
+    ).toHaveTextContent("18 of 27 effort left. 7 days left in the cycle.");
     const table = screen.getByRole("table", {
-      name: /CHK Sprint 3: points left at the end of each day/,
+      name: /Cycle 3: effort left at the end of each day/,
     });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(7);
@@ -147,19 +146,19 @@ describe("the sprint burndown", () => {
 
   it("lists the sprints that have begun, newest first, and starts on the running one", () => {
     renderReports();
-    const select = screen.getByRole("combobox", { name: "Sprint" });
+    const select = screen.getByRole("combobox", { name: "Cycle" });
     expect(
       within(select)
         .getAllByRole("option")
         .map((o) => o.textContent),
-    ).toEqual(["CHK Sprint 3 (active)", "CHK Sprint 2", "CHK Sprint 1"]);
+    ).toEqual(["Cycle 3 (active)", "Cycle 2", "Cycle 1"]);
     expect(select).toHaveValue("sp-chk-3");
   });
 
   it("writes the choice of sprint to the address", async () => {
     renderReports();
     await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Sprint" }),
+      screen.getByRole("combobox", { name: "Cycle" }),
       "sp-chk-2",
     );
     expect(replace).toHaveBeenCalledWith("/projects/pj-chk?sprint=sp-chk-2", {
@@ -172,7 +171,7 @@ describe("the sprint burndown", () => {
     renderReports();
     expect(
       screen.getByRole("img", {
-        name: /CHK Sprint 2 burndown: \d+ of 24 points left at the end/,
+        name: /Cycle 2 progress: \d+ of 24 effort left at the end/,
       }),
     ).toBeInTheDocument();
     expect(
@@ -186,7 +185,7 @@ describe("the sprint burndown", () => {
     search = new URLSearchParams("sprint=gone");
     renderReports();
     expect(
-      screen.getByRole("img", { name: /CHK Sprint 3 burndown/ }),
+      screen.getByRole("img", { name: /Cycle 3 progress/ }),
     ).toBeInTheDocument();
   });
 
@@ -200,7 +199,7 @@ describe("the sprint burndown", () => {
     });
     expect(screen.getByText(/has no start and end dates/)).toBeInTheDocument();
     expect(
-      screen.queryByRole("img", { name: /burndown/ }),
+      screen.queryByRole("img", { name: /progress/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -212,9 +211,9 @@ describe("the sprint burndown", () => {
         i.sprintId === "sp-chk-3" ? { ...i, points: null } : i,
       ),
     });
-    expect(screen.getByText(/have no points yet/)).toBeInTheDocument();
+    expect(screen.getByText(/have no effort yet/)).toBeInTheDocument();
     expect(
-      screen.queryByRole("img", { name: /burndown/ }),
+      screen.queryByRole("img", { name: /progress/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -225,10 +224,10 @@ describe("the sprint burndown", () => {
       sprints: data.sprints.filter((s) => s.state === "PLANNED"),
     });
     expect(
-      screen.getByText("Start a sprint to see its burndown."),
+      screen.getByText("Start a cycle to see its progress."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Sprint" }),
+      screen.queryByRole("combobox", { name: "Cycle" }),
     ).not.toBeInTheDocument();
   });
 
@@ -239,10 +238,10 @@ describe("the sprint burndown", () => {
       sprints: data.sprints.filter((s) => s.id === "sp-chk-3"),
     });
     expect(
-      screen.queryByRole("combobox", { name: "Sprint" }),
+      screen.queryByRole("combobox", { name: "Cycle" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: /CHK Sprint 3 burndown/ }),
+      screen.getByRole("img", { name: /Cycle 3 progress/ }),
     ).toBeInTheDocument();
   });
 
@@ -255,15 +254,16 @@ describe("the sprint burndown", () => {
 describe("velocity", () => {
   it("shows each closed sprint's completed points of those committed, and the average", () => {
     renderReports();
-    const velocity = panel("Velocity");
-    expect(within(velocity).getByText("Sprint 1")).toBeInTheDocument();
+    const velocity = panel("Pace");
+    /* Once on the bar and once in the table for a screen reader. */
+    expect(within(velocity).getAllByText("Cycle 1")).toHaveLength(2);
     expect(within(velocity).getByText("18 of 21")).toBeInTheDocument();
     expect(within(velocity).getByText("22 of 24")).toBeInTheDocument();
-    expect(within(velocity).getByText("Average 20 points")).toBeInTheDocument();
+    expect(within(velocity).getByText("Average 20 effort")).toBeInTheDocument();
     const table = within(velocity).getByRole("table");
     expect(within(table).getAllByRole("row")).toHaveLength(3);
     expect(table).toHaveAccessibleName(
-      /last 2 closed sprints, averaging 20 points completed/,
+      /last 2 closed cycles, averaging 20 effort completed/,
     );
   });
 
@@ -274,7 +274,7 @@ describe("velocity", () => {
       sprints: data.sprints.filter((s) => s.state !== "CLOSED"),
     });
     expect(
-      screen.getByText("Complete a sprint to start tracking velocity."),
+      screen.getByText("Complete a cycle to start tracking pace."),
     ).toBeInTheDocument();
   });
 
@@ -288,10 +288,10 @@ describe("velocity", () => {
           : s,
       ),
     });
-    const velocity = panel("Velocity");
+    const velocity = panel("Pace");
     /* Once in the list and once in each of the table's two cells. */
     expect(within(velocity).getAllByText("Not recorded")).toHaveLength(3);
-    expect(within(velocity).getByText("Average 22 points")).toBeInTheDocument();
+    expect(within(velocity).getByText("Average 22 effort")).toBeInTheDocument();
   });
 });
 
@@ -301,10 +301,10 @@ describe("workload", () => {
     const rows = within(panel("Workload")).getAllByRole("listitem");
     /* The avatar's initials are decorative and come first in the text. */
     const texts = rows.map((r) => r.textContent ?? "");
-    expect(texts[0]).toMatch(/Unassigned26 points · 5 issues$/);
-    expect(texts[1]).toMatch(/Adaeze Okonkwo11 points · 3 issues$/);
-    expect(texts[2]).toMatch(/Emeka Anyanwu7 points · 3 issues$/);
-    expect(texts[3]).toMatch(/Ngozi Eze2 points · 2 issues$/);
+    expect(texts[0]).toMatch(/Unassigned26 effort · 5 tasks$/);
+    expect(texts[1]).toMatch(/Adaeze Okonkwo11 effort · 3 tasks$/);
+    expect(texts[2]).toMatch(/Emeka Anyanwu7 effort · 3 tasks$/);
+    expect(texts[3]).toMatch(/Ngozi Eze2 effort · 2 tasks$/);
     expect(rows).toHaveLength(4);
   });
 
@@ -328,9 +328,9 @@ describe("workload", () => {
       issues: data.issues.map((i) => ({ ...i, points: null })),
     });
     expect(
-      screen.getByText("Open issues by person. None has points yet."),
+      screen.getByText("Open tasks by person. None has effort yet."),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/0 points/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/0 effort/).length).toBeGreaterThan(0);
   });
 
   it("says nothing is open when it is not", () => {
@@ -345,20 +345,19 @@ describe("workload", () => {
 describe("the issue breakdown", () => {
   it("counts issues by status category and by type, and says how many there are", () => {
     renderReports();
-    const breakdown = panel("Issue breakdown");
+    const breakdown = panel("Task breakdown");
     expect(
       within(breakdown).getByText(
-        "22 issues in this project, epics not counted",
+        "22 tasks in this project, initiatives not counted",
       ),
     ).toBeInTheDocument();
     for (const legend of [
       "To do 9",
       "In progress 4",
       "Done 9",
-      "Story 9",
-      "Task 5",
-      "Bug 4",
-      "Sub-task 4",
+      "Task 14",
+      "Problem 4",
+      "Subtask 4",
     ]) {
       expect(within(breakdown).getByText(legend)).toBeInTheDocument();
     }
@@ -367,16 +366,16 @@ describe("the issue breakdown", () => {
   it("carries the same numbers in a table for a screen reader", () => {
     renderReports();
     const table = screen.getByRole("table", {
-      name: "Issues by status category",
+      name: "Tasks by stage",
     });
     expect(
       within(table).getByRole("row", { name: /To do\s*9/ }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("table", { name: "Issues by type" })).getByRole(
+      within(screen.getByRole("table", { name: "Tasks by type" })).getByRole(
         "row",
         {
-          name: /Bug\s*4/,
+          name: /Problem\s*4/,
         },
       ),
     ).toBeInTheDocument();
@@ -386,11 +385,11 @@ describe("the issue breakdown", () => {
     const data = sampleData();
     renderReports({ ...data, issues: [] });
     expect(
-      within(panel("Issue breakdown")).getByText("No issues yet"),
+      within(panel("Task breakdown")).getByText("No tasks yet"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Create an issue and its status and type are counted here.",
+        "Create a task and its stage and type are counted here.",
       ),
     ).toBeInTheDocument();
   });
@@ -410,18 +409,18 @@ describe("a Kanban project", () => {
     renderReports(kanban());
     expect(
       screen.getByText(
-        "Burndown and velocity measure sprints, and a Kanban project has none.",
+        "Cycle progress and pace measure cycles, and a Kanban project has none.",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Sprint burndown")).not.toBeInTheDocument();
-    expect(screen.queryByText("Velocity")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cycle progress")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pace")).not.toBeInTheDocument();
   });
 
   it("still shows the tiles, the workload and the breakdown", () => {
     renderReports(kanban());
-    expect(tile("Open issues").value).toBe("13");
+    expect(tile("Open tasks").value).toBe("13");
     expect(screen.getByText("Workload")).toBeInTheDocument();
-    expect(screen.getByText("Issue breakdown")).toBeInTheDocument();
+    expect(screen.getByText("Task breakdown")).toBeInTheDocument();
   });
 
   it("says nothing about sprints on a Scrum project", () => {
@@ -463,7 +462,7 @@ describe("the burndown's size", () => {
     };
   }
 
-  const chart = () => screen.getByRole("img", { name: /burndown/ });
+  const chart = () => screen.getByRole("img", { name: /progress/ });
 
   it("draws at the width of the box it is in, so its text is never scaled", () => {
     box(333);
@@ -521,7 +520,7 @@ describe("the burndown's size", () => {
 describe("what a screen reader is given", () => {
   it("has a named image and a table for the burndown, and no figure that is only a picture", () => {
     renderReports();
-    const chart = screen.getByRole("img", { name: /burndown/ });
+    const chart = screen.getByRole("img", { name: /progress/ });
     expect(chart.tagName.toLowerCase()).toBe("svg");
     const figure = chart.closest("figure")!;
     expect(within(figure).getByRole("table")).toBeInTheDocument();
@@ -533,7 +532,7 @@ describe("what a screen reader is given", () => {
 
   it("writes every chart's legend as text", () => {
     renderReports();
-    for (const text of ["Points left", "Even pace", "Committed", "Completed"]) {
+    for (const text of ["Effort left", "Even pace", "Committed", "Completed"]) {
       expect(screen.getAllByText(text).length).toBeGreaterThan(0);
     }
   });

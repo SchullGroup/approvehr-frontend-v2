@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { PROJECT_DESCRIPTION } from "@/lib/projects/terms";
 import { ProjectScreen } from "./project-screen";
 
 export const metadata: Metadata = {
   title: "Project",
-  description: "A project's board, issues, sprints and settings.",
+  description: PROJECT_DESCRIPTION,
 };
 
 export default async function ProjectPage({

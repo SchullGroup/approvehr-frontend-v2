@@ -87,7 +87,7 @@ function renderDrawer(
   return { ctx, issue, data };
 }
 
-const section = () => screen.getByRole("region", { name: "Watchers" });
+const section = () => screen.getByRole("region", { name: "Following" });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -113,17 +113,17 @@ describe("watching a task yourself", () => {
     });
     const { issue } = renderDrawer();
     const box = within(section());
-    expect(box.getByText("1 watching")).toBeInTheDocument();
+    expect(box.getByText("1 following")).toBeInTheDocument();
     expect(box.getByText("Chidi Nwosu")).toBeInTheDocument();
 
-    await userEvent.click(box.getByRole("button", { name: "Watch" }));
+    await userEvent.click(box.getByRole("button", { name: "Follow" }));
     expect(api.watch).toHaveBeenCalledWith(issue.id);
     expect(
-      await box.findByRole("button", { name: "Stop watching" }),
+      await box.findByRole("button", { name: "Unfollow" }),
     ).toBeInTheDocument();
-    expect(box.getByText("2 watching")).toBeInTheDocument();
+    expect(box.getByText("2 following")).toBeInTheDocument();
     expect(pushToast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "You're watching this task" }),
+      expect.objectContaining({ title: "You're following this task" }),
     );
   });
 
@@ -136,14 +136,14 @@ describe("watching a task yourself", () => {
     api.unwatch.mockResolvedValue({ watchers: [], watching: false });
     const { issue } = renderDrawer();
     await userEvent.click(
-      within(section()).getByRole("button", { name: "Stop watching" }),
+      within(section()).getByRole("button", { name: "Unfollow" }),
     );
     expect(api.unwatch).toHaveBeenCalledWith(issue.id);
     expect(
-      await within(section()).findByRole("button", { name: "Watch" }),
+      await within(section()).findByRole("button", { name: "Follow" }),
     ).toBeInTheDocument();
     expect(
-      within(section()).getByText("Nobody is watching"),
+      within(section()).getByText("Nobody is following"),
     ).toBeInTheDocument();
   });
 });
@@ -154,7 +154,9 @@ describe("adding somebody else", () => {
     data.project.memberIds = ["p-01", "p-03", "p-09"];
     renderDrawer({}, data);
     await userEvent.click(
-      within(section()).getByRole("combobox", { name: "Add a watcher" }),
+      within(section()).getByRole("combobox", {
+        name: "Add someone to follow this task",
+      }),
     );
     const names = screen.getAllByRole("option").map((o) => o.textContent);
     expect(names.some((n) => n?.includes("Emeka Anyanwu"))).toBe(true);
@@ -174,7 +176,9 @@ describe("adding somebody else", () => {
     });
     const { issue } = renderDrawer({}, data);
     await userEvent.click(
-      within(section()).getByRole("combobox", { name: "Add a watcher" }),
+      within(section()).getByRole("combobox", {
+        name: "Add someone to follow this task",
+      }),
     );
     await userEvent.click(screen.getByRole("option", { name: /Emeka/ }));
     expect(api.addWatcher).toHaveBeenCalledWith(issue.id, "p-09");
@@ -196,7 +200,9 @@ describe("adding somebody else", () => {
     );
     renderDrawer({}, data);
     await userEvent.click(
-      within(section()).getByRole("combobox", { name: "Add a watcher" }),
+      within(section()).getByRole("combobox", {
+        name: "Add someone to follow this task",
+      }),
     );
     await userEvent.click(screen.getByRole("option", { name: /Emeka/ }));
     expect(await within(section()).findByRole("alert")).toHaveTextContent(
@@ -213,7 +219,9 @@ describe("adding somebody else", () => {
     renderDrawer({ personal: { setByName: null }, canManage: false }, data);
     /* `canManageWatchers` is true: the owner chooses. */
     await userEvent.click(
-      within(section()).getByRole("combobox", { name: "Add a watcher" }),
+      within(section()).getByRole("combobox", {
+        name: "Add someone to follow this task",
+      }),
     );
     const names = screen.getAllByRole("option").map((o) => o.textContent);
     expect(names.some((n) => n?.includes("Emeka Anyanwu"))).toBe(true);
@@ -231,13 +239,15 @@ describe("adding somebody else", () => {
       data,
     );
     expect(
-      within(section()).queryByRole("combobox", { name: "Add a watcher" }),
+      within(section()).queryByRole("combobox", {
+        name: "Add someone to follow this task",
+      }),
     ).toBeNull();
     expect(
       within(section()).queryByRole("button", { name: /Remove Chidi/ }),
     ).toBeNull();
     expect(
-      within(section()).getByRole("button", { name: "Watch" }),
+      within(section()).getByRole("button", { name: "Follow" }),
     ).toBeInTheDocument();
   });
 });
@@ -248,7 +258,7 @@ describe("taking somebody else off", () => {
     const { issue } = renderDrawer({ canManage: true });
     await userEvent.click(
       within(section()).getByRole("button", {
-        name: "Remove Chidi Nwosu as a watcher",
+        name: "Remove Chidi Nwosu from following",
       }),
     );
     expect(api.removeWatcher).toHaveBeenCalledWith(issue.id, "p-03");
@@ -266,7 +276,7 @@ describe("taking somebody else off", () => {
     renderDrawer({ canManage: false });
     await userEvent.click(
       within(section()).getByRole("button", {
-        name: "Remove Chidi Nwosu as a watcher",
+        name: "Remove Chidi Nwosu from following",
       }),
     );
     expect(api.removeWatcher).toHaveBeenCalledWith(expect.any(String), "p-03");
@@ -282,7 +292,7 @@ describe("taking somebody else off", () => {
     const { issue } = renderDrawer({ canManage: false });
     await userEvent.click(
       within(section()).getByRole("button", {
-        name: "Remove yourself as a watcher",
+        name: "Stop following",
       }),
     );
     expect(api.unwatch).toHaveBeenCalledWith(issue.id);
@@ -298,7 +308,7 @@ describe("taking somebody else off", () => {
     );
     expect(
       within(section()).getByRole("button", {
-        name: "Remove Chidi Nwosu as a watcher",
+        name: "Remove Chidi Nwosu from following",
       }),
     ).toBeInTheDocument();
   });
@@ -307,7 +317,7 @@ describe("taking somebody else off", () => {
     renderDrawer({ canManage: false });
     expect(
       within(section()).queryByRole("button", {
-        name: "Remove Chidi Nwosu as a watcher",
+        name: "Remove Chidi Nwosu from following",
       }),
     ).toBeNull();
   });
@@ -318,7 +328,9 @@ describe("the API's answer decides the picker", () => {
     thread = { ...thread, canManageWatchers: false };
     renderDrawer();
     expect(
-      within(section()).queryByRole("combobox", { name: "Add a watcher" }),
+      within(section()).queryByRole("combobox", {
+        name: "Add someone to follow this task",
+      }),
     ).toBeNull();
   });
 });
@@ -326,6 +338,6 @@ describe("the API's answer decides the picker", () => {
 describe("the demo", () => {
   it("has no watchers section, since only the API keeps them", () => {
     renderDrawer({ connected: false });
-    expect(screen.queryByRole("region", { name: "Watchers" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Following" })).toBeNull();
   });
 });

@@ -39,10 +39,13 @@ export function useProjectsGate(): { enabled: boolean; loading: boolean } {
  * anybody reporting to them", and `headsDepartment` the same one for department
  * heads; `editRecords` is the permission that sees and edits every project. None
  * of this is the authority — the API decides — it only decides what is offered.
+ * `seesAll` is the Master grant (`SEE_ALL_WORK`), which reads everything and
+ * changes nothing.
  */
 export function useProjectActor(): Actor {
   const { actingId } = useSession();
   const editRecords = useCan("EDIT_RECORDS");
+  const seesAll = useCan("SEE_ALL_WORK");
   const leadsPeople = useIsManager();
   const headed = useHeadedDepartmentIds();
   return useMemo(
@@ -51,8 +54,9 @@ export function useProjectActor(): Actor {
       editRecords,
       leadsPeople,
       headsDepartment: headed.size > 0,
+      seesAll,
     }),
-    [actingId, editRecords, leadsPeople, headed],
+    [actingId, editRecords, seesAll, leadsPeople, headed],
   );
 }
 
