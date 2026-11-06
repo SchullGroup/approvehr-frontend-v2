@@ -3121,6 +3121,8 @@ export function useCycleMutations() {
       async (
         id: string,
         body: {
+          /** What the period is called: any stage, 3 to 80 characters. */
+          name?: string;
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;

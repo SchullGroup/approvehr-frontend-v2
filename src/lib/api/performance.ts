@@ -2649,6 +2649,12 @@ export const performanceApi = {
   updateCycle: (
     id: string,
     body: {
+      /**
+       * What the period is called. Accepted at any stage, 3 to 80 characters
+       * once trimmed, and refused with the API's own sentence when another
+       * period already has it (409).
+       */
+      name?: string;
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;

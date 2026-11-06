@@ -23,6 +23,7 @@ import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
 import { useAssistantAvailable } from "@/lib/store/ai";
+import { periodNameProblem } from "@/lib/performance/period-name";
 import { useCycleMutations } from "@/lib/store/performance";
 
 /**
@@ -136,8 +137,9 @@ export function StartPeriodDialog({
   };
 
   const submit = async () => {
-    if (name.trim().length < 3) {
-      fail("name", "Name it: people will see this in their inbox.");
+    const nameProblem = periodNameProblem(name);
+    if (nameProblem) {
+      fail("name", nameProblem);
       return;
     }
     /* Both or neither, and in order. Checked here so the answer arrives while

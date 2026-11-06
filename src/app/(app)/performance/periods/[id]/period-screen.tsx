@@ -8,6 +8,7 @@ import {
   CheckCheck,
   ListChecks,
   Lock,
+  Pencil,
   Play,
   Trash2,
   UserX,
@@ -73,6 +74,7 @@ import {
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
+import { RenamePeriodDialog } from "./rename-period-dialog";
 import { SectionsDialog } from "../../sections-dialog";
 import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
@@ -164,6 +166,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [confirmingStart, setConfirmingStart] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [sectionsOpen, setSectionsOpen] = useState(false);
   /* Latches on the first open and never clears — see the mount below. */
@@ -391,6 +394,21 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         }
         action={
           <>
+            {/* The name can be changed at every stage: the API takes it on any
+                period, and a name typed wrongly while creating one used to be
+                fixable only by deleting the period, which a started one never
+                allows. Quiet, and first, so it never competes with the control
+                that moves the period on. */}
+            {canManage && period && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setRenaming(true)}
+              >
+                <Pencil aria-hidden="true" className="size-3.5" />
+                Rename
+              </Button>
+            )}
             {/* The sections the whole company is appraised against, reachable
                 at every stage.
 
@@ -838,6 +856,14 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           confirmLabel="Start it"
           tone="primary"
           body="Everyone gets their form today, and the questions cannot be changed once it starts, so add any more first."
+        />
+      )}
+
+      {renaming && period && (
+        <RenamePeriodDialog
+          period={period}
+          onClose={() => setRenaming(false)}
+          onRenamed={() => detail.reload()}
         />
       )}
 

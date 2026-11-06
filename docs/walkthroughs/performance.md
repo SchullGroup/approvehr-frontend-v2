@@ -341,6 +341,24 @@ when this period started.** (a period from before this existed reads **This peri
 weights as they are today.**). The assistant's draft (step 5) shows the same card on its first page, under
 the description, and **Draft it** stays off while a total you typed is not 100%.
 
+**Changing the name afterwards.** A name typed wrongly can be fixed at any stage, a running or published
+period as well as a draft.
+
+|                |                                                                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/performance/periods/{id}`, in the buttons at the top                                                                                                            |
+| **Who**        | HR / Owner (the same people who may change the period)                                                                                                            |
+| **Click**      | **Rename**, type the new name in **Period name**, then **Save**. **Enter** saves too                                                                              |
+| **You'll see** | A toast, **Renamed** — *This period is now called …* — and the heading changes. **Save** stays off until the name is different from what it was                    |
+
+The box starts on the period's current name every time it opens; a half-typed name is not kept when you
+cancel. Under it the dialog says where the name shows (*their form, their inbox and reports*) and that
+nothing else about the period changes. Once the period has started it adds that **messages already sent keep
+the old name**: a notification's title is written when it is sent, so renaming cannot reach into somebody's
+inbox. The same limits as when you create one apply (3 to 80 characters once trimmed), checked before anything is
+sent. If another period already has the name, the field shows the API's own sentence (*"…" already exists.*) with
+what you typed still in it.
+
 #### 5. _Optional_ — let the assistant draft it instead
 
 Describe the period in a paragraph of your own words and it drafts the company goals and the review
