@@ -89,8 +89,8 @@ export function StreakCard({
       ? "You have logged today. Nicely done."
       : "Log something today and the run grows by a day."
     : last
-      ? `Your last run was ${String(last.days)} ${last.days === 1 ? "day" : "days"}${lastRunText ? `, ending ${lastRunText}` : ""}. A new one can start today.`
-      : "Log something and your first run starts today.";
+      ? `Your last run was ${String(last.days)} ${last.days === 1 ? "day" : "days"}${lastRunText ? `, ending ${lastRunText}` : ""}.`
+      : "Log water or steps and your first run begins.";
 
   return (
     <section
@@ -107,18 +107,16 @@ export function StreakCard({
           size={88}
         />
         <div className="min-w-0">
-          <p className="flex items-baseline gap-2">
-            <span className="tabular text-h1 text-ink">
-              {running ? count : "Today"}
-            </span>
-            <span className="text-body-md text-body">
-              {running
-                ? streak.days === 1
-                  ? "day in a row"
-                  : "days in a row"
-                : "starts a new run"}
-            </span>
-          </p>
+          {running ? (
+            <p className="flex items-baseline gap-2">
+              <span className="tabular text-h1 text-ink">{count}</span>
+              <span className="text-body-md text-body">
+                {streak.days === 1 ? "day in a row" : "days in a row"}
+              </span>
+            </p>
+          ) : (
+            <p className="text-h3 text-ink">A new run can start today</p>
+          )}
           <p className="mt-1 text-body-sm text-muted">{line}</p>
         </div>
       </div>

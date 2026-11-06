@@ -494,7 +494,10 @@ describe("your own shape", () => {
 
     const card = await screen.findByRole("region", { name: "Your streak" });
     expect(
-      within(card).getByText(/A new one can start today\./),
+      within(card).getByText("A new run can start today"),
+    ).toBeInTheDocument();
+    expect(
+      within(card).getByText(/Your last run was 2 days/),
     ).toBeInTheDocument();
     expect(card).not.toHaveTextContent(/lost|broke|miss|fail/i);
   });

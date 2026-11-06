@@ -11,6 +11,7 @@ import {
   RankRow,
   StatTile,
   StreakCard,
+  WeekBars,
   WellnessArt,
   YouRow,
   ordinal,
@@ -218,10 +219,9 @@ describe("the streak card", () => {
         dots={dots}
       />,
     );
+    expect(screen.getByText("A new run can start today")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /Your last run was 12 days, ending 3 days ago\. A new one can start today\./,
-      ),
+      screen.getByText("Your last run was 12 days, ending 3 days ago."),
     ).toBeInTheDocument();
   });
 
@@ -349,6 +349,34 @@ describe("pills and tiles", () => {
     expect(screen.getByRole("radio", { name: "Joined" })).toBeChecked();
   });
 
+  it("is one stop for Tab and moves with the arrow keys, like a native radio group", async () => {
+    function Harness() {
+      const [value, setValue] = useState("a");
+      return (
+        <PillTabs
+          label="Show"
+          value={value}
+          onChange={setValue}
+          options={[
+            { value: "a", label: "Alpha" },
+            { value: "b", label: "Beta" },
+            { value: "c", label: "Gamma" },
+          ]}
+        />
+      );
+    }
+    render(<Harness />);
+    await userEvent.tab();
+    expect(screen.getByRole("radio", { name: "Alpha" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Beta" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Beta" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(screen.getByRole("radio", { name: "Gamma" })).toBeChecked();
+    await userEvent.tab();
+    expect(screen.getByRole("radio", { name: "Gamma" })).not.toHaveFocus();
+  });
+
   it("shows an absent figure as words, and can say its label first", () => {
     render(
       <StatTile
@@ -360,5 +388,43 @@ describe("pills and tiles", () => {
     );
     expect(screen.getByText("Nothing yet")).toBeInTheDocument();
     expect(screen.queryByText("0")).toBeNull();
+  });
+});
+
+describe("the week as bars", () => {
+  const points = [
+    { label: "Mon", value: 8000 },
+    { label: "Tue", value: null },
+    { label: "Wed", value: 3000 },
+  ];
+
+  it("draws a day with nothing as a dashed outline, never as a column of no height", () => {
+    const { container } = render(
+      <WeekBars points={points} todayIndex={2} caption="Steps per day." />,
+    );
+    expect(container.querySelectorAll(".border-dashed")).toHaveLength(1);
+    /* The missing day reads as a dash in the value row, not as 0. */
+    expect(screen.getByText("\u2014")).toBeInTheDocument();
+    expect(screen.queryByText("0")).toBeNull();
+  });
+
+  it("marks today in green and the other days in periwinkle", () => {
+    const { container } = render(
+      <WeekBars points={points} todayIndex={2} caption="Steps per day." />,
+    );
+    const fills = Array.from(
+      container.querySelectorAll<HTMLElement>("span.rounded-full[style]"),
+    ).map((bar) => bar.style.backgroundColor);
+    expect(fills).toEqual([
+      "var(--color-well-peri-text)",
+      "var(--color-well-green-text)",
+    ]);
+  });
+
+  it("keeps the table of figures for a screen reader", () => {
+    render(
+      <WeekBars points={points} todayIndex={2} caption="Steps per day." />,
+    );
+    expect(screen.getByText("Steps per day.")).toBeInTheDocument();
   });
 });

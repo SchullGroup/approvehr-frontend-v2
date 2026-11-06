@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 
@@ -40,10 +41,31 @@ export function PillTabs<T extends string>({
   label: string;
   className?: string;
 }) {
+  const group = useRef<HTMLDivElement>(null);
+
+  /* A radio group is one stop for Tab and moves with the arrow keys, like a
+     native one: six filters should not be six tab stops. */
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+    const back = event.key === "ArrowLeft" || event.key === "ArrowUp";
+    if (!forward && !back) return;
+    event.preventDefault();
+    const at = options.findIndex((option) => option.value === value);
+    const next =
+      options[(at + (forward ? 1 : -1) + options.length) % options.length];
+    if (!next) return;
+    onChange(next.value);
+    group.current
+      ?.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+      [options.indexOf(next)]?.focus();
+  };
+
   return (
     <div
+      ref={group}
       role="radiogroup"
       aria-label={label}
+      onKeyDown={onKeyDown}
       className={cn("flex flex-wrap gap-2", className)}
     >
       {options.map((option) => {
@@ -54,6 +76,7 @@ export function PillTabs<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(PILL, selected ? ON : OFF)}
           >

@@ -78,8 +78,10 @@ export function StatTile({
         {labelFirst && <p className="text-body-sm text-body">{label}</p>}
         <p
           className={cn(
-            "tabular text-ink [overflow-wrap:anywhere]",
-            compact ? "text-h4" : "text-h4 sm:text-h3",
+            "tabular text-ink [overflow-wrap:break-word]",
+            compact
+              ? "text-body-lg font-semibold tracking-tight sm:text-h4"
+              : "text-h4 sm:text-h3",
           )}
         >
           {value}
