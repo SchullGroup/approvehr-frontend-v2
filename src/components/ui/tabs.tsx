@@ -195,16 +195,24 @@ export function LinkTabs({
   items,
   activeHref,
   className,
+  label = "Sections",
 }: {
   items: { href: string; label: string; count?: number }[];
   activeHref: string;
   className?: string;
+  /**
+   * What this set of links is called to a screen reader. A page already has a
+   * navigation landmark (the sidebar, "Main"), and a second one with no name is
+   * announced as just "navigation": say which sections these are.
+   */
+  label?: string;
 }) {
   const navRef = useRef<HTMLElement>(null);
   useScrollCue(navRef, items.length);
   return (
     <nav
       ref={navRef}
+      aria-label={label}
       className={cn("scroll-x flex gap-1 border-b border-line", className)}
     >
       {items.map((item) => {

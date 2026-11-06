@@ -23,6 +23,7 @@
 import { isStaleDone, openSprints } from "./board";
 import { sprintScope, sumPoints } from "./progress";
 import { byRank, rankForInsert } from "./rank";
+import { CYCLE, EFFORT, LATER, count } from "./terms";
 import type { Issue, IssuePatch, Project, Sprint } from "./types";
 import { isDone } from "./workflow";
 
@@ -231,7 +232,7 @@ export function moveOptions(args: {
     }
     options.push({
       value: encodeChoice({ kind: "section", section: BACKLOG }),
-      label: "Backlog",
+      label: LATER,
       disabled: here === BACKLOG,
       group: "Move to",
     });
@@ -325,12 +326,9 @@ export function sprintFigures(
 export type CompletionDestination =
   { kind: "backlog" } | { kind: "sprint"; name: string } | { kind: "new" };
 
-const plural = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`;
-
 /**
  * The line said after a sprint is completed, from real figures only:
- * "CHK Sprint 3 completed — 22 of 26 points done; 3 issues moved to the backlog".
+ * "Cycle 3 completed, 22 of 26 effort done; 3 tasks moved to Later".
  *
  * Points when the sprint was estimated, issues when it was not (a sprint of
  * unpointed work would otherwise read "0 of 0 points"). Nothing is said about
@@ -345,17 +343,17 @@ export function completionLine(
   if (figures.issues > 0) {
     line +=
       figures.points > 0
-        ? `, ${figures.donePoints} of ${figures.points} points done`
-        : `, ${figures.doneIssues} of ${plural(figures.issues, "issue", "issues")} done`;
+        ? `, ${figures.donePoints} of ${figures.points} ${EFFORT.one} done`
+        : `, ${figures.doneIssues} of ${count(figures.issues, "task")} done`;
   }
   if (figures.openIssues > 0) {
     const where =
       to.kind === "backlog"
-        ? "the backlog"
+        ? LATER
         : to.kind === "sprint"
           ? to.name
-          : "a new sprint";
-    line += `; ${plural(figures.openIssues, "issue", "issues")} moved to ${where}`;
+          : `a new ${CYCLE.one}`;
+    line += `; ${count(figures.openIssues, "task")} moved to ${where}`;
   }
   return line;
 }

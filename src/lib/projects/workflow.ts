@@ -14,6 +14,7 @@ import type {
   StatusCategory,
   StatusInput,
 } from "./types";
+import { CYCLE, LATER, LIMIT, STAGE, TASK, count } from "./terms";
 
 export const MIN_STATUSES = 2;
 export const MAX_STATUSES = 12;
@@ -96,7 +97,7 @@ export function statusInUse(
   return issues.filter((issue) => issue.statusId === statusId).length;
 }
 
-/** Why a status cannot be removed right now, or null when it can. */
+/** Why a stage cannot be removed right now, or null when it can. */
 export function removalBlocker(
   statuses: readonly ProjectStatus[],
   issues: readonly Pick<Issue, "statusId">[],
@@ -106,16 +107,16 @@ export function removalBlocker(
   if (!target) return null;
   const inUse = statusInUse(issues, statusId);
   if (inUse > 0) {
-    return `${inUse} ${inUse === 1 ? "issue is" : "issues are"} in ${target.name}. Move ${inUse === 1 ? "it" : "them"} to another status first.`;
+    return `${inUse} ${inUse === 1 ? `${TASK.one} is` : `${TASK.many} are`} in ${target.name}. Move ${inUse === 1 ? "it" : "them"} to another ${STAGE.one} first.`;
   }
   if (statuses.length <= MIN_STATUSES) {
-    return `A workflow needs at least ${MIN_STATUSES} statuses.`;
+    return `A workflow needs at least ${count(MIN_STATUSES, "stage")}.`;
   }
   const remainingDone = statuses.filter(
     (s) => s.id !== statusId && s.category === "DONE",
   ).length;
   if (target.category === "DONE" && remainingDone === 0) {
-    return "Keep at least one Done status.";
+    return `Keep at least one Done ${STAGE.one}.`;
   }
   return null;
 }
@@ -123,26 +124,26 @@ export function removalBlocker(
 /** Why a draft workflow cannot be saved, or null when it can. */
 export function workflowProblem(draft: readonly StatusInput[]): string | null {
   if (draft.length < MIN_STATUSES) {
-    return `A workflow needs at least ${MIN_STATUSES} statuses.`;
+    return `A workflow needs at least ${count(MIN_STATUSES, "stage")}.`;
   }
   if (draft.length > MAX_STATUSES) {
-    return `A workflow can have at most ${MAX_STATUSES} statuses.`;
+    return `A workflow can have at most ${count(MAX_STATUSES, "stage")}.`;
   }
   if (!draft.some((s) => s.category === "DONE")) {
-    return "Keep at least one Done status.";
+    return `Keep at least one Done ${STAGE.one}.`;
   }
   const names = new Set<string>();
   for (const status of draft) {
     const name = status.name.trim();
-    if (!name) return "Every status needs a name.";
+    if (!name) return `Every ${STAGE.one} needs a name.`;
     const folded = name.toLowerCase();
-    if (names.has(folded)) return `Two statuses are called ${name}.`;
+    if (names.has(folded)) return `Two ${STAGE.many} are called ${name}.`;
     names.add(folded);
     if (
       status.wipLimit !== null &&
       (!Number.isInteger(status.wipLimit) || status.wipLimit < 1)
     ) {
-      return `The WIP limit on ${name} must be a whole number of 1 or more.`;
+      return `The ${LIMIT.one} on ${name} must be a whole number of 1 or more.`;
     }
   }
   return null;
@@ -169,10 +170,10 @@ export function boardTypeChangeBlocker(
 ): string | null {
   if (next === project.type) return null;
   if (sprints.some((s) => s.state === "ACTIVE")) {
-    return "Complete the active sprint before changing the board type.";
+    return `Complete the active ${CYCLE.one} before changing the board type.`;
   }
   if (issues.some((issue) => issue.sprintId !== null)) {
-    return "Some issues are still planned into sprints. Move them to the backlog first.";
+    return `Some ${TASK.many} are still planned into ${CYCLE.many}. Move them to ${LATER} first.`;
   }
   return null;
 }

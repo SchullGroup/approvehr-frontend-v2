@@ -30,6 +30,18 @@ vi.mock("@/lib/api/projects", async (original) => ({
   projectsApi: { links: vi.fn().mockResolvedValue([]) },
 }));
 
+/* Programs are not what this file is about: a company with none. */
+vi.mock("@/lib/store/programs", () => ({
+  useProgramFacts: () => ({ facts: null, seesAll: false }),
+  useProgramList: () => ({
+    status: "ready",
+    error: null,
+    data: { programs: [], canCreate: false, seesAll: false },
+    reload: vi.fn(),
+  }),
+  useProgramActions: () => ({ moveProject: vi.fn() }),
+}));
+
 vi.mock("@/lib/store/projects", () => ({
   useIssueThread: () => ({ thread, status: "ready", reload: vi.fn() }),
 }));
@@ -428,7 +440,7 @@ describe("count finished work toward, in settings", () => {
     expect(
       screen.getByRole("combobox", { name: FIELD }),
     ).toHaveAccessibleDescription(
-      /When someone finishes an issue assigned to them, a weekly task is filed under this objective for the week it was finished\. A manager still grades it\./,
+      /When someone finishes a task assigned to them, a weekly task is filed under this objective for the week it was finished\. A manager still grades it\./,
     );
   });
 

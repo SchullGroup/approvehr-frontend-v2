@@ -140,11 +140,6 @@ describe("the four tiles", () => {
     expect(tiles.doneInWeek).toEqual({ issues: 4, points: 9 });
   });
 
-  it("counts open bugs and how many are high priority", () => {
-    /* The Safari bug is done. Open: a medium one and a high one. */
-    expect(tiles.bugs).toEqual({ open: 2, high: 1 });
-  });
-
   it("counts what is past its due date and not done", () => {
     /* The receipt bug was due two days ago. The load test is due in five. */
     expect(tiles.overdue).toBe(1);
@@ -257,29 +252,10 @@ describe("the four tiles", () => {
     });
   });
 
-  it("counts only open bugs, and only highest and high as high priority", () => {
-    const bug = (over: Partial<Issue>) => issue({ type: "BUG", ...over });
-    const t = reportTiles({
-      statuses,
-      issues: [
-        bug({ priority: "HIGHEST" }),
-        bug({ priority: "HIGH" }),
-        bug({ priority: "MEDIUM" }),
-        bug({ priority: "LOW" }),
-        finished(TODAY, { type: "BUG", priority: "HIGHEST" }),
-        issue({ type: "STORY", priority: "HIGHEST" }),
-      ],
-      today: TODAY,
-      dayOf,
-    });
-    expect(t.bugs).toEqual({ open: 4, high: 2 });
-  });
-
   it("reads zero from an empty project", () => {
     expect(reportTiles({ statuses, issues: [], today: TODAY, dayOf })).toEqual({
       open: { issues: 0, points: 0 },
       doneInWeek: { issues: 0, points: 0 },
-      bugs: { open: 0, high: 0 },
       overdue: 0,
     });
   });
@@ -313,7 +289,7 @@ describe("the axis", () => {
 });
 
 describe("a sprint's burndown", () => {
-  const sprint3 = data.sprints.find((s) => s.name === "CHK Sprint 3")!;
+  const sprint3 = data.sprints.find((s) => s.name === "Cycle 3")!;
 
   it("steps down on the days the sample's sprint finished things", () => {
     /* The sprint started 6 days ago with 27 points: 8+3+2+5+3+1+5. Finished: 3
@@ -595,13 +571,13 @@ describe("a sprint's burndown", () => {
 describe("choosing a sprint", () => {
   it("offers running and closed sprints, newest first, never a planned one", () => {
     const names = burndownSprints(data.sprints).map((s) => s.name);
-    expect(names).toEqual(["CHK Sprint 3", "CHK Sprint 2", "CHK Sprint 1"]);
+    expect(names).toEqual(["Cycle 3", "Cycle 2", "Cycle 1"]);
   });
 
   it("starts on the running sprint, else the most recent", () => {
-    expect(defaultBurndownSprint(data.sprints)!.name).toBe("CHK Sprint 3");
+    expect(defaultBurndownSprint(data.sprints)!.name).toBe("Cycle 3");
     const closedOnly = data.sprints.filter((s) => s.state === "CLOSED");
-    expect(defaultBurndownSprint(closedOnly)!.name).toBe("CHK Sprint 2");
+    expect(defaultBurndownSprint(closedOnly)!.name).toBe("Cycle 2");
   });
 
   it("has nothing to start on when no sprint has begun", () => {
@@ -618,8 +594,8 @@ describe("velocity", () => {
     expect(
       v.rows.map((r) => [r.sprint.name, r.committed, r.completed]),
     ).toEqual([
-      ["CHK Sprint 1", 21, 18],
-      ["CHK Sprint 2", 24, 22],
+      ["Cycle 1", 21, 18],
+      ["Cycle 2", 24, 22],
     ]);
   });
 
@@ -700,7 +676,9 @@ describe("velocity", () => {
   });
 
   it("drops the project key from a sprint's name", () => {
+    /* A name somebody gave a sprint before the rename is theirs, and keeps its words. */
     expect(sprintShortName("CHK Sprint 3", "CHK")).toBe("Sprint 3");
+    expect(sprintShortName("Cycle 3", "CHK")).toBe("Cycle 3");
     expect(sprintShortName("Sprint 3", "CHK")).toBe("Sprint 3");
     expect(sprintShortName("CHKX Sprint 3", "CHK")).toBe("CHKX Sprint 3");
     expect(sprintShortName("CHK", "CHK")).toBe("CHK");
@@ -800,12 +778,11 @@ describe("breakdowns", () => {
     expect(b.counts.map((c) => c.count)).toEqual([1, 0, 0]);
   });
 
-  it("counts issues by type, in the order stories, tasks, bugs, sub-tasks", () => {
+  it("counts issues by type, in the order tasks, problems, subtasks, a stored STORY counted as a task", () => {
     expect(typeBreakdown(data.issues)).toEqual({
       total: 22,
       counts: [
-        { type: "STORY", count: 9 },
-        { type: "TASK", count: 5 },
+        { type: "TASK", count: 14 },
         { type: "BUG", count: 4 },
         { type: "SUBTASK", count: 4 },
       ],
@@ -817,7 +794,7 @@ describe("breakdowns", () => {
       issue({ type: "STORY" }),
       issue({ type: "EPIC" }),
     ]);
-    expect(b).toEqual({ total: 1, counts: [{ type: "STORY", count: 1 }] });
+    expect(b).toEqual({ total: 1, counts: [{ type: "TASK", count: 1 }] });
   });
 
   it("agrees between the two, and with the open and done tiles", () => {

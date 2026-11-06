@@ -3,9 +3,10 @@
 import { ArrowRightLeft, GripVertical, ListTree } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SubtaskTally } from "@/lib/projects/board";
-import { isBefore } from "@/lib/projects/dates";
+import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
+import { STAGE } from "@/lib/projects/terms";
+import { useOrgTimezone } from "@/lib/store/session";
 import type { Issue, ProjectStatus } from "@/lib/projects/types";
-import { shortDate } from "@/lib/today";
 import type { People } from "@/lib/store/project-session";
 import {
   EpicChip,
@@ -63,7 +64,8 @@ export function IssueCard({
   onOpen: () => void;
   onMove: (statusId: string) => void;
 }) {
-  const overdue = !done && isBefore(issue.dueDate, today);
+  const timeZone = useOrgTimezone();
+  const overdue = !done && isPastDue(issue, today, nowHHMMIn(timeZone));
   const labels = issue.labels.slice(0, 3);
 
   return (
@@ -86,7 +88,7 @@ export function IssueCard({
               type="button"
               onPointerDown={onGrab}
               onClick={onOpen}
-              aria-label={`Move ${issue.key}. Or use Move to, or open it and change its status.`}
+              aria-label={`Move ${issue.key}. Or use Move to, or open it and change its ${STAGE.one}.`}
               className={cn(
                 "relative z-10 -ml-1 mt-0.5 flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-faint",
                 "hover:bg-canvas hover:text-muted active:cursor-grabbing",
@@ -124,8 +126,8 @@ export function IssueCard({
               <TypeIcon type={issue.type} />
               <IssueKey issueKey={issue.key} done={done} />
               {overdue && issue.dueDate && (
-                <span className="text-meta font-medium text-warning-text">
-                  Due {shortDate(issue.dueDate)}
+                <span className="whitespace-nowrap text-meta font-medium text-warning-text">
+                  Due {dueLabel(issue, today, "card")}
                 </span>
               )}
               <span className="ml-auto flex items-center gap-2">

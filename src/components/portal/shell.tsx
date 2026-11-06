@@ -38,6 +38,9 @@ import { useIsCollaborator } from "@/lib/hiring/access/collaborator";
 import { CollaboratorGate } from "./collaborator-gate";
 import { useHaveInterviews } from "@/lib/hiring/pipeline/use-mine";
 import { useLeadsTeam } from "@/lib/store/team-tasks";
+import { useProgramsNav } from "@/lib/store/programs";
+import { useNavHint } from "@/lib/store/nav-hint";
+import { programIdOfPath, withPrograms } from "./programs-nav";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
@@ -199,6 +202,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      say. One request per session, never waited on. */
   const leadsTeam = useLeadsTeam(features.projects === true);
 
+  /* Programs: the rows under Projects, and whether the Master view is theirs.
+     One request for the list, made once Projects is known to be on, and nothing
+     while it is off. */
+  const programsNav = useProgramsNav(features.projects === true);
+  const navHint = useNavHint();
+
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
@@ -209,6 +218,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         signatures: canSendForSignature || haveSignatures,
         interviews: haveInterviews || collaborator,
         "team-tasks": leadsTeam,
+        /* Both must agree. The programs answer is the API's, read from the
+           sign-in token, and a token outlives a revoked grant by minutes; the
+           permission set is confirmed from the database once it arrives, which
+           is what the Overview page itself checks. Asking only the first drew a
+           row that opened a page saying "not part of your access". */
+        "master-view":
+          programsNav.seesAll && hasPermission(permissions, "SEE_ALL_WORK"),
       },
       collaborator,
     }),
@@ -223,13 +239,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       haveSignatures,
       haveInterviews,
       leadsTeam,
+      programsNav.seesAll,
+      permissions,
       collaborator,
     ],
   );
   const billing = useBilling();
+  /* The static rows plus the program rows, then the one gating function. A
+     project's page lights its program's row only while it is the open page. */
+  const runtimeNav = useMemo(
+    () =>
+      withPrograms(NAV, programsNav, {
+        programId: programIdOfPath(pathname),
+        hint:
+          navHint &&
+          (pathname === navHint.path || pathname.startsWith(`${navHint.path}/`))
+            ? navHint
+            : null,
+      }),
+    [programsNav, pathname, navHint],
+  );
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features, facts, billing),
-    [permissions, features, facts, billing],
+    () => visibleNav(runtimeNav, permissions, features, facts, billing),
+    [runtimeNav, permissions, features, facts, billing],
   );
 
   /* Find's last resort, when no page matches what was typed: the header's
@@ -998,7 +1030,7 @@ export function PageHeader({
                 <button
                   type="button"
                   onClick={() => router.back()}
-                  className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="-my-2.5 inline-flex min-h-10 items-center gap-1 rounded-md pr-2 text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <ChevronLeft aria-hidden="true" className="size-3.5" />
                   Back
@@ -1007,7 +1039,7 @@ export function PageHeader({
                 backCrumb && (
                   <Link
                     href={backCrumb.href}
-                    className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="-my-2.5 inline-flex min-h-10 items-center gap-1 rounded-md pr-2 text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     <ChevronLeft aria-hidden="true" className="size-3.5" />
                     Back to {backCrumb.label}

@@ -23,15 +23,28 @@ import {
   ProjectProvider,
   type ProjectContextValue,
 } from "@/components/projects/project-context";
-import { canManageProject, canWorkInProject } from "@/lib/projects/access";
+import { accessFor, accessOfProject } from "@/lib/projects/access";
 import { isModuleOff } from "@/lib/api/projects";
-import { EMPTY_FILTER, type IssueFilter } from "@/lib/projects/filters";
+import {
+  EMPTY_FILTER,
+  statusFromParam,
+  type IssueFilter,
+} from "@/lib/projects/filters";
 import {
   PROJECT_TYPE_LABEL,
   type Issue,
   type NewIssueInput,
   type ProjectData,
 } from "@/lib/projects/types";
+import {
+  NEW_TASK,
+  readOnlyProject,
+  TASK,
+  UNASSIGNED,
+  UNASSIGNED_ID,
+} from "@/lib/projects/terms";
+import { setNavHint } from "@/lib/store/nav-hint";
+import { useProgramFacts, useProgramList } from "@/lib/store/programs";
 import { useProjectActions, useProjectData } from "@/lib/store/projects";
 import {
   usePeople,
@@ -94,7 +107,7 @@ export function ProjectScreen({ id }: { id: string }) {
           <EmptyState
             icon={<FolderKanban />}
             title="This project is not here"
-            description="It may have been deleted, or you may not be a member of it. Projects are only visible to the people on them."
+            description="It may have been deleted, or it may not be part of your access. You see the projects you are on, and the ones in programs you have been given."
           />
         </PageBody>
       </>
@@ -147,20 +160,70 @@ function ProjectShell({
   /* Objectives and the weekly-task bridge are the API's: the demo has neither. */
   const { isConnected: connected } = useSession();
 
-  const [filter, setFilter] = useState<IssueFilter>(EMPTY_FILTER);
+  /* `?status=DONE` (the board's "View all done tasks" link) starts the shared
+     filter on that status, and a later link with another status moves it. */
+  const statusParam = statusFromParam(params.get("status"));
+  const [filter, setFilter] = useState<IssueFilter>(() => ({
+    ...EMPTY_FILTER,
+    statusCategory: statusParam,
+  }));
+  /* Adjusted while rendering rather than in an effect: a new `?status=` moves
+     the filter once, and the filter stays the person's to change after that. */
+  const [seenStatus, setSeenStatus] = useState(statusParam);
+  if (statusParam !== seenStatus) {
+    setSeenStatus(statusParam);
+    if (statusParam) setFilter((f) => ({ ...f, statusCategory: statusParam }));
+  }
   const [create, setCreate] = useState<{
     open: boolean;
     defaults: Partial<NewIssueInput>;
   }>({ open: false, defaults: {} });
 
-  const canWork = canWorkInProject(actor, project);
-  /* The API's own answer where it gave one; the same rule worked out here where
-     it did not (the demo). */
-  const canManage = project.canManage ?? canManageProject(actor, project);
+  /* What the person may do here: the API's own answer where it gave one, the
+     same rule worked out from the project and its program where it did not (the
+     demo). One answer, asked of everything below: READ shows the project and
+     changes nothing, WRITE works its tasks, MANAGE also its settings. */
+  const programFacts = useProgramFacts(project.programId);
+  const access =
+    accessOfProject(project) ??
+    accessFor(
+      { ...actor, seesAll: actor.seesAll || programFacts.seesAll },
+      project,
+      programFacts.facts,
+    );
+  const canWork = access === "WRITE" || access === "MANAGE";
+  const canManage = access === "MANAGE";
   const meId = actor.employeeId;
 
-  const view = viewById(params.get("view") ?? DEFAULT_VIEW);
-  const issueParam = params.get("issue");
+  /* The program's row in the sidebar lights while this project is open. */
+  const programId = project.programId ?? null;
+  useEffect(() => {
+    setNavHint(
+      programId ? { programId, path: `/projects/${project.id}` } : null,
+    );
+    return () => setNavHint(null);
+  }, [programId, project.id]);
+
+  const programs = useProgramList();
+  const hasPrograms = (programs.data?.programs.length ?? 0) > 0;
+  /* The API names the program on the project; the demo's stored project holds
+     only its id, so the name is read from the programs the person can see. */
+  const programName =
+    project.programName ??
+    programs.data?.programs.find((p) => p.id === project.programId)?.name ??
+    null;
+
+  /* Settings are for people who manage the project; for everybody else the tab
+     is absent, and a link to it opens the board. */
+  const offered = PROJECT_VIEWS.filter((v) => v.id !== "settings" || canManage);
+  const asked = viewById(params.get("view") ?? DEFAULT_VIEW);
+  const view = offered.some((v) => v.id === asked.id)
+    ? asked
+    : viewById(DEFAULT_VIEW);
+  /* `?issue=KEY` is what the API's links and the app write, and stays so for the
+     links already out there. `?task=KEY` is read as the same thing, so a link
+     written in the new word opens the drawer too. */
+  const issueParam = params.get("issue") ?? params.get("task");
 
   const issueById = useMemo(
     () => new Map(issues.map((i) => [i.id, i])),
@@ -194,6 +257,7 @@ function ProjectShell({
   const urlWith = useCallback(
     (key: string | null) => {
       const query = new URLSearchParams(params.toString());
+      query.delete("task");
       if (key === null) query.delete("issue");
       else query.set("issue", key);
       const qs = query.toString();
@@ -215,7 +279,15 @@ function ProjectShell({
     [issueParam, router, urlWith],
   );
 
+  /* Opened from a list of tasks (My tasks, or the program and Master lists):
+     closing goes back to it. */
+  const fromMyTasks = ["my-tasks", "work"].includes(params.get("from") ?? "");
   const closeIssue = useCallback(() => {
+    /* Opened from a My tasks row: closing goes back there, to the same segment. */
+    if (fromMyTasks) {
+      router.back();
+      return;
+    }
     if (openedFrom.current !== null && openedFrom.current === urlWith(null)) {
       openedFrom.current = null;
       router.back();
@@ -223,7 +295,7 @@ function ProjectShell({
     }
     openedFrom.current = null;
     router.replace(urlWith(null), { scroll: false });
-  }, [router, urlWith]);
+  }, [router, urlWith, fromMyTasks]);
 
   /* The last issue the drawer showed, so that an issue that disappears while it
      is open (deleted here, or by somebody else) is told apart from a link to one
@@ -349,7 +421,24 @@ function ProjectShell({
     <ProjectProvider value={value}>
       <PageHeader
         title={project.name}
-        breadcrumb={[{ href: "/projects", label: "Projects" }]}
+        breadcrumb={[
+          { href: "/projects", label: "Projects" },
+          ...(project.programId && programName
+            ? [
+                {
+                  href: `/projects/programs/${project.programId}`,
+                  label: programName,
+                },
+              ]
+            : hasPrograms
+              ? [
+                  {
+                    href: `/projects/programs/${UNASSIGNED_ID}`,
+                    label: UNASSIGNED,
+                  },
+                ]
+              : []),
+        ]}
         meta={
           <>
             <ProjectKeyChip project={project} />
@@ -369,14 +458,15 @@ function ProjectShell({
               action: (
                 <Button variant="primary" onClick={() => openCreate()}>
                   <Plus aria-hidden="true" className="size-4" />
-                  Create issue
+                  {NEW_TASK}
                 </Button>
               ),
             }
           : {})}
         tabs={
           <LinkTabs
-            items={PROJECT_VIEWS.map((v) => ({
+            label={`${project.name} sections`}
+            items={offered.map((v) => ({
               href: hrefFor(v.id),
               label: v.label,
             }))}
@@ -386,8 +476,16 @@ function ProjectShell({
         }
       />
       <PageBody className="space-y-5">
+        {access === "READ" && (
+          <p className="text-body-sm text-muted" role="note">
+            {readOnlyProject(programName)}
+          </p>
+        )}
         {capped && (
-          <Callout tone="warning" title="Only the first 5,000 issues are shown">
+          <Callout
+            tone="warning"
+            title={`Only the first 5,000 ${TASK.many} are shown`}
+          >
             This project has more than that. Filters and counts here work on
             what is shown.
           </Callout>

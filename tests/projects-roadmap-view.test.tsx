@@ -45,7 +45,7 @@ describe("the timeline", () => {
   it("draws a bar for each epic with both dates, labelled with its key and progress", () => {
     renderRoadmap();
     const timeline = screen.getByRole("list", {
-      name: "Epics on the timeline",
+      name: "Initiatives on the timeline",
     });
     expect(within(timeline).getAllByRole("listitem")).toHaveLength(3);
     /* The label is written on the bar, visibly, in two layers. */
@@ -85,7 +85,7 @@ describe("the timeline", () => {
   it("sizes the timeline in pixels from the month range and keeps it in its own scroller", () => {
     renderRoadmap();
     const timeline = screen.getByRole("list", {
-      name: "Epics on the timeline",
+      name: "Initiatives on the timeline",
     });
     /* 153 days at eight pixels. */
     expect(timeline.parentElement).toHaveStyle({ width: "1224px" });
@@ -151,7 +151,9 @@ describe("epics that need dates", () => {
   it("lists each epic missing a date, and opens it to set them", async () => {
     const data = sampleData();
     const { ctx } = renderRoadmap(data);
-    const strip = screen.getByRole("region", { name: "Epics that need dates" });
+    const strip = screen.getByRole("region", {
+      name: "Initiatives that need dates",
+    });
     const button = within(strip).getByRole("button", { name: /CHK-4/ });
     expect(button).toHaveTextContent("Saved cards");
     await userEvent.click(button);
@@ -167,12 +169,15 @@ describe("epics that need dates", () => {
       ),
     };
     renderRoadmap(withHalf);
-    const strip = screen.getByRole("region", { name: "Epics that need dates" });
+    const strip = screen.getByRole("region", {
+      name: "Initiatives that need dates",
+    });
     expect(
       within(strip).getByRole("button", { name: /CHK-3/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("list", { name: "Epics on the timeline" }).children,
+      screen.getByRole("list", { name: "Initiatives on the timeline" })
+        .children,
     ).toHaveLength(2);
   });
 
@@ -187,7 +192,7 @@ describe("epics that need dates", () => {
       ),
     });
     expect(
-      screen.queryByRole("region", { name: "Epics that need dates" }),
+      screen.queryByRole("region", { name: "Initiatives that need dates" }),
     ).not.toBeInTheDocument();
   });
 
@@ -201,27 +206,29 @@ describe("epics that need dates", () => {
     });
     expect(screen.getByText(/nothing to draw/)).toBeInTheDocument();
     expect(
-      screen.queryByRole("list", { name: "Epics on the timeline" }),
+      screen.queryByRole("list", { name: "Initiatives on the timeline" }),
     ).not.toBeInTheDocument();
     expect(
       within(
-        screen.getByRole("region", { name: "Epics that need dates" }),
+        screen.getByRole("region", { name: "Initiatives that need dates" }),
       ).getAllByRole("button"),
     ).toHaveLength(4);
   });
 });
 
 describe("making an epic", () => {
-  it("offers New epic to somebody who can work, and asks for an epic", async () => {
+  it("offers New initiative to somebody who can work, and asks for an epic", async () => {
     const { ctx } = renderRoadmap();
-    await userEvent.click(screen.getByRole("button", { name: "New epic" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "New initiative" }),
+    );
     expect(ctx.openCreate).toHaveBeenCalledWith({ type: "EPIC" });
   });
 
   it("offers nothing to somebody who cannot", () => {
     renderRoadmap(sampleData(), { canWork: false });
     expect(
-      screen.queryByRole("button", { name: "New epic" }),
+      screen.queryByRole("button", { name: "New initiative" }),
     ).not.toBeInTheDocument();
     /* The timeline is still theirs to read and open. */
     expect(bar(/^CHK-1 /)).toBeInTheDocument();
@@ -236,17 +243,21 @@ describe("a project with no epics", () => {
 
   it("says so, and offers to make one", async () => {
     const { ctx } = renderRoadmap(empty());
-    expect(screen.getByText("No epics yet")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "New epic" }));
+    expect(screen.getByText("No initiatives yet")).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "New initiative" }),
+    );
     expect(ctx.openCreate).toHaveBeenCalledWith({ type: "EPIC" });
-    expect(screen.getAllByRole("button", { name: "New epic" })).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: "New initiative" }),
+    ).toHaveLength(1);
   });
 
   it("only says so to somebody who cannot make one", () => {
     renderRoadmap(empty(), { canWork: false });
-    expect(screen.getByText("No epics yet")).toBeInTheDocument();
+    expect(screen.getByText("No initiatives yet")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "New epic" }),
+      screen.queryByRole("button", { name: "New initiative" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -274,8 +285,8 @@ describe("an epic with no issues, and a short one", () => {
     renderRoadmap(
       withEpics({ startDate: "2026-10-10", dueDate: "2026-11-20" }),
     );
-    expect(screen.getAllByText("CHK-90 · No issues").length).toBeGreaterThan(0);
-    expect(screen.getByText("No issues yet")).toBeInTheDocument();
+    expect(screen.getAllByText("CHK-90 · No tasks").length).toBeGreaterThan(0);
+    expect(screen.getByText("No tasks yet")).toBeInTheDocument();
     expect(screen.queryByText(/CHK-90 · 0%/)).not.toBeInTheDocument();
   });
 
@@ -286,7 +297,7 @@ describe("an epic with no issues, and a short one", () => {
     const short = bar(/^CHK-90 /);
     expect(short).toHaveStyle({ width: "40px" });
     expect(within(short).queryByText(/CHK-90/)).not.toBeInTheDocument();
-    const outside = screen.getAllByText("CHK-90 · No issues");
+    const outside = screen.getAllByText("CHK-90 · No tasks");
     expect(outside).toHaveLength(1);
     expect(outside[0]!.parentElement).toBe(short.closest("li"));
   });
@@ -295,7 +306,7 @@ describe("an epic with no issues, and a short one", () => {
     renderRoadmap(
       withEpics({ startDate: "2027-01-29", dueDate: "2027-01-31" }),
     );
-    const [label] = screen.getAllByText("CHK-90 · No issues");
+    const [label] = screen.getAllByText("CHK-90 · No tasks");
     expect(label!.style.right).not.toBe("");
     expect(label!.style.left).toBe("");
   });
@@ -305,7 +316,7 @@ describe("keeping to the box", () => {
   it("scrolls the timeline inside its own container and leaves the page alone", () => {
     renderRoadmap();
     const scroller = screen
-      .getByRole("list", { name: "Epics on the timeline" })
+      .getByRole("list", { name: "Initiatives on the timeline" })
       .closest(".scroll-x") as HTMLElement;
     expect(scroller).toHaveClass("scroll-x");
     /* The names stay put while the timeline moves. */
@@ -321,7 +332,7 @@ describe("keeping to the box", () => {
       </ProjectProvider>,
     );
     const scroller = screen
-      .getByRole("list", { name: "Epics on the timeline" })
+      .getByRole("list", { name: "Initiatives on the timeline" })
       .closest(".scroll-x") as HTMLElement;
     scroller.scrollLeft = 123;
     rerender(

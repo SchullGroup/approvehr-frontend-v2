@@ -17,6 +17,7 @@ import { people } from "./projects-fixture";
 const mineTasks = vi.fn();
 const createMineTask = vi.fn();
 const personalTask = vi.fn();
+const mineArchive = vi.fn();
 const pushToast = vi.fn();
 const attachmentUploadUrl = vi.fn();
 const recordAttachment = vi.fn();
@@ -42,6 +43,7 @@ vi.mock("@/lib/api/projects", async (original) => {
       mineTasks: (...a: unknown[]) => mineTasks(...a),
       createMineTask: (...a: unknown[]) => createMineTask(...a),
       personalTask: (...a: unknown[]) => personalTask(...a),
+      mineArchive: (...a: unknown[]) => mineArchive(...a),
       attachmentUploadUrl: (...a: unknown[]) => attachmentUploadUrl(...a),
       recordAttachment: (...a: unknown[]) => recordAttachment(...a),
       links: vi.fn().mockResolvedValue([]),
@@ -141,6 +143,16 @@ const task = (over: Partial<PersonalTask> = {}): PersonalTask => {
     statusCategory: category,
     setBy: null,
     sharedBy: null,
+    project: {
+      id: "p-mine",
+      key: "MY",
+      name: "Personal",
+      departmentId: null,
+      departmentName: null,
+      personal: true,
+    },
+    assignees: [{ id: "p-01", name: "Ada Okafor" }],
+    lostAccess: false,
     ...over,
     assigneeIds: over.assigneeIds ?? [over.assigneeId ?? "p-01"],
   };
@@ -158,13 +170,14 @@ beforeEach(() => {
   mineTasks.mockReset();
   createMineTask.mockReset();
   personalTask.mockReset();
+  mineArchive.mockReset();
   pushToast.mockClear();
   answer([]);
   createMineTask.mockResolvedValue(task());
 });
 
 describe("the list", () => {
-  it("groups open tasks into To do and In progress, and closes Done this week", async () => {
+  it("groups open tasks into To do and In progress, and closes the last 14 days' Done", async () => {
     answer(
       [
         task({ title: "Send the contract" }),
@@ -189,12 +202,16 @@ describe("the list", () => {
     const doing = screen.getByRole("region", { name: "In progress" });
     expect(within(doing).getByText("Book the room")).toBeInTheDocument();
 
-    const toggle = screen.getByRole("button", { name: /Done this week/ });
+    /* The API decides what is Done (the last 14 company days); the screen
+       shows every row it sends, with no week cut-off of its own. */
+    const toggle = screen.getByRole("button", {
+      name: /Done \(last 14 days\)/,
+    });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("File the report")).not.toBeInTheDocument();
     await userEvent.click(toggle);
     expect(screen.getByText("File the report")).toBeInTheDocument();
-    expect(screen.queryByText("Old thing")).not.toBeInTheDocument();
+    expect(screen.getByText("Old thing")).toBeInTheDocument();
   });
 
   it("leaves sub-tasks out of the groups", async () => {
@@ -407,9 +424,10 @@ describe("opening a task", () => {
     const drawer = await screen.findByRole("dialog");
     expect(within(drawer).getByLabelText("Summary")).toBeEnabled();
     expect(within(drawer).getByLabelText("Due")).toBeEnabled();
+    /* Status is not theirs to change: it is read, not offered as a switched-off box. */
     expect(
-      within(drawer).getByRole("combobox", { name: "Status" }),
-    ).toBeDisabled();
+      within(drawer).queryByRole("combobox", { name: "Stage" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the details read-only when the API says so", async () => {
@@ -423,8 +441,13 @@ describe("opening a task", () => {
     render(<MyTasksScreen />);
     await userEvent.click(await screen.findByText("Not mine to fix"));
     const drawer = await screen.findByRole("dialog");
-    expect(within(drawer).getByLabelText("Summary")).toBeDisabled();
-    expect(within(drawer).getByLabelText("Due")).toBeDisabled();
+    /* Read, not offered: the title is a heading and the date is text, with no
+       switched-off editor in their place. */
+    expect(within(drawer).queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(
+      within(drawer).getByRole("heading", { name: "Not mine to fix" }),
+    ).toBeInTheDocument();
+    expect(within(drawer).queryByLabelText("Due")).not.toBeInTheDocument();
   });
 
   it("opens the issue drawer, which says Personal and who set it, without a board", async () => {
@@ -444,13 +467,13 @@ describe("opening a task", () => {
     expect(within(drawer).getByText("Set by")).toBeInTheDocument();
     expect(within(drawer).getByText("Chidi Nwosu")).toBeInTheDocument();
     /* The columns of the personal list are the status choices. */
-    const status = within(drawer).getByRole("combobox", { name: "Status" });
+    const status = within(drawer).getByRole("combobox", { name: "Stage" });
     expect(
       within(status)
         .getAllByRole("option")
         .map((o) => o.textContent),
     ).toEqual(["To do", "In progress", "Done"]);
-    expect(within(drawer).queryByLabelText("Epic")).toBeNull();
+    expect(within(drawer).queryByLabelText("Initiative")).toBeNull();
     expect(within(drawer).queryByRole("link")).toBeNull();
   });
 
@@ -476,7 +499,7 @@ describe("opening a task", () => {
     await userEvent.click(await screen.findByText("Move me"));
     const drawer = await screen.findByRole("dialog");
     await userEvent.selectOptions(
-      within(drawer).getByRole("combobox", { name: "Status" }),
+      within(drawer).getByRole("combobox", { name: "Stage" }),
       "s-doing",
     );
     await waitFor(() =>
@@ -645,5 +668,178 @@ describe("attaching files while adding", () => {
       within(form).getByText("That file is over 10 MB. Attach a smaller one."),
     ).toBeInTheDocument();
     expect(attachmentUploadUrl).not.toHaveBeenCalled();
+  });
+});
+
+const board = (over: Partial<PersonalTask> = {}): PersonalTask =>
+  task({
+    projectId: "p-board",
+    key: "PAY-7",
+    project: {
+      id: "p-board",
+      key: "PAY",
+      name: "Payroll Q4",
+      departmentId: "d-fin",
+      departmentName: "Finance",
+      personal: false,
+    },
+    ...over,
+  });
+
+describe("tasks from boards", () => {
+  it("names the board beside the title and opens it on the board, coming back here", async () => {
+    answer([
+      board({ id: "b-1", title: "Reconcile November" }),
+      task({ title: "Own errand" }),
+    ]);
+    render(<MyTasksScreen />);
+    const link = await screen.findByRole("link", {
+      name: /Reconcile November/,
+    });
+    expect(link).toHaveAttribute("href", "/projects/tasks/b-1?from=my-tasks");
+    expect(within(link).getByText("Payroll Q4")).toBeInTheDocument();
+    const own = screen.getByRole("button", { name: /Own errand/ });
+    expect(within(own).getByText("Personal")).toBeInTheDocument();
+  });
+
+  it("shows a finished task from a project I left without a link", async () => {
+    answer(
+      [],
+      [
+        board({
+          title: "Finished before leaving",
+          statusCategory: "DONE",
+          doneAt: "2026-10-14T10:00:00.000Z",
+          lostAccess: true,
+          assignees: [],
+        }),
+      ],
+    );
+    render(<MyTasksScreen />);
+    await userEvent.click(await screen.findByRole("radio", { name: "Done" }));
+    expect(screen.getByText("Finished before leaving")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Finished before leaving/ }),
+    ).toBeNull();
+    expect(
+      screen.getByText("You're no longer on this project"),
+    ).toBeInTheDocument();
+  });
+
+  it("searches by title or key and filters by the project's department", async () => {
+    answer([
+      board({ title: "Reconcile November" }),
+      board({
+        title: "Ship the app",
+        key: "MOB-3",
+        project: {
+          id: "p-mob",
+          key: "MOB",
+          name: "Mobile",
+          departmentId: "d-eng",
+          departmentName: "Engineering",
+          personal: false,
+        },
+      }),
+      task({ title: "Own errand" }),
+    ]);
+    render(<MyTasksScreen />);
+    await screen.findByText("Ship the app");
+    await userEvent.type(
+      screen.getByLabelText("Search your tasks by title or key"),
+      "mob-3",
+    );
+    expect(screen.getByText("Ship the app")).toBeInTheDocument();
+    expect(screen.queryByText("Reconcile November")).not.toBeInTheDocument();
+    await userEvent.clear(
+      screen.getByLabelText("Search your tasks by title or key"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+    await userEvent.selectOptions(
+      screen.getByLabelText("Project department"),
+      "No department",
+    );
+    expect(screen.getByText("Own errand")).toBeInTheDocument();
+    expect(screen.queryByText("Ship the app")).not.toBeInTheDocument();
+  });
+});
+
+describe("the Archive", () => {
+  it("lists older finished work with its project, date and people, and loads more", async () => {
+    answer([]);
+    mineArchive.mockImplementation(({ page }: { page: number }) =>
+      Promise.resolve(
+        page === 1
+          ? {
+              rows: [
+                board({
+                  title: "October close",
+                  statusCategory: "DONE",
+                  doneAt: "2026-09-20T10:00:00.000Z",
+                  assignees: [
+                    { id: "p-01", name: "Ada Okafor" },
+                    { id: "p-02", name: "Bola Ade" },
+                    { id: "p-03", name: "Chidi Eze" },
+                  ],
+                }),
+              ],
+              total: 2,
+              hasMore: true,
+            }
+          : {
+              rows: [
+                task({
+                  title: "Old errand",
+                  statusCategory: "DONE",
+                  doneAt: "2026-09-01T10:00:00.000Z",
+                }),
+              ],
+              total: 2,
+              hasMore: false,
+            },
+      ),
+    );
+    render(<MyTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("radio", { name: "Archive" }),
+    );
+    expect(await screen.findByText("October close")).toBeInTheDocument();
+    expect(screen.getByText("Payroll Q4")).toBeInTheDocument();
+    expect(screen.getByText("Ada Okafor, Bola Ade +1")).toBeInTheDocument();
+    expect(screen.getByText("2 archived tasks")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(await screen.findByText("Old errand")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    expect(mineArchive).toHaveBeenLastCalledWith({ page: 2, q: "" });
+  });
+
+  it("says so when nothing is archived yet", async () => {
+    answer([]);
+    mineArchive.mockResolvedValue({ rows: [], total: 0, hasMore: false });
+    render(<MyTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("radio", { name: "Archive" }),
+    );
+    expect(await screen.findByText("Nothing archived yet")).toBeInTheDocument();
+  });
+
+  it("keeps what loaded when Load more fails, and offers to try again", async () => {
+    answer([]);
+    mineArchive
+      .mockResolvedValueOnce({
+        rows: [task({ title: "First page", statusCategory: "DONE" })],
+        total: 2,
+        hasMore: true,
+      })
+      .mockRejectedValueOnce(new Error("offline"));
+    render(<MyTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("radio", { name: "Archive" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Load more" }),
+    );
+    expect(await screen.findByText(/Couldn't load more/)).toBeInTheDocument();
+    expect(screen.getByText("First page")).toBeInTheDocument();
   });
 });

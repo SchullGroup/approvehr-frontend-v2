@@ -88,6 +88,9 @@ export const PERMISSION_KEYS = [
   "MANAGE_ROTA",
   "APPROVE_SHIFT_SWAP",
   "VIEW_FAIRNESS",
+  /* The Master view of Projects: every project, program and task in the
+     company, read only. Held by the Owner role; giveable to anybody. */
+  "SEE_ALL_WORK",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -108,7 +111,8 @@ export type PermissionModule =
   | "settings"
   | "access"
   | "records"
-  | "audit";
+  | "audit"
+  | "projects";
 
 export type PermissionAction =
   | "view"
@@ -183,6 +187,7 @@ export const PERMISSION_SHAPE: Record<
   MANAGE_ROTA: { module: "shifts", action: "assign" },
   APPROVE_SHIFT_SWAP: { module: "shifts", action: "approve" },
   VIEW_FAIRNESS: { module: "performance", action: "view" },
+  SEE_ALL_WORK: { module: "projects", action: "view" },
   MANAGE_SETTINGS: { module: "settings", action: "manage" },
   MANAGE_ROLES: { module: "access", action: "manage" },
   INVITE_STAFF: { module: "access", action: "invite" },

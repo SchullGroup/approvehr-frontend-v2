@@ -27,6 +27,7 @@ import { useQueryParam } from "@/components/projects/use-query-param";
 import {
   SWIMLANE_LABEL,
   boardScope,
+  hiddenDoneCount,
   columnIssues,
   decodeDropTarget,
   encodeDropTarget,
@@ -38,6 +39,17 @@ import {
 } from "@/lib/projects/board";
 import { applyFilter, isFiltering } from "@/lib/projects/filters";
 import { sprintPoints } from "@/lib/projects/progress";
+import {
+  COMPLETE_CYCLE,
+  CYCLE,
+  EFFORT,
+  EMPTY,
+  LATER,
+  LIMIT,
+  TAB_LABEL,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import type { Issue, StatusCategory } from "@/lib/projects/types";
 import { isDone, sortStatuses, wipState } from "@/lib/projects/workflow";
 import { shortDate } from "@/lib/today";
@@ -90,6 +102,10 @@ export function BoardView() {
     () => sortStatuses(project.statuses),
     [project.statuses],
   );
+  const hiddenDone = useMemo(
+    () => hiddenDoneCount({ project, issues, today, doneDayOf: dayOf }),
+    [project, issues, today, dayOf],
+  );
   const scope = useMemo(
     () =>
       boardScope({
@@ -106,8 +122,15 @@ export function BoardView() {
     [project.statuses, issues],
   );
   const shown = useMemo(
-    () => applyFilter(scope.issues, filter, meId),
-    [scope.issues, filter, meId],
+    () =>
+      applyFilter(
+        scope.issues,
+        filter,
+        meId,
+        project.statuses,
+        project.memberDepartments,
+      ),
+    [scope.issues, filter, meId, project.statuses, project.memberDepartments],
   );
   const lanes = useMemo(
     () =>
@@ -295,8 +318,8 @@ export function BoardView() {
 
   const sprint = scope.sprint;
 
-  /* Kept mounted across the board becoming "No active sprint": completing the
-     sprint is exactly what removes the header it was opened from, and the dialog
+  /* Kept mounted across the board becoming "No active cycle": completing the
+     cycle is exactly what removes the header it was opened from, and the dialog
      should leave the way it arrived. A `key`, so it is the same dialog in both. */
   const completeDialog = (
     <CompleteSprintDialog
@@ -313,14 +336,14 @@ export function BoardView() {
     return (
       <div className="space-y-6">
         <EmptyState
-          title="No active sprint"
-          description="Plan a sprint in the backlog and start it. Its issues show up here as columns you can move work across."
+          title={EMPTY.noActiveCycle}
+          description={`Plan a ${CYCLE.one} on the ${TAB_LABEL.backlog} tab and start it. Its ${TASK.many} show up here as columns you can move work across.`}
           action={
             <ButtonLink
               variant="primary"
               href={`/projects/${project.id}?view=backlog`}
             >
-              Go to the backlog
+              Go to {TAB_LABEL.backlog}
             </ButtonLink>
           }
         />
@@ -342,6 +365,20 @@ export function BoardView() {
           <h2 className="text-h4 text-ink">Kanban board</h2>
           <p className="mt-1 text-body-sm text-muted">
             Continuous flow. Done work drops off after 14 days.
+            {hiddenDone > 0 && (
+              <>
+                {" "}
+                {hiddenDone === 1
+                  ? `1 finished ${TASK.one} older than 14 days is hidden.`
+                  : `${hiddenDone} finished ${TASK.many} older than 14 days are hidden.`}{" "}
+                <Link
+                  className="font-medium text-accent-text underline-offset-4 hover:underline"
+                  href={`/projects/${project.id}?view=issues&status=DONE`}
+                >
+                  View all done {TASK.many}
+                </Link>
+              </>
+            )}
           </p>
         </div>
       )}
@@ -400,14 +437,14 @@ export function BoardView() {
                     )}
                     title={
                       status.wipLimit !== null
-                        ? `Limit ${status.wipLimit}`
+                        ? `${LIMIT.One} ${status.wipLimit}`
                         : undefined
                     }
                   >
                     <span className="sr-only">
                       {state === "over"
-                        ? `${count} issues, over the limit of ${status.wipLimit}`
-                        : `${count} issues`}
+                        ? `${countNoun(count, "task")}, over the ${LIMIT.one} of ${status.wipLimit}`
+                        : countNoun(count, "task")}
                     </span>
                     <span aria-hidden="true">
                       {count}
@@ -422,7 +459,7 @@ export function BoardView() {
           {lanes.map((lane) => (
             <section
               key={lane.key}
-              aria-label={lane.label ?? "Issues"}
+              aria-label={lane.label ?? TASK.Many}
               className="space-y-2"
             >
               {lane.label !== null && (
@@ -538,7 +575,7 @@ export function BoardView() {
                       {items.filter((i) => i.id !== dragId).length === 0 &&
                         !(dragId !== null && where?.cellId === id) && (
                           <li className="flex flex-1 items-center justify-center rounded-md border border-dashed border-line-strong px-3 py-5 text-center text-meta text-faint">
-                            {canWork ? "Drop an issue here" : "Nothing here"}
+                            {canWork ? "Drop a task here" : "Nothing here"}
                           </li>
                         )}
                     </ul>
@@ -554,8 +591,8 @@ export function BoardView() {
         <div className="flex flex-wrap items-center gap-3 text-body-sm text-muted">
           <span>
             {project.type === "KANBAN"
-              ? "No issues yet."
-              : "This sprint has no issues."}
+              ? `No ${TASK.many} yet.`
+              : `This ${CYCLE.one} has no ${TASK.many}.`}
           </span>
           {project.type === "KANBAN" ? (
             canWork && (
@@ -569,14 +606,14 @@ export function BoardView() {
               className="font-medium text-accent-text underline-offset-4 hover:underline"
               href={`/projects/${project.id}?view=backlog`}
             >
-              Add some from the backlog
+              Add some from {LATER}
             </Link>
           )}
         </div>
       )}
       {shown.length === 0 && filtering && (
         <p className="text-body-sm text-muted">
-          No issues match these filters.
+          No {TASK.many} match these filters.
         </p>
       )}
 
@@ -620,7 +657,7 @@ function SprintHeader({ onComplete }: { onComplete?: () => void }) {
         <h2 className="text-h4 text-ink">{sprint.name}</h2>
         {onComplete && (
           <Button size="sm" onClick={onComplete}>
-            Complete sprint
+            {COMPLETE_CYCLE}
           </Button>
         )}
       </div>
@@ -653,7 +690,7 @@ function SprintHeader({ onComplete }: { onComplete?: () => void }) {
           <strong className="tabular font-semibold text-ink">
             {points.total}
           </strong>{" "}
-          points done
+          {EFFORT.one} done
         </span>
       </div>
     </div>

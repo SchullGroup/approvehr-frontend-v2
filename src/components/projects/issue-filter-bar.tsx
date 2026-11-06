@@ -4,22 +4,26 @@ import { Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button, Select } from "@/components/ui";
 import {
+  DEPT_NONE,
+  DEPT_UNASSIGNED,
   EMPTY_FILTER,
+  STATUS_FILTER_LABEL,
   UNASSIGNED,
   filterAssigneeIds,
   isFiltering,
   toggleAssignee,
 } from "@/lib/projects/filters";
+import { FILTER_TYPES, STAGE, TYPE_LABEL } from "@/lib/projects/terms";
 import {
-  ISSUE_TYPES,
-  ISSUE_TYPE_LABEL,
+  STATUS_CATEGORIES,
   type IssueType,
+  type StatusCategory,
 } from "@/lib/projects/types";
 import { PersonAvatar } from "./person";
 import { useProject } from "./project-context";
 
 /**
- * The bar above every list of issues: text, people, "only mine", type.
+ * The bar above every list of tasks: text, people, "only mine", type, status.
  *
  * One filter per project, shared by Board, Backlog and All issues, so narrowing
  * the board and then opening the table keeps the narrowing. The text box is the
@@ -45,8 +49,8 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
           type="search"
           value={filter.q}
           onChange={(event) => setFilter({ ...filter, q: event.target.value })}
-          placeholder="Filter issues"
-          aria-label="Filter issues by key, title or label"
+          placeholder="Search tasks"
+          aria-label="Search tasks by key, title or label"
           autoComplete="off"
           className={cn(
             "h-10 w-full rounded-md border border-field-line bg-surface pl-9 pr-9 text-body-sm pointer-coarse:text-body-md text-ink placeholder:text-muted",
@@ -114,26 +118,71 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
               : "border-control-line bg-surface text-muted hover:text-ink",
           )}
         >
-          Only my issues
+          Only my tasks
         </button>
       )}
 
       <div className="w-[calc(50%-0.5rem)] sm:w-40">
         <Select
-          aria-label="Issue type"
+          aria-label="Task type"
           value={filter.type}
           onChange={(event) =>
             setFilter({ ...filter, type: event.target.value as IssueType | "" })
           }
         >
           <option value="">All types</option>
-          {ISSUE_TYPES.map((type) => (
+          {FILTER_TYPES.map((type) => (
             <option key={type} value={type}>
-              {ISSUE_TYPE_LABEL[type]}
+              {TYPE_LABEL[type]}
             </option>
           ))}
         </Select>
       </div>
+
+      <div className="w-[calc(50%-0.5rem)] sm:w-40">
+        <Select
+          aria-label={STAGE.One}
+          value={filter.statusCategory}
+          onChange={(event) =>
+            setFilter({
+              ...filter,
+              statusCategory: event.target.value as StatusCategory | "",
+            })
+          }
+        >
+          <option value="">Any {STAGE.one}</option>
+          {STATUS_CATEGORIES.map((category) => (
+            <option key={category} value={category}>
+              {STATUS_FILTER_LABEL[category]}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      {project.memberDepartments && (
+        <div className="w-[calc(50%-0.5rem)] sm:w-48">
+          <Select
+            aria-label="Assignee's department"
+            title="By the department of the person on the task"
+            value={filter.department}
+            onChange={(event) =>
+              setFilter({ ...filter, department: event.target.value })
+            }
+          >
+            <option value="">Any department</option>
+            {departmentChoices(
+              project.memberDepartments,
+              project.departmentNames,
+            ).map((d) => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+            <option value={DEPT_NONE}>No department</option>
+            <option value={DEPT_UNASSIGNED}>Unassigned</option>
+          </Select>
+        </div>
+      )}
 
       {extra}
 
@@ -149,4 +198,17 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
       )}
     </div>
   );
+}
+
+/** The departments the project's members are in, by name. */
+function departmentChoices(
+  members: Readonly<Record<string, string | null>>,
+  names: Readonly<Record<string, string>> = {},
+): { value: string; label: string }[] {
+  const ids = [
+    ...new Set(Object.values(members).filter((v): v is string => v !== null)),
+  ];
+  return ids
+    .map((value) => ({ value, label: names[value] || "Unnamed department" }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }

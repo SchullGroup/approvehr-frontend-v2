@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleDashed, CornerDownLeft, Plus } from "lucide-react";
 import { Button, Input, Select } from "@/components/ui";
+import { SUBTASK } from "@/lib/projects/terms";
 import {
   PRIORITIES,
   PRIORITY_LABEL,
@@ -29,7 +30,7 @@ export function SubtaskComposer({
   people,
   candidates,
   onCreate,
-  noun = "sub-task",
+  noun = SUBTASK.one,
   canAssign = true,
   locked = [],
 }: {
@@ -43,7 +44,7 @@ export function SubtaskComposer({
       "title" | "assigneeIds" | "dueDate" | "priority"
     >,
   ) => Promise<boolean>;
-  /** "sub-task", or "story" in an epic. */
+  /** "subtask", or "task" in an initiative. */
   noun?: string;
   /** False where nobody can be chosen. */
   canAssign?: boolean;

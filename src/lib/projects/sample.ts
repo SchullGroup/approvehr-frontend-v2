@@ -1,13 +1,13 @@
 /**
  * "Checkout Revamp" — the sample project the demo opens with.
  *
- * Four sprints (two closed, one active, one planned), four epics, eighteen
- * issues, four sub-tasks and two comments, so every view has something real to
- * draw: a burndown that has moved, a velocity history, a roadmap with an epic
- * that needs dates, a board with a column over its WIP limit.
+ * Four cycles (two closed, one active, one planned), four initiatives, eighteen
+ * tasks, four subtasks and two comments, so every view has something real to
+ * draw: a progress chart that has moved, a pace history, a timeline with an
+ * initiative that needs dates, a board with a column over its limit.
  *
  * Dates are written as offsets from `today` and turned into days here, so the
- * sample is always "in the middle of Sprint 3" whenever it is built. It is only
+ * sample is always "in the middle of Cycle 3" whenever it is built. It is only
  * ever built in demo mode: in a production build `DEMO_ENABLED` folds the call
  * away, and no sample reaches a customer's company.
  *
@@ -17,6 +17,7 @@
  */
 
 import { addDays } from "./dates";
+import { cycleName } from "./terms";
 import { PROJECT_COLORS } from "./types";
 import type {
   Issue,
@@ -94,7 +95,7 @@ export function buildSample(args: {
   const sprints: Sprint[] = [
     sp(
       1,
-      "CHK Sprint 1",
+      cycleName(1),
       "Card payments end to end in staging",
       -34,
       -21,
@@ -108,7 +109,7 @@ export function buildSample(args: {
     ),
     sp(
       2,
-      "CHK Sprint 2",
+      cycleName(2),
       "New cart drawer behind a flag",
       -20,
       -7,
@@ -122,7 +123,7 @@ export function buildSample(args: {
     ),
     sp(
       3,
-      "CHK Sprint 3",
+      cycleName(3),
       "Ship 3-D Secure and cut payment errors in half",
       -6,
       7,
@@ -132,7 +133,7 @@ export function buildSample(args: {
         committedPoints: 26,
       },
     ),
-    sp(4, "CHK Sprint 4", "", 8, 21, "PLANNED", -2),
+    sp(4, cycleName(4), "", 8, 21, "PLANNED", -2),
   ];
 
   const epics: [
