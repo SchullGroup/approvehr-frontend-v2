@@ -35,11 +35,11 @@ import {
 } from "@/lib/performance/new-version";
 import {
   ASKED_CHOICES,
-  ASKED_CONSEQUENCE,
   ASK_ACTION_LABEL,
   NEEDS_CHOICES,
   askActionFor,
   askedChoiceOf,
+  askedConsequence,
   askedOfChoice,
   periodStartedReason,
   savedWords,
@@ -63,9 +63,9 @@ import { actionMessage } from "@/lib/use-action";
  *
  * Not here. This decides *how* a subsection is answered; a manager or HR gives
  * the answer under Competency ratings, with Record a level, which is kind-aware
- * and offers a level, a yes or no, or the choices below. Said in the panel's
- * first sentence, because a setting with no sign of where it takes effect reads
- * as one that does nothing.
+ * and offers a level, a yes or no, the choices below, or a box to write in. Said
+ * in the panel's first sentence, because a setting with no sign of where it takes
+ * effect reads as one that does nothing.
  *
  * ## ...or on the review form, when the period asks it there
  *
@@ -372,7 +372,7 @@ function AskOnForm({
   };
 
   const canChange = editable && ask.draft;
-  const consequence = ASKED_CONSEQUENCE[chosen];
+  const consequence = askedConsequence(chosen, kind);
 
   return (
     <div className="flex flex-col gap-2 border-t border-line pt-4">

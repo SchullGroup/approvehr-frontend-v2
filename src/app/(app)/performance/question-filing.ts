@@ -33,6 +33,11 @@ import { recordedWords } from "@/lib/performance/answer-kind";
  * no level, so for those the sentence says "the answer". `answerKind` is optional
  * and absent means a level, which is what the API means by it.
  *
+ * A subsection answered in words is the exception to the sentence about where the
+ * mark comes from: nothing recorded on it reaches the mark, whatever its section
+ * is worth, so quoting the section's weight beside it would promise a share of the
+ * mark it can never move. It says that nothing counts, in one sentence, and stops.
+ *
  * Kept apart from the dialog so the six states can be read, and tested, in one
  * place rather than inside a render.
  */
@@ -73,6 +78,12 @@ export function filingNote({
 }: Filing): FilingNote {
   if (competencyId !== "") {
     const sub = subsectionName ?? "the subsection";
+    if (answerKind === "TEXT") {
+      return {
+        tone: "muted",
+        text: `${NOT_COUNTED} Nor does the written answer recorded on ${sub}.`,
+      };
+    }
     const words = recordedWords(answerKind);
     if (!section) {
       return {

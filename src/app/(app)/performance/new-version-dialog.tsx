@@ -80,7 +80,8 @@ export function NewVersionDialog({
     kind: AnswerKind;
   } | null>(null);
 
-  const options = otherKinds(answerKindOf(competency));
+  const from = answerKindOf(competency);
+  const options = otherKinds(from);
   const close = () => {
     if (!busy) onClose();
   };
@@ -128,7 +129,7 @@ export function NewVersionDialog({
       >
         <div className="flex flex-col gap-3">
           <p className="text-body-sm text-ink">
-            {startedLine(done.result, done.kind)}
+            {startedLine(done.result, done.kind, from)}
           </p>
           <ul className="flex list-disc flex-col gap-2 pl-5 text-body-sm text-muted">
             {done.result.notes.map((note) => (
@@ -185,6 +186,7 @@ export function NewVersionDialog({
           {newVersionEffects({
             name: competency.name,
             ratingCount: competency.ratingCount,
+            from,
             to: to === "" ? null : to,
           }).map((line) => (
             <li key={line}>{line}</li>

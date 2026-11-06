@@ -27,7 +27,7 @@ import {
 import type { TabItem } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
-import { answerKindOf } from "@/lib/performance/answer-kind";
+import { KIND_BADGE, answerKindOf } from "@/lib/performance/answer-kind";
 import {
   CATEGORY_ORDER,
   useGaps,
@@ -375,7 +375,12 @@ export function SkillsTab({
         onSave={async (competencyId, body) => {
           try {
             await rating.rate(competencyId, body);
-            toast.push({ title: "Level recorded", tone: "success" });
+            /* A level is the only answer with a level in it. */
+            toast.push({
+              title:
+                body.level === undefined ? "Answer recorded" : "Level recorded",
+              tone: "success",
+            });
             /* All three reads, not one. `mine` is the signed-in person's own
                skills and `rateCompetency` refuses a self-rating, so it is the
                one panel on this screen a save here can never change — while
@@ -422,11 +427,19 @@ export function SkillsTab({
  * | A level | "Level 4 of 5 · target 5" and the segments | "Not assessed yet" and empty segments |
  * | Yes or no | the word, "Yes" or "No" | "Not assessed yet" |
  * | A pick | the label of the choice | "Not assessed yet" |
+ * | In their own words | the words, in full, and **Written** | "Not assessed yet" |
  *
- * **No segments for the last two.** They are a scale, and neither answer is on
- * one. The pick shows its label and not a score: what it is worth is set on the
+ * **No segments for the last three.** They are a scale, and none of the answers is
+ * on one. The pick shows its label and not a score: what it is worth is set on the
  * subsection and worked out on the API, and a figure here would be a second
  * implementation of it.
+ *
+ * **Words are never cut off without a way to read the rest.** A long written
+ * answer is folded to three lines with **Read all** under it (`WrittenAnswer`),
+ * and a short one is not folded at all. It is never a score, a percentage or a
+ * nought: a written answer is read by people. An answered row whose words did not
+ * arrive (a server one deploy behind) says **Answered** and claims nothing about
+ * what it said.
  *
  * `answerKind` is optional on the row, and absent means a level, which is what a
  * server that predates answer kinds sends and what it means.
@@ -434,6 +447,11 @@ export function SkillsTab({
 export function SkillRow({ row }: { row: ApiCompetencyRow }) {
   const kind = answerKindOf(row);
   const answered = row.ratedAt !== null;
+  /* The words, or nothing. Spaces alone are not an answer, an absent field is not
+     one either, and words on a row that says nobody has answered it are not drawn
+     under "Not assessed yet": `ratedAt` decides, as it does for every kind. */
+  const words =
+    kind === "TEXT" && answered ? (row.textValue?.trim() ?? "") : "";
 
   /* The right-hand side: the answer as a word for a yes or no and a pick, the
      segments for a level. Absent when a yes-or-no or pick row has no answer yet,
@@ -449,6 +467,12 @@ export function SkillRow({ row }: { row: ApiCompetencyRow }) {
       answered ? (
         <Badge tone="neutral" size="sm">
           {row.choiceOptionLabel ?? "Answered"}
+        </Badge>
+      ) : null
+    ) : kind === "TEXT" ? (
+      answered ? (
+        <Badge tone="neutral" size="sm">
+          {words ? KIND_BADGE.TEXT : "Answered"}
         </Badge>
       ) : null
     ) : (
@@ -471,15 +495,61 @@ export function SkillRow({ row }: { row: ApiCompetencyRow }) {
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
-      <div className="min-w-0">
+      {/* Words need the width of the row to be read in, so theirs takes it and the
+          badge wraps below only on a narrow screen. */}
+      <div className={cn("min-w-0", words && "flex-1 basis-56")}>
         <p className="text-body-sm font-medium text-ink">{row.name}</p>
         {line && <p className="tabular mt-1 text-body-sm text-muted">{line}</p>}
+        {words && <WrittenAnswer text={words} />}
       </div>
 
       {answer && (
         <div className="flex flex-wrap items-center gap-3">{answer}</div>
       )}
     </li>
+  );
+}
+
+/**
+ * A written answer's words, folded when they are long and never cut off for good.
+ *
+ * Folded to three lines past `LONG_WRITTEN` characters or three lines of its own, with
+ * a button that says what it will do, and not at all below that: an answer that
+ * fits is not hidden behind a control. The paragraphs somebody wrote are kept
+ * (`whitespace-pre-line`) and a long unbroken string (a link) wraps instead of
+ * running out of the row.
+ *
+ * Whether the fold actually hides anything cannot be measured without layout, so the
+ * rule is the length, as `recognition-screen.tsx` and the requisition description
+ * make it: at worst the button is offered for words that were already in view, which
+ * costs a press and misleads nobody.
+ */
+const LONG_WRITTEN = 240;
+
+function WrittenAnswer({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > LONG_WRITTEN || text.split("\n").length > 3;
+  return (
+    <div className="mt-1.5">
+      <p
+        className={cn(
+          "whitespace-pre-line break-words text-body-sm text-body",
+          long && !open && "line-clamp-3",
+        )}
+      >
+        {text}
+      </p>
+      {long && (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((was) => !was)}
+          className="mt-0.5 text-meta font-medium text-accent-text underline underline-offset-2"
+        >
+          {open ? "Show less" : "Read all"}
+        </button>
+      )}
+    </div>
   );
 }
 

@@ -58,3 +58,62 @@ export function questionCounter(prompt: string): string | null {
   if (length < QUESTION_COUNTER_FROM) return null;
   return `${String(length)} of ${String(QUESTION_MAX_LENGTH)} characters`;
 }
+
+/* -------------------------------------------------------------------------- */
+/* A written answer                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What the server takes for one written answer: 1 to 4,000 characters once the
+ * spaces round it are gone.
+ *
+ * It is one figure for every door a written answer comes in by (a manager recording
+ * it under Competency ratings, a person answering it on the review form, a review's
+ * ordinary text question and its closing note), and the server says it once
+ * (`WRITTEN_ANSWER_MAX` in its performance schemas). Read by the box a manager
+ * writes in under Record a level, which says so before the request, and by the
+ * page-by-page form's own box (`TEXT_LIMIT`), so the two cannot come to hold
+ * different numbers. Not a `maxLength` on the box, for the reason at the top of this
+ * file: that truncates a paste without a word.
+ */
+export const WRITTEN_ANSWER_MAX_LENGTH = 4000;
+
+/** From how many characters the count is worth showing: the last 500. */
+export const WRITTEN_ANSWER_COUNTER_FROM = WRITTEN_ANSWER_MAX_LENGTH - 500;
+
+/** The server's sentence for a written answer over the maximum, character for character. */
+export const WRITTEN_ANSWER_TOO_LONG = `Keep it to ${String(WRITTEN_ANSWER_MAX_LENGTH)} characters.`;
+
+/**
+ * Ours, and not the server's: said while somebody is still typing, in the register
+ * of the sentences above. A blank written answer is not an answer, and the server
+ * has its own words for a blank one if one ever gets through.
+ */
+export const WRITTEN_ANSWER_BLANK = "Write the answer in words.";
+
+/**
+ * What is wrong with a written answer, or `null`. Measured the way the server
+ * measures it: trimmed, so a box of spaces is not an answer.
+ */
+export function writtenAnswerProblem(text: string): string | null {
+  const length = text.trim().length;
+  if (length === 0) return WRITTEN_ANSWER_BLANK;
+  if (length > WRITTEN_ANSWER_MAX_LENGTH) return WRITTEN_ANSWER_TOO_LONG;
+  return null;
+}
+
+/** Whether a written answer is past what the server takes. */
+export function writtenAnswerIsOver(text: string): boolean {
+  return text.trim().length > WRITTEN_ANSWER_MAX_LENGTH;
+}
+
+/**
+ * "3,620 of 4,000 characters" once the answer is long enough to need it, else `null`.
+ *
+ * It keeps counting past the limit, which is the clearest way to say by how much.
+ */
+export function writtenAnswerCounter(text: string): string | null {
+  const length = text.trim().length;
+  if (length < WRITTEN_ANSWER_COUNTER_FROM) return null;
+  return `${length.toLocaleString("en-GB")} of ${WRITTEN_ANSWER_MAX_LENGTH.toLocaleString("en-GB")} characters`;
+}

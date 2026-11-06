@@ -177,6 +177,43 @@ const uploadOrigins = (() => {
   return [...origins];
 })();
 
+/**
+ * Where a leave file may be sent when the API cannot store one itself.
+ *
+ * `NEXT_PUBLIC_LINKED_UPLOAD_URL` is the old platform's uploader
+ * (`src/lib/api/linked-upload.ts`): the browser POSTs a file to it and gets back
+ * an address, and `connect-src` decides whether the browser will send it. Without
+ * the origin here the request is refused before it leaves and the person is told
+ * their connection dropped, so it is named, and **only when the variable is set**:
+ * a deployment that does not use this path keeps exactly the policy it had and
+ * never admits an origin it will not call.
+ *
+ * The same rule as the storage origins above, and for the same reason: `https:`
+ * only (and `http://localhost` in a development build), the origin and nothing
+ * wider, and a malformed value is dropped rather than trusted and does not take
+ * the build down over a header. `linked-upload.ts` applies the same test to the
+ * same value, so an address one accepts is never one the other refuses.
+ */
+const linkedUploadOrigin = (() => {
+  const raw = process.env["NEXT_PUBLIC_LINKED_UPLOAD_URL"]?.trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const local =
+      process.env.NODE_ENV !== "production" &&
+      url.protocol === "http:" &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+    if (url.protocol !== "https:" && !local) return "";
+    /* Already named: the API's own origin, or a storage origin. */
+    if (url.origin === apiOrigin || uploadOrigins.includes(url.origin)) {
+      return "";
+    }
+    return url.origin;
+  } catch {
+    return "";
+  }
+})();
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -208,7 +245,9 @@ const CSP = [
     .join("")}`,
   `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}${
     errorReportOrigin ? ` ${errorReportOrigin}` : ""
-  }${uploadOrigins.map((origin) => ` ${origin}`).join("")}`,
+  }${uploadOrigins.map((origin) => ` ${origin}`).join("")}${
+    linkedUploadOrigin ? ` ${linkedUploadOrigin}` : ""
+  }`,
   "upgrade-insecure-requests",
 ].join("; ");
 

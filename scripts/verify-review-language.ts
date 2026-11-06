@@ -16,6 +16,7 @@
  */
 
 import {
+  ANSWER_CAVEAT,
   FINDINGS_CAVEAT,
   MAX_FINDINGS,
   findingsAcross,
@@ -211,6 +212,22 @@ check(
   "the caveat admits its limits",
   FINDINGS_CAVEAT.includes("cannot tell"),
   true,
+);
+/* The same two halves for words that are saved, not a review that is sent. */
+check(
+  "the answer caveat says it does not block",
+  ANSWER_CAVEAT.includes("stops you"),
+  true,
+);
+check(
+  "the answer caveat admits its limits",
+  ANSWER_CAVEAT.includes("cannot tell"),
+  true,
+);
+check(
+  "the answer caveat does not talk of a review that is not there",
+  ANSWER_CAVEAT.includes("review"),
+  false,
 );
 
 /* Every finding has to carry somewhere to go. A flag with no "instead" is a
