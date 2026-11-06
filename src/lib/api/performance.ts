@@ -2649,6 +2649,8 @@ export const performanceApi = {
   updateCycle: (
     id: string,
     body: {
+      /** Refused (409) when another period already has it. 3–80 characters. */
+      name?: string;
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;

@@ -142,7 +142,7 @@ export function IssueCard({
                   >
                     <ListTree aria-hidden="true" className="size-3.5" />
                     {subtasks.done}/{subtasks.total}
-                    <span className="sr-only"> sub-tasks done</span>
+                    <span className="sr-only"> subtasks done</span>
                   </span>
                 )}
                 <PriorityIcon priority={issue.priority} />

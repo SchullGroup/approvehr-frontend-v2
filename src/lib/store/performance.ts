@@ -3121,6 +3121,8 @@ export function useCycleMutations() {
       async (
         id: string,
         body: {
+          /** A corrected name; refused when another period already has it. */
+          name?: string;
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;
