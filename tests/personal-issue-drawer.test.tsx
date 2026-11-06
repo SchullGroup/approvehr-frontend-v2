@@ -188,13 +188,13 @@ describe.each([
     const details = within(
       await screen.findByRole("complementary", { name: "Details" }),
     );
-    await userEvent.selectOptions(details.getByLabelText("Status"), doing.id);
+    await userEvent.selectOptions(details.getByLabelText("Stage"), doing.id);
     await waitFor(() => expect(api.updateIssue).toHaveBeenCalledTimes(1));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(
       within(
         screen.getByRole("complementary", { name: "Details" }),
-      ).getByLabelText("Status"),
+      ).getByLabelText("Stage"),
     ).toHaveValue(doing.id);
   });
 

@@ -10,6 +10,7 @@ import {
   laneGroups,
   resolveDrop,
   sprintStrip,
+  subtaskTallies,
 } from "@/lib/projects/board";
 import {
   DEPT_NONE,
@@ -217,7 +218,7 @@ describe("filters", () => {
 describe("what the board shows", () => {
   const d = fixture();
 
-  it("shows the active sprint's issues on a Scrum board, sub-tasks included, never epics", () => {
+  it("shows the active sprint's issues on a Scrum board, never epics or sub-tasks", () => {
     const scope = boardScope({
       project: d.project,
       issues: d.issues,
@@ -225,14 +226,48 @@ describe("what the board shows", () => {
       today: TODAY,
       doneDayOf,
     });
-    expect(scope.sprint?.name).toBe("CHK Sprint 3");
+    expect(scope.sprint?.name).toBe("Cycle 3");
     expect(scope.issues.every((i) => i.sprintId === scope.sprint!.id)).toBe(
       true,
     );
     expect(scope.issues.some((i) => i.type === "EPIC")).toBe(false);
-    expect(scope.issues.some((i) => i.type === "SUBTASK")).toBe(true);
-    /* Seven issues in Sprint 3, plus their four sub-tasks. */
-    expect(scope.issues).toHaveLength(7 + 4);
+    /* Sub-tasks live inside their parent, not on cards of their own. */
+    expect(scope.issues.some((i) => i.type === "SUBTASK")).toBe(false);
+    expect(scope.issues).toHaveLength(7);
+  });
+
+  it("keeps sub-tasks off a Kanban board too", () => {
+    const kanban = { ...d.project, type: "KANBAN" as const };
+    const scope = boardScope({
+      project: kanban,
+      issues: d.issues.map((i) => ({ ...i, sprintId: null })),
+      sprints: [],
+      today: TODAY,
+      doneDayOf,
+    });
+    expect(scope.issues.length).toBeGreaterThan(0);
+    expect(scope.issues.some((i) => i.type === "SUBTASK")).toBe(false);
+    expect(scope.issues.some((i) => i.type === "EPIC")).toBe(false);
+  });
+
+  it("counts each parent's sub-tasks, and how many are done, across the whole project", () => {
+    const subs = d.issues.filter((i) => i.type === "SUBTASK");
+    expect(subs.length).toBeGreaterThan(0);
+    const parentId = subs[0]!.parentId!;
+    const mine = subs.filter((i) => i.parentId === parentId);
+    const doneId = d.project.statuses.find((s) => s.category === "DONE")!.id;
+    const todoId = d.project.statuses.find((s) => s.category === "TODO")!.id;
+    const issues = d.issues.map((i) =>
+      i.parentId !== parentId
+        ? i
+        : { ...i, statusId: i.id === mine[0]!.id ? doneId : todoId },
+    );
+    const tallies = subtaskTallies(d.project.statuses, issues);
+    expect(tallies.get(parentId)).toEqual({ done: 1, total: mine.length });
+    const childless = d.issues.find(
+      (i) => i.type !== "SUBTASK" && !subs.some((s) => s.parentId === i.id),
+    )!;
+    expect(tallies.has(childless.id)).toBe(false);
   });
 
   it("has nothing to show for a Scrum project with no active sprint", () => {
@@ -358,7 +393,7 @@ describe("swimlanes", () => {
     expect(lanes.map((l) => l.label)).toEqual([
       "Payments API v2",
       "Cart & checkout UX",
-      "No epic",
+      "No initiative",
     ]);
   });
 });

@@ -59,6 +59,7 @@ const facts = (inIt: boolean): NavFacts => ({
     signatures: true,
     interviews: true,
     "team-tasks": false,
+    "master-view": false,
   },
 });
 

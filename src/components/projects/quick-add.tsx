@@ -3,11 +3,14 @@
 import { useRef, useState } from "react";
 import { Select, useToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { ISSUE_TYPE_LABEL, type IssueType } from "@/lib/projects/types";
+import {
+  DEFAULT_TYPE,
+  TASK,
+  TYPE_LABEL,
+  WORK_TYPES,
+} from "@/lib/projects/terms";
+import type { IssueType } from "@/lib/projects/types";
 import { useProject } from "./project-context";
-
-/** What the quick row can make. Epics and sub-tasks have their own places. */
-const QUICK_TYPES = ["STORY", "TASK", "BUG"] as const;
 
 /**
  * The row under a list that adds an issue to it: a type, a title, Enter.
@@ -25,13 +28,13 @@ export function QuickAdd({
   label,
   sprintId,
 }: {
-  /** Names the list for assistive technology: "CHK Sprint 3", "the backlog". */
+  /** Names the list for assistive technology: "Cycle 3", "Later". */
   label: string;
   sprintId: string | null;
 }) {
   const { project, actions } = useProject();
   const toast = useToast();
-  const [type, setType] = useState<IssueType>("STORY");
+  const [type, setType] = useState<IssueType>(DEFAULT_TYPE);
   const [title, setTitle] = useState("");
   const sending = useRef(false);
 
@@ -61,14 +64,14 @@ export function QuickAdd({
     <div className="flex items-center gap-2 border-t border-line bg-surface px-3 py-2">
       <div className="w-28 shrink-0">
         <Select
-          aria-label={`Type of the task to add to ${label}`}
+          aria-label={`Type of the ${TASK.one} to add to ${label}`}
           value={type}
           onChange={(event) => setType(event.target.value as IssueType)}
           className="h-9"
         >
-          {QUICK_TYPES.map((value) => (
+          {WORK_TYPES.map((value) => (
             <option key={value} value={value}>
-              {ISSUE_TYPE_LABEL[value]}
+              {TYPE_LABEL[value]}
             </option>
           ))}
         </Select>
@@ -78,7 +81,7 @@ export function QuickAdd({
         value={title}
         maxLength={240}
         autoComplete="off"
-        aria-label={`Add a task to ${label}`}
+        aria-label={`Add a ${TASK.one} to ${label}`}
         placeholder="What needs to be done? Press Enter to add"
         onChange={(event) => setTitle(event.target.value)}
         onKeyDown={(event) => {

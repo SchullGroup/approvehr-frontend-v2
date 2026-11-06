@@ -34,10 +34,22 @@ import {
   laneGroups,
   resolveDrop,
   sprintStrip,
+  subtaskTallies,
   type Swimlanes,
 } from "@/lib/projects/board";
 import { applyFilter, isFiltering } from "@/lib/projects/filters";
 import { sprintPoints } from "@/lib/projects/progress";
+import {
+  COMPLETE_CYCLE,
+  CYCLE,
+  EFFORT,
+  EMPTY,
+  LATER,
+  LIMIT,
+  TAB_LABEL,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import type { Issue, StatusCategory } from "@/lib/projects/types";
 import { isDone, sortStatuses, wipState } from "@/lib/projects/workflow";
 import { shortDate } from "@/lib/today";
@@ -104,6 +116,10 @@ export function BoardView() {
         doneDayOf: dayOf,
       }),
     [project, issues, sprints, today, dayOf],
+  );
+  const tallies = useMemo(
+    () => subtaskTallies(project.statuses, issues),
+    [project.statuses, issues],
   );
   const shown = useMemo(
     () =>
@@ -302,8 +318,8 @@ export function BoardView() {
 
   const sprint = scope.sprint;
 
-  /* Kept mounted across the board becoming "No active sprint": completing the
-     sprint is exactly what removes the header it was opened from, and the dialog
+  /* Kept mounted across the board becoming "No active cycle": completing the
+     cycle is exactly what removes the header it was opened from, and the dialog
      should leave the way it arrived. A `key`, so it is the same dialog in both. */
   const completeDialog = (
     <CompleteSprintDialog
@@ -320,14 +336,14 @@ export function BoardView() {
     return (
       <div className="space-y-6">
         <EmptyState
-          title="No active sprint"
-          description="Plan a sprint in the backlog and start it. Its tasks show up here as columns you can move work across."
+          title={EMPTY.noActiveCycle}
+          description={`Plan a ${CYCLE.one} on the ${TAB_LABEL.backlog} tab and start it. Its ${TASK.many} show up here as columns you can move work across.`}
           action={
             <ButtonLink
               variant="primary"
               href={`/projects/${project.id}?view=backlog`}
             >
-              Go to the backlog
+              Go to {TAB_LABEL.backlog}
             </ButtonLink>
           }
         />
@@ -353,13 +369,13 @@ export function BoardView() {
               <>
                 {" "}
                 {hiddenDone === 1
-                  ? "1 finished task older than 14 days is hidden."
-                  : `${hiddenDone} finished tasks older than 14 days are hidden.`}{" "}
+                  ? `1 finished ${TASK.one} older than 14 days is hidden.`
+                  : `${hiddenDone} finished ${TASK.many} older than 14 days are hidden.`}{" "}
                 <Link
                   className="font-medium text-accent-text underline-offset-4 hover:underline"
                   href={`/projects/${project.id}?view=issues&status=DONE`}
                 >
-                  View all done tasks
+                  View all done {TASK.many}
                 </Link>
               </>
             )}
@@ -421,14 +437,14 @@ export function BoardView() {
                     )}
                     title={
                       status.wipLimit !== null
-                        ? `Limit ${status.wipLimit}`
+                        ? `${LIMIT.One} ${status.wipLimit}`
                         : undefined
                     }
                   >
                     <span className="sr-only">
                       {state === "over"
-                        ? `${count} tasks, over the limit of ${status.wipLimit}`
-                        : `${count} tasks`}
+                        ? `${countNoun(count, "task")}, over the ${LIMIT.one} of ${status.wipLimit}`
+                        : countNoun(count, "task")}
                     </span>
                     <span aria-hidden="true">
                       {count}
@@ -443,7 +459,7 @@ export function BoardView() {
           {lanes.map((lane) => (
             <section
               key={lane.key}
-              aria-label={lane.label ?? "Tasks"}
+              aria-label={lane.label ?? TASK.Many}
               className="space-y-2"
             >
               {lane.label !== null && (
@@ -522,11 +538,7 @@ export function BoardView() {
                             >
                               <IssueCard
                                 issue={issue}
-                                parent={
-                                  issue.parentId
-                                    ? (issueById.get(issue.parentId) ?? null)
-                                    : null
-                                }
+                                subtasks={tallies.get(issue.id) ?? null}
                                 epic={
                                   issue.epicId
                                     ? (issueById.get(issue.epicId) ?? null)
@@ -579,8 +591,8 @@ export function BoardView() {
         <div className="flex flex-wrap items-center gap-3 text-body-sm text-muted">
           <span>
             {project.type === "KANBAN"
-              ? "No tasks yet."
-              : "This sprint has no tasks."}
+              ? `No ${TASK.many} yet.`
+              : `This ${CYCLE.one} has no ${TASK.many}.`}
           </span>
           {project.type === "KANBAN" ? (
             canWork && (
@@ -594,13 +606,15 @@ export function BoardView() {
               className="font-medium text-accent-text underline-offset-4 hover:underline"
               href={`/projects/${project.id}?view=backlog`}
             >
-              Add some from the backlog
+              Add some from {LATER}
             </Link>
           )}
         </div>
       )}
       {shown.length === 0 && filtering && (
-        <p className="text-body-sm text-muted">No tasks match these filters.</p>
+        <p className="text-body-sm text-muted">
+          No {TASK.many} match these filters.
+        </p>
       )}
 
       {drag && held && grab && <BoardGhost x={drag.x} y={drag.y} grab={grab} />}
@@ -643,7 +657,7 @@ function SprintHeader({ onComplete }: { onComplete?: () => void }) {
         <h2 className="text-h4 text-ink">{sprint.name}</h2>
         {onComplete && (
           <Button size="sm" onClick={onComplete}>
-            Complete sprint
+            {COMPLETE_CYCLE}
           </Button>
         )}
       </div>
@@ -676,7 +690,7 @@ function SprintHeader({ onComplete }: { onComplete?: () => void }) {
           <strong className="tabular font-semibold text-ink">
             {points.total}
           </strong>{" "}
-          points done
+          {EFFORT.one} done
         </span>
       </div>
     </div>

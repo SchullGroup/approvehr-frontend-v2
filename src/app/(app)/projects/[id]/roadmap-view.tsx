@@ -12,6 +12,13 @@ import {
   roadmapModel,
   type RoadmapRow,
 } from "@/lib/projects/roadmap";
+import {
+  EMPTY,
+  INITIATIVE,
+  NEW_INITIATIVE,
+  TAB_LABEL,
+  TASK,
+} from "@/lib/projects/terms";
 import type { Issue } from "@/lib/projects/types";
 
 /**
@@ -65,14 +72,14 @@ export function RoadmapView() {
   if (epics.length === 0) {
     return (
       <EmptyState
-        title="No epics yet"
-        description="Epics group related stories and tasks into larger bodies of work. Create one with a start and due date and it appears on the timeline."
+        title={EMPTY.noInitiatives}
+        description={`${INITIATIVE.Many} group related ${TASK.many} into larger bodies of work. Create one with a start and due date and it appears on the timeline.`}
         {...(canWork
           ? {
               action: (
                 <Button variant="primary" onClick={newEpic}>
                   <Plus aria-hidden="true" className="size-4" />
-                  New epic
+                  {NEW_INITIATIVE}
                 </Button>
               ),
             }
@@ -87,15 +94,16 @@ export function RoadmapView() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-h4 text-ink">Roadmap</h2>
+          <h2 className="text-h4 text-ink">{TAB_LABEL.roadmap}</h2>
           <p className="mt-1 text-body-sm text-muted">
-            Epics on a timeline. Bars fill as their tasks get done.
+            {INITIATIVE.Many} on a timeline. Bars fill as their {TASK.many} get
+            done.
           </p>
         </div>
         {canWork && (
           <Button onClick={newEpic}>
             <Plus aria-hidden="true" className="size-4" />
-            New epic
+            {NEW_INITIATIVE}
           </Button>
         )}
       </div>
@@ -113,7 +121,7 @@ export function RoadmapView() {
                 <div
                   className={`flex items-end border-b border-line bg-sunken px-3 pb-2 text-meta font-semibold text-muted ${HEAD}`}
                 >
-                  Epic
+                  {INITIATIVE.One}
                 </div>
                 {model.rows.map((row) => (
                   <div
@@ -179,7 +187,7 @@ export function RoadmapView() {
                   </span>
                 </div>
 
-                <ul aria-label="Epics on the timeline">
+                <ul aria-label={`${INITIATIVE.Many} on the timeline`}>
                   {model.rows.map((row) => (
                     <li
                       key={row.epic.id}
@@ -201,8 +209,8 @@ export function RoadmapView() {
         </div>
       ) : (
         <p className="text-body-sm text-muted">
-          None of these epics has both a start and a due date yet, so there is
-          nothing to draw. Open one to set them.
+          None of these {INITIATIVE.many} has both a start and a due date yet,
+          so there is nothing to draw. Open one to set them.
         </p>
       )}
 
@@ -286,11 +294,11 @@ function Undated({
 }) {
   return (
     <section
-      aria-label="Epics that need dates"
+      aria-label={`${INITIATIVE.Many} that need dates`}
       className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-sunken px-4 py-3"
     >
       <h3 className="mr-1 text-body-sm font-semibold text-ink">
-        Epics that need dates
+        {INITIATIVE.Many} that need dates
       </h3>
       {epics.map((epic) => (
         <Button key={epic.id} size="sm" onClick={() => onOpen(epic)}>

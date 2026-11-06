@@ -5,7 +5,12 @@ import {
   ProjectProvider,
   type ProjectContextValue,
 } from "@/components/projects/project-context";
-import type { Issue, IssueThread, ProjectData } from "@/lib/projects/types";
+import {
+  PRIORITY_LABEL,
+  type Issue,
+  type IssueThread,
+  type ProjectData,
+} from "@/lib/projects/types";
 import { contextFor, fakeActions, sampleData } from "./projects-fixture";
 
 /**
@@ -102,14 +107,14 @@ describe("what the drawer shows", () => {
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
-    expect(details.getByLabelText("Status")).toHaveValue(
+    expect(details.getByLabelText("Stage")).toHaveValue(
       status(sampleData(), "In Progress").id,
     );
     expect(details.getByLabelText("Priority")).toHaveValue("HIGHEST");
-    expect(details.getByLabelText("Points")).toHaveValue(8);
+    expect(details.getByLabelText("Effort")).toHaveValue(8);
     expect(screen.getByText("1 of 3 done")).toBeInTheDocument();
     expect(
-      screen.getByRole("progressbar", { name: "Sub-task progress" }),
+      screen.getByRole("progressbar", { name: "Subtask progress" }),
     ).toHaveAttribute("aria-valuenow", "1");
   });
 
@@ -122,13 +127,13 @@ describe("what the drawer shows", () => {
 
   it("shows an epic's stories instead of sub-tasks, with dates and no points", () => {
     renderDrawer("CHK-1");
-    expect(screen.getByText("Tasks in this epic")).toBeInTheDocument();
+    expect(screen.getByText("Tasks in this initiative")).toBeInTheDocument();
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
     expect(details.getByLabelText("Start")).toHaveValue("2026-09-11");
-    expect(details.queryByLabelText("Points")).not.toBeInTheDocument();
-    expect(details.queryByLabelText("Sprint")).not.toBeInTheDocument();
+    expect(details.queryByLabelText("Effort")).not.toBeInTheDocument();
+    expect(details.queryByLabelText("Cycle")).not.toBeInTheDocument();
   });
 
   it("makes a sub-task's sprint and epic the parent's, so it cannot change them", () => {
@@ -136,18 +141,31 @@ describe("what the drawer shows", () => {
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
-    expect(details.queryByLabelText("Sprint")).not.toBeInTheDocument();
-    expect(details.queryByLabelText("Epic")).not.toBeInTheDocument();
-    expect(screen.queryByText("Sub-tasks")).not.toBeInTheDocument();
+    expect(details.queryByLabelText("Cycle")).not.toBeInTheDocument();
+    expect(details.queryByLabelText("Initiative")).not.toBeInTheDocument();
+    expect(screen.queryByText("Subtasks")).not.toBeInTheDocument();
   });
 
-  it("turns every field off for somebody who cannot work in the project", () => {
-    renderDrawer("CHK-10", { canWork: false });
-    expect(screen.getByLabelText("Summary")).toBeDisabled();
+  it("shows what the fields say, and no editor, to somebody who cannot work in the project", () => {
+    const { issue } = renderDrawer("CHK-10", { canWork: false });
+    const dialog = screen.getByRole("dialog");
+    /* Not a switched-off control: none of the editors exists at all. */
+    expect(dialog.querySelectorAll("input, select, textarea")).toHaveLength(0);
+    expect(screen.queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("heading", {
+        level: 3,
+        name: issue.title,
+      }),
+    ).toBeInTheDocument();
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
-    expect(details.getByLabelText("Status")).toBeDisabled();
+    expect(details.queryByLabelText("Stage")).not.toBeInTheDocument();
+    expect(details.getByText("Stage")).toBeInTheDocument();
+    expect(
+      details.getByText(PRIORITY_LABEL[issue.priority]),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Add a comment")).not.toBeInTheDocument();
   });
@@ -159,7 +177,7 @@ describe("saving as you go", () => {
     await userEvent.selectOptions(
       within(
         screen.getByRole("complementary", { name: "Details" }),
-      ).getByLabelText("Status"),
+      ).getByLabelText("Stage"),
       "In Review",
     );
     expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
@@ -194,7 +212,7 @@ describe("saving as you go", () => {
     const { actions, issue } = renderDrawer();
     const points = within(
       screen.getByRole("complementary", { name: "Details" }),
-    ).getByLabelText("Points");
+    ).getByLabelText("Effort");
     await userEvent.clear(points);
     await userEvent.type(points, "13");
     await leave();
@@ -297,11 +315,11 @@ describe("sub-tasks and an epic's stories", () => {
 
   it("adds sub-tasks one after another, with people, a date and a priority", async () => {
     const { actions, issue } = renderDrawer();
-    await userEvent.click(screen.getByRole("button", { name: "Add sub-task" }));
-    const name = screen.getByLabelText("Name of the new sub-task");
+    await userEvent.click(screen.getByRole("button", { name: "Add subtask" }));
+    const name = screen.getByLabelText("Name of the new subtask");
     await userEvent.type(name, "Cover the timeout");
     await userEvent.click(
-      screen.getByRole("button", { name: /Assignees for the new sub-task/ }),
+      screen.getByRole("button", { name: /Assignees for the new subtask/ }),
     );
     await userEvent.click(
       screen.getByRole("menuitemcheckbox", { name: /Chidi Nwosu/ }),
@@ -310,11 +328,11 @@ describe("sub-tasks and an epic's stories", () => {
       screen.getByRole("menuitemcheckbox", { name: /Emeka Anyanwu/ }),
     );
     await userEvent.selectOptions(
-      screen.getByLabelText("Priority for the new sub-task"),
+      screen.getByLabelText("Priority for the new subtask"),
       "HIGH",
     );
     await userEvent.type(
-      screen.getByLabelText("Due date for the new sub-task"),
+      screen.getByLabelText("Due date for the new subtask"),
       "2026-11-14",
     );
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -339,19 +357,19 @@ describe("sub-tasks and an epic's stories", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(
-      screen.queryByLabelText("Name of the new sub-task"),
+      screen.queryByLabelText("Name of the new subtask"),
     ).not.toBeInTheDocument();
   });
 
-  it("adds a story to an epic from the same row", async () => {
+  it("adds a task to an initiative from the same row", async () => {
     const { actions, issue } = renderDrawer("CHK-1");
-    await userEvent.click(screen.getByRole("button", { name: "Add story" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add task" }));
     await userEvent.type(
-      screen.getByLabelText("Name of the new story"),
+      screen.getByLabelText("Name of the new task"),
       "Refund flow{Enter}",
     );
     expect(actions.createIssue).toHaveBeenCalledWith({
-      type: "STORY",
+      type: "TASK",
       epicId: issue.id,
       title: "Refund flow",
       priority: "MEDIUM",
@@ -366,8 +384,8 @@ describe("sub-tasks and an epic's stories", () => {
       message: "No",
       error: null,
     });
-    await userEvent.click(screen.getByRole("button", { name: "Add sub-task" }));
-    const row = screen.getByLabelText("Name of the new sub-task");
+    await userEvent.click(screen.getByRole("button", { name: "Add subtask" }));
+    const row = screen.getByLabelText("Name of the new subtask");
     await userEvent.type(row, "Cover the timeout{Enter}");
     await waitFor(() => expect(row).toHaveValue("Cover the timeout"));
   });
@@ -415,7 +433,7 @@ describe("deleting", () => {
     const { actions, onClose, issue } = renderDrawer();
     await userEvent.click(screen.getByLabelText("Delete this task"));
     const confirm = screen.getByRole("alertdialog", { name: "Delete CHK-10" });
-    expect(confirm).toHaveTextContent("and its 3 sub-tasks");
+    expect(confirm).toHaveTextContent("and its 3 subtasks");
     expect(confirm).toHaveTextContent("cannot be undone");
     await userEvent.click(
       within(confirm).getByRole("button", { name: "Delete" }),
@@ -436,7 +454,7 @@ describe("deleting", () => {
     renderDrawer("CHK-1");
     await userEvent.click(screen.getByLabelText("Delete this task"));
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "tasks stay, without an epic",
+      "tasks stay, without an initiative",
     );
   });
 
@@ -793,7 +811,8 @@ describe("a personal task", () => {
       screen.getByRole("complementary", { name: "Details" }),
     );
     expect(details.queryByRole("combobox", { name: "Type" })).toBeNull();
-    expect(details.getByText("Story")).toBeInTheDocument();
+    /* CHK-10 is stored as a STORY, which people know as a Task. */
+    expect(details.getByText("Task")).toBeInTheDocument();
   });
 });
 
@@ -827,8 +846,9 @@ describe("somebody's personal task", () => {
       screen.getByRole("complementary", { name: "Details" }),
     );
     expect(details.getByLabelText("Due")).toBeEnabled();
-    expect(details.getByLabelText("Status")).toBeDisabled();
-    expect(details.getByLabelText("Priority")).toBeDisabled();
+    /* The rest is read, not offered: no stage or priority editor to switch off. */
+    expect(details.queryByLabelText("Stage")).not.toBeInTheDocument();
+    expect(details.queryByLabelText("Priority")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
 
     const summary = screen.getByLabelText("Summary");
@@ -846,13 +866,15 @@ describe("somebody's personal task", () => {
       personalCtx({ canEditDetails: false }),
       personalData(),
     );
-    expect(screen.getByLabelText("Summary")).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "Description" })).toBeDisabled();
+    expect(screen.queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Description" }),
+    ).not.toBeInTheDocument();
     expect(
       within(
         screen.getByRole("complementary", { name: "Details" }),
-      ).getByLabelText("Due"),
-    ).toBeDisabled();
+      ).queryByLabelText("Due"),
+    ).not.toBeInTheDocument();
   });
 
   const theirComment = {

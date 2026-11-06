@@ -424,9 +424,10 @@ describe("opening a task", () => {
     const drawer = await screen.findByRole("dialog");
     expect(within(drawer).getByLabelText("Summary")).toBeEnabled();
     expect(within(drawer).getByLabelText("Due")).toBeEnabled();
+    /* Status is not theirs to change: it is read, not offered as a switched-off box. */
     expect(
-      within(drawer).getByRole("combobox", { name: "Status" }),
-    ).toBeDisabled();
+      within(drawer).queryByRole("combobox", { name: "Stage" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the details read-only when the API says so", async () => {
@@ -440,8 +441,13 @@ describe("opening a task", () => {
     render(<MyTasksScreen />);
     await userEvent.click(await screen.findByText("Not mine to fix"));
     const drawer = await screen.findByRole("dialog");
-    expect(within(drawer).getByLabelText("Summary")).toBeDisabled();
-    expect(within(drawer).getByLabelText("Due")).toBeDisabled();
+    /* Read, not offered: the title is a heading and the date is text, with no
+       switched-off editor in their place. */
+    expect(within(drawer).queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(
+      within(drawer).getByRole("heading", { name: "Not mine to fix" }),
+    ).toBeInTheDocument();
+    expect(within(drawer).queryByLabelText("Due")).not.toBeInTheDocument();
   });
 
   it("opens the issue drawer, which says Personal and who set it, without a board", async () => {
@@ -461,13 +467,13 @@ describe("opening a task", () => {
     expect(within(drawer).getByText("Set by")).toBeInTheDocument();
     expect(within(drawer).getByText("Chidi Nwosu")).toBeInTheDocument();
     /* The columns of the personal list are the status choices. */
-    const status = within(drawer).getByRole("combobox", { name: "Status" });
+    const status = within(drawer).getByRole("combobox", { name: "Stage" });
     expect(
       within(status)
         .getAllByRole("option")
         .map((o) => o.textContent),
     ).toEqual(["To do", "In progress", "Done"]);
-    expect(within(drawer).queryByLabelText("Epic")).toBeNull();
+    expect(within(drawer).queryByLabelText("Initiative")).toBeNull();
     expect(within(drawer).queryByRole("link")).toBeNull();
   });
 
@@ -493,7 +499,7 @@ describe("opening a task", () => {
     await userEvent.click(await screen.findByText("Move me"));
     const drawer = await screen.findByRole("dialog");
     await userEvent.selectOptions(
-      within(drawer).getByRole("combobox", { name: "Status" }),
+      within(drawer).getByRole("combobox", { name: "Stage" }),
       "s-doing",
     );
     await waitFor(() =>

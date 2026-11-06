@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { PROJECTS_SUBTITLE } from "@/lib/projects/terms";
 import { ProjectsScreen } from "./projects-screen";
 
 export const metadata: Metadata = {
   title: "Projects",
-  description: "Plan work as projects, with tasks, sprints and a board.",
+  description: PROJECTS_SUBTITLE,
 };
 
 /* A client screen: which projects there are depends on who is signed in and on

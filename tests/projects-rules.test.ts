@@ -429,7 +429,7 @@ describe("workflow rules", () => {
           ["B", "IN_PROGRESS", null],
         ]),
       ),
-    ).toMatch(/Done status/);
+    ).toMatch(/Done stage/);
     expect(
       workflowProblem(
         draft([
@@ -456,7 +456,7 @@ describe("workflow rules", () => {
           ["a", "DONE", null],
         ]),
       ),
-    ).toMatch(/Two statuses/);
+    ).toMatch(/Two stages/);
     expect(
       workflowProblem(
         draft([
@@ -464,7 +464,7 @@ describe("workflow rules", () => {
           ["B", "DONE", null],
         ]),
       ),
-    ).toMatch(/WIP limit/);
+    ).toMatch(/limit on/);
     expect(
       workflowProblem(
         draft([
@@ -472,7 +472,7 @@ describe("workflow rules", () => {
           ["B", "DONE", null],
         ]),
       ),
-    ).toMatch(/WIP limit/);
+    ).toMatch(/limit on/);
   });
 
   it("refuses to remove a status that has issues, and says how many", () => {
@@ -483,7 +483,7 @@ describe("workflow rules", () => {
       status(d, "Done").id,
     );
     expect(reason).toMatch(/tasks are in Done/);
-    expect(reason).toMatch(/another status first/);
+    expect(reason).toMatch(/another stage first/);
   });
 
   it("allows removing an empty status while two or more remain and a Done is kept", () => {
@@ -570,10 +570,10 @@ describe("workflow rules", () => {
     const d = fixture();
     expect(
       boardTypeChangeBlocker(d.project, "KANBAN", d.issues, d.sprints),
-    ).toMatch(/active sprint/);
+    ).toMatch(/active cycle/);
     const none = d.sprints.map((s) => ({ ...s, state: "PLANNED" as const }));
     expect(boardTypeChangeBlocker(d.project, "KANBAN", d.issues, none)).toMatch(
-      /planned into sprints/,
+      /planned into cycles/,
     );
     expect(boardTypeChangeBlocker(d.project, "KANBAN", [], none)).toBeNull();
     expect(

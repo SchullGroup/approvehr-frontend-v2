@@ -14,6 +14,7 @@ import {
   type IssueType,
   type Priority,
 } from "./types";
+import { CYCLE, EFFORT, INITIATIVE, STAGE, TASK } from "./terms";
 import { shortDate } from "@/lib/today";
 
 export type HistoryLookup = {
@@ -26,13 +27,13 @@ export type HistoryLookup = {
 };
 
 const FIELD_LABEL: Record<string, string> = {
-  statusId: "status",
+  statusId: STAGE.one,
   assigneeId: "assignee",
   assigneeIds: "who is on it",
   priority: "priority",
-  points: "story points",
-  sprintId: "sprint",
-  epicId: "epic",
+  points: EFFORT.one,
+  sprintId: CYCLE.one,
+  epicId: INITIATIVE.one,
   parentId: "parent",
   title: "title",
   type: "type",
@@ -73,14 +74,14 @@ export function formatValue(
   if (text === null) return NONE;
   switch (field) {
     case "statusId":
-      return lookup.statusName(text) ?? "a status that has been removed";
+      return lookup.statusName(text) ?? `a ${STAGE.one} that has been removed`;
     case "assigneeId":
       return lookup.personName(text);
     case "sprintId":
-      return lookup.sprintName(text) ?? "a sprint";
+      return lookup.sprintName(text) ?? `a ${CYCLE.one}`;
     case "epicId":
     case "parentId":
-      return lookup.issueKey(text) ?? "a task";
+      return lookup.issueKey(text) ?? `a ${TASK.one}`;
     case "goalId":
       /* An id is never shown: the title where it is known, otherwise a noun. */
       return lookup.goalTitle?.(text) ?? "an objective";
@@ -101,7 +102,7 @@ export function describeActivity(
   lookup: HistoryLookup,
 ): ActivityText {
   if (activity.field === "created") {
-    return { verb: "created the task", from: null, to: null };
+    return { verb: `created the ${TASK.one}`, from: null, to: null };
   }
   if (activity.field === "description") {
     return { verb: "updated the description", from: null, to: null };
@@ -114,10 +115,12 @@ export function describeActivity(
     };
     const target =
       !change.other || change.other.hidden
-        ? "a task you can't open"
+        ? `a ${TASK.one} you can't open`
         : `${change.other.key ?? ""} ${change.other.title ?? ""}`.trim();
     const what =
-      change.action === "unlinked" ? "removed a link" : "linked this task";
+      change.action === "unlinked"
+        ? "removed a link"
+        : `linked this ${TASK.one}`;
     return {
       verb: `${what}: ${change.label ? `${change.label} ` : ""}${target}`,
       from: null,

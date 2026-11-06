@@ -15,7 +15,17 @@ import { cn } from "@/lib/cn";
 import { openSprints } from "@/lib/projects/board";
 import { parsePoints } from "@/lib/projects/mutations";
 import {
-  ISSUE_TYPE_LABEL,
+  CYCLE,
+  DEFAULT_TYPE,
+  EFFORT,
+  INITIATIVE,
+  LATER,
+  NEW_INITIATIVE,
+  NEW_TASK,
+  TYPE_LABEL,
+  displayType,
+} from "@/lib/projects/terms";
+import {
   PICKABLE_ISSUE_TYPES,
   PRIORITIES,
   PRIORITY_LABEL,
@@ -50,7 +60,7 @@ type Draft = {
 
 function blank(defaults: Partial<NewIssueInput>): Draft {
   return {
-    type: defaults.type ?? "STORY",
+    type: displayType(defaults.type ?? DEFAULT_TYPE),
     title: "",
     description: "",
     priority: "MEDIUM",
@@ -191,7 +201,7 @@ export function CreateIssueDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Create a task"
+      title={isEpic ? NEW_INITIATIVE : NEW_TASK}
       description={`In ${project.name}`}
       size="lg"
       footer={
@@ -259,7 +269,7 @@ export function CreateIssueDialog({
             >
               {PICKABLE_ISSUE_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {ISSUE_TYPE_LABEL[type]}
+                  {TYPE_LABEL[type]}
                 </option>
               ))}
             </Select>
@@ -300,14 +310,14 @@ export function CreateIssueDialog({
           <Textarea
             value={draft.description}
             rows={4}
-            placeholder="Context and acceptance criteria"
+            placeholder="What needs doing, and why"
             onChange={(e) => set("description", e.target.value)}
           />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
           {!isEpic && (
-            <Field label="Story points" optional>
+            <Field label={EFFORT.One} optional>
               <Input
                 type="number"
                 min={0}
@@ -320,7 +330,7 @@ export function CreateIssueDialog({
             </Field>
           )}
           {!isEpic && (
-            <Field label="Epic" optional>
+            <Field label={INITIATIVE.One} optional>
               <Select
                 value={draft.epicId}
                 onChange={(e) => set("epicId", e.target.value)}
@@ -335,12 +345,12 @@ export function CreateIssueDialog({
             </Field>
           )}
           {scrum && !isEpic && (
-            <Field label="Sprint" optional>
+            <Field label={CYCLE.One} optional>
               <Select
                 value={draft.sprintId}
                 onChange={(e) => set("sprintId", e.target.value)}
               >
-                <option value="">Backlog</option>
+                <option value="">{LATER}</option>
                 {choices.map((sprint) => (
                   <option key={sprint.id} value={sprint.id}>
                     {sprint.name}
@@ -354,7 +364,7 @@ export function CreateIssueDialog({
             <Field
               label="Start date"
               optional
-              help="Epics with dates appear on the roadmap."
+              help={`${INITIATIVE.Many} with dates appear on the timeline.`}
             >
               <Input
                 type="date"

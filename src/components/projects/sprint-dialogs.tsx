@@ -25,6 +25,19 @@ import {
   sprintDatesProblem,
   startBlocker,
 } from "@/lib/projects/sprints";
+import {
+  COMPLETE_CYCLE,
+  CYCLE,
+  CYCLE_GOAL,
+  CYCLE_NAME,
+  DELETE_CYCLE,
+  EDIT_CYCLE,
+  EFFORT,
+  LATER,
+  START_CYCLE,
+  TASK,
+  count as countNoun,
+} from "@/lib/projects/terms";
 import type { CompleteSprintMove, Sprint } from "@/lib/projects/types";
 import { useProject } from "./project-context";
 
@@ -48,9 +61,6 @@ import { useProject } from "./project-context";
  * in its own words if it is ever asked by somebody else, which shows here, inside
  * the dialog, rather than as a toast over it.
  */
-
-const plural = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`;
 
 /** The last non-null value, kept so a closing dialog can still draw itself. */
 function useHeld<T>(value: T | null): T | null {
@@ -178,12 +188,12 @@ export function SprintFormDialog({
     const name = draft.name.trim();
     let bad = false;
     if (!name) {
-      setNameError("Give the sprint a name.");
+      setNameError(`Give the ${CYCLE.one} a name.`);
       bad = true;
     }
     const problem =
       starting && (!draft.startDate || !draft.endDate)
-        ? "Set a start and an end date to start the sprint."
+        ? `Set a start and an end date to start the ${CYCLE.one}.`
         : sprintDatesProblem(draft.startDate || null, draft.endDate || null);
     if (problem) {
       setDatesError(problem);
@@ -219,10 +229,10 @@ export function SprintFormDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={starting ? "Start sprint" : "Edit sprint"}
+      title={starting ? START_CYCLE : EDIT_CYCLE}
       {...(starting
         ? {
-            description: `${plural(figures.issues, "task", "tasks")} and ${plural(figures.points, "point", "points")} will be committed to this sprint.`,
+            description: `${countNoun(figures.issues, "task")} and ${figures.points} ${EFFORT.one} will be committed to this ${CYCLE.one}.`,
           }
         : {})}
       footer={
@@ -237,7 +247,7 @@ export function SprintFormDialog({
             loading={busy}
             disabled={blocker !== null}
           >
-            {starting ? "Start sprint" : "Save"}
+            {starting ? START_CYCLE : "Save"}
           </Button>
         </>
       }
@@ -249,7 +259,7 @@ export function SprintFormDialog({
           </Callout>
         )}
         <Field
-          label="Sprint name"
+          label={CYCLE_NAME}
           required
           {...(nameError ? { error: nameError } : {})}
         >
@@ -292,11 +302,11 @@ export function SprintFormDialog({
             />
           </Field>
         </div>
-        <Field label="Sprint goal" optional>
+        <Field label={CYCLE_GOAL} optional>
           <Textarea
             rows={3}
             value={draft.goal}
-            placeholder="What should this sprint achieve?"
+            placeholder={`What should this ${CYCLE.one} achieve?`}
             onChange={(event) => set("goal", event.target.value)}
           />
         </Field>
@@ -347,8 +357,8 @@ export function CompleteSprintDialog({ sprint: given, open, onClose }: Props) {
   const planned = sprints
     .filter((s) => s.state === "PLANNED" && s.id !== sprint.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  /* A choice that has since stopped being offered (that sprint was started or
-     deleted by someone else) falls back to the backlog rather than being sent. */
+  /* A choice that has since stopped being offered (that cycle was started or
+     deleted by someone else) falls back to Later rather than being sent. */
   const choice =
     dest === "new" || planned.some((s) => s.id === dest) ? dest : "";
   const nothingOpen = figures.openIssues === 0;
@@ -365,7 +375,8 @@ export function CompleteSprintDialog({ sprint: given, open, onClose }: Props) {
           ? { kind: "backlog" }
           : {
               kind: "sprint",
-              name: planned.find((s) => s.id === choice)?.name ?? "a sprint",
+              name:
+                planned.find((s) => s.id === choice)?.name ?? `a ${CYCLE.one}`,
             };
     /* The line is worked out from what the sprint held when it was asked to
        close, before the store moves anything. */
@@ -398,7 +409,7 @@ export function CompleteSprintDialog({ sprint: given, open, onClose }: Props) {
             Cancel
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={busy}>
-            Complete sprint
+            {COMPLETE_CYCLE}
           </Button>
         </>
       }
@@ -408,33 +419,33 @@ export function CompleteSprintDialog({ sprint: given, open, onClose }: Props) {
           <Tile
             label="Completed"
             value={figures.doneIssues}
-            detail={plural(figures.donePoints, "point", "points")}
+            detail={`${figures.donePoints} ${EFFORT.one}`}
           />
           <Tile
             label="Open"
             value={figures.openIssues}
-            detail={plural(figures.openPoints, "point", "points")}
+            detail={`${figures.openPoints} ${EFFORT.one}`}
           />
         </dl>
         {nothingOpen ? (
           <p className="text-body-sm text-muted">
             {figures.issues === 0
-              ? "This sprint has no tasks."
-              : "Every task is done."}
+              ? `This ${CYCLE.one} has no ${TASK.many}.`
+              : `Every ${TASK.one} is done.`}
           </p>
         ) : (
-          <Field label="Move open tasks to">
+          <Field label={`Move open ${TASK.many} to`}>
             <Select
               value={choice}
               onChange={(event) => setDest(event.target.value)}
             >
-              <option value="">Backlog</option>
+              <option value="">{LATER}</option>
               {planned.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
-              <option value="new">A new sprint</option>
+              <option value="new">A new {CYCLE.one}</option>
             </Select>
           </Field>
         )}
@@ -504,14 +515,12 @@ export function DeleteSprintDialog({ sprint: given, open, onClose }: Props) {
       onClose={onClose}
       onConfirm={confirm}
       title={`Delete ${sprint.name}?`}
-      confirmLabel="Delete sprint"
+      confirmLabel={DELETE_CYCLE}
       loading={busy}
       body={
         count === 0
-          ? "It has no issues. This cannot be undone."
-          : count === 1
-            ? "Its 1 task goes back to the backlog. This cannot be undone."
-            : `Its ${count} tasks go back to the backlog. This cannot be undone.`
+          ? `It has no ${TASK.many}. This cannot be undone.`
+          : `Its ${countNoun(count, "task")} ${count === 1 ? "goes" : "go"} back to ${LATER}. This cannot be undone.`
       }
     />
   );

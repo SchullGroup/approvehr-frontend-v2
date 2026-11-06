@@ -41,6 +41,18 @@ type View = {
 };
 let view: View;
 
+/* Programs are not what this file is about: a company with none. */
+vi.mock("@/lib/store/programs", () => ({
+  useProgramFacts: () => ({ facts: null, seesAll: false }),
+  useProgramList: () => ({
+    status: "ready",
+    error: null,
+    data: { programs: [], canCreate: false, seesAll: false },
+    reload: vi.fn(),
+  }),
+  useProgramActions: () => ({ moveProject: vi.fn() }),
+}));
+
 vi.mock("@/lib/store/projects", () => ({
   useProjectData: () => view,
   useProjectActions: () => fakeActions(),
@@ -121,7 +133,9 @@ describe("before there is a project", () => {
     view = { ...ready(), status: "notFound", data: null };
     render(<ProjectScreen id="pj-chk" />);
     expect(screen.getByText("This project is not here")).toBeInTheDocument();
-    expect(screen.getByText(/may not be a member/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/may not be part of your access/),
+    ).toBeInTheDocument();
   });
 
   it("treats the API's module_off refusal as the module being off", async () => {
@@ -166,14 +180,16 @@ describe("the project", () => {
       .map((l) => [l.textContent, l.getAttribute("href")]);
     expect(tabs).toEqual([
       ["Board", "/projects/pj-chk"],
-      ["Backlog", "/projects/pj-chk?view=backlog"],
-      ["Roadmap", "/projects/pj-chk?view=roadmap"],
-      ["Reports", "/projects/pj-chk?view=reports"],
-      ["All tasks", "/projects/pj-chk?view=issues"],
+      /* The words are new; the `?view=` ids are the old ones, so links saved
+         before the rename still land on the right tab. */
+      ["Plan", "/projects/pj-chk?view=backlog"],
+      ["Timeline", "/projects/pj-chk?view=roadmap"],
+      ["Progress", "/projects/pj-chk?view=reports"],
+      ["Tasks", "/projects/pj-chk?view=issues"],
       ["Settings", "/projects/pj-chk?view=settings"],
     ]);
     expect(
-      screen.getByRole("heading", { name: "CHK Sprint 3" }),
+      screen.getByRole("heading", { name: "Cycle 3" }),
     ).toBeInTheDocument();
   });
 
@@ -181,21 +197,19 @@ describe("the project", () => {
     search = new URLSearchParams("view=backlog");
     render(<ProjectScreen id="pj-chk" />);
     expect(
-      screen.getByRole("heading", { name: "Backlog", level: 2 }),
+      screen.getByRole("heading", { name: "Plan", level: 2 }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "CHK Sprint 4" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Cycle 4" })).toBeInTheDocument();
   });
 
   it("shows the roadmap's timeline on ?view=roadmap", () => {
     search = new URLSearchParams("view=roadmap");
     render(<ProjectScreen id="pj-chk" />);
     expect(
-      screen.getByRole("heading", { name: "Roadmap", level: 2 }),
+      screen.getByRole("heading", { name: "Timeline", level: 2 }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("list", { name: "Epics on the timeline" }),
+      screen.getByRole("list", { name: "Initiatives on the timeline" }),
     ).toBeInTheDocument();
   });
 
@@ -203,10 +217,10 @@ describe("the project", () => {
     search = new URLSearchParams("view=reports");
     render(<ProjectScreen id="pj-chk" />);
     expect(
-      screen.getByRole("heading", { name: "Reports", level: 2 }),
+      screen.getByRole("heading", { name: "Progress", level: 2 }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: /CHK Sprint 3 burndown/ }),
+      screen.getByRole("img", { name: /Cycle 3 progress/ }),
     ).toBeInTheDocument();
   });
 
@@ -214,7 +228,7 @@ describe("the project", () => {
     search = new URLSearchParams("view=nonsense");
     render(<ProjectScreen id="pj-chk" />);
     expect(
-      screen.getByRole("heading", { name: "CHK Sprint 3" }),
+      screen.getByRole("heading", { name: "Cycle 3" }),
     ).toBeInTheDocument();
   });
 
@@ -229,7 +243,7 @@ describe("the project", () => {
   it("offers Create task to a member and not to anybody else", async () => {
     render(<ProjectScreen id="pj-chk" />);
     expect(
-      screen.getByRole("button", { name: /Create task/ }),
+      screen.getByRole("button", { name: /New task/ }),
     ).toBeInTheDocument();
   });
 });
@@ -242,6 +256,33 @@ describe("?issue= and the drawer", () => {
     expect(screen.getByLabelText("Summary")).toHaveValue(
       "Instrument payment error rates by provider",
     );
+  });
+
+  /* The module now says "task", and a link written in that word works as well.
+     The app and the API still write `?issue=`, so links already out there keep
+     opening. */
+  it("opens the task a ?task= link points at, as it does for ?issue=", async () => {
+    search = new URLSearchParams("task=CHK-14");
+    render(<ProjectScreen id="pj-chk" />);
+    expect(await screen.findByRole("dialog")).toHaveTextContent("CHK-14");
+    expect(screen.getByLabelText("Summary")).toHaveValue(
+      "Instrument payment error rates by provider",
+    );
+  });
+
+  it("removes both spellings when the drawer closes, and writes ?issue= when it opens another", async () => {
+    search = new URLSearchParams("task=CHK-10");
+    render(<ProjectScreen id="pj-chk" />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /CHK-1$/ }),
+    );
+    expect(replace).toHaveBeenCalledWith("/projects/pj-chk?issue=CHK-1", {
+      scroll: false,
+    });
+    await userEvent.keyboard("{Escape}");
+    expect(replace).toHaveBeenLastCalledWith("/projects/pj-chk", {
+      scroll: false,
+    });
   });
 
   it("accepts the key in lower case", async () => {
@@ -336,9 +377,7 @@ describe("the keys", () => {
   it("c opens the create dialog", async () => {
     render(<ProjectScreen id="pj-chk" />);
     await userEvent.keyboard("c");
-    expect(await screen.findByRole("dialog")).toHaveTextContent(
-      "Create a task",
-    );
+    expect(await screen.findByRole("dialog")).toHaveTextContent("New task");
   });
 
   it("c types a c in a text box rather than opening anything", async () => {
