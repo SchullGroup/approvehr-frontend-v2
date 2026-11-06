@@ -209,6 +209,24 @@ export function LinkTabs({
 }) {
   const navRef = useRef<HTMLElement>(null);
   useScrollCue(navRef, items.length);
+
+  /* The strip scrolls on a phone, and a page reached by a link opens on a tab
+     the strip has not shown: the open tab, which is the one thing a tab bar must
+     show, sat past the edge. Bring it into view, along the strip only. A layout
+     with no boxes (jsdom) measures zero and moves nothing. */
+  useEffect(() => {
+    const strip = navRef.current;
+    const open = strip?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!strip || !open) return;
+    const tab = open.getBoundingClientRect();
+    const edge = strip.getBoundingClientRect();
+    if (tab.right > edge.right) strip.scrollLeft += tab.right - edge.right + 16;
+    else if (tab.left < edge.left) {
+      const back = edge.left - tab.left + 16;
+      strip.scrollLeft = Math.max(0, strip.scrollLeft - back);
+    }
+  }, [activeHref]);
+
   return (
     <nav
       ref={navRef}
