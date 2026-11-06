@@ -11662,3 +11662,74 @@ work merges the revert with it.
 source pass (429 tests), among them the board, the board view, the issue drawer, the backlog, the shell, Team tasks, the
 new-version dialog and the subsection tree. Not exercised: a browser, the whole vitest suite, and the QA site (it gets this
 through `dev` into `test`).
+
+---
+
+# An appraisal period can be renamed, at any stage
+
+A tester had typed a name wrong while creating a period and could not change it: the draft page offered only **Delete this period**.
+The API has taken a new `name` on `PATCH /performance/cycles/:id` at every stage for as long as the route has existed, and nothing in
+the product sent it. Web only; the backend is unchanged.
+
+## What it is
+
+A quiet **Rename** button (a ghost button with a pencil) in the period page's header, **before** **Delete this period** and the other
+stage controls so it never competes with the one that moves the period on. It is offered to anybody who can manage the period
+(`canManage`), at **every** stage: draft, self, manager, calibration and published. A dialog, **Rename this period**, opens on the current
+name, with **Cancel** and **Save**. Saving sends `{ name }` and nothing else, trimmed, and the page reads the period again so the heading
+changes without a reload; the toast says what the period is called now.
+
+| File | What |
+| ---- | ---- |
+| `lib/performance/period-name.ts` | The one copy of the name rule (3 to 80 characters after trimming, as the API's), the sentence for a name that is too short or too long, `renameNote`, `renamedToast`. |
+| `performance/periods/[id]/rename-period-dialog.tsx` | The dialog. |
+| `performance/periods/[id]/period-screen.tsx` | The button, and the dialog mounted only while it is open. |
+| `performance/start-period.tsx` | Now asks `periodNameProblem` too, so the start dialog and the rename dialog cannot disagree about what a name is. |
+| `lib/api/performance.ts`, `lib/store/performance.ts` | `name?: string` on the `updateCycle` body. |
+
+## Decisions not to undo
+
+- **Save is off until the trimmed name differs**, and Enter does not send an unchanged name either. A save that changes nothing is not a
+  request.
+- **A name the API would refuse is refused here first, with no request** (under 3 or over 80). The sentence for "too short" is the one the
+  start dialog has always used, now written once.
+- **The server's own sentence for a name already in use stays on the field, with what was typed still there**, and the dialog stays open.
+  Only the server knows about every period, so nothing here pre-checks it.
+- **The dialog cannot be closed while the request is in flight**, and the box and **Cancel** are off, so the answer is never lost behind a
+  dialog that has gone. Two submits sent straight to the form (not by the button, which is off) are ignored: a deliberate break that
+  removed that guard passed every test until a test sent two submits to the form.
+- **Mounted only while open**, so each open starts from the period's current name and the last attempt's typing or refusal is never
+  carried into the next. The pattern of `NewVersionDialog`.
+- **The note says where the name is seen and that nothing else about the period changes.** Once the period has started it adds that
+  **messages already sent keep the old name**: a notification is written when it is sent and is not rewritten. A draft's note does not
+  say it, because nothing has been sent.
+- **No demo path.** The write is refused offline in the sentence every period write uses: a rename kept in one browser reaches nobody.
+
+## Verified
+
+Four test files, 39 passing (`period-name`, `rename-period-dialog`, `period-screen-rename`, `performance-update-cycle-name`: what is
+sent and told, the name rule's edges, who is offered the button at each stage, the PATCH's path and body, and the offline refusal). Ten
+deliberate breaks, each made in one source file and each caught by the tests written for it: a minimum of 2, an untrimmed name, no
+precheck, closing while busy, Save on for an unchanged name, a refusal replaced by a generic sentence, a button on drafts only, a button
+for everybody, and a screen that does not read the period again. The tenth, the second-submit guard, **passed every test** until a test
+that submits the form twice was added.
+
+In a browser, against a scratch API and `next dev` (a production build of this branch was not made), as an administrator and as an
+employee:
+
+- the button on a **draft** and on a **running** period; the dialog opened on the current name with Save off;
+- "ab" refused on the field with **nothing sent**;
+- "Q4 Appraisal", a name already in use, answered by the server's `"Q4 Appraisal" already exists.` on the field, the dialog still open
+  and the typed text still there;
+- `   Q1-Q3 Appraisal 2026  ` sent as `{"name":"Q1-Q3 Appraisal 2026"}`, the heading changed **without a reload**, the toast read "This
+  period is now called Q1-Q3 Appraisal 2026.", and the API held the new name;
+- the running period renamed and put back, its note saying messages already sent keep the old name;
+- 375px with the dialog open: no sideways scroll; and an employee on the same address was not offered the button.
+
+**Not exercised:** a production build, demo mode, Safari or any real device, and a period with participants who have already received
+messages (the note is the API's behaviour described, not observed).
+
+## Found, not changed
+
+The browser logs the 409 as a console error when a duplicate name is tried. That is the browser's own line about the response and not an
+error of the page.
