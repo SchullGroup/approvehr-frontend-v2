@@ -148,7 +148,7 @@ const cycle = (over: Partial<ApiCycle> = {}): ApiCycle =>
 describe("Settings: the company defaults", () => {
   it("shows the Weekly tasks row and says it starts new periods", () => {
     render(<ScoringWeightsForm scale={null} />);
-    expect(screen.getByText("Weekly tasks")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Weekly tasks")).toBeInTheDocument();
     expect(
       screen.getByText("This is the starting point for new appraisal periods."),
     ).toBeInTheDocument();
@@ -176,6 +176,49 @@ describe("Settings: the company defaults", () => {
       SELF_ASSESSMENT: 0,
     });
   });
+
+  it("saves a total that is not 100%, since weights are proportional", async () => {
+    const user = userEvent.setup();
+    render(<ScoringWeightsForm scale={null} />);
+    const fields = screen.getAllByLabelText("Weight");
+    await user.clear(fields[0]!);
+    await user.type(fields[0]!, "80");
+    await user.click(
+      screen.getByRole("button", { name: "Save the whole set" }),
+    );
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]![0]).toMatchObject({ OBJECTIVES: 8000 });
+  });
+
+  it("refuses a set with every part at zero, in the server's words", async () => {
+    const user = userEvent.setup();
+    render(<ScoringWeightsForm scale={null} />);
+    for (const field of screen.getAllByLabelText("Weight")) {
+      await user.clear(field);
+      await user.type(field, "0");
+    }
+    expect(
+      screen.getByText(
+        "Give at least one part a weight above 0%, or there is nothing to make a mark from.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save the whole set" }),
+    ).toBeDisabled();
+  });
+
+  it("renames a part, sending only the parts whose name changed", async () => {
+    const user = userEvent.setup();
+    render(<ScoringWeightsForm scale={null} />);
+    const objectives = screen.getByDisplayValue("Delivery against objectives");
+    await user.clear(objectives);
+    await user.type(objectives, "Delivery");
+    await user.click(
+      screen.getByRole("button", { name: "Save the whole set" }),
+    );
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]![1]).toEqual({ OBJECTIVES: "Delivery" });
+  });
 });
 
 describe("the new-period wizard", () => {
@@ -190,15 +233,21 @@ describe("the new-period wizard", () => {
     );
   };
 
-  it("pre-fills from the company defaults and blocks Draft it unless the total is 100", async () => {
+  it("pre-fills from the company defaults, and blocks Draft it only for a bad row", async () => {
     const user = userEvent.setup();
     render(<DraftPeriodWizard />);
     await toReview(user);
     const draftIt = screen.getByRole("button", { name: /Draft it/ });
     expect(draftIt).toBeEnabled();
+    /* A total other than 100% is fine: weights are proportional. */
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
-    expect(screen.getByText("These must add up to 100%.")).toBeInTheDocument();
+    expect(draftIt).toBeEnabled();
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "150");
+    expect(
+      screen.getByText("Each weight is a whole number from 0 to 100."),
+    ).toBeInTheDocument();
     expect(draftIt).toBeDisabled();
   });
 
@@ -295,11 +344,16 @@ describe("a period's own settings", () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it("keeps Save off until the total is 100", async () => {
+  it("allows a total other than 100, and keeps Save off for a bad row", async () => {
     const user = userEvent.setup();
     render(<PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />);
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "5");
+    expect(
+      screen.getByRole("button", { name: "Save the weights" }),
+    ).toBeEnabled();
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "2.5");
     expect(
       screen.getByRole("button", { name: "Save the weights" }),
     ).toBeDisabled();
