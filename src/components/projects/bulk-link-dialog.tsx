@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Field, Modal } from "@/components/ui";
 import {
   bulkLinkLine,
@@ -11,28 +11,6 @@ import { flattenGroups, objectiveGroups } from "@/lib/projects/objectives";
 import { count as countNoun } from "@/lib/projects/terms";
 import { useKpis } from "@/lib/store/performance";
 import { MeasurePicker, ObjectivePicker } from "./objective-picker";
-
-/**
- * The dialog takes a moment to leave, with focus still in it, and then gives
- * focus back to whatever opened it. If that is gone (the chosen tasks, and the
- * button with them, were let go) focus falls to the page, so once the dialog has
- * left and focus is nowhere, put it where the person was reading.
- */
-function settleFocus(target: () => HTMLElement | null) {
-  let frames = 0;
-  const step = () => {
-    frames += 1;
-    const now = document.activeElement;
-    const inDialog =
-      now instanceof HTMLElement && now.closest('[role="dialog"]') !== null;
-    if (!inDialog) {
-      if (!now || now === document.body) target()?.focus();
-      return;
-    }
-    if (frames < 90) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
 
 /**
  * Link, or clear, many tasks at once.
@@ -106,13 +84,31 @@ export function BulkLinkDialog({
     onDone(value);
   }
 
+  /* When it closes, the dialog's own focus handling has already given focus back
+     to the button that opened it (it runs first, in the child). If that button
+     went with the tasks that were chosen, focus is still in the leaving dialog or
+     on the page, and there is nothing to type into or tab from: put it where the
+     person was reading. */
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (wasOpen.current && !open && focusAfter) {
+      const now = document.activeElement;
+      const stranded =
+        !now ||
+        now === document.body ||
+        !now.isConnected ||
+        now.closest('[role="dialog"]') !== null;
+      if (stranded) focusAfter()?.focus();
+    }
+    wasOpen.current = open;
+  });
+
   function close() {
     onClose();
     /* Reset once it has gone, so reopening starts clean. */
     setResult(null);
     setGoalId(null);
     setKeyResultId(null);
-    if (focusAfter) settleFocus(focusAfter);
   }
 
   const count = countNoun(tasks.length, "task");
