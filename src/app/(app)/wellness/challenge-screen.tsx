@@ -172,46 +172,34 @@ function Challenge({
         </div>
 
         <CardBody className="flex flex-col gap-5">
-          <dl className="grid grid-cols-3 gap-2 sm:gap-3">
-            <div>
-              <dt className="sr-only">Measures</dt>
-              <dd>
-                <StatTile
-                  compact
-                  tone="green"
-                  icon={
-                    challenge.metric === "STEPS" ? <Footprints /> : <Droplets />
-                  }
-                  value={METRIC_LABEL[challenge.metric]}
-                  label="Measures"
-                />
-              </dd>
-            </div>
-            <div>
-              <dt className="sr-only">Duration</dt>
-              <dd>
-                <StatTile
-                  compact
-                  tone="peri"
-                  icon={<CalendarDays />}
-                  value={daysText(days)}
-                  label="Duration"
-                />
-              </dd>
-            </div>
-            <div>
-              <dt className="sr-only">Mode</dt>
-              <dd>
-                <StatTile
-                  compact
-                  tone="pink"
-                  icon={team ? <Users /> : <User />}
-                  value={MODE_LABEL[challenge.mode]}
-                  label="Mode"
-                />
-              </dd>
-            </div>
-          </dl>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <StatTile
+              compact
+              labelFirst
+              tone="green"
+              icon={
+                challenge.metric === "STEPS" ? <Footprints /> : <Droplets />
+              }
+              value={METRIC_LABEL[challenge.metric]}
+              label="Measures"
+            />
+            <StatTile
+              compact
+              labelFirst
+              tone="peri"
+              icon={<CalendarDays />}
+              value={daysText(days)}
+              label="Duration"
+            />
+            <StatTile
+              compact
+              labelFirst
+              tone="pink"
+              icon={team ? <Users /> : <User />}
+              value={MODE_LABEL[challenge.mode]}
+              label="Mode"
+            />
+          </div>
 
           {challenge.description && (
             <p className="max-w-prose whitespace-pre-line text-body-md text-body">

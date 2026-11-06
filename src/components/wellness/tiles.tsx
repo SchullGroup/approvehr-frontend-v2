@@ -38,6 +38,7 @@ export function StatTile({
   hint,
   tone = "peri",
   compact = false,
+  labelFirst = false,
   className,
 }: {
   icon: React.ReactNode;
@@ -48,6 +49,11 @@ export function StatTile({
   tone?: WellTone;
   /** Smaller figure and padding, for three across on a phone. */
   compact?: boolean;
+  /**
+   * Say the label before the figure to a screen reader ("Measures, Steps"),
+   * while it is still drawn under it.
+   */
+  labelFirst?: boolean;
   className?: string;
 }) {
   return (
@@ -68,7 +74,8 @@ export function StatTile({
       >
         {icon}
       </span>
-      <div className="min-w-0">
+      <div className={cn("min-w-0", labelFirst && "flex flex-col-reverse")}>
+        {labelFirst && <p className="text-body-sm text-body">{label}</p>}
         <p
           className={cn(
             "tabular text-ink [overflow-wrap:anywhere]",
@@ -77,7 +84,7 @@ export function StatTile({
         >
           {value}
         </p>
-        <p className="text-body-sm text-body">{label}</p>
+        {!labelFirst && <p className="text-body-sm text-body">{label}</p>}
         {hint && <p className="mt-0.5 text-meta text-muted">{hint}</p>}
       </div>
     </div>

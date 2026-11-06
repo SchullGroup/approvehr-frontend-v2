@@ -137,18 +137,18 @@ describe("your week", () => {
 
     const logged = screen
       .getByText("Logged")
-      .closest(".rounded-lg") as HTMLElement;
+      .closest(".rounded-2xl") as HTMLElement;
     expect(within(logged).getByText("5")).toBeInTheDocument();
     expect(
       within(logged).getByText("1 waiting for review"),
     ).toBeInTheDocument();
     const graded = screen
       .getByText("Graded")
-      .closest(".rounded-lg") as HTMLElement;
+      .closest(".rounded-2xl") as HTMLElement;
     expect(within(graded).getByText("4")).toBeInTheDocument();
     const rate = screen
       .getByText("Delivery rate")
-      .closest(".rounded-lg") as HTMLElement;
+      .closest(".rounded-2xl") as HTMLElement;
     expect(within(rate).getByText("63%")).toBeInTheDocument();
     expect(
       within(rate).getByText(/Over the 4 graded\. Done counts as one/),

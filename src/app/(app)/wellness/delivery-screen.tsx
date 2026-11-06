@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Users } from "lucide-react";
+import {
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Gauge,
+  Users,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -20,6 +27,7 @@ import {
   TableWrap,
   TextLink,
 } from "@/components/ui";
+import { StatTile, WellnessArt } from "@/components/wellness";
 import { weekStart } from "@/lib/api/shifts";
 import {
   gradedCount,
@@ -223,6 +231,7 @@ function YourWeek({
           <EmptyState
             compact
             className="py-6"
+            art={<WellnessArt name="apple" mood="sleepy" size={80} />}
             title="No week of your own to show"
             description="This sign-in is not linked to a staff record, so there are no tasks of yours to count."
           />
@@ -232,6 +241,7 @@ function YourWeek({
           <EmptyState
             compact
             className="py-6"
+            art={<WellnessArt name="apple" mood="sleepy" size={80} />}
             title="Nothing logged this week"
             description={
               closed
@@ -261,22 +271,26 @@ function Figures({
   const graded = gradedCount(counts);
   return (
     <div className="flex flex-col gap-3">
-      <StatGrid columns={3}>
-        <Stat
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatTile
+          tone="peri"
+          icon={<ClipboardList />}
           label="Logged"
           value={counts.logged}
-          hint={
-            counts.ungraded > 0
-              ? `${String(counts.ungraded)} waiting for review`
-              : "All of them reviewed"
-          }
+          {...(counts.ungraded > 0
+            ? { hint: `${String(counts.ungraded)} waiting for review` }
+            : { hint: "All of them reviewed" })}
         />
-        <Stat
+        <StatTile
+          tone="green"
+          icon={<CheckCheck />}
           label="Graded"
           value={graded}
-          hint={graded === 0 ? "Nothing reviewed yet" : undefined}
+          {...(graded === 0 ? { hint: "Nothing reviewed yet" } : {})}
         />
-        <Stat
+        <StatTile
+          tone="pink"
+          icon={<Gauge />}
           label="Delivery rate"
           value={
             counts.rate === null ? (
@@ -287,15 +301,15 @@ function Figures({
               rateText(counts.rate)
             )
           }
-          hint={
-            counts.rate === null
-              ? audience === "you"
-                ? "It appears once a reviewer has graded something."
-                : undefined
-              : `Over the ${String(graded)} graded. Done counts as one, partly done as half.`
-          }
+          {...(counts.rate === null
+            ? audience === "you"
+              ? { hint: "It appears once a reviewer has graded something." }
+              : {}
+            : {
+                hint: `Over the ${String(graded)} graded. Done counts as one, partly done as half.`,
+              })}
         />
-      </StatGrid>
+      </div>
       {graded > 0 && <Outcomes counts={counts} />}
     </div>
   );

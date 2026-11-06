@@ -11,15 +11,15 @@ import {
   ConfirmDialog,
   EmptyState,
   Field,
-  FilterBar,
   LoadState,
   Modal,
   SearchPicker,
-  Select,
   Switch,
+  SuccessMoment,
   Textarea,
   useToast,
 } from "@/components/ui";
+import { PillTabs, WellnessArt } from "@/components/wellness";
 import { LoadMore } from "@/components/portal/load-more";
 import { ApiError } from "@/lib/api/client";
 import type { ApiRecognition } from "@/lib/api/wellness";
@@ -107,39 +107,18 @@ export function RecognitionScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <FilterBar
-        applied={
-          kind === "feed"
-            ? []
-            : [
-                {
-                  label: "Show",
-                  value:
-                    KINDS.find((entry) => entry.value === kind)?.label ?? "",
-                  onClear: () => setKind("feed"),
-                },
-              ]
-        }
-        actions={
-          <Button variant="accent" onClick={() => setGiving(true)}>
-            <Heart aria-hidden="true" className="size-4" />
-            Give kudos
-          </Button>
-        }
-      >
-        <Field label="Show">
-          <Select
-            value={kind}
-            onChange={(event) => setKind(event.target.value as RecognitionKind)}
-          >
-            {KINDS.map((entry) => (
-              <option key={entry.value} value={entry.value}>
-                {entry.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </FilterBar>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PillTabs
+          label="Show"
+          value={kind}
+          onChange={setKind}
+          options={KINDS}
+        />
+        <Button variant="accent" onClick={() => setGiving(true)}>
+          <Heart aria-hidden="true" className="size-4" />
+          Give kudos
+        </Button>
+      </div>
 
       <LoadState
         loading={list.loading}
@@ -149,27 +128,27 @@ export function RecognitionScreen() {
         subject="the kudos"
         skeleton="list"
       >
-        <Card>
-          {list.rows.length === 0 ? (
+        {list.rows.length === 0 ? (
+          <Card>
             <EmptyState
-              icon={<Heart aria-hidden="true" />}
+              art={<WellnessArt name="pear" mood="sleepy" size={104} />}
               title={EMPTY[kind].title}
               description={EMPTY[kind].description}
               compact
             />
-          ) : (
-            <ul className="divide-y divide-line">
-              {list.rows.map((row) => (
-                <KudosRow
-                  key={row.id}
-                  row={row}
-                  me={employeeId}
-                  onRemove={() => setRemoving(row)}
-                />
-              ))}
-            </ul>
-          )}
-        </Card>
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {list.rows.map((row) => (
+              <KudosRow
+                key={row.id}
+                row={row}
+                me={employeeId}
+                onRemove={() => setRemoving(row)}
+              />
+            ))}
+          </ul>
+        )}
         {list.rows.length > 0 && (
           <LoadMore
             shown={list.rows.length}
@@ -229,48 +208,38 @@ function KudosRow({
   const long = row.message.length > 120;
 
   return (
-    <li className="flex items-start gap-3 px-5 py-3.5">
-      <Avatar name={row.fromName} size="sm" />
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-body">
-          <span>
-            <span className="font-medium text-ink">{from}</span> thanked{" "}
-            <span className="font-medium text-ink">{to}</span>
-          </span>
-          {!row.shared && (
-            <Badge tone="neutral" size="sm" icon={<Lock className="size-3" />}>
-              Private
-            </Badge>
-          )}
-        </p>
-        <p
-          className={
-            open || !long
-              ? "whitespace-pre-line text-body-sm text-muted"
-              : "line-clamp-2 whitespace-pre-line text-body-sm text-muted"
-          }
-        >
-          {row.message}
-        </p>
-        {long && (
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={() => setOpen((was) => !was)}
-            className="mt-0.5 text-meta font-medium text-accent-text underline underline-offset-2"
-          >
-            {open ? "Show less" : "Read all"}
-          </button>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-meta text-muted">
-          {formatDateShort(row.createdAt, timeZone)}
-        </span>
+    <li className="rounded-2xl border border-line bg-surface p-4">
+      <div className="flex items-start gap-3">
+        <Avatar
+          name={row.fromName}
+          size="md"
+          className="bg-well-pink-soft text-well-pink-text"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-body">
+            <span>
+              <span className="font-medium text-ink">{from}</span> thanked{" "}
+              <span className="font-medium text-ink">{to}</span>
+            </span>
+            {!row.shared && (
+              <Badge
+                tone="neutral"
+                size="sm"
+                icon={<Lock className="size-3" />}
+              >
+                Private
+              </Badge>
+            )}
+          </p>
+          <p className="text-meta text-muted">
+            {formatDateShort(row.createdAt, timeZone)}
+          </p>
+        </div>
         {row.canDelete && (
           <Button
             size="sm"
             variant="ghost"
+            className="-mr-2 -mt-1 shrink-0"
             onClick={onRemove}
             aria-label={`Delete the kudos from ${row.fromName} to ${row.toName}`}
           >
@@ -278,6 +247,25 @@ function KudosRow({
           </Button>
         )}
       </div>
+      <p
+        className={
+          open || !long
+            ? "mt-3 whitespace-pre-line rounded-2xl rounded-tl-md bg-well-pink-soft px-4 py-3 text-body-md text-ink"
+            : "mt-3 line-clamp-2 whitespace-pre-line rounded-2xl rounded-tl-md bg-well-pink-soft px-4 py-3 text-body-md text-ink"
+        }
+      >
+        {row.message}
+      </p>
+      {long && (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((was) => !was)}
+          className="mt-1.5 text-meta font-medium text-accent-text underline underline-offset-2"
+        >
+          {open ? "Show less" : "Read all"}
+        </button>
+      )}
     </li>
   );
 }
@@ -294,7 +282,6 @@ function GiveDialog({
   onSent: () => void;
 }) {
   const actions = useWellnessActions();
-  const toast = useToast();
   const { employeeId } = useSession();
   /* Found by typing, a handful at a time. This used to read the first two
      hundred people and filter them in the browser, so in a company of two
@@ -307,6 +294,10 @@ function GiveDialog({
   const [shared, setShared] = useState(true);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<{
+    name: string;
+    shared: boolean;
+  } | null>(null);
 
   const to = recipient?.value ?? "";
   const ready = to !== "" && message.trim() !== "";
@@ -321,8 +312,9 @@ function GiveDialog({
         message: message.trim(),
         shared,
       });
-      toast.push({ tone: "success", title: "Kudos sent" });
-      onSent();
+      /* The API has answered with the saved kudos, so "sent" is true. The dialog
+         says so itself rather than closing under a toast. */
+      setSentTo({ name: recipient?.label ?? "your colleague", shared });
     } catch (error) {
       setProblem(
         error instanceof ApiError
@@ -333,6 +325,36 @@ function GiveDialog({
       setBusy(false);
     }
   };
+
+  if (sentTo) {
+    return (
+      <Modal
+        open
+        onClose={onSent}
+        title="Give kudos"
+        footer={
+          <Button variant="accent" onClick={onSent}>
+            Done
+          </Button>
+        }
+      >
+        <div className="flex flex-col items-center gap-2 text-center">
+          <WellnessArt name="pear" mood="cheering" size={120} />
+          <SuccessMoment
+            align="center"
+            markSize="sm"
+            headingLevel={3}
+            title={`Kudos sent to ${sentTo.name}`}
+            lead={
+              sentTo.shared
+                ? "It is on the company feed."
+                : `Only you and ${sentTo.name} can read it.`
+            }
+          />
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -356,6 +378,12 @@ function GiveDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        <div
+          aria-hidden="true"
+          className="flex items-center justify-center rounded-2xl bg-well-pink-soft py-2"
+        >
+          <WellnessArt name="pear" mood="happy" size={80} />
+        </div>
         <Field label="Who" required>
           <SearchPicker
             selected={recipient}

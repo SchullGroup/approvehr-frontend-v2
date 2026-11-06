@@ -175,7 +175,7 @@ export function ChallengesScreen() {
         {rows.length === 0 ? (
           <Card>
             <EmptyState
-              icon={<WellnessArt name="cherries" mood="sleepy" size={96} />}
+              art={<WellnessArt name="cherries" mood="sleepy" size={104} />}
               title={
                 list.data && list.data.length > 0
                   ? "No challenge matches"

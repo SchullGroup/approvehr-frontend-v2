@@ -25,13 +25,26 @@ const SCREENS = path.join(ROOT, "src", "app", "(app)", "wellness");
 const withoutComments = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
-const screens = readdirSync(SCREENS, { recursive: true })
-  .map(String)
-  .filter((name) => name.endsWith(".tsx"))
-  .map((name) => ({
-    name,
-    source: withoutComments(read(`src/app/(app)/wellness/${name}`)),
-  }));
+const KIT = path.join(ROOT, "src", "components", "wellness");
+
+/* The screens, and the kit they are built from: both are drawn on the person's
+   own screen, so both are held to the same rules. */
+const screens = [
+  ...readdirSync(SCREENS, { recursive: true })
+    .map(String)
+    .filter((name) => name.endsWith(".tsx"))
+    .map((name) => ({
+      name,
+      source: withoutComments(read(`src/app/(app)/wellness/${name}`)),
+    })),
+  ...readdirSync(KIT, { recursive: true })
+    .map(String)
+    .filter((name) => name.endsWith(".tsx"))
+    .map((name) => ({
+      name: `components/wellness/${name}`,
+      source: withoutComments(read(`src/components/wellness/${name}`)),
+    })),
+];
 
 describe("the client for the API", () => {
   const client = read("src/lib/api/wellness.ts");
@@ -115,6 +128,57 @@ describe("the screens", () => {
          be, which is the one place the app keeps red besides validation. */
       expect(source, name).not.toMatch(/push\(\{\s*tone:\s*"danger"/);
       expect(source, name).not.toMatch(/variant="(?:approve|success)"/);
+    }
+  });
+});
+
+describe("what the references had and this module refuses", () => {
+  /** Words a person reads: JSX text and quoted strings, not identifiers. */
+  const words = (source: string) =>
+    [
+      ...source.matchAll(/>\s*([A-Za-z][^<>{}=;()]*)\s*</g),
+      ...source.matchAll(/(["'`])((?:(?!\1)[^\\\n])*)\1/g),
+    ]
+      .map((match) => (match[2] ?? match[1] ?? "").replace(/\$\{[^}]*\}/g, ""))
+      .join("\n");
+
+  it("invents no points, no company-wide table and no live feed of what somebody just did", () => {
+    for (const { name, source } of screens) {
+      expect(words(source), name).not.toMatch(
+        /\b(?:points?|leaderboard|top 25|just completed|users are|users on|taking this challenge right now)\b/i,
+      );
+    }
+  });
+
+  it("offers no share-to-outside button for a streak or a result", () => {
+    for (const { name, source } of screens) {
+      expect(words(source), name).not.toMatch(
+        /\bshare (?:your )?(?:streak|result|progress|score)\b/i,
+      );
+      expect(source, name).not.toMatch(
+        /navigator\.share|twitter\.com|facebook\.com|wa\.me/,
+      );
+    }
+  });
+
+  it("says nothing about weight, calories or what a body should do", () => {
+    for (const { name, source } of screens) {
+      expect(words(source), name).not.toMatch(
+        /\b(?:lose weight|weight loss|calories?|kcal|burn|diet|healthier|medical|doctor)\b/i,
+      );
+    }
+  });
+
+  it("writes no popular or recommended filter: both would need a count of other people", () => {
+    for (const { name, source } of screens) {
+      expect(words(source), name).not.toMatch(/\b(?:popular|trending)\b/i);
+    }
+  });
+
+  it("reads no clock of its own: today is always an argument", () => {
+    for (const { name, source } of screens) {
+      if (!name.startsWith("components/wellness/")) continue;
+      expect(source, name).not.toMatch(/\bnew Date\(\s*\)|Date\.now\(/);
     }
   });
 });

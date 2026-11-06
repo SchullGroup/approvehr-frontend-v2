@@ -131,12 +131,11 @@ describe("the company feed", () => {
 });
 
 describe("your own", () => {
-  it("is behind the filter icon, asks for the right direction and says what is applied", async () => {
+  it("is a choice of pills, and asks for the right direction", async () => {
     render(<RecognitionScreen />);
     await screen.findByText("Thank you for covering the Friday release.");
 
-    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-    await userEvent.selectOptions(screen.getByLabelText("Show"), "given");
+    await userEvent.click(screen.getByRole("radio", { name: "Given by me" }));
 
     await waitFor(() =>
       expect(api.myRecognitions).toHaveBeenCalledWith(
@@ -144,7 +143,7 @@ describe("your own", () => {
         expect.anything(),
       ),
     );
-    expect(screen.getByText("Show:")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Given by me" })).toBeChecked();
   });
 
   it("says You and you, and marks the private ones", async () => {
@@ -171,8 +170,7 @@ describe("your own", () => {
     );
     render(<RecognitionScreen />);
     await screen.findByText("Thank you for covering the Friday release.");
-    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-    await userEvent.selectOptions(screen.getByLabelText("Show"), "received");
+    await userEvent.click(screen.getByRole("radio", { name: "Given to me" }));
 
     const mine = (await screen.findByText("Just between us.")).closest(
       "li",
@@ -188,8 +186,7 @@ describe("your own", () => {
   it("explains an empty list in its own words", async () => {
     render(<RecognitionScreen />);
     await screen.findByText("Thank you for covering the Friday release.");
-    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-    await userEvent.selectOptions(screen.getByLabelText("Show"), "received");
+    await userEvent.click(screen.getByRole("radio", { name: "Given to me" }));
 
     expect(
       await screen.findByText("Nobody has thanked you yet"),
