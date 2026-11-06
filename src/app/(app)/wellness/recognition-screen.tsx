@@ -247,15 +247,19 @@ function KudosRow({
           </Button>
         )}
       </div>
-      <p
-        className={
-          open || !long
-            ? "mt-3 whitespace-pre-line rounded-2xl rounded-tl-md bg-well-pink-soft px-4 py-3 text-body-md text-ink"
-            : "mt-3 line-clamp-2 whitespace-pre-line rounded-2xl rounded-tl-md bg-well-pink-soft px-4 py-3 text-body-md text-ink"
-        }
-      >
-        {row.message}
-      </p>
+      {/* The clamp is on the inner paragraph: on the padded bubble itself a
+          third line shows through the padding. */}
+      <div className="mt-3 rounded-2xl rounded-tl-md bg-well-pink-soft px-4 py-3">
+        <p
+          className={
+            open || !long
+              ? "whitespace-pre-line text-body-md text-ink"
+              : "line-clamp-2 whitespace-pre-line text-body-md text-ink"
+          }
+        >
+          {row.message}
+        </p>
+      </div>
       {long && (
         <button
           type="button"

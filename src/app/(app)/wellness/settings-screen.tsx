@@ -151,7 +151,7 @@ function FloorForm({
             ))}
           </span>
           <span className="text-body-sm text-well-peri-text">
-            {privacyFloor} people in a group, then a number can be shown
+            A number is shown only for groups of {privacyFloor} or more people
           </span>
         </div>
         <form

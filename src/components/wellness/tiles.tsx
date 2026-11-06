@@ -60,7 +60,7 @@ export function StatTile({
     <div
       className={cn(
         "relative flex min-w-0 flex-col overflow-hidden rounded-2xl",
-        compact ? "gap-2 p-3" : "gap-2 p-3 sm:gap-3 sm:p-4",
+        compact ? "gap-2 p-2.5 sm:p-3" : "gap-2 p-3 sm:gap-3 sm:p-4",
         TONE_WASH[tone],
         className,
       )}
@@ -80,7 +80,7 @@ export function StatTile({
           className={cn(
             "tabular text-ink [overflow-wrap:break-word]",
             compact
-              ? "text-body-lg font-semibold tracking-tight sm:text-h4"
+              ? "text-body-sm font-semibold sm:text-body-lg"
               : "text-h4 sm:text-h3",
           )}
         >
