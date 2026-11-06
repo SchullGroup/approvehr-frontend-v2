@@ -49,6 +49,9 @@ export function RenamePeriodDialog({
   const unchanged = trimmed === period.name;
 
   const save = async () => {
+    /* The Save button is off while this runs, and Enter in the box is not: it
+       submits the form. A second press in flight would send the same name twice. */
+    if (saving) return;
     if (trimmed.length < MIN) {
       setError("Name it: people will see this in their inbox.");
       return;
