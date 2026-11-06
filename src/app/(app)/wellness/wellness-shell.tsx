@@ -18,12 +18,19 @@ import { YourDataMenu } from "./your-data";
  * The frame every Wellness page sits in: the heading, the tabs, and what to say
  * when there is nothing to show yet.
  *
- * ## Four routes, because one of them is fixed by the API
+ * ## A route a tab, because one of them is fixed by the API
  *
  * A thank-you notification carries `/wellness/recognition` as its link, so that
  * path has to exist and open on kudos. Making the other tabs routes too keeps
  * the back button and a shared link honest, and the sidebar keeps one row for
  * all of them.
+ *
+ * ## Delivery is not wellness data
+ *
+ * The weekly delivery report is the performance module's weekly tasks, grouped
+ * by week. It is a tab here only because the API puts it behind the same company
+ * switch, so it is present and absent with the others. It is for everybody (your
+ * own week), and shows a team only when the API sent one.
  *
  * ## The module being off is a state, not a failure
  *
@@ -44,6 +51,7 @@ const BASE_TABS = [
   { href: "/wellness/challenges", label: "Challenges" },
   { href: "/wellness/reminders", label: "Reminders" },
   { href: "/wellness/recognition", label: "Recognition" },
+  { href: "/wellness/delivery", label: "Delivery" },
 ];
 
 export function WellnessShell({

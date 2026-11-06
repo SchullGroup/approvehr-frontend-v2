@@ -123,6 +123,18 @@ export function windowText(startsOn: string, endsOn: string): string {
     : `${shortDate(startsOn)} to ${shortDate(endsOn)}`;
 }
 
+/**
+ * `2 Nov to 8 Nov 2026` for a Monday-to-Sunday week, with the year said once, or
+ * on both ends when the week straddles New Year: `29 Dec 2025 to 4 Jan 2026`.
+ */
+export function weekLabel(monday: string, sunday: string): string {
+  const from = monday.slice(0, 4);
+  const to = sunday.slice(0, 4);
+  return from === to
+    ? `${windowText(monday, sunday)} ${to}`
+    : `${shortDate(monday)} ${from} to ${shortDate(sunday)} ${to}`;
+}
+
 /** The last day a challenge starting on `startsOn` may end on. */
 export function lastAllowedEnd(startsOn: string, maxDays: number): string {
   return addDays(startsOn, maxDays - 1);

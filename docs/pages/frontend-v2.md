@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `33c18a1f` (2026-11-04) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `cd278434` (2026-11-06) · regenerate with `npm run docs`, never by hand
 
-**162 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**163 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   142 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   143 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    11 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
@@ -294,12 +294,13 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Wellness
 
-`/wellness` — 5 pages
+`/wellness` — 6 pages
 
 | Route                   | Title             | What it is                                                                                            | File                                          |
 | ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | `/wellness`             | Wellness          | Your own water and steps, break reminders, challenges and kudos. What you log is seen by nobody else. | `src/app/(app)/wellness/page.tsx`             |
 | `/wellness/challenges`  | Challenges        | Join a challenge, and see how it is going.                                                            | `src/app/(app)/wellness/challenges/page.tsx`  |
+| `/wellness/delivery`    | Weekly delivery   | What was logged against objectives in a week, and how it was graded.                                  | `src/app/(app)/wellness/delivery/page.tsx`    |
 | `/wellness/recognition` | Kudos             | Thank a colleague, in public or in private.                                                           | `src/app/(app)/wellness/recognition/page.tsx` |
 | `/wellness/reminders`   | Break reminders   | When to be reminded to take a break, and which breaks are named.                                      | `src/app/(app)/wellness/reminders/page.tsx`   |
 | `/wellness/settings`    | Wellness settings | The privacy floor for the company's wellness results.                                                 | `src/app/(app)/wellness/settings/page.tsx`    |

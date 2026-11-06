@@ -149,7 +149,7 @@ describe("the privacy floor", () => {
 });
 
 describe("the frame", () => {
-  it("has four tabs for everybody and a fifth for whoever can change the floor", () => {
+  it("has five tabs for everybody and a sixth for whoever can change the floor", () => {
     held = new Set();
     const { unmount } = render(
       <WellnessShell active="/wellness">
@@ -161,6 +161,7 @@ describe("the frame", () => {
       "Challenges",
       "Reminders",
       "Recognition",
+      "Delivery",
     ]);
     unmount();
 
@@ -171,6 +172,25 @@ describe("the frame", () => {
       </WellnessShell>,
     );
     expect(screen.getAllByRole("link").at(-1)).toHaveTextContent("Settings");
+  });
+
+  it("keeps Delivery in front of Settings, and points it at its own route", () => {
+    held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+    render(
+      <WellnessShell active="/wellness/delivery">
+        <p>content</p>
+      </WellnessShell>,
+    );
+    const labels = screen.getAllByRole("link").map((a) => a.textContent);
+    expect(labels.slice(-2)).toEqual(["Delivery", "Settings"]);
+    expect(screen.getByRole("link", { name: "Delivery" })).toHaveAttribute(
+      "href",
+      "/wellness/delivery",
+    );
+    expect(screen.getByRole("link", { name: "Delivery" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("marks the tab that is open", () => {
