@@ -476,11 +476,10 @@ const demoYear = (): number => new Date(TODAY).getUTCFullYear();
  * request list is not the alternative: that would be a second implementation of
  * the arithmetic that decides whether somebody may take a day off.
  *
- * **That route is this build's assumption, and an API revision may not have it.**
- * `staging` and `main` of the API define only `GET /leave/balances/:id`, so
- * against them this read 404s. It used to do so in silence, and every card that
- * showed a balance simply had none; the failure is carried out as `error` now so
- * a screen can say so.
+ * **The route needs `VIEW_SALARIES` and a backend that has it.** `staging` and `main` defined only
+ * `GET /leave/balances/:id` until `fix/leave-balances-many-20261106` added this one, so against an API
+ * from before that this read 404s. It used to do so in silence, and every card that showed a balance
+ * simply had none; the failure is carried out as `error` now so a screen can say so.
  *
  * Demo mode goes through `useLeaveBalances`, which is the only sanctioned local
  * source — it closes over the company policy as well as the requests, and the

@@ -1,4 +1,5 @@
 import { employeeById } from "@/lib/mock/people";
+import { leaveLabel } from "@/lib/leave-label";
 import {
   APPROVAL_LABEL,
   APPROVALS,
@@ -64,7 +65,7 @@ function leaveApproval(
   return {
     id: `leave:${request.id}`,
     kind: "leave",
-    title: `${request.type} leave, ${who}`,
+    title: `${leaveLabel(request.type)}, ${who}`,
     summary: `${shortDate(request.from)}–${shortDate(request.to)} · ${
       request.days
     } ${request.days === 1 ? "day" : "days"} · ${cover}`,

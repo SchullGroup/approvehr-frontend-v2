@@ -3,6 +3,7 @@ import {
   type LeaveBalanceRow,
   type LeaveRow,
 } from "@/lib/api/leave";
+import { leaveLabel } from "@/lib/leave-label";
 import { shortDate } from "@/lib/today";
 
 /**
@@ -35,10 +36,7 @@ export type LeaveDecidedCopy = {
 };
 
 /** "annual leave", and not "annual leave leave" for a type already named that way. */
-function leaveName(type: string): string {
-  const lower = type.trim().toLowerCase();
-  return /\bleave$/.test(lower) ? lower : `${lower} leave`;
-}
+const leaveName = (type: string): string => leaveLabel(type, "lower");
 
 /** "12 Oct", or "12 Oct to 16 Oct". */
 function dates(request: Pick<LeaveRow, "from" | "to">): string {

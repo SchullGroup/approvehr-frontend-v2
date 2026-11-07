@@ -1,5 +1,6 @@
 "use client";
 
+import { leaveLabel } from "@/lib/leave-label";
 import { useMemo, useState } from "react";
 import {
   Button,
@@ -663,7 +664,7 @@ export function BookLeaveDialog({
         {!mutations.connected && chosenType?.requiresEvidence && (
           <Callout
             tone="info"
-            title={`${chosenType.name} leave needs evidence`}
+            title={`${leaveLabel(chosenType.name)} needs evidence`}
           >
             Attach the note or certificate to their record after raising this.
             Files on a leave request need a live company.
