@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LINKED_FILES_NOTE,
   LINKED_FOLDER,
+  LINKED_UPLOAD_DEFAULT,
   LINKED_UPLOAD_INTERRUPTED,
   LINKED_UPLOAD_NOT_STORED,
   LinkedUploadRefused,
@@ -17,11 +18,11 @@ import {
  * The port of the old platform's uploader.
  *
  * **Nothing here sends a request anywhere.** `fetch` is replaced in every test,
- * and the one place that could name a real address is a local, made-up one. The
- * real uploader is open and unauthenticated and makes what it is given public,
- * so this file asserts as hard that nothing reaches it as it asserts what is
- * sent: no request without a configured address, no address in the source, no
- * bearer token and no cookies on the wire.
+ * and the address every upload goes to is a local, made-up one. The real
+ * uploader is open and unauthenticated and makes what it is given public, so this
+ * file asserts as hard that nothing reaches it as it asserts what is sent: no
+ * request when the path is switched off, the default being the one address the
+ * source names, no bearer token and no cookies on the wire.
  */
 
 const BASE = "https://uploader.example.test/prod";
@@ -63,7 +64,7 @@ afterEach(() => {
 });
 
 describe("where the uploader is", () => {
-  it("is off until a deployment says, and then nothing is ever sent", async () => {
+  it("is off when the variable is blank, and then nothing is ever sent", async () => {
     vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", "");
     expect(linkedUploadConfigured()).toBe(false);
     await expect(
@@ -72,9 +73,14 @@ describe("where the uploader is", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("is off when the variable is not set at all", () => {
+  it("is the old platform's uploader when the variable is not set at all, which is not off", () => {
     vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", undefined as unknown as string);
     delete process.env["NEXT_PUBLIC_LINKED_UPLOAD_URL"];
+    expect(linkedUploadConfigured()).toBe(true);
+  });
+
+  it("is off for `off`, which is not an address", () => {
+    vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", "off");
     expect(linkedUploadConfigured()).toBe(false);
   });
 
@@ -119,11 +125,10 @@ describe("where the uploader is", () => {
     );
   });
 
-  it("has no real address anywhere in its source", () => {
-    /* The real one is open to the world and is not this repository's to name. */
+  it("names the real address once, as the default, and nowhere else in its source", () => {
     const source = readFileSync("src/lib/api/linked-upload.ts", "utf8");
-    expect(source).not.toMatch(/execute-api/);
-    expect(source).not.toMatch(/amazonaws/);
+    expect(source.match(/execute-api/g)).toHaveLength(1);
+    expect(source).toContain(LINKED_UPLOAD_DEFAULT);
   });
 });
 

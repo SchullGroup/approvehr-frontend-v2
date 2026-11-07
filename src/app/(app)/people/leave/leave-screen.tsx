@@ -1,5 +1,6 @@
 "use client";
 
+import { leaveLabel } from "@/lib/leave-label";
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
@@ -395,7 +396,7 @@ export function LeaveScreen() {
   const withdraw = (request: LeaveRow) =>
     run(
       () => mutations.cancel(request.id),
-      `Your ${request.leaveType.toLowerCase()} leave was withdrawn`,
+      `Your ${leaveLabel(request.leaveType, "lower")} was withdrawn`,
     );
 
   /**
@@ -907,7 +908,7 @@ export function LeaveScreen() {
         open={approving !== null}
         what={
           approving
-            ? `${approving.employeeName}'s ${approving.leaveType} leave`
+            ? `${approving.employeeName}'s ${leaveLabel(approving.leaveType)}`
             : ""
         }
         maxLength={NOTE_MAX}
@@ -926,7 +927,7 @@ export function LeaveScreen() {
         maxLength={NOTE_MAX}
         what={
           declining
-            ? `${declining.employeeName}'s ${declining.leaveType} leave`
+            ? `${declining.employeeName}'s ${leaveLabel(declining.leaveType)}`
             : ""
         }
         onClose={() => setDeclining(null)}
@@ -953,7 +954,7 @@ export function LeaveScreen() {
           <div className="flex flex-col gap-2 text-body-sm text-body">
             <p>
               {withdrawing
-                ? `${withdrawing.leaveType} leave, ${withdrawing.from} to ${withdrawing.to} · ${daysLabel(withdrawing.days)}.`
+                ? `${leaveLabel(withdrawing.leaveType)}, ${withdrawing.from} to ${withdrawing.to} · ${daysLabel(withdrawing.days)}.`
                 : ""}
             </p>
             <p>
@@ -1125,7 +1126,7 @@ function RequestPanel({
       onClose={onClose}
       title={
         request
-          ? `${request.leaveType} leave · ${request.employeeName}`
+          ? `${leaveLabel(request.leaveType)} · ${request.employeeName}`
           : "Request"
       }
       description={

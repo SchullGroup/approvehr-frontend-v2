@@ -639,9 +639,37 @@ const toType = (wire: WireType): LeaveTypeRow => ({
     typeof wire.reasonRequired === "boolean" ? wire.reasonRequired : null,
 });
 
+/**
+ * Whether the carry-over job has done this leave year, as the API recorded it.
+ *
+ * `ranThisYear` is **null when nothing has been recorded**, which is "has not run
+ * yet" and not "carried zero days": the job writes a marker even when nothing
+ * could carry, so no row means no pass. A screen that reads null as zero would be
+ * claiming a run that did not happen.
+ */
+export type RolloverStatus = {
+  year: number;
+  ranThisYear: {
+    ranAt: string;
+    employeesProcessed: number;
+    daysCarried: number;
+    /** The company's first run, which carries nothing by design. */
+    baseline: boolean;
+    note: string | null;
+  } | null;
+  /** Live leave types that allow any carry-over. */
+  carryingTypes: number;
+};
+
 /* ------------------------------------------------------------------- the api */
 
 export const leaveApi = {
+  /** Whether this year's carry-over has been applied. Needs `MANAGE_SETTINGS`. */
+  rollover: async (signal?: AbortSignal): Promise<RolloverStatus> =>
+    request<RolloverStatus>("/leave/rollover", {
+      ...(signal ? { signal } : {}),
+    }),
+
   types: async (signal?: AbortSignal): Promise<LeaveTypeRow[]> =>
     (
       await request<WireType[]>("/leave/types", {
