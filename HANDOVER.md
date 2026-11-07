@@ -12122,9 +12122,59 @@ default differing from the module's, the policy naming the default when blank, t
 test that the suite starts off was added), and `http` accepted in production. Backend: `leave-linked-default` (6), five breaks, and 405 leave
 and config tests passing.
 
-Not exercised: a real upload, on purpose. What the real uploader answers to a browser's preflight from this origin is unknown, and **if it
-sends no CORS headers the browser will block the request and the person is told their connection dropped**, which is the one outcome nothing
-here can rule out. That has to be tried once from the QA site by somebody who is happy to put a file there.
+The real uploader was tried once, on 7 November, from the QA site's origin with a 70-byte PNG the owner said to send: the preflight answered
+200 with `access-control-allow-origin: *` and POST and Content-Type allowed, and the real POST came back 200 with no browser block. The
+address it returned is on the host the API's default allows. See "Linked files are stored under a name nobody else has" for what else that
+test showed.
+
+# Linked files are stored under a name nobody else has
+
+Found by that same test, and fixed on 7 November. The old uploader keeps a file under `<folder>/<fileName>` and nothing else, so **the same name
+twice is one object**: the second upload returned the same address and replaced the first file's content. Measured, not assumed. The port
+(like the original `s3.service.ts`) sent the cleaned name as it was, which for leave files meant two things:
+
+- **A second `medical_certificate.pdf`, from anybody, replaced the first person's file** under the address already recorded on their request.
+  The first person's manager then opened somebody else's certificate.
+- **The second attach was refused anyway.** The API keys a linked file by its address and a key can be attached once, so it answered "That file
+  is already attached." after the replacement had already happened. One person raising two requests with a file of the same name hits both.
+
+`uniqueFileName` in `src/lib/api/linked-upload.ts` is the fix: every upload goes out as `<cleaned name>-<32 hex digits>.<ext>`, the digits
+128 bits from `crypto.getRandomValues`. A few rules, each with a test:
+
+- **Random, never a counter, a clock or `Math.random`.** The address is the only protection a public file has, so one that can be counted up
+  to is not one. With no random source the file is **not sent** (a refusal, in words, with no file name in it) rather than sent under a name
+  that can be guessed.
+- **The token is in the name, not the folder.** A slash in `projectFolder` would give a cleaner last segment, but whether the uploader keeps a
+  slash there is a guess about a server nobody here can read, and the name is what was measured. It is the same character set the original
+  already sends (letters, digits, hyphen, underscore).
+- **The extension stays last, and a name with nothing before it is called `file`.** The part of a person's own name that goes into the address
+  is cut at 100 characters, so the token and folder cannot push an address past the 500 the leave API takes.
+- **`filename` is still the name the person chose.** Only what the uploader is told changed; every screen reads `filename`.
+
+## What this changes about deleting a file
+
+Nothing can delete one, and this makes that more visible, not less. Taking a file off a request, or replacing it (add the new one, remove the
+old one: there is no replace button), drops the request's record and **leaves the copy on the uploader**. The original platform's frontend
+has no delete call, the API says in its own source that it cannot delete one, and the confirmation says "The copy that was uploaded stays
+where it was stored." Before this change re-adding a file of the same name happened to overwrite the old copy, which looked like a replace
+and was the bug above. With unique names a replaced or removed file stays where it is, at an address only people who had it know.
+
+A real delete needs the API's own storage, where removing the file removes the object. That is the bucket plan and not something the web
+can do. Not done, on purpose: overwriting the old object with a blank one as a stand-in for deleting it. It would use the uploader's
+no-login overwrite on purpose, would not remove a version if the bucket keeps them, and the web does not hold an old file's address after
+the page it was uploaded on.
+
+Not repaired: files uploaded before this change. Two that shared a name already share an object, and the first is gone.
+
+## Verified
+
+`tests/linked-upload.test.ts` is 59 (11 of them new) and the six test files around it pass, 185 tests. Ten deliberate breaks, each caught: the old
+name sent again, the token from `Math.random`, a constant token, long names not cut, a fallback to `Math.random`, an 8-byte token, the
+extension dropped, an empty stem not named, the stored name returned as the person's name, and the token put before the name. `tsc`, ESLint
+and Prettier are clean. No request was sent to the real uploader: `fetch` is stubbed.
+
+Not exercised: the real uploader keeping the new name as it is. It should, because the characters are the ones the original sends and
+the earlier test showed it keeping a name verbatim, but nobody has sent one.
 
 # A leave type named "Study leave" is not "Study leave leave"
 

@@ -11,6 +11,7 @@ import {
   linkedRefusal,
   linkedUploadConfigured,
   sanitizeFileName,
+  uniqueFileName,
   uploadLinkedFile,
 } from "@/lib/api/linked-upload";
 
@@ -40,6 +41,16 @@ const file = (
     name,
     { type },
   );
+
+/** What `getRandomValues` is made to give, so a test can name the address it expects. */
+const TOKEN = "ab".repeat(16);
+const pinToken = () =>
+  vi.spyOn(globalThis.crypto, "getRandomValues").mockImplementation(((
+    array: ArrayBufferView,
+  ) => {
+    (array as Uint8Array).fill(0xab);
+    return array;
+  }) as typeof globalThis.crypto.getRandomValues);
 
 const answer = (body: unknown, init: { ok?: boolean } = {}) => ({
   ok: init.ok ?? true,
@@ -134,12 +145,13 @@ describe("where the uploader is", () => {
 
 describe("a document", () => {
   it("goes to upload-file with the cleaned name and the folder, as the original", async () => {
+    pinToken();
     const result = await uploadLinkedFile(
       file("My Medical Cert (1).pdf", "application/pdf"),
     );
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(
-      `${BASE}/upload-file?fileName=My_Medical_Cert_1_.pdf&projectFolder=${LINKED_FOLDER}`,
+      `${BASE}/upload-file?fileName=My_Medical_Cert_1_-${TOKEN}.pdf&projectFolder=${LINKED_FOLDER}`,
     );
     expect(LINKED_FOLDER).toBe("approvehr-leave");
     expect(init.method).toBe("POST");
@@ -176,15 +188,16 @@ describe("a document", () => {
 
 describe("an image", () => {
   it.each([
-    ["scan.jpg", "image/jpeg", "jpeg"],
-    ["scan.png", "image/png", "png"],
+    ["scan.jpg", "image/jpeg", "jpeg", `scan-${TOKEN}.jpg`],
+    ["scan.png", "image/png", "png", `scan-${TOKEN}.png`],
   ])(
     "%s goes to upload-image with its format, and the address is read from uploadResult.Location",
-    async (name, type, format) => {
+    async (name, type, format, sent) => {
+      pinToken();
       fetchMock.mockResolvedValue(image());
       const result = await uploadLinkedFile(file(name, type));
       expect(fetchMock.mock.calls[0]![0]).toBe(
-        `${BASE}/upload-image?fileName=${name}&projectFolder=approvehr-leave&fileFormat=${format}`,
+        `${BASE}/upload-image?fileName=${sent}&projectFolder=approvehr-leave&fileFormat=${format}`,
       );
       expect(result).toEqual({
         fileUrl: "https://files.example.test/approvehr-leave/a.png",
@@ -325,11 +338,12 @@ describe("what kind a file is", () => {
   });
 
   it("sends a .jpg with no browser type as a JPEG to the image route", async () => {
+    pinToken();
     fetchMock.mockResolvedValue(image());
     const result = await uploadLinkedFile(file("scan.jpg", ""));
     expect(result.contentType).toBe("image/jpeg");
     expect(String(fetchMock.mock.calls[0]![0])).toContain(
-      "/upload-image?fileName=scan.jpg&projectFolder=approvehr-leave&fileFormat=jpeg",
+      `/upload-image?fileName=scan-${TOKEN}.jpg&projectFolder=approvehr-leave&fileFormat=jpeg`,
     );
   });
 
@@ -429,6 +443,101 @@ describe("the name it cleans", () => {
   it("leaves hyphens and underscores, collapses runs, keeps the extension", () => {
     expect(sanitizeFileName("a  b--c__d..e.pdf")).toBe("a_b--c_d_e.pdf");
     expect(sanitizeFileName("no extension")).toBe("no_extension");
+  });
+});
+
+describe("a name is never reused", () => {
+  /** The `fileName` the uploader was last asked to store. */
+  const sentName = (call = 0): string =>
+    new URL(String(fetchMock.mock.calls[call]![0])).searchParams.get(
+      "fileName",
+    ) ?? "";
+
+  it("puts a token between the cleaned name and its extension", () => {
+    expect(uniqueFileName("My Medical Cert (1).pdf", "t0k")).toBe(
+      "My_Medical_Cert_1_-t0k.pdf",
+    );
+    expect(uniqueFileName("scan.jpg", "t0k")).toBe("scan-t0k.jpg");
+  });
+
+  it("copes with no extension, and with nothing before the extension", () => {
+    expect(uniqueFileName("no extension", "t0k")).toBe("no_extension-t0k");
+    expect(uniqueFileName(".pdf", "t0k")).toBe("file-t0k.pdf");
+    expect(uniqueFileName("", "t0k")).toBe("file-t0k");
+  });
+
+  it("keeps the last extension only, as the cleaning does", () => {
+    expect(uniqueFileName("report.final.pdf", "t0k")).toBe(
+      "report_final-t0k.pdf",
+    );
+  });
+
+  it("shortens a long name so the address stays under what the leave API takes", () => {
+    const name = uniqueFileName(`${"a".repeat(255)}.pdf`, "b".repeat(32));
+    expect(name).toBe(`${"a".repeat(100)}-${"b".repeat(32)}.pdf`);
+    const address = `https://generic-file-uploader-bucket.s3.amazonaws.com/${LINKED_FOLDER}/${name}`;
+    expect(address.length).toBeLessThan(500);
+  });
+
+  it("sends the same file twice under two different names", async () => {
+    await uploadLinkedFile(file("medical_certificate.pdf", "application/pdf"));
+    await uploadLinkedFile(file("medical_certificate.pdf", "application/pdf"));
+    expect(sentName(0)).not.toBe(sentName(1));
+    expect(sentName(0)).toMatch(/^medical_certificate-[0-9a-f]{32}\.pdf$/);
+    expect(sentName(1)).toMatch(/^medical_certificate-[0-9a-f]{32}\.pdf$/);
+  });
+
+  it("does the same for an image", async () => {
+    fetchMock.mockResolvedValue(image());
+    await uploadLinkedFile(file("scan.png", "image/png"));
+    await uploadLinkedFile(file("scan.png", "image/png"));
+    expect(sentName(0)).not.toBe(sentName(1));
+    expect(sentName(0)).toMatch(/^scan-[0-9a-f]{32}\.png$/);
+  });
+
+  it("draws the token from the browser's random source, 16 bytes of it, and never from Math.random", async () => {
+    const random = vi.spyOn(Math, "random");
+    const source = pinToken();
+    await uploadLinkedFile(file("a.pdf", "application/pdf"));
+    expect(source).toHaveBeenCalledTimes(1);
+    expect(source.mock.calls[0]![0]).toBeInstanceOf(Uint8Array);
+    expect((source.mock.calls[0]![0] as Uint8Array).length).toBe(16);
+    expect(random).not.toHaveBeenCalled();
+  });
+
+  it("has nothing in the name that the address would have to encode", async () => {
+    await uploadLinkedFile(
+      file("Dr Ade's note (final).pdf", "application/pdf"),
+    );
+    expect(sentName()).toMatch(/^[A-Za-z0-9_-]+\.pdf$/);
+  });
+
+  it("still hands back the name the person chose, not the one it was stored under", async () => {
+    const result = await uploadLinkedFile(
+      file("My Medical Cert (1).pdf", "application/pdf"),
+    );
+    expect(result.filename).toBe("My Medical Cert (1).pdf");
+    expect(sentName()).not.toBe(result.filename);
+  });
+
+  it("sends nothing when the browser has no random source, rather than a name that can be guessed", async () => {
+    vi.stubGlobal("crypto", undefined);
+    const failure = await uploadLinkedFile(
+      file("a.pdf", "application/pdf"),
+    ).catch((caught: unknown) => caught);
+    expect(failure).toBeInstanceOf(LinkedUploadRefused);
+    expect((failure as Error).message).toBe(
+      "This browser cannot send files safely, so the file was not sent.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not put the person's file name in that sentence", async () => {
+    vi.stubGlobal("crypto", undefined);
+    const failure = (await uploadLinkedFile(
+      file("private-name.pdf", "application/pdf"),
+    ).catch((caught: unknown) => caught)) as Error;
+    expect(failure.message).not.toMatch(/private-name/);
   });
 });
 
