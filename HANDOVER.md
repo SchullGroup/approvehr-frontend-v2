@@ -11868,10 +11868,11 @@ the original routes and the leave API accepts.
 **A file sent this way is public to anybody who has its address.** The uploader has no login. That is the whole design, and four
 things follow from it:
 
-- **The address is configuration, not code.** `NEXT_PUBLIC_LINKED_UPLOAD_URL`, the base without `/upload-file`. Unset, which is every
-  environment until somebody sets it, the path is **off**: `linkedUploadConfigured()` is false, no picker is drawn on a server with no
-  storage, and nothing is ever sent. `https` only, and `http://localhost` outside production. The real address is in no file in this
-  repository except the example comment in `.env.example`, and a test fails if one appears in the source.
+- **The address defaults to the old uploader and can be overridden or switched off.** `LINKED_UPLOAD_DEFAULT` is the address
+  `s3.service.ts` has built in, so the path is **on** with nothing set. `NEXT_PUBLIC_LINKED_UPLOAD_URL` overrides it; **blank, or
+  anything that is not an https address (`off`), is off**, and then `linkedUploadConfigured()` is false, no picker is drawn and nothing is
+  sent. `https` only, and `http://localhost` outside production. It was off until configured and no deployment ever configured it,
+  which is why no attachment area ever showed. See "Leave files go to the old uploader by default" below.
 - **The route is chosen in one place, and `storage` wins.** `fileRoute(limits)` returns `stored`, `linked` or `none`. A server that
   can keep a file privately is never sent down the public route, whatever else is configured. `none` draws nothing.
 - **`LINKED_FILES_NOTE` is said beside the picker** in the booking form and the drawer, every time a file is going this way: _"For now
@@ -11909,7 +11910,7 @@ revert, availability, the absent setting, the demo), `leave-add-type-dialog` (17
 files unavailable and arriving late, a fresh form per open, every kind of refusal), `leave-book-with-files` (extended: a required
 reason, and the linked route end to end), `leave-request-files` (extended: linked files in the drawer), `leave-linked-files` (27:
 which route, what the picker may promise, what the leave API is told, opening a linked file), `linked-upload` (the port: routes,
-parameters, response fields, refusals before sending, the three failure sentences, no cookies, no real address in the source),
+parameters, response fields, refusals before sending, the three failure sentences, no cookies),
 `leave-types-reason-api` and `csp-linked-upload-origin`. With every test that imports what changed, `vitest related` ran 93 files and
 1,256 tests, all passing. `tsc --noEmit` exit 0. ESLint and Prettier exit 0 on every file touched. `verify-no-banners`,
 `verify-typescale`, `verify-demo`, `verify-stores`, `verify-load-rule`, `verify-revalidate` and `verify-adr` exit 0.
@@ -11968,8 +11969,7 @@ that is fixed too, in the web and in the API's stored titles ("A leave type name
 
 ## Deliberately not done
 
-- **The real uploader's address.** It is the user's, it is open, and it makes files public. It is `NEXT_PUBLIC_LINKED_UPLOAD_URL` in
-  whichever environment decides to use it, and the example in `.env.example` is a placeholder.
+- **Keeping the real uploader's address out of the source.** Reversed: it is `LINKED_UPLOAD_DEFAULT`, see below.
 - **A progress bar that measures the upload.** It would mean `XMLHttpRequest`, which is not the port that was asked for. See above.
 - **A walkthrough update.** There is no leave walkthrough in `docs/walkthroughs/`.
 - **Other places that attach a file** (task files, CVs, documents). They use the API's own signed upload and are untouched.
@@ -12081,6 +12081,51 @@ offered again, the `isPaid` description claiming pay).
 Not exercised in a browser: nothing was signed into for this pass, and the backend route has
 not run on a deployed server.
 
+# Leave files go to the old uploader by default
+
+The product owner's instruction was to upload the way `approvehr-platform-frontend`'s `s3.service.ts` does, "the same way". That file
+has the uploader's address built in. The port made it opt-in, to keep the address out of this repository, and the result was that a
+leave request could carry a file only where somebody had set an environment variable on **both** the API and the web build. Nobody had,
+so no deployment ever showed an attachment area, and it read as the feature being missing.
+
+## What it is now
+
+- **Web:** `LINKED_UPLOAD_DEFAULT` in `src/lib/api/linked-upload.ts`, the address `s3.service.ts` has, used when
+  `NEXT_PUBLIC_LINKED_UPLOAD_URL` is unset. `next.config.ts` cannot import that file, so it holds the same string and names the origin
+  in `connect-src` by the same rule; `tests/linked-upload-default.test.ts` fails if the two differ.
+- **API:** `LINKED_FILE_HOSTS` defaults to `generic-file-uploader-bucket.s3.amazonaws.com` (the host every stored link in the old database
+  spells). Backend branch `fix/leave-linked-default-20261106`, note `docs/backend/leave-linked-default-handover.md`.
+- **Unset is the old uploader; blank is off**, on both sides, and told apart on purpose: "I did not set it" and "I switched it off" must not
+  read the same. **They have to agree.** The picker is offered only when the API says `links: true` and this build has an address, so a web
+  with the default against an API that is off draws nothing, and the reverse draws nothing too.
+- **To switch it off:** `LINKED_FILE_HOSTS=` blank on the API and `NEXT_PUBLIC_LINKED_UPLOAD_URL=off` on the web build (a rebuild).
+- **The private route still wins.** Where the API has `S3_BUCKET` the web uses the signed upload and never the link.
+
+## What it costs, which is unchanged and now applies everywhere
+
+**A file sent this way is public to anybody who has its address**, does not expire, cannot be deleted by the API and cannot be tied to
+whose it is. Medical certificates are the common case. `LINKED_FILES_NOTE` says so beside the picker each time. The API still fetches and
+checks the file by its bytes before it records it. A leave type that **requires** a file can now be satisfied on a deployment with no bucket,
+where before the requirement could not be met and the request went through without one.
+
+## The tests never reach the real address
+
+`tests/setup.ts` pins `NEXT_PUBLIC_LINKED_UPLOAD_URL` blank for the whole suite (the backend's `tests/setup.ts` pins `LINKED_FILE_HOSTS` blank
+likewise), and a test fails if it stops. Tests that upload stub `fetch` and use an address of their own; the one that proves the default
+asserts the address a request **would** have been made to, against a mock. Nobody sent a request to it while building this.
+
+## Verified
+
+Web: `linked-upload` (updated), `linked-upload-default` (9) and `csp-linked-upload-origin`, 64 passing, plus 60 leave test files
+(1,398 tests). Seven deliberate breaks, each caught: unset read as off, blank read as the default, the policy ignoring the default, the policy's
+default differing from the module's, the policy naming the default when blank, the suite not pinned off (**this one survived at first**, so a
+test that the suite starts off was added), and `http` accepted in production. Backend: `leave-linked-default` (6), five breaks, and 405 leave
+and config tests passing.
+
+Not exercised: a real upload, on purpose. What the real uploader answers to a browser's preflight from this origin is unknown, and **if it
+sends no CORS headers the browser will block the request and the person is told their connection dropped**, which is the one outcome nothing
+here can rule out. That has to be tried once from the QA site by somebody who is happy to put a file there.
+
 # A leave type named "Study leave" is not "Study leave leave"
 
 Found on 6 November while listing what was known to be wrong: the drawer for a request read **"Study leave leave · Ada Eze"**. Leave
@@ -12112,4 +12157,3 @@ appending, the queue row reverted, the drawer title reverted, the evidence callo
 lower-casing lost. `npm run check` exit 0.
 
 Not exercised in a browser: nothing was signed into for this pass.
-

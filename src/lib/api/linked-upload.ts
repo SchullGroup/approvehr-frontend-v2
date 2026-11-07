@@ -21,11 +21,21 @@ import { megabytes } from "@/lib/file-size";
  * **A file sent this way is public.** The uploader is not behind a login: it
  * stores the file and answers with an address, and anybody who has the address
  * can open it. That is the whole reason `LINKED_FILES_NOTE` exists and is shown
- * beside the picker, and why the address is configuration
- * (`NEXT_PUBLIC_LINKED_UPLOAD_URL`) rather than a literal in this file: the path
- * is **off** until a deployment says where the uploader is, and nothing in this
- * repository contains it. A development build, a test or a preview with the
- * variable unset cannot send a file anywhere.
+ * beside the picker.
+ *
+ * ## Where the uploader is
+ *
+ * `LINKED_UPLOAD_DEFAULT`, the same address `s3.service.ts` has built in, which is
+ * what "use it the same way" means: this path is **on** with nothing set. It used
+ * to be off until a deployment supplied the address, and the result was that no
+ * deployment ever showed an attachment area. `NEXT_PUBLIC_LINKED_UPLOAD_URL`
+ * overrides it, and **blank, or anything that is not an https address (`off`), is
+ * off**: unset and switched off are different answers, as they are for the API's
+ * `LINKED_FILE_HOSTS`, which has to agree or the picker is never offered.
+ *
+ * The tests never send a request to it. `tests/setup` pins the variable blank for
+ * the whole suite, and the tests that exercise an upload stub `fetch` and an
+ * address of their own.
  *
  * ## What it never sends
  *
@@ -151,10 +161,21 @@ const MAX_URL_LENGTH = 500;
 /* ------------------------------------------------------------- the address */
 
 /**
+ * The old platform's uploader, as `approvehr-platform-frontend`'s `s3.service.ts`
+ * has it: the base without `/upload-file` or `/upload-image`. `next.config.ts`
+ * cannot import this file (it is outside the `@/` alias), so it holds the same
+ * string, and `tests/linked-upload-default.test.ts` fails if the two differ.
+ */
+export const LINKED_UPLOAD_DEFAULT =
+  "https://qerhd0lxje.execute-api.us-east-1.amazonaws.com/prod";
+
+/**
  * Where the uploader is, or null.
  *
- * Read from the environment on every call and written out in full so that Next
- * can substitute it at build time. Only `https:` is accepted, and `http` for
+ * `NEXT_PUBLIC_LINKED_UPLOAD_URL` when it is set, the default when it is not, and
+ * null when it is blank or is not an address this accepts. Read from the
+ * environment on every call and written out in full so that Next can substitute
+ * it at build time. Only `https:` is accepted, and `http` for
  * `localhost` and `127.0.0.1` outside production: anything else is dropped
  * rather than trusted, the rule `next.config.ts` applies to the same address
  * for the Content-Security-Policy. The two have to agree: an address this module
@@ -162,7 +183,8 @@ const MAX_URL_LENGTH = 500;
  * dropped connection.
  */
 function configuredBase(): string | null {
-  const raw = process.env.NEXT_PUBLIC_LINKED_UPLOAD_URL?.trim();
+  const set = process.env.NEXT_PUBLIC_LINKED_UPLOAD_URL;
+  const raw = set === undefined ? LINKED_UPLOAD_DEFAULT : set.trim();
   if (!raw) return null;
   try {
     const url = new URL(raw);
@@ -177,7 +199,7 @@ function configuredBase(): string | null {
   }
 }
 
-/** Whether this build knows where an uploader is. False means this path is off. */
+/** Whether this build has an uploader to send to. False means this path is off. */
 export const linkedUploadConfigured = (): boolean => configuredBase() !== null;
 
 /* ------------------------------------------------------------- the file */

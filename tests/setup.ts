@@ -19,3 +19,13 @@ afterEach(cleanup);
 if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => undefined;
 }
+
+/**
+ * The old platform's uploader is on by default (`LINKED_UPLOAD_DEFAULT` in
+ * `src/lib/api/linked-upload.ts`), which would make every test that renders a
+ * leave form see a file picker and, if it pressed Send, try the network. Blank is
+ * the explicit "off", so the suite starts there. The tests that exercise the
+ * uploader stub `fetch` and an address of their own, and no test sends a request to
+ * the real one. `tests/linked-upload-default.test.ts` unsets it to prove the default.
+ */
+process.env["NEXT_PUBLIC_LINKED_UPLOAD_URL"] = "";
