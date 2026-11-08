@@ -137,7 +137,23 @@ function FloorForm({
         }
         description="The smallest group an employer is ever shown a number for."
       />
-      <CardBody>
+      <CardBody className="flex flex-col gap-4">
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-3 rounded-2xl bg-well-peri-soft p-3"
+        >
+          <span className="flex shrink-0 -space-x-2">
+            {Array.from({ length: Math.min(privacyFloor, 12) }, (_, index) => (
+              <span
+                key={index}
+                className="size-6 rounded-full border-2 border-surface bg-well-peri"
+              />
+            ))}
+          </span>
+          <span className="text-body-sm text-well-peri-text">
+            A number is shown only for groups of {privacyFloor} or more people
+          </span>
+        </div>
         <form
           onSubmit={(event) => {
             event.preventDefault();

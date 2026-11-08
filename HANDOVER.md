@@ -11612,3 +11612,65 @@ The QA site, and the route on any deployed server (the backend is not merged: un
 is and the API answers 404); iOS Safari or any real device; a **published** period's form after a new version, and the job-role
 note, in a browser (the backend tests cover both and no walk did); demo mode in a browser (a test covers the refusal); a company
 with real data; the whole backend suite in one run.
+
+# Wellness looks like a game now, and is held to the rules of something that is not
+
+The Wellness area (`src/app/(app)/wellness/`) was redesigned to feel engaging, from four reference
+screens. The references are games: points, a company-wide leaderboard, a live feed of what somebody
+just completed, "share your streak". The module is a private health log, so the arrangements were
+taken and the mechanics were refused. The design, with what was taken from each reference and what was
+refused, is in `docs/specs/wellness-redesign.md` in the ApproveHR workspace (outside this repo).
+
+## What changed
+
+- **A kit**, `src/components/wellness/`: `WellnessArt` (original mascots drawn in code: cherries, crowned
+  apple, flexing avocado, water drop, sneaker, pear, flame; moods happy, cheering, sleepy), `Podium`,
+  `RankBadge` (starburst), `RankRow`, `YouRow` (pinned), `StreakCard`, `ProgressArc`, `StatTile`,
+  `ChallengeCard`, `PillTabs`, `PillNav`, `HeatMap`, `WeekBars`, `MascotPromoCard`, `SceneImage`.
+  Streak, week dots, heat grid and personal best are pure functions in `src/lib/wellness/streak.ts`.
+- **Scoped tokens**, `--color-well-*` in `globals.css`, in both themes and in `scripts/verify-contrast.ts`.
+  A figure that carries a number is drawn in the `-text` step, never the bright fill (under 3:1 on white).
+- **A challenge has its own page**, `/wellness/challenges/[id]`: the Measures / Duration / Mode trio, the
+  description, the join flow (the API's wording, in full) and, for people who joined, the board. The old
+  board dialog is gone. Results for an administrator stay a dialog and stay sober.
+- **Scenes**: eight Open Doodles drawings (CC0, Pablo Stanley, approved 2026-11-06) in
+  `public/wellness/scenes/`, with `LICENSE.md`; lazy static files on a fixed light sticker.
+- `ColumnChart` takes `shape="pill"`; `EmptyState` takes `art`; `cn()` now knows `text-body-md` is a size.
+
+## Decisions not to undo
+
+- **The arc is drawn against the person's own best day in the previous four weeks, and says so.** The API's
+  challenge has no target, a medical target would be a claim about health, and a goal stored in the browser
+  is forbidden. With no earlier day there is no mark and the arc is only a track.
+- **No points.** A board ranks the challenge's own measure (steps, millilitres) exactly as the API gives it.
+  No company-wide leaderboard, no kudos leaderboard, no "just completed" feed, no counters, no share buttons,
+  no "popular" or "recommended" filter. `tests/wellness-privacy-surface.test.ts` scans the screens **and the
+  kit** for each of them.
+- **A streak is the person's own, derived each time from their own summary, and never a debt.** Today
+  having nothing in it does not break a run; an ended run says a new one can start today.
+- **A shared rank is drawn as shared** ("joint 9th"); the podium is drawn 2, 1, 3 and read 1, 2, 3.
+- **There is still no demo version of Wellness** (`src/lib/store/wellness.ts` says why). The brief asked to
+  extend its demo data; there is none, and adding it would reverse that decision. Demo shows the
+  "Wellness needs the API" state, now with a resting mascot.
+- The consent and join wording is the API's, shown unchanged. The copy around it was not touched.
+
+## Found, and not changed
+
+- The board API pads a one-word name with a trailing space (`"Yusuf "`); the kit trims for display.
+- The seeded HR manager holds `EDIT_RECORDS` but not `MANAGE_SETTINGS`, so she gets a 403 on employer
+  Results, although the wellness spec says she holds it. Seed or spec, not this repo.
+- A challenge list carries no counts, so a card cannot say "N people" and does not.
+- The individual board lists the API's first 50; beyond that the pinned place is the only row of yours.
+
+## Verified
+
+Against a scratch API and database with 36 employees in 7 teams: a board with you at rank 23 of 30 (with
+shared ranks), you first of three, one participant, you last of eight, a team board with your team visible
+and one with it withheld, employer results released, held (inside the week) and below the floor, a
+broken streak, a person with no consent. Both themes at 375, 768 and 1280, keyboard order, reduced motion
+(every `well-*` animation computes to none), no sideways scroll at 375.
+
+## Not exercised
+
+Real devices and Safari; a screen reader; a company with more than 50 participants in one challenge; the
+phone app's device-synced steps; any user on a slow connection (the scenes are lazy but not preloaded).

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Clock3, Lock } from "lucide-react";
 import {
-  Badge,
   Button,
+  ButtonLink,
   Field,
   FieldRow,
   Input,
@@ -13,6 +14,7 @@ import {
   Select,
   Stat,
   StatGrid,
+  SuccessMoment,
   TBody,
   TD,
   TH,
@@ -23,6 +25,9 @@ import {
   useToast,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
+import { TONE_WASH, WellnessArt, artFor } from "@/components/wellness";
+import { cn } from "@/lib/cn";
+import { shortDate } from "@/lib/today";
 import { ApiError } from "@/lib/api/client";
 import {
   MAX_CHALLENGE_DAYS,
@@ -31,16 +36,13 @@ import {
   consentRequired,
   consentStale,
   type ApiChallenge,
-  type ApiIndividualBoard,
   type ApiIndividualResults,
-  type ApiTeamBoard,
   type ApiTeamResults,
   type ChallengeMode,
   type WellnessMetric,
 } from "@/lib/api/wellness";
 import { addDays, daysBetween } from "@/lib/projects/dates";
 import {
-  useChallengeBoard,
   useChallengeDetail,
   useChallengeResults,
   useMyConsents,
@@ -62,12 +64,14 @@ import { amountText, lastAllowedEnd, windowText } from "@/lib/wellness/format";
  * challenge sees its board. That is the promise, and it is only as good as its
  * words.
  *
- * ## Two audiences, two different dialogs, and no person in the second
+ * ## Two audiences, and no person in the second
  *
- * A **board** is for people who joined and shows them each other. **Results**
- * are for whoever runs the programme and are counts and totals, above a floor,
- * with nothing shaped like a person: no name, no list, no single figure. A role
- * never opens a board, and a board never opens for a role.
+ * A **board** (`board.tsx`, on the challenge's own page) is for people who
+ * joined and shows them each other. **Results** are for whoever runs the
+ * programme and are counts and totals, above a floor, with nothing shaped like a
+ * person: no name, no list, no single figure. A role never opens a board, and a
+ * board never opens for a role. Results stays sober on purpose: no podium, no
+ * mascot, nothing ranked.
  */
 
 const failure = (error: unknown): string =>
@@ -81,18 +85,22 @@ export function JoinDialog({
   challenge,
   onClose,
   onJoined,
+  boardHref,
 }: {
   challenge: ApiChallenge;
   onClose: () => void;
+  /** The person is in. The caller reloads; the dialog stays to say so. */
   onJoined: () => void;
+  /** Where their board is, offered once they have joined. */
+  boardHref: string;
 }) {
   const detail = useChallengeDetail(challenge.id);
   const consents = useMyConsents();
   const actions = useWellnessActions();
-  const toast = useToast();
   const [teamId, setTeamId] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [joined, setJoined] = useState(false);
 
   const d = detail.data;
   const trackingOn =
@@ -105,6 +113,8 @@ export function JoinDialog({
     d !== null &&
     trackingOn &&
     (!isTeam || (teams.length > 0 && teamId !== ""));
+  const art = artFor(challenge);
+  const toast = useToast();
 
   const join = async () => {
     if (!d) return;
@@ -116,7 +126,7 @@ export function JoinDialog({
         d.consentVersion,
         isTeam ? teamId : undefined,
       );
-      toast.push({ tone: "success", title: `You joined ${challenge.title}` });
+      setJoined(true);
       onJoined();
     } catch (error) {
       if (consentStale(error)) {
@@ -134,6 +144,47 @@ export function JoinDialog({
       setBusy(false);
     }
   };
+
+  if (joined) {
+    return (
+      <Modal
+        open
+        onClose={onClose}
+        title={`Join ${challenge.title}`}
+        footer={
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        }
+      >
+        <div className="flex flex-col items-center gap-2 text-center">
+          <WellnessArt name={art.name} mood="cheering" size={120} />
+          <SuccessMoment
+            align="center"
+            markSize="sm"
+            headingLevel={3}
+            title={`You joined ${challenge.title}`}
+            lead={
+              challenge.status === "UPCOMING"
+                ? `It counts from ${shortDate(challenge.startsOn)}.`
+                : "What you log from today counts."
+            }
+            details={[
+              isTeam
+                ? "Only you see your own total. Your team's average is on the board."
+                : "People who joined can see your name and your total on the board.",
+              "You can leave any time, and what you logged stays yours.",
+            ]}
+            actions={
+              <ButtonLink href={boardHref} variant="accent">
+                See the board
+              </ButtonLink>
+            }
+          />
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -170,6 +221,15 @@ export function JoinDialog({
       >
         {d && (
           <div className="flex flex-col gap-4">
+            <div
+              aria-hidden="true"
+              className={cn(
+                "flex items-center justify-center rounded-2xl py-3",
+                TONE_WASH[art.tone],
+              )}
+            >
+              <WellnessArt name={art.name} mood="happy" size={84} />
+            </div>
             <p className="text-body-sm leading-relaxed text-body">
               {d.joinStatement}
             </p>
@@ -223,146 +283,6 @@ export function JoinDialog({
   );
 }
 
-/* ------------------------------------------------------------------- board */
-
-export function BoardDialog({
-  challenge,
-  onClose,
-}: {
-  challenge: ApiChallenge;
-  onClose: () => void;
-}) {
-  const board = useChallengeBoard(challenge.id);
-  const b = board.data;
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={challenge.title}
-      description={`${METRIC_LABEL[challenge.metric]}, ${windowText(challenge.startsOn, challenge.endsOn)}`}
-      size="md"
-    >
-      <LoadState
-        loading={board.loading}
-        error={board.error}
-        onRetry={board.reload}
-        hasData={b !== null}
-        subject="the board"
-        skeleton="list"
-      >
-        {b &&
-          (b.mode === "INDIVIDUAL" ? (
-            <IndividualBoard board={b} />
-          ) : (
-            <TeamBoard board={b} />
-          ))}
-      </LoadState>
-    </Modal>
-  );
-}
-
-function IndividualBoard({ board }: { board: ApiIndividualBoard }) {
-  const listed = board.entries.some((entry) => entry.mine);
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="flex items-center gap-2 text-body-sm text-muted">
-        {board.participants} taking part
-        <InfoTooltip
-          id="wellness-board-who"
-          label="Who sees this board"
-          text="Only people who joined this challenge see it, and they agreed to appear to each other. Leave and you disappear from it."
-        />
-      </p>
-      <TableWrap caption="Board">
-        <THead>
-          <TH className="w-16">Rank</TH>
-          <TH>Name</TH>
-          <TH align="right">{METRIC_LABEL[board.metric]}</TH>
-        </THead>
-        <TBody>
-          {board.entries.map((entry) => (
-            <TR key={`${String(entry.rank)}-${entry.name}`}>
-              <TD className="tabular text-muted">{entry.rank}</TD>
-              <TD className="font-medium text-ink">
-                {entry.name}
-                {entry.mine && (
-                  <Badge tone="accent" size="sm" className="ml-2">
-                    You
-                  </Badge>
-                )}
-              </TD>
-              <TD align="right" className="tabular">
-                {amountText(board.metric, entry.total)}
-              </TD>
-            </TR>
-          ))}
-        </TBody>
-      </TableWrap>
-      {!listed && (
-        <p className="text-body-sm text-muted">
-          You are ranked {board.me.rank}, with{" "}
-          {amountText(board.metric, board.me.total)}.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function TeamBoard({ board }: { board: ApiTeamBoard }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="flex items-center gap-2 text-body-sm text-muted">
-        Your total, {amountText(board.metric, board.mine.total)}
-        <InfoTooltip
-          id="wellness-team-board"
-          label="About this board"
-          text={`Teams appear once at least ${String(board.floor)} of their members have joined and logged something. Nobody is shown anyone else's own number.`}
-        />
-      </p>
-      <TableWrap caption="Team board">
-        <THead>
-          <TH>Team</TH>
-          <TH align="right">Taking part</TH>
-          <TH align="right">Total</TH>
-          <TH align="right">Average</TH>
-        </THead>
-        <TBody>
-          {board.teams.map((team) => (
-            <TR key={team.teamId}>
-              <TD className="font-medium text-ink">
-                {team.name}
-                {team.mine && (
-                  <Badge tone="accent" size="sm" className="ml-2">
-                    Your team
-                  </Badge>
-                )}
-              </TD>
-              {team.withheld ? (
-                <TD colSpan={3} className="text-muted">
-                  {team.note}
-                </TD>
-              ) : (
-                <>
-                  <TD align="right" className="tabular">
-                    {team.participants}
-                  </TD>
-                  <TD align="right" className="tabular">
-                    {amountText(board.metric, team.total)}
-                  </TD>
-                  <TD align="right" className="tabular">
-                    {amountText(board.metric, team.average)}
-                  </TD>
-                </>
-              )}
-            </TR>
-          ))}
-        </TBody>
-      </TableWrap>
-    </div>
-  );
-}
-
 /* ----------------------------------------------------------------- results */
 
 export function ResultsDialog({
@@ -413,8 +333,21 @@ export function ResultsDialog({
   );
 }
 
-const heldBack = <span className="text-muted">Held back</span>;
-const notYet = <span className="text-muted">Not yet</span>;
+/* Results stay sober: a lock and a clock, no mascot and nothing ranked. The two
+   states are different facts, so they read differently: the floor stopped it,
+   or the time has not come. */
+const heldBack = (
+  <span className="inline-flex items-center gap-1.5 text-muted">
+    <Lock aria-hidden="true" className="size-4" />
+    Held back
+  </span>
+);
+const notYet = (
+  <span className="inline-flex items-center gap-1.5 text-muted">
+    <Clock3 aria-hidden="true" className="size-4" />
+    Not yet
+  </span>
+);
 
 function IndividualResults({
   results,

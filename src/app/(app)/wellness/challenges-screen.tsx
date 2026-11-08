@@ -1,42 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { Ban, ChartColumn, DoorOpen, PencilLine, Plus } from "lucide-react";
 import {
-  Ban,
-  ChartColumn,
-  DoorOpen,
-  Medal,
-  PencilLine,
-  Plus,
-} from "lucide-react";
-import {
-  Badge,
   Button,
+  ButtonLink,
   Card,
   ConfirmDialog,
   EmptyState,
-  Field,
-  FilterBar,
   LoadState,
   RowActions,
-  Select,
   useToast,
-  type BadgeTone,
   type RowActionItem,
 } from "@/components/ui";
-import { InfoTooltip } from "@/components/ui/field";
+import { ChallengeCard, PillTabs, WellnessArt } from "@/components/wellness";
 import { ApiError } from "@/lib/api/client";
-import {
-  METRIC_LABEL,
-  MODE_LABEL,
-  type ApiChallenge,
-  type ChallengeStatus,
-} from "@/lib/api/wellness";
+import type { ApiChallenge, ChallengeStatus } from "@/lib/api/wellness";
 import { useCan } from "@/lib/permissions";
 import { useChallenges, useWellnessActions } from "@/lib/store/wellness";
-import { STATUS_LABEL, windowText } from "@/lib/wellness/format";
+import { useToday } from "@/lib/use-today";
+import { STATUS_LABEL } from "@/lib/wellness/format";
 import {
-  BoardDialog,
   CreateChallengeDialog,
   EditChallengeDialog,
   JoinDialog,
@@ -50,38 +34,51 @@ import {
  * ## One list, narrowed by role
  *
  * Everybody sees the same list: a title, a window, a measure and whether *they*
- * joined. Nothing on a row counts anybody, because the list is open to the whole
- * company and a count is the first thing a floor exists to withhold. A person
- * who joined opens the board. An administrator opens the results, which are
- * counts and totals above a floor and never a person. Those are separate doors
- * on purpose, and an administrator who wants the board has to join like anybody
- * else (the join statement says so).
+ * joined. Nothing on a card counts anybody, because the list is open to the
+ * whole company and a count is the first thing a floor exists to withhold. A
+ * person who joined opens the board, which lives on the challenge's own page. An
+ * administrator opens the results, which are counts and totals above a floor and
+ * never a person. Those are separate doors on purpose, and an administrator who
+ * wants the board has to join like anybody else (the join statement says so).
  *
  * `MANAGE_SETTINGS` gates creating, editing and cancelling here as it does in
  * the API. It decides what is worth showing; the API decides what is allowed.
+ *
+ * ## The filters are pills, and "mine" is only yours
+ *
+ * "Joined" narrows to challenges the caller is in, which is the one thing the
+ * list already tells them about themselves. There is no "popular" filter and no
+ * "recommended" one: both would need a count of other people, or a guess.
  */
 
-const STATUS_TONE: Record<ChallengeStatus, BadgeTone> = {
-  UPCOMING: "neutral",
-  ACTIVE: "accent",
-  ENDED: "neutral",
-  CANCELLED: "warning",
-};
+type Filter = "all" | "joined" | ChallengeStatus;
 
 type Dialog =
   | {
-      kind: "join" | "board" | "results" | "edit" | "cancel" | "leave";
+      kind: "join" | "results" | "edit" | "cancel" | "leave";
       challenge: ApiChallenge;
     }
   | { kind: "create" }
   | null;
+
+/** Running first, then what is coming, then what is over; yours before the rest. */
+const ORDER: Record<ChallengeStatus, number> = {
+  ACTIVE: 0,
+  UPCOMING: 1,
+  ENDED: 2,
+  CANCELLED: 3,
+};
+
+const challengeHref = (challenge: ApiChallenge) =>
+  `/wellness/challenges/${challenge.id}`;
 
 export function ChallengesScreen() {
   const list = useChallenges();
   const canManage = useCan("MANAGE_SETTINGS");
   const actions = useWellnessActions();
   const toast = useToast();
-  const [status, setStatus] = useState<"all" | ChallengeStatus>("all");
+  const today = useToday();
+  const [filter, setFilter] = useState<Filter>("all");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
 
@@ -91,9 +88,23 @@ export function ChallengesScreen() {
     list.reload();
   };
 
-  const rows = (list.data ?? []).filter(
-    (challenge) => status === "all" || challenge.status === status,
-  );
+  const all = list.data ?? [];
+  const matches = (challenge: ApiChallenge, wanted: Filter) =>
+    wanted === "all"
+      ? true
+      : wanted === "joined"
+        ? challenge.joined
+        : challenge.status === wanted;
+  const rows = all
+    .filter((challenge) => matches(challenge, filter))
+    .sort(
+      (a, b) =>
+        ORDER[a.status] - ORDER[b.status] ||
+        Number(b.joined) - Number(a.joined) ||
+        a.startsOn.localeCompare(b.startsOn),
+    );
+  const count = (wanted: Filter) =>
+    all.filter((challenge) => matches(challenge, wanted)).length;
 
   const run = async (act: () => Promise<unknown>, success: string) => {
     setBusy(true);
@@ -116,49 +127,42 @@ export function ChallengesScreen() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <FilterBar
-        applied={
-          status === "all"
-            ? []
-            : [
-                {
-                  label: "Status",
-                  value: STATUS_LABEL[status],
-                  onClear: () => setStatus("all"),
-                },
-              ]
-        }
-        count={list.data ? rows.length : undefined}
-        noun={["challenge", "challenges"]}
-        actions={
-          canManage ? (
-            <Button
-              variant="accent"
-              onClick={() => setDialog({ kind: "create" })}
-            >
-              <Plus aria-hidden="true" className="size-4" />
-              New challenge
-            </Button>
-          ) : undefined
-        }
-      >
-        <Field label="Status">
-          <Select
-            value={status}
-            onChange={(event) =>
-              setStatus(event.target.value as "all" | ChallengeStatus)
-            }
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PillTabs
+          label="Show challenges"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            {
+              value: "all",
+              label: "All",
+              ...(list.data ? { count: count("all") } : {}),
+            },
+            {
+              value: "joined",
+              label: "Joined",
+              ...(list.data ? { count: count("joined") } : {}),
+            },
+            ...(["ACTIVE", "UPCOMING", "ENDED", "CANCELLED"] as const).map(
+              (status) => ({
+                value: status,
+                label: STATUS_LABEL[status],
+                ...(list.data ? { count: count(status) } : {}),
+              }),
+            ),
+          ]}
+        />
+        {canManage && (
+          <Button
+            variant="accent"
+            onClick={() => setDialog({ kind: "create" })}
           >
-            <option value="all">All</option>
-            {(Object.keys(STATUS_LABEL) as ChallengeStatus[]).map((key) => (
-              <option key={key} value={key}>
-                {STATUS_LABEL[key]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </FilterBar>
+            <Plus aria-hidden="true" className="size-4" />
+            New challenge
+          </Button>
+        )}
+      </div>
 
       <LoadState
         loading={list.loading}
@@ -168,10 +172,10 @@ export function ChallengesScreen() {
         subject="the challenges"
         skeleton="list"
       >
-        <Card>
-          {rows.length === 0 ? (
+        {rows.length === 0 ? (
+          <Card>
             <EmptyState
-              icon={<Medal aria-hidden="true" />}
+              art={<WellnessArt name="cherries" mood="sleepy" size={104} />}
               title={
                 list.data && list.data.length > 0
                   ? "No challenge matches"
@@ -186,19 +190,20 @@ export function ChallengesScreen() {
               }
               compact
             />
-          ) : (
-            <ul className="divide-y divide-line">
-              {rows.map((challenge) => (
-                <ChallengeRow
-                  key={challenge.id}
-                  challenge={challenge}
-                  canManage={canManage}
-                  onOpen={(kind) => setDialog({ kind, challenge })}
-                />
-              ))}
-            </ul>
-          )}
-        </Card>
+          </Card>
+        ) : (
+          <ul className="grid gap-4 md:grid-cols-2">
+            {rows.map((challenge) => (
+              <Row
+                key={challenge.id}
+                challenge={challenge}
+                today={today}
+                canManage={canManage}
+                onOpen={(kind) => setDialog({ kind, challenge })}
+              />
+            ))}
+          </ul>
+        )}
       </LoadState>
 
       {dialog?.kind === "create" && (
@@ -208,11 +213,9 @@ export function ChallengesScreen() {
         <JoinDialog
           challenge={dialog.challenge}
           onClose={close}
-          onJoined={done}
+          onJoined={list.reload}
+          boardHref={challengeHref(dialog.challenge)}
         />
-      )}
-      {dialog?.kind === "board" && (
-        <BoardDialog challenge={dialog.challenge} onClose={close} />
       )}
       {dialog?.kind === "results" && (
         <ResultsDialog challenge={dialog.challenge} onClose={close} />
@@ -263,16 +266,16 @@ export function ChallengesScreen() {
   );
 }
 
-function ChallengeRow({
+function Row({
   challenge,
+  today,
   canManage,
   onOpen,
 }: {
   challenge: ApiChallenge;
+  today: string;
   canManage: boolean;
-  onOpen: (
-    kind: "join" | "board" | "results" | "edit" | "cancel" | "leave",
-  ) => void;
+  onOpen: (kind: "join" | "results" | "edit" | "cancel" | "leave") => void;
 }) {
   const open = challenge.status === "UPCOMING" || challenge.status === "ACTIVE";
   const cancelled = challenge.status === "CANCELLED";
@@ -319,54 +322,39 @@ function ChallengeRow({
   ];
 
   return (
-    <li className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-          {challenge.title}
-          {challenge.description && (
-            <InfoTooltip
-              id={`wellness-challenge-${challenge.id}`}
-              label={`About ${challenge.title}`}
-              text={challenge.description}
-            />
+    <ChallengeCard
+      challenge={challenge}
+      today={today}
+      href={challengeHref(challenge)}
+      menu={
+        items.length > 0 ? (
+          <RowActions label={`Actions for ${challenge.title}`} items={items} />
+        ) : undefined
+      }
+      actions={
+        <>
+          {open && !challenge.joined && (
+            <Button
+              size="sm"
+              variant="accent"
+              onClick={() => onOpen("join")}
+              aria-label={`Join ${challenge.title}`}
+            >
+              Join
+            </Button>
           )}
-          <Badge tone={STATUS_TONE[challenge.status]} size="sm">
-            {STATUS_LABEL[challenge.status]}
-          </Badge>
-          {challenge.joined && (
-            <Badge tone="accent" size="sm">
-              Joined
-            </Badge>
+          {challenge.joined && !cancelled && (
+            <ButtonLink
+              size="sm"
+              variant="secondary"
+              href={challengeHref(challenge)}
+              aria-label={`Board for ${challenge.title}`}
+            >
+              Board
+            </ButtonLink>
           )}
-        </p>
-        <p className="text-meta text-muted">
-          {METRIC_LABEL[challenge.metric]}, {MODE_LABEL[challenge.mode]},{" "}
-          {windowText(challenge.startsOn, challenge.endsOn)}
-        </p>
-      </div>
-      {open && !challenge.joined && (
-        <Button
-          size="sm"
-          variant="accent"
-          onClick={() => onOpen("join")}
-          aria-label={`Join ${challenge.title}`}
-        >
-          Join
-        </Button>
-      )}
-      {challenge.joined && !cancelled && (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => onOpen("board")}
-          aria-label={`Board for ${challenge.title}`}
-        >
-          Board
-        </Button>
-      )}
-      {items.length > 0 && (
-        <RowActions label={`Actions for ${challenge.title}`} items={items} />
-      )}
-    </li>
+        </>
+      }
+    />
   );
 }
