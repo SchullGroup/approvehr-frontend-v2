@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `64765245` (2026-11-06) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `bb814af2` (2026-11-08) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -15,7 +15,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | Group                                                                                              |    Files | Components |   Hooks | Functions |
 | -------------------------------------------------------------------------------------------------- | -------: | ---------: | ------: | --------: |
 | [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       37 |         91 |       6 |        12 |
-| [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       44 |         44 |       1 |        16 |
+| [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       44 |         44 |       1 |        17 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       22 |         49 |       0 |         6 |
 | [Module components — `src/components/*`](#module-components--srccomponents)                        |      149 |        222 |      10 |        40 |
 | [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       70 |          0 |       0 |       248 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        13 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       45 |         50 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1263** |   **1060** | **447** |  **1574** |
+| **Total**                                                                                          | **1263** |   **1060** | **447** |  **1575** |
 
 ---
 
@@ -119,7 +119,7 @@ The shell every signed-in screen sits inside: sidebar, page header, sign-in gate
 | `src/components/portal/load-failure.tsx`        | —                                                  | —           | —                                                                                                                             | —                 |
 | `src/components/portal/load-more.tsx`           | `LoadMore`                                         | —           | —                                                                                                                             | —                 |
 | `src/components/portal/my-clock-card.tsx`       | `MyClockCard`                                      | —           | —                                                                                                                             | —                 |
-| `src/components/portal/nav.tsx`                 | —                                                  | —           | `visibleNav`                                                                                                                  | 3 const · 5 types |
+| `src/components/portal/nav.tsx`                 | —                                                  | —           | `moduleBlock`, `visibleNav`                                                                                                   | 3 const · 5 types |
 | `src/components/portal/not-found-state.tsx`     | `NotFoundState`                                    | —           | —                                                                                                                             | —                 |
 | `src/components/portal/notice-line.tsx`         | `NoticeLine`                                       | —           | —                                                                                                                             | 1 const           |
 | `src/components/portal/password-field.tsx`      | `PasswordField`                                    | —           | —                                                                                                                             | —                 |

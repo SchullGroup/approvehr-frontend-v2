@@ -23,8 +23,8 @@ import type { NavGroup, NavItem } from "./nav";
  * The sidebar used to print every visible item under a heading for each
  * module: forty-odd rows for an HR manager, all at once. Now:
  *
- * - an unheaded group (Home, My approvals, Assistant, Projects) is a run of
- *   plain links at the top;
+ * - an unheaded group (Home, My approvals, Assistant) is a run of plain links
+ *   at the top;
  * - a group with **one** visible item is a plain link too — a panelist's
  *   Recruitment is just "My interviews", with nothing to open;
  * - a group with **several** is one row that opens a level of its own.
@@ -170,8 +170,10 @@ function sectionsOf(
  * The top level, from what `visibleNav` left.
  *
  * Zones are read off the model rather than named in it: no heading is Home's
- * own run; a `billingModule` is a module; a heading with neither is one of the
- * company's (Reports, Settings). A group that has nothing left never reaches
+ * own run; a `billingModule` is a module, and so is a group that says
+ * `zone: "modules"` (Projects, Wellness: in the block, not sold); a heading with
+ * neither is one of the company's (Reports, Settings). A group that has nothing
+ * left never reaches
  * here — `visibleNav` already dropped it — and one that somehow does is
  * skipped rather than drawn as an empty row.
  */
@@ -201,11 +203,9 @@ export function buildSidebar(groups: readonly NavGroup[]): SidebarTree {
     const listed = group.items.filter((item) => item.findOnly !== true);
     const more = group.items.filter((item) => item.findOnly === true);
     const zone =
-      group.zone === "yours"
-        ? yours
-        : group.billingModule !== undefined
-          ? modules
-          : company;
+      group.zone === "modules" || group.billingModule !== undefined
+        ? modules
+        : company;
     const [only] = listed;
     if (listed.length === 1 && more.length === 0 && only) {
       zone.push({
@@ -213,7 +213,9 @@ export function buildSidebar(groups: readonly NavGroup[]): SidebarTree {
         key: `link:${id}/${only.label}`,
         item: only,
         groupId: id,
-        groupLabel: heading,
+        /* A lone door that has its group's own name (Wellness) has no context
+           line to add: Find would say "Wellness" under "Wellness". */
+        groupLabel: only.label === heading ? null : heading,
       });
       return;
     }
@@ -437,7 +439,7 @@ const KEYWORDS: Record<string, string[]> = {
   "projects/Team tasks": ["team", "reports", "their work"],
   "projects/All programs": ["programs", "departments", "teams", "spaces"],
   "projects/Unassigned": ["no program", "loose", "without a program"],
-  "home/Wellness": [
+  "wellness/Wellness": [
     "water",
     "steps",
     "challenge",

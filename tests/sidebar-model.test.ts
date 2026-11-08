@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { NAV, type NavGroup, type NavItem } from "@/components/portal/nav";
+import {
+  NAV,
+  moduleBlock,
+  visibleNav,
+  type NavGroup,
+  type NavItem,
+} from "@/components/portal/nav";
 import {
   KEYWORD_KEYS,
   ROOT,
@@ -51,7 +57,7 @@ describe("the model's own groups", () => {
 
   it("files every company-wide door under Reports or Settings, and none under neither", () => {
     const company = NAV.filter(
-      (g) => g.heading && !g.billingModule && g.zone !== "yours",
+      (g) => g.heading && !g.billingModule && g.zone !== "modules",
     );
     expect(company.map((g) => g.id)).toEqual(["reports", "settings"]);
     expect(company.flatMap((g) => g.items.map((i) => i.href))).toEqual([
@@ -60,6 +66,34 @@ describe("the model's own groups", () => {
       "/settings",
       "/settings/roles",
     ]);
+  });
+
+  it("files Projects and Wellness with the modules, after every module that works and before the company's", () => {
+    expect(NAV.map((group) => group.id)).toEqual([
+      "home",
+      "core-hr",
+      "payroll",
+      "hiring",
+      "time",
+      "performance",
+      "desk",
+      "projects",
+      "wellness",
+      "reports",
+      "settings",
+    ]);
+    for (const id of ["projects", "wellness"]) {
+      const group = NAV.find((g) => g.id === id)!;
+      expect(group.zone, id).toBe("modules");
+      expect(group.billingModule, id).toBeUndefined();
+    }
+  });
+
+  it("keeps Wellness to one door, so it draws as a plain link and Projects as a row that opens", () => {
+    expect(NAV.find((g) => g.id === "wellness")!.items).toHaveLength(1);
+    expect(NAV.find((g) => g.id === "projects")!.items.length).toBeGreaterThan(
+      1,
+    );
   });
 
   it("lists each destination once, so two rows can never light up together", () => {
@@ -144,6 +178,35 @@ describe("buildSidebar", () => {
     expect(tree).toHaveLength(2);
   });
 
+  it("files a group that says zone modules with the modules, though nothing sells it", () => {
+    const tree = buildSidebar([
+      { id: "home", items: [item("Home")] },
+      moduleGroup("a", "A", [item("A1"), item("A2")]),
+      { id: "extra", heading: "Extra", zone: "modules", items: [item("X")] },
+      { id: "settings", heading: "Settings", items: [item("S1"), item("S2")] },
+    ]);
+    expect(tree.map((block) => block.map((e) => e.key))).toEqual([
+      ["link:home/Home"],
+      ["drill:a", "link:extra/X"],
+      ["drill:settings"],
+    ]);
+  });
+
+  it("gives a lone door named like its group no context line for Find to repeat", () => {
+    const [block] = buildSidebar([
+      {
+        id: "wellness",
+        heading: "Wellness",
+        zone: "modules",
+        items: [item("Wellness")],
+      },
+    ]);
+    const entry = block![0]!;
+    expect(entry.kind === "link" && entry.groupLabel).toBeNull();
+    const found = findDestinations([block!], "well");
+    expect(found.map((f) => f.groupLabel)).toEqual([null]);
+  });
+
   it("skips a group with nothing in it rather than drawing an empty row", () => {
     expect(buildSidebar([moduleGroup("a", "A", [])])).toEqual([]);
   });
@@ -222,6 +285,196 @@ describe("sections", () => {
         .map((i) => i.label)
         .sort(),
     ).toEqual([...labels].sort());
+  });
+});
+
+/**
+ * Projects and Wellness are in the modules block, not the personal one at the top.
+ *
+ * Written from the top level as a person sees it: the rows of each block, a row
+ * that opens marked with a plus. Each expectation is typed by hand, so a reorder
+ * in `NAV` shows up as a failing list rather than being read back from itself.
+ */
+describe("Projects and Wellness among the modules", () => {
+  const persona = (name: string) => PERSONAS.find((p) => p.name === name)!;
+  const rowsOf = (groups: NavGroup[]) =>
+    buildSidebar(groups).map((block) =>
+      block.map((e) => (e.kind === "link" ? e.item.label : `${e.label}+`)),
+    );
+  const MODULES_ROWS = [
+    "Core HR+",
+    "Payroll+",
+    "Time & Leave+",
+    "Performance+",
+    "Employee Support+",
+    "Projects+",
+    "Wellness",
+  ];
+
+  it("keeps the first block to Home, My approvals and Assistant, for everybody who has them", () => {
+    for (const who of PERSONAS) {
+      const [first] = rowsOf(groupsFor(who));
+      expect(first, who.name).not.toContain("Projects+");
+      expect(first, who.name).not.toContain("Wellness");
+      expect(
+        first!.every((label) =>
+          ["Home", "My approvals", "Assistant"].includes(label),
+        ),
+        who.name,
+      ).toBe(true);
+    }
+  });
+
+  it("draws a plain employee's top level in one stable order", () => {
+    expect(rowsOf(groupsFor(persona("employee")))).toEqual([
+      ["Home", "My approvals", "Assistant"],
+      MODULES_ROWS,
+    ]);
+  });
+
+  it("draws a line manager's the same way, with Recruitment between Payroll and Time & Leave", () => {
+    expect(rowsOf(groupsFor(persona("line manager")))).toEqual([
+      ["Home", "My approvals", "Assistant"],
+      [
+        "Core HR+",
+        "Payroll+",
+        "Recruitment+",
+        "Time & Leave+",
+        "Performance+",
+        "Employee Support+",
+        "Projects+",
+        "Wellness",
+      ],
+    ]);
+  });
+
+  it("draws HR's with Projects and Wellness after the last module and above Reports and Settings", () => {
+    expect(rowsOf(groupsFor(persona("HR manager")))).toEqual([
+      ["Home", "My approvals", "Assistant"],
+      [
+        "Core HR+",
+        "Payroll+",
+        "Recruitment+",
+        "Time & Leave+",
+        "Performance+",
+        "Employee Support+",
+        "Projects+",
+        "Wellness",
+      ],
+      ["Reports+", "Settings"],
+    ]);
+  });
+
+  it("opens Projects and goes straight to Wellness", () => {
+    const [, block] = buildSidebar(groupsFor(persona("employee")));
+    const kinds = Object.fromEntries(
+      block!.map((e) => [e.kind === "link" ? e.item.label : e.label, e.kind]),
+    );
+    expect(kinds["Projects"]).toBe("drill");
+    expect(kinds["Wellness"]).toBe("link");
+  });
+
+  it("is the same order whoever is looking: Projects, then Wellness, last of the modules", () => {
+    const company = new Set(["Reports+", "Reports", "Settings+", "Settings"]);
+    for (const who of PERSONAS) {
+      const flat = rowsOf(groupsFor(who)).flat();
+      const own: string[] = flat.filter(
+        (l) => l === "Projects+" || l === "Wellness",
+      );
+      /* Projects before Wellness, whichever of the two is there. */
+      expect(own, who.name).toEqual(
+        ["Projects+", "Wellness"].filter((l) => own.includes(l)),
+      );
+      /* Take away the company's rows and they are the last rows left. */
+      const modules = flat.filter((l) => !company.has(l));
+      expect(modules.slice(modules.length - own.length), who.name).toEqual(own);
+    }
+  });
+
+  it("drops Wellness, and nothing else, while the company has it off", () => {
+    const base = persona("employee");
+    const off = groupsFor({ ...base, features: { wellness: false } });
+    const rows = rowsOf(off);
+    expect(rows.flat()).not.toContain("Wellness");
+    expect(rows).toEqual([
+      ["Home", "My approvals", "Assistant"],
+      MODULES_ROWS.filter((label) => label !== "Wellness"),
+    ]);
+    expect(off.some((g) => g.id === "wellness")).toBe(false);
+    expect(
+      destinations(buildSidebar(off)).some((d) => d.item.href === "/wellness"),
+    ).toBe(false);
+  });
+
+  it("drops Projects, and nothing else, while the company has it off", () => {
+    const base = persona("employee");
+    const off = groupsFor({ ...base, features: { projects: false } });
+    const rows = rowsOf(off);
+    expect(rows.flat()).not.toContain("Projects+");
+    expect(rows).toEqual([
+      ["Home", "My approvals", "Assistant"],
+      MODULES_ROWS.filter((label) => label !== "Projects+"),
+    ]);
+    expect(
+      destinations(buildSidebar(off)).some((d) =>
+        d.item.href.startsWith("/projects"),
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves Wellness with no permission to ask for: a person with none sees it when the flag is on", () => {
+    const wellness = NAV.find((g) => g.id === "wellness")!.items[0]!;
+    expect(wellness.always).toBe(true);
+    expect(wellness.permission).toBeUndefined();
+    expect(wellness.feature).toBe("wellness");
+    const none = visibleNav(NAV, new Set(), { wellness: true });
+    expect(none.some((g) => g.id === "wellness")).toBe(true);
+  });
+
+  it("finds Wellness by the words people use for it, with no group line under it", () => {
+    const tree = buildSidebar(groupsFor(persona("employee")));
+    for (const word of ["water", "steps", "kudos", "challenge", "health"]) {
+      const [first] = findDestinations(tree, word);
+      expect(first?.item.href, word).toBe("/wellness");
+      expect(first?.groupLabel, word).toBeNull();
+    }
+  });
+});
+
+describe("moduleBlock", () => {
+  const live = (id: string) => moduleGroup(id, id, [item(`${id} one`)]);
+  const unbuilt = (id: string) =>
+    moduleGroup(id, id, [item(`${id} one`, { soon: true })]);
+  const extra: NavGroup = {
+    id: "x",
+    heading: "X",
+    zone: "modules",
+    items: [item("X")],
+  };
+
+  it("puts the extras after the last module that works and before one that does not", () => {
+    const ids = moduleBlock(
+      [live("a"), unbuilt("desk"), live("b"), unbuilt("hiring"), live("c")],
+      [extra],
+    ).map((g) => g.id);
+    expect(ids).toEqual(["a", "b", "c", "x", "desk", "hiring"]);
+  });
+
+  it("keeps the site's order on both sides", () => {
+    const ids = moduleBlock([live("a"), live("b")], [extra]).map((g) => g.id);
+    expect(ids).toEqual(["a", "b", "x"]);
+  });
+
+  it("does not sink a module with one unbuilt screen among real ones", () => {
+    const mixed = moduleGroup("m", "M", [
+      item("one"),
+      item("two", { soon: true }),
+    ]);
+    expect(moduleBlock([mixed, live("b")], [extra]).map((g) => g.id)).toEqual([
+      "m",
+      "b",
+      "x",
+    ]);
   });
 });
 
