@@ -4,6 +4,27 @@ The mobile app now has the same Wellness features as the web app (recognition, t
 
 I am not counsel. The policy states facts read in code and specs, invents no legal basis, retention period, contact, certification or promise, and no consent wording was touched (the wording is the server's, versioned `2026-10-20.2`, and counsel's).
 
+## Second pass, 9 November 2026
+
+Three things became true after the first pass, and the policy now says them. `updated` is `9 November 2026` and the `statusNote` leads with them. Nothing else in `PRIVACY` moved except the sentences listed here; `terms`, `security`, `dpa` and every consent wording are untouched.
+
+| # | Where in `PRIVACY` | What it now says | Source |
+| --- | --- | --- | --- |
+| a | Kudos (new paragraph, and one clause in the one before) | Anybody who can see a kudos can report it. Reporting hides it from the reporter and sends it to administrators (people who manage company settings): what it says, who gave it, who it was for, when it was sent, who reported it, what the reporter wrote. That includes a private kudos, the only way anybody but its two people can read one. An administrator can remove it (deleted for everybody) or dismiss the report (left as it is, and still hidden from the reporter). The reporter is told this before confirming. | Web: `recognition-screen.tsx` (`ReportDialog`), `kudos-reports.tsx`. Backend branch `fix/wellness-findings-20261109` (`RecognitionReport` in `schema.prisma`, read from the working tree before it was committed): one report per person per kudos, hidden from the reporter whatever is decided, `MANAGE_SETTINGS` only. |
+| b | What we collect: Kudos, What your employer can and cannot see: Kudos and "What administrators can change" | The report (reporter, reason, decision) is a thing we hold. A private kudos is visible to its two people unless somebody who can see it reports it. Administrators can decide what happens to a reported one. | same |
+| c | Whether you opened the app, Challenges, What your employer can and cannot see: App use | The app-use total appears only when at least as many people are counted as the company's privacy floor, never below 3, not a fixed 3. | Backend branch: `engagement/floor.ts` now returns `privacyFloorOf(db)`, which clamps to the hard minimum. This removes the mismatch recorded below in "Statements elsewhere that this makes inaccurate" (the `docs/store/app-privacy.md` row about the floor). |
+| d | The weekly delivery report | HR sees everybody who logged tasks, and the report no longer says how many people in the whole company logged nothing. A line manager's or department head's team still gets that count. | Web `delivery-screen.tsx` and the mobile `DeliveryScreen.tsx` both stopped drawing it for scope `ALL`. The API still sends it. |
+
+### Held back, and why
+
+- **The app-open sentence is unchanged.** It still says the record holds "the time the record was created". The backend branch has a migration that drops that column (`20261109090100_app_open_day_only`) and a schema change, but its findings document (`docs/backend/wellness-findings-20261109.md`) was not on `origin` when this pass finished, so nothing confirmed it had merged or would. When it does, the sentence in `app-open` becomes "The record holds your account and the company's calendar day, and nothing else", and the "what we collect" row needs no change.
+
+### What this changes about the questions for counsel
+
+- **Question 9 (kudos moderation) is no longer hypothetical.** A report route now exists, and by design it puts a private kudos in front of an administrator when somebody who can see it reports it. The policy says so in plain words and the reporter is told in the dialog. Counsel should decide whether that is acceptable for a private kudos, and whether the report record (reporter, reason, decision) needs a stated retention period. The policy states none: no deletion of reports was read in code.
+- **Question 7 and the "Kudos: no report path" finding above are out of date.** There is now a path.
+- Reports are not audited per person on the backend (the audit trail records that one was resolved, not who reported what), per the schema comment. Not verified here, and the policy does not claim it.
+
 ## Where this goes live (read this first)
 
 - Changed: `src/lib/marketing/legal.ts`, the `PRIVACY` block only. `updated` is now `8 November 2026`, and the `statusNote` (rendered by the existing `LegalDocument` aside, no new UI) carries the visible "what changed" line. `terms`, `security` and `dpa` are untouched.

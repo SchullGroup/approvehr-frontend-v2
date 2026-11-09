@@ -73,9 +73,9 @@ const PRIVACY: LegalDoc = {
     "What ApproveHR collects on the web and in the mobile app, why we hold it, who can see it, how long we keep it and the rights you have over it under the Nigeria Data Protection Act 2023.",
   standfirst:
     "We hold payroll and employment records, which is about the most sensitive data a company keeps. This page says plainly what we do with it. Where the law gives you a right, we have written down how to use it rather than telling you to contact us and hoping you do not.",
-  updated: "8 November 2026",
+  updated: "9 November 2026",
   statusNote:
-    "What changed on 8 November 2026: this page now covers the ApproveHR mobile app, your location when you clock in, the optional Wellness features (water and steps, break reminders, challenges and kudos), the weekly delivery report, the app-open mark and notifications. For each it says what is stored and who can and cannot see it.",
+    "What changed on 9 November 2026: you can now report a kudos, and the Kudos section says what happens when you do; and the app-use figures follow your company's own privacy floor, which is never below 3. What changed on 8 November 2026: this page now covers the ApproveHR mobile app, your location when you clock in, the optional Wellness features (water and steps, break reminders, challenges and kudos), the weekly delivery report, the app-open mark and notifications. For each it says what is stored and who can and cannot see it.",
   sections: [
     {
       id: "who-we-are",
@@ -123,7 +123,7 @@ const PRIVACY: LegalDoc = {
         {
           term: "Kudos",
           detail:
-            "The thanks you send or receive: who it is from and to, the message, whether it is shared with the company or private, and the date.",
+            "The thanks you send or receive: who it is from and to, the message, whether it is shared with the company or private, and the date. If somebody reports a kudos: who reported it, what they wrote if they wrote anything, and what was decided.",
         },
         {
           term: "App-open mark",
@@ -230,7 +230,7 @@ const PRIVACY: LegalDoc = {
         "A challenge is a set of dates in which the people who join add up water or steps. Your company's administrators create them. Joining is your choice, needs tracking to be on, and happens on a screen that shows the exact words you agree to, including who will see what and which privacy floor applies. Only entries from the day you join count. You can leave at any time and you drop off every board at once. Stopping tracking takes you out of every challenge.",
         "In an individual challenge, everybody who has joined sees a board with the names and totals of everybody who has joined, and that includes your manager or HR if they choose to join too. In a team challenge you choose one team when you join, even if you belong to only one. Participants see the teams, with how many people took part and each team's total and average, and no other person's figure: you see your own. A team below the floor is not listed, except that you are shown your own team, marked as held back, with the reason. A team where too few people have logged anything is also held back, with no figure.",
         "The total on a board runs from the day you joined, and it counts your entries whichever way they arrived, typed or sent from your phone.",
-        "The privacy floor is the smallest number of people a figure may be made from. It is at least 3, your company can set it higher (up to 50), and each person is told the floor when they join. Results for a challenge use the highest floor anyone in it joined under, so lowering the setting later cannot expose somebody who agreed to a larger group.",
+        "The privacy floor is the smallest number of people a figure may be made from. It is at least 3, your company can set it higher (up to 50), and each person is told the floor when they join. Results for a challenge use the highest floor anyone in it joined under, so lowering the setting later cannot expose somebody who agreed to a larger group. The same floor, as your company has set it, applies to the app-use total described under Whether you opened the app.",
         "The floor is a safeguard for small groups, not a guarantee. In a very small team, a change in the team's result can let a teammate guess a figure, and the join screen for a team challenge says so.",
       ],
     },
@@ -238,8 +238,9 @@ const PRIVACY: LegalDoc = {
       id: "kudos",
       heading: "Kudos",
       body: [
-        "Kudos is a short message of thanks, up to 500 characters, to a colleague who still works at your company. Each time, you choose whether it is shared with the company or private. A shared kudos goes on the company feed, where everybody signed in at your company can read the message, who it is from and to, and the date. A private kudos can be read only by the person who sent it and the person who received it: not by an administrator, not by HR, and not by our staff, whose admin console hides it.",
+        "Kudos is a short message of thanks, up to 500 characters, to a colleague who still works at your company. Each time, you choose whether it is shared with the company or private. A shared kudos goes on the company feed, where everybody signed in at your company can read the message, who it is from and to, and the date. A private kudos can be read only by the person who sent it and the person who received it, unless one of them reports it (see below): not by an administrator, not by HR, and not by our staff, whose admin console hides it.",
         "The person who sent a kudos can delete it, shared or private. An administrator can take down a shared one. Deleting one removes it for both people and removes the notification that carried it. A kudos you receive appears in your notifications under the sender's name, and a private one never shows its message there.",
+        "Anybody who can see a kudos can report it. Reporting hides that kudos from the person who reported it, and sends it to your company's administrators, meaning the people who hold the permission to manage company settings. They see what the kudos says, who gave it, who it was for, when it was sent, who reported it, and what the reporter wrote if they chose to write anything. That includes a private kudos: it is the one way anybody other than its two people can read one, and it happens only when somebody who can see it chooses to report it. The person reporting is told this before they confirm. An administrator can then remove the kudos, which deletes it for everybody, or dismiss the report, which leaves the kudos as it is and closes the report. Either way it stays hidden from the person who reported it.",
         "To find a colleague to thank, the app sends what you type to our server, which searches your company's directory. The app does not read your phone's contacts. There is no points system and no leaderboard, and kudos does not depend on the wellness consents.",
       ],
     },
@@ -248,7 +249,7 @@ const PRIVACY: LegalDoc = {
       heading: "The weekly delivery report",
       body: [
         "Each week, ApproveHR can show how many tasks people logged against their objectives and how those tasks were graded (done, partly done, not done or rejected), with a delivery rate. It is built from the tasks people already log. It is work data, not wellness data, so it does not ask for the wellness consents. It is shown only where your company has Wellness switched on.",
-        "Everyone sees their own week. A line manager also sees the names of their direct reports with the same figures, and the head of a department sees the people in it. Anyone who can edit employee records, which in practice means HR, sees everybody in the company, with a count of how many people logged nothing that week. People are listed by name, not ranked.",
+        "Everyone sees their own week. A line manager also sees the names of their direct reports with the same figures, and the head of a department sees the people in it, and for that team the report also says how many people logged nothing that week. Anyone who can edit employee records, which in practice means HR, sees everybody in the company who logged tasks. It does not say how many people in the whole company logged nothing. People are listed by name, not ranked.",
         "A manager or HR could already read the same tasks one at a time. The report is a summary of that access and adds no new access.",
       ],
     },
@@ -257,7 +258,7 @@ const PRIVACY: LegalDoc = {
       heading: "Whether you opened the app",
       body: [
         "If your company has switched on app-use measurement, which is off until it does, ApproveHR records once per person per day that your account opened ApproveHR that day, on the web or in the app. The record holds your account, the company's calendar day and the time the record was created. It holds no device, no screen, nothing you did and no count of opens. The app reports each time it comes back to the front and the web reports once a day, and a second open on the same day changes nothing.",
-        "It exists so that your company can see how many of its people use ApproveHR each week. The only thing an administrator can read is a company-wide total: the share of people who opened it in a week, the share who opened it on three or more days, and the typical number of days. It appears only when at least 3 people are counted, it carries no names and no cut by team or department, and no screen lists a person's days. Apple's App Store rules would call a count like this analytics, so we call it that too.",
+        "It exists so that your company can see how many of its people use ApproveHR each week. The only thing an administrator can read is a company-wide total: the share of people who opened it in a week, the share who opened it on three or more days, and the typical number of days. It appears only when at least as many people are counted as your company's privacy floor, which is never below 3, it carries no names and no cut by team or department, and no screen lists a person's days. Apple's App Store rules would call a count like this analytics, so we call it that too.",
       ],
     },
     {
@@ -285,7 +286,7 @@ const PRIVACY: LegalDoc = {
         {
           term: "App use",
           detail:
-            "Administrators see a company-wide total only, never a person's days. See Whether you opened the app.",
+            "Administrators see a company-wide total only, never a person's days, and only once at least the floor have been counted. See Whether you opened the app.",
         },
         {
           term: "The weekly delivery report",
@@ -295,7 +296,7 @@ const PRIVACY: LegalDoc = {
         {
           term: "Kudos",
           detail:
-            "A shared kudos is on the company feed for everyone at your company, and an administrator can take it down. A private kudos is visible to its two people and nobody else.",
+            "A shared kudos is on the company feed for everyone at your company, and an administrator can take it down. A private kudos is visible to its two people and nobody else, unless somebody who can see it reports it. Then administrators who manage company settings can read it, who it is from and to, and who reported it. See Kudos.",
         },
         {
           term: "Where you clocked in",
@@ -304,7 +305,7 @@ const PRIVACY: LegalDoc = {
         {
           term: "What administrators can change",
           detail:
-            "They can switch Wellness and app-use measurement on or off, set the floor, create and cancel challenges, set the company's reminder defaults and take down a shared kudos. Those changes are recorded in the audit trail. Who joined or tracked anything is never recorded there. By administrators we mean people who hold the permission to manage company settings, which the HR manager role and the owner have by default.",
+            "They can switch Wellness and app-use measurement on or off, set the floor, create and cancel challenges, set the company's reminder defaults, take down a shared kudos and decide what happens to a reported one. Those changes are recorded in the audit trail. Who joined or tracked anything is never recorded there. By administrators we mean people who hold the permission to manage company settings, which the HR manager role and the owner have by default.",
         },
       ],
     },
