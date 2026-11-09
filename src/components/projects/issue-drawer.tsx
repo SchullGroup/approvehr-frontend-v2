@@ -23,7 +23,6 @@ import {
   storiesOf,
 } from "@/lib/projects/mutations";
 import { canDeleteComment } from "@/lib/projects/access";
-import { weeklyTaskLine } from "@/lib/projects/objectives";
 import { byRank } from "@/lib/projects/rank";
 import { countProgress } from "@/lib/projects/progress";
 import {
@@ -324,10 +323,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     }),
     [thread.watchers, thread.watching],
   );
-
-  /* Said only when the API says it: nothing for an epic, a sub-task, an
-     unassigned or unfinished issue, and nothing at all in the demo. */
-  const bridgeNote = weeklyTaskLine(issue.weeklyTask);
 
   return (
     <div className="space-y-5">
@@ -779,10 +774,13 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 </Button>
               </div>
             )}
-          <IssueObjectiveLink issue={issue} />
-          {bridgeNote && (
-            <p className="text-meta leading-snug text-muted">{bridgeNote}</p>
-          )}
+          <IssueObjectiveLink
+            issue={
+              thread.canLinkObjective === undefined
+                ? issue
+                : { ...issue, canLinkObjective: thread.canLinkObjective }
+            }
+          />
 
           {!personal && (
             <Row label="Reporter">

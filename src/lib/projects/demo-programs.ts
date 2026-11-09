@@ -53,6 +53,16 @@ type Task = {
   priority?: Priority;
   /** For a finished task: how many days ago it was finished. */
   doneAgo?: number;
+  /**
+   * For a finished task from an earlier review period: the day it was finished,
+   * as a date. Used where the demo's review periods are fixed dates and the
+   * book's other dates are offsets from today.
+   */
+  doneOn?: string;
+  /** A due date as a date, for the same reason as `doneOn`. */
+  dueOn?: string;
+  /** The objective it is linked to, and the measure inside it. Optional. */
+  goal?: readonly [goalId: string, keyResultId?: string];
 };
 
 type Stage = [name: string, category: StatusCategory, limit?: number];
@@ -118,7 +128,9 @@ function project(args: {
         statusId: status.id,
         priority: task.priority ?? "MEDIUM",
         assigneeIds: who,
-        dueDate: task.due === null ? null : addDays(args.today, task.due),
+        dueDate:
+          task.dueOn ??
+          (task.due === null ? null : addDays(args.today, task.due)),
       },
       {
         id: `${args.id}-t${index + 1}`,
@@ -128,10 +140,14 @@ function project(args: {
       },
     );
     const finished = status.category === "DONE";
-    const doneDay = addDays(args.today, -(task.doneAgo ?? 1));
-    const created = `${addDays(args.today, -(12 + index))}T10:00:00.000Z`;
+    const doneDay = task.doneOn ?? addDays(args.today, -(task.doneAgo ?? 1));
+    const created = task.doneOn
+      ? `${addDays(task.doneOn, -6)}T10:00:00.000Z`
+      : `${addDays(args.today, -(12 + index))}T10:00:00.000Z`;
     const placed: Issue = {
       ...issue,
+      goalId: task.goal?.[0] ?? null,
+      keyResultId: task.goal?.[1] ?? null,
       rank: index + 1,
       createdAt: created,
       doneAt: finished ? `${doneDay}T14:00:00.000Z` : null,
@@ -259,6 +275,30 @@ export function buildProgramSample(args: {
         who: [r.contentMember],
         doneAgo: 8,
       },
+      /* Earlier in the year, inside the first review period. */
+      {
+        title: "Case study: the payroll clinic",
+        stage: 4,
+        due: null,
+        who: [r.contentMember],
+        doneOn: "2026-02-25",
+        dueOn: "2026-02-27",
+      },
+      {
+        title: "Brand guidelines refresh",
+        stage: 4,
+        due: null,
+        who: [r.contentMember],
+        doneOn: "2026-04-09",
+        dueOn: "2026-04-09",
+      },
+      {
+        title: "Plan the first-half content calendar",
+        stage: 4,
+        due: null,
+        who: [r.operationsLead],
+        doneOn: "2026-01-14",
+      },
     ],
   });
   const onboarding = project({
@@ -316,6 +356,59 @@ export function buildProgramSample(args: {
         due: -8,
         who: ["p-06"],
         doneAgo: 6,
+        goal: ["demo-goal-mine-offers", "demo-kr-offers"],
+      },
+      /* The first review period (January to June). */
+      {
+        title: "Shortlist for the Lagos engineering roles",
+        stage: 2,
+        due: null,
+        who: ["p-06"],
+        doneOn: "2026-02-10",
+        dueOn: "2026-02-12",
+        goal: ["demo-goal-mine-offers", "demo-kr-offers"],
+      },
+      {
+        title: "Run the first-interview scheduling pilot",
+        stage: 2,
+        due: null,
+        who: ["p-06"],
+        doneOn: "2026-04-14",
+        dueOn: "2026-04-10",
+        goal: ["demo-goal-mine-speed"],
+      },
+      {
+        title: "Weekly pipeline report",
+        stage: 2,
+        due: null,
+        who: ["p-06"],
+        doneOn: "2026-05-29",
+      },
+      /* The earlier period (July to December 2025), whose objective has closed. */
+      {
+        title: "Outline the hiring handbook",
+        stage: 2,
+        due: null,
+        who: ["p-06"],
+        doneOn: "2025-09-15",
+        dueOn: "2025-09-19",
+        goal: ["demo-goal-mine-handbook", "demo-kr-handbook"],
+      },
+      {
+        title: "Publish handbook sections 4 to 6",
+        stage: 2,
+        due: null,
+        who: ["p-06"],
+        doneOn: "2025-11-20",
+        dueOn: "2025-11-21",
+        goal: ["demo-goal-mine-handbook"],
+      },
+      {
+        title: "Update the interview scorecards",
+        stage: 2,
+        due: null,
+        who: ["p-06"],
+        doneOn: "2025-10-30",
       },
     ],
   });
@@ -371,6 +464,82 @@ export function buildProgramSample(args: {
         due: -10,
         who: [r.technologyLead],
         doneAgo: 7,
+        goal: ["demo-goal-dept-eng"],
+      },
+      {
+        title: "Fix the clock-in crash on older phones",
+        stage: 3,
+        due: -1,
+        who: ["p-03"],
+        doneAgo: 1,
+        goal: ["demo-goal-chidi-errors", "demo-kr-offline"],
+      },
+      {
+        title: "Receipt upload for expenses",
+        stage: 3,
+        due: -12,
+        who: ["p-03"],
+        doneAgo: 9,
+      },
+      /* The first review period (January to June). */
+      {
+        title: "Offline payslip viewing, first cut",
+        stage: 3,
+        due: null,
+        who: ["p-03"],
+        doneOn: "2026-02-12",
+        dueOn: "2026-02-14",
+        goal: ["demo-goal-chidi-errors", "demo-kr-offline"],
+      },
+      {
+        title: "Retry failed card payments with a clear message",
+        stage: 3,
+        due: null,
+        who: ["p-03"],
+        doneOn: "2026-03-05",
+        dueOn: "2026-03-01",
+        goal: ["demo-goal-chidi-errors", "demo-kr-errors"],
+      },
+      {
+        title: "Fix duplicate push notifications",
+        stage: 3,
+        due: null,
+        who: ["p-03"],
+        doneOn: "2026-04-18",
+        dueOn: "2026-04-20",
+        goal: ["demo-goal-dept-eng"],
+      },
+      {
+        title: "Move app builds to the new pipeline",
+        stage: 3,
+        due: null,
+        who: ["p-03"],
+        doneOn: "2026-05-22",
+      },
+      {
+        title: "Crash reporting for the app",
+        stage: 3,
+        due: null,
+        who: ["p-03"],
+        doneOn: "2026-06-10",
+        dueOn: "2026-06-12",
+      },
+      {
+        title: "Plan the multi-entity payroll rollout",
+        stage: 3,
+        due: null,
+        who: [r.technologyLead],
+        doneOn: "2026-03-20",
+        dueOn: "2026-03-20",
+        goal: ["demo-goal-eng"],
+      },
+      {
+        title: "Review the SMS provider contract",
+        stage: 3,
+        due: null,
+        who: [r.technologyLead],
+        doneOn: "2026-05-06",
+        goal: ["demo-goal-company"],
       },
     ],
   });
@@ -414,9 +583,24 @@ export function buildProgramSample(args: {
     ],
   });
 
+  /* A few of the finished checkout tasks are linked to an objective and most are
+     not, which is the ordinary state of a board. */
+  const links: Record<string, readonly [string, string?]> = {
+    "is-chk-i1": ["demo-goal-dept-eng"],
+    "is-chk-i2": ["demo-goal-chidi-errors", "demo-kr-errors"],
+    "is-chk-i7": ["demo-goal-chidi-errors"],
+    "is-chk-i3": ["demo-goal-emeka-checkout"],
+    "is-chk-i5": ["demo-goal-emeka-checkout", "demo-kr-steps"],
+    "is-chk-i9": ["demo-goal-ngozi-cart"],
+  };
   const checkout: ProjectData = {
     project: { ...args.sample.project, programId: TECHNOLOGY_ID },
-    issues: args.sample.issues,
+    issues: args.sample.issues.map((issue) => {
+      const link = links[issue.id];
+      return link
+        ? { ...issue, goalId: link[0], keyResultId: link[1] ?? null }
+        : issue;
+    }),
     sprints: args.sample.sprints,
   };
 

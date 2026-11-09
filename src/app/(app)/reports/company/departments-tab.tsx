@@ -28,6 +28,7 @@ import {
 import { DepartmentPanel } from "./department-panel";
 import {
   DASH,
+  finishedWorkLine,
   gapSentence,
   koboOrDash,
   likelyRange,
@@ -392,8 +393,13 @@ function DepartmentTable({
   /** Absent on paper: names are then plain text and the rows do nothing. */
   onOpen?: (id: string) => void;
 }) {
+  /* Project work finished in the cycle: a column only where there is something
+     true to put in it, which a cycle with no dates does not have. */
+  const hasWork = rows.some(
+    (row) => row.shown && finishedWorkLine(row.results) !== null,
+  );
   const columns = {
-    results: hasCost ? 7 : 6,
+    results: 6 + (hasCost ? 1 : 0) + (hasWork ? 1 : 0),
     process: 6,
     fairness: 4,
   }[lens];
@@ -410,6 +416,7 @@ function DepartmentTable({
                 <TH>Marks</TH>
                 <TH align="right">Goal progress</TH>
                 <TH align="right">Weekly tasks</TH>
+                {hasWork && <TH align="right">Project work</TH>}
                 {hasCost && <TH align="right">Gross pay per head</TH>}
               </>
             )}
@@ -450,7 +457,12 @@ function DepartmentTable({
                   <span className="tabular">{row.people}</span>
                 </TD>
                 {row.shown ? (
-                  <ShownCells row={row} lens={lens} hasCost={hasCost} />
+                  <ShownCells
+                    row={row}
+                    lens={lens}
+                    hasCost={hasCost}
+                    hasWork={hasWork}
+                  />
                 ) : (
                   <TD colSpan={columns - 2}>
                     <span className="text-meta text-muted">
@@ -501,13 +513,16 @@ function ShownCells({
   row,
   lens,
   hasCost,
+  hasWork,
 }: {
   row: ShownDepartment;
   lens: Lens;
   hasCost: boolean;
+  hasWork: boolean;
 }) {
   if (lens === "results") {
     const { results } = row;
+    const work = finishedWorkLine(results);
     const objectives = results.goals.objectives;
     return (
       <>
@@ -545,6 +560,14 @@ function ShownCells({
             {plural(results.tasks.withGraded, "has", "have")} one graded
           </span>
         </TD>
+        {hasWork && (
+          <TD align="right">
+            <span className="tabular text-ink">{work ? work.who : DASH}</span>
+            {work && (
+              <span className="block text-meta text-muted">{work.total}</span>
+            )}
+          </TD>
+        )}
         {hasCost && (
           <TD align="right">
             <span className="tabular text-ink">

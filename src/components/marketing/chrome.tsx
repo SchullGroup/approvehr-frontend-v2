@@ -290,6 +290,7 @@ const FOOTER_LINKS: { heading: string; links: [string, string][] }[] = [
       ["/pricing", "Pricing"],
       ["/paye-calculator", "PAYE calculator"],
       ["/demo", "Book a demo"],
+      ["/support", "Support"],
       ...appNavLinks().filter(([, label]) => label === "Live demo"),
       ...internalNavLinks(),
     ],

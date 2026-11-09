@@ -1,13 +1,16 @@
 "use client";
 
-import { HeartPulse, Lock } from "lucide-react";
 import {
-  ButtonLink,
-  Card,
-  EmptyState,
-  LinkTabs,
-  LoadState,
-} from "@/components/ui";
+  BellRing,
+  ClipboardCheck,
+  Heart,
+  Lock,
+  SlidersHorizontal,
+  Sun,
+  Trophy,
+} from "lucide-react";
+import { ButtonLink, Card, EmptyState, LoadState } from "@/components/ui";
+import { PillNav, WellnessArt } from "@/components/wellness";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
@@ -18,12 +21,19 @@ import { YourDataMenu } from "./your-data";
  * The frame every Wellness page sits in: the heading, the tabs, and what to say
  * when there is nothing to show yet.
  *
- * ## Four routes, because one of them is fixed by the API
+ * ## A route a tab, because one of them is fixed by the API
  *
  * A thank-you notification carries `/wellness/recognition` as its link, so that
  * path has to exist and open on kudos. Making the other tabs routes too keeps
  * the back button and a shared link honest, and the sidebar keeps one row for
  * all of them.
+ *
+ * ## Delivery is not wellness data
+ *
+ * The weekly delivery report is the performance module's weekly tasks, grouped
+ * by week. It is a tab here only because the API puts it behind the same company
+ * switch, so it is present and absent with the others. It is for everybody (your
+ * own week), and shows a team only when the API sent one.
  *
  * ## The module being off is a state, not a failure
  *
@@ -40,10 +50,11 @@ import { YourDataMenu } from "./your-data";
  */
 
 const BASE_TABS = [
-  { href: "/wellness", label: "Overview" },
-  { href: "/wellness/challenges", label: "Challenges" },
-  { href: "/wellness/reminders", label: "Reminders" },
-  { href: "/wellness/recognition", label: "Recognition" },
+  { href: "/wellness", label: "Overview", icon: <Sun /> },
+  { href: "/wellness/challenges", label: "Challenges", icon: <Trophy /> },
+  { href: "/wellness/reminders", label: "Reminders", icon: <BellRing /> },
+  { href: "/wellness/recognition", label: "Recognition", icon: <Heart /> },
+  { href: "/wellness/delivery", label: "Delivery", icon: <ClipboardCheck /> },
 ];
 
 export function WellnessShell({
@@ -59,13 +70,21 @@ export function WellnessShell({
   const canManage = useCan("MANAGE_SETTINGS");
 
   const tabs = (
-    <LinkTabs
+    <PillNav
       items={
         canManage
-          ? [...BASE_TABS, { href: "/wellness/settings", label: "Settings" }]
+          ? [
+              ...BASE_TABS,
+              {
+                href: "/wellness/settings",
+                label: "Settings",
+                icon: <SlidersHorizontal />,
+              },
+            ]
           : BASE_TABS
       }
       activeHref={active}
+      className="pb-3"
     />
   );
 
@@ -76,7 +95,7 @@ export function WellnessShell({
         {!available ? (
           <Card>
             <EmptyState
-              icon={<HeartPulse aria-hidden="true" />}
+              art={<WellnessArt name="drop" mood="sleepy" size={96} />}
               title="Wellness needs the API"
               description="There is no demo version. What you log is private to you, and only the server can make that true."
             />
@@ -101,7 +120,7 @@ function ModuleOff({ canManage }: { canManage: boolean }) {
   return (
     <Card>
       <EmptyState
-        icon={<HeartPulse aria-hidden="true" />}
+        art={<WellnessArt name="avocado" mood="sleepy" size={104} />}
         title="Wellness is switched off"
         description={
           canManage

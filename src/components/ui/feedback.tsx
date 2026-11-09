@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 
 export function EmptyState({
   icon,
+  art,
   title,
   description,
   action,
@@ -12,6 +13,11 @@ export function EmptyState({
   compact = false,
 }: {
   icon?: React.ReactNode;
+  /**
+   * A drawing in place of the grey icon circle, at the size it should be drawn
+   * (Wellness's mascots). Decorative: the title and description say it all.
+   */
+  art?: React.ReactNode;
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -26,7 +32,12 @@ export function EmptyState({
         className,
       )}
     >
-      {icon && (
+      {art && (
+        <div aria-hidden="true" className="mb-3">
+          {art}
+        </div>
+      )}
+      {!art && icon && (
         <span
           aria-hidden="true"
           className="mb-5 flex size-16 items-center justify-center rounded-full bg-sunken text-faint [&>svg]:size-7"

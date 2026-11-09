@@ -70,6 +70,19 @@ vi.mock("@/lib/store/session", async (original) => {
   };
 });
 
+/* Objectives are not what this file is about: a company with none to offer. */
+vi.mock("@/lib/store/performance", () => ({
+  useDemoObjectives: () => [],
+  useKpis: () => ({
+    goals: [],
+    cascade: [],
+    loading: false,
+    error: null,
+    source: "api",
+    reload: vi.fn(),
+  }),
+}));
+
 const { IssueDrawer } = await import("@/components/projects/issue-drawer");
 
 function renderDrawer(

@@ -12,12 +12,12 @@ import {
   type ProjectData,
 } from "@/lib/projects/types";
 import { contextFor, fakeActions, sampleData } from "./projects-fixture";
+import { closedLink, linkedTo } from "./support/objective-fixtures";
 
 /**
  * The issue drawer: every field it offers, and the call each one makes.
  *
- * The store hooks are stubbed — the thread (comments, history, the bridge's
- * note) is handed in directly — so what is proved is the drawer's own behaviour:
+ * The store hooks are stubbed — the thread (comments, history) is handed in directly — so what is proved is the drawer's own behaviour:
  * it saves as you go, it counts what a delete takes with it, Escape closes a
  * dropdown before it closes the panel, and a comment's @mention is stored as an
  * id.
@@ -51,6 +51,19 @@ const actor = vi.hoisted(() => ({
 
 vi.mock("@/lib/store/project-session", () => ({
   useProjectActor: () => actor,
+}));
+
+/* Objectives are not what this file is about: a company with none to offer. */
+vi.mock("@/lib/store/performance", () => ({
+  useDemoObjectives: () => [],
+  useKpis: () => ({
+    goals: [],
+    cascade: [],
+    loading: false,
+    error: null,
+    source: "api",
+    reload: vi.fn(),
+  }),
 }));
 
 const { IssueDrawer } = await import("@/components/projects/issue-drawer");
@@ -689,63 +702,64 @@ describe("links and history", () => {
   });
 });
 
-describe("the weekly-task note", () => {
-  const withWeekly = (
-    key: string,
-    weeklyTask: Issue["weeklyTask"],
-  ): ProjectData => {
+describe("the objective line", () => {
+  const linked = (key: string, extra: Partial<Issue>): ProjectData => {
     const data = sampleData();
     return {
       ...data,
-      issues: data.issues.map((i) =>
-        i.key === key ? { ...i, weeklyTask } : i,
-      ),
+      issues: data.issues.map((i) => (i.key === key ? { ...i, ...extra } : i)),
     };
   };
 
-  it("says nothing when the API has nothing to say, which is always so in the demo", () => {
+  it("says nothing at all about a task that is not linked", () => {
     renderDrawer("CHK-13");
-    expect(screen.queryByText(/weekly task/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/^Linked (to|objective)/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/not counted|weekly task/i),
+    ).not.toBeInTheDocument();
   });
 
-  it("says it in one plain line when the API says the issue is not counted", () => {
-    const message =
-      "Not counted toward a weekly task, link this issue or the project to an objective.";
+  it("never mentions a weekly task, whatever the old API sent", () => {
     renderDrawer(
       "CHK-13",
       {},
-      withWeekly("CHK-13", {
-        state: "NOT_COUNTED",
-        reason: "NO_OBJECTIVE",
-        message,
-      }),
+      linked("CHK-13", {
+        weeklyTask: {
+          state: "NOT_COUNTED",
+          reason: "NO_OBJECTIVE",
+          message: "Not counted toward a weekly task",
+        },
+      } as unknown as Partial<Issue>),
     );
-    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.queryByText(/weekly task/i)).not.toBeInTheDocument();
   });
 
-  it("shows the API's sentence as it is, whatever the reason", () => {
+  it("reads one neutral line when the task is linked", () => {
     renderDrawer(
       "CHK-13",
       {},
-      withWeekly("CHK-13", {
-        state: "NOT_COUNTED",
-        reason: "WEEK_CLOSED",
-        message:
-          "Not counted toward a weekly task, it was finished in a week that has closed.",
+      linked("CHK-13", {
+        goalId: "g1",
+        objective: linkedTo("Cut support tickets"),
       }),
     );
     expect(
-      screen.getByText(/finished in a week that has closed/),
+      screen.getByText("Linked to Cut support tickets"),
     ).toBeInTheDocument();
   });
 
-  it("says a task was filed, and whether it has been graded", () => {
+  it("says the objective is closed in plain words when it has", () => {
     renderDrawer(
       "CHK-13",
       {},
-      withWeekly("CHK-13", { state: "FILED", taskId: "t1", graded: false }),
+      linked("CHK-13", {
+        goalId: "g1",
+        objective: closedLink("Cut support tickets"),
+      }),
     );
-    expect(screen.getByText("Filed as a weekly task")).toBeInTheDocument();
+    expect(screen.getByText("Linked objective is closed")).toBeInTheDocument();
   });
 });
 

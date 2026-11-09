@@ -65,6 +65,23 @@ vi.mock("@/lib/store/project-session", () => ({
 }));
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
+  useSession: () => ({ isConnected: true }),
+}));
+/* The demo's answers are not what this file is about. */
+vi.mock("@/lib/store/completions", () => ({
+  useDemoTeamOpen: () => null,
+  useTeamCompleted: () => ({
+    people: [],
+    total: 0,
+    loading: false,
+    error: null,
+    hasMore: false,
+    loadingMore: false,
+    moreError: null,
+    loadMore: vi.fn(),
+    reload: vi.fn(),
+  }),
+  useBulkLink: () => vi.fn(),
 }));
 
 const { TeamTasksScreen } =
