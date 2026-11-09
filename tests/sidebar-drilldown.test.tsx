@@ -126,14 +126,14 @@ describe("the top level", () => {
       "Home",
       "My approvals",
       "Assistant",
-      "Wellness",
-      "Projects",
       "Core HR",
       "Payroll",
       "Recruitment",
       "Time & Leave",
       "Performance",
       "Employee Support",
+      "Projects",
+      "Wellness",
       "Reports",
       "Settings",
     ]);
@@ -145,13 +145,13 @@ describe("the top level", () => {
       nav().querySelectorAll("button[data-nav-row]"),
     ).map((b) => b.querySelector("[data-nav-label]")?.textContent);
     expect(buttons).toEqual([
-      "Projects",
       "Core HR",
       "Payroll",
       "Recruitment",
       "Time & Leave",
       "Performance",
       "Employee Support",
+      "Projects",
       "Reports",
       "Settings",
     ]);
@@ -192,6 +192,96 @@ describe("the top level", () => {
     expect(blocks).toHaveLength(3);
     expect(blocks[1]!.className).toContain("border-t");
     expect(blocks[0]!.className).not.toContain("border-t");
+  });
+
+  it("keeps Projects and Wellness out of the first block and in the modules', after the last module", () => {
+    setup(admin);
+    const [yours, modules, company] = Array.from(
+      nav().querySelectorAll(":scope > div > div"),
+    ).map((block) =>
+      Array.from(block.querySelectorAll("[data-nav-label]")).map(
+        (n) => n.textContent,
+      ),
+    );
+    expect(yours).toEqual(["Home", "My approvals", "Assistant"]);
+    expect(modules).toEqual([
+      "Core HR",
+      "Payroll",
+      "Recruitment",
+      "Time & Leave",
+      "Performance",
+      "Employee Support",
+      "Projects",
+      "Wellness",
+    ]);
+    expect(company).toEqual(["Reports", "Settings"]);
+  });
+
+  it("opens Projects with a chevron and makes Wellness a plain link, side by side", () => {
+    setup(admin);
+    expect(row("projects")).not.toBeNull();
+    expect(
+      row("projects")!.querySelector("svg.lucide-chevron-right"),
+    ).not.toBeNull();
+    expect(row("wellness")).toBeNull();
+    const link = screen.getByRole("link", { name: "Wellness" });
+    expect(link).toHaveAttribute("href", "/wellness");
+    expect(link.querySelector("svg.lucide-chevron-right")).toBeNull();
+    /* Wellness follows Projects directly, in the same list. */
+    expect(row("projects")!.closest("li")!.nextElementSibling).toBe(
+      link.closest("li"),
+    );
+  });
+
+  it.each([
+    ["employee", employee],
+    ["line manager", persona("line manager")],
+    ["HR manager", hr],
+  ])(
+    "draws %s's Projects and Wellness after the module rows, in that order",
+    (_name, who) => {
+      setup(who);
+      const all = labels();
+      const modules = all.slice(
+        all.indexOf("Core HR"),
+        all.includes("Reports") ? all.indexOf("Reports") : undefined,
+      );
+      expect(modules.slice(-2)).toEqual(["Projects", "Wellness"]);
+      expect(modules.slice(0, -2)).toEqual(
+        modules
+          .slice(0, -2)
+          .filter((l) => l !== "Projects" && l !== "Wellness"),
+      );
+      expect(all.slice(0, all.indexOf("Core HR"))).toEqual([
+        "Home",
+        "My approvals",
+        "Assistant",
+      ]);
+    },
+  );
+
+  it("lists the same rows in the phone's menu as on the desktop", () => {
+    const { unmount } = setup(admin);
+    const desktop = labels();
+    unmount();
+    setup(admin, { variant: "drawer" });
+    expect(labels()).toEqual(desktop);
+    expect(row("projects")).not.toBeNull();
+  });
+
+  it("is absent, not disabled, when the company has Wellness or Projects off", () => {
+    const base = persona("employee");
+    const noWellness = groupsFor({ ...base, features: { wellness: false } });
+    const { unmount } = setup(base, { groups: noWellness });
+    expect(labels()).not.toContain("Wellness");
+    expect(screen.queryByRole("link", { name: "Wellness" })).toBeNull();
+    expect(labels()).toContain("Projects");
+    unmount();
+    const noProjects = groupsFor({ ...base, features: { projects: false } });
+    setup(base, { groups: noProjects });
+    expect(labels()).not.toContain("Projects");
+    expect(row("projects")).toBeNull();
+    expect(labels()).toContain("Wellness");
   });
 
   it("is a labelled navigation landmark with Find in its own search landmark", () => {
@@ -263,6 +353,20 @@ describe("drilling in and back", () => {
     expect(row("performance")).toHaveFocus();
   });
 
+  it("goes back from Projects onto the Projects row, with Wellness still below it", async () => {
+    const { user } = setup(admin);
+    await user.click(row("projects"));
+    expect(heading()).toBe("Projects");
+    expect(labels()).toContain("My tasks");
+    expect(screen.queryByRole("link", { name: "Wellness" })).toBeNull();
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
+    expect(heading()).toBeNull();
+    expect(row("projects")).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Wellness" })).toBeInTheDocument();
+  });
+
   it("goes back one level on Escape when focus is in the nav", async () => {
     const { user } = setup(admin);
     await user.click(row("time"));
@@ -318,6 +422,37 @@ describe("knowing where you are", () => {
     expect(heading()).toBeNull();
     expect(current()).toEqual([]);
     setup(admin, { pathname: "/notifications" });
+  });
+
+  it("lights Wellness, a link in the modules block, on its page and its tabs, with no level open", () => {
+    for (const path of [
+      "/wellness",
+      "/wellness/challenges",
+      "/wellness/reminders",
+    ]) {
+      const { unmount } = setup(admin, { pathname: path });
+      expect(heading(), path).toBeNull();
+      expect(current(), path).toEqual(["Wellness"]);
+      unmount();
+    }
+  });
+
+  it("opens Projects, and lights My tasks, on /projects/mine", () => {
+    setup(admin, { pathname: "/projects/mine" });
+    expect(heading()).toBe("Projects");
+    expect(current()).toEqual(["My tasks"]);
+  });
+
+  it("marks the Projects row, and not Wellness, once you are back at the top", async () => {
+    const { user } = setup(admin, { pathname: "/projects/mine" });
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
+    expect(row("projects")).toHaveAttribute("aria-current", "true");
+    expect(current()).toEqual([]);
+    expect(screen.getByRole("link", { name: "Wellness" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 
   it("lights a top-level link when the page is one", () => {

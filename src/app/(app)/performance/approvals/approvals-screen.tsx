@@ -1,5 +1,6 @@
 "use client";
 
+import { CompletedWork } from "@/components/performance/completed-work";
 import { useState } from "react";
 import { CheckCheck, Inbox, Target } from "lucide-react";
 import {
@@ -462,6 +463,12 @@ function ObjectiveCard({
           ))}
         </ul>
       )}
+
+      {/* The finished tasks already linked to it, for anybody reading before they
+          agree. Asked for only when opened. */}
+      <div className="mt-3">
+        <CompletedWork goal={goal} lazy />
+      </div>
 
       {/* The previous objection, if this has been round once. Kept visible while
           it is waiting again, because the second version only makes sense beside

@@ -55,6 +55,22 @@ describe("useLeadsTeam", () => {
     expect(teamLeads).not.toHaveBeenCalled();
   });
 
+  it("in the demo, follows the reporting lines, and asks the API nothing", () => {
+    session = { isConnected: false, employeeId: "p-01" };
+    const manager = renderHook(() => useLeadsTeam(true));
+    expect(manager.result.current).toBe(true);
+    session = { isConnected: false, employeeId: "p-03" };
+    const report = renderHook(() => useLeadsTeam(true));
+    expect(report.result.current).toBe(false);
+    expect(teamLeads).not.toHaveBeenCalled();
+  });
+
+  it("in the demo, is no for everybody while Projects is off", () => {
+    session = { isConnected: false, employeeId: "p-01" };
+    const { result } = renderHook(() => useLeadsTeam(false));
+    expect(result.current).toBe(false);
+  });
+
   it("does not ask without a staff record", () => {
     session = { isConnected: true, employeeId: null };
     renderHook(() => useLeadsTeam(true));

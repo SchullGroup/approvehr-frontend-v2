@@ -56,6 +56,7 @@ export const COMPANY = {
   product: "ApproveHR",
   city: "Lagos",
   country: "Nigeria",
+  supportEmail: "support@approvehr.io",
   privacyEmail: "privacy@approvehr.io",
   legalEmail: "legal@approvehr.io",
   securityEmail: "security@approvehr.io",
@@ -70,10 +71,12 @@ const PRIVACY: LegalDoc = {
   label: "Privacy policy",
   title: "Privacy policy",
   description:
-    "What ApproveHR collects, why we hold it, how long we keep it and the rights you have over it under the Nigeria Data Protection Act 2023.",
+    "What ApproveHR collects on the web and in the mobile app, why we hold it, who can see it, how long we keep it and the rights you have over it under the Nigeria Data Protection Act 2023.",
   standfirst:
     "We hold payroll and employment records, which is about the most sensitive data a company keeps. This page says plainly what we do with it. Where the law gives you a right, we have written down how to use it rather than telling you to contact us and hoping you do not.",
-  updated: "20 August 2026",
+  updated: "9 November 2026",
+  statusNote:
+    "What changed on 9 November 2026: you can now report a kudos, and the Kudos section says what happens when you do; the app-use figures follow your company's own privacy floor, which is never below 3; and the app-open record keeps only the day, not the time. What changed on 8 November 2026: this page now covers the ApproveHR mobile app, your location when you clock in, the optional Wellness features (water and steps, break reminders, challenges and kudos), the weekly delivery report, the app-open mark and notifications. For each it says what is stored and who can and cannot see it.",
   sections: [
     {
       id: "who-we-are",
@@ -81,6 +84,7 @@ const PRIVACY: LegalDoc = {
       body: [
         `${COMPANY.product} is operated by ${COMPANY.legalName}, registered in ${COMPANY.country} and based in ${COMPANY.city}. We are the data controller for the account and billing information of the company that subscribes, and for the visitors of this website.`,
         "For the employee records inside the product we are a data processor, not a controller. Your employer decides what goes in and how long it stays; we act on their instructions. If you are an employee asking about your own record, your employer's HR team is the right first stop, but write to us anyway if they cannot help, and we will tell you what we hold.",
+        "The optional Wellness features described below are the exception. What you log there is yours to keep or delete, and your employer cannot read it.",
       ],
     },
     {
@@ -108,10 +112,211 @@ const PRIVACY: LegalDoc = {
             "Which pages were opened, when, and from which browser and IP address. Used to keep the service working and to investigate suspicious sign-ins. Not sold, not used to build a profile of you.",
         },
         {
+          term: "Clock-in location",
+          detail:
+            "If you share your location when you clock in, from the app or a browser: your latitude and longitude, how precise your device says that reading is, and your distance from the workplace. Saved with that day's attendance record. Never collected in the background. Details under Your location when you clock in.",
+        },
+        {
+          term: "Wellness records",
+          detail:
+            "Only if you turn the optional Wellness features on, one purpose at a time: the water and steps you log, or send from your phone's health app, your break reminder settings, the challenges you join and the team you join them with, and a record of what you agreed to and when. Held for you, not for your employer, who cannot read it.",
+        },
+        {
+          term: "Kudos",
+          detail:
+            "The thanks you send or receive: who it is from and to, the message, whether it is shared with the company or private, and the date. If somebody reports a kudos: who reported it, what they wrote if they wrote anything, and what was decided.",
+        },
+        {
+          term: "App-open mark",
+          detail:
+            "Only if your company has switched on app-use measurement: one record per person per day saying your account opened ApproveHR that day, on the web or in the app. Details under Whether you opened the app.",
+        },
+        {
+          term: "Notification address",
+          detail:
+            "Only if you allow notifications: the push token the app is given for your phone, or the push address your browser gives us, whether the phone is an iPhone or an Android, and when it was registered and last used.",
+        },
+        {
           term: "Website data",
           detail:
             "If you fill in the demo form: your name, work email, company, headcount and whatever you type in the message box. Used to prepare the call.",
         },
+      ],
+    },
+    {
+      id: "mobile-app",
+      heading: "The mobile app",
+      body: [
+        "ApproveHR has an app for iPhone and Android. It is for the employees of companies that use ApproveHR, and it is another way into the same account you have on the web, not a separate product with records of its own. Your employer creates your account. You cannot sign up for one, or delete one, from the app.",
+        "Everything the app sends goes to our servers. The only other company it deals with is the notification service described under Notifications, and only if you allow notifications. There is no advertising, analytics or crash-reporting software in the app, it does not read your phone's advertising identifier, and it does not follow you into other apps or websites.",
+        "It asks your phone for three permissions, each when you reach the feature that needs it. You can refuse any of them, or switch one off later in your phone's settings, and the rest of the app still works. The one thing a refusal can change is clocking in at a workplace your company has fenced, where your company's rules decide whether a clock-in without a location is accepted.",
+      ],
+      list: [
+        "Your location, only while the app is open and only when you tap Clock in.",
+        "Your daily step count from Apple Health or Android's Health Connect, read only, and only if you turn on step sync.",
+        "Notifications, which the app asks for from a button, not when it starts.",
+      ],
+    },
+    {
+      id: "on-your-phone",
+      heading: "What the app keeps on your phone",
+      rows: [
+        {
+          term: "Sign-in",
+          detail:
+            "A long-lived sign-in token, kept in the phone's secure storage. On an iPhone it can be read only while the phone is unlocked, is left out of backups and never moves to another phone. The short-lived token that does the work is held in memory and never written down.",
+        },
+        {
+          term: "Step sync note",
+          detail:
+            "If you use step sync: whether it is on for this phone, the last day it worked, and whether you have asked it to stop. No step figures.",
+        },
+        {
+          term: "Notification token",
+          detail:
+            "If you allowed notifications: the token the app was given for your phone, kept so the app can take the phone off our list when you sign out.",
+        },
+        {
+          term: "Break reminders",
+          detail:
+            "If you saved break reminders and the app is the one delivering them: your phone's own notification system holds the next few days of them. Each is a fixed line or the name you gave a break.",
+        },
+        {
+          term: "Everything else",
+          detail:
+            "The app does not save your pay, steps, water, kudos or anyone's name on the phone. A screen holds what it shows in memory while you use it. Like any app, your phone may keep a picture of the last screen for its app switcher.",
+        },
+        {
+          term: "Signing out",
+          detail:
+            "Wipes all of the above, whether or not the phone can reach our servers at that moment. If it can, the app first tells our servers to stop sending notifications to this phone.",
+        },
+      ],
+    },
+    {
+      id: "location",
+      heading: "Your location when you clock in",
+      body: [
+        "When you clock in, the app and the web can check that you are at your workplace. The app shows a plain explanation first, then asks your phone for your location only while the app is open, and reads it once, at the moment you tap Clock in. It never reads your location in the background and never follows you. A browser works the same way: it asks when you press the button, and asks for nothing when the page loads.",
+        "What is sent is your latitude and longitude and how precise your device says that reading is. Our server compares it with the workplace your company set up and accepts or refuses the clock-in. If it accepts, the position, the stated precision and your distance from the workplace are saved with that day's attendance record. A clock-in that is refused saves nothing.",
+        "No screen or report in the product shows the saved position to your employer, a manager or HR. It is kept as part of the record of that clock-in, so that what let it through can be looked at later, and it stays with the attendance record it belongs to. There is no separate, shorter period for it.",
+        "If you refuse to share your location, the app sends the clock-in without one, and your company's rules decide whether that is accepted.",
+      ],
+    },
+    {
+      id: "wellness",
+      heading: "Wellness: water and steps",
+      body: [
+        "Wellness is a set of optional features that your company can switch on: logging water and steps, break reminders, challenges and kudos. Until your company switches it on, none of it exists for you. Once it is on, nothing about your water or steps is stored until you agree to it, and you agree to each purpose on a screen of its own, with nothing ticked in advance.",
+        "There are two purposes. Tracking lets us store the water and steps you choose to log, so that you can see your own history. Step sync, which can be turned on only from the phone app, also lets the app send your daily step total from Apple Health or Health Connect, and needs tracking first. The words you agree to come from our server and each version is numbered, so we can show what you agreed to and when. We keep that record, and you are the only one who can read it.",
+        "For step sync the app reads your daily step total and nothing else. It is read only: the app cannot write to your health app, it does not read water or anything else, and it does not read in the background. It sends recent days' totals (up to 31 days back) when you tap Sync now, when you open the app (at most every 15 minutes) and once when you turn it on, and only for days where your phone has a figure that differs from the one we hold. A day with no figure is never sent as zero. A total from your phone counts for that day instead of steps you typed for the same day.",
+        "Through the product, your entries, your daily totals, your consents and your reminder settings can be read by you alone: not by your manager, not by HR, not by an administrator, and not by our staff, whose admin console hides these records. The only place a total of yours is shown by name is the board of an individual challenge you choose to join (see Challenges). Nothing you log is used for advertising or marketing, and no report builder or assistant in the product can read it. These records are protected by access controls in the product, not by a separate encryption key, so anyone with direct access to the database could read them. Access to production is limited as the security page describes.",
+        "You can stop either purpose at any time, from the app's Account tab or from the web. Each time you are asked whether to keep what was logged (it stays, and only you can see it) or delete it, and neither answer is chosen for you. Stopping tracking also takes you out of every challenge and stops step sync. Stopping step sync alone does not take you out of a challenge, and totals already sent keep counting there unless you delete them or leave. You can delete single entries, or everything you logged, whenever you like, even if your company has since switched Wellness off.",
+        "In the app, stopping step sync switches it off on the phone first and tells our server second. If the phone cannot reach us, it tells us the next time it opens, and our server refuses step totals once you have withdrawn. To stop Apple Health or Health Connect sharing steps with the app at all, change that in your phone's own settings as well.",
+      ],
+    },
+    {
+      id: "reminders",
+      heading: "Break reminders",
+      body: [
+        "Break reminders do not need either consent. You can save your own (how often, and named breaks with a start time and a length) or use the ones your company sets. Your own settings are stored on our server and nobody else can see them, including whether you turned reminders off.",
+        "A reminder reaches you in one of two ways, never both. Either our server sends it as a notification, where you have allowed notifications, once per slot, only while you are at work (clocked in, where your company records attendance, otherwise inside your working hours on a working day that is not a holiday or approved leave) and only if you or your company saved reminders. Or the app on your phone schedules the next few days of reminders itself from your saved settings, and nothing about them is sent to us.",
+        "A reminder is a fixed line, or the name you gave a break, never a figure. Our server keeps a bare note that a reminder was sent at a given minute, with no content and no record of whether you opened it, and deletes it after two days. Nobody at your company can see whether you received or opened a reminder.",
+      ],
+    },
+    {
+      id: "challenges",
+      heading: "Challenges",
+      body: [
+        "A challenge is a set of dates in which the people who join add up water or steps. Your company's administrators create them. Joining is your choice, needs tracking to be on, and happens on a screen that shows the exact words you agree to, including who will see what and which privacy floor applies. Only entries from the day you join count. You can leave at any time and you drop off every board at once. Stopping tracking takes you out of every challenge.",
+        "In an individual challenge, everybody who has joined sees a board with the names and totals of everybody who has joined, and that includes your manager or HR if they choose to join too. In a team challenge you choose one team when you join, even if you belong to only one. Participants see the teams, with how many people took part and each team's total and average, and no other person's figure: you see your own. A team below the floor is not listed, except that you are shown your own team, marked as held back, with the reason. A team where too few people have logged anything is also held back, with no figure.",
+        "The total on a board runs from the day you joined, and it counts your entries whichever way they arrived, typed or sent from your phone.",
+        "The privacy floor is the smallest number of people a figure may be made from. It is at least 3, your company can set it higher (up to 50), and each person is told the floor when they join. Results for a challenge use the highest floor anyone in it joined under, so lowering the setting later cannot expose somebody who agreed to a larger group. The same floor, as your company has set it, applies to the app-use total described under Whether you opened the app.",
+        "The floor is a safeguard for small groups, not a guarantee. In a very small team, a change in the team's result can let a teammate guess a figure, and the join screen for a team challenge says so.",
+      ],
+    },
+    {
+      id: "kudos",
+      heading: "Kudos",
+      body: [
+        "Kudos is a short message of thanks, up to 500 characters, to a colleague who still works at your company. Each time, you choose whether it is shared with the company or private. A shared kudos goes on the company feed, where everybody signed in at your company can read the message, who it is from and to, and the date. A private kudos can be read only by the person who sent it and the person who received it, unless one of them reports it (see below): not by an administrator, not by HR, and not by our staff, whose admin console hides it.",
+        "The person who sent a kudos can delete it, shared or private. An administrator can take down a shared one. Deleting one removes it for both people and removes the notification that carried it. A kudos you receive appears in your notifications under the sender's name, and a private one never shows its message there.",
+        "Anybody who can see a kudos can report it. Reporting hides that kudos from the person who reported it, and sends it to your company's administrators, meaning the people who hold the permission to manage company settings. They see what the kudos says, who gave it, who it was for, when it was sent, who reported it, and what the reporter wrote if they chose to write anything. That includes a private kudos: it is the one way anybody other than its two people can read one, and it happens only when somebody who can see it chooses to report it. The person reporting is told this before they confirm. An administrator can then remove the kudos, which deletes it for everybody, or dismiss the report, which leaves the kudos as it is and closes the report. Either way it stays hidden from the person who reported it.",
+        "To find a colleague to thank, the app sends what you type to our server, which searches your company's directory. The app does not read your phone's contacts. There is no points system and no leaderboard, and kudos does not depend on the wellness consents.",
+      ],
+    },
+    {
+      id: "delivery-report",
+      heading: "The weekly delivery report",
+      body: [
+        "Each week, ApproveHR can show how many tasks people logged against their objectives and how those tasks were graded (done, partly done, not done or rejected), with a delivery rate. It is built from the tasks people already log. It is work data, not wellness data, so it does not ask for the wellness consents. It is shown only where your company has Wellness switched on.",
+        "Everyone sees their own week. A line manager also sees the names of their direct reports with the same figures, and the head of a department sees the people in it, and for that team the report also says how many people logged nothing that week. Anyone who can edit employee records, which in practice means HR, sees everybody in the company who logged tasks. It does not say how many people in the whole company logged nothing. People are listed by name, not ranked.",
+        "A manager or HR could already read the same tasks one at a time. The report is a summary of that access and adds no new access.",
+      ],
+    },
+    {
+      id: "app-open",
+      heading: "Whether you opened the app",
+      body: [
+        "If your company has switched on app-use measurement, which is off until it does, ApproveHR records once per person per day that your account opened ApproveHR that day, on the web or in the app. The record holds your account and the company's calendar day, and nothing else: not even the time of day. It holds no device, no screen, nothing you did and no count of opens. The app reports each time it comes back to the front and the web reports once a day, and a second open on the same day changes nothing.",
+        "It exists so that your company can see how many of its people use ApproveHR each week. The only thing an administrator can read is a company-wide total: the share of people who opened it in a week, the share who opened it on three or more days, and the typical number of days. It appears only when at least as many people are counted as your company's privacy floor, which is never below 3, it carries no names and no cut by team or department, and no screen lists a person's days. Apple's App Store rules would call a count like this analytics, so we call it that too.",
+      ],
+    },
+    {
+      id: "employer-view",
+      heading: "What your employer can and cannot see",
+      body: [
+        "In short: nothing you log about your body, and no figure made from fewer people than the floor. In detail:",
+      ],
+      rows: [
+        {
+          term: "Your water and steps",
+          detail:
+            "Nobody at your company can see your entries or daily totals, your consents or your reminder settings. That includes your manager, HR and every administrator.",
+        },
+        {
+          term: "Whether you joined a challenge",
+          detail:
+            "The other people in an individual challenge see your name on its board. Administrators see only how many people took part, and only once at least the floor have joined. A manager or HR who joins an individual challenge is a participant like any other and sees its board.",
+        },
+        {
+          term: "Challenge results",
+          detail:
+            "Administrators see, once at least the floor have joined, how many took part, and a week after the challenge ends, its total and average, once at least the floor have logged something. For a team challenge they see one row per team at or above the floor and no overall count. They never see a person's figure.",
+        },
+        {
+          term: "App use",
+          detail:
+            "Administrators see a company-wide total only, never a person's days, and only once at least the floor have been counted. See Whether you opened the app.",
+        },
+        {
+          term: "The weekly delivery report",
+          detail:
+            "Managers and HR see the people they lead, or everyone, as described under The weekly delivery report. It is work data, not wellness data.",
+        },
+        {
+          term: "Kudos",
+          detail:
+            "A shared kudos is on the company feed for everyone at your company, and an administrator can take it down. A private kudos is visible to its two people and nobody else, unless somebody who can see it reports it. Then administrators who manage company settings can read it, who it is from and to, and who reported it. See Kudos.",
+        },
+        {
+          term: "Where you clocked in",
+          detail: "No screen shows the saved position to your employer.",
+        },
+        {
+          term: "What administrators can change",
+          detail:
+            "They can switch Wellness and app-use measurement on or off, set the floor, create and cancel challenges, set the company's reminder defaults, take down a shared kudos and decide what happens to a reported one. Those changes are recorded in the audit trail. Who joined or tracked anything is never recorded there. By administrators we mean people who hold the permission to manage company settings, which the HR manager role and the owner have by default.",
+        },
+      ],
+    },
+    {
+      id: "notifications",
+      heading: "Notifications",
+      body: [
+        "When notifications are switched on for the app and you allow them on your phone, ApproveHR can send you the same notifications that appear in your notification list: approvals waiting, leave decisions, kudos, break reminders and so on. A phone notification is a headline and a link, and nothing else. It has no body text, because the services that carry it, Expo's push service and Apple or Google behind it, can read it. The headline can say what happened and sometimes to whom, for example that someone recognised you or that a leave request is waiting. No notification we send carries a water or step figure. Tapping one opens a screen in the app, and if the link points somewhere the app has no screen for, it opens Today.",
+        "To send one, our server stores your phone's push token (a code that identifies the phone to the notification service, not you), whether it is an iPhone or an Android, and when it was registered and last used. It keeps at most ten phones per account. If a different person signs in on the same phone, the token moves to them, so the last person's notifications do not follow the phone. Signing out of the app takes the phone off our list first, and a token the notification service says no longer exists is marked and not used again.",
+        "In a browser the same applies, with the push address your browser gives us in place of a phone token, and a browser notification can carry a short line of text as well as the headline. You can turn notifications off in your phone's or your browser's settings. The app's Account tab has a button that takes you to the phone's.",
       ],
     },
     {
@@ -124,17 +329,18 @@ const PRIVACY: LegalDoc = {
         "Performance of a contract, running the service your company pays for, including calculating and paying salaries.",
         "Compliance with a legal obligation, retaining payroll records for the periods Nigerian tax and pension law require, and producing the returns those laws require.",
         "Legitimate interest, keeping the service secure, preventing fraud, and understanding which parts of the product are used so we know what to fix. We do not rely on legitimate interest for anything a reasonable person would object to.",
-        "Consent, the demo form and any marketing email. Withdrawable at any time, with no effect on the service itself.",
+        "Consent, the demo form, any marketing email, and the optional Wellness features, which store nothing about your water or steps until you agree. Withdrawable at any time, with no effect on the rest of the service.",
       ],
     },
     {
       id: "sharing",
       heading: "Who else sees it",
       body: [
-        "We do not sell personal data, and we do not share it for anyone else's advertising. It leaves our systems in four situations only:",
+        "We do not sell personal data, and we do not share it for anyone else's advertising. It leaves our systems in five situations only:",
       ],
       list: [
         "Infrastructure providers who host and back up the service, under written contracts that bind them to the same obligations we carry.",
+        "Notification services, if you allow notifications: Expo's push service, and Apple or Google behind it, receive your phone's push token and the headline and link of each notification. Nothing else, and never a body. See Notifications.",
         "Statutory bodies, where you have asked us to file on your behalf, the relevant state internal revenue service, your employees' pension fund administrators, and the Federal Mortgage Bank of Nigeria for NHF. Only what the filing requires.",
         "Payment providers, where you use the product to pay salaries and they need the account details to move the money.",
         "A lawful request from a court or regulator with authority over us. We will tell you it happened unless we are legally barred from doing so.",
@@ -146,6 +352,7 @@ const PRIVACY: LegalDoc = {
       body: [
         "Part VIII of the NDPA restricts moving personal data out of Nigeria. Where a provider we depend on stores data outside the country, we rely on the conditions the Act allows and record which provider, which country and which condition in our processing register. That register is available to any customer who asks, and to the Nigeria Data Protection Commission.",
         "If keeping all of your data resident in Nigeria is a requirement for you, say so before you sign, it is a configuration question, not a negotiation, and we would rather answer it up front.",
+        "The notification services named under Notifications are run by companies based outside Nigeria. What they receive is a push token and a notification headline with its link.",
       ],
     },
     {
@@ -154,6 +361,8 @@ const PRIVACY: LegalDoc = {
       body: [
         "Employment and payroll records are legal documents, so the product is built to archive rather than delete, a past payslip has to keep resolving years later, and an approval trail with a hole in it is worse than useless.",
         "Account data is kept while your subscription is live. On termination we return or delete your data within 30 days of your written instruction, except where Nigerian tax, pension or company law requires us to retain a copy for longer, in which case we keep only what the law requires and only for as long as it requires it. Demo-form submissions are deleted after 12 months if you do not become a customer.",
+        "Wellness records are kept until you delete them, and go if your employer deletes your staff record. Withdrawing a consent asks whether to delete them straight away. If someone leaves and their record is archived rather than deleted, their wellness records stay until the record is deleted, though they drop off every board at once.",
+        "A kudos stays until the person who sent it deletes it, or an administrator takes down a shared one, or the staff record is deleted. A clock-in's saved position stays with its attendance record, and each day's app-open mark stays until the account is deleted. Neither has a shorter period of its own. The bare note that a break reminder was sent is deleted after two days, and a phone's push token is removed when you sign out of the app on it, provided the phone can reach us at that moment.",
       ],
     },
     {

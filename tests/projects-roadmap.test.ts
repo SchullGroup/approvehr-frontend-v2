@@ -67,7 +67,6 @@ function epic(start: string | null, due: string | null, rank = 1): Issue {
     rank,
     doneAt: null,
     goalId: null,
-    weeklyTask: null,
     commentCount: 0,
     createdAt: NOW,
     updatedAt: NOW,

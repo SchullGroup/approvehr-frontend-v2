@@ -1281,26 +1281,51 @@ else's review moves.
 **The Work record tab, and My work record.** The same panel is on the **Work record** tab of this page
 and, for yourself, as **My work record** in the sidebar (`/performance/work-record`). It shows what a
 person finished on the project boards, for a **Period** of **Day**, **Week**, **Month** or **Quarter**,
-stepped with **Previous period** and **Next period**, and opens on the current week. Four tiles:
+stepped with **Previous period** and **Next period**, and opens on the current week. Every finished
+top-level task counts, **linked to an objective or not**: a link only decides where else it shows. Up to four
+tiles:
 
-| Tile                          | What it says                                                                                                                                  |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tasks finished**            | How many tasks were finished in the period                                                                                                    |
-| **Done by due date**          | "7 of 9": how many of the tasks that had a due date were finished by it. It shows a dash, with "None of these had a due date", when none did |
-| **Completion rate**           | The percentage, as the appraisal works it out from graded weekly tasks. A dash when the server has no rate to give                                       |
-| **Count toward an objective** | "6 of 9": how many are linked to an objective                                                                                                 |
+| Tile                         | What it says                                                                                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tasks finished**           | How many tasks were finished in the period                                                                                                     |
+| **Done by due date**         | "7 of 9": how many of the tasks that had a due date were finished by it. It shows a dash, with "None of these had a due date", when none did  |
+| **Completion rate**          | Only where something in the period was graded as a weekly task in the past; otherwise there is no such tile, not a dash and not a nought      |
+| **Linked to an objective**   | "6 of 9": how many are linked to an objective. Linking is optional, so a low figure is a fact and not a shortfall                              |
 
-Under them, **By objective** lists each objective (and the KPI inside it) with how many were finished and
-the completion rate, with a line for "Not linked to an objective". Then one card per day, in the
-order the server sends them, each task with its key (which opens it on its project; a task from somebody's own
-list, with a key like `MY-3`, has no project and opens on a page of its own), its title, its project (**Personal**
-for a task from somebody's own list), its labels, its grade
-(**Completed**, **Partly completed**, **Not completed**, **Rejected**, or **Waiting for a grade** where a weekly
-task of theirs is attached and not yet graded) and any links to other tasks, such as "Blocks PRJ-12", or
-"Blocks a task you can't open". A period with nothing in it reads "Nothing finished on the board in this
-week." The figures are the server's own; the screen works nothing out. Where somebody may not open
-another person's record it says "You can't open this person's work record." It needs the server, so
-there is nothing to see in the demo.
+Under them, **By objective** lists each objective (and the KPI inside it) with how many were finished, with
+a line for "Not linked to an objective". Then one card per day, in the order the server sends them, each
+task with its key (which opens it on its project; a task from somebody's own list, with a key like `MY-3`,
+has no project and opens on a page of its own), its title, its project (**Personal** for a task from
+somebody's own list), its labels, **On time** or **Late** as plain facts (nothing when it had no due date),
+a line such as "Linked to Grow revenue" or "Linked objective is closed" (nothing when it is not linked), a
+grade only where it was graded as a weekly task in the past, and any links to other tasks, such as "Blocks
+PRJ-12". Nothing ever says it is waiting for a grade: finished project work files nothing to grade. A period
+with nothing in it reads "Nothing finished on the board in this week." Where somebody may not open another
+person's record it says "You can't open this person's work record."
+
+**Finished project work elsewhere in Performance.** The same finished tasks appear, as evidence to read and
+never as a score, in four more places:
+
+- **Team tasks, Completed** (`/projects/team?view=completed`): for somebody who leads people, what they
+  finished over a **Week**, **Month** or **Quarter**, a person at a time, with the project, the day and on
+  time or late. It is paged, and has no grade control anywhere. **HR** have the row whether or not anybody
+  reports to them: they read everybody, can narrow to one person, and open on this view (a person with no
+  people of their own has no Open work to show, so it is not offered). Somebody with nobody reporting to them
+  who finds the page by its address sees one plain line saying so.
+- **Work this cycle**, inside a self review and a manager review (on the record, and from **Your work** or
+  the person's name at the top of the answering form): totals, by project and objective, how many were done by
+  the due date, how many are linked, and the list. It is collapsed on a phone, and it does not change the mark.
+- **Completed work**, under an objective or KPI (its detail, and the objectives to agree): the linked tasks,
+  by person for a team objective; for a personal KPI also the owner's tasks linked to an objective above it,
+  each marked with the level it was linked at.
+- **Link to an objective (optional)**, in a task's details and in project settings, and in bulk from a project's
+  Tasks list and from a person's completed list, both as one request for the tasks chosen, each task
+  answering for itself. Anybody who may link (the people on the task, the project's
+  lead, their manager or department head, HR) can choose any objective or KPI they can see, a draft included, and
+  one of its measures, at any time. A task that is not linked is never mentioned.
+
+In the demo all of it works: Adaeze Okonkwo leads three people, and Chidi Nwosu's and Amara Nwachukwu's first-half
+work (and Amara's earlier half, whose objective has closed) is there to read.
 
 #### 34. Start the next one
 

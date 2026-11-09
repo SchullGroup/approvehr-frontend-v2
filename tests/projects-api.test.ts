@@ -1,3 +1,4 @@
+import { UNLINKED } from "@/lib/projects/types";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -7,7 +8,6 @@ import {
   toIssue,
   toProject,
   toSprint,
-  toWeeklyTask,
 } from "@/lib/api/projects";
 import {
   openIssuesHeldBy,
@@ -105,7 +105,6 @@ describe("reading an issue", () => {
     rank: 0.5,
     doneAt: null,
     goalId: null,
-    weeklyTask: null,
     commentCount: 3,
     createdAt: "2026-10-15T10:44:02.456Z",
     updatedAt: "2026-10-15T10:44:02.486Z",
@@ -118,7 +117,7 @@ describe("reading an issue", () => {
     expect(issue.rank).toBe(0.5);
     expect(issue.dueDate).toBe("2026-10-20");
     expect(issue.commentCount).toBe(3);
-    expect(issue.weeklyTask).toBeNull();
+    expect(issue.objective).toEqual(UNLINKED);
   });
 
   it("defaults the lists it might not be sent", () => {
@@ -129,38 +128,90 @@ describe("reading an issue", () => {
   });
 });
 
-describe("the weekly-task note", () => {
-  it("passes the API's sentence through untouched", () => {
-    expect(
-      toWeeklyTask({
-        state: "NOT_COUNTED",
-        reason: "NO_OBJECTIVE",
-        message:
-          "Not counted toward a weekly task, link this issue or the project to an objective.",
+describe("the objective link", () => {
+  const wire = (over: Record<string, unknown> = {}) => ({
+    state: "LINKED",
+    source: "TASK",
+    goalId: "g1",
+    title: "Cut support tickets",
+    level: "personal",
+    keyResultId: "kr1",
+    keyResultLabel: "Tickets a week",
+    visible: true,
+    message: "Linked to Cut support tickets (Tickets a week)",
+    ...over,
+  });
+
+  it("reads the objective the API sends: the name, the measure and the sentence", () => {
+    const issue = toIssue({
+      id: "x",
+      goalId: "g1",
+      keyResultId: "kr1",
+      objective: wire(),
+    });
+    expect(issue.objective).toEqual({
+      state: "LINKED",
+      source: "TASK",
+      goalId: "g1",
+      title: "Cut support tickets",
+      level: "personal",
+      keyResultId: "kr1",
+      keyResultTitle: "Tickets a week",
+      visible: true,
+      message: "Linked to Cut support tickets (Tickets a week)",
+    });
+  });
+
+  it("reads a closed objective as closed, in the API's words", () => {
+    const issue = toIssue({
+      id: "x",
+      goalId: "g1",
+      objective: wire({
+        state: "CLOSED",
+        message: "Linked objective is closed",
       }),
-    ).toEqual({
-      state: "NOT_COUNTED",
-      reason: "NO_OBJECTIVE",
-      message:
-        "Not counted toward a weekly task, link this issue or the project to an objective.",
+    });
+    expect(issue.objective?.state).toBe("CLOSED");
+    expect(issue.objective?.message).toBe("Linked objective is closed");
+  });
+
+  it("reads a link to an objective the reader may not open as linked, with no name", () => {
+    const issue = toIssue({
+      id: "x",
+      goalId: null,
+      objective: wire({
+        goalId: null,
+        title: null,
+        level: null,
+        keyResultId: null,
+        keyResultLabel: null,
+        visible: false,
+        message: "Linked to an objective",
+      }),
+    });
+    expect(issue.objective).toMatchObject({
+      state: "LINKED",
+      visible: false,
+      title: null,
+      message: "Linked to an objective",
     });
   });
 
-  it("reads a filed task and whether it has been graded", () => {
+  it("an unlinked task is UNLINKED, which is not a fault", () => {
     expect(
-      toWeeklyTask({ state: "FILED", taskId: "t1", graded: true }),
-    ).toEqual({
-      state: "FILED",
-      taskId: "t1",
-      graded: true,
-    });
+      toIssue({ id: "x", goalId: null, objective: { state: "UNLINKED" } })
+        .objective,
+    ).toEqual(UNLINKED);
+    expect(toIssue({ id: "x", goalId: null }).objective).toEqual(UNLINKED);
+    expect(toIssue({ id: "x" }).objective).toEqual(UNLINKED);
   });
 
-  it("treats anything else as nothing to say, never as filed", () => {
-    expect(toWeeklyTask(null)).toBeNull();
-    expect(toWeeklyTask(undefined)).toBeNull();
-    expect(toWeeklyTask({ state: "SOMETHING_NEW" })).toBeNull();
-    expect(toWeeklyTask("FILED")).toBeNull();
+  it("an older API that sends only goalId reads as linked with no name", () => {
+    expect(toIssue({ id: "x", goalId: "g1" }).objective).toMatchObject({
+      state: "LINKED",
+      goalId: "g1",
+      title: null,
+    });
   });
 });
 

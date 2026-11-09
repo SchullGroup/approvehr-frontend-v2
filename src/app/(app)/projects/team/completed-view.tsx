@@ -1,0 +1,352 @@
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, ListChecks } from "lucide-react";
+import Link from "next/link";
+import {
+  Button,
+  EmptyState,
+  LoadState,
+  SegmentedControl,
+} from "@/components/ui";
+import { LoadMore } from "@/components/portal/load-more";
+import { CompletedItem } from "@/components/performance/completed-item";
+import { BulkLinkDialog } from "@/components/projects/bulk-link-dialog";
+import { PersonPicker } from "@/components/projects/person";
+import { BULK_LINK_LIMIT } from "@/lib/projects/bulk-link";
+import type { TeamCompletedPerson } from "@/lib/projects/completions";
+import {
+  periodAfter,
+  periodAround,
+  periodBefore,
+  type WorkPeriodKind,
+} from "@/lib/projects/work-periods";
+import { useBulkLink, useTeamCompleted } from "@/lib/store/completions";
+import { usePeople } from "@/lib/store/project-session";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
+
+/**
+ * Team tasks, "Completed": what the people you lead finished.
+ *
+ * The finished tasks of the people you lead over a week, a month or a quarter,
+ * a person at a time, with the project, the day it was finished and whether that
+ * was by its due date. It is a list of facts for a manager to read. There is no
+ * grade on any row and nothing here asks to be graded: finishing project work
+ * files nothing for anybody to mark.
+ *
+ * The period steps like the Work record. People come a page at a time, and one
+ * person's list is capped with a link to their full work record. A task can be
+ * linked to an objective from here, one person's at a time, which is optional
+ * and never required of anyone.
+ */
+
+const PERIODS: { value: Exclude<WorkPeriodKind, "day">; label: string }[] = [
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "quarter", label: "Quarter" },
+];
+
+export function CompletedTeam({
+  everyone = false,
+  leads = null,
+}: {
+  /** HR: everybody's finished work, with a way to look at one person. */
+  everyone?: boolean;
+  /** Whether the reader has people reporting to them; `null` until known. */
+  leads?: boolean | null;
+}) {
+  const timeZone = useOrgTimezone();
+  const today = todayIn(timeZone);
+  const people = usePeople();
+  const [kind, setKind] = useState<Exclude<WorkPeriodKind, "day">>("week");
+  /* Any day inside the period; undefined is today. */
+  const [anchor, setAnchor] = useState<string | undefined>(undefined);
+  /* One person, or "" for everybody. Only HR are offered it: a manager's few
+     people are already a person at a time. */
+  const [person, setPerson] = useState("");
+
+  const period = periodAround(kind, anchor ?? today);
+  const list = useTeamCompleted(kind, anchor ?? today, person || null);
+  const chosen = person ? people.nameOf(person) : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl
+          label="Period"
+          options={PERIODS}
+          value={kind}
+          onChange={(next) => {
+            setKind(next);
+            setAnchor(undefined);
+          }}
+        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Previous period"
+            onClick={() => setAnchor(periodBefore(period).start)}
+          >
+            <ChevronLeft aria-hidden="true" className="size-4" />
+          </Button>
+          <span className="min-w-40 text-center text-body-sm font-medium text-ink">
+            {period.label}
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Next period"
+            onClick={() => setAnchor(periodAfter(period).start)}
+          >
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </Button>
+        </div>
+        {everyone && (
+          <div className="w-full sm:w-64">
+            <PersonPicker
+              people={people}
+              value={person}
+              onChange={setPerson}
+              allowNone
+              noneLabel="Everybody"
+              placeholder="Everybody"
+              aria-label="Person"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Loading, failure and the answer are one decision, so nothing is drawn
+          from a read that has not answered. */}
+      <LoadState
+        loading={list.loading}
+        error={list.error}
+        subject="completed tasks"
+        onRetry={list.reload}
+        hasData={list.people.length > 0}
+        skeleton="list"
+      >
+        {list.people.length === 0 ? (
+          <EmptyState
+            icon={<ListChecks aria-hidden="true" />}
+            title={emptyTitle(period.kind, { everyone, leads, chosen })}
+            {...(!everyone && leads === false
+              ? {
+                  description:
+                    "When someone does, what they finish shows here.",
+                }
+              : {})}
+          />
+        ) : (
+          <>
+            <ul className="divide-y divide-line overflow-hidden rounded-md border border-line">
+              {list.people.map((person) => (
+                <PersonCompleted
+                  key={person.employee.id}
+                  person={person}
+                  timeZone={timeZone}
+                  startOpen={list.people.length <= 3}
+                  onChanged={list.reload}
+                />
+              ))}
+            </ul>
+            <LoadMore
+              shown={list.shown}
+              total={list.total}
+              noun={["task", "tasks"]}
+              hasMore={list.hasMore}
+              loading={list.loadingMore}
+              error={list.moreError}
+              onLoadMore={list.loadMore}
+            />
+          </>
+        )}
+      </LoadState>
+    </div>
+  );
+}
+
+/**
+ * What an empty period says. Somebody who leads nobody is told that, once and
+ * plainly (it is the page they asked for by its address), not that the people
+ * they lead finished nothing.
+ */
+function emptyTitle(
+  kind: string,
+  who: { everyone: boolean; leads: boolean | null; chosen: string | null },
+): string {
+  if (who.chosen) return `${who.chosen} finished no tasks in this ${kind}.`;
+  if (who.everyone) return `Nobody finished a task in this ${kind}.`;
+  if (who.leads === false) return "Nobody reports to you yet";
+  return `Nobody you lead finished a task in this ${kind}.`;
+}
+
+/* ------------------------------------------------------------ one person */
+
+function PersonCompleted({
+  person,
+  timeZone,
+  startOpen,
+  onChanged,
+}: {
+  person: TeamCompletedPerson;
+  timeZone: string;
+  startOpen: boolean;
+  onChanged: () => void;
+}) {
+  const run = useBulkLink();
+  const { employee, summary, items, itemsTotal } = person;
+  const [open, setOpen] = useState(startOpen);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [linking, setLinking] = useState(false);
+  /* Something was changed, so the list is asked again, but only once the dialog
+     has been read and closed: a list that reloads behind it can drop the very
+     person whose tasks it is answering for, and take the answer with it. */
+  const [stale, setStale] = useState(false);
+  const panel = `completed-${employee.id}`;
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  const chosen = useMemo(
+    () => items.filter((item) => picked.has(item.id)),
+    [items, picked],
+  );
+  const atLimit = picked.size >= BULK_LINK_LIMIT;
+
+  const toggle = (id: string) =>
+    setPicked((now) => {
+      const next = new Set(now);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const facts = [
+    `${String(summary.finished)} finished`,
+    summary.withDueDate > 0
+      ? `${String(summary.onTime)} on time, ${String(summary.late)} late`
+      : null,
+    `${String(summary.linked)} linked to an objective`,
+  ].filter(Boolean);
+
+  return (
+    <li data-person-row>
+      <div className="flex flex-col gap-1 px-3 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <button
+          ref={toggleRef}
+          type="button"
+          aria-expanded={open}
+          aria-controls={panel}
+          onClick={() => setOpen(!open)}
+          className="flex min-w-0 items-center gap-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text sm:w-64 sm:shrink-0"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={
+              open
+                ? "size-4 shrink-0 rotate-90 text-muted motion-safe:transition-transform"
+                : "size-4 shrink-0 text-muted motion-safe:transition-transform"
+            }
+          />
+          <span className="min-w-0">
+            <span className="block break-words text-body-sm font-medium text-ink">
+              {employee.name}
+            </span>
+            {employee.jobTitle && (
+              <span className="block break-words text-meta text-muted">
+                {employee.jobTitle}
+              </span>
+            )}
+          </span>
+        </button>
+        <p className="pl-6 text-meta text-muted sm:pl-0">{facts.join(" · ")}</p>
+      </div>
+
+      {open && (
+        <div id={panel} className="border-t border-line bg-canvas px-3 py-3">
+          {chosen.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-body-sm">
+              <span className="text-ink">
+                {chosen.length === 1
+                  ? "1 chosen"
+                  : `${String(chosen.length)} chosen`}
+              </span>
+              <Button size="sm" onClick={() => setLinking(true)}>
+                Link to an objective
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setPicked(new Set())}
+              >
+                Clear choice
+              </Button>
+              {atLimit && (
+                <span className="text-meta text-muted">
+                  Up to {String(BULK_LINK_LIMIT)} at a time.
+                </span>
+              )}
+            </div>
+          )}
+          <ul className="divide-y divide-line">
+            {items.map((item) => (
+              <CompletedItem
+                key={item.id}
+                item={item}
+                timeZone={timeZone}
+                selection={{
+                  checked: picked.has(item.id),
+                  onChange: () => toggle(item.id),
+                  disabled: atLimit,
+                }}
+              />
+            ))}
+          </ul>
+          {itemsTotal > items.length && (
+            <p className="mt-3 text-meta text-muted">
+              Showing the latest {String(items.length)} of {String(itemsTotal)}.{" "}
+              <Link
+                href={`/performance/history/${employee.id}`}
+                className="font-medium text-accent-text hover:underline"
+              >
+                Open {employee.name}&apos;s work record
+              </Link>{" "}
+              for all of it.
+            </p>
+          )}
+        </div>
+      )}
+
+      <BulkLinkDialog
+        open={linking}
+        onClose={() => {
+          setLinking(false);
+          if (stale) {
+            setStale(false);
+            onChanged();
+          }
+        }}
+        tasks={chosen}
+        focusAfter={() => toggleRef.current}
+        assigneeId={employee.id}
+        run={(target) =>
+          run(
+            chosen.map((item) => ({
+              id: item.id,
+              key: item.key,
+              personId: item.personId,
+            })),
+            target,
+          )
+        }
+        onDone={(result) => {
+          /* The dialog says what happened, task by task. Here the tasks are no
+             longer "chosen"; the list asks again when the dialog closes. */
+          setPicked(new Set());
+          if (result.changed > 0) setStale(true);
+        }}
+      />
+    </li>
+  );
+}

@@ -118,6 +118,126 @@ describe("the privacy floor", () => {
     expect(await screen.findByText("In force now, 5")).toBeInTheDocument();
   });
 
+  it("raises it without asking first", async () => {
+    api.setPrivacyFloor.mockResolvedValue(settings({ privacyFloor: 5 }));
+    const input = await field();
+    await userEvent.clear(input);
+    await userEvent.type(input, "5");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(api.setPrivacyFloor).toHaveBeenCalledWith(5));
+  });
+
+  describe("lowering it", () => {
+    beforeEach(() => {
+      api.settings.mockResolvedValue(settings({ privacyFloor: 6 }));
+    });
+
+    const lowerTo = async (to: string) => {
+      const input = await field();
+      await userEvent.clear(input);
+      await userEvent.type(input, to);
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+      return screen.findByRole("dialog");
+    };
+
+    it("asks first, in plain words, and sends nothing yet", async () => {
+      const confirm = await lowerTo("4");
+
+      expect(
+        within(confirm).getByText("Lower the floor to 4?"),
+      ).toBeInTheDocument();
+      expect(
+        within(confirm).getByText(
+          /Fewer people will be needed before a team result is shown/,
+        ),
+      ).toBeInTheDocument();
+      /* The minimum is said, so nobody thinks it can go lower still. */
+      expect(
+        within(confirm).getByText(/can never go below 3/),
+      ).toBeInTheDocument();
+      expect(api.setPrivacyFloor).not.toHaveBeenCalled();
+    });
+
+    it("saves once it is agreed", async () => {
+      api.setPrivacyFloor.mockResolvedValue(settings({ privacyFloor: 4 }));
+      api.settings
+        .mockResolvedValueOnce(settings({ privacyFloor: 6 }))
+        .mockResolvedValue(settings({ privacyFloor: 4 }));
+      const confirm = await lowerTo("4");
+      await userEvent.click(
+        within(confirm).getByRole("button", { name: "Lower to 4" }),
+      );
+
+      expect(api.setPrivacyFloor).toHaveBeenCalledTimes(1);
+      expect(api.setPrivacyFloor).toHaveBeenCalledWith(4);
+      expect(await screen.findByText("In force now, 4")).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("leaves it alone when it is not agreed", async () => {
+      const confirm = await lowerTo("4");
+      await userEvent.click(
+        within(confirm).getByRole("button", { name: "Cancel" }),
+      );
+
+      expect(api.setPrivacyFloor).not.toHaveBeenCalled();
+      expect(screen.getByText("In force now, 6")).toBeInTheDocument();
+      /* And the number typed is still there to change or to save again. */
+      expect(screen.getByLabelText(/People/)).toHaveValue("4");
+    });
+
+    it("goes down to the minimum the same way, and no further", async () => {
+      api.setPrivacyFloor.mockResolvedValue(settings({ privacyFloor: 3 }));
+      const confirm = await lowerTo("3");
+      expect(
+        within(confirm).getByText("Lower the floor to 3?"),
+      ).toBeInTheDocument();
+      await userEvent.click(
+        within(confirm).getByRole("button", { name: "Lower to 3" }),
+      );
+      await waitFor(() => expect(api.setPrivacyFloor).toHaveBeenCalledWith(3));
+    });
+
+    it("never opens the confirm for a number the API would refuse", async () => {
+      const input = await field();
+      await userEvent.clear(input);
+      await userEvent.type(input, "2");
+
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("shows the API's refusal after it was agreed, in the form and not the dialog", async () => {
+      api.setPrivacyFloor.mockRejectedValue(
+        new ApiError(
+          403,
+          "forbidden",
+          "You do not have permission to change this.",
+        ),
+      );
+      const confirm = await lowerTo("4");
+      await userEvent.click(
+        within(confirm).getByRole("button", { name: "Lower to 4" }),
+      );
+
+      expect(
+        await screen.findByText(/do not have permission/),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("also asks when the form is submitted with Enter", async () => {
+      const input = await field();
+      await userEvent.clear(input);
+      await userEvent.type(input, "5{Enter}");
+
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      expect(api.setPrivacyFloor).not.toHaveBeenCalled();
+    });
+  });
+
   it("shows the API's refusal if it is refused anyway", async () => {
     api.setPrivacyFloor.mockRejectedValue(
       new ApiError(
@@ -149,7 +269,7 @@ describe("the privacy floor", () => {
 });
 
 describe("the frame", () => {
-  it("has four tabs for everybody and a fifth for whoever can change the floor", () => {
+  it("has five tabs for everybody and a sixth for whoever can change the floor", () => {
     held = new Set();
     const { unmount } = render(
       <WellnessShell active="/wellness">
@@ -161,6 +281,7 @@ describe("the frame", () => {
       "Challenges",
       "Reminders",
       "Recognition",
+      "Delivery",
     ]);
     unmount();
 
@@ -171,6 +292,25 @@ describe("the frame", () => {
       </WellnessShell>,
     );
     expect(screen.getAllByRole("link").at(-1)).toHaveTextContent("Settings");
+  });
+
+  it("keeps Delivery in front of Settings, and points it at its own route", () => {
+    held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+    render(
+      <WellnessShell active="/wellness/delivery">
+        <p>content</p>
+      </WellnessShell>,
+    );
+    const labels = screen.getAllByRole("link").map((a) => a.textContent);
+    expect(labels.slice(-2)).toEqual(["Delivery", "Settings"]);
+    expect(screen.getByRole("link", { name: "Delivery" })).toHaveAttribute(
+      "href",
+      "/wellness/delivery",
+    );
+    expect(screen.getByRole("link", { name: "Delivery" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("marks the tab that is open", () => {
