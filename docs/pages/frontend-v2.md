@@ -2,15 +2,15 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `bb814af2` (2026-11-08) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `f99dca34` (2026-11-09) · regenerate with `npm run docs`, never by hand
 
-**164 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**165 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `(app)`       |   144 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
-| `(marketing)` |    11 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
+| `(marketing)` |    12 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
 | `(focus)`     |     1 | **Full-window screens.** No sidebar and no top bar, for a task that wants somebody's whole attention. Behind the sign-in gate; today it is answering a review one question at a time.                                |
@@ -324,6 +324,7 @@ Served from the same Next app, own chrome and footer. No authentication. Most of
 | `/privacy`              | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/privacy/page.tsx`              |
 | `/product/[module]`     | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/product/[module]/page.tsx`     |
 | `/security`             | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/security/page.tsx`             |
+| `/support`              | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/support/page.tsx`              |
 | `/terms`                | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/terms/page.tsx`                |
 
 ---
