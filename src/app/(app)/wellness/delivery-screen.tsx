@@ -74,6 +74,15 @@ import { weekLabel } from "@/lib/wellness/format";
  * line and the department head, and a screen guessing from a permission could
  * draw a team that was not sent or hide one that was.
  *
+ * ## "Logged nothing" is said for a team, never for the company
+ *
+ * The API counts the people in scope who logged nothing. For a manager's team
+ * that is a fact about a handful of people they lead. For everyone it is every
+ * current employee with nothing logged, which includes everybody who has no
+ * objectives to log against, so it reads as blame it cannot support. It is drawn
+ * only when the scope is `REPORTS`; the figure is still the API's, and still
+ * there, it is just not shown.
+ *
  * ## An empty week is a week
  *
  * No tasks logged is an answer, and the API says so with an empty report, not an
@@ -353,6 +362,10 @@ function Team({
 }) {
   const summary = meta.summary;
   const waiting = summary ? summary.logged - summary.graded : 0;
+  /* Only for somebody's own team. Company-wide it is every current employee
+     who logged nothing, including everybody who has no objectives, and set
+     under a table of names it reads as a list of who did not do their work. */
+  const silent = scope === "REPORTS" ? meta.silent : null;
   return (
     <section aria-labelledby="delivery-team" className="flex flex-col gap-3">
       <div>
@@ -407,8 +420,8 @@ function Team({
             icon={<Users aria-hidden="true" />}
             title="Nobody logged tasks this week"
             description={
-              meta.silent
-                ? `${plural(meta.silent, "person has", "people have")} not logged any yet.`
+              silent
+                ? `${plural(silent, "person has", "people have")} not logged any yet.`
                 : "There is nothing to show for this week."
             }
           />
@@ -436,10 +449,10 @@ function Team({
               loading={busy}
             />
           </div>
-          {meta.silent ? (
+          {silent ? (
             <p className="text-body-sm text-muted">
-              {plural(meta.silent, "other person", "other people")} logged
-              nothing this week.
+              {plural(silent, "other person", "other people")} logged nothing
+              this week.
             </p>
           ) : null}
         </>

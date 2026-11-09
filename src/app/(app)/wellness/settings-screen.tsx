@@ -7,6 +7,7 @@ import {
   CardBody,
   CardFooter,
   CardHeader,
+  ConfirmDialog,
   Field,
   Input,
   LoadState,
@@ -35,6 +36,12 @@ import { NotYours } from "./wellness-shell";
  * database check), and this field holds it too, so a number below the minimum
  * cannot be sent from here. The minimum and maximum are read from the API rather
  * than written here, so the field and the server cannot disagree about them.
+ *
+ * ## Lowering it asks first
+ *
+ * Raising the floor only hides more, so it saves at once. Lowering it is the
+ * direction that shows more, so it says what changes in plain words and waits
+ * for a yes. The minimum does not move, and the confirm says so.
  *
  * ## It never un-promises anything
  *
@@ -91,6 +98,7 @@ function FloorForm({
   const [text, setText] = useState(String(privacyFloor));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const value = /^\d+$/.test(text.trim()) ? Number(text.trim()) : null;
   const invalid =
@@ -98,6 +106,16 @@ function FloorForm({
       ? `Use a whole number from ${String(min)} to ${String(max)}.`
       : null;
   const unchanged = value === privacyFloor;
+
+  const lowering = value !== null && value < privacyFloor;
+
+  /* Save is the one way in: a lower number goes through the confirm, which
+     calls `save` again once it is agreed. */
+  const ask = () => {
+    if (invalid || value === null) return;
+    if (lowering) setConfirming(true);
+    else void save();
+  };
 
   const save = async () => {
     if (invalid || value === null) return;
@@ -109,8 +127,10 @@ function FloorForm({
         tone: "success",
         title: `The floor is now ${String(value)}`,
       });
+      setConfirming(false);
       onSaved();
     } catch (error) {
+      setConfirming(false);
       setProblem(
         error instanceof ApiError
           ? error.message
@@ -157,7 +177,7 @@ function FloorForm({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void save();
+            ask();
           }}
         >
           <Field
@@ -190,11 +210,30 @@ function FloorForm({
           variant="accent"
           loading={busy}
           disabled={invalid !== null || unchanged}
-          onClick={() => void save()}
+          onClick={ask}
         >
           Save
         </Button>
       </CardFooter>
+      {confirming && value !== null && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirming(false)}
+          loading={busy}
+          tone="primary"
+          title={`Lower the floor to ${String(value)}?`}
+          body={
+            <>
+              Fewer people will be needed before a team result is shown. It is{" "}
+              {String(privacyFloor)} now, and it can never go below{" "}
+              {String(min)}. Anyone who joined a challenge under a higher number
+              keeps that one.
+            </>
+          }
+          confirmLabel={`Lower to ${String(value)}`}
+          onConfirm={() => void save()}
+        />
+      )}
     </Card>
   );
 }

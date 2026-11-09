@@ -341,6 +341,42 @@ describe("the team", () => {
     expect(screen.queryByText("Your team")).toBeNull();
   });
 
+  it("does not say how many people logged nothing company-wide: it counts people with no objectives and reads as blame", async () => {
+    /* The API still sends the figure for scope ALL. It is every current
+       employee who logged nothing, so it is not drawn. */
+    api.report.mockResolvedValue(
+      answer(team, { me: BOLA, scope: "ALL", summary, silent: 391 }),
+    );
+    render(<DeliveryScreen />);
+    await screen.findByText("Everyone");
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByText(/logged nothing/)).toBeNull();
+    expect(screen.queryByText(/391/)).toBeNull();
+    expect(screen.queryByText(/other people/)).toBeNull();
+  });
+
+  it("does not say it in the empty week either, for everyone", async () => {
+    api.report.mockResolvedValue(
+      answer([], {
+        me: BOLA,
+        scope: "ALL",
+        summary: { people: 0, logged: 0, graded: 0, rate: null },
+        silent: 391,
+      }),
+    );
+    render(<DeliveryScreen />);
+
+    expect(
+      await screen.findByText("Nobody logged tasks this week"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("There is nothing to show for this week."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/have not logged any yet/)).toBeNull();
+    expect(screen.queryByText(/391/)).toBeNull();
+  });
+
   it("says nobody logged, and how many have not, instead of an empty table", async () => {
     api.report.mockResolvedValue(
       answer([], {

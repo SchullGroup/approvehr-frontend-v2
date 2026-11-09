@@ -80,7 +80,11 @@ export type ApiDeliveryMeta = {
   /** `null`: the caller leads nobody, and gets no team. */
   scope: ApiDeliveryScope | null;
   summary: ApiDeliverySummary | null;
-  /** People in scope who logged nothing. `null` when there is no scope. */
+  /**
+   * People in scope who logged nothing. `null` when there is no scope. The
+   * screen says it only for `REPORTS`: for `ALL` it counts everybody with no
+   * objectives too, and reads as blame.
+   */
   silent: number | null;
 };
 
