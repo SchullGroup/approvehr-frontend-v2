@@ -110,6 +110,33 @@
   --color-cat-5: #7a6bb8;
   --color-cat-6: #5d6b8a;
 
+  /* ---- Wellness accents. Scoped to the Wellness area, never status. --- */
+  /* Wellness is the one place the product is allowed to be playful, so it gets
+     four friendly hues the rest of the app does not use. Each has the same
+     three steps: a bright FILL (mascots, rank badges, washes; it carries the
+     fixed dark `well-ink`, never white), a SOFT wash behind it, and a TEXT
+     step that is darker in light mode and lighter in dark mode so it reads on
+     surface, canvas, sunken and its own wash. Anything that carries a number
+     (an arc, a heat map cell) is drawn in the TEXT step, because the bright
+     fills are under 3:1 on a white card. `scripts/verify-contrast.ts` checks
+     every pair below in both themes. */
+  --color-well-ink: #0a1f2d; /* fixed, both themes: text on the bright fills */
+  --color-well-green: #6bd48d;
+  --color-well-green-soft: #e6f7ec;
+  --color-well-green-text: #17703a;
+  --color-well-peri: #a3acfa;
+  --color-well-peri-soft: #eceeff;
+  --color-well-peri-text: #3a49b8;
+  --color-well-pink: #ff94b6;
+  --color-well-pink-soft: #ffe9f1;
+  --color-well-pink-text: #b02a5b;
+  --color-well-sun: #ffd35c;
+  --color-well-sun-soft: #fff4d0;
+  --color-well-sun-text: #7d5200;
+  /* A fixed light sticker for black line art (the Open Doodles scenes): the
+     art is dark ink, so it sits on a light ground in both themes. */
+  --color-well-sticker: #f4f1ff;
+
   /* ---- Typography ---------------------------------------------------- */
   /* Geist is a neo grotesque in the same lineage as Stripe's Sohne. */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -333,6 +360,15 @@
   --color-cat-4: #d1ad66;
   --color-cat-5: #a99be0;
   --color-cat-6: #8e9bbb;
+
+  --color-well-green-soft: #112a1b;
+  --color-well-green-text: #7be29c;
+  --color-well-peri-soft: #1b2145;
+  --color-well-peri-text: #b4bcff;
+  --color-well-pink-soft: #321725;
+  --color-well-pink-text: #ff9fbd;
+  --color-well-sun-soft: #2e2508;
+  --color-well-sun-text: #ffd36a;
 
   /* An ink-tinted shadow at 4-9% opacity is invisible on a near-black ground.
      Every Card/Modal/Drawer already carries `border border-line` unconditionally,
@@ -1088,6 +1124,85 @@
 
   .ahr-success-ring {
     display: none;
+  }
+}
+
+/* ==========================================================================
+   Wellness mascots. A slow bob, a blink, a podium that rises once, a twinkle.
+   Every one of them is switched off under reduced motion below, and none of
+   them carries information: they are decoration on top of words.
+   ========================================================================== */
+
+@keyframes ahr-well-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3%);
+  }
+}
+
+@keyframes ahr-well-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes ahr-well-rise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes ahr-well-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.well-bob {
+  animation: ahr-well-bob 4.2s var(--ease-in-out-soft) infinite;
+  transform-origin: 50% 100%;
+}
+
+.well-blink {
+  animation: ahr-well-blink 5.5s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.well-rise {
+  animation: ahr-well-rise 0.7s var(--ease-out-soft) both;
+  transform-origin: 50% 100%;
+}
+
+.well-twinkle {
+  animation: ahr-well-twinkle 2.8s var(--ease-in-out-soft) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .well-bob,
+  .well-blink,
+  .well-rise,
+  .well-twinkle {
+    animation: none !important;
   }
 }
 

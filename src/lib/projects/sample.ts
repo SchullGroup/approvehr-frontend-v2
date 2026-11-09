@@ -485,7 +485,6 @@ export function buildSample(args: {
       rank,
       doneAt: null,
       goalId: null,
-      weeklyTask: null,
       commentCount: 0,
       createdAt,
       updatedAt: o.doneAt ?? createdAt,

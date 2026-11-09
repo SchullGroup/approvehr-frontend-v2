@@ -153,13 +153,23 @@ export const PERSONAS: Persona[] = [
     name: "HR manager",
     permissions: new Set(rolePermissions("role-hr-manager")),
     features: everythingOn,
-    facts: facts({ "one-on-ones": true, signatures: true }),
+    /* HR read everybody's finished work on Team tasks, so the row is theirs
+       whether or not anybody reports to them. */
+    facts: facts({
+      "one-on-ones": true,
+      signatures: true,
+      "team-tasks": true,
+    }),
   },
   {
     name: "administrator",
     permissions: owner,
     features: everythingOn,
-    facts: facts({ "one-on-ones": true, signatures: true }),
+    facts: facts({
+      "one-on-ones": true,
+      signatures: true,
+      "team-tasks": true,
+    }),
   },
   {
     name: "panelist",
@@ -187,7 +197,12 @@ export const PERSONAS: Persona[] = [
     name: "billing-locked company",
     permissions: owner,
     features: everythingOn,
-    facts: facts({ "one-on-ones": true, signatures: true, interviews: true }),
+    facts: facts({
+      "one-on-ones": true,
+      signatures: true,
+      interviews: true,
+      "team-tasks": true,
+    }),
     billing: billingBase,
   },
   {
@@ -235,7 +250,11 @@ export const PERSONAS: Persona[] = [
     name: "HR with programs",
     permissions: new Set(rolePermissions("role-hr-manager")),
     features: everythingOn,
-    facts: facts({ "one-on-ones": true, signatures: true }),
+    facts: facts({
+      "one-on-ones": true,
+      signatures: true,
+      "team-tasks": true,
+    }),
     programs: programsNavFor("p-05", { editRecords: true }),
   },
 ];

@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge, Drawer } from "@/components/ui";
+import { Badge, Drawer, useToast } from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
 import {
   projectsApi,
   type IssueLink,
   type ReducedIssueDetail,
 } from "@/lib/api/projects";
+import { ObjectiveLinkControl } from "@/components/projects/objective-link";
+import { objectiveLine } from "@/lib/projects/objectives";
+import type { IssueObjective } from "@/lib/projects/types";
 import { STAGE, SUBTASK } from "@/lib/projects/terms";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
@@ -32,10 +36,19 @@ export function ReducedIssueDrawer({
   onClose: () => void;
 }) {
   const timeZone = useOrgTimezone();
+  const toast = useToast();
   const [links, setLinks] = useState<{ id: string; rows: IssueLink[] } | null>(
     null,
   );
   const id = detail?.issue.id ?? null;
+  /* What the objective-only save said the link is now, so the control reads it
+     at once and not the link the drawer was opened with. */
+  const [saved, setSaved] = useState<{
+    id: string;
+    goalId: string | null;
+    keyResultId: string | null;
+    objective: IssueObjective;
+  } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -48,7 +61,15 @@ export function ReducedIssueDrawer({
     return () => controller.abort();
   }, [id]);
 
-  const issue = detail?.issue;
+  const issue =
+    detail && saved && saved.id === detail.issue.id
+      ? {
+          ...detail.issue,
+          goalId: saved.goalId,
+          keyResultId: saved.keyResultId,
+          objective: saved.objective,
+        }
+      : detail?.issue;
   const shownLinks = links && links.id === id ? links.rows : [];
 
   return (
@@ -88,6 +109,48 @@ export function ReducedIssueDrawer({
               )}
             </dd>
           </dl>
+
+          {/* The one thing a leader may change here: where this task is under an
+              objective. Absent when the API says they may not. */}
+          {issue.canLinkObjective === true ? (
+            <ObjectiveLinkControl
+              issue={issue}
+              save={async (patch) => {
+                try {
+                  const answer = await projectsApi.setObjective(
+                    issue.id,
+                    patch,
+                  );
+                  setSaved({
+                    id: issue.id,
+                    goalId: answer.goalId,
+                    keyResultId: answer.keyResultId,
+                    objective: answer.objective,
+                  });
+                  return true;
+                } catch (error) {
+                  /* A real failure is said, in the API's words. Not linking is not
+                     one, and never reaches here. */
+                  toast.push({
+                    tone: "danger",
+                    title: `Could not update ${issue.key}`,
+                    detail:
+                      error instanceof ApiError
+                        ? error.message
+                        : "Try again in a moment.",
+                  });
+                  return false;
+                }
+              }}
+            />
+          ) : (
+            (() => {
+              const line = objectiveLine(issue);
+              return line ? (
+                <p className="text-meta leading-snug text-muted">{line}</p>
+              ) : null;
+            })()
+          )}
 
           {detail.subtasks.length > 0 && (
             <section aria-label={SUBTASK.Many}>

@@ -56,6 +56,10 @@ const APP_ENTRY = "/dashboard";
  * to `REDIRECTED_PATHS` in `lib/marketing/redirected.ts` (which the links
  * read too, so they stop prefetching it) and to this matcher's list in the same change that
  * confirms the standalone site actually serves this route.
+ *
+ * `/support` is held out of the redirect set on the same footing: it was added
+ * here for the App Store's Support URL, and the landing site gets its own copy
+ * in a separate repo that someone has to deploy. Add it once that site serves it.
  */
 
 export function proxy(request: NextRequest) {

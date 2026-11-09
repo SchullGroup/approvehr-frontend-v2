@@ -668,6 +668,144 @@ describe("the departments tab", () => {
   });
 });
 
+describe("project work finished in the cycle", () => {
+  const withWork = (
+    finishedWork: unknown,
+    tasks = { people: 8, withLogged: 3, withGraded: 1 },
+  ) => {
+    const r = report();
+    const base = shownRow();
+    if (!base.shown) throw new Error("fixture must be a shown row");
+    r.departments = {
+      ...r.departments!,
+      rows: [
+        {
+          ...base,
+          results: { ...base.results, tasks, finishedWork },
+        } as DepartmentRow,
+        smallRow,
+      ],
+    };
+    state.report = r;
+  };
+
+  it("is a column of its own, beside the weekly tasks and never inside them", () => {
+    withWork({ withFinishedWork: 6, tasksFinished: 17 });
+    mount("departments");
+    expect(
+      screen.getByRole("columnheader", { name: "Project work" }),
+    ).toBeInTheDocument();
+    const row = screen
+      .getAllByRole("button", { name: "Engineering" })[0]!
+      .closest("tr")!;
+    expect(within(row).getByText("6 of 8 finished a task")).toBeInTheDocument();
+    expect(within(row).getByText("17 tasks in all")).toBeInTheDocument();
+    /* Logged and graded keep their own figures, as before. */
+    expect(within(row).getByText("3 of 8 logged")).toBeInTheDocument();
+    expect(within(row).getByText("1 has one graded")).toBeInTheDocument();
+  });
+
+  it("writes a nobody as a real answer, and one task in the singular", () => {
+    withWork({ withFinishedWork: 0, tasksFinished: 0 });
+    mount("departments");
+    const zero = screen
+      .getAllByRole("button", { name: "Engineering" })[0]!
+      .closest("tr")!;
+    expect(
+      within(zero).getByText("0 of 8 finished a task"),
+    ).toBeInTheDocument();
+    expect(within(zero).getByText("0 tasks in all")).toBeInTheDocument();
+    cleanup();
+    withWork({ withFinishedWork: 1, tasksFinished: 1 });
+    mount("departments");
+    expect(screen.getByText("1 task in all")).toBeInTheDocument();
+  });
+
+  it("uses the people the cycle asked as its denominator, not the headcount", () => {
+    withWork(
+      { withFinishedWork: 2, tasksFinished: 5 },
+      { people: 5, withLogged: 0, withGraded: 0 },
+    );
+    mount("departments");
+    expect(screen.getByText("2 of 5 finished a task")).toBeInTheDocument();
+  });
+
+  it("is not drawn for a cycle with no dates, whose figures are null", () => {
+    withWork({ withFinishedWork: null, tasksFinished: null });
+    mount("departments");
+    expect(
+      screen.queryByRole("columnheader", { name: "Project work" }),
+    ).toBeNull();
+    expect(document.body.textContent).not.toMatch(
+      /finished a task|tasks in all/,
+    );
+    /* The weekly tasks are exactly as they were. */
+    expect(screen.getByText("3 of 8 logged")).toBeInTheDocument();
+  });
+
+  it.each([[null], [undefined]])(
+    "is not drawn when the server sends %s for it",
+    (value) => {
+      withWork(value);
+      mount("departments");
+      expect(
+        screen.queryByRole("columnheader", { name: "Project work" }),
+      ).toBeNull();
+      expect(document.body.textContent).not.toMatch(/finished a task/);
+    },
+  );
+
+  it("keeps a department held back at five people as a headcount and a sentence, with no figure", () => {
+    withWork({ withFinishedWork: 6, tasksFinished: 17 });
+    mount("departments");
+    const row = screen.getAllByText("Legal")[0]!.closest("tr")!;
+    expect(row.textContent).not.toMatch(/finished a task|tasks in all/);
+    expect(
+      within(row).getByText("Fewer than 5 people: figures are not shown."),
+    ).toBeInTheDocument();
+  });
+
+  it("is a line in the department's panel too, again with nothing claimed beyond the counts", async () => {
+    withWork({ withFinishedWork: 6, tasksFinished: 17 });
+    const user = userEvent.setup();
+    mount("departments");
+    await user.click(
+      screen.getAllByRole("button", { name: "Engineering" })[0]!,
+    );
+    const panel = await screen.findByRole("dialog");
+    expect(within(panel).getByText("Project work")).toBeInTheDocument();
+    expect(
+      within(panel).getByText("6 of 8 finished a task"),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText("17 tasks in all")).toBeInTheDocument();
+    expect(within(panel).getByText("Weekly tasks")).toBeInTheDocument();
+    expect(within(panel).getByText("3 of 8 logged")).toBeInTheDocument();
+  });
+
+  it("is calm: no alarm styling, no exclamation mark, no word about idleness or a shortfall", async () => {
+    withWork({ withFinishedWork: 0, tasksFinished: 0 });
+    const user = userEvent.setup();
+    mount("departments");
+    const row = screen
+      .getAllByRole("button", { name: "Engineering" })[0]!
+      .closest("tr")!;
+    const cell = within(row).getByText("0 tasks in all").closest("td")!;
+    expect(cell.querySelector("[class*=danger],[class*=warning]")).toBeNull();
+    expect(cell.textContent).not.toMatch(
+      /!|idle|inactive|no activity|behind|only|just|low|missing/i,
+    );
+    await user.click(
+      screen.getAllByRole("button", { name: "Engineering" })[0]!,
+    );
+    const panel = await screen.findByRole("dialog");
+    const line = within(panel).getByText("Project work").closest("div")!;
+    expect(line.querySelector("[class*=danger],[class*=warning]")).toBeNull();
+    expect(line.textContent).not.toMatch(
+      /!|idle|inactive|no activity|behind|only|just|low|missing/i,
+    );
+  });
+});
+
 describe("the PDF", () => {
   const printApi = vi.mocked(companyReportApi.printed);
 

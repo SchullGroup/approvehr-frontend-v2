@@ -102,6 +102,36 @@ describe.each(PERSONAS)("parity: $name", (persona) => {
     );
   });
 
+  it("keeps Projects and Wellness out of the first block, and after the module rows, for everybody who has them", () => {
+    const { container } = mount(persona);
+    const blocks = Array.from(
+      container.querySelectorAll('nav[aria-label="Main"] > div > div'),
+    ).map((block) =>
+      Array.from(block.querySelectorAll("[data-nav-label]")).map(
+        (n) => n.textContent,
+      ),
+    );
+    const [first] = blocks;
+    expect(first, "first block").not.toContain("Projects");
+    expect(first, "first block").not.toContain("Wellness");
+    /* Home, My approvals and Assistant are all that is left up there. */
+    expect(
+      first!.every((l) => ["Home", "My approvals", "Assistant"].includes(l)),
+    ).toBe(true);
+    /* Wherever they are, they are in the same block as a module row and come
+       after every other row in it. */
+    const flat = blocks.flat();
+    const owned = ["Projects", "Wellness"].filter((l) => flat.includes(l));
+    const modules = blocks.find((b) => owned.some((l) => b.includes(l)));
+    if (owned.length > 0) {
+      expect(modules, "a block holds them").toBeDefined();
+      expect(modules!.slice(-owned.length)).toEqual(owned);
+      expect(modules!.length, "beside at least one module").toBeGreaterThan(
+        owned.length,
+      );
+    }
+  });
+
   it("reaches every one of them through Find, with the group it lives in", () => {
     const tree = buildSidebar(groups);
     for (const group of groups) {
