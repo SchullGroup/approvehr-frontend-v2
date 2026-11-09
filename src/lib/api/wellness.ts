@@ -301,10 +301,11 @@ export type ApiKudosReport = {
   reason: string | null;
   recognition: {
     id: string;
-    message: string;
-    giver: { name: string };
-    recipient: { name: string };
-    createdAt: string;
+    /** Once the kudos is gone the API keeps no copy: `removed` is true and these four are null. */
+    message: string | null;
+    giver: { name: string } | null;
+    recipient: { name: string } | null;
+    createdAt: string | null;
     /** Already taken down: the report is still there to be closed. */
     removed: boolean;
   };

@@ -175,26 +175,35 @@ function ReportCard({
 }) {
   const timeZone = useOrgTimezone();
   const { recognition } = report;
+  const giver = recognition.giver?.name ?? null;
+  const recipient = recognition.recipient?.name ?? null;
+  const people =
+    giver !== null && recipient !== null ? `${giver} to ${recipient}` : null;
   return (
     <li className="rounded-2xl border border-line bg-surface p-4">
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-body">
-        <span>
-          <span className="font-medium text-ink">{recognition.giver.name}</span>{" "}
-          thanked{" "}
-          <span className="font-medium text-ink">
-            {recognition.recipient.name}
+        {giver !== null && recipient !== null ? (
+          <span>
+            <span className="font-medium text-ink">{giver}</span> thanked{" "}
+            <span className="font-medium text-ink">{recipient}</span>
           </span>
-        </span>
-        <span className="text-meta text-muted">
-          {formatDateShort(recognition.createdAt, timeZone)}
-        </span>
+        ) : (
+          <span>
+            This kudos was removed, so its words and names are no longer kept.
+          </span>
+        )}
+        {recognition.createdAt !== null && (
+          <span className="text-meta text-muted">
+            {formatDateShort(recognition.createdAt, timeZone)}
+          </span>
+        )}
         {recognition.removed && (
           <Badge tone="neutral" size="sm">
             Already removed
           </Badge>
         )}
       </p>
-      {recognition.message.trim() !== "" && (
+      {recognition.message !== null && recognition.message.trim() !== "" && (
         <p className="mt-2 whitespace-pre-line rounded-xl bg-sunken px-4 py-3 text-body-md text-ink">
           {recognition.message}
         </p>
@@ -215,7 +224,7 @@ function ReportCard({
           <Button
             variant="secondary"
             onClick={() => onAct("REMOVE")}
-            aria-label={`Remove the kudos from ${recognition.giver.name} to ${recognition.recipient.name}`}
+            aria-label={`Remove the kudos from ${people ?? "someone to someone"}`}
           >
             Remove kudos
           </Button>
@@ -223,7 +232,7 @@ function ReportCard({
         <Button
           variant="ghost"
           onClick={() => onAct("DISMISS")}
-          aria-label={`${recognition.removed ? "Close" : "Dismiss"} the report on the kudos from ${recognition.giver.name} to ${recognition.recipient.name}`}
+          aria-label={`${recognition.removed ? "Close" : "Dismiss"} the report on the kudos from ${people ?? "someone to someone"}`}
         >
           {recognition.removed ? "Close report" : "Dismiss report"}
         </Button>

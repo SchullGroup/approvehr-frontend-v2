@@ -76,7 +76,7 @@ const PRIVACY: LegalDoc = {
     "We hold payroll and employment records, which is about the most sensitive data a company keeps. This page says plainly what we do with it. Where the law gives you a right, we have written down how to use it rather than telling you to contact us and hoping you do not.",
   updated: "9 November 2026",
   statusNote:
-    "What changed on 9 November 2026: you can now report a kudos, and the Kudos section says what happens when you do; and the app-use figures follow your company's own privacy floor, which is never below 3. What changed on 8 November 2026: this page now covers the ApproveHR mobile app, your location when you clock in, the optional Wellness features (water and steps, break reminders, challenges and kudos), the weekly delivery report, the app-open mark and notifications. For each it says what is stored and who can and cannot see it.",
+    "What changed on 9 November 2026: you can now report a kudos, and the Kudos section says what happens when you do; the app-use figures follow your company's own privacy floor, which is never below 3; and the app-open record keeps only the day, not the time. What changed on 8 November 2026: this page now covers the ApproveHR mobile app, your location when you clock in, the optional Wellness features (water and steps, break reminders, challenges and kudos), the weekly delivery report, the app-open mark and notifications. For each it says what is stored and who can and cannot see it.",
   sections: [
     {
       id: "who-we-are",
@@ -258,7 +258,7 @@ const PRIVACY: LegalDoc = {
       id: "app-open",
       heading: "Whether you opened the app",
       body: [
-        "If your company has switched on app-use measurement, which is off until it does, ApproveHR records once per person per day that your account opened ApproveHR that day, on the web or in the app. The record holds your account, the company's calendar day and the time the record was created. It holds no device, no screen, nothing you did and no count of opens. The app reports each time it comes back to the front and the web reports once a day, and a second open on the same day changes nothing.",
+        "If your company has switched on app-use measurement, which is off until it does, ApproveHR records once per person per day that your account opened ApproveHR that day, on the web or in the app. The record holds your account and the company's calendar day, and nothing else: not even the time of day. It holds no device, no screen, nothing you did and no count of opens. The app reports each time it comes back to the front and the web reports once a day, and a second open on the same day changes nothing.",
         "It exists so that your company can see how many of its people use ApproveHR each week. The only thing an administrator can read is a company-wide total: the share of people who opened it in a week, the share who opened it on three or more days, and the typical number of days. It appears only when at least as many people are counted as your company's privacy floor, which is never below 3, it carries no names and no cut by team or department, and no screen lists a person's days. Apple's App Store rules would call a count like this analytics, so we call it that too.",
       ],
     },

@@ -883,6 +883,37 @@ describe("the open reports", () => {
     ).toBeInTheDocument();
   });
 
+  it("a removed kudos arrives with its words and names null: the list still draws and says so", async () => {
+    api.kudosReports.mockResolvedValue(
+      paged([
+        report({
+          recognition: {
+            id: "k-gone",
+            removed: true,
+            message: null,
+            giver: null,
+            recipient: null,
+            createdAt: null,
+          },
+        }),
+      ]),
+    );
+    await openReports();
+
+    expect(await screen.findByText("Already removed")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This kudos was removed, so its words and names are no longer kept.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Remove the kudos/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Close the report/ }),
+    ).toBeInTheDocument();
+  });
+
   it("leaves the reports behind when a list is chosen again", async () => {
     await openReports();
     await screen.findByText("Reported kudos");

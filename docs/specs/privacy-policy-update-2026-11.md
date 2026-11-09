@@ -17,7 +17,7 @@ Three things became true after the first pass, and the policy now says them. `up
 
 ### Held back, and why
 
-- **The app-open sentence is unchanged.** It still says the record holds "the time the record was created". The backend branch has a migration that drops that column (`20261109090100_app_open_day_only`) and a schema change, but its findings document (`docs/backend/wellness-findings-20261109.md`) was not on `origin` when this pass finished, so nothing confirmed it had merged or would. When it does, the sentence in `app-open` becomes "The record holds your account and the company's calendar day, and nothing else", and the "what we collect" row needs no change.
+- **RESOLVED 2026-11-09 (was: the app-open sentence is unchanged).** The backend (`staging` 8a6db2a, migration `20261109090100_app_open_day_only`) now drops the time column; the sentence says "your account and the company's calendar day, and nothing else". It is TRUE only once that backend is deployed (the CI runner disk has blocked backend deploys); the page is not public until exported. It used to say the record holds "the time the record was created". The backend branch has a migration that drops that column (`20261109090100_app_open_day_only`) and a schema change, but its findings document (`docs/backend/wellness-findings-20261109.md`) was not on `origin` when this pass finished, so nothing confirmed it had merged or would. When it does, the sentence in `app-open` becomes "The record holds your account and the company's calendar day, and nothing else", and the "what we collect" row needs no change.
 
 ### What this changes about the questions for counsel
 
@@ -85,7 +85,7 @@ I did not edit any of these.
 | `docs/store/app-privacy.md` | (a) says employers see app-open totals "above a floor the server sets": for app use the floor is fixed at 3 (`engagement/floor.ts:23`) and the company's 3 to 50 setting is not read there; (b) does not say app-open is off by default per company, or that the web sends it too; (c) "What the privacy policy must say" asks for "never used for advertising, marketing or data mining": the policy says advertising and marketing only (see below); (d) judgement call 5 (access logs and the typed `q`) is still open | the policy and the answers must agree |
 | In-app notifications card, `NotificationsCard.tsx` | says a notification is a title and a place to open "never details". A kudos headline names the giver (`recognition.ts:132`) | minor |
 | `docs/spec/mobile-v0.md` section 4 | says sign-out clears "the app-open marker". The code has none (`reporter.ts`, `platform.ts` write only the install marker file) | stale spec |
-| API `engagement/app-open.ts` header | says `AppOpen` "has no device, no time of day and no count". `AppOpen.createdAt` is `@default(now())` (`schema.prisma:10608`), so the time the record was created is stored. The policy says so | comment and schema disagree; API owner |
+| API `engagement/app-open.ts` header | says `AppOpen` "has no device, no time of day and no count". `AppOpen.createdAt` is `@default(now())` (`schema.prisma:10608`), so the time the record was created is stored. The policy says so | comment and schema disagreed; **fixed in the API on 2026-11-09** (column dropped, policy now says day only) |
 
 ## Left out of the policy because it could not be verified
 
