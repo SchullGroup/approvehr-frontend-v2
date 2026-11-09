@@ -245,7 +245,7 @@ describe("All tasks", () => {
       ).toBeInTheDocument();
     }
     const total = workPage(scene, master(), { limit: 200 }).total;
-    expect(document.body).toHaveTextContent(new RegExp(`\\b${total} tasks\\b`));
+    expect(document.body).toHaveTextContent(new RegExp(`\\b${total} tasks`));
   });
 
   it("names a task's own stage and the project it is in", () => {
@@ -305,10 +305,12 @@ describe("All tasks", () => {
 
   it("asks for the next page when there is one", async () => {
     render(<MasterScreen />);
-    /* 47 tasks and a page of 50: nothing more to load. */
-    expect(
-      screen.queryByRole("button", { name: "Load more" }),
-    ).not.toBeInTheDocument();
+    /* The demo holds more tasks than one page of 50, so there is more to load,
+       and pressing it asks for it. */
+    const total = workPage(scene, master(), { limit: 200 }).total;
+    expect(total).toBeGreaterThan(50);
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(loadMoreSpy).toHaveBeenCalledTimes(1);
   });
 
   it("says plainly when nothing matches, and offers to clear", () => {
@@ -497,7 +499,7 @@ describe("a program's Tasks", () => {
       bucket: "dueThisWeek",
       limit: 200,
     }).total;
-    expect(document.body).toHaveTextContent(new RegExp(`\\b${total} tasks\\b`));
+    expect(document.body).toHaveTextContent(new RegExp(`\\b${total} tasks`));
   });
 });
 

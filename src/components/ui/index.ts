@@ -5,6 +5,7 @@ export { Field, FieldRow, FieldSet, useFieldControl } from "./field";
 export { FileField } from "./file-field";
 export { Input, Textarea, Select } from "./input";
 export { Picker, type PickerOption, type PickerProps } from "./picker";
+export { SearchPicker, type SearchPickerProps } from "./search-picker";
 export { Checkbox, Radio, RadioCard, Switch } from "./choice";
 
 export {

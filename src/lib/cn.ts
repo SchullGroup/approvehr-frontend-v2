@@ -22,6 +22,7 @@ const FONT_SIZES = [
   /* The body scale. `meta` is the smallest size the app ships — see the note in
      globals.css for why there is a floor at all. */
   "body-lg",
+  "body-md",
   "body",
   "body-sm",
   "meta",

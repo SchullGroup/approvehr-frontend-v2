@@ -9,9 +9,10 @@ import {
   FileField,
   Input,
   Modal,
-  Picker,
+  SearchPicker,
   Textarea,
   useToast,
+  type PickerOption,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -21,9 +22,8 @@ import {
   SIGNATURE_KIND,
 } from "@/lib/api/signatures";
 import type { InlineFile } from "@/lib/api/uploads";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useEmployeeSearch } from "@/lib/store/employees-api";
 import { useSignatureMutations } from "@/lib/store/signatures";
-import { fullName } from "@/lib/types";
 
 /**
  * Send a document for signature.
@@ -71,10 +71,13 @@ export function SendDialog({
   onSent: () => void;
 }) {
   const mutations = useSignatureMutations();
-  const directory = useEmployeeDirectory({ pageSize: 200 });
+  /* Found by typing. This was the first two hundred people, which is the API's
+     page ceiling, so the two hundred and first could not be sent a contract. */
+  const search = useEmployeeSearch();
   const toast = useToast();
 
-  const [signerId, setSignerId] = useState("");
+  const [signer, setSigner] = useState<PickerOption | null>(null);
+  const signerId = signer?.value ?? "";
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -119,14 +122,11 @@ export function SendDialog({
       /* Who, by name. A toast reading "Sent" after a form with a searchable
          two-hundred-row picker in it does not confirm the thing somebody
          wants confirmed, which is that it went to the right person. */
-      const signer = directory.employees.find(
-        (person) => person.id === signerId,
-      );
       toast.push({
         tone: "success",
         title: "Sent for signature",
         detail: signer
-          ? `${fullName(signer)} will see it under Signatures.`
+          ? `${signer.label} will see it under Signatures.`
           : "It will appear under Signatures.",
       });
       onSent();
@@ -166,20 +166,17 @@ export function SendDialog({
     >
       <div className="flex flex-col gap-4">
         <Field label="Who signs it" required>
-          <Picker
-            value={signerId}
-            onChange={setSignerId}
-            placeholder="Choose somebody"
-            loading={directory.loading}
+          <SearchPicker
+            selected={signer}
+            onSelect={setSigner}
+            onQueryChange={search.search}
+            options={search.options}
+            pending={search.pending}
+            failed={search.failed}
+            onRetry={search.retry}
+            more={search.more}
+            placeholder="Search for somebody"
             aria-label="Who signs it"
-            options={directory.employees.map((person) => ({
-              value: person.id,
-              label: fullName(person),
-              /* The second line the picker is built for. Two people with the
-                 same name is ordinary; two with the same name and job title is
-                 not. */
-              ...(person.jobTitle ? { hint: person.jobTitle } : {}),
-            }))}
           />
         </Field>
 

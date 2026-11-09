@@ -53,6 +53,7 @@ vi.mock("@/lib/permissions", async (original) => ({
   useCan: (permission: PermissionKey) => held.has(permission),
 }));
 
+import { ChallengeScreen } from "@/app/(app)/wellness/challenge-screen";
 import { ChallengesScreen } from "@/app/(app)/wellness/challenges-screen";
 
 const OPEN = challenge();
@@ -93,21 +94,38 @@ describe("the list", () => {
 
     await screen.findByText("October steps");
     const open = rowOf("October steps");
-    expect(within(open).getByText("Active")).toBeInTheDocument();
-    expect(
-      within(open).getByText(/Steps, Individual, 19 Oct to 1 Nov/),
-    ).toBeInTheDocument();
+    /* What it measures, how long it runs and who it is for, as chips; and where
+       it stands in words. */
+    expect(within(open).getByText("Steps")).toBeInTheDocument();
+    expect(within(open).getByText("14 days")).toBeInTheDocument();
+    expect(within(open).getByText("Individual")).toBeInTheDocument();
+    expect(within(open).getByText("Ends in 11 days")).toBeInTheDocument();
     expect(within(open).queryByText("Joined")).not.toBeInTheDocument();
 
     const joined = rowOf("Water week");
     expect(within(joined).getByText("Joined")).toBeInTheDocument();
-    expect(within(joined).getByText(/Water, Individual/)).toBeInTheDocument();
+    expect(within(joined).getByText("Water")).toBeInTheDocument();
 
     expect(rowOf("Cancelled one")).toHaveTextContent("Cancelled");
     /* No row carries a number of people. */
     expect(
       screen.queryByText(/taking part|participants|joined this/i),
     ).not.toBeInTheDocument();
+  });
+
+  it("lists what is running first, then what is coming, and what is over last", async () => {
+    render(<ChallengesScreen />);
+    await screen.findByText("October steps");
+
+    const order = screen
+      .getAllByRole("heading", { level: 3 })
+      .map((heading) => heading.textContent);
+    expect(order).toEqual([
+      "Water week",
+      "October steps",
+      "September steps",
+      "Cancelled one",
+    ]);
   });
 
   it("offers Join on an open challenge you are not in, Board on one you are, and neither on one that ended", async () => {
@@ -119,29 +137,54 @@ describe("the list", () => {
         name: "Join October steps",
       }),
     ).toBeInTheDocument();
+    /* The board is on the challenge's own page, so Board is a link. */
     expect(
-      within(rowOf("Water week")).getByRole("button", {
+      within(rowOf("Water week")).getByRole("link", {
         name: "Board for Water week",
       }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("href", "/wellness/challenges/c3");
     expect(
       within(rowOf("September steps")).queryByRole("button"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(rowOf("September steps")).queryByRole("link", { name: /^Board/ }),
     ).not.toBeInTheDocument();
     expect(
       within(rowOf("Cancelled one")).queryByRole("button"),
     ).not.toBeInTheDocument();
   });
 
-  it("filters by status behind the filter icon and shows what is applied", async () => {
+  it("filters with pills, says how many are in each, and one is always chosen", async () => {
     render(<ChallengesScreen />);
     await screen.findByText("October steps");
 
-    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-    await userEvent.selectOptions(screen.getByLabelText("Status"), "CANCELLED");
+    expect(screen.getByRole("radio", { name: /^All/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /^Joined/ })).toHaveTextContent(
+      "1",
+    );
+    await userEvent.click(screen.getByRole("radio", { name: /^Cancelled/ }));
 
     expect(screen.getByText("Cancelled one")).toBeInTheDocument();
     expect(screen.queryByText("October steps")).not.toBeInTheDocument();
-    expect(screen.getByText("Status:")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^Cancelled/ })).toBeChecked();
+  });
+
+  it("filters to the ones you joined, which is all it knows about you", async () => {
+    render(<ChallengesScreen />);
+    await screen.findByText("October steps");
+
+    await userEvent.click(screen.getByRole("radio", { name: /^Joined/ }));
+
+    expect(screen.getByText("Water week")).toBeInTheDocument();
+    expect(screen.queryByText("October steps")).not.toBeInTheDocument();
+  });
+
+  it("has no popular or recommended filter: both would need a count of other people", async () => {
+    render(<ChallengesScreen />);
+    await screen.findByText("October steps");
+
+    expect(screen.queryByRole("radio", { name: /popular/i })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /recommend/i })).toBeNull();
   });
 
   it("says nothing matches rather than that there are none", async () => {
@@ -149,8 +192,7 @@ describe("the list", () => {
     render(<ChallengesScreen />);
     await screen.findByText("October steps");
 
-    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-    await userEvent.selectOptions(screen.getByLabelText("Status"), "ENDED");
+    await userEvent.click(screen.getByRole("radio", { name: /^Ended/ }));
 
     expect(screen.getByText("No challenge matches")).toBeInTheDocument();
     expect(screen.queryByText("No challenges yet")).not.toBeInTheDocument();
@@ -300,33 +342,180 @@ describe("joining", () => {
   });
 });
 
-describe("the board", () => {
-  it("shows people who joined to each other, with a mark on yourself", async () => {
-    api.board.mockResolvedValue({
-      challengeId: "c3",
-      status: "ACTIVE",
-      mode: "INDIVIDUAL",
-      metric: "WATER_ML",
-      participants: 3,
-      entries: [
-        { rank: 1, name: "Ada Obi", total: 4500, mine: false },
-        { rank: 2, name: "Me Myself", total: 3000, mine: true },
-        { rank: 3, name: "Tunde Bello", total: 500, mine: false },
-      ],
-      me: { rank: 2, total: 3000 },
-    });
-    render(<ChallengesScreen />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Board for Water week" }),
-    );
+const MINE = {
+  id: "c3",
+  title: "Water week",
+  metric: "WATER_ML" as const,
+  joined: true,
+};
 
-    expect(await screen.findByText("Ada Obi")).toBeInTheDocument();
-    expect(screen.getByText("4,500 ml")).toBeInTheDocument();
-    expect(screen.getByText("You")).toBeInTheDocument();
-    expect(screen.getByText("3 taking part")).toBeInTheDocument();
+const individualBoard = (over: Record<string, unknown> = {}) => ({
+  challengeId: "c3",
+  status: "ACTIVE",
+  mode: "INDIVIDUAL",
+  metric: "WATER_ML",
+  participants: 3,
+  entries: [
+    { rank: 1, name: "Ada Obi", total: 4500, mine: false },
+    { rank: 2, name: "Me Myself", total: 3000, mine: true },
+    { rank: 3, name: "Tunde Bello", total: 500, mine: false },
+  ],
+  me: { rank: 2, total: 3000 },
+  ...over,
+});
+
+describe("a challenge's page", () => {
+  it("says what it measures, how long it runs and who it is for", async () => {
+    api.challenge.mockResolvedValue(detail({ ...MINE, description: "Sip." }));
+    api.board.mockResolvedValue(individualBoard());
+    render(<ChallengeScreen id="c3" />);
+
+    expect(await screen.findByText("Sip.")).toBeInTheDocument();
+    expect(screen.getByText("Measures")).toBeInTheDocument();
+    expect(screen.getByText("Water")).toBeInTheDocument();
+    expect(screen.getByText("Duration")).toBeInTheDocument();
+    expect(screen.getByText("14 days")).toBeInTheDocument();
+    expect(screen.getByText("Mode")).toBeInTheDocument();
+    expect(screen.getByText("Individual")).toBeInTheDocument();
   });
 
-  it("holds a small team's number back and gives the reason", async () => {
+  it("never asks for the board of a challenge you have not joined", async () => {
+    api.challenge.mockResolvedValue(detail({ id: "c1", joined: false }));
+    render(<ChallengeScreen id="c1" />);
+
+    expect(
+      await screen.findByText("The board is for people taking part"),
+    ).toBeInTheDocument();
+    expect(api.board).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Join challenge" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer a join, or a board, for a cancelled challenge", async () => {
+    api.challenge.mockResolvedValue(
+      detail({ id: "c5", status: "CANCELLED", joined: false }),
+    );
+    render(<ChallengeScreen id="c5" />);
+
+    expect(
+      await screen.findByText("This challenge was cancelled."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join challenge" })).toBeNull();
+    expect(api.board).not.toHaveBeenCalled();
+  });
+});
+
+describe("the board", () => {
+  it("shows people who joined to each other, with a mark on yourself", async () => {
+    api.challenge.mockResolvedValue(detail(MINE));
+    api.board.mockResolvedValue(individualBoard());
+    render(<ChallengeScreen id="c3" />);
+
+    /* Three people: a podium, read first to third whatever the drawing order. */
+    const podium = await screen.findByRole("list", { name: "Top three" });
+    expect(
+      within(podium)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual([
+      expect.stringMatching(/^1st: Ada Obi, 4,500 ml\./),
+      expect.stringMatching(/^2nd: Me Myself, 3,000 ml, you\./),
+      expect.stringMatching(/^3rd: Tunde Bello, 500 ml\./),
+    ]);
+    expect(screen.getByText("3 taking part")).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Your place: 2nd, 3,000 ml" }),
+    ).toBeInTheDocument();
+  });
+
+  it("pins your place even when you are further down than the list the API sent", async () => {
+    api.challenge.mockResolvedValue(detail(MINE));
+    api.board.mockResolvedValue(
+      individualBoard({
+        participants: 60,
+        entries: Array.from({ length: 5 }, (_, index) => ({
+          rank: index + 1,
+          name: `Person ${String(index + 1)}`,
+          total: 5000 - index * 100,
+          mine: false,
+        })),
+        me: { rank: 58, total: 40 },
+      }),
+    );
+    render(<ChallengeScreen id="c3" />);
+
+    expect(
+      await screen.findByRole("group", { name: "Your place: 58th, 40 ml" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/The top 5 are shown/)).toBeInTheDocument();
+    /* Rows from fourth place down are listed in order. */
+    const rows = screen.getByRole("list", {
+      name: /board, from fourth place/,
+    });
+    expect(within(rows).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("draws a shared rank as shared, for the screen reader and the eye", async () => {
+    api.challenge.mockResolvedValue(detail(MINE));
+    api.board.mockResolvedValue(
+      individualBoard({
+        participants: 5,
+        entries: [
+          { rank: 1, name: "Ada Obi", total: 900, mine: false },
+          { rank: 2, name: "Tunde Bello", total: 800, mine: false },
+          { rank: 3, name: "Kemi Ade", total: 700, mine: false },
+          { rank: 4, name: "Sam Dee", total: 600, mine: false },
+          { rank: 4, name: "Zed Lee", total: 600, mine: true },
+        ],
+        me: { rank: 4, total: 600 },
+      }),
+    );
+    render(<ChallengeScreen id="c3" />);
+
+    expect(
+      await screen.findByText(/joint 4th: Sam Dee, 600 ml\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Your place: joint 4th, 600 ml" }),
+    ).toBeInTheDocument();
+    /* Two rows, and your pinned place. */
+    expect(screen.getAllByText(/shared place/)).toHaveLength(3);
+  });
+
+  it("draws the empty places on the podium as open seats, kindly, when fewer than three joined", async () => {
+    api.challenge.mockResolvedValue(detail(MINE));
+    api.board.mockResolvedValue(
+      individualBoard({
+        participants: 1,
+        entries: [{ rank: 1, name: "Me Myself", total: 3000, mine: true }],
+        me: { rank: 1, total: 3000 },
+      }),
+    );
+    render(<ChallengeScreen id="c3" />);
+
+    expect(
+      await screen.findByText(
+        /You are the first one here\. Others can join until/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Room for you")).toHaveLength(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says no points: a board ranks the challenge's own measure and nothing else", async () => {
+    api.challenge.mockResolvedValue(detail(MINE));
+    api.board.mockResolvedValue(individualBoard());
+    render(<ChallengeScreen id="c3" />);
+
+    await screen.findByText("3 taking part");
+    expect(document.body).not.toHaveTextContent(/\bpoints?\b/i);
+  });
+
+  it("ranks teams by average, holds a small team's number back and gives the reason", async () => {
+    api.challenge.mockResolvedValue(
+      detail({ ...MINE, mode: "TEAM", team: { id: "t1", name: "Squad" } }),
+    );
     api.board.mockResolvedValue({
       challengeId: "c3",
       status: "ACTIVE",
@@ -334,13 +523,6 @@ describe("the board", () => {
       metric: "WATER_ML",
       floor: 3,
       teams: [
-        {
-          teamId: "t1",
-          name: "Squad",
-          mine: true,
-          withheld: true,
-          note: "Results appear once 3 people have joined.",
-        },
         {
           teamId: "t2",
           name: "Platform",
@@ -350,23 +532,51 @@ describe("the board", () => {
           total: 8000,
           average: 2000,
         },
+        {
+          teamId: "t1",
+          name: "Squad",
+          mine: true,
+          withheld: true,
+          note: "Results appear once 3 people have joined.",
+        },
       ],
       mine: { total: 1200 },
     });
-    render(<ChallengesScreen />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Board for Water week" }),
-    );
+    render(<ChallengeScreen id="c3" />);
 
     expect(
       await screen.findByText("Results appear once 3 people have joined."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Your team")).toBeInTheDocument();
-    expect(screen.getByText("8,000 ml")).toBeInTheDocument();
+    expect(screen.getAllByText("Your team").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/1st: Platform, average 2,000 ml/),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Your total, 1,200 ml/)).toBeInTheDocument();
   });
 
-  it("shows the API's refusal to somebody who is not on it", async () => {
+  it("is kind when no team is on the board yet, and says why", async () => {
+    api.challenge.mockResolvedValue(
+      detail({ ...MINE, mode: "TEAM", team: { id: "t1", name: "Squad" } }),
+    );
+    api.board.mockResolvedValue({
+      challengeId: "c3",
+      status: "ACTIVE",
+      mode: "TEAM",
+      metric: "WATER_ML",
+      floor: 3,
+      teams: [],
+      mine: { total: 0 },
+    });
+    render(<ChallengeScreen id="c3" />);
+
+    expect(
+      await screen.findByText("No team is on the board yet"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows the API's refusal if it comes", async () => {
+    api.challenge.mockResolvedValue(detail(MINE));
     api.board.mockRejectedValue(
       new ApiError(
         403,
@@ -374,10 +584,7 @@ describe("the board", () => {
         "Only people taking part can see this board.",
       ),
     );
-    render(<ChallengesScreen />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Board for Water week" }),
-    );
+    render(<ChallengeScreen id="c3" />);
 
     expect(
       await screen.findByText(/Only people taking part can see this board/),

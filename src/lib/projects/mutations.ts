@@ -302,7 +302,7 @@ export function buildIssue(
     rank: rankAtEnd(issues.map((i) => i.rank)),
     doneAt: done ? ctx.now : null,
     goalId: null,
-    weeklyTask: null,
+    keyResultId: null,
     commentCount: 0,
     createdAt: ctx.now,
     updatedAt: ctx.now,

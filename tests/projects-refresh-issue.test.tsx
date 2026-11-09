@@ -1,3 +1,4 @@
+import { UNLINKED, linkedTo } from "./support/objective-fixtures";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,16 +49,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   <ToastProvider>{children}</ToastProvider>
 );
 
-const NOT_COUNTED: Issue["weeklyTask"] = {
-  state: "NOT_COUNTED",
-  reason: "NO_OBJECTIVE",
-  message: "Not counted toward a weekly task",
-};
-const FILED: Issue["weeklyTask"] = {
-  state: "FILED",
-  taskId: "t1",
-  graded: false,
-};
+const UNLINKED_STATE: Issue["objective"] = UNLINKED;
+const LINKED: Issue["objective"] = linkedTo("Cut support tickets");
 
 function mount() {
   const projectId = data.current.project.id;
@@ -81,34 +74,34 @@ beforeEach(() => {
 });
 
 describe("refreshIssue", () => {
-  it("lays the server's issue over the cached one, weekly-task line included", async () => {
+  it("lays the server's issue over the cached one, objective line included", async () => {
     const base = data.current.issues.find((i) => i.type === "TASK")!;
     data.current = {
       ...data.current,
       issues: data.current.issues.map((i) =>
-        i.id === base.id ? { ...i, weeklyTask: NOT_COUNTED } : i,
+        i.id === base.id ? { ...i, objective: UNLINKED_STATE } : i,
       ),
     };
     load.mockResolvedValue(data.current);
-    getIssue.mockResolvedValue({ ...base, goalId: "g1", weeklyTask: FILED });
+    getIssue.mockResolvedValue({ ...base, goalId: "g1", objective: LINKED });
 
     const { result } = mount();
     await waitFor(() => expect(result.current.view.data).not.toBeNull());
-    expect(cached(result, base.id)?.weeklyTask).toEqual(NOT_COUNTED);
+    expect(cached(result, base.id)?.objective).toEqual(UNLINKED_STATE);
 
     await act(async () => {
       await result.current.actions.refreshIssue(base);
     });
 
     expect(getIssue).toHaveBeenCalledWith(base.id);
-    expect(cached(result, base.id)?.weeklyTask).toEqual(FILED);
+    expect(cached(result, base.id)?.objective).toEqual(LINKED);
     expect(cached(result, base.id)?.goalId).toBe("g1");
   });
 
   it("leaves the cache alone while a write is still in flight", async () => {
     const base = data.current.issues.find((i) => i.type === "TASK")!;
     load.mockResolvedValue(data.current);
-    getIssue.mockResolvedValue({ ...base, weeklyTask: FILED });
+    getIssue.mockResolvedValue({ ...base, objective: LINKED });
     let finish: (issue: Issue) => void = () => undefined;
     updateIssue.mockReturnValue(
       new Promise<Issue>((resolve) => {
@@ -126,7 +119,7 @@ describe("refreshIssue", () => {
     await act(async () => {
       await result.current.actions.refreshIssue(base);
     });
-    expect(cached(result, base.id)?.weeklyTask).not.toEqual(FILED);
+    expect(cached(result, base.id)?.objective).not.toEqual(LINKED);
     expect(cached(result, base.id)?.title).toBe("Renamed");
 
     await act(async () => {

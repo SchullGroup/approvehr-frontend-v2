@@ -1,12 +1,16 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { programRollup } from "@/lib/projects/programs";
 import {
+  NOW,
   WHO,
   actorOf,
   fakeProgramActions,
   people,
   programHooks,
+  scene,
+  viewerOf,
   type Who,
 } from "./programs-fixture";
 
@@ -425,7 +429,12 @@ describe("a program's page", () => {
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(screen.getByText(/of 15 tasks/)).toBeInTheDocument();
+    /* However many tasks the demo's two Operations projects hold. */
+    const total = programRollup(scene, viewerOf(WHO.lead), "pg-ops", NOW)!
+      .totals.total;
+    expect(
+      screen.getByText(new RegExp(`of ${total} tasks`)),
+    ).toBeInTheDocument();
   });
 
   it("lists a project-only member's one project, and not its sibling", () => {

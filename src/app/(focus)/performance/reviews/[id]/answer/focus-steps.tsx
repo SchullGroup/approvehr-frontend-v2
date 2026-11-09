@@ -181,7 +181,9 @@ export function IntroStep({
               onClick={onShowWork}
               className="cursor-pointer font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
             >
-              See what you did this period
+              {review.kind === "SELF"
+                ? "See what you did this period"
+                : `See what ${review.subjectName.split(" ")[0] ?? review.subjectName} did this period`}
             </button>{" "}
             <span className="text-muted">
               (it stays one press away at the top.)

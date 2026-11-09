@@ -12,6 +12,8 @@ const state = vi.hoisted(() => ({
   /** What the permission set, confirmed from the database, says of the Master grant. */
   confirmed: true,
   leads: false,
+  /** Holds `EDIT_RECORDS`: HR, who read everybody's finished work. */
+  editRecords: false,
   projectsOn: true,
   asked: [] as boolean[],
 }));
@@ -24,7 +26,8 @@ vi.mock("@/lib/nav-history", () => ({ useCanGoBack: () => false }));
 vi.mock("@/lib/permissions", () => ({
   hasAnyPermission: () => false,
   hasPermission: (_set: unknown, key: string) =>
-    key === "SEE_ALL_WORK" && state.confirmed,
+    (key === "SEE_ALL_WORK" && state.confirmed) ||
+    (key === "EDIT_RECORDS" && state.editRecords),
   useIsManager: () => false,
   usePermissions: () => ({ permissions: new Set(), can: () => false }),
 }));
@@ -143,6 +146,7 @@ beforeEach(() => {
   state.seesAll = false;
   state.confirmed = true;
   state.leads = false;
+  state.editRecords = false;
   state.projectsOn = true;
   state.asked = [];
 });
@@ -158,6 +162,19 @@ describe("the shell's Team tasks wiring", () => {
     render(<AppShell>page</AppShell>);
     expect(screen.queryByText("Team tasks")).not.toBeInTheDocument();
     expect(screen.getAllByText("My tasks").length).toBeGreaterThan(0);
+  });
+
+  it("shows the row to HR even when they lead nobody", () => {
+    state.editRecords = true;
+    render(<AppShell>page</AppShell>);
+    expect(screen.getAllByText("Team tasks").length).toBeGreaterThan(0);
+  });
+
+  it("does not show it to HR while Projects is off", () => {
+    state.editRecords = true;
+    state.projectsOn = false;
+    render(<AppShell>page</AppShell>);
+    expect(screen.queryByText("Team tasks")).not.toBeInTheDocument();
   });
 
   it("asks only while Projects is on", () => {

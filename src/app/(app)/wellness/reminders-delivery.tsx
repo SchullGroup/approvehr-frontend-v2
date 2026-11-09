@@ -2,6 +2,7 @@
 
 import { BellRing } from "lucide-react";
 import { Button, Card, CardBody, CardHeader } from "@/components/ui";
+import { SceneImage } from "@/components/wellness";
 import { usePush } from "@/lib/store/push";
 
 /**
@@ -38,6 +39,13 @@ export function ReminderDelivery() {
         level={2}
         title="How reminders reach you"
         description="What to expect once they are saved."
+        action={
+          <SceneImage
+            name="meditating"
+            size={72}
+            className="hidden sm:inline-flex"
+          />
+        }
       />
       <CardBody>
         <ul className="flex flex-col divide-y divide-line">
