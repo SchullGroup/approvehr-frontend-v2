@@ -18,6 +18,7 @@ export const WORK_PARAMS = [
   "project",
   "assignee",
   "stage",
+  "stageName",
   "bucket",
   "q",
 ] as const;
@@ -49,6 +50,9 @@ export function queryFromParams(
   const project = params.get("project") ?? "";
   const assignee = params.get("assignee") ?? "";
   const q = params.get("q") ?? "";
+  /* One of the projects' own stages by name ("In review"). `stage` stays the
+     category word, so links made before names could be picked still work. */
+  const stageName = (params.get("stageName") ?? "").trim();
   return {
     ...fixed,
     ...(!fixed.programId && !fixed.unassigned && program
@@ -57,6 +61,7 @@ export function queryFromParams(
     ...(project ? { projectId: project } : {}),
     ...(assignee ? { assigneeId: assignee } : {}),
     ...(isCategory(stage) ? { category: [stage] } : {}),
+    ...(stageName ? { stage: [stageName] } : {}),
     ...(isBucket(bucket) ? { bucket } : {}),
     ...(q.trim() ? { q: q.trim() } : {}),
   };

@@ -100,6 +100,29 @@ vi.mock("@/lib/store/departments", () => ({
   }),
 }));
 
+/* The department field has its own tests; here it is a plain select. */
+vi.mock("@/components/projects/department-field", () => ({
+  DepartmentField: ({
+    value,
+    onChange,
+    error,
+  }: {
+    value: string;
+    onChange: (id: string) => void;
+    error?: string;
+  }) => (
+    <label>
+      Department
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Choose a department</option>
+        <option value="d-eng">Engineering</option>
+        <option value="d-fin">Finance</option>
+      </select>
+      {error ? <span>{error}</span> : null}
+    </label>
+  ),
+}));
+
 /* The picker has its own tests; here it is a plain select, so a person can be chosen. */
 vi.mock("@/components/projects/person", () => ({
   PersonPicker: ({
@@ -233,9 +256,29 @@ describe("New program", () => {
   it("starts with the creator as lead and the department's people as nobody", async () => {
     const dialog = await open();
     expect(within(dialog).getByLabelText("Lead")).toHaveValue("p-05");
+    /* The level is asked only once a department is chosen, and starts at nobody. */
+    expect(
+      within(dialog).queryByLabelText("Add this department's people as"),
+    ).toBeNull();
+    await userEvent.selectOptions(
+      within(dialog).getByLabelText(/^Department/),
+      "d-eng",
+    );
     expect(
       within(dialog).getByLabelText("Add this department's people as"),
-    ).toBeDisabled();
+    ).toHaveValue("none");
+  });
+
+  it("will not make a program without a department", async () => {
+    const dialog = await open();
+    await userEvent.type(within(dialog).getByLabelText(/^Name/), "Finance");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Create program" }),
+    );
+    expect(
+      within(dialog).getByText("Choose a department."),
+    ).toBeInTheDocument();
+    expect(actions.createProgram).not.toHaveBeenCalled();
   });
 
   it("says that linking a department gives nobody access, and how many a level would add", async () => {
@@ -321,6 +364,10 @@ describe("New program", () => {
     } as never);
     const dialog = await open();
     await userEvent.type(within(dialog).getByLabelText(/^Name/), "Operations");
+    await userEvent.selectOptions(
+      within(dialog).getByLabelText(/^Department/),
+      "d-eng",
+    );
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Create program" }),
     );

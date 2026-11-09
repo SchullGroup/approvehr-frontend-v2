@@ -172,7 +172,8 @@ function ProjectShell({
   const [seenStatus, setSeenStatus] = useState(statusParam);
   if (statusParam !== seenStatus) {
     setSeenStatus(statusParam);
-    if (statusParam) setFilter((f) => ({ ...f, statusCategory: statusParam }));
+    if (statusParam)
+      setFilter((f) => ({ ...f, statusCategory: statusParam, statusIds: [] }));
   }
   const [create, setCreate] = useState<{
     open: boolean;

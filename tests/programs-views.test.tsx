@@ -294,12 +294,34 @@ describe("All tasks", () => {
   it("writes a filter into the address when one is chosen", async () => {
     render(<MasterScreen />);
     await userEvent.click(screen.getByRole("button", { name: /filters/i }));
-    await userEvent.selectOptions(screen.getByLabelText("Stage"), "DONE");
+    await userEvent.selectOptions(screen.getByLabelText("Stage"), "cat:DONE");
     expect(replace).toHaveBeenCalledWith(
       "/projects/master?view=tasks&stage=DONE",
       {
         scroll: false,
       },
+    );
+  });
+
+  it("offers the projects' own stages by name, and writes the one chosen", async () => {
+    render(<MasterScreen />);
+    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
+    const select = screen.getByLabelText("Stage") as HTMLSelectElement;
+    const named = [...select.options].filter((o) =>
+      o.value.startsWith("name:"),
+    );
+    expect(named.length).toBeGreaterThan(0);
+    /* Once each, whatever the case each project spells it in. */
+    const lower = named.map((o) => o.text.toLowerCase());
+    expect(new Set(lower).size).toBe(lower.length);
+    const pick = named[0]!;
+    await userEvent.selectOptions(select, pick.value);
+    expect(replace).toHaveBeenCalledWith(
+      `/projects/master?${new URLSearchParams({
+        view: "tasks",
+        stageName: pick.text,
+      }).toString()}`,
+      { scroll: false },
     );
   });
 

@@ -10,6 +10,7 @@ import {
   weekOf,
   workPage,
   workRollup,
+  workStagesOf,
   type Scene,
   type Viewer,
   type WorkBucket,
@@ -367,5 +368,49 @@ describe("a page of work", () => {
     expect(new Set(loose.rows.map((r) => r.projectKey))).toEqual(
       new Set(["OFF"]),
     );
+  });
+});
+
+describe("filtering work by a stage's name", () => {
+  const hr = viewer("p-10", { editRecords: true });
+
+  it("lists each stage name once, ordered by category", () => {
+    const stages = workStagesOf(
+      visibleProjects(scene, hr).map((d) => d.project),
+    );
+    const lower = stages.map((s) => s.name.toLowerCase());
+    expect(new Set(lower).size).toBe(lower.length);
+    const rank = { TODO: 0, IN_PROGRESS: 1, DONE: 2 } as const;
+    const ranks = stages.map((s) => rank[s.category]);
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(stages.every((s) => s.projectCount >= 1)).toBe(true);
+  });
+
+  it("finds only the tasks in a stage of that name, in any case, not its whole category", () => {
+    const all = workPage(scene, hr, { limit: 200 }).rows;
+    const named = all.find(
+      (row) =>
+        row.statusCategory === "IN_PROGRESS" &&
+        all.some(
+          (other) =>
+            other.statusCategory === "IN_PROGRESS" &&
+            other.statusName.toLowerCase() !== row.statusName.toLowerCase(),
+        ),
+    );
+    expect(named).toBeDefined();
+    const name = named!.statusName;
+    const rows = workPage(scene, hr, {
+      stage: [name.toUpperCase()],
+      limit: 200,
+    }).rows;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(
+      rows.every((r) => r.statusName.toLowerCase() === name.toLowerCase()),
+    ).toBe(true);
+    const category = workPage(scene, hr, {
+      category: ["IN_PROGRESS"],
+      limit: 200,
+    });
+    expect(category.total).toBeGreaterThan(rows.length);
   });
 });

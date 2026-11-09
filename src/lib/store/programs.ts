@@ -38,6 +38,7 @@ import {
   visibleProjects,
   workPage,
   workRollup,
+  workStagesOf,
   type Program,
   type ProgramPeople,
   type ProgramRollup,
@@ -46,6 +47,7 @@ import {
   type WorkPage,
   type WorkQuery,
   type WorkRollup,
+  type WorkStage,
 } from "@/lib/projects/programs";
 import type { Project } from "@/lib/projects/types";
 import { useRevalidation } from "@/lib/revalidate";
@@ -223,6 +225,7 @@ const keyOf = {
   projects: (target: string, all: boolean) =>
     `projects:${target}:${all ? "all" : "mine"}`,
   work: (query: WorkQuery) => `work:${JSON.stringify(query)}`,
+  stages: (target: string) => `work-stages:${target}`,
 };
 
 /* ======================================================================== */
@@ -374,6 +377,37 @@ export function useProgramList(includeArchived = false): Loaded<ProgramList> {
       seesAll: demo.viewer.actor.seesAll === true,
     });
   }, [mode.connected, connected, demo, includeArchived]);
+}
+
+/**
+ * The stage names a work list can be filtered by: every stage of every project in
+ * view, once each by name. Stages belong to each project, so this is what lets
+ * "In review" be picked across a program.
+ */
+export function useWorkStages(target: {
+  programId?: string;
+  unassigned?: boolean;
+}): Loaded<WorkStage[]> {
+  const mode = useMode();
+  const demo = useDemoScene();
+  const name = target.programId ?? (target.unassigned ? "unassigned" : "all");
+  const connected = useSlot<WorkStage[]>(
+    mode.connected ? keyOf.stages(name) : null,
+    (signal) => programsApi.workStages(target, signal),
+  );
+  return useMemo(() => {
+    if (mode.connected) return connected;
+    const projects = visibleProjects(demo.scene, demo.viewer)
+      .map((d) => d.project)
+      .filter((p) =>
+        target.programId
+          ? p.programId === target.programId
+          : target.unassigned
+            ? !p.programId
+            : true,
+      );
+    return demoLoaded(demo.ready, workStagesOf(projects));
+  }, [mode.connected, connected, demo, target.programId, target.unassigned]);
 }
 
 /** One program, or `notFound` for one the person cannot see. */

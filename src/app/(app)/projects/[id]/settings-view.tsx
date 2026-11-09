@@ -283,17 +283,23 @@ function DetailsCard({ editable }: { editable: boolean }) {
 
           <Field
             label="Department"
-            optional
+            required
             help="For finding the project. It does not change who is on it."
           >
             <Select
               value={project.departmentId ?? ""}
               disabled={!editable}
-              onChange={(event) =>
-                void patch({ departmentId: event.target.value || null })
-              }
+              onChange={(event) => {
+                /* A department can be changed, never cleared. */
+                if (event.target.value)
+                  void patch({ departmentId: event.target.value });
+              }}
             >
-              <option value="">None</option>
+              {!project.departmentId && (
+                <option value="" disabled>
+                  Choose a department
+                </option>
+              )}
               {live.map((department) => (
                 <option key={department.id} value={department.id}>
                   {department.name}

@@ -10,6 +10,7 @@ import {
   Field,
   FilterBar,
   LoadState,
+  Picker,
   Select,
   Skeleton,
 } from "@/components/ui";
@@ -32,7 +33,11 @@ import {
   STATUS_CATEGORIES,
   type StatusCategory,
 } from "@/lib/projects/types";
-import { useProgramList, useWorkList } from "@/lib/store/programs";
+import {
+  useProgramList,
+  useWorkList,
+  useWorkStages,
+} from "@/lib/store/programs";
 import { useProjectList } from "@/lib/store/projects";
 import { useProgramProjects } from "@/lib/store/programs";
 import { usePeople } from "@/lib/store/project-session";
@@ -98,6 +103,25 @@ export function WorkTasks({
   const narrowed = filterCount(params) > 0;
   const programId = scope.programId ?? params.get("program") ?? "";
   const projectChoices = useProjectChoices(scope, programId);
+  const stages = useWorkStages(
+    scope.unassigned ? { unassigned: true } : programId ? { programId } : {},
+  );
+  const stageValue = query.stage?.[0]
+    ? `name:${query.stage[0]}`
+    : query.category?.[0]
+      ? `cat:${query.category[0]}`
+      : "";
+  /* A stage by name and a category are one control: choosing one clears the other. */
+  const setStage = (value: string) => {
+    let next = withParam(params, "stage", null);
+    next = withParam(next, "stageName", null);
+    if (value.startsWith("name:"))
+      next = withParam(next, "stageName", value.slice(5));
+    else if (value.startsWith("cat:"))
+      next = withParam(next, "stage", value.slice(4));
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
   const programName = (id: string) =>
     programs.data?.programs.find((p) => p.id === id)?.name ?? "That program";
   const projectName = (id: string) =>
@@ -140,6 +164,15 @@ export function WorkTasks({
             label: "Stage",
             value: CATEGORY_LABEL[query.category[0]],
             onClear: () => setParam("stage", null),
+          },
+        ]
+      : []),
+    ...(query.stage?.[0]
+      ? [
+          {
+            label: "Stage",
+            value: query.stage[0],
+            onClear: () => setParam("stageName", null),
           },
         ]
       : []),
@@ -197,32 +230,46 @@ export function WorkTasks({
           </Select>
         </Field>
         <Field label="Person">
-          <Select
+          <Picker
+            searchable
             value={params.get("assignee") ?? ""}
-            onChange={(event) => setParam("assignee", event.target.value)}
-          >
-            <option value="">Anyone</option>
-            <option value="none">Nobody</option>
-            {[...people.people]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </Select>
+            onChange={(id) => setParam("assignee", id)}
+            options={[
+              { value: "", label: "Anyone" },
+              { value: "none", label: "Nobody" },
+              ...[...people.people]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  ...(p.jobTitle ? { hint: p.jobTitle } : {}),
+                })),
+            ]}
+          />
         </Field>
         <Field label="Stage">
           <Select
-            value={query.category?.[0] ?? ""}
-            onChange={(event) => setParam("stage", event.target.value)}
+            value={stageValue}
+            onChange={(event) => setStage(event.target.value)}
           >
             <option value="">Any stage</option>
-            {STATUS_CATEGORIES.map((category: StatusCategory) => (
-              <option key={category} value={category}>
-                {CATEGORY_LABEL[category]}
+            {/* The projects' own stages, as named in their settings. */}
+            {(stages.data ?? []).map((stage) => (
+              <option key={stage.name} value={`name:${stage.name}`}>
+                {stage.name}
               </option>
             ))}
+            {query.stage?.[0] &&
+              !(stages.data ?? []).some(
+                (s) => s.name.toLowerCase() === query.stage![0]!.toLowerCase(),
+              ) && <option value={stageValue}>{query.stage[0]}</option>}
+            <optgroup label="By group">
+              {STATUS_CATEGORIES.map((category: StatusCategory) => (
+                <option key={category} value={`cat:${category}`}>
+                  {`Any ${CATEGORY_LABEL[category].toLowerCase()}`}
+                </option>
+              ))}
+            </optgroup>
           </Select>
         </Field>
         <Field label="Due">

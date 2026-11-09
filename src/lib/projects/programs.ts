@@ -179,6 +179,11 @@ export type WorkQuery = {
   /** An employee id, or `none` for nobody on it. */
   assigneeId?: string;
   category?: readonly StatusCategory[];
+  /**
+   * Stage names, matched in any case across projects: each project names its own
+   * stages, so "In review" finds that stage wherever it exists. ANDed with `category`.
+   */
+  stage?: readonly string[];
   type?: readonly IssueType[];
   /** `YYYY-MM-DD`, both exclusive. */
   dueBefore?: string;
@@ -674,6 +679,9 @@ export function workPage(
   const week = weekOf(viewer.today);
   const types = query.type ? new Set<IssueType>(query.type) : null;
   const categories = query.category ? new Set(query.category) : null;
+  const stageNames = query.stage?.length
+    ? new Set(query.stage.map((name) => name.trim().toLowerCase()))
+    : null;
   const needle = (query.q ?? "").trim().toLowerCase();
 
   const rows: WorkRow[] = [];
@@ -685,6 +693,12 @@ export function workPage(
       if (types ? !types.has(issue.type) : !isTask(issue)) continue;
       const f = flags(project, issue, viewer.today, week, viewer.dayOf);
       if (categories && !categories.has(f.category)) continue;
+      if (stageNames) {
+        const name = project.statuses.find(
+          (st) => st.id === issue.statusId,
+        )?.name;
+        if (!name || !stageNames.has(name.trim().toLowerCase())) continue;
+      }
       if (query.bucket && !f[query.bucket]) continue;
       if (query.assigneeId) {
         const ids = issue.assigneeIds.length
@@ -754,3 +768,85 @@ export function workPage(
 export const EVERYTHING: WorkQuery = {};
 
 export { STATUS_CATEGORIES };
+
+/* ---------------------------------------------------------------- stages -- */
+
+/** One stage name in use across the projects in view, for a work list's Stage filter. */
+export type WorkStage = {
+  name: string;
+  category: StatusCategory;
+  projectCount: number;
+};
+
+const CATEGORY_RANK: Record<StatusCategory, number> = {
+  TODO: 0,
+  IN_PROGRESS: 1,
+  DONE: 2,
+};
+
+/**
+ * The distinct stage names across these projects, the way `GET /work/stages` gives
+ * them: once each whatever the case, with the category most projects give the name,
+ * ordered by category, then by where the stage usually sits, then by name.
+ */
+export function workStagesOf(
+  projects: readonly Pick<Project, "id" | "statuses">[],
+): WorkStage[] {
+  type Tally = {
+    name: string;
+    projects: Set<string>;
+    categories: Map<StatusCategory, number>;
+    positionSum: number;
+    seen: number;
+  };
+  const byName = new Map<string, Tally>();
+  for (const project of projects) {
+    for (const status of project.statuses) {
+      const key = status.name.trim().toLowerCase();
+      let tally = byName.get(key);
+      if (!tally) {
+        tally = {
+          name: status.name.trim(),
+          projects: new Set(),
+          categories: new Map(),
+          positionSum: 0,
+          seen: 0,
+        };
+        byName.set(key, tally);
+      }
+      tally.projects.add(project.id);
+      tally.categories.set(
+        status.category,
+        (tally.categories.get(status.category) ?? 0) + 1,
+      );
+      tally.positionSum += status.position;
+      tally.seen += 1;
+    }
+  }
+  return [...byName.values()]
+    .map((tally) => {
+      let category: StatusCategory = "TODO";
+      let best = -1;
+      for (const [cat, count] of tally.categories) {
+        if (count > best) {
+          best = count;
+          category = cat;
+        }
+      }
+      return {
+        stage: {
+          name: tally.name,
+          category,
+          projectCount: tally.projects.size,
+        },
+        position: tally.positionSum / tally.seen,
+      };
+    })
+    .sort(
+      (a, b) =>
+        CATEGORY_RANK[a.stage.category] - CATEGORY_RANK[b.stage.category] ||
+        a.position - b.position ||
+        a.stage.name.localeCompare(b.stage.name),
+    )
+    .map((entry) => entry.stage);
+}

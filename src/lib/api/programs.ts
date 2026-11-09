@@ -19,6 +19,7 @@ import {
   type WorkQuery,
   type WorkRollup,
   type WorkRow,
+  type WorkStage,
   type Workload,
 } from "@/lib/projects/programs";
 import type {
@@ -271,6 +272,7 @@ export function workQueryParams(
     unassigned: query.unassigned ? "true" : undefined,
     assigneeId: query.assigneeId,
     category: query.category?.length ? query.category.join(",") : undefined,
+    stage: query.stage?.length ? query.stage.join(",") : undefined,
     type: query.type?.length ? query.type.join(",") : undefined,
     dueBefore: query.dueBefore,
     dueAfter: query.dueAfter,
@@ -358,6 +360,32 @@ export const programsApi = {
     toProgramRollup(
       await request<Raw>(`/programs/${id}/rollup`, signalOf(signal)),
     ),
+
+  /** The stage names in use across the projects in view, for a work list's Stage filter. */
+  workStages: async (
+    target: { programId?: string; unassigned?: boolean },
+    signal?: AbortSignal,
+  ): Promise<WorkStage[]> =>
+    list(
+      await request<Raw[]>(
+        target.programId
+          ? `/programs/${target.programId}/work/stages`
+          : "/work/stages",
+        {
+          query: { unassigned: target.unassigned ? "true" : undefined },
+          ...signalOf(signal),
+        },
+      ),
+    ).map((raw) => ({
+      name: typeof raw["name"] === "string" ? raw["name"] : "",
+      category: (["TODO", "IN_PROGRESS", "DONE"] as const).includes(
+        raw["category"] as StatusCategory,
+      )
+        ? (raw["category"] as StatusCategory)
+        : "TODO",
+      projectCount:
+        typeof raw["projectCount"] === "number" ? raw["projectCount"] : 0,
+    })),
 
   workRollup: async (signal?: AbortSignal) =>
     toWorkRollup(await request<Raw>("/work/rollup", signalOf(signal))),

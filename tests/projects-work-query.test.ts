@@ -93,3 +93,23 @@ describe("the Due choices", () => {
     ]);
   });
 });
+
+describe("a stage by name", () => {
+  it("reads `stageName` as one of the projects' own stages, beside the category word", () => {
+    expect(queryFromParams(params("stageName=In%20review"))).toEqual({
+      stage: ["In review"],
+    });
+    expect(queryFromParams(params("stage=done&stageName=%20QA%20"))).toEqual({
+      category: ["DONE"],
+      stage: ["QA"],
+    });
+    expect(queryFromParams(params("stageName=%20"))).toEqual({});
+  });
+
+  it("counts it as a filter, and clears it with the rest", () => {
+    expect(filterCount(params("stageName=QA"))).toBe(1);
+    expect(withoutFilters(params("view=tasks&stageName=QA")).toString()).toBe(
+      "view=tasks",
+    );
+  });
+});

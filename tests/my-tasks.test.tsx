@@ -22,6 +22,8 @@ const pushToast = vi.fn();
 const attachmentUploadUrl = vi.fn();
 const recordAttachment = vi.fn();
 const putToStorage = vi.fn();
+const updateIssue = vi.fn();
+const getProject = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/projects/mine",
@@ -47,6 +49,8 @@ vi.mock("@/lib/api/projects", async (original) => {
       attachmentUploadUrl: (...a: unknown[]) => attachmentUploadUrl(...a),
       recordAttachment: (...a: unknown[]) => recordAttachment(...a),
       links: vi.fn().mockResolvedValue([]),
+      updateIssue: (...a: unknown[]) => updateIssue(...a),
+      get: (...a: unknown[]) => getProject(...a),
     },
   };
 });
@@ -171,6 +175,9 @@ beforeEach(() => {
   personalTask.mockReset();
   mineArchive.mockReset();
   pushToast.mockClear();
+  updateIssue.mockReset();
+  getProject.mockReset();
+  localStorage.clear();
   answer([]);
   createMineTask.mockResolvedValue(task());
 });
@@ -504,6 +511,7 @@ describe("opening a task", () => {
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith(mine.id, { statusId: "s-doing" }),
     );
+    update.mockRestore();
   });
 });
 
@@ -840,5 +848,152 @@ describe("the Archive", () => {
     );
     expect(await screen.findByText(/Couldn't load more/)).toBeInTheDocument();
     expect(screen.getByText("First page")).toBeInTheDocument();
+  });
+});
+
+describe("the board", () => {
+  const detail = (issue: PersonalTask): PersonalTaskDetail => ({
+    issue,
+    statusName: issue.statusName,
+    statusCategory: issue.statusCategory,
+    statuses: [...STATUSES],
+    canEditDetails: true,
+  });
+  const boardTask = (over: Partial<PersonalTask> = {}) =>
+    task({
+      projectId: "p-web",
+      key: "WEB-4",
+      title: "Ship the page",
+      project: {
+        id: "p-web",
+        key: "WEB",
+        name: "Website",
+        departmentId: null,
+        departmentName: null,
+        personal: false,
+      },
+      ...over,
+    });
+
+  it("shows To do, In progress and Done as columns, and remembers the choice", async () => {
+    answer(
+      [
+        task({ title: "Send the contract" }),
+        task({
+          title: "Check the copy",
+          statusCategory: "IN_PROGRESS",
+          statusName: "In review",
+        }),
+      ],
+      [task({ title: "File the report", statusCategory: "DONE" })],
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(<MyTasksScreen />);
+    await screen.findByText("Send the contract");
+    await user.click(screen.getByRole("radio", { name: "Board" }));
+    const doing = screen.getByRole("list", { name: "In progress column" });
+    expect(within(doing).getByText("Check the copy")).toBeInTheDocument();
+    expect(within(doing).getByText("In review")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "Done column" })).getByText(
+        "File the report",
+      ),
+    ).toBeInTheDocument();
+    expect(localStorage.getItem("approvehr.my-tasks.layout")).toBe("board");
+    unmount();
+    render(<MyTasksScreen />);
+    expect(
+      await screen.findByRole("list", { name: "To do column" }),
+    ).toBeInTheDocument();
+  });
+
+  it("moves a personal task to its list's first stage in that column", async () => {
+    const t = task({ title: "Send the contract" });
+    answer([t]);
+    personalTask.mockResolvedValue(detail(t));
+    updateIssue.mockResolvedValue({ ...t, statusId: "s-doing" });
+    localStorage.setItem("approvehr.my-tasks.layout", "board");
+    const user = userEvent.setup();
+    render(<MyTasksScreen />);
+    await screen.findByText("Send the contract");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: `Move ${t.key} to…` }),
+      "IN_PROGRESS",
+    );
+    await waitFor(() =>
+      expect(updateIssue).toHaveBeenCalledWith(t.id, { statusId: "s-doing" }),
+    );
+    await waitFor(() => expect(mineTasks).toHaveBeenCalledTimes(4));
+  });
+
+  it("puts a board task back and says why when the project is read-only", async () => {
+    const t = boardTask();
+    answer([t]);
+    getProject.mockResolvedValue({ statuses: [...STATUSES], access: "READ" });
+    localStorage.setItem("approvehr.my-tasks.layout", "board");
+    const user = userEvent.setup();
+    render(<MyTasksScreen />);
+    await screen.findByText("Ship the page");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Move WEB-4 to…" }),
+      "DONE",
+    );
+    await waitFor(() =>
+      expect(pushToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tone: "danger",
+          title: "Could not move WEB-4",
+        }),
+      ),
+    );
+    expect(updateIssue).not.toHaveBeenCalled();
+    expect(
+      within(screen.getByRole("list", { name: "To do column" })).getByText(
+        "Ship the page",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("puts the card back when the server refuses the move", async () => {
+    const t = boardTask();
+    answer([t]);
+    getProject.mockResolvedValue({ statuses: [...STATUSES], access: "WRITE" });
+    updateIssue.mockRejectedValue(
+      new ApiError(403, "FORBIDDEN", "Only its assignees can move it."),
+    );
+    localStorage.setItem("approvehr.my-tasks.layout", "board");
+    const user = userEvent.setup();
+    render(<MyTasksScreen />);
+    await screen.findByText("Ship the page");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Move WEB-4 to…" }),
+      "IN_PROGRESS",
+    );
+    await waitFor(() =>
+      expect(updateIssue).toHaveBeenCalledWith(t.id, { statusId: "s-doing" }),
+    );
+    await waitFor(() =>
+      expect(pushToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detail: expect.stringContaining("Only its assignees can move it."),
+        }),
+      ),
+    );
+    expect(
+      within(screen.getByRole("list", { name: "To do column" })).getByText(
+        "Ship the page",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps Overdue a list, with no layout switch", async () => {
+    answer([task({ title: "Late one", dueDate: "2026-10-01" })]);
+    localStorage.setItem("approvehr.my-tasks.layout", "board");
+    const user = userEvent.setup();
+    render(<MyTasksScreen />);
+    await screen.findByText("Late one");
+    await user.click(screen.getByRole("radio", { name: "Overdue" }));
+    expect(screen.queryByRole("radiogroup", { name: "Layout" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Overdue" })).toBeInTheDocument();
   });
 });

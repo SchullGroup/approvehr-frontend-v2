@@ -31,7 +31,11 @@ import { useBulkLink } from "@/lib/store/completions";
 import { PersonName } from "@/components/projects/person";
 import { assigneesOf } from "@/lib/projects/assignees";
 import { useProject } from "@/components/projects/project-context";
-import { applyFilter, isFiltering } from "@/lib/projects/filters";
+import {
+  applyFilter,
+  filterContext,
+  isFiltering,
+} from "@/lib/projects/filters";
 import {
   DEFAULT_SORT,
   nextSort,
@@ -82,6 +86,10 @@ export function IssuesView() {
   const bulkLink = useBulkLink();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
+  const searchContext = useMemo(
+    () => filterContext(issues, people.nameOf),
+    [issues, people.nameOf],
+  );
   const rows = useMemo(
     () =>
       sortIssues(
@@ -91,6 +99,7 @@ export function IssuesView() {
           meId,
           project.statuses,
           project.memberDepartments,
+          searchContext,
         ),
         sort,
         {
@@ -108,6 +117,7 @@ export function IssuesView() {
       project.memberDepartments,
       sprints,
       people.nameOf,
+      searchContext,
     ],
   );
 

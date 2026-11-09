@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Button,
   Field,
-  FieldRow,
   Input,
   Modal,
   Select,
@@ -13,6 +12,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { DepartmentField } from "@/components/projects/department-field";
 import { PersonPicker } from "@/components/projects/person";
 import { ColorChoice } from "@/components/projects/program-parts";
 import { LEVEL_LABEL, NEW_PROGRAM, PROGRAM } from "@/lib/projects/terms";
@@ -76,6 +76,7 @@ export function NewProgramDialog({
   const [busy, setBusy] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
   const [leadError, setLeadError] = useState<string | undefined>();
+  const [departmentError, setDepartmentError] = useState<string | undefined>();
   const [failure, setFailure] = useState<string | null>(null);
 
   if (open !== wasOpen) {
@@ -85,6 +86,7 @@ export function NewProgramDialog({
       setBusy(false);
       setNameError(undefined);
       setLeadError(undefined);
+      setDepartmentError(undefined);
       setFailure(null);
     }
   }
@@ -116,7 +118,8 @@ export function NewProgramDialog({
     const leadProblem = !draft.leadId ? "Choose who will lead it." : undefined;
     setNameError(nameProblem);
     setLeadError(leadProblem);
-    if (nameProblem || leadProblem) return;
+    setDepartmentError(department ? undefined : "Choose a department.");
+    if (nameProblem || leadProblem || !department) return;
 
     setBusy(true);
     setFailure(null);
@@ -126,9 +129,8 @@ export function NewProgramDialog({
         description: draft.description,
         color: draft.color,
         leadId: draft.leadId,
-        ...(department
-          ? { departmentId: department.id, departmentName: department.name }
-          : {}),
+        departmentId: department.id,
+        departmentName: department.name,
       },
       { quiet: true },
     );
@@ -250,44 +252,30 @@ export function NewProgramDialog({
           />
         </Field>
 
-        {live.length > 0 && (
-          <FieldRow>
-            <Field label="Department" optional>
-              <Select
-                value={draft.departmentId}
-                onChange={(event) =>
-                  setDraft((d) => ({
-                    ...d,
-                    departmentId: event.target.value,
-                    seed: event.target.value ? d.seed : "none",
-                  }))
-                }
-              >
-                <option value="">None</option>
-                {live.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Add this department's people as">
-              <Select
-                value={draft.seed}
-                disabled={!department}
-                onChange={(event) =>
-                  setDraft((d) => ({
-                    ...d,
-                    seed: event.target.value as Seed,
-                  }))
-                }
-              >
-                <option value="none">Nobody</option>
-                <option value="READ">{LEVEL_LABEL.READ}</option>
-                <option value="WRITE">{LEVEL_LABEL.WRITE}</option>
-              </Select>
-            </Field>
-          </FieldRow>
+        <DepartmentField
+          value={draft.departmentId}
+          error={departmentError}
+          onChange={(id) => {
+            setDraft((d) => ({ ...d, departmentId: id }));
+            setDepartmentError(undefined);
+          }}
+        />
+        {department && (
+          <Field label="Add this department's people as">
+            <Select
+              value={draft.seed}
+              onChange={(event) =>
+                setDraft((d) => ({
+                  ...d,
+                  seed: event.target.value as Seed,
+                }))
+              }
+            >
+              <option value="none">Nobody</option>
+              <option value="READ">{LEVEL_LABEL.READ}</option>
+              <option value="WRITE">{LEVEL_LABEL.WRITE}</option>
+            </Select>
+          </Field>
         )}
         {department && (
           <p className="text-body-sm text-muted" role="status">
