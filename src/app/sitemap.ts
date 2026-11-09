@@ -38,6 +38,11 @@ const STATIC_ROUTES: { path: string; sourceFile: string; priority: number }[] =
       priority: 0.7,
     },
     {
+      path: "/support",
+      sourceFile: "src/app/(marketing)/support/page.tsx",
+      priority: 0.5,
+    },
+    {
       path: "/privacy",
       sourceFile: "src/app/(marketing)/privacy/page.tsx",
       priority: 0.3,
