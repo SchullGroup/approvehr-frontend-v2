@@ -1,5 +1,6 @@
 "use client";
 
+import { leaveLabel } from "@/lib/leave-label";
 import { useMemo, useState } from "react";
 import {
   Button,
@@ -43,6 +44,7 @@ import { usePublicHolidays } from "@/lib/store/holidays";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
+import { noticeLine } from "@/lib/leave-notice";
 import { todayIn } from "@/lib/time";
 
 type Draft = {
@@ -263,6 +265,16 @@ export function BookLeaveDialog({
   const chosenType = availableTypes.find((type) => type.name === draft.type);
   /** The type asks for a reason. Absent or false asks for none. */
   const reasonRequired = chosenType?.reasonRequired === true;
+  /** What the type's notice setting says about these dates. Guidance only. */
+  const notice = chosenType
+    ? noticeLine({
+        typeName: chosenType.name,
+        minNoticeDays: chosenType.minNoticeDays,
+        from: draft.from,
+        today: todayIn(timeZone),
+        timeZone,
+      })
+    : null;
 
   /* Files: offered only where there is a way to keep one (the server's own
      storage, or a link to a file uploaded elsewhere), and required only where
@@ -581,7 +593,12 @@ export function BookLeaveDialog({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="From" required error={errorFor("from")}>
+          <Field
+            label="From"
+            required
+            error={errorFor("from")}
+            help={notice?.text}
+          >
             <Input
               type="date"
               value={draft.from}
@@ -647,7 +664,7 @@ export function BookLeaveDialog({
         {!mutations.connected && chosenType?.requiresEvidence && (
           <Callout
             tone="info"
-            title={`${chosenType.name} leave needs evidence`}
+            title={`${leaveLabel(chosenType.name)} needs evidence`}
           >
             Attach the note or certificate to their record after raising this.
             Files on a leave request need a live company.

@@ -10359,12 +10359,14 @@ staff list has no emails, so the Assigned to box is a plain email box). Everywhe
 
 ## Found, and not changed
 
-- **The appraiser map counts people the period does not appraise.** In the walk, **Nobody appraising** read 2 while the new
-  Fill in line named one person. The other was the HR manager, who has a manager recorded and holds the HR manager role,
-  and the period had **Appraise the HR manager** off, so it never gave her a form. The map is deliberately a view over
-  people and not over the period (its `cycle` argument is absent on purpose, and the comment says so), so it lists and
-  counts her. The Fill in line comes from the server's `withoutManager`, which is about the period, so it is the one that
-  matches what will happen. Whether the tile should leave such people out is a backend and product call.
+- **The appraiser map counted people the period does not appraise, and the API now reads the period.** In the walk,
+  **Nobody appraising** read 2 while the new Fill in line named one person: the other was the HR manager, whom the
+  period was set not to appraise. It was the common case, not an edge: `appraiseOwner` and `appraiseHrManager` default to
+  off, so out of the box every period listed the Owner and the HR manager as blockers for people who would never get a form,
+  and a period scoped to some departments listed all the others. `appraiserMap` read the whole company because
+  `participantsFor` was never given the period. It reads the same population `activateCycle` and the register read now
+  (backend `fix/appraiser-map-period-scope-20261106`, note `docs/backend/appraiser-map-period-scope-handover.md`), keeping
+  anybody who has been given an appraiser there. No web change: the tiles show what the API sends.
 - **`out/removed-2026-10-28c/` held an agent's unfinished work for R1 to R5.** It had stopped without reporting. Its
   backend half was rebuilt on a fresh `staging` and its frontend half on a fresh `dev`, then reviewed and tested as new
   code, and the preselect defect above is why that was worth doing.
@@ -11470,11 +11472,12 @@ The walk scripts, the fixtures and the screenshots are in `out/leave-files-debug
 
 ## Found, and not changed
 
-- **`GET /leave/balances?employeeIds=` is a 404 on `staging` and on `main`.** The web calls it (`balancesForMany`, added in
-  `072c8a09`, whose message calls the route "new"); the API defines only `GET /leave/balances/:id`. `/people/leave` renders
-  without balances ("Annual leave used —") and the booking dialog never shows "N days left afterwards", with a 404 in the
-  console and no message. It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and still true. Either side can fix it
-  (the route, or a fallback to the single-id one); it is not about files.
+- **`GET /leave/balances?employeeIds=` was a 404 on `staging` and on `main`, and the route now exists.** The web called it
+  (`balancesForMany`, added in `072c8a09`) and the API defined only `GET /leave/balances/:id`, so `/people/leave` rendered
+  without balances ("Annual leave used —") and the booking dialog never showed "N days left afterwards", with a 404 in the
+  console and no message. It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md`. Backend `fix/leave-balances-many-20261106`
+  adds it as the web documents it: `VIEW_SALARIES` outright, 1 to 200 ids, the same arithmetic as the single-id route, and `[]`
+  for an id that is not the company's. No web change was needed.
 - **The API does not route a request to anybody; the web form does.** `approverId` is whatever the client sends
   (`approverFor` in `book-leave.tsx`). A request raised any other way shows "Approver —" and reaches nobody's inbox. The
   person's manager can still open and decide it by its address (decided by standing, tested at the API), so the manager's
@@ -11865,10 +11868,11 @@ the original routes and the leave API accepts.
 **A file sent this way is public to anybody who has its address.** The uploader has no login. That is the whole design, and four
 things follow from it:
 
-- **The address is configuration, not code.** `NEXT_PUBLIC_LINKED_UPLOAD_URL`, the base without `/upload-file`. Unset, which is every
-  environment until somebody sets it, the path is **off**: `linkedUploadConfigured()` is false, no picker is drawn on a server with no
-  storage, and nothing is ever sent. `https` only, and `http://localhost` outside production. The real address is in no file in this
-  repository except the example comment in `.env.example`, and a test fails if one appears in the source.
+- **The address defaults to the old uploader and can be overridden or switched off.** `LINKED_UPLOAD_DEFAULT` is the address
+  `s3.service.ts` has built in, so the path is **on** with nothing set. `NEXT_PUBLIC_LINKED_UPLOAD_URL` overrides it; **blank, or
+  anything that is not an https address (`off`), is off**, and then `linkedUploadConfigured()` is false, no picker is drawn and nothing is
+  sent. `https` only, and `http://localhost` outside production. It was off until configured and no deployment ever configured it,
+  which is why no attachment area ever showed. See "Leave files go to the old uploader by default" below.
 - **The route is chosen in one place, and `storage` wins.** `fileRoute(limits)` returns `stored`, `linked` or `none`. A server that
   can keep a file privately is never sent down the public route, whatever else is configured. `none` draws nothing.
 - **`LINKED_FILES_NOTE` is said beside the picker** in the booking form and the drawer, every time a file is going this way: _"For now
@@ -11906,7 +11910,7 @@ revert, availability, the absent setting, the demo), `leave-add-type-dialog` (17
 files unavailable and arriving late, a fresh form per open, every kind of refusal), `leave-book-with-files` (extended: a required
 reason, and the linked route end to end), `leave-request-files` (extended: linked files in the drawer), `leave-linked-files` (27:
 which route, what the picker may promise, what the leave API is told, opening a linked file), `linked-upload` (the port: routes,
-parameters, response fields, refusals before sending, the three failure sentences, no cookies, no real address in the source),
+parameters, response fields, refusals before sending, the three failure sentences, no cookies),
 `leave-types-reason-api` and `csp-linked-upload-origin`. With every test that imports what changed, `vitest related` ran 93 files and
 1,256 tests, all passing. `tsc --noEmit` exit 0. ESLint and Prettier exit 0 on every file touched. `verify-no-banners`,
 `verify-typescale`, `verify-demo`, `verify-stores`, `verify-load-rule`, `verify-revalidate` and `verify-adr` exit 0.
@@ -11950,24 +11954,22 @@ with no `Authorization` header and no cookie. Seen on screen:
   into a new tab and did not navigate the page; **Approve** with a note stored the note.
 - **The employee** added a PDF to a request that was still open, then removed it: the confirmation said "The copy that was uploaded
   stays where it was stored." and did not say "deleted".
-- No page error and no 5xx in any of it. The console's 404s are the known `GET /leave/balances?employeeIds=`
-  (see below), not this change.
+- No page error and no 5xx in any of it. The console's 404s were `GET /leave/balances?employeeIds=`, which the API did not have then
+  (it does now, see "Found, not changed" below), not this change.
 
 **Not exercised.** The real uploader: what it answers to a browser's preflight and to a JSON `POST` from this origin is unknown, and
 the stand-in was written to allow it. The real address was never used. A bucket on the API (`storage: true`, so the stored route);
 Safari and any real phone; demo mode in a browser (the columns are absent there by a test); an office or department head as the
 approver; and the whole vitest suite (`vitest related` and the gates were run, `npm run check` exit 0 with the backend branch beside it).
 
-**Found, not changed.** The web calls `GET /leave/balances?employeeIds=` (`balancesForMany`) and `origin/staging` has only
-`GET /leave/balances/:id`, so on a real API `/people/leave` logs 404s and shows no balances ("Annual leave used —") and the booking
-dialog never says "N days left afterwards". It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and was true before this change.
-Either side can close it (the route, or a fallback to the single-id one). Also: the drawer title of a type whose own name ends in
-"leave" reads "Study leave leave", because it appends "leave" to every type.
+**Found, not changed, and since fixed.** The web called `GET /leave/balances?employeeIds=` (`balancesForMany`) and `origin/staging` had only
+`GET /leave/balances/:id`, so on a real API `/people/leave` logged 404s and showed no balances; the route now exists (see the entry at the end of
+this file). And the drawer title of a type whose own name ends in "leave" read "Study leave leave", because it appended "leave" to every type;
+that is fixed too, in the web and in the API's stored titles ("A leave type named "Study leave" is not "Study leave leave"" below).
 
 ## Deliberately not done
 
-- **The real uploader's address.** It is the user's, it is open, and it makes files public. It is `NEXT_PUBLIC_LINKED_UPLOAD_URL` in
-  whichever environment decides to use it, and the example in `.env.example` is a placeholder.
+- **Keeping the real uploader's address out of the source.** Reversed: it is `LINKED_UPLOAD_DEFAULT`, see below.
 - **A progress bar that measures the upload.** It would mean `XMLHttpRequest`, which is not the port that was asked for. See above.
 - **A walkthrough update.** There is no leave walkthrough in `docs/walkthroughs/`.
 - **Other places that attach a file** (task files, CVs, documents). They use the API's own signed upload and are untouched.
@@ -12001,3 +12003,207 @@ generated inventories exist to stop, so #589 was closed unmerged and only what i
 
 The row for `rename-period.tsx` was missing from `docs/components/frontend-v2.md` on `dev` and was added when the inventory
 was re-derived in the merge that carried #588.
+
+---
+
+# Leave settings that reached nothing, now said where they apply
+
+A pass over every setting on `/settings/leave` against whatever should read it. Most
+reach their screen (entitlement, accrual and carry-over into balances, "Who" into the
+booking form's type list, the supporting-file and reason switches into booking, the
+two-step approval flag into approvals, holidays into day counts). Five did not, and what
+was done about each differs, because "fix" is not always "add a control".
+
+The backend half is `approvehr-backend` branch `fix/leave-unreached-settings-20261106`
+(note: `docs/backend/leave-unreached-settings-handover.md` there). **Merge it first.**
+Against a server without it the carry-over line is simply absent, and nothing else here
+depends on it.
+
+## What was wrong, and what was done
+
+- **The two Approval rules switches did nothing connected.** "Allow approval into a
+  negative balance" and "Hold pending days against the remaining figure" are written to
+  `useCompanySettings` (browser storage) and read by nothing but the demo. The API has no
+  `LeavePolicy` to save them into (a comment in `leave/service.ts` names one that does not
+  exist): it never blocks an overdraw, it returns a warning, and no caller of
+  `balancesFor` ever passes `reservePendingDays: false`, so pending days are always held
+  back. A switch that looks saved and moves nothing is the green "Paid" over money nobody
+  moved, one setting along. Connected, the card now states what the server does, in two
+  plain blocks; offline the two stay switches because the demo store reads them.
+- **"Notice (days)" was stored, shown and never used.** The API only echoes it and the
+  booking form never looked. The From field now says what the type asks for, and when the
+  typed start falls short, that it can still be raised. It is guidance, not a gate: the
+  API accepts a short request and the screen must not refuse what the server allows.
+  `lib/leave-notice.ts` is the one place the sentence is written and is counted in the
+  company's zone through `todayIn` and `daysBetweenIn`, never the browser's.
+- **Carry-over was edited here and applied by a job nobody can see.** The sweep runs
+  every six hours on the server and writes a marker per company per year, and nothing said
+  whether it had. `GET /leave/rollover` reads that marker, `lib/store/leave-rollover.ts`
+  fetches it (connected only), and `lib/leave-rollover.ts` is the one place the sentence is
+  written, shown under the types table. Four states, each its own sentence: **not applied
+  yet**, **the first run, which carries nothing by design**, **applied on a date, with the
+  job's own figures**, and nothing when no type carries days or the status is unknown.
+  **No row is "not applied yet", never "carried 0 days"**: the job writes a marker even
+  when nothing could carry, so absence really does mean no pass, and reading it as zero
+  would claim a run that did not happen. After a run the line also says that changing the
+  maximum does not change what was already carried, which is the consequence somebody
+  editing the figure at that point needs and the job's idempotency guarantees.
+- **`isPaid` moves no pay, and no control was added for it.** A payroll run pays the
+  contractual figure whatever leave was taken (the backend's `payroll/assemble.ts`,
+  "Attendance does not decide pay"), so marking a type unpaid docks nothing. A switch
+  would look saved and change no payslip, which is the failure this file keeps recording.
+  The schema comment that claimed unpaid leave prorates was false and is corrected, and the
+  assistant, which was listing it as "whether it is paid leave", is now told it is a label
+  and that pay is not deducted because of it. **Docking pay for unpaid leave would be a
+  payroll feature**, with the timesheet and the payslip having to agree about the same day,
+  and nobody has asked for it. If it is wanted, that is where the control comes from.
+- **`requiresEvidence` refuses nothing and is superseded by the supporting-file switch.**
+  Nothing in the web edits it; offline it still drives the demo's "needs evidence" callout,
+  which is left alone because the demo reads it. The assistant was told "whether a document
+  has to be attached" and is now offered `attachmentPolicy`, its day threshold and
+  `reasonRequired`, which are what is enforced.
+
+## Verified
+
+Web: `tests/leave-notice.test.ts` (6), `leave-rollover-line` (9), `leave-rollover-status-screen`
+(5), `leave-rollover-hook` (2), four cases in `leave-book-with-files` and
+`leave-approval-rules-honest` (2). Deliberate breaks, each caught and restored: for the
+earlier two (the wiring dropped, the card still offering switches connected, a short request
+never flagged), and for carry-over (a missing run read as a run, no guard for a company with
+no carrying type, the baseline called a run, the date read in another zone, the screen never
+rendering it, and the hook asking while offline).
+
+Backend: `tests/leave-unreached-settings.test.ts` (11) with the existing carry-over and
+`ai2-query` files, 62 passing; six breaks caught (no permission gate, an absent marker read
+as a run, the baseline never flagged, another company's marker visible, `requiresEvidence`
+offered again, the `isPaid` description claiming pay).
+
+Not exercised in a browser: nothing was signed into for this pass, and the backend route has
+not run on a deployed server.
+
+# Leave files go to the old uploader by default
+
+The product owner's instruction was to upload the way `approvehr-platform-frontend`'s `s3.service.ts` does, "the same way". That file
+has the uploader's address built in. The port made it opt-in, to keep the address out of this repository, and the result was that a
+leave request could carry a file only where somebody had set an environment variable on **both** the API and the web build. Nobody had,
+so no deployment ever showed an attachment area, and it read as the feature being missing.
+
+## What it is now
+
+- **Web:** `LINKED_UPLOAD_DEFAULT` in `src/lib/api/linked-upload.ts`, the address `s3.service.ts` has, used when
+  `NEXT_PUBLIC_LINKED_UPLOAD_URL` is unset. `next.config.ts` cannot import that file, so it holds the same string and names the origin
+  in `connect-src` by the same rule; `tests/linked-upload-default.test.ts` fails if the two differ.
+- **API:** `LINKED_FILE_HOSTS` defaults to `generic-file-uploader-bucket.s3.amazonaws.com` (the host every stored link in the old database
+  spells). Backend branch `fix/leave-linked-default-20261106`, note `docs/backend/leave-linked-default-handover.md`.
+- **Unset is the old uploader; blank is off**, on both sides, and told apart on purpose: "I did not set it" and "I switched it off" must not
+  read the same. **They have to agree.** The picker is offered only when the API says `links: true` and this build has an address, so a web
+  with the default against an API that is off draws nothing, and the reverse draws nothing too.
+- **To switch it off:** `LINKED_FILE_HOSTS=` blank on the API and `NEXT_PUBLIC_LINKED_UPLOAD_URL=off` on the web build (a rebuild).
+- **The private route still wins.** Where the API has `S3_BUCKET` the web uses the signed upload and never the link.
+
+## What it costs, which is unchanged and now applies everywhere
+
+**A file sent this way is public to anybody who has its address**, does not expire, cannot be deleted by the API and cannot be tied to
+whose it is. Medical certificates are the common case. `LINKED_FILES_NOTE` says so beside the picker each time. The API still fetches and
+checks the file by its bytes before it records it. A leave type that **requires** a file can now be satisfied on a deployment with no bucket,
+where before the requirement could not be met and the request went through without one.
+
+## The tests never reach the real address
+
+`tests/setup.ts` pins `NEXT_PUBLIC_LINKED_UPLOAD_URL` blank for the whole suite (the backend's `tests/setup.ts` pins `LINKED_FILE_HOSTS` blank
+likewise), and a test fails if it stops. Tests that upload stub `fetch` and use an address of their own; the one that proves the default
+asserts the address a request **would** have been made to, against a mock. Nobody sent a request to it while building this.
+
+## Verified
+
+Web: `linked-upload` (updated), `linked-upload-default` (9) and `csp-linked-upload-origin`, 64 passing, plus 60 leave test files
+(1,398 tests). Seven deliberate breaks, each caught: unset read as off, blank read as the default, the policy ignoring the default, the policy's
+default differing from the module's, the policy naming the default when blank, the suite not pinned off (**this one survived at first**, so a
+test that the suite starts off was added), and `http` accepted in production. Backend: `leave-linked-default` (6), five breaks, and 405 leave
+and config tests passing.
+
+The real uploader was tried once, on 7 November, from the QA site's origin with a 70-byte PNG the owner said to send: the preflight answered
+200 with `access-control-allow-origin: *` and POST and Content-Type allowed, and the real POST came back 200 with no browser block. The
+address it returned is on the host the API's default allows. See "Linked files are stored under a name nobody else has" for what else that
+test showed.
+
+# Linked files are stored under a name nobody else has
+
+Found by that same test, and fixed on 7 November. The old uploader keeps a file under `<folder>/<fileName>` and nothing else, so **the same name
+twice is one object**: the second upload returned the same address and replaced the first file's content. Measured, not assumed. The port
+(like the original `s3.service.ts`) sent the cleaned name as it was, which for leave files meant two things:
+
+- **A second `medical_certificate.pdf`, from anybody, replaced the first person's file** under the address already recorded on their request.
+  The first person's manager then opened somebody else's certificate.
+- **The second attach was refused anyway.** The API keys a linked file by its address and a key can be attached once, so it answered "That file
+  is already attached." after the replacement had already happened. One person raising two requests with a file of the same name hits both.
+
+`uniqueFileName` in `src/lib/api/linked-upload.ts` is the fix: every upload goes out as `<cleaned name>-<32 hex digits>.<ext>`, the digits
+128 bits from `crypto.getRandomValues`. A few rules, each with a test:
+
+- **Random, never a counter, a clock or `Math.random`.** The address is the only protection a public file has, so one that can be counted up
+  to is not one. With no random source the file is **not sent** (a refusal, in words, with no file name in it) rather than sent under a name
+  that can be guessed.
+- **The token is in the name, not the folder.** A slash in `projectFolder` would give a cleaner last segment, but whether the uploader keeps a
+  slash there is a guess about a server nobody here can read, and the name is what was measured. It is the same character set the original
+  already sends (letters, digits, hyphen, underscore).
+- **The extension stays last, and a name with nothing before it is called `file`.** The part of a person's own name that goes into the address
+  is cut at 100 characters, so the token and folder cannot push an address past the 500 the leave API takes.
+- **`filename` is still the name the person chose.** Only what the uploader is told changed; every screen reads `filename`.
+
+## What this changes about deleting a file
+
+Nothing can delete one, and this makes that more visible, not less. Taking a file off a request, or replacing it (add the new one, remove the
+old one: there is no replace button), drops the request's record and **leaves the copy on the uploader**. The original platform's frontend
+has no delete call, the API says in its own source that it cannot delete one, and the confirmation says "The copy that was uploaded stays
+where it was stored." Before this change re-adding a file of the same name happened to overwrite the old copy, which looked like a replace
+and was the bug above. With unique names a replaced or removed file stays where it is, at an address only people who had it know.
+
+A real delete needs the API's own storage, where removing the file removes the object. That is the bucket plan and not something the web
+can do. Not done, on purpose: overwriting the old object with a blank one as a stand-in for deleting it. It would use the uploader's
+no-login overwrite on purpose, would not remove a version if the bucket keeps them, and the web does not hold an old file's address after
+the page it was uploaded on.
+
+Not repaired: files uploaded before this change. Two that shared a name already share an object, and the first is gone.
+
+## Verified
+
+`tests/linked-upload.test.ts` is 59 (11 of them new) and the six test files around it pass, 185 tests. Ten deliberate breaks, each caught: the old
+name sent again, the token from `Math.random`, a constant token, long names not cut, a fallback to `Math.random`, an 8-byte token, the
+extension dropped, an empty stem not named, the stored name returned as the person's name, and the token put before the name. `tsc`, ESLint
+and Prettier are clean. No request was sent to the real uploader: `fetch` is stubbed.
+
+Not exercised: the real uploader keeping the new name as it is. It should, because the characters are the ones the original sends and
+the earlier test showed it keeping a name verbatim, but nobody has sent one.
+
+# A leave type named "Study leave" is not "Study leave leave"
+
+Found on 6 November while listing what was known to be wrong: the drawer for a request read **"Study leave leave · Ada Eze"**. Leave
+types are named by the company, and the ones people write are "Study leave" and "Annual leave" as often as "Study" and "Annual". Eight
+places wrote `${type} leave`, in the drawer, three dialogs, the approvals inbox row, a demo notification and the evidence callout. One
+file, `leave-decided-copy.ts`, already had a private function that knew better, and nobody else used it.
+
+## What it is now
+
+`leaveLabel(type, casing?)` in `src/lib/leave-label.ts` is the one place the phrase is built: the name plus "leave" unless it already ends
+with that whole word (case-insensitive, trimmed). `"as-named"` keeps the company's capitals for a title ("Study leave, Ada");
+`"lower"` is for the middle of a sentence ("Your sick leave was withdrawn"). "Leave" alone is complete; "Leaves of absence" and "Leave
+without pay" are not. All eight sites use it, and the private function in `leave-decided-copy.ts` is now a one-line use of it.
+
+**`tests/leave-label.test.ts` reads the source for the pattern** (`${...leaveType|.type|chosenType|typeName...} leave`), so a ninth place
+that forgets is found by the suite and not by a person reading a drawer. The guard was checked to fail by putting three of the sites back.
+
+## The API writes the same string
+
+The titles of an approvals inbox row and of the notification that points at it are built **on the API** and stored, so fixing the web alone
+leaves them doubled in the inbox and the bell. Backend branch `fix/leave-type-label-20261106`: its own `leaveLabel`, used by the two writers,
+and a data-only migration that repairs the titles already stored. **The two halves are independent**; either can merge first, and each fixes
+what it words. Until the backend half is on a server, a type named "Study leave" still shows the doubled title in the inbox.
+
+## Verified
+
+`leave-label` (8) and 395 tests across the 30 leave, approvals and queue files. Six deliberate breaks, each caught: the helper always
+appending, the queue row reverted, the drawer title reverted, the evidence callout reverted, the demo notification reverted, and the
+lower-casing lost. `npm run check` exit 0.
+
+Not exercised in a browser: nothing was signed into for this pass.
