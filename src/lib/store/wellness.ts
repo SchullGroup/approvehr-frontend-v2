@@ -8,6 +8,7 @@ import {
   type ApiChallenge,
   type ApiChallengeDetail,
   type ApiConsents,
+  type ApiKudosReport,
   type ApiLogEntry,
   type ApiRecognition,
   type ApiReminderPolicy,
@@ -15,6 +16,7 @@ import {
   type ApiSummary,
   type ApiWellnessSettings,
   type CreateChallengeBody,
+  type KudosReportAction,
   type LogBody,
   type RecognitionBody,
   type ReminderPolicyBody,
@@ -208,6 +210,8 @@ export type RecognitionKind = "feed" | "received" | "given";
  */
 export function useRecognitions(
   kind: RecognitionKind,
+  /** False holds it idle, for a screen that is showing something else. */
+  enabled = true,
 ): PagedList<ApiRecognition> {
   const { isConnected } = useSession();
   const fetchPage = useCallback(
@@ -230,7 +234,40 @@ export function useRecognitions(
   );
   return usePagedList<ApiRecognition>({
     key: `recognitions|${kind}`,
-    enabled: isConnected,
+    enabled: isConnected && enabled,
+    fetchPage,
+    idOf: (row) => row.id,
+  });
+}
+
+/**
+ * The open reports of kudos, a page at a time, for whoever may act on them.
+ *
+ * Held idle (`enabled` false) for everybody else: a person without the
+ * permission does not even ask, so there is nothing for the API to refuse and
+ * nothing for a screen to hide. The answer is held in component state like the
+ * rest: the words of a reported kudos are not kept past the screen.
+ */
+export function useKudosReports(enabled: boolean): PagedList<ApiKudosReport> {
+  const { isConnected } = useSession();
+  const fetchPage = useCallback(
+    async (cursor: string | null, signal: AbortSignal) => {
+      const page = cursor === null ? 1 : Number(cursor);
+      const answer = await wellnessApi.kudosReports(
+        { status: "OPEN", page, pageSize: 20 },
+        signal,
+      );
+      return {
+        rows: answer.data,
+        total: answer.meta.total,
+        next: answer.meta.hasMore ? String(page + 1) : null,
+      };
+    },
+    [],
+  );
+  return usePagedList<ApiKudosReport>({
+    key: "kudos-reports|open",
+    enabled: isConnected && enabled,
     fetchPage,
     idOf: (row) => row.id,
   });
@@ -357,6 +394,21 @@ export function useWellnessActions() {
       async (id: string) => {
         guard();
         return wellnessApi.removeRecognition(id);
+      },
+      [guard],
+    ),
+
+    reportRecognition: useCallback(
+      async (id: string, reason?: string) => {
+        guard();
+        return wellnessApi.reportRecognition(id, reason);
+      },
+      [guard],
+    ),
+    resolveKudosReport: useCallback(
+      async (id: string, action: KudosReportAction) => {
+        guard();
+        return wellnessApi.resolveKudosReport(id, action);
       },
       [guard],
     ),

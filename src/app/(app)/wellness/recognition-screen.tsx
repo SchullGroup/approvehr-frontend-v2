@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, Lock, Trash2 } from "lucide-react";
+import { Flag, Heart, Lock, Trash2 } from "lucide-react";
 import {
   type PickerOption,
   Avatar,
@@ -22,15 +22,22 @@ import {
 import { PillTabs, SceneImage, WellnessArt } from "@/components/wellness";
 import { LoadMore } from "@/components/portal/load-more";
 import { ApiError } from "@/lib/api/client";
-import type { ApiRecognition } from "@/lib/api/wellness";
+import {
+  REPORT_REASON_MAX,
+  reportingUnavailable,
+  type ApiRecognition,
+} from "@/lib/api/wellness";
+import { useCan } from "@/lib/permissions";
 import { useEmployeeSearch } from "@/lib/store/employees-api";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import {
+  useKudosReports,
   useRecognitions,
   useWellnessActions,
   type RecognitionKind,
 } from "@/lib/store/wellness";
 import { formatDateShort } from "@/lib/time";
+import { KudosReports } from "./kudos-reports";
 
 /**
  * Recognition: thanking a colleague, in public or in private.
@@ -51,6 +58,15 @@ import { formatDateShort } from "@/lib/time";
  *
  * This is not health data, so there is no consent: the default is shared, and
  * the other choice is one switch in the form.
+ *
+ * ## Reporting
+ *
+ * Anybody who can see a kudos can report it, and it leaves their list once the
+ * API has said it took the report (a 204), not before. Reporting sends the
+ * words, the giver, the recipient and the reporter's name to the administrators
+ * who manage company settings, and the dialog says so before it is sent. Those
+ * administrators get one more pill, "Reports", drawn only when they hold the
+ * permission **and** the API answered the list; see `kudos-reports.tsx`.
  */
 
 const KINDS: { value: RecognitionKind; label: string }[] = [
@@ -58,6 +74,9 @@ const KINDS: { value: RecognitionKind; label: string }[] = [
   { value: "received", label: "Given to me" },
   { value: "given", label: "Given by me" },
 ];
+
+/** The three lists, and for the people who manage settings a fourth. */
+type View = RecognitionKind | "reports";
 
 const EMPTY: Record<RecognitionKind, { title: string; description: string }> = {
   feed: {
@@ -75,11 +94,25 @@ const EMPTY: Record<RecognitionKind, { title: string; description: string }> = {
 };
 
 export function RecognitionScreen() {
-  const [kind, setKind] = useState<RecognitionKind>("feed");
+  const [chosen, setView] = useState<View>("feed");
   const [giving, setGiving] = useState(false);
   const [removing, setRemoving] = useState<ApiRecognition | null>(null);
+  const [reporting, setReporting] = useState<ApiRecognition | null>(null);
   const [busy, setBusy] = useState(false);
-  const list = useRecognitions(kind);
+  const canModerate = useCan("MANAGE_SETTINGS");
+  const reports = useKudosReports(canModerate);
+  /* Both answers: the permission is held, and the API did not refuse or lack the
+     list. While it is still being asked there is nothing to draw yet. */
+  const moderation =
+    canModerate &&
+    !reports.loading &&
+    !(
+      reports.error &&
+      (reports.error.status === 403 || reports.error.status === 404)
+    );
+  const view = chosen === "reports" && !moderation ? "feed" : chosen;
+  const kind: RecognitionKind = view === "reports" ? "feed" : view;
+  const list = useRecognitions(kind, view !== "reports");
   const actions = useWellnessActions();
   const toast = useToast();
   const { employeeId } = useSession();
@@ -110,9 +143,20 @@ export function RecognitionScreen() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PillTabs
           label="Show"
-          value={kind}
-          onChange={setKind}
-          options={KINDS}
+          value={view}
+          onChange={setView}
+          options={[
+            ...KINDS,
+            ...(moderation
+              ? [
+                  {
+                    value: "reports" as const,
+                    label: "Reports",
+                    ...(reports.total ? { count: reports.total } : {}),
+                  },
+                ]
+              : []),
+          ]}
         />
         <Button variant="accent" onClick={() => setGiving(true)}>
           <Heart aria-hidden="true" className="size-4" />
@@ -120,47 +164,54 @@ export function RecognitionScreen() {
         </Button>
       </div>
 
-      <LoadState
-        loading={list.loading}
-        error={list.error}
-        onRetry={list.reload}
-        hasData={list.rows.length > 0}
-        subject="the kudos"
-        skeleton="list"
-      >
-        {list.rows.length === 0 ? (
-          <Card>
-            <EmptyState
-              art={<SceneImage name="ice-cream" size={140} />}
-              title={EMPTY[kind].title}
-              description={EMPTY[kind].description}
-              compact
-            />
-          </Card>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {list.rows.map((row) => (
-              <KudosRow
-                key={row.id}
-                row={row}
-                me={employeeId}
-                onRemove={() => setRemoving(row)}
+      {view === "reports" ? (
+        <KudosReports list={reports} />
+      ) : (
+        <LoadState
+          loading={list.loading}
+          error={list.error}
+          onRetry={list.reload}
+          hasData={list.rows.length > 0}
+          subject="the kudos"
+          skeleton="list"
+        >
+          {list.rows.length === 0 ? (
+            <Card>
+              <EmptyState
+                art={<SceneImage name="ice-cream" size={140} />}
+                title={EMPTY[kind].title}
+                description={EMPTY[kind].description}
+                compact
               />
-            ))}
-          </ul>
-        )}
-        {list.rows.length > 0 && (
-          <LoadMore
-            shown={list.rows.length}
-            total={list.total}
-            noun={["kudos", "kudos"]}
-            hasMore={list.hasMore}
-            loading={list.loadingMore}
-            error={list.moreError}
-            onLoadMore={list.loadMore}
-          />
-        )}
-      </LoadState>
+            </Card>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {list.rows.map((row) => (
+                <KudosRow
+                  key={row.id}
+                  row={row}
+                  me={employeeId}
+                  onRemove={() => setRemoving(row)}
+                  {...(row.fromEmployeeId === employeeId
+                    ? {}
+                    : { onReport: () => setReporting(row) })}
+                />
+              ))}
+            </ul>
+          )}
+          {list.rows.length > 0 && (
+            <LoadMore
+              shown={list.rows.length}
+              total={list.total}
+              noun={["kudos", "kudos"]}
+              hasMore={list.hasMore}
+              loading={list.loadingMore}
+              error={list.moreError}
+              onLoadMore={list.loadMore}
+            />
+          )}
+        </LoadState>
+      )}
 
       {giving && (
         <GiveDialog
@@ -187,6 +238,25 @@ export function RecognitionScreen() {
           onConfirm={() => void remove(removing)}
         />
       )}
+
+      {reporting && (
+        <ReportDialog
+          row={reporting}
+          me={employeeId}
+          onClose={() => setReporting(null)}
+          onReported={(row) => {
+            /* The API said 204, so this is true now: it has gone to the
+               administrators, and it is gone from this list. */
+            list.remove(row.id);
+            setReporting(null);
+            toast.push({
+              tone: "info",
+              title: "Reported",
+              detail: "It is hidden from you now.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -195,11 +265,14 @@ function KudosRow({
   row,
   me,
   onRemove,
+  onReport,
 }: {
   row: ApiRecognition;
   /** The signed-in person's employee id, to say "You" instead of their name. */
   me: string | null;
   onRemove: () => void;
+  /** Absent for a kudos you gave: you can delete that one. */
+  onReport?: () => void;
 }) {
   const timeZone = useOrgTimezone();
   const [open, setOpen] = useState(false);
@@ -260,17 +333,129 @@ function KudosRow({
           {row.message}
         </p>
       </div>
-      {long && (
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((was) => !was)}
-          className="mt-1.5 text-meta font-medium text-accent-text underline underline-offset-2"
-        >
-          {open ? "Show less" : "Read all"}
-        </button>
+      {(long || onReport) && (
+        <div className="mt-1.5 flex items-center justify-between gap-3">
+          {long ? (
+            <button
+              type="button"
+              aria-expanded={open}
+              onClick={() => setOpen((was) => !was)}
+              className="text-meta font-medium text-accent-text underline underline-offset-2"
+            >
+              {open ? "Show less" : "Read all"}
+            </button>
+          ) : (
+            <span />
+          )}
+          {onReport && (
+            <button
+              type="button"
+              onClick={onReport}
+              aria-label={`Report the kudos from ${row.fromName} to ${row.toName}`}
+              className="-mr-1 inline-flex items-center gap-1 rounded-md px-1 py-1 text-meta text-muted transition-colors hover:text-ink"
+            >
+              <Flag aria-hidden="true" className="size-3.5" />
+              Report
+            </button>
+          )}
+        </div>
       )}
     </li>
+  );
+}
+
+/* ----------------------------------------------------------------- report */
+
+/**
+ * Says what reporting does before it is done, and says "Reported" only when the
+ * API did it. A route that is not there yet, or no connection, reads as
+ * "isn't available right now" and nothing is claimed.
+ */
+function ReportDialog({
+  row,
+  me,
+  onClose,
+  onReported,
+}: {
+  row: ApiRecognition;
+  me: string | null;
+  onClose: () => void;
+  onReported: (row: ApiRecognition) => void;
+}) {
+  const actions = useWellnessActions();
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const from = row.fromEmployeeId === me ? "You" : row.fromName;
+  const to = row.toEmployeeId === me ? "you" : row.toName;
+
+  const send = async () => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      await actions.reportRecognition(row.id, reason);
+      onReported(row);
+    } catch (error) {
+      setProblem(
+        reportingUnavailable(error)
+          ? "Reporting isn't available right now."
+          : error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Report this kudos"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="primary" loading={busy} onClick={() => void send()}>
+            Report
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-body-sm leading-relaxed text-body">
+          This hides it from you and sends it to your company&apos;s
+          administrators. They will see what it says, who gave it, who it was
+          for and that you reported it.
+        </p>
+        <div className="rounded-xl bg-sunken px-4 py-3">
+          <p className="text-meta text-muted">
+            {from} thanked {to}
+          </p>
+          <p className="mt-1 line-clamp-3 whitespace-pre-line text-body-sm text-ink">
+            {row.message}
+          </p>
+        </div>
+        <Field label="Why? (optional)">
+          <Textarea
+            rows={3}
+            maxLength={REPORT_REASON_MAX}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <span className="text-meta text-muted tabular">
+            {reason.length}/{REPORT_REASON_MAX}
+          </span>
+        </Field>
+        {problem && (
+          <p role="alert" className="text-body-sm text-warning-text">
+            {problem}
+          </p>
+        )}
+      </div>
+    </Modal>
   );
 }
 

@@ -279,6 +279,38 @@ export type RecognitionBody = {
   shared: boolean;
 };
 
+/** A report is open until an administrator has dealt with it. */
+export type KudosReportStatus = "OPEN" | "RESOLVED";
+
+/** What an administrator does with a report: take the kudos down, or leave it. */
+export type KudosReportAction = "REMOVE" | "DISMISS";
+
+/**
+ * One report of a kudos, as an administrator sees it (`MANAGE_SETTINGS`).
+ *
+ * It carries the kudos' words, who gave it, who it was for and who reported it,
+ * and that is all of it: it is the one place a private kudos is read by anybody
+ * but its two people, and only because somebody sent it here. The reporter is
+ * named so a person is not reported to nobody in particular.
+ */
+export type ApiKudosReport = {
+  id: string;
+  createdAt: string;
+  status: KudosReportStatus;
+  /** What the reporter wrote, if they wrote anything. */
+  reason: string | null;
+  recognition: {
+    id: string;
+    message: string;
+    giver: { name: string };
+    recipient: { name: string };
+    createdAt: string;
+    /** Already taken down: the report is still there to be closed. */
+    removed: boolean;
+  };
+  reporter: { name: string };
+};
+
 export type LogBody = {
   metric: WellnessMetric;
   /** A whole number: millilitres, or steps. */
@@ -307,6 +339,9 @@ export const BACKFILL_DAYS = 7;
 
 /** The longest a challenge may run. */
 export const MAX_CHALLENGE_DAYS = 90;
+
+/** The longest reason a person may give when reporting a kudos. */
+export const REPORT_REASON_MAX = 500;
 
 export const METRIC_LABEL: Record<WellnessMetric, string> = {
   WATER_ML: "Water",
@@ -350,6 +385,32 @@ export function teamsOffered(error: unknown): ApiTeamChoice[] | null {
   const details = (error as ApiError).details as Record<string, unknown>;
   const teams = details["teams"];
   return Array.isArray(teams) ? (teams as ApiTeamChoice[]) : null;
+}
+
+/**
+ * Reporting could not be done because the API has no such route yet, or could
+ * not be reached. A state to say calmly, never a claim that anything was sent.
+ */
+export function reportingUnavailable(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true;
+  return error.status === 0 || error.status === 404 || error.status >= 500;
+}
+
+/**
+ * The answer to an act that has no body: only a 204 is success.
+ *
+ * `request` hands back nothing for a 204 and the unwrapped body for any other
+ * 2xx, so anything but nothing is an answer this client did not expect, and
+ * "Reported" is claimed only for the one it did.
+ */
+function noContent(answer: unknown): void {
+  if (answer !== undefined) {
+    throw new ApiError(
+      0,
+      "unexpected_answer",
+      "The server did not answer the way it should have.",
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ the calls */
@@ -551,4 +612,43 @@ export const wellnessApi = {
     request<{ id: string; deleted: true }>(`/wellness/recognitions/${id}`, {
       method: "DELETE",
     }),
+
+  /**
+   * Anybody who can see a kudos may report it. A 204 means it has gone to the
+   * company's administrators and is hidden from the reporter; the reason is
+   * optional and at most `REPORT_REASON_MAX` characters.
+   */
+  reportRecognition: async (id: string, reason?: string) => {
+    const text = reason?.trim();
+    noContent(
+      await request<undefined>(`/wellness/recognitions/${id}/report`, {
+        method: "POST",
+        body: text ? { reason: text } : {},
+      }),
+    );
+  },
+
+  /** `MANAGE_SETTINGS`: the reports of kudos, open ones by default. */
+  kudosReports: (
+    query: {
+      status?: KudosReportStatus;
+      page?: number;
+      pageSize?: number;
+    } = {},
+    signal?: AbortSignal,
+  ): Promise<Paged<ApiKudosReport>> =>
+    requestPaged<ApiKudosReport>("/wellness/recognitions/reports", {
+      query,
+      ...optional(signal),
+    }),
+
+  /** `MANAGE_SETTINGS`. A 204 closes the report; `REMOVE` takes the kudos down. */
+  resolveKudosReport: async (id: string, action: KudosReportAction) => {
+    noContent(
+      await request<undefined>(`/wellness/recognitions/reports/${id}/resolve`, {
+        method: "POST",
+        body: { action },
+      }),
+    );
+  },
 };

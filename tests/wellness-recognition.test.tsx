@@ -1,7 +1,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import type { ApiKudosReport } from "@/lib/api/wellness";
+import type { PermissionKey } from "@/lib/permission-keys";
 import { company, fakeDirectory } from "./employee-directory-fake";
 import { kudos, paged } from "./wellness-fixtures";
 
@@ -12,6 +15,12 @@ import { kudos, paged } from "./wellness-fixtures";
  * lists read as "You thanked" and "thanked you", that a delete button appears
  * only where the API said the caller may delete, and that giving one sends the
  * private choice as it was made.
+ *
+ * Reporting is held to its own rules: the dialog says what happens before it
+ * happens, "Reported" is said only once the API has answered, a route that is
+ * not there or no connection is said calmly and claims nothing, and the
+ * administrators' Reports pill is there only for somebody who holds the
+ * permission and whose list the API answered.
  */
 
 const api = vi.hoisted(() => ({
@@ -19,6 +28,9 @@ const api = vi.hoisted(() => ({
   myRecognitions: vi.fn(),
   giveRecognition: vi.fn(),
   removeRecognition: vi.fn(),
+  reportRecognition: vi.fn(),
+  kudosReports: vi.fn(),
+  resolveKudosReport: vi.fn(),
 }));
 
 vi.mock("@/lib/api/wellness", async (original) => ({
@@ -30,6 +42,12 @@ vi.mock("@/lib/store/session", async (original) => ({
   ...(await original<typeof import("@/lib/store/session")>()),
   useSession: () => ({ isConnected: true, employeeId: "e-me" }),
   useOrgTimezone: () => "Africa/Lagos",
+}));
+
+let held = new Set<PermissionKey>();
+vi.mock("@/lib/permissions", async (original) => ({
+  ...(await original<typeof import("@/lib/permissions")>()),
+  useCan: (permission: PermissionKey) => held.has(permission),
 }));
 
 /* The real search hook over a fake directory that answers as the API does, so
@@ -48,8 +66,10 @@ import { RecognitionScreen } from "@/app/(app)/wellness/recognition-screen";
 
 beforeEach(() => {
   vi.resetAllMocks();
+  held = new Set<PermissionKey>();
   api.recognitions.mockResolvedValue(paged([kudos()]));
   api.myRecognitions.mockResolvedValue(paged([]));
+  api.kudosReports.mockResolvedValue(paged([]));
   directory.list.mockImplementation(
     fakeDirectory([
       { id: "e-me", firstName: "Me", lastName: "Myself", jobTitle: "Engineer" },
@@ -347,5 +367,528 @@ describe("giving kudos", () => {
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       /up to 10 people in a day/,
     );
+  });
+});
+
+/* ------------------------------------------------------------------ report */
+
+const renderWithToasts = () =>
+  render(
+    <ToastProvider>
+      <RecognitionScreen />
+    </ToastProvider>,
+  );
+
+const DIDNT_SAY = "Thank you for covering the Friday release.";
+
+const openReport = async () => {
+  renderWithToasts();
+  await userEvent.click(
+    await screen.findByRole("button", { name: /Report the kudos from/ }),
+  );
+  return screen.findByRole("dialog");
+};
+
+describe("reporting a kudos", () => {
+  it("is offered on a kudos somebody else gave, and not on one you gave", async () => {
+    api.recognitions.mockResolvedValue(
+      paged([
+        kudos({ id: "k1", message: "From Ada." }),
+        kudos({
+          id: "k2",
+          fromEmployeeId: "e-me",
+          fromName: "Me Myself",
+          message: "From me.",
+          canDelete: true,
+        }),
+      ]),
+    );
+    render(<RecognitionScreen />);
+    await screen.findByText("From Ada.");
+
+    const reportButtons = screen.getAllByRole("button", {
+      name: /Report the kudos/,
+    });
+    expect(reportButtons).toHaveLength(1);
+    const mine = screen.getByText("From me.").closest("li") as HTMLElement;
+    expect(
+      within(mine).queryByRole("button", { name: /Report the kudos/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(mine).getByRole("button", { name: /Delete the kudos/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("says what it does before it does it, and sends nothing yet", async () => {
+    const dialog = await openReport();
+
+    expect(
+      within(dialog).getByText(
+        /This hides it from you and sends it to your company's administrators\./,
+      ),
+    ).toBeInTheDocument();
+    /* What the administrators will see, in the same words as the policy. */
+    expect(
+      within(dialog).getByText(
+        /what it says, who gave it, who it was for and that you reported it/,
+      ),
+    ).toBeInTheDocument();
+    /* So the person can see which one they are reporting. */
+    expect(within(dialog).getByText(DIDNT_SAY)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Why\? \(optional\)/)).toHaveAttribute(
+      "maxlength",
+      "500",
+    );
+    expect(api.reportRecognition).not.toHaveBeenCalled();
+  });
+
+  it("can be cancelled, and then nothing was sent and the kudos is still there", async () => {
+    const dialog = await openReport();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    );
+
+    expect(api.reportRecognition).not.toHaveBeenCalled();
+    expect(screen.getByText(DIDNT_SAY)).toBeInTheDocument();
+  });
+
+  it("sends the reason it was given, or none, and the kudos goes only once the API has answered", async () => {
+    let answer!: () => void;
+    api.reportRecognition.mockImplementation(
+      () => new Promise<void>((resolve) => (answer = resolve)),
+    );
+    const dialog = await openReport();
+    await userEvent.type(
+      within(dialog).getByLabelText(/Why\? \(optional\)/),
+      "Not kind",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Report" }),
+    );
+
+    expect(api.reportRecognition).toHaveBeenCalledWith("k1", "Not kind");
+    /* Asked, not answered: nothing is claimed and nothing has gone. */
+    expect(screen.queryByText("Reported")).not.toBeInTheDocument();
+    expect(screen.getAllByText(DIDNT_SAY)).toHaveLength(2);
+
+    answer();
+
+    expect(await screen.findByText("Reported")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByText(DIDNT_SAY)).not.toBeInTheDocument();
+    /* Gone from the list, and the list was not asked again to find out. */
+    expect(api.recognitions).toHaveBeenCalledTimes(1);
+  });
+
+  it("is fine with no reason", async () => {
+    api.reportRecognition.mockResolvedValue(undefined);
+    const dialog = await openReport();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Report" }),
+    );
+
+    await waitFor(() =>
+      expect(api.reportRecognition).toHaveBeenCalledWith("k1", ""),
+    );
+    expect(await screen.findByText("Reported")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["the route is not there yet (404)", new ApiError(404, "not_found", "No.")],
+    [
+      "the server is down (502)",
+      new ApiError(502, "http_error", "Something went wrong on our side."),
+    ],
+    [
+      "there is no connection",
+      new ApiError(0, "network_error", "The app cannot reach the server."),
+    ],
+  ])(
+    "says so calmly when %s, keeps the kudos and claims nothing",
+    async (_, error) => {
+      api.reportRecognition.mockRejectedValue(error);
+      const dialog = await openReport();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Report" }),
+      );
+
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+        "Reporting isn't available right now.",
+      );
+      expect(screen.queryByText("Reported")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/has been sent|was sent/i),
+      ).not.toBeInTheDocument();
+      /* Still there to try again, and the kudos has not left the list. */
+      expect(
+        within(dialog).getByRole("button", { name: "Report" }),
+      ).toBeEnabled();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Cancel" }),
+      );
+      expect(screen.getByText(DIDNT_SAY)).toBeInTheDocument();
+    },
+  );
+
+  it("shows the API's own sentence when it refused for another reason", async () => {
+    api.reportRecognition.mockRejectedValue(
+      new ApiError(422, "unprocessable", "You have already reported this."),
+    );
+    const dialog = await openReport();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Report" }),
+    );
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "You have already reported this.",
+    );
+    expect(screen.queryByText("Reported")).not.toBeInTheDocument();
+  });
+
+  it("is offered on the lists of your own, and the kudos leaves the one it was reported from", async () => {
+    api.myRecognitions.mockResolvedValue(
+      paged([
+        kudos({ id: "k7", message: "Sent to me.", toEmployeeId: "e-me" }),
+      ]),
+    );
+    api.reportRecognition.mockResolvedValue(undefined);
+    renderWithToasts();
+    await screen.findByText(DIDNT_SAY);
+    await userEvent.click(screen.getByRole("radio", { name: "Given to me" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Report the kudos from/ }),
+    );
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Report",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(api.reportRecognition).toHaveBeenCalledWith("k7", ""),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Sent to me.")).not.toBeInTheDocument(),
+    );
+    expect(
+      await screen.findByText("Nobody has thanked you yet"),
+    ).toBeInTheDocument();
+  });
+});
+
+/* ----------------------------------------------------------------- reports */
+
+const report = (over: Partial<ApiKudosReport> = {}): ApiKudosReport => ({
+  id: "r1",
+  createdAt: "2026-11-08T09:00:00.000Z",
+  status: "OPEN",
+  reason: null,
+  recognition: {
+    id: "k1",
+    message: "A private message that was reported.",
+    giver: { name: "Ada Obi" },
+    recipient: { name: "Tunde Bello" },
+    createdAt: "2026-11-07T09:00:00.000Z",
+    removed: false,
+  },
+  reporter: { name: "Chidi Obi" },
+  ...over,
+});
+
+const openReports = async () => {
+  renderWithToasts();
+  await userEvent.click(await screen.findByRole("radio", { name: /^Reports/ }));
+};
+
+describe("the Reports pill, for administrators", () => {
+  it("is not there for somebody without the permission, who does not even ask", async () => {
+    render(<RecognitionScreen />);
+    await screen.findByText(DIDNT_SAY);
+
+    expect(
+      screen.queryByRole("radio", { name: /Reports/ }),
+    ).not.toBeInTheDocument();
+    expect(api.kudosReports).not.toHaveBeenCalled();
+  });
+
+  it("is there for somebody who holds it and whose list the API answered, with how many are open", async () => {
+    held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+    api.kudosReports.mockResolvedValue(paged([report(), report({ id: "r2" })]));
+    render(<RecognitionScreen />);
+
+    expect(
+      await screen.findByRole("radio", { name: /^Reports/ }),
+    ).toHaveTextContent("2");
+    expect(api.kudosReports).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "OPEN" }),
+      expect.anything(),
+    );
+  });
+
+  it("is drawn with no count when nothing is open", async () => {
+    held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+    render(<RecognitionScreen />);
+
+    expect(
+      await screen.findByRole("radio", { name: "Reports" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["refuses it", new ApiError(403, "forbidden", "Not yours.")],
+    ["has no such route", new ApiError(404, "not_found", "No.")],
+  ])(
+    "is absent, not disabled, when the API %s even though the permission is held",
+    async (_, error) => {
+      held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+      api.kudosReports.mockRejectedValue(error);
+      render(<RecognitionScreen />);
+
+      await screen.findByText(DIDNT_SAY);
+      await waitFor(() => expect(api.kudosReports).toHaveBeenCalled());
+      expect(
+        screen.queryByRole("radio", { name: /Reports/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/did not load/)).not.toBeInTheDocument();
+    },
+  );
+
+  it("is not drawn while the answer is still on its way", async () => {
+    held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+    api.kudosReports.mockImplementation(() => new Promise(() => {}));
+    render(<RecognitionScreen />);
+
+    await screen.findByText(DIDNT_SAY);
+    expect(
+      screen.queryByRole("radio", { name: /Reports/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("is drawn when the list failed for some other reason, so it can be tried again", async () => {
+    held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+    api.kudosReports.mockRejectedValue(new ApiError(500, "internal", "Broke."));
+    render(<RecognitionScreen />);
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /^Reports/ }),
+    );
+
+    expect(
+      await screen.findByText("The reports did not load"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Try again/ }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("the open reports", () => {
+  beforeEach(() => {
+    held = new Set<PermissionKey>(["MANAGE_SETTINGS"]);
+    api.kudosReports.mockResolvedValue(
+      paged([
+        report({ reason: "It was not meant kindly." }),
+        report({ id: "r2", reporter: { name: "Bola Eze" } }),
+      ]),
+    );
+  });
+
+  it("shows the words, who gave it, who it was for, who reported it and what they wrote", async () => {
+    await openReports();
+
+    expect(await screen.findByText("Reported kudos")).toBeInTheDocument();
+    const first = screen
+      .getAllByText("A private message that was reported.")[0]
+      ?.closest("li") as HTMLElement;
+    expect(within(first).getByText("Ada Obi")).toBeInTheDocument();
+    expect(within(first).getByText("Tunde Bello")).toBeInTheDocument();
+    expect(within(first).getByText("Chidi Obi")).toBeInTheDocument();
+    expect(
+      within(first).getByText(/It was not meant kindly\./),
+    ).toBeInTheDocument();
+    expect(within(first).getByText(/8 Nov 2026/)).toBeInTheDocument();
+    /* The feed's list is not drawn beside it. */
+    expect(screen.queryByText(DIDNT_SAY)).not.toBeInTheDocument();
+  });
+
+  it("offers the two answers, and nothing happens until one is confirmed", async () => {
+    await openReports();
+    await screen.findByText("Reported kudos");
+
+    expect(
+      screen.getAllByRole("button", { name: /^Remove the kudos/ }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: /^Dismiss the report/ }),
+    ).toHaveLength(2);
+    expect(api.resolveKudosReport).not.toHaveBeenCalled();
+  });
+
+  it("removes after naming what that does, and the report leaves the list", async () => {
+    api.resolveKudosReport.mockResolvedValue(undefined);
+    await openReports();
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: /^Remove the kudos/ }))[0]!,
+    );
+
+    const confirm = await screen.findByRole("dialog");
+    expect(within(confirm).getByText("Remove this kudos?")).toBeInTheDocument();
+    expect(
+      within(confirm).getByText(
+        /deleted for everybody, the two people it was between included, and this report is closed/,
+      ),
+    ).toBeInTheDocument();
+    expect(api.resolveKudosReport).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      within(confirm).getByRole("button", { name: "Remove kudos" }),
+    );
+
+    expect(api.resolveKudosReport).toHaveBeenCalledWith("r1", "REMOVE");
+    expect(await screen.findByText("Kudos removed")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getAllByRole("listitem")).toHaveLength(1),
+    );
+    /* The count on the pill follows. */
+    expect(screen.getByRole("radio", { name: /^Reports/ })).toHaveTextContent(
+      "1",
+    );
+  });
+
+  it("dismisses after naming what that does, and leaves the kudos alone", async () => {
+    api.resolveKudosReport.mockResolvedValue(undefined);
+    await openReports();
+    await userEvent.click(
+      (
+        await screen.findAllByRole("button", { name: /^Dismiss the report/ })
+      )[1]!,
+    );
+
+    const confirm = await screen.findByRole("dialog");
+    expect(
+      within(confirm).getByText("Dismiss this report?"),
+    ).toBeInTheDocument();
+    expect(
+      within(confirm).getByText(
+        "The kudos is left as it is and this report is closed. It stays hidden from the person who reported it.",
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      within(confirm).getByRole("button", { name: "Dismiss report" }),
+    );
+
+    expect(api.resolveKudosReport).toHaveBeenCalledWith("r2", "DISMISS");
+    expect(await screen.findByText("Report dismissed")).toBeInTheDocument();
+    expect(api.recognitions).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks nothing when the confirm is cancelled", async () => {
+    await openReports();
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: /^Remove the kudos/ }))[0]!,
+    );
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Cancel",
+      }),
+    );
+
+    expect(api.resolveKudosReport).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("keeps the report, and says the API's sentence, when it did not work", async () => {
+    api.resolveKudosReport.mockRejectedValue(
+      new ApiError(403, "forbidden", "You cannot change this."),
+    );
+    await openReports();
+    await userEvent.click(
+      (
+        await screen.findAllByRole("button", { name: /^Dismiss the report/ })
+      )[0]!,
+    );
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Dismiss report",
+      }),
+    );
+
+    expect(await screen.findByText("That did not work")).toBeInTheDocument();
+    expect(screen.getByText("You cannot change this.")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("says another administrator may have got there first on a 404, and asks the list again", async () => {
+    api.resolveKudosReport.mockRejectedValue(
+      new ApiError(404, "not_found", "No."),
+    );
+    await openReports();
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: /^Remove the kudos/ }))[0]!,
+    );
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Remove kudos",
+      }),
+    );
+
+    expect(
+      await screen.findByText(/Somebody may have dealt with it already/),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(api.kudosReports).toHaveBeenCalledTimes(2));
+  });
+
+  it("shows the API's sentence and asks the list again when another administrator decided it differently (409)", async () => {
+    api.resolveKudosReport.mockRejectedValue(
+      new ApiError(409, "conflict", "This report was already decided."),
+    );
+    await openReports();
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: /^Remove the kudos/ }))[0]!,
+    );
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Remove kudos",
+      }),
+    );
+
+    expect(
+      await screen.findByText("This report was already decided."),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(api.kudosReports).toHaveBeenCalledTimes(2));
+  });
+
+  it("says there are none, plainly, when nothing is open", async () => {
+    api.kudosReports.mockResolvedValue(paged([]));
+    await openReports();
+
+    expect(await screen.findByText("No open reports")).toBeInTheDocument();
+  });
+
+  it("offers only to close a report on a kudos that is already removed", async () => {
+    api.kudosReports.mockResolvedValue(
+      paged([
+        report({
+          recognition: { ...report().recognition, removed: true },
+        }),
+      ]),
+    );
+    await openReports();
+
+    expect(await screen.findByText("Already removed")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Remove the kudos/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Close the report/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves the reports behind when a list is chosen again", async () => {
+    await openReports();
+    await screen.findByText("Reported kudos");
+
+    await userEvent.click(screen.getByRole("radio", { name: "Company feed" }));
+    expect(await screen.findByText(DIDNT_SAY)).toBeInTheDocument();
+    expect(screen.queryByText("Reported kudos")).not.toBeInTheDocument();
   });
 });
