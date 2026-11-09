@@ -56,6 +56,7 @@ export const COMPANY = {
   product: "ApproveHR",
   city: "Lagos",
   country: "Nigeria",
+  supportEmail: "support@approvehr.io",
   privacyEmail: "privacy@approvehr.io",
   legalEmail: "legal@approvehr.io",
   securityEmail: "security@approvehr.io",
