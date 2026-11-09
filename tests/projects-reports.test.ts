@@ -69,7 +69,6 @@ function issue(over: Partial<Issue> = {}): Issue {
     rank: counter,
     doneAt: null,
     goalId: null,
-    weeklyTask: null,
     commentCount: 0,
     createdAt: NOW,
     updatedAt: NOW,

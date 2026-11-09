@@ -41,6 +41,7 @@ const FIELD_LABEL: Record<string, string> = {
   startDate: "start date",
   dueDate: "due date",
   goalId: "objective",
+  keyResultId: "measure",
 };
 
 export type ActivityText = {
@@ -85,6 +86,9 @@ export function formatValue(
     case "goalId":
       /* An id is never shown: the title where it is known, otherwise a noun. */
       return lookup.goalTitle?.(text) ?? "an objective";
+    case "keyResultId":
+      /* Never the id: a measure inside the linked objective. */
+      return "a measure";
     case "priority":
       return PRIORITY_LABEL[text as Priority] ?? text;
     case "type":

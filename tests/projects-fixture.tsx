@@ -66,6 +66,7 @@ export function fakeActions(): {
     ),
     patchIssue: resolved(),
     refreshIssue: resolved(),
+    refreshProject: vi.fn(),
     deleteIssue: resolved(),
     addComment: resolved(),
     editComment: resolved(),

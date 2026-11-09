@@ -163,6 +163,7 @@ describe("links to marketing pages that have left", () => {
     for (const route of [
       "/pricing",
       "/paye-calculator",
+      "/support",
       "/careers/schull",
       "/products",
       "/hiring",
