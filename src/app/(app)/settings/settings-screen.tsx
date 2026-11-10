@@ -451,7 +451,7 @@ export function SettingsScreen() {
                   ))}
                 </ul>
                 <p className="px-2 pt-1 text-meta text-muted">
-                  Kept in this browser only.
+                  Saved in this browser, not on your account.
                 </p>
               </div>
             )}

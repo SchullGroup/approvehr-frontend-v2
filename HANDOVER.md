@@ -12290,7 +12290,7 @@ A filter box at the top of `/settings` narrows the checklist rows, the settings 
 
 ## Recent searches
 
-Clicking into the empty box lists the last 8 (`lib/store/settings-search-history.ts`, key `approvehr.settings.search`). Remembered on Enter, or on leaving the box with something on screen; never on a keystroke and never for a search that found nothing. Words only, newest first, no repeats regardless of case, at least 2 characters. Per browser: it does not follow somebody to another device and clearing site data removes it, and the list says so. The store keeps its state in module memory as well as storage, so a test that wants it empty clears it through the screen, as a person would.
+Clicking into the empty box lists the last 8 (`lib/store/settings-search-history.ts`, key `approvehr.settings.search`). Remembered on Enter, or on leaving the box with something on screen; never on a keystroke and never for a search that found nothing. Words only, newest first, no repeats regardless of case, at least 2 characters. Per browser: it does not follow somebody to another device and clearing site data removes it, and the list says so ("Saved in this browser, not on your account"; the phrase "this browser only" is banned from a production bundle by `verify-demo`). The store keeps its state in module memory as well as storage, so a test that wants it empty clears it through the screen, as a person would.
 
 ## Verified
 
