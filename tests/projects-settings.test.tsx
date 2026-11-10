@@ -330,3 +330,37 @@ describe("deleting the project", () => {
     expect(screen.getByLabelText(/Type CHK to confirm/)).toHaveValue("");
   });
 });
+
+describe("archiving the project", () => {
+  it("is offered to the lead only", () => {
+    renderSettings({ canManage: false });
+    expect(
+      screen.queryByRole("button", { name: "Archive project" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("asks once, then archives", async () => {
+    const { actions } = renderSettings();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Archive project" }),
+    );
+    expect(actions.archiveProject).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Archive project" }),
+    );
+    expect(actions.archiveProject).toHaveBeenCalledWith(true);
+  });
+
+  it("restores an archived one without asking", async () => {
+    const data = sampleData();
+    const { actions } = renderSettings(
+      {},
+      { ...data, project: { ...data.project, archived: true } },
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Restore project" }),
+    );
+    expect(actions.archiveProject).toHaveBeenCalledWith(false);
+  });
+});

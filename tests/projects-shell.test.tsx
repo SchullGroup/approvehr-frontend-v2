@@ -383,12 +383,12 @@ describe("the keys", () => {
   it("c types a c in a text box rather than opening anything", async () => {
     render(<ProjectScreen id="pj-chk" />);
     await userEvent.click(
-      screen.getByLabelText("Search tasks by key, title or label"),
+      screen.getByLabelText("Search tasks by key, title, label, person or subtask"),
     );
     await userEvent.keyboard("c");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      screen.getByLabelText("Search tasks by key, title or label"),
+      screen.getByLabelText("Search tasks by key, title, label, person or subtask"),
     ).toHaveValue("c");
   });
 
@@ -404,7 +404,7 @@ describe("the keys", () => {
     render(<ProjectScreen id="pj-chk" />);
     await userEvent.keyboard("/");
     expect(
-      screen.getByLabelText("Search tasks by key, title or label"),
+      screen.getByLabelText("Search tasks by key, title, label, person or subtask"),
     ).toHaveFocus();
   });
 

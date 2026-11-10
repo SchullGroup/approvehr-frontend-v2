@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectsOff } from "@/components/projects/module-off";
+import { MyTasksBoard } from "@/components/projects/my-tasks-board";
 import { PersonalIssueDrawer } from "@/components/projects/personal-issue-drawer";
 import { useQueryParam } from "@/components/projects/use-query-param";
 import {
@@ -44,6 +45,11 @@ import {
   rowTarget,
   taskDepartmentOptions,
 } from "@/lib/projects/my-tasks";
+import {
+  LAYOUT_STORAGE_KEY,
+  layoutOf,
+  type MyTasksLayout,
+} from "@/lib/projects/my-tasks-board";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort, todayIn } from "@/lib/time";
@@ -65,6 +71,12 @@ import { formatDateShort, todayIn } from "@/lib/time";
  * Adding makes the task first, then uploads and records each file on it. A file
  * that fails stays listed with why, under "MY-7 was added", with Try again —
  * the task is never added twice.
+ *
+ * Open and Done can be shown as a list or as a board (To do, In progress, Done
+ * across every list and board; see `MyTasksBoard`). The choice is remembered in
+ * this browser. Overdue and Archive are always lists: one is a slice of the open
+ * work by date, the other is paged history, and neither has columns to move
+ * between.
  */
 
 type Filter = "open" | "done" | "overdue" | "archive";
@@ -109,6 +121,24 @@ function Tasks() {
     setFilterState(next);
     setShowParam(next);
   };
+  const [layout, setLayoutState] = useState<MyTasksLayout>("list");
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount to match the server render
+      setLayoutState(layoutOf(localStorage.getItem(LAYOUT_STORAGE_KEY)));
+    } catch {
+      /* storage unavailable: the list */
+    }
+  }, []);
+  const setLayout = (next: MyTasksLayout) => {
+    setLayoutState(next);
+    try {
+      localStorage.setItem(LAYOUT_STORAGE_KEY, next);
+    } catch {
+      /* not remembered */
+    }
+  };
+  const boardable = filter === "open" || filter === "done";
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("");
   const [data, setData] = useState<Loaded>({ status: "loading" });
@@ -243,6 +273,20 @@ function Tasks() {
           )}
         </FilterBar>
 
+        {boardable && (
+          <div className="flex justify-end">
+            <SegmentedControl<MyTasksLayout>
+              label="Layout"
+              value={layout}
+              onChange={setLayout}
+              options={[
+                { value: "list", label: "List" },
+                { value: "board", label: "Board" },
+              ]}
+            />
+          </div>
+        )}
+
         {refreshFailed && data.status === "ready" && (
           <p className="text-body-sm text-muted" role="status">
             Couldn&apos;t refresh.{" "}
@@ -272,7 +316,18 @@ function Tasks() {
             subject="your tasks"
             skeleton="list"
           >
-            {data.status === "ready" && (
+            {data.status === "ready" && boardable && layout === "board" ? (
+              <MyTasksBoard
+                tasks={[...top(narrow(data.open)), ...top(narrow(data.done))]}
+                source={data}
+                today={today}
+                timeZone={timeZone}
+                filtering={filtering}
+                onClearFilters={clearFilters}
+                onOpen={setOpenId}
+                onMoved={reload}
+              />
+            ) : data.status === "ready" ? (
               <Lists
                 filter={filter}
                 open={top(narrow(data.open))}
@@ -283,7 +338,7 @@ function Tasks() {
                 timeZone={timeZone}
                 onOpen={setOpenId}
               />
-            )}
+            ) : null}
           </LoadState>
         )}
       </PageBody>

@@ -8,6 +8,7 @@ import {
   Input,
   Modal,
   Select,
+  Switch,
   Textarea,
   useToast,
 } from "@/components/ui";
@@ -25,6 +26,7 @@ import {
   type Person,
 } from "@/lib/store/project-session";
 import { ApiError } from "@/lib/api/client";
+import { DepartmentField } from "@/components/projects/department-field";
 import { PersonPicker } from "@/components/projects/person";
 import { CYCLE, PROGRAM } from "@/lib/projects/terms";
 import { useProgramList } from "@/lib/store/programs";
@@ -38,6 +40,8 @@ type Draft = {
   keyTouched: boolean;
   type: ProjectType;
   departmentId: string;
+  /** Add everybody in the department as members. On, as choosing one always did. */
+  seedDepartment: boolean;
   description: string;
   /** The program it starts in; empty for none. */
   programId: string;
@@ -50,6 +54,7 @@ const BLANK: Draft = {
   keyTouched: false,
   type: "SCRUM",
   departmentId: "",
+  seedDepartment: true,
   description: "",
   programId: "",
 };
@@ -100,6 +105,10 @@ export function NewProjectDialog({
   const people = usePeople();
   const actor = useProjectActor();
   const departments = useDepartments();
+  const [justAdded, setJustAdded] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const programList = useProgramList();
   const formId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
@@ -111,6 +120,7 @@ export function NewProjectDialog({
   const [keyError, setKeyError] = useState<string | undefined>();
   const [failure, setFailure] = useState<string | null>(null);
   const [leadError, setLeadError] = useState<string | undefined>();
+  const [departmentError, setDepartmentError] = useState<string | undefined>();
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -120,6 +130,7 @@ export function NewProjectDialog({
       setNameError(undefined);
       setKeyError(undefined);
       setLeadError(undefined);
+      setDepartmentError(undefined);
       setFailure(null);
     }
   }
@@ -134,8 +145,15 @@ export function NewProjectDialog({
     (p) => p.canCreateProject && !p.archived,
   );
   const liveDepartments = departments.flat.filter((d) => !d.archived);
-  const department = liveDepartments.find((d) => d.id === draft.departmentId);
-  const seeded = department ? inDepartment(people.people, department) : [];
+  /* A department added from the field below is chosen at once, before this
+     dialog's own list has reloaded and heard of it; it is used from here until then. */
+  const department: { id: string; name: string } | undefined =
+    liveDepartments.find((d) => d.id === draft.departmentId) ??
+    (justAdded?.id === draft.departmentId ? justAdded : undefined);
+  const seeded =
+    department && draft.seedDepartment
+      ? inDepartment(people.people, department)
+      : [];
   /* An account with no staff record behind it has nobody to be the lead. */
   const needsLead = actor.employeeId === null;
   /* Who the creator is already counts as a member, so say how many are *added*. */
@@ -154,7 +172,9 @@ export function NewProjectDialog({
     setNameError(nameProblem);
     setKeyError(keyIssue);
     setLeadError(leadProblem);
-    if (nameProblem || keyIssue || leadProblem) return;
+    const departmentProblem = department ? undefined : "Choose a department.";
+    setDepartmentError(departmentProblem);
+    if (nameProblem || keyIssue || leadProblem || !department) return;
 
     setBusy(true);
     setFailure(null);
@@ -163,9 +183,9 @@ export function NewProjectDialog({
         name,
         key,
         type: draft.type,
-        departmentId: department ? department.id : null,
+        departmentId: department.id,
         description: draft.description.trim(),
-        seedMembersFromDepartment: department !== undefined,
+        seedMembersFromDepartment: draft.seedDepartment,
         memberIds: seeded.map((p) => p.id),
         ...(needsLead ? { leadId: draft.leadId } : {}),
         programId: draft.programId || null,
@@ -308,32 +328,33 @@ export function NewProjectDialog({
           </Field>
         )}
 
-        {liveDepartments.length > 0 && (
-          <Field
-            label="Department"
-            optional
-            help={
-              department
-                ? added.length > 0
-                  ? `${added.length} other ${added.length === 1 ? "person" : "people"} in ${department.name} will be added as members.`
-                  : `Nobody else is listed in ${department.name}, so it starts with ${needsLead ? "its lead" : "you"} alone.`
-                : "Choose one to start with its people as members."
+        <DepartmentField
+          onAdded={(made) => {
+            setJustAdded(made);
+            departments.reload();
+          }}
+          value={draft.departmentId}
+          error={departmentError}
+          onChange={(id) => {
+            setDraft((d) => ({ ...d, departmentId: id }));
+            setDepartmentError(undefined);
+          }}
+        />
+        {department && (
+          <Switch
+            checked={draft.seedDepartment}
+            onChange={(event) =>
+              setDraft((d) => ({ ...d, seedDepartment: event.target.checked }))
             }
-          >
-            <Select
-              value={draft.departmentId}
-              onChange={(event) =>
-                setDraft((d) => ({ ...d, departmentId: event.target.value }))
-              }
-            >
-              <option value="">None</option>
-              {liveDepartments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+            label={`Add everyone in ${department.name} as members`}
+            description={
+              draft.seedDepartment
+                ? added.length > 0
+                  ? `${added.length} other ${added.length === 1 ? "person" : "people"} will be added.`
+                  : `Nobody else is listed there, so it starts with ${needsLead ? "its lead" : "you"} alone.`
+                : `It starts with ${needsLead ? "its lead" : "you"} alone. Add people from the project's settings.`
+            }
+          />
         )}
 
         {needsLead && (
