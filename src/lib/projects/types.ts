@@ -178,6 +178,14 @@ export type Project = {
    */
   access?: "READ" | "WRITE" | "MANAGE" | null;
   canWrite?: boolean | null;
+  /**
+   * Archived: out of the lists, taking no new tasks, with everything kept. Its lead,
+   * its program's lead or HR can bring it back. Absent means live.
+   */
+  archived?: boolean;
+  archivedAt?: string | null;
+  /** The program it sits in is archived, which hides its tasks the same way. */
+  programArchived?: boolean;
 };
 
 export type Sprint = {

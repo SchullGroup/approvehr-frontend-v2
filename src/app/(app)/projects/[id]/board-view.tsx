@@ -37,7 +37,11 @@ import {
   subtaskTallies,
   type Swimlanes,
 } from "@/lib/projects/board";
-import { applyFilter, isFiltering } from "@/lib/projects/filters";
+import {
+  applyFilter,
+  filterContext,
+  isFiltering,
+} from "@/lib/projects/filters";
 import { sprintPoints } from "@/lib/projects/progress";
 import {
   COMPLETE_CYCLE,
@@ -121,6 +125,12 @@ export function BoardView() {
     () => subtaskTallies(project.statuses, issues),
     [project.statuses, issues],
   );
+  /* From every task, not just the board's: a subtask outside the sprint still
+     brings its parent up when its name is typed. */
+  const searchContext = useMemo(
+    () => filterContext(issues, people.nameOf),
+    [issues, people.nameOf],
+  );
   const shown = useMemo(
     () =>
       applyFilter(
@@ -129,8 +139,16 @@ export function BoardView() {
         meId,
         project.statuses,
         project.memberDepartments,
+        searchContext,
       ),
-    [scope.issues, filter, meId, project.statuses, project.memberDepartments],
+    [
+      scope.issues,
+      filter,
+      meId,
+      project.statuses,
+      project.memberDepartments,
+      searchContext,
+    ],
   );
   const lanes = useMemo(
     () =>
