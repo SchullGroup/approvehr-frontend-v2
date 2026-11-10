@@ -97,6 +97,7 @@ vi.mock("@/lib/store/departments", () => ({
       { id: "d-eng", name: "Engineering", archived: false },
       { id: "d-fin", name: "Finance", archived: false },
     ],
+    reload: () => {},
   }),
 }));
 
@@ -105,21 +106,36 @@ vi.mock("@/components/projects/department-field", () => ({
   DepartmentField: ({
     value,
     onChange,
+    onAdded,
     error,
   }: {
     value: string;
     onChange: (id: string) => void;
+    onAdded?: (department: { id: string; name: string }) => void;
     error?: string;
   }) => (
-    <label>
-      Department
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Choose a department</option>
-        <option value="d-eng">Engineering</option>
-        <option value="d-fin">Finance</option>
-      </select>
-      {error ? <span>{error}</span> : null}
-    </label>
+    <>
+      <label>
+        Department
+        <select value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Choose a department</option>
+          <option value="d-eng">Engineering</option>
+          <option value="d-fin">Finance</option>
+          <option value="d-ops">Operations</option>
+        </select>
+        {error ? <span>{error}</span> : null}
+      </label>
+      {/* What the real field does after adding one: tell, then choose. */}
+      <button
+        type="button"
+        onClick={() => {
+          onAdded?.({ id: "d-ops", name: "Operations" });
+          onChange("d-ops");
+        }}
+      >
+        Add Operations
+      </button>
+    </>
   ),
 }));
 
@@ -279,6 +295,28 @@ describe("New program", () => {
       within(dialog).getByText("Choose a department."),
     ).toBeInTheDocument();
     expect(actions.createProgram).not.toHaveBeenCalled();
+  });
+
+  it("uses a department added from the form, before its list has heard of it", async () => {
+    /* The dialog's own department list never learns of Operations here, as it
+       would not until its reload lands: the program is still made in it. */
+    const dialog = await open();
+    await userEvent.type(within(dialog).getByLabelText(/^Name/), "Ops");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add Operations" }),
+    );
+    expect(dialog).toHaveTextContent("Linking Operations gives nobody access");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Create program" }),
+    );
+    expect(within(dialog).queryByText("Choose a department.")).toBeNull();
+    expect(actions.createProgram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        departmentId: "d-ops",
+        departmentName: "Operations",
+      }),
+      expect.anything(),
+    );
   });
 
   it("says that linking a department gives nobody access, and how many a level would add", async () => {

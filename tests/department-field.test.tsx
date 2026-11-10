@@ -13,6 +13,7 @@ import { DepartmentField } from "@/components/projects/department-field";
 let canManage = true;
 let flat: { id: string; name: string; archived: boolean }[] = [];
 const create = vi.fn();
+const onAdded = vi.fn();
 
 vi.mock("@/lib/permissions", () => ({
   useCan: () => canManage,
@@ -26,7 +27,12 @@ function Harness({ error }: { error?: string }) {
   const [value, setValue] = useState("");
   return (
     <>
-      <DepartmentField value={value} onChange={setValue} error={error} />
+      <DepartmentField
+        value={value}
+        onChange={setValue}
+        onAdded={onAdded}
+        error={error}
+      />
       <output data-testid="chosen">{value}</output>
     </>
   );
@@ -40,6 +46,7 @@ beforeEach(() => {
     { id: "d-eng", name: "Engineering", archived: false },
   ];
   create.mockReset();
+  onAdded.mockReset();
 });
 
 describe("DepartmentField", () => {
@@ -73,6 +80,8 @@ describe("DepartmentField", () => {
     await waitFor(() =>
       expect(screen.getByTestId("chosen")).toHaveTextContent("d-ops"),
     );
+    /* The form around it is told, so it need not wait for its own list to reload. */
+    expect(onAdded).toHaveBeenCalledWith({ id: "d-ops", name: "Operations" });
     expect(screen.queryByLabelText(/New department/)).toBeNull();
   });
 
@@ -93,6 +102,7 @@ describe("DepartmentField", () => {
       await screen.findByText("A department called Finance already exists."),
     ).toBeInTheDocument();
     expect(screen.getByTestId("chosen")).toHaveTextContent("");
+    expect(onAdded).not.toHaveBeenCalled();
   });
 
   it("offers no way to add one to somebody who may not manage settings", async () => {

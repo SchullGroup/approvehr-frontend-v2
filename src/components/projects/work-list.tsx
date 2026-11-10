@@ -20,6 +20,7 @@ import { ApiError } from "@/lib/api/client";
 import { dueLabel } from "@/lib/projects/due";
 import type { WorkQuery, WorkRow } from "@/lib/projects/programs";
 import { LIST_CAPPED, TASK } from "@/lib/projects/terms";
+import { STATUS_FILTER_LABEL } from "@/lib/projects/filters";
 import {
   DUE_CHOICES,
   filterCount,
@@ -266,7 +267,7 @@ export function WorkTasks({
             <optgroup label="By group">
               {STATUS_CATEGORIES.map((category: StatusCategory) => (
                 <option key={category} value={`cat:${category}`}>
-                  {`Any ${CATEGORY_LABEL[category].toLowerCase()}`}
+                  {`Any ${STATUS_FILTER_LABEL[category].toLowerCase()}`}
                 </option>
               ))}
             </optgroup>

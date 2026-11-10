@@ -67,6 +67,10 @@ export function NewProgramDialog({
   const people = usePeople();
   const actor = useProjectActor();
   const departments = useDepartments();
+  const [justAdded, setJustAdded] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const formId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -98,7 +102,11 @@ export function NewProgramDialog({
   }, [open]);
 
   const live = departments.flat.filter((d) => !d.archived);
-  const department = live.find((d) => d.id === draft.departmentId);
+  /* A department added from the field below is chosen at once, before this
+     dialog's own list has reloaded and heard of it; it is used from here until then. */
+  const department: { id: string; name: string } | undefined =
+    live.find((d) => d.id === draft.departmentId) ??
+    (justAdded?.id === draft.departmentId ? justAdded : undefined);
   const inDepartment = department
     ? people.people.filter((p) =>
         p.departmentId
@@ -253,6 +261,10 @@ export function NewProgramDialog({
         </Field>
 
         <DepartmentField
+          onAdded={(made) => {
+            setJustAdded(made);
+            departments.reload();
+          }}
           value={draft.departmentId}
           error={departmentError}
           onChange={(id) => {

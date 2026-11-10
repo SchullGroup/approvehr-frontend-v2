@@ -19,11 +19,18 @@ import { useDepartments } from "@/lib/store/departments";
 export function DepartmentField({
   value,
   onChange,
+  onAdded,
   error,
   help,
 }: {
   value: string;
   onChange: (id: string) => void;
+  /**
+   * Told about a department added here, before `onChange` chooses it. The dialog
+   * around this field keeps its own list of departments, which does not know the
+   * new one until it reloads; without this it would refuse its own choice.
+   */
+  onAdded?: ((department: { id: string; name: string }) => void) | undefined;
   error?: string | undefined;
   help?: string | undefined;
 }) {
@@ -49,6 +56,7 @@ export function DepartmentField({
     setAddError(null);
     try {
       const made = await departments.create({ name: trimmed });
+      onAdded?.({ id: made.id, name: made.name });
       onChange(made.id);
       setAdding(false);
       setName("");
