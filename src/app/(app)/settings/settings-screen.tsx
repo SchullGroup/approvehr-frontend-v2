@@ -55,6 +55,7 @@ import {
   BILLING,
   PAGE_MODULE,
   PAGE_WORDS,
+  SETTINGS_PAGES,
   ROW_MODULE,
   ROW_WORDS,
   firstSentence,
@@ -131,165 +132,35 @@ const STATUS: Record<
  * the count a denominator that never falls to zero, which is how a checklist
  * stops being read.
  */
-const ONGOING = [
-  {
-    /* First, deliberately.
-    
-       `/settings/features` holds the switches for loans, expenses, hiring,
-       shifts, attendance, grades and departments — and it was in **no nav
-       entry and linked from nowhere**, reachable only by typing its URL. So a
-       module switched off looked deleted: the loans module is complete in both
-       repos, has a sidebar entry, and lets any authenticated user apply, and a
-       whole standup concluded that building one "should be postponed" because
-       nobody could find it. What needed finding was this page. */
-    href: "/settings/features",
-    title: "What this company uses",
-    description:
-      "Switch modules on and off, loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
-    icon: <ToggleRight aria-hidden="true" />,
-  },
-  {
-    /* Beside the other things a company configures once and then uses. Named
-       "Job roles" and never "Roles" — `/settings/roles` further down is
-       permissions, and two things called Roles in one menu is the ambiguity the
-       departments/sub-departments rename already had to fix once. */
-    href: "/settings/job-roles",
-    title: "Job roles",
-    description:
-      "What jobs this company has, what each one involves, and what people on it are judged against. Job titles stay free text until you add some.",
-    icon: <BriefcaseBusiness aria-hidden="true" />,
-  },
-  {
-    href: "/settings/required-details",
-    title: "Required details",
-    description:
-      "Which personal details every member of staff must fill in on My profile, such as date of birth or next of kin, and who still has gaps.",
-    icon: <ClipboardCheck aria-hidden="true" />,
-  },
-  {
-    href: "/settings/announcements",
-    title: "Noticeboard",
-    description:
-      "Notices everybody sees on their dashboard. Publishing is what makes one visible; a draft appears nowhere.",
-    icon: <Megaphone aria-hidden="true" />,
-  },
-  {
-    href: "/settings/security",
-    title: "Sign-in security",
-    description:
-      "Two-factor sign-in, and which actions need a code from email. Off until you turn it on.",
-    icon: <ShieldCheck aria-hidden="true" />,
-  },
-  {
-    href: "/settings/helpdesk",
-    title: "Help desk",
-    description:
-      "What people can raise a request about, and how quickly you have promised to answer.",
-    icon: <LifeBuoy aria-hidden="true" />,
-  },
-  {
-    href: "/settings/knowledge",
-    title: "Knowledge base",
-    description:
-      "Write and publish help articles, and see the searches that found nothing.",
-    icon: <BookOpen aria-hidden="true" />,
-  },
-  {
-    href: "/settings/policies",
-    title: "Policies",
-    description:
-      "Documents people have to read and acknowledge, and who has not yet.",
-    icon: <ScrollText aria-hidden="true" />,
-  },
-  {
-    href: "/settings/attendance",
-    title: "Working hours",
-    description:
-      "The shift everybody's clock-in is measured against, the grace before it counts as late, and which weekdays are working days.",
-    icon: <Clock aria-hidden="true" />,
-  },
-  {
-    href: "/settings/devices",
-    title: "Biometric terminals",
-    description:
-      "The clock-in machines on your walls, and which person each one's enrolment numbers mean. A tap from one beats a clock-in somebody typed themselves.",
-    icon: <Cpu aria-hidden="true" />,
-  },
-  {
-    href: "/settings/overtime",
-    title: "Overtime",
-    description:
-      "Whether overtime is paid, from how many minutes, and the weekday, weekend and public-holiday rates.",
-    icon: <Timer aria-hidden="true" />,
-  },
-  {
-    href: "/settings/performance",
-    title: "Appraisal scoring",
-    description:
-      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. The weights must make 100% exactly, and they are frozen onto an appraisal period when it starts.",
-    icon: <Gauge aria-hidden="true" />,
-  },
-  {
-    href: "/settings/notifications",
-    title: "Notifications",
-    description: "What triggers an email, and who receives approval reminders.",
-    icon: <Bell aria-hidden="true" />,
-  },
-  {
-    /* Beside Notifications, which is the other place a company decides what its
-       people are told. Named for what the person receives and not for the
-       channel's plumbing: nobody on a shop floor asks for an "SMS digest". */
-    href: "/settings/sms",
-    title: "Text messages",
-    description:
-      "A weekly text of counts and a link, only for people who opt in.",
-    icon: <MessageSquare aria-hidden="true" />,
-  },
-  {
-    href: "/settings/appearance",
-    title: "Appearance",
-    description:
-      "Light or dark, or match your device. Does not follow you to another one.",
-    icon: <SunMoon aria-hidden="true" />,
-  },
-  {
-    href: "/settings/ai",
-    title: "Assistant",
-    description:
-      "Suggested objectives, drafted progress notes and development areas. Off until a key is set, and this is the only screen that says so, because a form with no assistant renders no button at all.",
-    icon: <Sparkles aria-hidden="true" />,
-  },
-  {
-    href: "/settings/integrations",
-    title: "Integrations",
-    description:
-      "Connect Jira so finished tickets reach the weekly task log. Accounting, devices and sign-on are on the way.",
-    icon: <Plug aria-hidden="true" />,
-  },
-  /* Commented out for now, not deleted — not ready to show yet.
-  {
-    href: "/settings/webhooks",
-    title: "Webhooks",
-    description:
-      "We POST signed JSON to a URL you control. The one integration that needs nobody else's credential.",
-    icon: <Webhook aria-hidden="true" />,
-  },
-  */
-  {
-    href: "/settings/audit",
-    title: "Audit trail",
-    description:
-      "Who changed what, and when. Every settings change on this page lands here.",
-    icon: <FileText aria-hidden="true" />,
-  },
-  {
-    href: "/people",
-    title: "People",
-    description:
-      "The directory. Who has access is decided by the role on their account, under Roles and access above.",
-    icon: <Users aria-hidden="true" />,
-  },
-];
+const ICONS: Record<string, React.ReactNode> = {
+  "/settings/features": <ToggleRight aria-hidden="true" />,
+  "/settings/job-roles": <BriefcaseBusiness aria-hidden="true" />,
+  "/settings/required-details": <ClipboardCheck aria-hidden="true" />,
+  "/settings/announcements": <Megaphone aria-hidden="true" />,
+  "/settings/security": <ShieldCheck aria-hidden="true" />,
+  "/settings/helpdesk": <LifeBuoy aria-hidden="true" />,
+  "/settings/knowledge": <BookOpen aria-hidden="true" />,
+  "/settings/policies": <ScrollText aria-hidden="true" />,
+  "/settings/attendance": <Clock aria-hidden="true" />,
+  "/settings/devices": <Cpu aria-hidden="true" />,
+  "/settings/overtime": <Timer aria-hidden="true" />,
+  "/settings/performance": <Gauge aria-hidden="true" />,
+  "/settings/notifications": <Bell aria-hidden="true" />,
+  "/settings/sms": <MessageSquare aria-hidden="true" />,
+  "/settings/appearance": <SunMoon aria-hidden="true" />,
+  "/settings/ai": <Sparkles aria-hidden="true" />,
+  "/settings/integrations": <Plug aria-hidden="true" />,
+  "/settings/audit": <FileText aria-hidden="true" />,
+  "/people": <Users aria-hidden="true" />,
+};
+
+/* The settings pages are data in `./filter` (the global search reads them too);
+   this adds the icon. Comments about individual pages moved with their data
+   to git history, not to the file. */
+const ONGOING = SETTINGS_PAGES.map((page) => ({
+  ...page,
+  icon: ICONS[page.href],
+}));
 
 function Row({ row, module }: { row: ChecklistRow; module?: string }) {
   const status = STATUS[row.status];

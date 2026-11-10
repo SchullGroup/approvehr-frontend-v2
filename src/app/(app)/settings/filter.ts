@@ -257,3 +257,127 @@ export function firstSentence(text: string): string {
   const match = text.match(/^.*?[.!?](?=\s|$)/);
   return (match ? match[0] : text).trim();
 }
+
+/**
+ * The settings pages, as data, so the screen and the global search read one
+ * list. The screen adds the icons; the search adds nothing it should not show.
+ */
+export const SETTINGS_PAGES: readonly {
+  href: string;
+  title: string;
+  description: string;
+}[] = [
+  {
+    href: "/settings/features",
+    title: "What this company uses",
+    description:
+      "Switch modules on and off, loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
+  },
+  {
+    href: "/settings/job-roles",
+    title: "Job roles",
+    description:
+      "What jobs this company has, what each one involves, and what people on it are judged against. Job titles stay free text until you add some.",
+  },
+  {
+    href: "/settings/required-details",
+    title: "Required details",
+    description:
+      "Which personal details every member of staff must fill in on My profile, such as date of birth or next of kin, and who still has gaps.",
+  },
+  {
+    href: "/settings/announcements",
+    title: "Noticeboard",
+    description:
+      "Notices everybody sees on their dashboard. Publishing is what makes one visible; a draft appears nowhere.",
+  },
+  {
+    href: "/settings/security",
+    title: "Sign-in security",
+    description:
+      "Two-factor sign-in, and which actions need a code from email. Off until you turn it on.",
+  },
+  {
+    href: "/settings/helpdesk",
+    title: "Help desk",
+    description:
+      "What people can raise a request about, and how quickly you have promised to answer.",
+  },
+  {
+    href: "/settings/knowledge",
+    title: "Knowledge base",
+    description:
+      "Write and publish help articles, and see the searches that found nothing.",
+  },
+  {
+    href: "/settings/policies",
+    title: "Policies",
+    description:
+      "Documents people have to read and acknowledge, and who has not yet.",
+  },
+  {
+    href: "/settings/attendance",
+    title: "Working hours",
+    description:
+      "The shift everybody's clock-in is measured against, the grace before it counts as late, and which weekdays are working days.",
+  },
+  {
+    href: "/settings/devices",
+    title: "Biometric terminals",
+    description:
+      "The clock-in machines on your walls, and which person each one's enrolment numbers mean. A tap from one beats a clock-in somebody typed themselves.",
+  },
+  {
+    href: "/settings/overtime",
+    title: "Overtime",
+    description:
+      "Whether overtime is paid, from how many minutes, and the weekday, weekend and public-holiday rates.",
+  },
+  {
+    href: "/settings/performance",
+    title: "Appraisal scoring",
+    description:
+      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. The weights must make 100% exactly, and they are frozen onto an appraisal period when it starts.",
+  },
+  {
+    href: "/settings/notifications",
+    title: "Notifications",
+    description: "What triggers an email, and who receives approval reminders.",
+  },
+  {
+    href: "/settings/sms",
+    title: "Text messages",
+    description:
+      "A weekly text of counts and a link, only for people who opt in.",
+  },
+  {
+    href: "/settings/appearance",
+    title: "Appearance",
+    description:
+      "Light or dark, or match your device. Does not follow you to another one.",
+  },
+  {
+    href: "/settings/ai",
+    title: "Assistant",
+    description:
+      "Suggested objectives, drafted progress notes and development areas. Off until a key is set, and this is the only screen that says so, because a form with no assistant renders no button at all.",
+  },
+  {
+    href: "/settings/integrations",
+    title: "Integrations",
+    description:
+      "Connect Jira so finished tickets reach the weekly task log. Accounting, devices and sign-on are on the way.",
+  },
+  {
+    href: "/settings/audit",
+    title: "Audit trail",
+    description:
+      "Who changed what, and when. Every settings change on this page lands here.",
+  },
+  {
+    href: "/people",
+    title: "People",
+    description:
+      "The directory. Who has access is decided by the role on their account, under Roles and access above.",
+  },
+];
