@@ -45,7 +45,18 @@ describe("remember", () => {
 });
 
 describe("recent searches on the Settings screen", () => {
-  beforeEach(() => window.localStorage.clear());
+  /* The store keeps its state in module memory as well as in storage, and
+     clearing storage does not clear memory, so each test starts by emptying
+     the history the way a person would. */
+  beforeEach(async () => {
+    window.localStorage.clear();
+    const user = userEvent.setup();
+    const { unmount } = render(<SettingsScreen />);
+    await user.click(box());
+    const clear = screen.queryByRole("button", { name: "Clear history" });
+    if (clear) await user.click(clear);
+    unmount();
+  });
 
   it("remembers a search on Enter and offers it when the box is clicked", async () => {
     const user = userEvent.setup();
@@ -66,7 +77,7 @@ describe("recent searches on the Settings screen", () => {
     render(<SettingsScreen />);
     await user.type(box(), "zzzz");
     await user.tab();
-    await user.click(box());
+    await user.clear(box());
     expect(screen.queryByText("Recent searches")).toBeNull();
   });
 

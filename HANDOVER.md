@@ -12271,3 +12271,27 @@ broken streak, a person with no consent. Both themes at 375, 768 and 1280, keybo
 
 Real devices and Safari; a screen reader; a company with more than 50 participants in one challenge; the
 phone app's device-synced steps; any user on a slow connection (the scenes are lazy but not preloaded).
+
+---
+
+# Settings has a search box, and it remembers what was searched
+
+A filter box at the top of `/settings` narrows the checklist rows, the settings pages and the billing card by what they are called and what they do. Frontend only; nothing on the API changed.
+
+## What it matches, and what it does not
+
+- **A typed word has to start a word** in the entry's title, description or keywords, and every word typed has to match. "pay" finds Payroll and Pay setup and not "display". `termsOf` is the sidebar Find box's own reader (`tokensOf`), so a word finds the same thing in both.
+- **Static text only.** A checklist row is matched on what it `affects`, never its `detail`, which is today's state ("Not set up") and would make "done" a search word.
+- **It finds the page, not the setting.** "Negative balance" will not open the leave rules: that needs an index of every setting on every screen, and an index nobody keeps current sends people to the wrong place.
+- **Keywords are only words the page actually holds** (`PAGE_WORDS`, `ROW_WORDS` in `settings/filter.ts`). Checklist rows are keyed by id and not by link, because the Payroll checks row links to two different places.
+- **Billing is a card, not a page**, and answers only where it is on this person's screen: `useBillingStatus` is the one rule (`MANAGE_SETTINGS` and a status), read by the card and by the filter, so "nothing matches" is never said over a card that is not there.
+- **A result leads with its module** (`PAGE_MODULE`, `ROW_MODULE`), then the title, then the first sentence of the description.
+- While a word is typed the checklist reveal is replaced by a plain list of the rows that match; the reveal returns when the box is cleared. The count is not said while the checklist is loading.
+
+## Recent searches
+
+Clicking into the empty box lists the last 8 (`lib/store/settings-search-history.ts`, key `approvehr.settings.search`). Remembered on Enter, or on leaving the box with something on screen; never on a keystroke and never for a search that found nothing. Words only, newest first, no repeats regardless of case, at least 2 characters. Per browser: it does not follow somebody to another device and clearing site data removes it, and the list says so. The store keeps its state in module memory as well as storage, so a test that wants it empty clears it through the screen, as a person would.
+
+## Verified
+
+19 tests in `settings-filter`, `settings-screen-filter` and `settings-search-history`. Each rule was broken on purpose and a test failed: substring match, any-word match, an empty query matching nothing, billing shown without the permission, a count while loading, no remember on Enter, a search with no results remembered, short queries kept, and no cap. Two of those survived at first (the test for a search with no results never emptied the box, and the history leaked between tests) and were rewritten. Not walked in a browser, not tried on a phone.
