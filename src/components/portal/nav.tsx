@@ -20,6 +20,7 @@ import {
   FileSignature,
   FileText,
   FileUp,
+  Archive,
   FolderKanban,
   FolderOpen,
   GraduationCap,
@@ -464,7 +465,20 @@ export const PROJECT_ITEMS: NavItem[] = [
     href: "/projects",
     label: "All projects",
     icon: <FolderKanban aria-hidden="true" />,
-    activeExcept: ["/projects/master", "/projects/programs"],
+    activeExcept: [
+      "/projects/master",
+      "/projects/programs",
+      "/projects/archive",
+    ],
+    feature: "projects",
+    always: true,
+  },
+  {
+    /* Archived programs and projects, their tasks, and tasks that finished more
+       than 14 days ago. Everybody: it lists only what the person may open. */
+    href: "/projects/archive",
+    label: "Archive",
+    icon: <Archive aria-hidden="true" />,
     feature: "projects",
     always: true,
   },

@@ -3,7 +3,6 @@
 import { RotateCcw } from "lucide-react";
 import { Badge, Button, Field, Input } from "@/components/ui";
 import {
-  FULL_WEIGHT_BP,
   SCORE_COMPONENT_ORDER,
   weightLabel,
   type ApiScoringWeights,
@@ -19,10 +18,13 @@ import {
  *
  * The company defaults in Settings take two decimal places, because a three-way
  * split of a company's own is a thing somebody types once. A period's weights
- * are chosen by whoever is setting the period up, in a hurry, and the rule is
- * "exactly 100%". A field that accepts 33.33 lets three of them make 99.99 and
- * a refusal nobody can connect to a row. So here a weight is a whole number
- * from 0 to 100, and what is sent is that number times 100.
+ * are chosen by whoever is setting the period up, in a hurry, so here a weight
+ * is a whole number from 0 to 100, and what is sent is that number times 100.
+ *
+ * ## Proportional
+ *
+ * The weights need not make 100%: each part counts in proportion to the total.
+ * The only set refused is every part at zero, which cannot make a mark.
  *
  * ## The value is what was typed
  *
@@ -44,7 +46,8 @@ const FALLBACK_LABELS: Record<ScoreComponent, string> = {
   SELF_ASSESSMENT: "Self-assessment",
 };
 
-const RULE = "These must add up to 100%.";
+const ROW_RULE = "Each weight is a whole number from 0 to 100.";
+const ZERO_RULE = "Give at least one part a weight above 0%.";
 
 /** Basis points to the text a field shows. 2500 becomes "25". */
 export function weightsToText(weights: WeightSet): WeightText {
@@ -72,20 +75,19 @@ function wholePercent(text: string): boolean {
 }
 
 /**
- * What stops this set being saved, or null.
- *
- * One sentence for both reasons — a bad row and a wrong total — because the
- * person's next step is the same: look at the rows.
+ * What stops this set being saved, or null: a row that is not a whole number
+ * from 0 to 100, or every part at zero. Any other total is fine, because the
+ * weights are proportional.
  */
 export function periodWeightsProblem(text: WeightText): string | null {
   if (!SCORE_COMPONENT_ORDER.every((c) => wholePercent(text[c] ?? ""))) {
-    return RULE;
+    return ROW_RULE;
   }
   const total = SCORE_COMPONENT_ORDER.reduce(
     (sum, c) => sum + Number(text[c]),
     0,
   );
-  return total === 100 ? null : RULE;
+  return total > 0 ? null : ZERO_RULE;
 }
 
 function totalBp(text: WeightText): number {
@@ -155,11 +157,7 @@ export function PeriodWeights({
         <span className="flex items-center gap-2">
           <span className="text-meta text-muted">Total</span>
           <span data-testid="weights-total">
-            <Badge
-              tone={total === FULL_WEIGHT_BP ? "success" : "danger"}
-              size="md"
-              dot
-            >
+            <Badge tone={total > 0 ? "neutral" : "danger"} size="md" dot>
               {weightLabel(total)}
             </Badge>
           </span>
@@ -223,6 +221,11 @@ export function PeriodWeights({
           {problem}
         </p>
       )}
+
+      <p className="text-meta text-muted">
+        Each part counts in proportion to the total, so the weights do not have
+        to make 100%.
+      </p>
 
       <p className="text-meta text-muted">
         If someone has no graded weekly tasks against this period&apos;s

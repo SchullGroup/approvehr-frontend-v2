@@ -76,6 +76,7 @@ describe("the rows under Projects, by person", () => {
         "Overview",
         "My tasks",
         "All projects",
+        "Archive",
         "Operations",
         "Technology",
         "All programs",
@@ -83,19 +84,26 @@ describe("the rows under Projects, by person", () => {
     ],
     [
       "program lead",
-      ["My tasks", "Team tasks", "All projects", "Operations", "All programs"],
+      [
+        "My tasks",
+        "Team tasks",
+        "All projects",
+        "Archive",
+        "Operations",
+        "All programs",
+      ],
     ],
     [
       "program read",
-      ["My tasks", "All projects", "Operations", "All programs"],
+      ["My tasks", "All projects", "Archive", "Operations", "All programs"],
     ],
     [
       "program write",
-      ["My tasks", "All projects", "Operations", "All programs"],
+      ["My tasks", "All projects", "Archive", "Operations", "All programs"],
     ],
     [
       "project-only member",
-      ["My tasks", "All projects", "Technology", "All programs"],
+      ["My tasks", "All projects", "Archive", "Technology", "All programs"],
     ],
     [
       "HR with programs",
@@ -103,6 +111,7 @@ describe("the rows under Projects, by person", () => {
         "My tasks",
         "Team tasks",
         "All projects",
+        "Archive",
         "Operations",
         "Technology",
         "All programs",
@@ -130,6 +139,7 @@ describe("the rows under Projects, by person", () => {
       "/projects/mine",
       "/projects/team",
       "/projects",
+      "/projects/archive",
       "/projects/programs/pg-ops",
       "/projects/programs/pg-tech",
       "/projects/programs",
@@ -225,6 +235,7 @@ describe("a company with no programs", () => {
     expect(projects?.items.map((i) => i.href)).toEqual([
       "/projects/mine",
       "/projects",
+      "/projects/archive",
     ]);
   });
 
@@ -235,6 +246,7 @@ describe("a company with no programs", () => {
       "/projects/mine",
       "/projects/team",
       "/projects",
+      "/projects/archive",
     ]);
   });
 

@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `ea8e7ad9` (2026-11-07) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `ddb25c0e` (2026-11-10) · regenerate with `npm run docs`, never by hand
 
-**165 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**166 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   144 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   145 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    12 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
@@ -224,18 +224,19 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Projects
 
-`/projects` — 8 pages
+`/projects` — 9 pages
 
-| Route                     | Title      | What it is                                                             | File                                            |
-| ------------------------- | ---------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
-| `/projects`               | Projects   | —                                                                      | `src/app/(app)/projects/page.tsx`               |
-| `/projects/[id]`          | Project    | —                                                                      | `src/app/(app)/projects/[id]/page.tsx`          |
-| `/projects/master`        | Overview   | —                                                                      | `src/app/(app)/projects/master/page.tsx`        |
-| `/projects/mine`          | My tasks   | Your own list of things to do, apart from any project board.           | `src/app/(app)/projects/mine/page.tsx`          |
-| `/projects/programs`      | Programs   | —                                                                      | `src/app/(app)/projects/programs/page.tsx`      |
-| `/projects/programs/[id]` | Program    | —                                                                      | `src/app/(app)/projects/programs/[id]/page.tsx` |
-| `/projects/tasks/[id]`    | Task       | One task, opened by its id.                                            | `src/app/(app)/projects/tasks/[id]/page.tsx`    |
-| `/projects/team`          | Team tasks | What the people you lead have on, across projects and their own lists. | `src/app/(app)/projects/team/page.tsx`          |
+| Route                     | Title      | What it is                                                                             | File                                            |
+| ------------------------- | ---------- | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `/projects`               | Projects   | —                                                                                      | `src/app/(app)/projects/page.tsx`               |
+| `/projects/[id]`          | Project    | —                                                                                      | `src/app/(app)/projects/[id]/page.tsx`          |
+| `/projects/archive`       | Archive    | Archived programs and projects, their tasks, and tasks finished more than 14 days ago. | `src/app/(app)/projects/archive/page.tsx`       |
+| `/projects/master`        | Overview   | —                                                                                      | `src/app/(app)/projects/master/page.tsx`        |
+| `/projects/mine`          | My tasks   | Your own list of things to do, apart from any project board.                           | `src/app/(app)/projects/mine/page.tsx`          |
+| `/projects/programs`      | Programs   | —                                                                                      | `src/app/(app)/projects/programs/page.tsx`      |
+| `/projects/programs/[id]` | Program    | —                                                                                      | `src/app/(app)/projects/programs/[id]/page.tsx` |
+| `/projects/tasks/[id]`    | Task       | One task, opened by its id.                                                            | `src/app/(app)/projects/tasks/[id]/page.tsx`    |
+| `/projects/team`          | Team tasks | What the people you lead have on, across projects and their own lists.                 | `src/app/(app)/projects/team/page.tsx`          |
 
 ### Reports
 

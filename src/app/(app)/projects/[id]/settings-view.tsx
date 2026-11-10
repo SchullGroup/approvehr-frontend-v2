@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Archive, ArchiveRestore } from "lucide-react";
 import {
   Badge,
   Button,
@@ -72,6 +73,7 @@ export function SettingsView() {
         </CardBody>
       </Card>
       <MembersCard editable={canManage} />
+      {canManage && <ArchiveCard />}
       {canManage && <DangerCard />}
     </div>
   );
@@ -283,17 +285,23 @@ function DetailsCard({ editable }: { editable: boolean }) {
 
           <Field
             label="Department"
-            optional
+            required
             help="For finding the project. It does not change who is on it."
           >
             <Select
               value={project.departmentId ?? ""}
               disabled={!editable}
-              onChange={(event) =>
-                void patch({ departmentId: event.target.value || null })
-              }
+              onChange={(event) => {
+                /* A department can be changed, never cleared. */
+                if (event.target.value)
+                  void patch({ departmentId: event.target.value });
+              }}
             >
-              <option value="">None</option>
+              {!project.departmentId && (
+                <option value="" disabled>
+                  Choose a department
+                </option>
+              )}
               {live.map((department) => (
                 <option key={department.id} value={department.id}>
                   {department.name}
@@ -467,6 +475,72 @@ function MembersCard({ editable }: { editable: boolean }) {
           </div>
         )}
       </CardBody>
+    </Card>
+  );
+}
+
+/* ----------------------------------------------------------------- archive -- */
+
+/**
+ * Archive or restore. Archiving is "stop showing this", never "take it away": the
+ * project and its tasks leave the lists for the Archive, and it takes no new tasks.
+ * Restoring is undoing that, so it asks nothing; archiving asks once.
+ */
+function ArchiveCard() {
+  const { project, actions } = useProject();
+  const toast = useToast();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const archived = project.archived === true;
+
+  async function toggle() {
+    setBusy(true);
+    const result = await actions.archiveProject(!archived);
+    setBusy(false);
+    setAsking(false);
+    if (result.ok) {
+      toast.push({
+        tone: "success",
+        title: archived
+          ? `${project.name} restored`
+          : `${project.name} archived`,
+      });
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={archived ? "Restore" : "Archive"}
+        description={
+          archived
+            ? `Restoring brings ${project.name} and its ${TASK.many} back into the lists and lets it take new ${TASK.many}.`
+            : `An archived project leaves the lists, and its ${TASK.many} move to the Archive. It keeps everything and takes no new ${TASK.many}. You can restore it.`
+        }
+      />
+      <CardBody>
+        <Button
+          variant={archived ? "secondary" : "danger"}
+          onClick={() => (archived ? void toggle() : setAsking(true))}
+          loading={busy && archived}
+        >
+          {archived ? (
+            <ArchiveRestore aria-hidden="true" className="size-4" />
+          ) : (
+            <Archive aria-hidden="true" className="size-4" />
+          )}
+          {archived ? "Restore project" : "Archive project"}
+        </Button>
+      </CardBody>
+      <ConfirmDialog
+        open={asking}
+        onClose={() => setAsking(false)}
+        onConfirm={() => void toggle()}
+        title={`Archive ${project.name}?`}
+        body={`It will leave the lists, and its ${TASK.many} will be under the Archive. Nothing is deleted, and you can restore it from here.`}
+        confirmLabel="Archive project"
+        loading={busy}
+      />
     </Card>
   );
 }

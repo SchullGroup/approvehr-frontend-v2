@@ -50,6 +50,7 @@ import {
   type ApiTaskForGrading,
   type ApiMyTask,
   type ScoreBand,
+  type ScoreComponent,
   type WeightSet,
   type AnswerBody,
   type ChoiceOptionBody,
@@ -4277,7 +4278,10 @@ export function useScoringWeights(): {
    * fact they can check. Same discipline as the payroll run naming the person it
    * excluded rather than counting them.
    */
-  save: (weights: WeightSet) => Promise<ApiScoringWeightsSaved>;
+  save: (
+    weights: WeightSet,
+    labels?: Partial<Record<ScoreComponent, string>>,
+  ) => Promise<ApiScoringWeightsSaved>;
   reload: () => void;
 } {
   const { isConnected } = useSession();
@@ -4307,9 +4311,12 @@ export function useScoringWeights(): {
     editable: isConnected,
     refusal: WEIGHTS_SAVE_OFFLINE,
     save: useCallback(
-      async (weights: WeightSet) => {
+      async (
+        weights: WeightSet,
+        labels?: Partial<Record<ScoreComponent, string>>,
+      ) => {
         if (!isConnected) offline(WEIGHTS_SAVE_OFFLINE);
-        const saved = await performanceApi.setScoringWeights(weights);
+        const saved = await performanceApi.setScoringWeights(weights, labels);
         reload();
         return saved;
       },

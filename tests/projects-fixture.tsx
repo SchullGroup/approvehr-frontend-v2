@@ -75,6 +75,7 @@ export function fakeActions(): {
     setMembers: resolved(),
     saveWorkflow: resolved([]),
     deleteProject: resolved(),
+    archiveProject: resolved(),
     createSprint: resolved(),
     updateSprint: resolved(),
     deleteSprint: resolved(),

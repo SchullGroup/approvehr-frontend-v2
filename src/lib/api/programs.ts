@@ -14,11 +14,13 @@ import {
   type ProgramSummary,
   type ProjectRollupRow,
   type Week,
+  type ArchiveReason,
   type WorkBucket,
   type WorkPage,
   type WorkQuery,
   type WorkRollup,
   type WorkRow,
+  type WorkStage,
   type Workload,
 } from "@/lib/projects/programs";
 import type {
@@ -257,6 +259,11 @@ export function toWorkRow(raw: Raw): WorkRow {
     doneAt: strOrNull(raw["doneAt"]),
     createdAt: str(raw["createdAt"]),
     updatedAt: str(raw["updatedAt"]),
+    ...(raw["archivedBecause"] === "project" ||
+    raw["archivedBecause"] === "program" ||
+    raw["archivedBecause"] === "done"
+      ? { archivedBecause: raw["archivedBecause"] as ArchiveReason }
+      : {}),
   };
 }
 
@@ -271,6 +278,7 @@ export function workQueryParams(
     unassigned: query.unassigned ? "true" : undefined,
     assigneeId: query.assigneeId,
     category: query.category?.length ? query.category.join(",") : undefined,
+    stage: query.stage?.length ? query.stage.join(",") : undefined,
     type: query.type?.length ? query.type.join(",") : undefined,
     dueBefore: query.dueBefore,
     dueAfter: query.dueAfter,
@@ -280,6 +288,7 @@ export function workQueryParams(
     order: query.order,
     limit: query.limit ? String(query.limit) : undefined,
     cursor: cursor ?? undefined,
+    reason: query.archive ? query.reason : undefined,
   };
 }
 
@@ -359,6 +368,32 @@ export const programsApi = {
       await request<Raw>(`/programs/${id}/rollup`, signalOf(signal)),
     ),
 
+  /** The stage names in use across the projects in view, for a work list's Stage filter. */
+  workStages: async (
+    target: { programId?: string; unassigned?: boolean },
+    signal?: AbortSignal,
+  ): Promise<WorkStage[]> =>
+    list(
+      await request<Raw[]>(
+        target.programId
+          ? `/programs/${target.programId}/work/stages`
+          : "/work/stages",
+        {
+          query: { unassigned: target.unassigned ? "true" : undefined },
+          ...signalOf(signal),
+        },
+      ),
+    ).map((raw) => ({
+      name: typeof raw["name"] === "string" ? raw["name"] : "",
+      category: (["TODO", "IN_PROGRESS", "DONE"] as const).includes(
+        raw["category"] as StatusCategory,
+      )
+        ? (raw["category"] as StatusCategory)
+        : "TODO",
+      projectCount:
+        typeof raw["projectCount"] === "number" ? raw["projectCount"] : 0,
+    })),
+
   workRollup: async (signal?: AbortSignal) =>
     toWorkRollup(await request<Raw>("/work/rollup", signalOf(signal))),
 
@@ -423,16 +458,22 @@ export const programsApi = {
     cursor: string | null,
     signal?: AbortSignal,
   ): Promise<WorkPage> => {
-    const path = query.programId
-      ? `/programs/${query.programId}/work`
-      : "/work";
+    /* The Archive has one address, and takes the program as a filter. */
+    const path = query.archive
+      ? "/work/archive"
+      : query.programId
+        ? `/programs/${query.programId}/work`
+        : "/work";
     const { programId: _program, ...rest } = query;
     void _program;
     const page = await requestPaged<
       Raw,
       { nextCursor?: string | null; limit?: number }
     >(path, {
-      query: workQueryParams(query.programId ? rest : query, cursor),
+      query: workQueryParams(
+        query.programId && !query.archive ? rest : query,
+        cursor,
+      ),
       ...signalOf(signal),
     });
     return {
