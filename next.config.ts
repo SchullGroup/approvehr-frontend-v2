@@ -184,9 +184,10 @@ const uploadOrigins = (() => {
  * (`src/lib/api/linked-upload.ts`): the browser POSTs a file to it and gets back
  * an address, and `connect-src` decides whether the browser will send it. Without
  * the origin here the request is refused before it leaves and the person is told
- * their connection dropped, so it is named, and **only when the variable is set**:
- * a deployment that does not use this path keeps exactly the policy it had and
- * never admits an origin it will not call.
+ * their connection dropped, so it is named. **Unset is the old platform's
+ * uploader**, the same default `linked-upload.ts` has, so a build with nothing set
+ * can send a leave file; blank or `off` is off, and then the policy is exactly
+ * what it was before this path existed and admits no origin it will not call.
  *
  * The same rule as the storage origins above, and for the same reason: `https:`
  * only (and `http://localhost` in a development build), the origin and nothing
@@ -194,8 +195,15 @@ const uploadOrigins = (() => {
  * the build down over a header. `linked-upload.ts` applies the same test to the
  * same value, so an address one accepts is never one the other refuses.
  */
+/* The same string as `LINKED_UPLOAD_DEFAULT` in `src/lib/api/linked-upload.ts`,
+   which this file cannot import. `tests/linked-upload-default.test.ts` fails if
+   the two ever differ. */
+const LINKED_UPLOAD_DEFAULT =
+  "https://qerhd0lxje.execute-api.us-east-1.amazonaws.com/prod";
+
 const linkedUploadOrigin = (() => {
-  const raw = process.env["NEXT_PUBLIC_LINKED_UPLOAD_URL"]?.trim();
+  const set = process.env["NEXT_PUBLIC_LINKED_UPLOAD_URL"];
+  const raw = set === undefined ? LINKED_UPLOAD_DEFAULT : set.trim();
   if (!raw) return "";
   try {
     const url = new URL(raw);
@@ -248,7 +256,12 @@ const CSP = [
   }${uploadOrigins.map((origin) => ` ${origin}`).join("")}${
     linkedUploadOrigin ? ` ${linkedUploadOrigin}` : ""
   }`,
-  "upgrade-insecure-requests",
+  /* Production only. On `http://localhost` Safari obeys it and upgrades every
+     API call to `https://localhost:8010`, where nothing answers, so the app
+     never loads in development. Chrome exempts localhost, which hid this. */
+  ...(process.env.NODE_ENV === "production"
+    ? ["upgrade-insecure-requests"]
+    : []),
 ].join("; ");
 
 const SECURITY_HEADERS = [
@@ -256,10 +269,17 @@ const SECURITY_HEADERS = [
   /* Two years, subdomains included. Every tenant is a subdomain of
      approvehr.io, so leaving them out would protect the marketing site and not
      the product. */
-  {
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains; preload",
-  },
+  /* Production only, for the same reason as `upgrade-insecure-requests`: Safari
+     applies HSTS to `localhost` too (on every port, for two years), sending
+     `http://localhost:3000` to `https://`, where the dev server does not answer. */
+  ...(process.env.NODE_ENV === "production"
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=63072000; includeSubDomains; preload",
+        },
+      ]
+    : []),
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

@@ -97,6 +97,7 @@ import {
   mayEditGoal,
 } from "./goal-dialogs";
 import { TaskLogPanel } from "./task-log";
+import { CompletedWork } from "@/components/performance/completed-work";
 import { useCanUploadObjectives } from "./kpis/import/access";
 import { PlanWorkDialog } from "./plan-work-dialog";
 import { useAssistantAvailable } from "@/lib/store/ai";
@@ -1626,6 +1627,10 @@ function GoalDetailModal({
         {canLogTasks && (
           <TaskLogPanel goalId={goal.id} keyResults={goal.keyResults} />
         )}
+
+        {/* The finished project tasks linked to this, for whoever is reading it
+            to see what went into it. Read-only; nothing here is graded. */}
+        {open && <CompletedWork goal={goal} />}
 
         {/* What the freeze actually costs, said before anything is refused —
             and now directly above the buttons it explains the absence of. The

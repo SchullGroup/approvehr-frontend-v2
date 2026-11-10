@@ -178,6 +178,14 @@ export type Project = {
    */
   access?: "READ" | "WRITE" | "MANAGE" | null;
   canWrite?: boolean | null;
+  /**
+   * Archived: out of the lists, taking no new tasks, with everything kept. Its lead,
+   * its program's lead or HR can bring it back. Absent means live.
+   */
+  archived?: boolean;
+  archivedAt?: string | null;
+  /** The program it sits in is archived, which hides its tasks the same way. */
+  programArchived?: boolean;
 };
 
 export type Sprint = {
@@ -227,9 +235,27 @@ export type Issue = {
   /** Position within a column or section. Insert between neighbours is the midpoint. */
   rank: number;
   doneAt: string | null;
+  /**
+   * The objective or personal KPI this task is linked to, or null. Optional and
+   * never a fault: a task with no link is simply on the person's work record.
+   */
   goalId: string | null;
-  /** What the weekly-task bridge says about this issue, when the API says anything. */
-  weeklyTask: IssueWeeklyTask | null;
+  /**
+   * The one measure of that objective the link is narrowed to, or null/absent
+   * for the objective as a whole. Never set without a `goalId`.
+   */
+  keyResultId?: string | null;
+  /**
+   * What the API says about the link, in neutral terms (`null` or absent when
+   * the task is not linked). The demo derives the same from its own objectives.
+   */
+  objective?: IssueObjective | null;
+  /**
+   * Whether the signed-in person may link or unlink this task, as the API says
+   * it. Absent where it did not say, and the screen works the same rule out
+   * from what it knows (the assignee, the lead, the assignee's manager, HR).
+   */
+  canLinkObjective?: boolean | null;
   commentCount: number;
   createdAt: string;
   updatedAt: string;
@@ -287,26 +313,57 @@ export type IssueActivity = {
 };
 
 /**
- * What the weekly-task bridge says about an issue, only when the API says it.
+ * Where a task is under an objective, as the API says it, for the reader asking.
  *
- * `null` is "nothing to say": an epic, a sub-task, an unassigned or unfinished
- * issue. `NOT_COUNTED` carries the API's own sentence, to be shown as it is.
- * Demo mode never has one — it files nothing, so claiming either outcome would
- * be inventing it.
+ * Only ever a statement of fact: `LINKED`, `UNLINKED` (not a fault: the ordinary
+ * state of most tasks, and said with nothing at all) or `CLOSED` (linked to an
+ * objective that has since closed). `source` is `TASK` for the task's own link
+ * and `PROJECT` for the project's default it falls back on. A link to an
+ * objective this reader may not open (a colleague's personal KPI) is `visible:
+ * false`: it is still linked, and the title and level are withheld.
+ *
+ * `message` is the server's own plain sentence and is shown as it is.
  */
-export type IssueWeeklyTask =
-  | { state: "FILED"; taskId: string; graded: boolean }
-  | {
-      state: "NOT_COUNTED";
-      reason: "NO_OBJECTIVE" | "OBJECTIVE_NOT_USABLE" | "WEEK_CLOSED";
-      message: string;
-    };
+export type IssueObjective = {
+  state: "LINKED" | "UNLINKED" | "CLOSED";
+  source: "TASK" | "PROJECT" | null;
+  goalId: string | null;
+  title: string | null;
+  level: "company" | "department" | "personal" | null;
+  keyResultId: string | null;
+  /** The measure's name (the API calls it `keyResultLabel`). */
+  keyResultTitle: string | null;
+  visible: boolean;
+  message: string;
+};
+
+/** The state of a task with no link, which most tasks are. Never a fault. */
+export const UNLINKED: IssueObjective = {
+  state: "UNLINKED",
+  source: null,
+  goalId: null,
+  title: null,
+  level: null,
+  keyResultId: null,
+  keyResultTitle: null,
+  visible: true,
+  message: "Not linked to an objective",
+};
+
+/** Whether a task is under an objective of any kind, open or closed. */
+export const isLinked = (o: Pick<IssueObjective, "state"> | null | undefined) =>
+  o !== null && o !== undefined && o.state !== "UNLINKED";
 
 export type IssueThread = {
   comments: IssueComment[];
   activity: IssueActivity[];
   /** From the issue's own read; absent in the demo, which keeps none. */
   watchers?: Watcher[];
+  /**
+   * Whether the reader may link the task to an objective, as the API says it on
+   * the task's own read. Absent where it did not say.
+   */
+  canLinkObjective?: boolean;
   watching?: boolean;
   /** The task's own files, not its comments'. */
   attachments?: IssueAttachment[];
@@ -403,6 +460,7 @@ export type IssuePatch = Partial<{
   dueTime: string | null;
   rank: number;
   goalId: string | null;
+  keyResultId: string | null;
 }>;
 
 export type NewSprintInput = {

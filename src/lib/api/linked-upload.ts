@@ -21,11 +21,36 @@ import { megabytes } from "@/lib/file-size";
  * **A file sent this way is public.** The uploader is not behind a login: it
  * stores the file and answers with an address, and anybody who has the address
  * can open it. That is the whole reason `LINKED_FILES_NOTE` exists and is shown
- * beside the picker, and why the address is configuration
- * (`NEXT_PUBLIC_LINKED_UPLOAD_URL`) rather than a literal in this file: the path
- * is **off** until a deployment says where the uploader is, and nothing in this
- * repository contains it. A development build, a test or a preview with the
- * variable unset cannot send a file anywhere.
+ * beside the picker.
+ *
+ * ## Where the uploader is
+ *
+ * `LINKED_UPLOAD_DEFAULT`, the same address `s3.service.ts` has built in, which is
+ * what "use it the same way" means: this path is **on** with nothing set. It used
+ * to be off until a deployment supplied the address, and the result was that no
+ * deployment ever showed an attachment area. `NEXT_PUBLIC_LINKED_UPLOAD_URL`
+ * overrides it, and **blank, or anything that is not an https address (`off`), is
+ * off**: unset and switched off are different answers, as they are for the API's
+ * `LINKED_FILE_HOSTS`, which has to agree or the picker is never offered.
+ *
+ * The tests never send a request to it. `tests/setup` pins the variable blank for
+ * the whole suite, and the tests that exercise an upload stub `fetch` and an
+ * address of their own.
+ *
+ * ## A name is never reused
+ *
+ * The uploader keeps a file under `<folder>/<fileName>` and nothing else, so two
+ * uploads with the same name are **one object**: the second replaces the first and
+ * both get the same address. Measured against the real uploader, not assumed. That
+ * is worse than it sounds for leave files. A second `medical_certificate.pdf`, from
+ * anybody, silently replaced the first person's file under the address already
+ * recorded on their request, and then the API refused to attach the second one at
+ * all ("That file is already attached.": it keys a linked file by its address, once).
+ *
+ * So every upload goes out under `<name>-<32 hex digits>.<ext>` (`uniqueFileName`).
+ * The digits are random, drawn from the browser's own source, and never a counter or
+ * a clock: the address is the only protection a file has here, and one that can be
+ * counted up to is not one. The name the person chose is untouched in `filename`.
  *
  * ## What it never sends
  *
@@ -151,10 +176,21 @@ const MAX_URL_LENGTH = 500;
 /* ------------------------------------------------------------- the address */
 
 /**
+ * The old platform's uploader, as `approvehr-platform-frontend`'s `s3.service.ts`
+ * has it: the base without `/upload-file` or `/upload-image`. `next.config.ts`
+ * cannot import this file (it is outside the `@/` alias), so it holds the same
+ * string, and `tests/linked-upload-default.test.ts` fails if the two differ.
+ */
+export const LINKED_UPLOAD_DEFAULT =
+  "https://qerhd0lxje.execute-api.us-east-1.amazonaws.com/prod";
+
+/**
  * Where the uploader is, or null.
  *
- * Read from the environment on every call and written out in full so that Next
- * can substitute it at build time. Only `https:` is accepted, and `http` for
+ * `NEXT_PUBLIC_LINKED_UPLOAD_URL` when it is set, the default when it is not, and
+ * null when it is blank or is not an address this accepts. Read from the
+ * environment on every call and written out in full so that Next can substitute
+ * it at build time. Only `https:` is accepted, and `http` for
  * `localhost` and `127.0.0.1` outside production: anything else is dropped
  * rather than trusted, the rule `next.config.ts` applies to the same address
  * for the Content-Security-Policy. The two have to agree: an address this module
@@ -162,7 +198,8 @@ const MAX_URL_LENGTH = 500;
  * dropped connection.
  */
 function configuredBase(): string | null {
-  const raw = process.env.NEXT_PUBLIC_LINKED_UPLOAD_URL?.trim();
+  const set = process.env.NEXT_PUBLIC_LINKED_UPLOAD_URL;
+  const raw = set === undefined ? LINKED_UPLOAD_DEFAULT : set.trim();
   if (!raw) return null;
   try {
     const url = new URL(raw);
@@ -177,7 +214,7 @@ function configuredBase(): string | null {
   }
 }
 
-/** Whether this build knows where an uploader is. False means this path is off. */
+/** Whether this build has an uploader to send to. False means this path is off. */
 export const linkedUploadConfigured = (): boolean => configuredBase() !== null;
 
 /* ------------------------------------------------------------- the file */
@@ -257,6 +294,51 @@ export const sanitizeFileName = (fileName: string): string => {
 
   return sanitizedName + extension;
 };
+
+/**
+ * The most of a person's own file name that goes into the address. The token and
+ * the folder add about 50 characters, and the leave API takes an address of at
+ * most 500; a browser allows a name of 255, so this is a margin and not a rule a
+ * normal name meets.
+ */
+const MAX_STEM_LENGTH = 100;
+
+/** 128 bits from the browser's own random source, as 32 hex digits. */
+function randomToken(): string {
+  const source = globalThis.crypto;
+  if (typeof source?.getRandomValues !== "function") {
+    /* No fallback to `Math.random`: the token is what keeps the address from
+       being guessed, and a guessable one is worse than refusing. */
+    throw new LinkedUploadRefused(
+      "This browser cannot send files safely, so the file was not sent.",
+    );
+  }
+  const bytes = source.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
+/**
+ * The name the uploader is given: the cleaned name with a token before its
+ * extension, so that no two uploads are the same object.
+ *
+ * `medical certificate.pdf` becomes `medical_certificate-<token>.pdf`. The
+ * extension stays last so the address still ends in what the file is, and a name
+ * with nothing before its extension (`.pdf`) is called `file`. `token` is for
+ * tests; callers leave it out.
+ */
+export function uniqueFileName(
+  fileName: string,
+  token: string = randomToken(),
+): string {
+  const cleaned = sanitizeFileName(fileName);
+  const dot = cleaned.lastIndexOf(".");
+  const stem = dot === -1 ? cleaned : cleaned.slice(0, dot);
+  const extension = dot === -1 ? "" : cleaned.slice(dot);
+  const shown = (stem === "" ? "file" : stem).slice(0, MAX_STEM_LENGTH);
+  return `${shown}-${token}${extension}`;
+}
 
 /** The file as base64, without the `data:…;base64,` prefix. */
 function toBase64(
@@ -351,11 +433,14 @@ export async function uploadLinkedFile(
   /* `linkedRefusal` returned null, so there is a kind. */
   if (!kind) throw new LinkedUploadRefused(acceptedKinds());
 
+  /* Before the file is read: a browser with no random source fails here, not
+     after the work of reading a few megabytes. */
+  const uploadName = uniqueFileName(file.name);
   const base64 = await toBase64(file, options.onProgress);
 
   /* `encodeURIComponent`, as the original: a space is `%20`, not `+`. */
   const parameters = [
-    `fileName=${encodeURIComponent(sanitizeFileName(file.name))}`,
+    `fileName=${encodeURIComponent(uploadName)}`,
     `projectFolder=${encodeURIComponent(LINKED_FOLDER)}`,
     /* The original takes it from `file.type.slice(6)`: "jpeg", "png". The kind's
        own type is the same answer, and does not depend on what a browser said. */

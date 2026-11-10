@@ -1,5 +1,6 @@
 "use client";
 
+import type { IssueObjective } from "@/lib/projects/types";
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import { downloadBlob, fetchBinary } from "@/lib/api/download";
 import type { ApiSuggestOutcome } from "@/lib/api/ai";
@@ -2354,6 +2355,11 @@ export type ApiWorkRecordIssue = {
   waitingForGrade: boolean;
   /** `otherKey` is `null` when the viewer may not open the other task. */
   links: { label: string; otherKey: string | null }[];
+  /**
+   * Where it is under an objective or KPI, as the API says it: `LINKED`,
+   * `UNLINKED` (not a fault) or `CLOSED`. Absent on an API that predates it.
+   */
+  objective?: IssueObjective;
 };
 
 /**
@@ -2381,7 +2387,12 @@ export type ApiWorkRecord = {
     /** 0 to 100, or `null` when nothing in the period has been graded. */
     completionRate: number | null;
     graded: number;
+    /** Under an objective by the task's own link or its project's. */
     linkedToObjective: number;
+    /** Finished after the deadline. Absent on an API that predates it. */
+    late?: number;
+    /** Under no objective. Not a fault. */
+    unlinked?: number;
   };
   byObjective: {
     /** `null` for the row of issues with no objective. */
@@ -2390,6 +2401,8 @@ export type ApiWorkRecord = {
     keyResultTitle?: string;
     finished: number;
     completionRate: number | null;
+    /** Work under an objective this reader may not open: its title is withheld. */
+    hidden?: boolean;
   }[];
   days: { date: string; issues: ApiWorkRecordIssue[] }[];
 };

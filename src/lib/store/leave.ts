@@ -1,5 +1,6 @@
 "use client";
 
+import { leaveLabel } from "@/lib/leave-label";
 import { useCallback, useSyncExternalStore } from "react";
 import {
   LEAVE_REQUESTS,
@@ -215,7 +216,7 @@ export function useLeaveStore() {
       const requester = employeeById(input.employeeId);
       pushDemoNotification({
         ruleId: "n-leave-request",
-        title: `${request.type} leave, ${requester ? fullName(requester) : "Unknown"}`,
+        title: `${leaveLabel(request.type)}, ${requester ? fullName(requester) : "Unknown"}`,
         body: `${request.from} to ${request.to} · ${request.days} ${request.days === 1 ? "day" : "days"}`,
         actionHref: "/approvals",
         entityType: "leave_request",

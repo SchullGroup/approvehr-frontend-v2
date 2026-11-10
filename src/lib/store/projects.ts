@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { projectsApi } from "@/lib/api/projects";
@@ -18,6 +24,7 @@ import {
   createSprintInBook,
   deleteIssueInBook,
   deleteProject as bookDeleteProject,
+  archiveProject as bookArchiveProject,
   deleteSprintInBook,
   editCommentInBook,
   patchIssueInBook,
@@ -63,7 +70,7 @@ import {
 import { useRevalidation } from "@/lib/revalidate";
 import { todayIn } from "@/lib/time";
 import { createPersistedState } from "./persisted";
-import { projectsChanged } from "./program-sync";
+import { onProjectsChanged, projectsChanged } from "./program-sync";
 import { useOrgTimezone, useSession } from "./session";
 
 /**
@@ -540,11 +547,11 @@ async function apiPatchIssue(
 /**
  * Ask the server for one issue again and lay it over the cached one.
  *
- * For what a write changes beyond the fields it sent: linking a finished issue
- * to an objective makes the weekly-task bridge file a task, and that line
- * (`issue.weeklyTask`) is the server's to say, so the prediction in
- * `apiPatchIssue` cannot know it and kept the old "Not counted" until a reload.
- * Quiet on failure: the next load corrects it, and the write itself succeeded.
+ * For what a write changes beyond the fields it sent: linking a task to an
+ * objective makes the server say what the link reads as (`issue.objective`: the
+ * objective's name and measure, or that it has closed), which the prediction in
+ * `apiPatchIssue` cannot know. Quiet on failure: the next load corrects it, and
+ * the write itself succeeded.
  */
 async function apiRefreshIssue(
   owner: string,
@@ -678,6 +685,27 @@ async function apiSaveWorkflow(
       statuses,
     });
     return ok(statuses);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+async function apiArchiveProject(
+  owner: string,
+  projectId: string,
+  archived: boolean,
+): Promise<Result<Project>> {
+  claim(owner);
+  try {
+    const saved = await projectsApi.setArchived(projectId, archived);
+    const held = dataOf(projectId)?.project;
+    if (held) replaceProject(projectId, mergeProject(held, saved));
+    /* It leaves the lists, or comes back into them: read them again. */
+    for (const scope of ["mine", "all"] as const) {
+      if (cache.lists[scope]) void loadList(owner, scope);
+    }
+    projectsChanged();
+    return ok(held ? mergeProject(held, saved) : saved);
   } catch (error) {
     return fail(error);
   }
@@ -843,12 +871,13 @@ async function apiSprint<T>(
 /*  The demo book                                                           */
 /* ======================================================================== */
 
-/* Version 2: the book holds programs and who is in them. A browser still
-   holding version 1 starts again from the new sample. */
+/* Version 3: the demo's finished tasks span the review periods and some carry a
+   link to an objective (and a measure). Version 2 held programs and who is in
+   them. A browser still holding an older book starts again from the new sample. */
 const demoStore = createPersistedState<DemoBook>({
   key: "approvehr.projects.book",
   empty: EMPTY_BOOK,
-  version: 2,
+  version: 3,
 });
 
 /** The employees the sample is written for, kept to ones the directory has. */
@@ -963,7 +992,11 @@ export function useProjectList(
   return useMemo(() => {
     if (!mode.connected) {
       const ready = book.anchor !== "";
-      const projects = Object.values(book.projects).map((d) => ({
+      /* Archived projects are under the Archive, as the API leaves them out. */
+      const live = Object.values(book.projects).filter(
+        (d) => !d.project.archived,
+      );
+      const projects = live.map((d) => ({
         ...d.project,
         /* The stored project holds its program's id; the card shows its name. */
         programName: d.project.programId
@@ -999,6 +1032,89 @@ export function useProjectList(
       reload,
     };
   }, [mode.connected, book, state, owner, scope, canSee, reload]);
+}
+
+/**
+ * The archived projects the signed-in person can see, for the Archive. Every
+ * project in the company for somebody the API lets list them all, otherwise the
+ * ones they are on. Read again when the window comes back and after a project is
+ * archived or brought back.
+ */
+export function useArchivedProjects(enabled = true): {
+  status: ViewStatus;
+  error: unknown;
+  projects: Project[];
+  reload: () => void;
+} {
+  const mode = useMode();
+  const today = todayIn(mode.timeZone);
+  const book = useDemoBook(!mode.connected && !mode.sessionLoading, today);
+  const revalidation = useRevalidation();
+  const owner = mode.owner;
+  const [tick, setTick] = useState(0);
+  const [state, setState] = useState<{
+    owner: string;
+    status: ViewStatus;
+    error: unknown;
+    projects: Project[];
+  } | null>(null);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+
+  useEffect(() => onProjectsChanged(reload), [reload]);
+
+  useEffect(() => {
+    if (!owner || !enabled) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        let projects: Project[];
+        try {
+          projects = await projectsApi.listArchived("all", controller.signal);
+        } catch (error) {
+          /* Not somebody who may list the whole company: their own, then. */
+          if (!(error instanceof ApiError) || error.status !== 403) throw error;
+          projects = await projectsApi.listArchived("mine", controller.signal);
+        }
+        if (controller.signal.aborted) return;
+        setState({ owner, status: "ready", error: null, projects });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setState((prev) =>
+          prev && prev.owner === owner && prev.status === "ready"
+            ? prev
+            : { owner, status: "error", error, projects: [] },
+        );
+      }
+    })();
+    return () => controller.abort();
+  }, [owner, enabled, tick, revalidation]);
+
+  return useMemo(() => {
+    if (!mode.connected) {
+      const projects = Object.values(book.projects)
+        .filter((d) => d.project.archived)
+        .map((d) => ({
+          ...d.project,
+          programName: d.project.programId
+            ? (book.programs[d.project.programId]?.name ?? null)
+            : null,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return {
+        status: book.anchor !== "" ? ("ready" as const) : ("loading" as const),
+        error: null,
+        projects,
+        reload,
+      };
+    }
+    const held = state && state.owner === owner ? state : null;
+    return {
+      status: held?.status ?? ("loading" as const),
+      error: held?.error ?? null,
+      projects: held?.projects ?? [],
+      reload,
+    };
+  }, [mode.connected, book, state, owner, reload]);
 }
 
 /**
@@ -1108,8 +1224,9 @@ const NO_THREAD: IssueThread = { comments: [], activity: [] };
 /**
  * An issue's comments and history, oldest first.
  *
- * The weekly-task bridge's note is not here: it rides on the issue itself
- * (`issue.weeklyTask`), so it is as fresh as the issue and needs no request.
+ * What a task's link to an objective reads as is not here: it rides on the
+ * issue itself (`issue.objective`), so it is as fresh as the issue and needs no
+ * request.
  */
 export function useIssueThread(issueId: string | null): {
   thread: IssueThread;
@@ -1179,6 +1296,12 @@ export type ProjectActions = {
   ) => Promise<Result<Issue>>;
   /** Re-read one issue from the API. A no-op in the demo, which has no bridge to ask. */
   refreshIssue: (issue: Pick<Issue, "id">) => Promise<Result<Issue | null>>;
+  /**
+   * Re-read the whole project, its tasks included, for a change made outside this
+   * store (the batch link). A failed read leaves what is on screen, and a no-op in
+   * the demo, which is its own source.
+   */
+  refreshProject: () => void;
   deleteIssue: (
     issue: Pick<Issue, "id" | "key">,
     options?: Quiet,
@@ -1218,6 +1341,11 @@ export type ProjectActions = {
     options?: Quiet,
   ) => Promise<Result<ProjectStatus[]>>;
   deleteProject: (options?: Quiet) => Promise<Result<void>>;
+  /** Archive, or bring back. The lists are read again either way. */
+  archiveProject: (
+    archived: boolean,
+    options?: Quiet,
+  ) => Promise<Result<Project>>;
   createSprint: (
     input: NewSprintInput,
     options?: Quiet,
@@ -1301,6 +1429,10 @@ export function useProjectActions(projectId: string): ProjectActions {
 
       refreshIssue: async (issue) =>
         api ? apiRefreshIssue(api, projectId, issue.id) : ok(null),
+
+      refreshProject: () => {
+        if (api) refreshProject(api, projectId);
+      },
 
       deleteIssue: async (issue, options) =>
         settle(
@@ -1421,6 +1553,25 @@ export function useProjectActions(projectId: string): ProjectActions {
           options,
         );
       },
+
+      archiveProject: async (archived, options) =>
+        settle(
+          api
+            ? await apiArchiveProject(api, projectId, archived)
+            : demo((book, ctx) => {
+                const next = bookArchiveProject(
+                  book,
+                  projectId,
+                  archived,
+                  ctx.now,
+                );
+                return { book: next, value: next.projects[projectId]!.project };
+              }),
+          archived
+            ? "Could not archive the project"
+            : "Could not bring the project back",
+          options,
+        ),
 
       deleteProject: async (options) =>
         settle(

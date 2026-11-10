@@ -327,6 +327,13 @@ type SeedGoal = {
   title: string;
   description?: string;
   ownerId: string | null;
+  /**
+   * Set on a department's shared objective (no owner, a department). The seeded
+   * ladder is otherwise company to person; the Engineering objective below is
+   * the one department rung, so the demo can link project work at all three
+   * levels.
+   */
+  departmentName?: string;
   parentId: string | null;
   status: GoalStatus;
   dueQuarter: string;
@@ -422,6 +429,102 @@ const SEED_GOALS: readonly SeedGoal[] = DEMO_ENABLED
             startValue: "1",
             targetValue: "5",
             currentValue: "4",
+          },
+        ],
+      },
+      {
+        id: "demo-goal-dept-eng",
+        title: "Make checkout fast and reliable",
+        description: "Engineering's shared objective for the product work.",
+        ownerId: null,
+        departmentName: "Engineering",
+        parentId: "demo-goal-company",
+        status: "ON_TRACK",
+        dueQuarter: "2026-Q2",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-dept-conversion",
+            label: "Checkout conversion",
+            unit: "%",
+            startValue: "61",
+            targetValue: "70",
+            currentValue: "66",
+          },
+        ],
+      },
+      {
+        id: "demo-goal-chidi-errors",
+        title: "Make payments and the app dependable",
+        ownerId: "p-03",
+        parentId: "demo-goal-dept-eng",
+        status: "ON_TRACK",
+        dueQuarter: "2026-Q2",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-errors",
+            label: "Payment error rate",
+            unit: "%",
+            startValue: "4",
+            targetValue: "2",
+            currentValue: "3",
+            lowerIsBetter: true,
+          },
+          {
+            id: "demo-kr-3ds",
+            label: "3-D Secure live in markets",
+            startValue: "0",
+            targetValue: "4",
+            currentValue: "2",
+          },
+          {
+            id: "demo-kr-offline",
+            label: "Screens that work offline",
+            startValue: "0",
+            targetValue: "12",
+            currentValue: "7",
+          },
+        ],
+      },
+      {
+        id: "demo-goal-ngozi-cart",
+        title: "Ship the new cart drawer",
+        ownerId: "p-04",
+        parentId: "demo-goal-dept-eng",
+        status: "ON_TRACK",
+        dueQuarter: "2026-Q2",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-cart",
+            label: "Carts using the drawer",
+            unit: "%",
+            startValue: "0",
+            targetValue: "100",
+            currentValue: "60",
+          },
+        ],
+      },
+      {
+        id: "demo-goal-emeka-checkout",
+        title: "Shorten the checkout",
+        ownerId: "p-09",
+        parentId: "demo-goal-dept-eng",
+        status: "AT_RISK",
+        dueQuarter: "2026-Q2",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-steps",
+            label: "Steps taken out of checkout",
+            startValue: "0",
+            targetValue: "3",
+            currentValue: "1",
           },
         ],
       },
@@ -1029,15 +1132,20 @@ function demoGoals(
       description: goal.description ?? null,
       ownerId: goal.ownerId,
       ownerName: owner ? `${owner.firstName} ${owner.lastName}` : null,
-      companyWide: goal.ownerId === null,
-      /* The demo has no department rung: its seeded ladder is company → person,
-         which is the shape a small company actually has. Null rather than an
-         invented department — a demo that shows a cascade nobody set up would
-         be teaching the screen rather than the product. */
-      departmentId: null,
-      departmentName: null,
+      companyWide: goal.ownerId === null && !goal.departmentName,
+      /* One department rung, Engineering's, so project work can be linked at
+         every level. The rest of the ladder is company to person, the shape a
+         small company actually has. */
+      departmentId: goal.departmentName
+        ? `demo-dept-${goal.departmentName.toLowerCase()}`
+        : null,
+      departmentName: goal.departmentName ?? null,
       level:
-        goal.ownerId === null ? ("company" as const) : ("personal" as const),
+        goal.ownerId !== null
+          ? ("personal" as const)
+          : goal.departmentName
+            ? ("department" as const)
+            : ("company" as const),
       parentId: goal.parentId,
       parentTitle: goal.parentId ? (titles.get(goal.parentId) ?? null) : null,
       status: goal.status,
@@ -1433,7 +1541,15 @@ const PAGE = 200;
  * tree is present whichever reading you asked for — a personal goal shown with
  * no company goal above it loses the only thing a cascade is for.
  */
-export function useKpis(scope: KpiScope): {
+export function useKpis(
+  scope: KpiScope,
+  /**
+   * False holds the request: the cascade is asked for only once something needs
+   * it (a dialog that has been opened), so a list with a dialog behind every row
+   * does not ask once per row. The demo has nothing to ask and ignores it.
+   */
+  enabled = true,
+): {
   goals: ApiGoal[];
   cascade: GoalNode[];
   loading: boolean;
@@ -1478,7 +1594,7 @@ export function useKpis(scope: KpiScope): {
     [scope],
   );
 
-  const fetched = useFetched<ApiGoal[]>(scope, isConnected, load);
+  const fetched = useFetched<ApiGoal[]>(scope, isConnected && enabled, load);
 
   const goals = useMemo(() => {
     if (isConnected) return fetched.data ?? [];
@@ -1518,6 +1634,33 @@ export function useKpis(scope: KpiScope): {
     source: isConnected ? "api" : "demo",
     reload: fetched.reload,
   };
+}
+
+/**
+ * The demo's objectives, for work that needs their titles and measures (the
+ * labels on completed work). Empty when connected: the API labels its own
+ * answers, and asking for the cascade here would be a request nobody needs.
+ */
+export function useDemoObjectives(): ApiGoal[] {
+  const { isConnected } = useSession();
+  const demo = useDemoState();
+  return useMemo(
+    () => (isConnected ? [] : demoGoals(demo.readings, demo.approvals)),
+    [isConnected, demo.readings, demo.approvals],
+  );
+}
+
+/**
+ * The dates a demo review period covers, by its id: `YYYY-MM-DD`, both ends
+ * inclusive. `null` for a period the demo does not have.
+ */
+export function demoCyclePeriod(
+  cycleId: string | null,
+): { start: string; end: string } | null {
+  const cycle = demoCycles.find((c) => c.id === cycleId);
+  return cycle?.periodStart && cycle.periodEnd
+    ? { start: cycle.periodStart, end: cycle.periodEnd }
+    : null;
 }
 
 /** Thrown by every demo refusal, so a screen shows one message shape. */

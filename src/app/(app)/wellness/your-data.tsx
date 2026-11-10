@@ -12,6 +12,7 @@ import {
   useToast,
   type RowActionItem,
 } from "@/components/ui";
+import { WellnessArt } from "@/components/wellness";
 import { ApiError } from "@/lib/api/client";
 import type { WellnessPurpose } from "@/lib/api/wellness";
 import { useWellnessActions } from "@/lib/store/wellness";
@@ -192,6 +193,12 @@ function StopDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        <div
+          aria-hidden="true"
+          className="flex items-center justify-center rounded-2xl bg-well-peri-soft py-2"
+        >
+          <WellnessArt name="drop" mood="sleepy" size={72} animate={false} />
+        </div>
         <FieldSet
           legend={
             tracking

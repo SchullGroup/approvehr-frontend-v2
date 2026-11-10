@@ -2,15 +2,15 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `402b44af` (2026-11-06) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `ddb25c0e` (2026-11-10) · regenerate with `npm run docs`, never by hand
 
-**162 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**166 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   142 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
-| `(marketing)` |    11 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
+| `(app)`       |   145 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(marketing)` |    12 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
 | `(focus)`     |     1 | **Full-window screens.** No sidebar and no top bar, for a task that wants somebody's whole attention. Behind the sign-in gate; today it is answering a review one question at a time.                                |
@@ -224,18 +224,19 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Projects
 
-`/projects` — 8 pages
+`/projects` — 9 pages
 
-| Route                     | Title      | What it is                                                             | File                                            |
-| ------------------------- | ---------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
-| `/projects`               | Projects   | —                                                                      | `src/app/(app)/projects/page.tsx`               |
-| `/projects/[id]`          | Project    | —                                                                      | `src/app/(app)/projects/[id]/page.tsx`          |
-| `/projects/master`        | Overview   | —                                                                      | `src/app/(app)/projects/master/page.tsx`        |
-| `/projects/mine`          | My tasks   | Your own list of things to do, apart from any project board.           | `src/app/(app)/projects/mine/page.tsx`          |
-| `/projects/programs`      | Programs   | —                                                                      | `src/app/(app)/projects/programs/page.tsx`      |
-| `/projects/programs/[id]` | Program    | —                                                                      | `src/app/(app)/projects/programs/[id]/page.tsx` |
-| `/projects/tasks/[id]`    | Task       | One task, opened by its id.                                            | `src/app/(app)/projects/tasks/[id]/page.tsx`    |
-| `/projects/team`          | Team tasks | What the people you lead have on, across projects and their own lists. | `src/app/(app)/projects/team/page.tsx`          |
+| Route                     | Title      | What it is                                                                             | File                                            |
+| ------------------------- | ---------- | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `/projects`               | Projects   | —                                                                                      | `src/app/(app)/projects/page.tsx`               |
+| `/projects/[id]`          | Project    | —                                                                                      | `src/app/(app)/projects/[id]/page.tsx`          |
+| `/projects/archive`       | Archive    | Archived programs and projects, their tasks, and tasks finished more than 14 days ago. | `src/app/(app)/projects/archive/page.tsx`       |
+| `/projects/master`        | Overview   | —                                                                                      | `src/app/(app)/projects/master/page.tsx`        |
+| `/projects/mine`          | My tasks   | Your own list of things to do, apart from any project board.                           | `src/app/(app)/projects/mine/page.tsx`          |
+| `/projects/programs`      | Programs   | —                                                                                      | `src/app/(app)/projects/programs/page.tsx`      |
+| `/projects/programs/[id]` | Program    | —                                                                                      | `src/app/(app)/projects/programs/[id]/page.tsx` |
+| `/projects/tasks/[id]`    | Task       | One task, opened by its id.                                                            | `src/app/(app)/projects/tasks/[id]/page.tsx`    |
+| `/projects/team`          | Team tasks | What the people you lead have on, across projects and their own lists.                 | `src/app/(app)/projects/team/page.tsx`          |
 
 ### Reports
 
@@ -294,15 +295,17 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Wellness
 
-`/wellness` — 5 pages
+`/wellness` — 7 pages
 
-| Route                   | Title             | What it is                                                                                            | File                                          |
-| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `/wellness`             | Wellness          | Your own water and steps, break reminders, challenges and kudos. What you log is seen by nobody else. | `src/app/(app)/wellness/page.tsx`             |
-| `/wellness/challenges`  | Challenges        | Join a challenge, and see how it is going.                                                            | `src/app/(app)/wellness/challenges/page.tsx`  |
-| `/wellness/recognition` | Kudos             | Thank a colleague, in public or in private.                                                           | `src/app/(app)/wellness/recognition/page.tsx` |
-| `/wellness/reminders`   | Break reminders   | When to be reminded to take a break, and which breaks are named.                                      | `src/app/(app)/wellness/reminders/page.tsx`   |
-| `/wellness/settings`    | Wellness settings | The privacy floor for the company's wellness results.                                                 | `src/app/(app)/wellness/settings/page.tsx`    |
+| Route                       | Title             | What it is                                                                                            | File                                              |
+| --------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `/wellness`                 | Wellness          | Your own water and steps, break reminders, challenges and kudos. What you log is seen by nobody else. | `src/app/(app)/wellness/page.tsx`                 |
+| `/wellness/challenges`      | Challenges        | Join a challenge, and see how it is going.                                                            | `src/app/(app)/wellness/challenges/page.tsx`      |
+| `/wellness/challenges/[id]` | Challenge         | What a challenge is, joining it, and how it is going.                                                 | `src/app/(app)/wellness/challenges/[id]/page.tsx` |
+| `/wellness/delivery`        | Weekly delivery   | What was logged against objectives in a week, and how it was graded.                                  | `src/app/(app)/wellness/delivery/page.tsx`        |
+| `/wellness/recognition`     | Kudos             | Thank a colleague, in public or in private.                                                           | `src/app/(app)/wellness/recognition/page.tsx`     |
+| `/wellness/reminders`       | Break reminders   | When to be reminded to take a break, and which breaks are named.                                      | `src/app/(app)/wellness/reminders/page.tsx`       |
+| `/wellness/settings`        | Wellness settings | The privacy floor for the company's wellness results.                                                 | `src/app/(app)/wellness/settings/page.tsx`        |
 
 ---
 
@@ -322,6 +325,7 @@ Served from the same Next app, own chrome and footer. No authentication. Most of
 | `/privacy`              | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/privacy/page.tsx`              |
 | `/product/[module]`     | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/product/[module]/page.tsx`     |
 | `/security`             | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/security/page.tsx`             |
+| `/support`              | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/support/page.tsx`              |
 | `/terms`                | —                                                          | —                                                                                                                                                                                                                                                                                                                             | `src/app/(marketing)/terms/page.tsx`                |
 
 ---

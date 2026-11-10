@@ -372,6 +372,7 @@ export function ColumnChart({
   height = 180,
   format = (n) => n.toLocaleString(),
   caption,
+  shape = "flat",
   className,
 }: {
   points: Point[];
@@ -380,6 +381,12 @@ export function ColumnChart({
   height?: number;
   format?: (n: number) => string;
   caption: string;
+  /**
+   * `pill` draws each column as a rounded bar on a soft track, the friendlier
+   * shape Wellness uses for a week. The reading, the dashed outline for a day
+   * with nothing and the table underneath are the same.
+   */
+  shape?: "flat" | "pill";
   className?: string;
 }) {
   const max = niceCeiling(Math.max(...recorded(points)));
@@ -399,22 +406,38 @@ export function ColumnChart({
             <span className="text-center text-meta text-muted">
               {p.value === null ? "—" : format(p.value)}
             </span>
-            {/* A missing reading is a dashed outline at full height, not a
-                column of no height. Zero and unknown must not look alike. */}
-            <span
-              className={cn(
-                "block rounded-t-[3px]",
-                p.value === null && "border border-dashed border-line-strong",
-              )}
-              style={
-                p.value === null
-                  ? { height: "100%" }
-                  : {
-                      height: `${Math.max((p.value / max) * 100, p.value > 0 ? 2 : 0)}%`,
+            {shape === "pill" ? (
+              <span className="relative mx-auto block min-h-0 w-full max-w-9 flex-1 rounded-full bg-sunken">
+                {p.value === null ? (
+                  <span className="absolute inset-0 rounded-full border border-dashed border-line-strong" />
+                ) : (
+                  <span
+                    className="absolute inset-x-0 bottom-0 block rounded-full"
+                    style={{
+                      height: `${Math.max((p.value / max) * 100, p.value > 0 ? 8 : 0)}%`,
                       backgroundColor: tones?.[i] ?? "var(--color-accent)",
-                    }
-              }
-            />
+                    }}
+                  />
+                )}
+              </span>
+            ) : (
+              /* A missing reading is a dashed outline at full height, not a
+                 column of no height. Zero and unknown must not look alike. */
+              <span
+                className={cn(
+                  "block rounded-t-[3px]",
+                  p.value === null && "border border-dashed border-line-strong",
+                )}
+                style={
+                  p.value === null
+                    ? { height: "100%" }
+                    : {
+                        height: `${Math.max((p.value / max) * 100, p.value > 0 ? 2 : 0)}%`,
+                        backgroundColor: tones?.[i] ?? "var(--color-accent)",
+                      }
+                }
+              />
+            )}
           </div>
         ))}
       </div>

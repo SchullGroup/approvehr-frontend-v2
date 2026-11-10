@@ -5,7 +5,6 @@ import {
   ChevronRight,
   LayoutList,
   Link,
-  Link2Off,
   Loader2,
   Plus,
   RotateCw,
@@ -463,8 +462,8 @@ function ProjectLinkNotice({
           aria-hidden="true"
           className="size-4 shrink-0 text-success-text"
         />
-        {projectName} is linked to this objective, so finished {TASK.many} count
-        towards it.
+        {projectName} is linked to this objective, so its finished {TASK.many}{" "}
+        show under it.
       </p>
     );
   }
@@ -478,29 +477,21 @@ function ProjectLinkNotice({
         />
         <span>
           <span className="block text-body-sm font-medium text-ink">
-            Link {projectName} to this objective
+            Link {projectName} to this objective (optional)
           </span>
           {goalLink === "other" && linkedGoalTitle ? (
-            <span className="mt-0.5 block text-meta text-warning-text">
+            <span className="mt-0.5 block text-meta text-muted">
               It is linked to &ldquo;{linkedGoalTitle}&rdquo; now. Linking it
-              here moves where all of its finished work counts, not only this
+              here moves where its finished work shows, not only this
               plan&apos;s.
             </span>
           ) : (
             <span className="mt-0.5 block text-meta text-muted">
-              Finished {TASK.many} count towards this objective once the project
-              is linked.
+              Its finished {TASK.many} then show under this objective.
             </span>
           )}
         </span>
       </label>
-      {!linkProject && (
-        <p className="flex items-center gap-2 text-meta text-muted">
-          <Link2Off aria-hidden="true" className="size-3.5" />
-          Unlinked, finished {TASK.many} will not count towards this objective
-          unless each person links their own {TASK.one}.
-        </p>
-      )}
     </div>
   );
 }

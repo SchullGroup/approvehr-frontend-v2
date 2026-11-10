@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
@@ -400,5 +400,132 @@ describe("when it cannot load", () => {
     expect(
       await screen.findByText(/not linked to a staff record/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("your own shape", () => {
+  const steps = (day: string, total: number) => ({
+    day,
+    metric: "STEPS",
+    total,
+  });
+
+  it("draws the arc against the person's own best day, and says it is not a target", async () => {
+    api.summary.mockResolvedValue(
+      summary([
+        steps("2026-10-21", 6200),
+        steps("2026-10-14", 14200),
+        steps("2026-10-02", 9000),
+      ]),
+    );
+    render(<OverviewScreen />);
+
+    expect(
+      await screen.findByRole("img", {
+        name: /Steps today: 6,200 steps\. Your best day in the last four weeks was 14,200 steps\./,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Your best day in the last 4 weeks: 14,200 steps/),
+    ).toBeInTheDocument();
+    /* No target is claimed, and none is stored in the browser. */
+    expect(document.body).not.toHaveTextContent(
+      /\b(goal|target|recommended|ahead of pace|on track)\b/i,
+    );
+  });
+
+  it("says a new best is a new best for you, and nothing about health", async () => {
+    api.summary.mockResolvedValue(
+      summary([steps("2026-10-21", 15000), steps("2026-10-14", 9000)]),
+    );
+    render(<OverviewScreen />);
+
+    expect(
+      await screen.findByText(/Today, 15,000 steps\. A new best for you\./),
+    ).toBeInTheDocument();
+  });
+
+  it("has no mark, and says the first days set one, when there is no earlier day", async () => {
+    api.summary.mockResolvedValue(summary([steps("2026-10-21", 3000)]));
+    render(<OverviewScreen />);
+
+    expect(
+      await screen.findAllByText("Your first days set the mark."),
+    ).toHaveLength(2);
+  });
+
+  it("asks the API for thirteen weeks and a few days, once, and keeps nothing in the browser", async () => {
+    const before = window.localStorage.length;
+    api.summary.mockResolvedValue(summary([steps("2026-10-21", 3000)]));
+    render(<OverviewScreen />);
+    await screen.findByText("Today, 3,000 steps");
+
+    expect(api.summary).toHaveBeenCalledTimes(1);
+    expect(api.summary).toHaveBeenCalledWith(
+      { from: "2026-07-23", to: "2026-10-21" },
+      expect.anything(),
+    );
+    expect(window.localStorage.length).toBe(before);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("counts a run of days in a row, and is not broken by a today with nothing in it", async () => {
+    api.summary.mockResolvedValue(
+      summary([
+        steps("2026-10-20", 1000),
+        steps("2026-10-19", 1000),
+        steps("2026-10-18", 1000),
+      ]),
+    );
+    render(<OverviewScreen />);
+
+    const card = await screen.findByRole("region", { name: "Your streak" });
+    expect(within(card).getByText("3")).toBeInTheDocument();
+    expect(
+      within(card).getByText(/Log something today and the run grows by a day/),
+    ).toBeInTheDocument();
+  });
+
+  it("says a new run can start today after a gap, and does not scold", async () => {
+    api.summary.mockResolvedValue(
+      summary([steps("2026-10-14", 1000), steps("2026-10-13", 1000)]),
+    );
+    render(<OverviewScreen />);
+
+    const card = await screen.findByRole("region", { name: "Your streak" });
+    expect(
+      within(card).getByText("A new run can start today"),
+    ).toBeInTheDocument();
+    expect(
+      within(card).getByText(/Your last run was 2 days/),
+    ).toBeInTheDocument();
+    expect(card).not.toHaveTextContent(/lost|broke|miss|fail/i);
+  });
+
+  it("draws the weeks as a heat map for one metric, and switches to the other on a choice", async () => {
+    api.summary.mockResolvedValue(
+      summary([
+        steps("2026-10-21", 3000),
+        { day: "2026-10-20", metric: "WATER_ML", total: 500 },
+      ]),
+    );
+    render(<OverviewScreen />);
+
+    expect(
+      await screen.findByRole("img", {
+        name: /Steps, last 13 weeks: logged on 1 of/,
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "Water" }));
+    expect(
+      screen.getByRole("img", { name: /Water, last 13 weeks: logged on 1 of/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("is not shown anybody else's streak: there is nothing here that takes a person", async () => {
+    render(<OverviewScreen />);
+    await screen.findByRole("region", { name: "Your streak" });
+    expect(screen.getByText(/Only you can see this/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /share/i })).toBeNull();
   });
 });

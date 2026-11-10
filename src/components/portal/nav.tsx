@@ -20,6 +20,7 @@ import {
   FileSignature,
   FileText,
   FileUp,
+  Archive,
   FolderKanban,
   FolderOpen,
   GraduationCap,
@@ -334,11 +335,11 @@ export type NavGroup = {
 
   /**
    * Which block of the top level the group sits in, when it is not the one its
-   * other fields say. `"yours"` is the personal block: a headed group there is
-   * still a row that opens (Projects), filed with Home and My approvals rather
-   * than with the company's modules.
+   * other fields say. `"modules"` is the block of the company's modules: Projects
+   * and Wellness sit there beside Core HR and Payroll although neither is sold as
+   * a module, so neither has a `billingModule` to say so.
    */
-  zone?: "yours";
+  zone?: "modules";
 
   /**
    * A stable key for the group, which the sidebar uses to say which drill-down
@@ -394,19 +395,6 @@ const PERSONAL: NavItem[] = [
     assistant: true,
     always: true,
   },
-  {
-    /* Here for the reason Projects is: it belongs to the person using it and to
-       no module the site sells. No permission, because every employee keeps
-       their own log and gives kudos; the screens narrow what a role sees (the
-       organisation's challenge and floor settings need `MANAGE_SETTINGS`) and
-       the API decides everything else. The flag is what keeps it out of a
-       company that has not switched it on. */
-    href: "/wellness",
-    label: "Wellness",
-    icon: <HeartPulse aria-hidden="true" />,
-    feature: "wellness",
-    always: true,
-  },
   /*
    * Notifications, My profile and My documents used to sit here, above the
    * modules, and they were the three most prominent things in the sidebar
@@ -459,9 +447,10 @@ export const PROJECT_ITEMS: NavItem[] = [
     always: true,
   },
   {
-    /* Only for somebody who leads people: the rows decide, because no
-       permission says who has anybody reporting to them or a department to
-       head. Absent rather than an empty page that explains itself. */
+    /* For somebody who leads people (the rows decide, because no permission
+       says who has anybody reporting to them or a department to head) and for
+       HR, who read everybody's finished work here. Absent for everyone else,
+       rather than an empty page that explains itself. */
     href: "/projects/team",
     label: "Team tasks",
     icon: <Users aria-hidden="true" />,
@@ -476,8 +465,43 @@ export const PROJECT_ITEMS: NavItem[] = [
     href: "/projects",
     label: "All projects",
     icon: <FolderKanban aria-hidden="true" />,
-    activeExcept: ["/projects/master", "/projects/programs"],
+    activeExcept: [
+      "/projects/master",
+      "/projects/programs",
+      "/projects/archive",
+    ],
     feature: "projects",
+    always: true,
+  },
+  {
+    /* Archived programs and projects, their tasks, and tasks that finished more
+       than 14 days ago. Everybody: it lists only what the person may open. */
+    href: "/projects/archive",
+    label: "Archive",
+    icon: <Archive aria-hidden="true" />,
+    feature: "projects",
+    always: true,
+  },
+];
+
+/**
+ * Wellness: one door, in the modules block with a row of its own.
+ *
+ * A group of one item is drawn as a plain link, so it needs no level to open: the
+ * page has its own tab strip (Overview, Challenges, Reminders and the rest), and a
+ * row for each of those would only repeat it. Not under a module because the site
+ * sells none of that name. No permission, because every employee keeps their own
+ * log and gives kudos; the screens narrow what a role sees (the organisation's
+ * challenge and floor settings need `MANAGE_SETTINGS`) and the API decides
+ * everything else. The flag is what keeps it out of a company that has not
+ * switched it on, absent rather than disabled.
+ */
+const WELLNESS_ITEMS: NavItem[] = [
+  {
+    href: "/wellness",
+    label: "Wellness",
+    icon: <HeartPulse aria-hidden="true" />,
+    feature: "wellness",
     always: true,
   },
 ];
@@ -1074,7 +1098,8 @@ const SETTINGS_ITEMS: NavItem[] = [
 ];
 
 /**
- * Yours, then the six modules the site sells, then the company's.
+ * Yours, then the modules (the six the site sells, with Projects and Wellness
+ * after the ones that work), then the company's.
  *
  * Assembled rather than written out so the headings and their order come from
  * one place — see `MODULE_ITEMS` above.
@@ -1097,8 +1122,8 @@ const SETTINGS_ITEMS: NavItem[] = [
  * sink. Sorting on "some" would drop a group people use for the sake of one
  * item in it, which is the opposite of the point.
  *
- * `sort` is stable in every engine this runs on, so the groups that stay keep
- * the site's order exactly.
+ * `moduleBlock` below splits the groups in two without reordering either side,
+ * so the groups that stay keep the site's order exactly.
  */
 const comingSoon = (group: { items: readonly NavItem[] }): boolean =>
   group.items.length > 0 && group.items.every((item) => item.soon === true);
@@ -1128,22 +1153,54 @@ const MODULE_ICON: Record<ModuleId, React.ReactNode> = {
   desk: <LifeBuoy aria-hidden="true" />,
 };
 
+/**
+ * The modules block: the modules that work in the site's order, then `extras`
+ * (Projects and Wellness: in the block, not sold), then any module that is still
+ * "Coming soon" — see `comingSoon` above.
+ *
+ * The extras go before the unbuilt module rather than after it for the reason the
+ * sinking rule exists: a door that goes nowhere is never allowed above one that
+ * goes somewhere. Exported so that rule is a function a test can call with a
+ * module that is not built, which no real module is today.
+ */
+export function moduleBlock(
+  modules: readonly NavGroup[],
+  extras: readonly NavGroup[],
+): NavGroup[] {
+  return [
+    ...modules.filter((group) => !comingSoon(group)),
+    ...extras,
+    ...modules.filter(comingSoon),
+  ];
+}
+
 export const NAV: NavGroup[] = [
   { id: "home", items: PERSONAL },
-  {
-    id: "projects",
-    heading: "Projects",
-    zone: "yours",
-    icon: <FolderKanban aria-hidden="true" />,
-    items: PROJECT_ITEMS,
-  },
-  ...MODULES.map((module) => ({
-    id: module.id,
-    heading: module.label,
-    icon: MODULE_ICON[module.id],
-    billingModule: BILLING_MODULE_OF[module.id],
-    items: MODULE_ITEMS[module.id],
-  })).sort((a, b) => Number(comingSoon(a)) - Number(comingSoon(b))),
+  ...moduleBlock(
+    MODULES.map((module) => ({
+      id: module.id,
+      heading: module.label,
+      icon: MODULE_ICON[module.id],
+      billingModule: BILLING_MODULE_OF[module.id],
+      items: MODULE_ITEMS[module.id],
+    })),
+    [
+      {
+        id: "projects",
+        heading: "Projects",
+        zone: "modules",
+        icon: <FolderKanban aria-hidden="true" />,
+        items: PROJECT_ITEMS,
+      },
+      {
+        id: "wellness",
+        heading: "Wellness",
+        zone: "modules",
+        icon: <HeartPulse aria-hidden="true" />,
+        items: WELLNESS_ITEMS,
+      },
+    ],
+  ),
   {
     id: "reports",
     heading: "Reports",

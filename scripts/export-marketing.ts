@@ -379,6 +379,7 @@ npm run check   # typecheck + lint + production build
 | \`/pricing\` | Tiers plus a live per-employee calculator |
 | \`/product/[module]\` | One walkthrough per module: payroll, core-hr, hiring, time, performance, desk |
 | \`/demo\` | Demo request form |
+| \`/support\` | How to reach support, and who to ask first |
 | \`/privacy\`, \`/terms\`, \`/security\`, \`/dpa\` | Legal and trust documents |
 
 \`/sitemap.xml\` and \`/robots.txt\` are generated from the same content modules

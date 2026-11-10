@@ -123,7 +123,19 @@ export type DepartmentRow =
         scored: number;
         bands: Record<ReportBand, number>;
         goals: GoalFigures;
+        /** Hand-logged weekly tasks only: project work no longer files one. */
         tasks: { people: number; withLogged: number; withGraded: number };
+        /**
+         * Project work finished in the cycle's dates, beside the weekly tasks and
+         * never added to them: of `tasks.people`, how many finished at least one
+         * task, and how many tasks that was. Both are `null` for a cycle that
+         * states no dates, and the whole block is absent from a server that does
+         * not send it: either way no line is drawn.
+         */
+        finishedWork?: {
+          withFinishedWork: number | null;
+          tasksFinished: number | null;
+        } | null;
       };
       process: {
         withAppraiser: number;

@@ -76,6 +76,7 @@ describe("the rows under Projects, by person", () => {
         "Overview",
         "My tasks",
         "All projects",
+        "Archive",
         "Operations",
         "Technology",
         "All programs",
@@ -83,25 +84,34 @@ describe("the rows under Projects, by person", () => {
     ],
     [
       "program lead",
-      ["My tasks", "Team tasks", "All projects", "Operations", "All programs"],
+      [
+        "My tasks",
+        "Team tasks",
+        "All projects",
+        "Archive",
+        "Operations",
+        "All programs",
+      ],
     ],
     [
       "program read",
-      ["My tasks", "All projects", "Operations", "All programs"],
+      ["My tasks", "All projects", "Archive", "Operations", "All programs"],
     ],
     [
       "program write",
-      ["My tasks", "All projects", "Operations", "All programs"],
+      ["My tasks", "All projects", "Archive", "Operations", "All programs"],
     ],
     [
       "project-only member",
-      ["My tasks", "All projects", "Technology", "All programs"],
+      ["My tasks", "All projects", "Archive", "Technology", "All programs"],
     ],
     [
       "HR with programs",
       [
         "My tasks",
+        "Team tasks",
         "All projects",
+        "Archive",
         "Operations",
         "Technology",
         "All programs",
@@ -127,7 +137,9 @@ describe("the rows under Projects, by person", () => {
     const { container } = projectsLevel(persona("HR with programs"));
     expect(hrefs(container)).toEqual([
       "/projects/mine",
+      "/projects/team",
       "/projects",
+      "/projects/archive",
       "/projects/programs/pg-ops",
       "/projects/programs/pg-tech",
       "/projects/programs",
@@ -152,15 +164,70 @@ describe("the rows under Projects, by person", () => {
   });
 });
 
+describe("where the Projects row sits", () => {
+  const topRows = (container: HTMLElement) =>
+    Array.from(
+      container.querySelectorAll(
+        'nav[aria-label="Main"] > div > div > ul > li',
+      ),
+    ).map((li) => li.querySelector("[data-nav-label]")?.textContent);
+
+  it("is one row among the modules, after the last of them and before Reports and Settings", () => {
+    const { container } = render(
+      <SidebarNav
+        groups={groupsFor(persona("HR with programs"))}
+        pathname="/dashboard"
+        badges={NO_BADGES}
+        onNavigate={() => undefined}
+      />,
+    );
+    const rows = topRows(container);
+    expect(rows).toEqual([
+      "Home",
+      "My approvals",
+      "Assistant",
+      "Core HR",
+      "Payroll",
+      "Recruitment",
+      "Time & Leave",
+      "Performance",
+      "Employee Support",
+      "Projects",
+      "Wellness",
+      "Reports",
+      "Settings",
+    ]);
+    expect(rows.filter((r) => r === "Projects")).toHaveLength(1);
+  });
+
+  it("still opens to the same rows, with the Programs section, from there", () => {
+    const { container } = projectsLevel(persona("HR with programs"));
+    expect(
+      Array.from(container.querySelectorAll("[data-nav-section]")).map((h) =>
+        h.getAttribute("data-nav-section"),
+      ),
+    ).toEqual(["Programs"]);
+    expect(hrefs(container)).toContain("/projects/programs/pg-ops");
+    expect(hrefs(container)).toContain("/projects/mine");
+    /* Wellness is not one of its rows. */
+    expect(labels(container)).not.toContain("Wellness");
+  });
+
+  it("is one group for everybody who has Projects, and none for a company with it off", () => {
+    for (const p of PERSONAS) {
+      const projects = groupsFor(p).filter((g) => g.id === "projects");
+      expect(projects, p.name).toHaveLength(
+        p.features.projects === false ? 0 : 1,
+      );
+    }
+  });
+});
+
 describe("a company with no programs", () => {
-  const OLD = [
-    "employee",
-    "line manager",
-    "HR manager",
-    "administrator",
-    "billing-locked company",
-    "no staff record",
-  ];
+  const OLD = ["employee", "line manager", "no staff record"];
+  /* HR hold the Team tasks row as well: everybody's finished work is theirs to
+     read whether or not anybody reports to them. */
+  const HR = ["HR manager", "administrator", "billing-locked company"];
 
   it.each(OLD)("%s reaches the same Projects doors as before", (name) => {
     const p = persona(name);
@@ -168,6 +235,18 @@ describe("a company with no programs", () => {
     expect(projects?.items.map((i) => i.href)).toEqual([
       "/projects/mine",
       "/projects",
+      "/projects/archive",
+    ]);
+  });
+
+  it.each(HR)("%s reaches the same Projects doors, and Team tasks", (name) => {
+    const p = persona(name);
+    const projects = groupsFor(p).find((g) => g.id === "projects");
+    expect(projects?.items.map((i) => i.href)).toEqual([
+      "/projects/mine",
+      "/projects/team",
+      "/projects",
+      "/projects/archive",
     ]);
   });
 

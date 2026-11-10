@@ -17,6 +17,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
+import { SceneImage, type SceneName } from "@/components/wellness";
 import { ReminderDelivery } from "./reminders-delivery";
 import { ApiError } from "@/lib/api/client";
 import type { ApiReminderPolicy } from "@/lib/api/wellness";
@@ -100,6 +101,7 @@ export function RemindersScreen() {
             notSent="Nothing is sent to you until you save reminders. These are the suggested times."
             setUp="Set up reminders"
             onEdit={() => setEditing("personal")}
+            scene="coffee"
           />
           {canManage && (
             <PolicyCard
@@ -109,6 +111,7 @@ export function RemindersScreen() {
               notSent="Nothing is sent to anybody until a default is saved. These are the suggested times."
               setUp="Set up the default"
               onEdit={() => setEditing("organisation")}
+              scene="chilling"
             />
           )}
         </div>
@@ -143,6 +146,7 @@ function PolicyCard({
   setUp,
   onEdit,
   tooltip,
+  scene,
 }: {
   title: string;
   policy: ApiReminderPolicy;
@@ -154,6 +158,8 @@ function PolicyCard({
   setUp: string;
   onEdit: () => void;
   tooltip?: string;
+  /** The picture on the right: a person at rest, not a clock. */
+  scene: SceneName;
 }) {
   /* The built-in answer is a starting point and not a policy: nothing is sent
      for it. Every other source has been saved by somebody. */
@@ -182,15 +188,22 @@ function PolicyCard({
         }
         description={description}
         action={
-          saved ? (
-            <Button size="sm" variant="secondary" onClick={onEdit}>
-              Edit
-            </Button>
-          ) : (
-            <Button size="sm" variant="accent" onClick={onEdit}>
-              {setUp}
-            </Button>
-          )
+          <div className="flex items-center gap-3">
+            <SceneImage
+              name={scene}
+              size={72}
+              className="hidden sm:inline-flex"
+            />
+            {saved ? (
+              <Button size="sm" variant="secondary" onClick={onEdit}>
+                Edit
+              </Button>
+            ) : (
+              <Button size="sm" variant="accent" onClick={onEdit}>
+                {setUp}
+              </Button>
+            )}
+          </div>
         }
       />
       <CardBody className="flex flex-col gap-3">
@@ -220,7 +233,12 @@ function PolicyCard({
                 ) : (
                   <ul className="flex flex-col gap-0.5">
                     {policy.breaks.map((entry) => (
-                      <li key={entry.name}>{breakText(entry)}</li>
+                      <li
+                        key={entry.name}
+                        className="w-fit rounded-full bg-well-peri-soft px-2.5 py-0.5 text-body-sm text-well-peri-text"
+                      >
+                        {breakText(entry)}
+                      </li>
                     ))}
                   </ul>
                 ),
