@@ -109,7 +109,7 @@ describe("the weights helpers", () => {
     });
   });
 
-  it("is happy at exactly 100 and says why otherwise", () => {
+  it("is happy at any total above zero, and refuses only all zeros", () => {
     const ok = weightsToText({
       OBJECTIVES: 4000,
       TASKS: 0,
@@ -119,8 +119,13 @@ describe("the weights helpers", () => {
       SELF_ASSESSMENT: 0,
     });
     expect(periodWeightsProblem(ok)).toBeNull();
-    expect(periodWeightsProblem({ ...ok, TASKS: "5" })).toBe(
-      "These must add up to 100%.",
+    /* 105% is fine: weights are proportional. */
+    expect(periodWeightsProblem({ ...ok, TASKS: "5" })).toBeNull();
+    const zeros = Object.fromEntries(
+      Object.keys(ok).map((key) => [key, "0"]),
+    ) as typeof ok;
+    expect(periodWeightsProblem(zeros)).toBe(
+      "Give at least one part a weight above 0%.",
     );
   });
 
@@ -161,17 +166,14 @@ describe("<PeriodWeights />", () => {
     expect(screen.getByText("How the mark is made up")).toBeInTheDocument();
   });
 
-  it("shows the running total and the rule only when it is not 100", async () => {
+  it("shows the running total, and no refusal for a total other than 100", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    expect(
-      screen.queryByText("These must add up to 100%."),
-    ).not.toBeInTheDocument();
     expect(screen.getByTestId("weights-total")).toHaveTextContent("100%");
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
     expect(screen.getByTestId("weights-total")).toHaveTextContent("110%");
-    expect(screen.getByText("These must add up to 100%.")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("flags a decimal on its row", async () => {

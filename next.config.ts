@@ -256,7 +256,12 @@ const CSP = [
   }${uploadOrigins.map((origin) => ` ${origin}`).join("")}${
     linkedUploadOrigin ? ` ${linkedUploadOrigin}` : ""
   }`,
-  "upgrade-insecure-requests",
+  /* Production only. On `http://localhost` Safari obeys it and upgrades every
+     API call to `https://localhost:8010`, where nothing answers, so the app
+     never loads in development. Chrome exempts localhost, which hid this. */
+  ...(process.env.NODE_ENV === "production"
+    ? ["upgrade-insecure-requests"]
+    : []),
 ].join("; ");
 
 const SECURITY_HEADERS = [
@@ -264,10 +269,17 @@ const SECURITY_HEADERS = [
   /* Two years, subdomains included. Every tenant is a subdomain of
      approvehr.io, so leaving them out would protect the marketing site and not
      the product. */
-  {
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains; preload",
-  },
+  /* Production only, for the same reason as `upgrade-insecure-requests`: Safari
+     applies HSTS to `localhost` too (on every port, for two years), sending
+     `http://localhost:3000` to `https://`, where the dev server does not answer. */
+  ...(process.env.NODE_ENV === "production"
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=63072000; includeSubDomains; preload",
+        },
+      ]
+    : []),
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

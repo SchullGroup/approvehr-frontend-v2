@@ -1466,7 +1466,17 @@ export type ApiEmployeeScore = ApiScoreRow & {
 export type ApiScoringWeights = {
   /** Whether the company chose these or is on the shipped defaults. */
   source: "saved" | "default";
-  rows: { component: ScoreComponent; label: string; weightBp: number }[];
+  rows: {
+    component: ScoreComponent;
+    /** The company's own name for the part, or the built-in one. */
+    label: string;
+    /** The built-in name. Absent from an API one deploy behind. */
+    defaultLabel?: string;
+    weightBp: number;
+    /** Its share of a mark: weight over total. Absent from an older API. */
+    shareBp?: number;
+  }[];
+  /** Weights are proportional, so this need not be 10000. */
   totalBp: number;
   /**
    * What turning self-assessment on does to somebody's official mark, in the
@@ -2949,10 +2959,14 @@ export const performanceApi = {
    * why the incumbent needs a "Resolve Weights" button and this does not — there
    * is never an unbalanced state to resolve.
    */
-  setScoringWeights: (weights: WeightSet) =>
+  setScoringWeights: (
+    weights: WeightSet,
+    /** Renames parts. A part left out keeps its name; "" goes back to the built-in one. */
+    labels?: Partial<Record<ScoreComponent, string>>,
+  ) =>
     request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
       method: "PUT",
-      body: weights,
+      body: labels === undefined ? weights : { ...weights, labels },
     }),
 
   /** Everybody's composite score in one cycle. `EDIT_RECORDS`, as an aggregate is. */
@@ -3880,48 +3894,34 @@ export function changeLabel(bp: number): string {
 }
 
 /**
- * `formatBp` from `modules/performance/scoring.ts`, character for character.
- *
- * `percentOfBp` above puts a fractional percentage through `Number()`, so 33.30%
- * prints as `33.3%`. The server's own formatter keeps both decimals. That
- * difference does not matter on a table cell and matters completely in
- * `scoringWeightProblem`, whose entire job is to be the sentence the server would
- * have sent. Two copies exist because they are two different requirements, and
- * this one is the one that must not drift.
- */
-function serverPercentOfBp(bp: number): string {
-  const whole = bp / 100;
-  return `${Number.isInteger(whole) ? whole : whole.toFixed(2)}%`;
-}
-
-/**
  * What is wrong with a set of **scoring** weights, in the server's own words.
  *
- * Checked here **as well as** on the server, never instead of it. The API refuses
- * anything that does not total exactly 10000, which is why the settings form is
- * whole-set-at-once — a field-at-a-time form would be unsubmittable at every
- * intermediate state and the rule would end up being a suggestion. This is what
- * lets somebody see the refusal while they are still editing, and it is worded
- * identically to `assertWeightsWhole` so nobody meets a different sentence on
- * save.
+ * Checked here **as well as** on the server, never instead of it. Weights are
+ * proportional, so the total need not be 100%: 2, 1 and 1 are 50%, 25% and
+ * 25%. The one set the API refuses is every part at zero, which cannot make a
+ * mark, and this is worded identically to `assertWeightsUsable` so nobody meets
+ * a different sentence on save.
  *
- * Separate from `weightProblem`, which is the appraiser-weights version: the
- * two rules are the same arithmetic and the two refusals are different sentences,
- * and quietly showing one where the server sends the other is how a screen starts
- * lying about what the API said.
+ * Separate from `weightProblem`, which is the appraiser-weights version: that
+ * rule still needs exactly 100%, and quietly showing one where the server sends
+ * the other is how a screen starts lying about what the API said.
  */
 export function scoringWeightProblem(
   entries: readonly { weightBp: number }[],
 ): string | null {
   const total = entries.reduce((sum, entry) => sum + entry.weightBp, 0);
-  if (total === FULL_WEIGHT_BP) return null;
-  return (
-    `Those weights add up to ${serverPercentOfBp(total)}. They have to make ` +
-    `100% exactly, so a score can be explained. ` +
-    (total < FULL_WEIGHT_BP
-      ? `Add ${serverPercentOfBp(FULL_WEIGHT_BP - total)}.`
-      : `Take off ${serverPercentOfBp(total - FULL_WEIGHT_BP)}.`)
-  );
+  if (total > 0) return null;
+  return "Give at least one part a weight above 0%, or there is nothing to make a mark from.";
+}
+
+/**
+ * A part's share of a mark when every part has something recorded, in basis
+ * points: its weight over the total, since weights are proportional. Zero when
+ * the total is. The API sends the same figure as `shareBp` for the saved set;
+ * this is for a set still being typed.
+ */
+export function shareOfTotalBp(weightBp: number, totalBp: number): number {
+  return totalBp <= 0 ? 0 : Math.round((weightBp * FULL_WEIGHT_BP) / totalBp);
 }
 
 /**
