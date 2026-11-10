@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
 import {
   ArrowRight,
   Bell,
@@ -8,6 +10,7 @@ import {
   Cpu,
   LifeBuoy,
   MessageSquare,
+  Search,
   ShieldCheck,
   Check,
   CircleDashed,
@@ -31,6 +34,7 @@ import {
   ButtonLink,
   Callout,
   Disclosure,
+  Input,
   LinkCard,
   ProgressMeter,
   Spinner,
@@ -38,14 +42,25 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { useSettingsSearchHistory } from "@/lib/store/settings-search-history";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
-import { BillingCard } from "./billing-card";
+import { BillingCard, useBillingStatus } from "./billing-card";
 import {
   checklistProgress,
   checklistRows,
   type ChecklistRow,
   type RowStatus,
 } from "./checklist";
+import {
+  BILLING,
+  PAGE_MODULE,
+  PAGE_WORDS,
+  ROW_MODULE,
+  ROW_WORDS,
+  firstSentence,
+  matches,
+  termsOf,
+} from "./filter";
 
 /**
  * Settings — one place to set the company up.
@@ -276,7 +291,7 @@ const ONGOING = [
   },
 ];
 
-function Row({ row }: { row: ChecklistRow }) {
+function Row({ row, module }: { row: ChecklistRow; module?: string }) {
   const status = STATUS[row.status];
   return (
     <li className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:gap-5">
@@ -296,6 +311,11 @@ function Row({ row }: { row: ChecklistRow }) {
       </span>
 
       <span className="min-w-0 flex-1">
+        {module && (
+          <span className="block text-meta font-semibold text-muted">
+            {module}
+          </span>
+        )}
         <span className="flex flex-wrap items-center gap-2">
           <h3 className="text-body-sm font-semibold text-ink">{row.title}</h3>
           <Badge tone={status.tone} size="sm">
@@ -340,11 +360,127 @@ export function SettingsScreen() {
   const progress = checklistProgress(rows);
   const complete = progress.total > 0 && progress.done === progress.total;
 
+  /* The filter. It narrows what is already on the page and changes nothing
+     about what the page reads: the checklist is still one request, made once.
+     Held in state and not in the address because there is nothing to share or
+     come back to, and nothing is stored. See `./filter.ts`. */
+  const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
+  const history = useSettingsSearchHistory();
+  const terms = termsOf(query);
+  const filtering = terms.length > 0;
+  const hasBillingCard = useBillingStatus() !== null;
+
+  const shownRows = rows.filter((row) =>
+    matches(terms, {
+      title: row.title,
+      description: row.affects,
+      words: [
+        ...(ROW_WORDS[row.id] ?? []),
+        ...(row.also ? [row.also.label] : []),
+      ],
+    }),
+  );
+  const shownOngoing = ONGOING.filter((item) =>
+    matches(terms, {
+      title: item.title,
+      description: item.description,
+      words: PAGE_WORDS[item.href] ?? [],
+    }),
+  );
+  /* The card is a status and not a page, so it answers only to its own words,
+     and only where it is on this person's screen at all. */
+  const showBilling = hasBillingCard && matches(terms, BILLING);
+  const matchCount =
+    shownRows.length + shownOngoing.length + (showBilling ? 1 : 0);
+
   return (
     <>
       <PageHeader title="Settings" />
 
       <PageBody className="flex flex-col gap-6">
+        <div role="search" className="flex flex-col gap-2">
+          <div className="w-full max-w-md">
+            <Input
+              type="search"
+              value={query}
+              placeholder="Search settings: leave, pension, overtime"
+              aria-label="Search settings"
+              icon={<Search aria-hidden="true" />}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => {
+                setFocused(false);
+                if (matchCount > 0) history.add(query);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") history.add(query);
+              }}
+            />
+            {/* Offered when the box is clicked into and still empty. A press
+                on the list must not take focus from the box, or the list would
+                close before the press landed. */}
+            {focused && !filtering && history.recent.length > 0 && (
+              <div
+                className="mt-2 rounded-md border border-line bg-surface p-2"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <div className="flex items-center justify-between px-2 pb-1">
+                  <span className="text-meta font-semibold text-muted">
+                    Recent searches
+                  </span>
+                  <button
+                    type="button"
+                    onClick={history.clear}
+                    className="text-meta text-muted underline hover:text-ink"
+                  >
+                    Clear history
+                  </button>
+                </div>
+                <ul>
+                  {history.recent.map((item) => (
+                    <li key={item}>
+                      <button
+                        type="button"
+                        onClick={() => setQuery(item)}
+                        className="w-full rounded px-2 py-1.5 text-left text-body-sm text-ink hover:bg-canvas"
+                      >
+                        {item}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="px-2 pt-1 text-meta text-muted">
+                  Kept in this browser only.
+                </p>
+              </div>
+            )}
+          </div>
+          {/* Said only once the checklist has been read: while it loads, its
+              rows are not there to match, and a count taken now would be a
+              count of half the page. */}
+          {filtering && !loading && (
+            <p role="status" className="text-body-sm text-muted">
+              {matchCount === 0 ? (
+                <>
+                  Nothing in settings matches &ldquo;{query.trim()}&rdquo;. Try
+                  one word, such as leave, pension or overtime.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="underline hover:text-ink"
+                  >
+                    Clear the search
+                  </button>
+                  .
+                </>
+              ) : (
+                `${matchCount} ${matchCount === 1 ? "match" : "matches"} for “${query.trim()}”.`
+              )}
+            </p>
+          )}
+        </div>
+
         {error && (
           <Callout
             tone="danger"
@@ -388,46 +524,67 @@ export function SettingsScreen() {
          * year of dates or an audit trail, open for something waiting on the
          * reader.
          */}
-        <Disclosure
-          /**
-           * The key is what makes `defaultOpen` work here.
-           *
-           * `Disclosure` reads `defaultOpen` once, into `useState` — which is
-           * the right contract for an uncontrolled component and means a later
-           * change to the prop does nothing. `loading` is true on the first
-           * render, so without this the checklist would mount closed and stay
-           * closed however many items turned out to be outstanding.
-           *
-           * Remounting once, when the answer arrives, gives the right default
-           * and leaves it a normal uncontrolled disclosure afterwards — the
-           * reader can still close it, and it stays closed. Controlling `open`
-           * instead would take that away.
-           */
-          key={loading ? "loading" : complete ? "done" : "outstanding"}
-          title="Setting up your company"
-          defaultOpen={!loading && !complete}
-          level={2}
-          meta={
-            !loading && progress.total > 0 ? (
-              <span className="flex min-w-32 flex-col items-end gap-1.5">
-                <span className="text-meta font-semibold text-muted">
-                  {progress.done} of {progress.total} done
+        {/* While a word is typed the checklist is not a closed reveal that
+            might hold a match: the rows that match are listed, so the answer is
+            on screen and not behind a chevron. The reveal comes back when the
+            box is cleared. */}
+        {filtering ? (
+          shownRows.length > 0 && (
+            <section aria-labelledby="setup-matches">
+              <h2
+                id="setup-matches"
+                className="mb-4 text-meta font-semibold text-muted"
+              >
+                Setting up your company
+              </h2>
+              <ul className="divide-y divide-line rounded-md border border-line">
+                {shownRows.map((row) => (
+                  <Row key={row.id} row={row} module={ROW_MODULE[row.id]} />
+                ))}
+              </ul>
+            </section>
+          )
+        ) : (
+          <Disclosure
+            /**
+             * The key is what makes `defaultOpen` work here.
+             *
+             * `Disclosure` reads `defaultOpen` once, into `useState` — which is
+             * the right contract for an uncontrolled component and means a later
+             * change to the prop does nothing. `loading` is true on the first
+             * render, so without this the checklist would mount closed and stay
+             * closed however many items turned out to be outstanding.
+             *
+             * Remounting once, when the answer arrives, gives the right default
+             * and leaves it a normal uncontrolled disclosure afterwards — the
+             * reader can still close it, and it stays closed. Controlling `open`
+             * instead would take that away.
+             */
+            key={loading ? "loading" : complete ? "done" : "outstanding"}
+            title="Setting up your company"
+            defaultOpen={!loading && !complete}
+            level={2}
+            meta={
+              !loading && progress.total > 0 ? (
+                <span className="flex min-w-32 flex-col items-end gap-1.5">
+                  <span className="text-meta font-semibold text-muted">
+                    {progress.done} of {progress.total} done
+                  </span>
+                  <ProgressMeter
+                    value={progress.done}
+                    max={progress.total}
+                    tone={complete ? "success" : "accent"}
+                    size="sm"
+                    showValue={false}
+                  />
                 </span>
-                <ProgressMeter
-                  value={progress.done}
-                  max={progress.total}
-                  tone={complete ? "success" : "accent"}
-                  size="sm"
-                  showValue={false}
-                />
-              </span>
-            ) : undefined
-          }
-          hint={
-            loading ? (
-              "Reading what is set up."
-            ) : complete ? (
-              /* The collapsed line is the only thing a finished company
+              ) : undefined
+            }
+            hint={
+              loading ? (
+                "Reading what is set up."
+              ) : complete ? (
+                /* The collapsed line is the only thing a finished company
                      reads — the rows below it are behind a closed reveal. So
                      anything still worth doing has to be said here or it is
                      said nowhere, which is exactly how the logo upload stayed
@@ -439,64 +596,93 @@ export function SettingsScreen() {
                      times where to upload a company logo, having read this
                      exact line. Naming a gap without a route to it is half a
                      job, and the missing half is the one that costs the time. */
-              facts && !facts.company.logo ? (
-                <>
-                  Everything a payroll needs is in place. No logo yet: it goes
-                  on every payslip and on the emails the platform sends.{" "}
-                  <TextLink href="/settings/company">Add one</TextLink>.
-                </>
+                facts && !facts.company.logo ? (
+                  <>
+                    Everything a payroll needs is in place. No logo yet: it goes
+                    on every payslip and on the emails the platform sends.{" "}
+                    <TextLink href="/settings/company">Add one</TextLink>.
+                  </>
+                ) : (
+                  "Everything a payroll needs is in place."
+                )
+              ) : progress.outstanding.length > 0 ? (
+                `Outstanding: ${progress.outstanding.map((row) => row.title).join(", ")}.`
               ) : (
-                "Everything a payroll needs is in place."
+                "Seven things decide how the product behaves."
               )
-            ) : progress.outstanding.length > 0 ? (
-              `Outstanding: ${progress.outstanding.map((row) => row.title).join(", ")}.`
+            }
+          >
+            {loading ? (
+              <div className="flex justify-center py-10">
+                <Spinner />
+              </div>
+            ) : facts === null ? (
+              <p className="text-body-sm text-body">
+                Nothing to show. The checklist reads one endpoint and it did not
+                answer; every page below is unaffected.
+              </p>
             ) : (
-              "Seven things decide how the product behaves."
-            )
-          }
-        >
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <Spinner />
-            </div>
-          ) : facts === null ? (
-            <p className="text-body-sm text-body">
-              Nothing to show. The checklist reads one endpoint and it did not
-              answer; every page below is unaffected.
-            </p>
-          ) : (
-            <ul className="divide-y divide-line rounded-md border border-line">
-              {rows.map((row) => (
-                <Row key={row.id} row={row} />
-              ))}
-            </ul>
-          )}
-        </Disclosure>
-
-        {DEMO_ENABLED && source === "demo" && (
-          <Callout tone="warning" title="Demo data, this browser only">
-            This checklist is worked out from the seeded company in this
-            browser. Two rows cannot be answered offline at all (whether a bank
-            account is on file, and how many pay components and salary bands
-            exist) and they say so rather than reporting nothing as zero.
-          </Callout>
+              <ul className="divide-y divide-line rounded-md border border-line">
+                {rows.map((row) => (
+                  <Row key={row.id} row={row} />
+                ))}
+              </ul>
+            )}
+          </Disclosure>
         )}
 
-        <section>
-          <h2 className="mb-4 text-meta font-semibold text-muted">Ongoing</h2>
-          <BillingCard />
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {ONGOING.map((item) => (
-              <LinkCard
-                key={item.href}
-                href={item.href}
-                title={item.title}
-                description={item.description}
-                icon={item.icon}
-              />
-            ))}
-          </div>
-        </section>
+        {DEMO_ENABLED &&
+          source === "demo" &&
+          (!filtering || shownRows.length > 0) && (
+            <Callout tone="warning" title="Demo data, this browser only">
+              This checklist is worked out from the seeded company in this
+              browser. Two rows cannot be answered offline at all (whether a
+              bank account is on file, and how many pay components and salary
+              bands exist) and they say so rather than reporting nothing as
+              zero.
+            </Callout>
+          )}
+
+        {(shownOngoing.length > 0 || showBilling) && (
+          <section>
+            <h2 className="mb-4 text-meta font-semibold text-muted">Ongoing</h2>
+            {(!filtering || showBilling) && <BillingCard />}
+            {filtering ? (
+              <ul className="grid gap-3 md:grid-cols-2">
+                {shownOngoing.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="flex h-full flex-col gap-1 rounded-lg border border-line bg-surface px-4 py-3 hover:border-line-strong"
+                    >
+                      <span className="text-meta font-semibold text-muted">
+                        {PAGE_MODULE[item.href]}
+                      </span>
+                      <span className="font-semibold text-ink">
+                        {item.title}
+                      </span>
+                      <span className="text-body-sm text-body">
+                        {firstSentence(item.description)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {shownOngoing.map((item) => (
+                  <LinkCard
+                    key={item.href}
+                    href={item.href}
+                    title={item.title}
+                    description={item.description}
+                    icon={item.icon}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </PageBody>
     </>
   );

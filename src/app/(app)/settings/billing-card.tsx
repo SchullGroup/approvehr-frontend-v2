@@ -63,12 +63,24 @@ function lineFor(billing: ApiBilling, timeZone: string): string | null {
   return null;
 }
 
-export function BillingCard() {
+/**
+ * The status the card would show, or null when it would draw nothing: no
+ * permission, or no status to show. The Settings filter asks this too, so it
+ * can say "nothing matches" when the only thing that matched a word is a card
+ * that is not on this person's screen. One rule, here, so the two cannot
+ * disagree about whether the card is there.
+ */
+export function useBillingStatus(): ApiBilling | null {
   const { can } = usePermissions();
   const billing = useBilling();
+  return can("MANAGE_SETTINGS") ? billing : null;
+}
+
+export function BillingCard() {
+  const billing = useBillingStatus();
   const timeZone = useOrgTimezone();
 
-  if (!can("MANAGE_SETTINGS") || !billing) return null;
+  if (!billing) return null;
 
   const actionLabel =
     billing.status === "TRIALING" ? "Subscribe / Pay" : "Renew";
