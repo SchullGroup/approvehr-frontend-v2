@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FolderKanban, Plus } from "lucide-react";
+import { ArchiveRestore, FolderKanban, Plus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -37,6 +37,7 @@ import {
   type ProjectData,
 } from "@/lib/projects/types";
 import {
+  CYCLE,
   NEW_TASK,
   readOnlyProject,
   TASK,
@@ -194,6 +195,18 @@ function ProjectShell({
     );
   const canWork = access === "WRITE" || access === "MANAGE";
   const canManage = access === "MANAGE";
+  /* An archived project keeps its tasks open to work on, and takes no new ones. */
+  const archived = project.archived === true;
+  const canAdd = canWork && !archived;
+  const [restoring, setRestoring] = useState(false);
+  async function restore() {
+    setRestoring(true);
+    const result = await actions.archiveProject(false);
+    setRestoring(false);
+    if (result.ok) {
+      toast.push({ tone: "success", title: `${project.name} restored` });
+    }
+  }
   const meId = actor.employeeId;
 
   /* The program's row in the sidebar lights while this project is open. */
@@ -332,10 +345,10 @@ function ProjectShell({
 
   const openCreate = useCallback(
     (defaults: Partial<NewIssueInput> = {}) => {
-      if (!canWork) return;
+      if (!canAdd) return;
       setCreate({ open: true, defaults });
     },
-    [canWork],
+    [canAdd],
   );
 
   useEffect(() => {
@@ -351,7 +364,7 @@ function ProjectShell({
       if (typing) return;
       /* With a dialog or the drawer open the page behind is not the target. */
       if (document.querySelector('[role="dialog"]')) return;
-      if (event.key === "c" && canWork) {
+      if (event.key === "c" && canAdd) {
         event.preventDefault();
         setCreate({ open: true, defaults: {} });
       } else if (event.key === "/") {
@@ -364,7 +377,7 @@ function ProjectShell({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [canWork]);
+  }, [canAdd]);
 
   /* ------------------------------------------------------------ the context -- */
 
@@ -446,6 +459,11 @@ function ProjectShell({
             <Badge tone="neutral" size="sm">
               {PROJECT_TYPE_LABEL[project.type]}
             </Badge>
+            {archived && (
+              <Badge tone="neutral" size="sm">
+                Archived
+              </Badge>
+            )}
             {project.departmentName && (
               <Badge tone="neutral" size="sm">
                 {project.departmentName}
@@ -454,7 +472,7 @@ function ProjectShell({
           </>
         }
         {...(project.description ? { description: project.description } : {})}
-        {...(canWork
+        {...(canAdd
           ? {
               action: (
                 <Button variant="primary" onClick={() => openCreate()}>
@@ -477,6 +495,30 @@ function ProjectShell({
         }
       />
       <PageBody className="space-y-5">
+        {archived && (
+          <div
+            role="note"
+            className="flex flex-col gap-3 rounded-lg border border-line bg-sunken px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p className="text-body-sm text-body">
+              This project is archived. It keeps its {TASK.many}, people and{" "}
+              {CYCLE.many}, and is listed under the Archive. It takes no new{" "}
+              {TASK.many} until it is restored.
+            </p>
+            {canManage && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={restoring}
+                onClick={() => void restore()}
+                className="shrink-0"
+              >
+                <ArchiveRestore aria-hidden="true" className="size-4" />
+                Restore project
+              </Button>
+            )}
+          </div>
+        )}
         {access === "READ" && (
           <p className="text-body-sm text-muted" role="note">
             {readOnlyProject(programName)}

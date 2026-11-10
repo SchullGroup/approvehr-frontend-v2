@@ -15,6 +15,7 @@ import {
 } from "./programs-fixture";
 import { ApiError } from "@/lib/api/client";
 import { visibleProjects, workPage, workRollup } from "@/lib/projects/programs";
+import { WorkTasks } from "@/components/projects/work-list";
 
 /**
  * The Master view and a program's Board, Tasks, Workload and Timeline.
@@ -117,6 +118,14 @@ vi.mock("@/lib/store/projects", async () => {
       status: "ready",
       error: null,
       projects: fixture.scene.projects.map((d) => d.project),
+      reload: vi.fn(),
+    }),
+    useArchivedProjects: () => ({
+      status: "ready",
+      error: null,
+      projects: fixture.scene.projects
+        .map((d) => d.project)
+        .filter((p) => p.archived),
       reload: vi.fn(),
     }),
   };
@@ -344,6 +353,47 @@ describe("All tasks", () => {
     expect(
       screen.getByRole("button", { name: "Clear filters" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the Archive's tasks", () => {
+  beforeEach(() => {
+    search = new URLSearchParams();
+  });
+
+  it("asks for the Archive, says why in place of Due, and offers the reasons", async () => {
+    render(<WorkTasks showProgram archive />);
+    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
+    const why = screen.getByLabelText("Why");
+    expect(
+      within(why)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual([
+      "Any reason",
+      "Project archived",
+      "Program archived",
+      "Finished over 14 days ago",
+    ]);
+    expect(screen.queryByLabelText("Due")).toBeNull();
+    const expected = workPage(scene, master(), { archive: true, limit: 200 });
+    if (expected.total === 0) {
+      expect(screen.getByText("Nothing archived yet")).toBeInTheDocument();
+    } else {
+      const table = screen.getByRole("table", { name: "Tasks" });
+      expect(
+        within(table).getByRole("columnheader", { name: "Why" }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("writes the reason chosen into the address", async () => {
+    render(<WorkTasks showProgram archive />);
+    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
+    await userEvent.selectOptions(screen.getByLabelText("Why"), "done");
+    expect(replace).toHaveBeenLastCalledWith("/projects/master?why=done", {
+      scroll: false,
+    });
   });
 });
 

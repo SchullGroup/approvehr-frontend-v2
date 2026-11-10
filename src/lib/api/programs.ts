@@ -14,6 +14,7 @@ import {
   type ProgramSummary,
   type ProjectRollupRow,
   type Week,
+  type ArchiveReason,
   type WorkBucket,
   type WorkPage,
   type WorkQuery,
@@ -258,6 +259,11 @@ export function toWorkRow(raw: Raw): WorkRow {
     doneAt: strOrNull(raw["doneAt"]),
     createdAt: str(raw["createdAt"]),
     updatedAt: str(raw["updatedAt"]),
+    ...(raw["archivedBecause"] === "project" ||
+    raw["archivedBecause"] === "program" ||
+    raw["archivedBecause"] === "done"
+      ? { archivedBecause: raw["archivedBecause"] as ArchiveReason }
+      : {}),
   };
 }
 
@@ -282,6 +288,7 @@ export function workQueryParams(
     order: query.order,
     limit: query.limit ? String(query.limit) : undefined,
     cursor: cursor ?? undefined,
+    reason: query.archive ? query.reason : undefined,
   };
 }
 
@@ -451,16 +458,22 @@ export const programsApi = {
     cursor: string | null,
     signal?: AbortSignal,
   ): Promise<WorkPage> => {
-    const path = query.programId
-      ? `/programs/${query.programId}/work`
-      : "/work";
+    /* The Archive has one address, and takes the program as a filter. */
+    const path = query.archive
+      ? "/work/archive"
+      : query.programId
+        ? `/programs/${query.programId}/work`
+        : "/work";
     const { programId: _program, ...rest } = query;
     void _program;
     const page = await requestPaged<
       Raw,
       { nextCursor?: string | null; limit?: number }
     >(path, {
-      query: workQueryParams(query.programId ? rest : query, cursor),
+      query: workQueryParams(
+        query.programId && !query.archive ? rest : query,
+        cursor,
+      ),
       ...signalOf(signal),
     });
     return {

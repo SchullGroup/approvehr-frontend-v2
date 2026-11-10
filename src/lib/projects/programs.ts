@@ -193,6 +193,28 @@ export type WorkQuery = {
   sort?: WorkSort;
   order?: "asc" | "desc";
   limit?: number;
+  /**
+   * The Archive rather than the live lists: tasks in an archived project or program,
+   * and tasks that finished before the 14-day Done window. `reason` narrows to one.
+   */
+  archive?: boolean;
+  reason?: ArchiveReason;
+};
+
+/** Why a task is in the Archive. */
+export type ArchiveReason = "project" | "program" | "done";
+
+export const ARCHIVE_REASONS: readonly ArchiveReason[] = [
+  "project",
+  "program",
+  "done",
+];
+
+/** As a filter offers it, and as a row explains itself. */
+export const ARCHIVE_REASON_LABEL: Record<ArchiveReason, string> = {
+  project: "Project archived",
+  program: "Program archived",
+  done: "Finished over 14 days ago",
 };
 
 export type WorkRow = {
@@ -224,6 +246,8 @@ export type WorkRow = {
   doneAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Only from the Archive: why the task is there. */
+  archivedBecause?: ArchiveReason;
 };
 
 export type WorkPage = {
@@ -309,6 +333,50 @@ export function visibleProjects(scene: Scene, viewer: Viewer): ProjectData[] {
   return out;
 }
 
+/**
+ * Whether a project's work belongs in a list scoped like `scope`, as the API's
+ * `liveWhere` decides: a list about one project keeps everything; a program's own
+ * page leaves out archived projects; anything wider also leaves out the projects of
+ * archived programs. Their tasks are under the Archive.
+ */
+export function isLiveIn(
+  scene: Scene,
+  project: Pick<Project, "archived" | "programId">,
+  scope: {
+    programId?: string | undefined;
+    projectId?: string | undefined;
+  } = {},
+): boolean {
+  if (scope.projectId) return true;
+  if (project.archived) return false;
+  if (scope.programId) return true;
+  const program = project.programId ? scene.programs[project.programId] : null;
+  return !program?.archivedAt;
+}
+
+/** The Done window: tasks that finished before this day are under the Archive. */
+const ARCHIVE_AFTER_DAYS = 14;
+
+/**
+ * Why a task is in the Archive, or null if it is not. The project's own archiving
+ * first, then its program's, then an old finish, so each task has one reason.
+ */
+export function archiveReasonOf(
+  scene: Scene,
+  viewer: Pick<Viewer, "today" | "dayOf">,
+  project: Project,
+  issue: Issue,
+): ArchiveReason | null {
+  if (project.archived) return "project";
+  const program = project.programId ? scene.programs[project.programId] : null;
+  if (program?.archivedAt) return "program";
+  if (categoryOf(project, issue) !== "DONE" || !issue.doneAt) return null;
+  const day = viewer.dayOf(issue.doneAt);
+  return day !== null && day < addDays(viewer.today, -ARCHIVE_AFTER_DAYS)
+    ? "done"
+    : null;
+}
+
 /** A project card with the program it is in and what the viewer may do there. */
 export function decorate(
   scene: Scene,
@@ -321,6 +389,7 @@ export function decorate(
     programId: program ? program.id : null,
     programName: program ? program.name : null,
     programColor: program ? program.color : null,
+    programArchived: Boolean(program?.archivedAt),
     access: access === "NONE" ? null : access,
     canWrite: access === "WRITE" || access === "MANAGE",
     canManage: access === "MANAGE",
@@ -551,7 +620,9 @@ export function programRollup(
   const stored = scene.programs[programId];
   if (!stored || !programVisible(scene, viewer, stored)) return null;
   const mine = visibleProjects(scene, viewer).filter(
-    (d) => d.project.programId === programId,
+    (d) =>
+      d.project.programId === programId &&
+      isLiveIn(scene, d.project, { programId }),
   );
   return {
     program: toProgram(scene, viewer, stored),
@@ -580,7 +651,10 @@ export function workRollup(
   viewer: Viewer,
   asOf: string,
 ): WorkRollup {
-  const visible = visibleProjects(scene, viewer);
+  /* The projects the lists behind the tiles read, so a count and its list agree. */
+  const visible = visibleProjects(scene, viewer).filter((d) =>
+    isLiveIn(scene, d.project),
+  );
   const programs = Object.values(scene.programs)
     .filter((p) => programVisible(scene, viewer, p))
     .map((p): ProgramSummary => {
@@ -689,8 +763,17 @@ export function workPage(
     if (query.projectId && project.id !== query.projectId) continue;
     if (query.programId && project.programId !== query.programId) continue;
     if (query.unassigned && project.programId) continue;
+    if (!query.archive && !isLiveIn(scene, project, query)) continue;
     for (const issue of issues) {
       if (types ? !types.has(issue.type) : !isTask(issue)) continue;
+      const reason = query.archive
+        ? archiveReasonOf(scene, viewer, project, issue)
+        : null;
+      if (
+        query.archive &&
+        (!reason || (query.reason && reason !== query.reason))
+      )
+        continue;
       const f = flags(project, issue, viewer.today, week, viewer.dayOf);
       if (categories && !categories.has(f.category)) continue;
       if (stageNames) {
@@ -726,12 +809,15 @@ export function workPage(
         !issue.key.toLowerCase().includes(needle)
       )
         continue;
-      rows.push(rowOf(scene, viewer, project, issue, week));
+      const row = rowOf(scene, viewer, project, issue, week);
+      rows.push(reason ? { ...row, archivedBecause: reason } : row);
     }
   }
 
-  const sort = query.sort ?? "due";
-  const dir = (query.order ?? "asc") === "asc" ? 1 : -1;
+  /* The Archive reads backwards, newest change first, as the API's does. */
+  const sort = query.sort ?? (query.archive ? "updated" : "due");
+  const dir =
+    (query.order ?? (query.archive ? "desc" : "asc")) === "asc" ? 1 : -1;
   const value = (row: WorkRow): string | null =>
     sort === "due"
       ? row.dueDate

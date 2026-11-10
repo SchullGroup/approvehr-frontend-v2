@@ -113,3 +113,18 @@ describe("a stage by name", () => {
     );
   });
 });
+
+describe("the Archive's reason", () => {
+  it("reads a known reason, and drops one it does not know", () => {
+    expect(queryFromParams(new URLSearchParams("why=done"))).toEqual({
+      reason: "done",
+    });
+    expect(queryFromParams(new URLSearchParams("why=lost"))).toEqual({});
+  });
+
+  it("counts as a filter, and is cleared with the rest", () => {
+    const params = new URLSearchParams("view=tasks&why=project");
+    expect(filterCount(params)).toBe(1);
+    expect(withoutFilters(params).toString()).toBe("view=tasks");
+  });
+});

@@ -36,6 +36,7 @@ import {
   programRollup,
   programsFor,
   visibleProjects,
+  isLiveIn,
   workPage,
   workRollup,
   workStagesOf,
@@ -399,6 +400,8 @@ export function useWorkStages(target: {
     if (mode.connected) return connected;
     const projects = visibleProjects(demo.scene, demo.viewer)
       .map((d) => d.project)
+      /* The stages of the projects the list reads: live ones, as the API's. */
+      .filter((p) => isLiveIn(demo.scene, p, { programId: target.programId }))
       .filter((p) =>
         target.programId
           ? p.programId === target.programId
@@ -572,6 +575,8 @@ export function useProgramProjects(
   return useMemo(() => {
     if (mode.connected) return connected;
     const inTarget = visibleProjects(demo.scene, demo.viewer)
+      /* Archived projects are under the Archive, as the API leaves them out. */
+      .filter((d) => !d.project.archived)
       .map((d) => ({
         ...d.project,
         openIssueCount: d.issues.filter(

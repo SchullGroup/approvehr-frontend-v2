@@ -414,3 +414,105 @@ describe("filtering work by a stage's name", () => {
     expect(category.total).toBeGreaterThan(rows.length);
   });
 });
+
+describe("the Archive", () => {
+  const hr = viewer("p-10", { editRecords: true });
+  /* The scene with one project archived, and with one of the other projects' tasks
+     finished long ago and one finished yesterday. */
+  const live = visibleProjects(scene, hr).map((d) => d.project);
+  const target = live[0]!;
+  const other = scene.projects.find(
+    (d) =>
+      d.project.id !== target.id &&
+      d.project.programId !== target.programId &&
+      d.project.statuses.some((s) => s.category === "DONE") &&
+      d.issues.some((i) => i.type !== "EPIC"),
+  )!;
+  const doneStatus = other.project.statuses.find((s) => s.category === "DONE")!;
+  const [oldTask, newTask] = other.issues.filter((i) => i.type !== "EPIC");
+  const shelved: Scene = {
+    ...scene,
+    projects: scene.projects.map((d) =>
+      d.project.id === target.id
+        ? {
+            ...d,
+            project: { ...d.project, archived: true, archivedAt: NOW },
+          }
+        : d.project.id === other.project.id
+          ? {
+              ...d,
+              issues: d.issues.map((i) =>
+                i.id === oldTask!.id
+                  ? {
+                      ...i,
+                      statusId: doneStatus.id,
+                      doneAt: "2026-09-01T09:00:00.000Z",
+                    }
+                  : i.id === newTask?.id
+                    ? {
+                        ...i,
+                        statusId: doneStatus.id,
+                        doneAt: "2026-10-14T09:00:00.000Z",
+                      }
+                    : i,
+              ),
+            }
+          : d,
+    ),
+  };
+
+  it("takes an archived project's tasks out of the live lists and their counts", () => {
+    const rows = workPage(shelved, hr, { limit: 200 }).rows;
+    expect(rows.some((r) => r.projectId === target.id)).toBe(false);
+    const rollup = workRollup(shelved, hr, NOW);
+    expect(rollup.totals.total).toBe(
+      workPage(shelved, hr, { limit: 200 }).total,
+    );
+    /* A list about that one project still shows them. */
+    const own = workPage(shelved, hr, { projectId: target.id, limit: 200 });
+    expect(own.total).toBeGreaterThan(0);
+  });
+
+  it("holds them under the Archive, each saying why", () => {
+    const page = workPage(shelved, hr, { archive: true, limit: 200 });
+    const byProject = page.rows.filter((r) => r.projectId === target.id);
+    expect(byProject.length).toBeGreaterThan(0);
+    expect(byProject.every((r) => r.archivedBecause === "project")).toBe(true);
+    const old = page.rows.find((r) => r.id === oldTask!.id);
+    expect(old?.archivedBecause).toBe("done");
+    /* Finished yesterday is still under Done, not the Archive. */
+    expect(newTask).toBeDefined();
+    expect(page.rows.some((r) => r.id === newTask!.id)).toBe(false);
+  });
+
+  it("narrows to one reason", () => {
+    const done = workPage(shelved, hr, {
+      archive: true,
+      reason: "done",
+      limit: 200,
+    });
+    expect(done.rows.map((r) => r.id)).toContain(oldTask!.id);
+    expect(done.rows.every((r) => r.archivedBecause === "done")).toBe(true);
+  });
+
+  it("puts an archived program's tasks under the Archive too", () => {
+    const programId = other.project.programId!;
+    expect(programId).toBeTruthy();
+    const programShelved: Scene = {
+      ...shelved,
+      programs: {
+        ...shelved.programs,
+        [programId]: { ...shelved.programs[programId]!, archivedAt: NOW },
+      },
+    };
+    const liveRows = workPage(programShelved, hr, { limit: 200 }).rows;
+    expect(liveRows.some((r) => r.programId === programId)).toBe(false);
+    const archived = workPage(programShelved, hr, {
+      archive: true,
+      reason: "program",
+      limit: 200,
+    }).rows;
+    expect(archived.length).toBeGreaterThan(0);
+    expect(archived.every((r) => r.programId === programId)).toBe(true);
+  });
+});
