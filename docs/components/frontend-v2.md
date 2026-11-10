@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `3a4526ca` (2026-11-10) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `ddb25c0e` (2026-11-10) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -28,7 +28,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — `/payroll`](#screens--payroll)                                                          |       71 |         78 |       1 |        34 |
 | [Screens — `/performance`](#screens--performance)                                                  |       89 |        100 |       3 |        60 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         69 |       1 |         9 |
-| [Screens — `/projects`](#screens--projects)                                                        |       36 |         34 |       0 |         3 |
+| [Screens — `/projects`](#screens--projects)                                                        |       38 |         36 |       0 |         3 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
 | [Screens — `/reports`](#screens--reports)                                                          |       12 |         15 |       0 |         8 |
 | [Screens — `/settings`](#screens--settings)                                                        |      101 |        104 |       0 |         6 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        13 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       46 |         51 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1276** |   **1065** | **451** |  **1606** |
+| **Total**                                                                                          | **1278** |   **1067** | **451** |  **1606** |
 
 ---
 
@@ -1203,6 +1203,8 @@ Screen components for the projects module, including its dialogs and panels.
 | `src/app/(app)/projects/[id]/settings-view.tsx`           | `SettingsView`        | —     | —                      | —                |
 | `src/app/(app)/projects/[id]/views.tsx`                   | —                     | —     | `viewById`             | 2 const · 1 type |
 | `src/app/(app)/projects/[id]/workflow-editor.tsx`         | `WorkflowEditor`      | —     | —                      | —                |
+| `src/app/(app)/projects/archive/archive-screen.tsx`       | `ArchiveScreen`       | —     | —                      | —                |
+| `src/app/(app)/projects/archive/page.tsx`                 | `ArchivePage`         | —     | —                      | 1 const          |
 | `src/app/(app)/projects/master/master-screen.tsx`         | `MasterScreen`        | —     | —                      | —                |
 | `src/app/(app)/projects/master/page.tsx`                  | `MasterPage`          | —     | —                      | 1 const          |
 | `src/app/(app)/projects/mine/my-tasks-screen.tsx`         | `MyTasksScreen`       | —     | —                      | —                |
