@@ -300,15 +300,12 @@ describe("All tasks", () => {
     );
   });
 
-  it("writes a filter into the address when one is chosen", async () => {
+  it("offers no 'any not started / in progress / done' groups to pick", async () => {
     render(<MasterScreen />);
     await userEvent.click(screen.getByRole("button", { name: /filters/i }));
-    await userEvent.selectOptions(screen.getByLabelText("Stage"), "cat:DONE");
-    expect(replace).toHaveBeenCalledWith(
-      "/projects/master?view=tasks&stage=DONE",
-      {
-        scroll: false,
-      },
+    const select = screen.getByLabelText("Stage") as HTMLSelectElement;
+    expect([...select.options].some((o) => o.value.startsWith("cat:"))).toBe(
+      false,
     );
   });
 

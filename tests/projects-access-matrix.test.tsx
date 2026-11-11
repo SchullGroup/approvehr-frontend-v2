@@ -345,7 +345,7 @@ describe("the project screen around the views", () => {
     expect(
       screen.queryByRole("button", { name: "New task" }),
     ).not.toBeInTheDocument();
-    expect(tabs()).toEqual(["Board", "Plan", "Timeline", "Progress", "Tasks"]);
+    expect(tabs()).toEqual(["Board", "Plan", "Timeline", "Progress", "List"]);
   });
 
   it("WRITE: New task, no banner, no Settings tab", async () => {
@@ -362,6 +362,29 @@ describe("the project screen around the views", () => {
   it("MANAGE: the Settings tab too", async () => {
     await screenFor("MANAGE");
     expect(tabs()).toContain("Settings");
+  });
+
+  it("MANAGE: edit and delete from the header menu", async () => {
+    await screenFor("MANAGE");
+    await userEvent.click(
+      screen.getByRole("button", { name: /More actions for/ }),
+    );
+    expect(
+      screen.getByRole("menuitem", { name: /Edit project/ }),
+    ).toHaveAttribute("href", "/projects/pj-chk?view=settings");
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: /Delete project/ }),
+    );
+    expect(
+      await screen.findByLabelText(/to confirm/),
+    ).toBeInTheDocument();
+  });
+
+  it("WRITE: no edit or delete menu", async () => {
+    await screenFor("WRITE");
+    expect(
+      screen.queryByRole("button", { name: /More actions for/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens the board for a link to Settings that the person may not have", async () => {

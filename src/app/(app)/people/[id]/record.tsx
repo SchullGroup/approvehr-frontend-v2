@@ -885,6 +885,15 @@ export function EmployeeRecord({
               employee={employee}
               onSave={onSave}
               fields={[
+                /* Admin and HR correct a staff number here; the section only
+                   opens for EDIT_RECORDS, and the API refuses one somebody
+                   else already holds, naming them. */
+                {
+                  key: "employeeNo",
+                  label: "Employee ID",
+                  required: true,
+                  help: "Unique in the company.",
+                },
                 { key: "jobTitle", label: "Job title", required: true },
                 {
                   key: "departmentId",

@@ -185,7 +185,7 @@ describe("the project", () => {
       ["Plan", "/projects/pj-chk?view=backlog"],
       ["Timeline", "/projects/pj-chk?view=roadmap"],
       ["Progress", "/projects/pj-chk?view=reports"],
-      ["Tasks", "/projects/pj-chk?view=issues"],
+      ["List", "/projects/pj-chk?view=issues"],
       ["Settings", "/projects/pj-chk?view=settings"],
     ]);
     expect(
