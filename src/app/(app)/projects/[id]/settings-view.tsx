@@ -548,10 +548,40 @@ function ArchiveCard() {
 /* ------------------------------------------------------------------ danger -- */
 
 function DangerCard() {
-  const { project, issues, sprints, actions } = useProject();
+  const { project, issues, sprints } = useProject();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Card className="border-danger-line">
+      <CardHeader
+        title="Delete this project"
+        description={`Removes ${project.name} with all ${countNoun(issues.length, "task")} and ${countNoun(sprints.length, "cycle")}. This cannot be undone.`}
+      />
+      <CardBody>
+        <Button variant="danger" onClick={() => setOpen(true)}>
+          Delete project
+        </Button>
+      </CardBody>
+      <DeleteProjectDialog open={open} onClose={() => setOpen(false)} />
+    </Card>
+  );
+}
+
+/**
+ * The typed-key confirmation for deleting a project. Shared by the Settings card
+ * and the project header's menu, so both ask the same question the same way.
+ * Reads the project from `useProject`, so it must sit inside `ProjectProvider`.
+ */
+export function DeleteProjectDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { project, actions } = useProject();
   const router = useRouter();
   const toast = useToast();
-  const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
@@ -572,62 +602,51 @@ function DangerCard() {
     setBusy(false);
     if (!result.ok) return;
     toast.push({ tone: "success", title: `${name} deleted` });
-    setOpen(false);
+    onClose();
     router.push("/projects");
   }
 
   return (
-    <Card className="border-danger-line">
-      <CardHeader
-        title="Delete this project"
-        description={`Removes ${project.name} with all ${countNoun(issues.length, "task")} and ${countNoun(sprints.length, "cycle")}. This cannot be undone.`}
-      />
-      <CardBody>
-        <Button variant="danger" onClick={() => setOpen(true)}>
-          Delete project
-        </Button>
-      </CardBody>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title={`Delete ${project.name}`}
-        size="sm"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              loading={busy}
-              disabled={!matches}
-              onClick={() => void remove()}
-            >
-              Delete forever
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <p className="text-body-sm leading-relaxed text-body">
-            Every {TASK.one}, comment and {CYCLE.one} in {project.name} goes
-            with it.
-          </p>
-          <Field label={`Type ${project.key} to confirm`}>
-            <Input
-              value={typed}
-              autoComplete="off"
-              onChange={(event) => setTyped(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void remove();
-                }
-              }}
-            />
-          </Field>
-        </div>
-      </Modal>
-    </Card>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Delete ${project.name}`}
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            loading={busy}
+            disabled={!matches}
+            onClick={() => void remove()}
+          >
+            Delete forever
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-body-sm leading-relaxed text-body">
+          Every {TASK.one}, comment and {CYCLE.one} in {project.name} goes with
+          it.
+        </p>
+        <Field label={`Type ${project.key} to confirm`}>
+          <Input
+            value={typed}
+            autoComplete="off"
+            onChange={(event) => setTyped(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void remove();
+              }
+            }}
+          />
+        </Field>
+      </div>
+    </Modal>
   );
 }

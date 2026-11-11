@@ -294,13 +294,14 @@ export function WorkTasks({
               !(stages.data ?? []).some(
                 (s) => s.name.toLowerCase() === query.stage![0]!.toLowerCase(),
               ) && <option value={stageValue}>{query.stage[0]}</option>}
-            <optgroup label="By group">
-              {STATUS_CATEGORIES.map((category: StatusCategory) => (
-                <option key={category} value={`cat:${category}`}>
-                  {`Any ${STATUS_FILTER_LABEL[category].toLowerCase()}`}
+            {/* No "any not started / in progress / done" choices. A link that
+                arrives with a group still shows what it applied. */}
+            {query.category?.[0] &&
+              STATUS_CATEGORIES.includes(query.category[0] as StatusCategory) && (
+                <option value={`cat:${query.category[0]}`}>
+                  {`Any ${STATUS_FILTER_LABEL[query.category[0] as StatusCategory].toLowerCase()}`}
                 </option>
-              ))}
-            </optgroup>
+              )}
           </Select>
         </Field>
         {archive ? (
