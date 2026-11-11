@@ -15,7 +15,6 @@ import {
 } from "@/lib/projects/filters";
 import { FILTER_TYPES, STAGE, TYPE_LABEL } from "@/lib/projects/terms";
 import {
-  STATUS_CATEGORIES,
   type IssueType,
   type StatusCategory,
 } from "@/lib/projects/types";
@@ -196,13 +195,14 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
               {status.name}
             </option>
           ))}
-          <optgroup label="By group">
-            {STATUS_CATEGORIES.map((category) => (
-              <option key={category} value={`cat:${category}`}>
-                {`Any ${STATUS_FILTER_LABEL[category].toLowerCase()}`}
-              </option>
-            ))}
-          </optgroup>
+          {/* No "any not started / in progress / done" choices: the stages
+              above are what people pick from. A link that arrives with a group
+              (`?status=`) still shows what it applied, so the box is never blank. */}
+          {filter.statusCategory && (
+            <option value={`cat:${filter.statusCategory}`}>
+              {`Any ${STATUS_FILTER_LABEL[filter.statusCategory].toLowerCase()}`}
+            </option>
+          )}
         </Select>
       </div>
 
@@ -216,7 +216,7 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
               setFilter({ ...filter, department: event.target.value })
             }
           >
-            <option value="">Any department</option>
+            <option value="">All departments</option>
             {departmentChoices(
               project.memberDepartments,
               project.departmentNames,

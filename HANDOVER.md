@@ -12295,3 +12295,16 @@ Clicking into the empty box lists the last 8 (`lib/store/settings-search-history
 ## Verified
 
 19 tests in `settings-filter`, `settings-screen-filter` and `settings-search-history`. Each rule was broken on purpose and a test failed: substring match, any-word match, an empty query matching nothing, billing shown without the permission, a count while loading, no remember on Enter, a search with no results remembered, short queries kept, and no cap. Two of those survived at first (the test for a search with no results never emptied the box, and the history leaked between tests) and were rewritten. Not walked in a browser, not tried on a phone.
+
+---
+
+# The header search finds pages, and only the ones this person has
+
+`CommandPalette` used to find people and roles. It now has a **Pages** group first, read from the same sidebar the person sees: `findDestinations(buildSidebar(nav))`, where `nav` is the shell's already-filtered menu (permissions, the company's modules, the plan). There is no second list of who may see what, so a page their own sidebar hides cannot be offered, and a page added to the nav is searchable with no further change.
+
+- **Settings pages** sit behind one sidebar row, so they are offered only to somebody who has the Settings row (`MANAGE_SETTINGS`). They come from `SETTINGS_PAGES` in `settings/filter.ts`, which the Settings screen now reads too; the screen only adds the icons. `/people` is skipped there because the nav already has it.
+- **People and roles are still narrowed by the API**, as before.
+- **Not searched:** records inside the system (payslips, leave requests, tickets). Each would need its own permission-narrowed search endpoint; add them one type at a time.
+- A permission-aware search is only as honest as the nav filter. If a page is reachable by URL but hidden from the sidebar on purpose, search will not show it either.
+
+Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no payroll or settings page; the admin's does).

@@ -22,6 +22,7 @@ import {
   Modal,
   Select,
   Spinner,
+  Textarea,
 } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
 import type {
@@ -109,6 +110,7 @@ export function SectionsDialog({
      two open forms invite an edit in the one nobody was looking at. */
   const [openId, setOpenId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const [descriptionDraft, setDescriptionDraft] = useState("");
 
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
@@ -159,6 +161,7 @@ export function SectionsDialog({
   const expand = (section: ApiSection) => {
     setOpenId(section.id);
     setNameDraft(section.name);
+    setDescriptionDraft(section.description ?? "");
     setAddingSubTo(null);
     setRenamingSub(null);
     setError(null);
@@ -214,6 +217,17 @@ export function SectionsDialog({
     if (name === section.name) return;
     await run("the new name", () =>
       actions.updateSection(section.id, { name }),
+    );
+  };
+
+  const describe = async (section: ApiSection) => {
+    const description = descriptionDraft.trim();
+    if (description === (section.description ?? "")) return;
+    /* Blank is sent as null: an emptied box means "no description". */
+    await run("the description", () =>
+      actions.updateSection(section.id, {
+        description: description === "" ? null : description,
+      }),
     );
   };
 
@@ -402,7 +416,9 @@ export function SectionsDialog({
                         </span>
                       }
                       hint={
-                        editable ? "Open it to rename it or move it" : undefined
+                        editable
+                          ? "Open it to rename, describe or move it"
+                          : undefined
                       }
                     >
                       <div className="flex flex-col gap-4">
@@ -442,6 +458,43 @@ export function SectionsDialog({
                               </IconButton>
                             </span>
                           </div>
+                        )}
+
+                        {editable ? (
+                          <div className="flex flex-col items-start gap-2">
+                            <Field
+                              label="Description"
+                              help="What this section is for. Shown under its name."
+                              className="w-full"
+                            >
+                              <Textarea
+                                rows={3}
+                                maxLength={500}
+                                value={descriptionDraft}
+                                onChange={(event) =>
+                                  setDescriptionDraft(event.target.value)
+                                }
+                              />
+                            </Field>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              loading={busy}
+                              disabled={
+                                descriptionDraft.trim() ===
+                                (section.description ?? "")
+                              }
+                              onClick={() => void describe(section)}
+                            >
+                              Save the description
+                            </Button>
+                          </div>
+                        ) : (
+                          section.description && (
+                            <p className="text-body-sm text-body">
+                              {section.description}
+                            </p>
+                          )
                         )}
 
                         {editable && (

@@ -135,7 +135,7 @@ export const TAB_LABEL = {
   backlog: "Plan",
   roadmap: "Timeline",
   reports: "Progress",
-  issues: "Tasks",
+  issues: "List",
   settings: "Settings",
 } as const;
 

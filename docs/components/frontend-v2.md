@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `96f1fe52` (2026-11-06) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `8f5cabf8` (2026-11-10) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -1279,7 +1279,7 @@ Screen components for the settings module, including its dialogs and panels.
 | ------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------ | ------------------------------------- | ---------------- |
 | `src/app/(app)/settings/billing-card.tsx`                                      | `BillingCard`                                                        | `useBillingStatus` | —                                     | —                |
 | `src/app/(app)/settings/checklist.ts`                                          | —                                                                    | —                  | `checklistRows`, `checklistProgress`  | 2 types          |
-| `src/app/(app)/settings/filter.ts`                                             | —                                                                    | —                  | `termsOf`, `matches`, `firstSentence` | 6 const · 1 type |
+| `src/app/(app)/settings/filter.ts`                                             | —                                                                    | —                  | `termsOf`, `matches`, `firstSentence` | 7 const · 1 type |
 | `src/app/(app)/settings/page.tsx`                                              | `SettingsPage`                                                       | —                  | —                                     | 1 const          |
 | `src/app/(app)/settings/settings-screen.tsx`                                   | `SettingsScreen`                                                     | —                  | —                                     | —                |
 | `src/app/(app)/settings/ai/ai-screen.tsx`                                      | `AiScreen`                                                           | —                  | —                                     | —                |
