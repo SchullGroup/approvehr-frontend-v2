@@ -301,6 +301,8 @@ export type ApiKeyResultWritten = ApiKeyResult & {
  */
 export type SectionBody = {
   name?: string;
+  /** Blank or null clears it. */
+  description?: string | null;
   order?: number;
   component?: ScoreComponent | null;
 };
@@ -309,6 +311,11 @@ export type SectionBody = {
 export type ApiSection = {
   id: string;
   name: string;
+  /**
+   * What the section is for, in the company's own words. Null until written.
+   * Optional because an API from before the column was added does not send it.
+   */
+  description?: string | null;
   order: number;
   competencyCount: number;
   /**
