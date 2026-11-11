@@ -141,7 +141,7 @@ export function searchPages(
     const allowed = owner ? visibleHrefs.has(owner) : PERSONAL.has(page.href);
     if (!allowed) return;
 
-    const module =
+    const moduleName =
       PAGE_MODULE[page.href] ??
       (owner ? moduleOf.get(owner) : undefined) ??
       "Page";
@@ -149,7 +149,7 @@ export function searchPages(
       title: page.title,
       description: page.description,
       words: [
-        module,
+        moduleName,
         ...(PAGE_WORDS[page.href] ?? []),
         ...(INDEX_WORDS[page.href] ?? []),
       ],
@@ -173,8 +173,8 @@ export function searchPages(
         href: page.href,
         label: page.title,
         sublabel: page.description
-          ? `${module}: ${firstSentence(page.description)}`
-          : module,
+          ? `${moduleName}: ${firstSentence(page.description)}`
+          : moduleName,
         inSidebar: false,
       },
       score,
