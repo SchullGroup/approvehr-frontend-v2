@@ -14,10 +14,7 @@ import {
   toggleAssignee,
 } from "@/lib/projects/filters";
 import { FILTER_TYPES, STAGE, TYPE_LABEL } from "@/lib/projects/terms";
-import {
-  type IssueType,
-  type StatusCategory,
-} from "@/lib/projects/types";
+import { type IssueType, type StatusCategory } from "@/lib/projects/types";
 import { PersonAvatar } from "./person";
 import { useProject } from "./project-context";
 
