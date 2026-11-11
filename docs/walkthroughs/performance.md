@@ -925,10 +925,12 @@ they did against an objective; their manager grades it. It is the evidence behin
 | **Click**      | Pick an objective, write what you did, log it. The manager sees it under _Waiting on a grade_ |
 | **You'll see** | Rows grouped by the day each task was _logged_ — not the week it covers                       |
 
-A weekly task filed for you by a finished project task carries a small **From project KEY-n** tag, in
-**Your weeks**, in an objective's task log and in the grading queue. The tag says where the work came
-from; the grade is still the manager's. It is a link only if you can open that project, and plain
-text if you cannot.
+A weekly task that the old project bridge filed for you, and a manager graded before it was retired on
+6 November 2026, still carries a small **From project KEY-n** tag, in **Your weeks**, in an objective's
+task log and in the grading queue. The tag says where the work came from; the grade is still the manager's.
+It is a link only if you can open that project, and plain text if you cannot. **Finishing a project task no
+longer files a weekly task**: finished project work is evidence to read (see **Work this cycle**), and
+nothing waits for a grade because of it.
 
 #### 19. Chase the people who have not sent theirs
 
@@ -1314,7 +1316,16 @@ never as a score, in four more places:
   who finds the page by its address sees one plain line saying so.
 - **Work this cycle**, inside a self review and a manager review (on the record, and from **Your work** or
   the person's name at the top of the answering form): totals, by project and objective, how many were done by
-  the due date, how many are linked, and the list. It is collapsed on a phone, and it does not change the mark.
+  the due date, how many are linked, and the list, each task with **Set by** and a name when somebody else made
+  it (nothing when the person made it themselves). It is for the person, whoever leads them, HR, and the people
+  assigned to appraise them in that period, whether or not they are on the reporting line (a functional manager
+  or a project lead); anybody else gets nothing. A line under the list says it is only what was tracked in
+  Projects and does not show meetings, mentoring or anything done outside Projects: _a short list is not a
+  short record of work_. The list leaves out a to-do the person made for themselves on their own list; a task
+  somebody else put on their list is kept, shown with **Personal** and **Set by**. **A company that has not
+  switched Projects on does not see it at all.** A person with nothing recorded reads "No finished tasks were
+  recorded for you on the project boards in this period", which says nothing about the rest of their work. It
+  is collapsed on a phone, and it does not change the mark.
 - **Completed work**, under an objective or KPI (its detail, and the objectives to agree): the linked tasks,
   by person for a team objective; for a personal KPI also the owner's tasks linked to an objective above it,
   each marked with the level it was linked at.
@@ -1482,7 +1493,9 @@ period's own weights), 6 (the questions and the subsections), 16 (the no-apprais
 were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated
 subsection asked on the review form, and step 6 on 3 November 2026, for the lock, the answer type in front of a
 subsection's name and starting a new version, and steps 6, 17, 21 and 22 again on 6 November 2026, for a
-subsection answered in the person's own words). Every button label, field name and
+subsection answered in the person's own words, and the paragraph on finished project work in step 18 and the
+**Work this cycle** note in step 33 on 11 November 2026, for who may read it, what it leaves out and the retired
+bridge). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

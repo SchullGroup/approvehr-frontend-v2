@@ -20,12 +20,16 @@ const hook = vi.hoisted(() => ({
   read: null as unknown,
   args: [] as unknown[],
   phone: false,
+  projects: { enabled: true, loading: false },
 }));
 vi.mock("@/lib/store/completions", () => ({
   useWorkThisCycle: (args: unknown) => {
     hook.args.push(args);
     return hook.read;
   },
+}));
+vi.mock("@/lib/store/project-session", () => ({
+  useProjectsGate: () => hook.projects,
 }));
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
@@ -119,6 +123,7 @@ beforeEach(() => {
   hook.read = ok(work());
   hook.args = [];
   hook.phone = false;
+  hook.projects = { enabled: true, loading: false };
 });
 
 describe("what it says", () => {
@@ -214,16 +219,70 @@ describe("what it says", () => {
     const { unmount } = render(<WorkThisCycle {...props} own />);
     expect(
       screen.getByText(
-        "You finished no tasks on the project boards in this period.",
+        "No finished tasks were recorded for you on the project boards in this period.",
       ),
     ).toBeInTheDocument();
     unmount();
     render(<WorkThisCycle {...props} />);
     expect(
       screen.getByText(
-        "Bola Projects finished no tasks on the project boards in this period.",
+        "No finished tasks were recorded for Bola Projects on the project boards in this period.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("does not read an empty list as low output: it says nothing was recorded, and what it cannot show", () => {
+    hook.read = ok(
+      work({
+        summary: { finished: 0, withDueDate: 0, onTime: 0, late: 0, linked: 0 },
+        items: [],
+        byProject: [],
+        byObjective: [],
+        total: 0,
+      }),
+    );
+    render(<WorkThisCycle {...props} />);
+    expect(screen.queryByText(/finished no tasks/i)).toBeNull();
+    expect(screen.getByText(/It does not show meetings/)).toBeInTheDocument();
+  });
+
+  /* It has to be true against whichever server answers, so it says nothing that server alone
+     decides: not which tasks the list leaves out, only that it is what was tracked in Projects. */
+  it("says what it cannot show beside the list: meetings, mentoring and work outside Projects, and nothing the server alone decides", () => {
+    const sentence =
+      "This is only what was tracked in Projects. It does not show meetings, mentoring or anything done outside Projects, so a short list is not a short record of work.";
+    const { unmount } = render(<WorkThisCycle {...props} />);
+    expect(screen.getByText(/It does not show meetings/)).toHaveTextContent(
+      sentence,
+    );
+    unmount();
+    render(<WorkThisCycle {...props} own />);
+    expect(screen.getByText(/It does not show meetings/)).toHaveTextContent(
+      sentence,
+    );
+    /* Not a claim about which tasks the list leaves out: an older server still lists them. */
+    expect(screen.queryByText(/to-do list/i)).toBeNull();
+  });
+
+  it("says who set a task only when somebody else did", () => {
+    hook.read = ok(
+      work({
+        items: [
+          done({
+            id: "a",
+            key: "PRF-1",
+            title: "Pat asked for this one",
+            setBy: { id: "pat", name: "Pat Projects" },
+          }),
+          done({ id: "b", key: "PRF-2", title: "Bola's own idea" }),
+        ],
+        summary: { finished: 2, withDueDate: 2, onTime: 2, late: 0, linked: 2 },
+        total: 2,
+      }),
+    );
+    render(<WorkThisCycle {...props} />);
+    expect(screen.getAllByText("Set by Pat Projects")).toHaveLength(1);
+    expect(screen.queryAllByText(/^Set by /)).toHaveLength(1);
   });
 
   it("shows ten, then all of them on request, and says when the list is capped", async () => {
@@ -316,6 +375,31 @@ describe("before the read has answered, and for people it will not answer", () =
   it("draws nothing when the review is not one it is for (peer feedback)", () => {
     const { container } = render(<WorkThisCycle {...props} enabled={false} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  /* A company without Projects has no boards, so "no tasks finished" would be a claim about
+     work nobody tracks, read as low output. Not offered, and not asked for either. */
+  it("draws nothing, and asks for nothing, when the company has not switched Projects on", () => {
+    hook.projects = { enabled: false, loading: false };
+    const { container } = render(<WorkThisCycle {...props} />);
+    expect(container).toBeEmptyDOMElement();
+    expect(hook.args.at(-1)).toMatchObject({ enabled: false });
+    expect(screen.queryByText(/finished/)).toBeNull();
+    expect(screen.queryByLabelText("Loading work")).toBeNull();
+  });
+
+  it("draws nothing while the company's switches are still on their way, so it never flashes up and goes", () => {
+    hook.projects = { enabled: false, loading: true };
+    const { container } = render(<WorkThisCycle {...props} />);
+    expect(container).toBeEmptyDOMElement();
+    expect(hook.args.at(-1)).toMatchObject({ enabled: false });
+  });
+
+  it("is there when Projects is on", () => {
+    hook.projects = { enabled: true, loading: false };
+    render(<WorkThisCycle {...props} />);
+    expect(screen.getByText("Work this cycle")).toBeInTheDocument();
+    expect(hook.args.at(-1)).toMatchObject({ enabled: true });
   });
 
   it("draws nothing for a cycle that states no dates", () => {
