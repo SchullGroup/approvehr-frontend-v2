@@ -55,7 +55,7 @@ describe("command palette pages", () => {
   it("never offers a page their sidebar does not have", async () => {
     await search(EMPLOYEE, "loans");
     expect(await none()).toBeTruthy();
-    expect(screen.queryByText(/loan/i)).toBeNull();
+    expect(screen.queryByRole("option")).toBeNull();
   });
 
   it("reaches a page that is not a door, through its owner", async () => {
