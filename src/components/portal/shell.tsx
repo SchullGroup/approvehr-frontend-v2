@@ -552,6 +552,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {searchOpen && !collaborator && (
         <CommandPalette
+          nav={groups}
           initialQuery={searchSeed}
           onClose={() => setSearchOpen(false)}
         />

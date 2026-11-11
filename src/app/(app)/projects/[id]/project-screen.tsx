@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArchiveRestore, FolderKanban, Plus } from "lucide-react";
+import { ArchiveRestore, FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
   Callout,
   EmptyState,
   LinkTabs,
+  RowActions,
   Skeleton,
   useToast,
   LoadState,
@@ -54,6 +55,7 @@ import {
 } from "@/lib/store/project-session";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { dayIn, todayIn } from "@/lib/time";
+import { DeleteProjectDialog } from "./settings-view";
 import { DEFAULT_VIEW, PROJECT_VIEWS, viewById } from "./views";
 
 /**
@@ -199,6 +201,7 @@ function ProjectShell({
   const archived = project.archived === true;
   const canAdd = canWork && !archived;
   const [restoring, setRestoring] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   async function restore() {
     setRestoring(true);
     const result = await actions.archiveProject(false);
@@ -472,13 +475,38 @@ function ProjectShell({
           </>
         }
         {...(project.description ? { description: project.description } : {})}
-        {...(canAdd
+        {...(canAdd || canManage
           ? {
               action: (
-                <Button variant="primary" onClick={() => openCreate()}>
-                  <Plus aria-hidden="true" className="size-4" />
-                  {NEW_TASK}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Edit and delete were only on the Settings tab, which
+                      nobody found from the board. The menu is beside the one
+                      button people come for, and only for those who manage it. */}
+                  {canManage && (
+                    <RowActions
+                      label={`More actions for ${project.name}`}
+                      items={[
+                        {
+                          label: "Edit project",
+                          icon: <Pencil aria-hidden="true" className="size-4" />,
+                          href: hrefFor("settings"),
+                        },
+                        {
+                          label: "Delete project",
+                          icon: <Trash2 aria-hidden="true" className="size-4" />,
+                          tone: "danger",
+                          onSelect: () => setDeleting(true),
+                        },
+                      ]}
+                    />
+                  )}
+                  {canAdd && (
+                    <Button variant="primary" onClick={() => openCreate()}>
+                      <Plus aria-hidden="true" className="size-4" />
+                      {NEW_TASK}
+                    </Button>
+                  )}
+                </div>
               ),
             }
           : {})}
@@ -537,6 +565,12 @@ function ProjectShell({
       </PageBody>
 
       <IssueDrawer issue={open} onClose={closeIssue} />
+      {canManage && (
+        <DeleteProjectDialog
+          open={deleting}
+          onClose={() => setDeleting(false)}
+        />
+      )}
       <CreateIssueDialog
         open={create.open}
         onClose={() => setCreate((c) => ({ ...c, open: false }))}
