@@ -12318,3 +12318,61 @@ This decides what to **list**. Every page still enforces its own access when ope
 Records inside the system (payslips, leave requests, tickets, objectives by name). Each type needs its own permission-narrowed search endpoint; people and roles are still narrowed by the API as before.
 
 Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no loans, leave policies or hiring settings; a hidden sibling door is not handed over through a shorter owner; the account pages are offered to everybody) and `tests/page-index-current.test.ts`. Three rules were broken on purpose and each was caught: no owner check, the owner taken from the visible menu only, and the account pages not offered. Not walked in a browser.
+
+---
+
+# Only the topmost open layer handles Tab and Escape
+
+The independent review of the Stage 3 web work reported that in a dialog opened over a side panel, Tab did not
+reach the fields in it and one Escape closed both layers. The cause is not in that screen. It is in
+`hooks/use-focus-trap.ts`, which every `Modal` and `Drawer` calls, so it applies to any layer opened over another.
+
+## What was wrong
+
+Every open layer adds its own capture `keydown` listener to `document`, and nothing said which of them should act.
+With two open, both did:
+
+- **Tab.** The lower layer saw focus outside itself and pulled it in; the upper layer saw the same and pulled it
+  back. Both call `preventDefault`, so the browser never moved focus itself. Tab always ended on the upper layer's
+  first control and Shift+Tab on its last, and the fields between could not be reached from the keyboard.
+- **Escape.** Both called their `onClose`. `stopPropagation()` does not stop a second listener on the same node, so
+  one press closed the dialog and the layer under it, with whatever was typed into it.
+
+## What it is now
+
+A module-level stack of open layers. Each open mints its own `Symbol`, pushes it when the trap is set up and removes
+that exact one on cleanup, and the handler returns at once unless its layer is on top. The layer below hears nothing
+until the one above closes, and takes the keyboard back the moment it does. Initial focus, focus restore, the
+`data-escape-to-popup` rule and the counted scroll lock are unchanged.
+
+Two decisions worth keeping:
+
+- **Removal is by identity, never by popping.** Layers do not close in the order they opened: a parent clearing its
+  state closes both at once, and the lower one can be closed from outside while the upper stays. Popping would take
+  out the wrong one and leave the layer still open believing something sits above it, with its keyboard dead. It is
+  the reason the scroll lock is a count and not a memory per layer.
+- **Registration order is paint order, and that was measured.** In React 19.2.8 a child's effect runs before its
+  parent's and the portals go into `document.body` in the same order, so the layer registered last is the one painted
+  last, however the dialog is written relative to the panel. The test pins all three arrangements. If a React upgrade
+  changes either order that test fails, and the fallback is to place a layer by its position in the document when it
+  registers, not at the end of the stack.
+
+## Not handled
+
+- A layer closed and reopened inside its own 250 ms exit animation keeps its old place in the document, so it can
+  register above a layer that is painted over it. It takes the lower of two open layers being closed and reopened within
+  a quarter of a second while the upper one stays open.
+- When the lower layer closes from outside, its focus restore moves focus behind the open upper dialog, and the next Tab
+  pulls it back. That was already so.
+- `search-picker.tsx` is not a layer here: it does not call `useFocusTrap`. It only marks its input
+  `data-escape-to-popup`, which the topmost layer still honours.
+
+## Verified
+
+`tests/focus-trap-stacked-layers.test.tsx`, 33 tests, with the real `Drawer` and `Modal` and a real Tab through
+`user-event`. jsdom reports `offsetParent` as null for everything, so the test stubs it, or the trap would see nothing
+to focus. No test stubbed it before, so Tab trapping had no coverage at all. Against the old hook 17 fail (every stacked
+case); the other 16 (one layer alone, the scroll lock in six teardown orders, handing the keyboard back) pass either
+way. Eleven deliberate breaks of the new code were each caught. `tsc --noEmit` is clean and `vitest related` over the
+files that import the hook passed (300 files, 4,307 tests; run before one last assertion was added to the new file,
+which was then run alone). **Not exercised in a real browser.**
