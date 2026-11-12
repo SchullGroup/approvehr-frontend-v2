@@ -12318,3 +12318,88 @@ This decides what to **list**. Every page still enforces its own access when ope
 Records inside the system (payslips, leave requests, tickets, objectives by name). Each type needs its own permission-narrowed search endpoint; people and roles are still narrowed by the API as before.
 
 Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no loans, leave policies or hiring settings; a hidden sibling door is not handed over through a shorter owner; the account pages are offered to everybody) and `tests/page-index-current.test.ts`. Three rules were broken on purpose and each was caught: no owner check, the owner taken from the visible menu only, and the account pages not offered. Not walked in a browser.
+
+---
+
+# Work this cycle: open to its appraisers, honest about its limits, and gone without Projects
+
+Stage 1 of the Projects-in-Performance research (the Claude Doc "Project tracker inside the
+performance module: research", 11 November 2026: its options 1 and 2, and "switch the panel off when
+Projects is off"). It changes what an assigned appraiser, a company without Projects and anybody
+reading an empty list sees. **It changes no mark and files no weekly task.** The backend half is the
+branch of the same name in `approvehr-backend` (note: `docs/backend/work-evidence-handover.md`).
+Backend first; this half is safe against a server without it (below).
+
+## What the panel does now
+
+- **It is not there when Projects is off.** `WorkThisCycle` reads `useProjectsGate()`, "the one place
+  the gate is read", and draws nothing and asks for nothing when Projects is off and while the
+  company's switches are still on their way. Before, a company without Projects read "You finished no
+  tasks on the project boards in this period" under every review: a claim about work nobody tracks,
+  read as low output. The research inferred this from the code; this is the first time it is a test.
+- **An empty list says nothing was recorded.** "No finished tasks were recorded for you on the project
+  boards in this period." It was "You finished no tasks …", which reads as a verdict.
+- **A line under the list, and under an empty one, says what it cannot show:** "This is only what was
+  tracked in Projects. It does not show meetings, mentoring or anything done outside Projects, so a
+  short list is not a short record of work."
+- **Each task says who set it**, "Set by Pat Projects", when somebody other than the person made it,
+  in every list that uses `CompletedItem` (this panel, the manager's Completed view, the work under an
+  objective). It is the task's creator, not the last person to assign it. `Completion.setBy` is absent
+  for a person's own task and for a server that does not say; the two are not told apart because they
+  say the same thing, which is nothing.
+- **For an assigned appraiser, and for a person's own to-dos, the web needed nothing.** Those are the
+  server's: `cycleWork` now admits an assigned appraiser, and leaves out a to-do the person made for
+  themselves. The panel already drew nothing for the 404 an appraiser used to get.
+
+## Decisions worth not undoing
+
+1. **The line under the list is true against any server.** The first draft said "It leaves out their
+   own to-do list", which is the new server's rule and is false against one that has not deployed it.
+   Copy that describes a rule has to be true against the server that is deployed, not the one in a
+   branch. Which tasks the list leaves out shows row by row (**Personal**, **Set by**) and is in the
+   walkthrough; a test says the sentence names no to-do list.
+2. **Hidden, not refused.** Without Projects the panel is not offered, instead of drawing a callout:
+   there is nothing for the reader to do, and a company that never used Projects should not be told
+   about it under every review. The nav hides Projects from the same flag.
+3. **What the list leaves out is the API's rule, once.** `exceptOwnToDos` is in the backend's
+   `counted-work.ts`. A copy here would be a second definition of "finished work", which that module
+   exists to keep to one.
+
+## Not done
+
+- **Stages 2 to 4 of the research.** Freezing the evidence when a review is finalised needs a
+  retention rule the owner picks and counsel's agreement on what may be stored. Letting people pin work
+  to an answer needs an impact assessment, a legitimate-interest assessment and one pilot first. The two
+  optional assists wait for that pilot. Each has a gate in the research; none is started.
+- **The Work record, the manager's Completed view and the work under an objective still list a
+  person's own to-dos** (labelled **Personal**). Only the review's list leaves them out. A decision for
+  the owner, in the pull request.
+- **Three code comments** (`project-screen.tsx`, `project-context.tsx` and `lib/store/projects.ts`)
+  still describe the retired weekly-task bridge. Left alone so as not to touch files Projects work is
+  changing. The walkthrough's account of it (step 18) is corrected.
+- **`docs/components/backend-api.md` will be two exports short** (`isAppraiserOf`, `exceptOwnToDos`)
+  once the backend is on `staging`. Run `npm run docs` then. `docs/components/frontend-v2.md` was
+  already stale on `dev` for the Projects screens before this change; none of its rows is about these
+  files, and it is not regenerated here.
+
+## Verified
+
+Tests: the nine files that touch the change, 148 tests, pass (`work-this-cycle` 31 of them, with
+`completions-api`, `projects-completions`, `completions-demo-hooks`, `completions-store`,
+`review-work-panel`, `review-record-work` and the two copy guards `performance-link-copy` and
+`projects-friendly-words`). Eight deliberate breaks, each caught by a test written for it: the panel
+offered without Projects, the work asked for before the switches answered, no line about what it
+cannot show, the old "finished no tasks" sentence, no "Set by", "Set by" for the person's own task, a
+mapper that invents a setter, and a demo that names the person as having set their own task. The tree
+was clean after each.
+
+Gates: `tsc --noEmit` and ESLint exit 0 (16 warnings, none in a file this changes). Every step of
+`npm run check` after Format exits 0, run with `APPROVEHR_BACKEND_DIR` at the backend branch so the
+four cross-repo gates compared and did not skip (template 81 assertions, rating scale, payroll,
+signature wording). **The Format step fails on `dev` itself**, on four files from #623 (project-screen,
+issue-filter-bar, work-list and `tests/projects-access-matrix.test.tsx`); none is in this change, and
+the formatting fix is its own pull request (#627).
+
+**Not exercised:** a browser against a real API (an assigned appraiser's panel, "Set by" on real rows,
+and the panel gone with Projects off are covered by tests and by the backend's, not by a screenshot),
+demo mode in a browser, the whole vitest suite in one run, the QA site, iOS Safari or a real device.

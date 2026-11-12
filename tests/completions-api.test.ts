@@ -100,6 +100,28 @@ describe("one finished task", () => {
     expect(row.onTime).toBeNull();
   });
 
+  /* Who set it, only when somebody else did. The person's own task, a server that does not say,
+     and a value that is not a named person all say nothing: the line is for work somebody asked
+     for, never a gap, and nothing is invented. */
+  it("names who set a task when the server says somebody else did", () => {
+    const row = toCompletion(
+      item({ setBy: { id: "pat", name: "Pat Projects" } }),
+    );
+    expect(row.setBy).toEqual({ id: "pat", name: "Pat Projects" });
+  });
+
+  it.each([
+    ["null: the person made it themselves", { setBy: null }],
+    ["missing: an older server", {}],
+    ["no name", { setBy: { id: "pat", name: "" } }],
+    ["no id", { setBy: { id: "", name: "Pat Projects" } }],
+    ["not an object", { setBy: "Pat Projects" }],
+  ])("says nothing about who set it when it is %s", (_why, over) => {
+    const row = toCompletion(item(over));
+    expect(row.setBy).toBeUndefined();
+    expect("setBy" in row).toBe(false);
+  });
+
   it("an unlinked task is the ordinary state, with no name to show", () => {
     const row = toCompletion(
       item({

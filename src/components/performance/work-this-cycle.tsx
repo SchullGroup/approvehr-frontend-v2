@@ -12,6 +12,7 @@ import {
 } from "@/lib/projects/completions";
 import { count } from "@/lib/projects/terms";
 import { useWorkThisCycle } from "@/lib/store/completions";
+import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { CompletedItem } from "./completed-item";
 
@@ -33,10 +34,31 @@ import { CompletedItem } from "./completed-item";
  *
  * ## Who sees it
  *
- * The API answers only for the person and those who lead them, or HR. For anybody
+ * The API answers only for the person, those who lead them, HR, and the people
+ * assigned to appraise them in this cycle (a functional manager or project lead
+ * need not be on the reporting line, and the review is open to them). For anybody
  * else it answers as if the person were not there, and this draws nothing, not a
  * refusal. It is collapsed on a phone, where a review is already long, and open
  * beside the answers on a wider screen.
+ *
+ * ## Not there without Projects
+ *
+ * A company that has not switched Projects on has no boards to read, and "no tasks
+ * finished" would be a claim about work nobody tracks, read as low output. So the
+ * panel is not offered at all, and draws nothing while the company's switches are
+ * still on their way, so it never flashes up and goes.
+ *
+ * ## What it says it cannot show
+ *
+ * The list is only what was tracked in Projects. It does not show meetings, mentoring
+ * or anything done outside Projects, and says so beside the list, so a short list is
+ * never read as a short record of work.
+ *
+ * That sentence has to be true against whichever server answers, so it says nothing
+ * the server alone decides. Which tasks the list leaves out (a to-do the person made
+ * for themselves on their own list) is the API's rule, and each row shows what is left
+ * to say: **Personal** for a task from somebody's own list and **Set by** for one
+ * somebody else made.
  *
  * ## One request
  *
@@ -72,15 +94,18 @@ export function WorkThisCycle({
   const timeZone = useOrgTimezone();
   const phone = usePhone();
   const [choice, setChoice] = useState<boolean | null>(null);
+  const projects = useProjectsGate();
+  /* Not offered without Projects, and not asked for either (see above). */
+  const active = enabled && projects.enabled;
   const read = useWorkThisCycle({
     subjectId,
     cycleId,
     periodStart,
     periodEnd,
-    enabled,
+    enabled: active,
   });
 
-  if (!enabled) return null;
+  if (!active) return null;
   if (read.loading) {
     return <Skeleton className="h-16 w-full" aria-label="Loading work" />;
   }
@@ -127,11 +152,15 @@ export function WorkThisCycle({
     >
       <div className="flex flex-col gap-5">
         {work.summary.finished === 0 ? (
-          <p className="text-body-sm text-muted">
-            {who === "You"
-              ? "You finished no tasks on the project boards in this period."
-              : `${who} finished no tasks on the project boards in this period.`}
-          </p>
+          <>
+            {/* Nothing recorded, which says nothing about the work itself. */}
+            <p className="text-body-sm text-muted">
+              {who === "You"
+                ? "No finished tasks were recorded for you on the project boards in this period."
+                : `No finished tasks were recorded for ${who} on the project boards in this period.`}
+            </p>
+            <LeftOut />
+          </>
         ) : (
           <Body
             work={work}
@@ -149,6 +178,21 @@ export function WorkThisCycle({
 }
 
 const SHOWN = 10;
+
+/**
+ * What this list cannot show, said where it is read. It is only what was tracked in
+ * Projects, so a short list is not a short record of work: meetings, mentoring and
+ * anything done outside Projects are not in it. True of every server, on purpose.
+ */
+function LeftOut() {
+  return (
+    <p className="text-meta text-muted">
+      This is only what was tracked in Projects. It does not show meetings,
+      mentoring or anything done outside Projects, so a short list is not a
+      short record of work.
+    </p>
+  );
+}
 
 function Body({
   work,
@@ -263,6 +307,8 @@ function Body({
           )}
         </div>
       </section>
+
+      <LeftOut />
     </>
   );
 }
