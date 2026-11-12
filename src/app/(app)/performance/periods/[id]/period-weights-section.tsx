@@ -9,6 +9,7 @@ import {
   weightsToText,
   type WeightText,
 } from "@/components/performance/period-weights";
+import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCycle, CycleWeights } from "@/lib/api/performance";
 import { useCycleMutations, useScoringWeights } from "@/lib/store/performance";
@@ -21,6 +22,11 @@ import { useCycleMutations, useScoringWeights } from "@/lib/store/performance";
  * to keep explaining itself against the weights that produced it. The API
  * refuses a change after start with a 409, and its sentence is shown if it
  * ever arrives; the read-only view is so nobody gets as far as meeting it.
+ *
+ * Under the card, where the server sends one, is its own sentence about what
+ * weighting the appraisers' overall mark does for **this period's** weights
+ * (`ApiCycle.managerAppraisalNote`). It is about the saved weights, so a draft
+ * somebody has typed over says so. Nothing here writes it.
  */
 export function PeriodWeightsSection({
   period,
@@ -39,7 +45,7 @@ export function PeriodWeightsSection({
   if (period.stage !== "DRAFT") {
     return (
       <Card>
-        <CardBody>
+        <CardBody className="flex flex-col gap-3">
           <PeriodWeights
             readOnly
             basis={weights.basis}
@@ -47,6 +53,12 @@ export function PeriodWeightsSection({
             onChange={() => undefined}
             companyDefaults={companyDefaults}
           />
+          {period.managerAppraisalNote && (
+            <SavedWeightsNote
+              note={period.managerAppraisalNote}
+              moved={false}
+            />
+          )}
         </CardBody>
       </Card>
     );
@@ -131,6 +143,9 @@ function DraftWeights({
           void run({ weights: null }, "Using the company defaults")
         }
       />
+      {period.managerAppraisalNote && (
+        <SavedWeightsNote note={period.managerAppraisalNote} moved={dirty} />
+      )}
       {error && (
         <p role="alert" className="text-body-sm text-danger-text">
           {error}

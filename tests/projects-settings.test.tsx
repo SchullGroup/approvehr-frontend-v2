@@ -216,16 +216,25 @@ describe("the workflow editor", () => {
 describe("details", () => {
   it("refuses to change the board type while a sprint is active, in words", async () => {
     const { actions } = renderSettings();
-    await userEvent.selectOptions(
-      screen.getByLabelText("Board type"),
-      "KANBAN",
-    );
+    await userEvent.click(screen.getByRole("radio", { name: "Simple board" }));
     expect(
       screen.getByText(
         "Complete the active cycle before changing the board type.",
       ),
     ).toBeInTheDocument();
     expect(actions.updateProject).not.toHaveBeenCalled();
+  });
+
+  it("names both board types, each with one line about what it means", () => {
+    renderSettings();
+    const group = screen.getByRole("group", { name: "Board type" });
+    expect(
+      within(group).getByRole("radio", { name: "Board with cycles" }),
+    ).toBeChecked();
+    expect(group).toHaveTextContent("Tasks go straight onto the board.");
+    expect(group).toHaveTextContent(
+      "Plan work in cycles. Tasks not in a cycle wait in Later.",
+    );
   });
 
   it("changes the colour", async () => {

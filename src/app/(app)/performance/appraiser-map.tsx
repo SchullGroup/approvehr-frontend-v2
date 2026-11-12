@@ -245,7 +245,8 @@ export function AppraiserMapTab() {
     toast.push({
       title: `${people.find((one) => one.id === appraiserId)?.name ?? "They"} now appraises ${row.employeeName}`,
       tone: "success",
-      detail: "As their line manager, for the whole mark. Change it any time.",
+      detail:
+        "As their line manager, and the only appraiser. Change it any time.",
     });
     reload();
   };
@@ -351,7 +352,7 @@ export function AppraiserMapTab() {
               </Button>
               <InfoTooltip
                 label="What Fill in does"
-                text="Gives each person nobody appraises their line manager, for the whole mark. On a running period it also writes the forms for those managers to answer. Anybody already mapped is left as they are, and anybody it cannot find an appraiser for is named below."
+                text="Gives each person nobody appraises their line manager, as their only appraiser. On a running period it also writes the forms for those managers to answer. Anybody already mapped is left as they are, and anybody it cannot find an appraiser for is named below."
               />
             </span>
           }
@@ -622,7 +623,7 @@ function PersonTableRow({
       </TD>
       <TD align="right">
         <IconButton
-          label={`Share the mark for ${row.employeeName} between several appraisers`}
+          label={`Set several appraisers for ${row.employeeName} and their shares`}
           variant="ghost"
           onClick={onEdit}
         >
@@ -832,7 +833,7 @@ export function AppraisersDialog({
       open
       onClose={onClose}
       title={`Who appraises ${row.employeeName}`}
-      description="Everybody who has a say, and how much of the mark each one carries. The shares have to make 100%."
+      description="Everybody who has a say, and how much each one's overall mark weighs against the others'. The shares have to make 100%."
       size="lg"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">

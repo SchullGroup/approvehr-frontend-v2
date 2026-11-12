@@ -65,6 +65,9 @@ export function HowItWorksBody() {
   const { weights, loading, source } = useScoringWeights();
   const rows = weights?.rows ?? [];
   const counted = rows.filter((row) => row.weightBp > 0);
+  /* The company's name for the part, when this server has it. A server that
+     predates it sends no row, and then nothing is said about it. */
+  const managerPart = rows.find((row) => row.component === "MANAGER_APPRAISAL");
 
   return (
     <div className="flex max-w-2xl flex-col gap-5 text-body-sm leading-relaxed text-body">
@@ -150,6 +153,9 @@ export function HowItWorksBody() {
             {weights?.selfAssessmentNote && (
               <p className="mt-2">{weights.selfAssessmentNote}</p>
             )}
+            {weights?.managerAppraisalNote && (
+              <p className="mt-2">{weights.managerAppraisalNote}</p>
+            )}
           </>
         )}
       </div>
@@ -167,6 +173,22 @@ export function HowItWorksBody() {
           parts.
         </p>
       </div>
+
+      {managerPart && (
+        <div>
+          <p className="text-body-sm font-semibold text-ink">
+            {managerPart.label} can count too
+          </p>
+          <p className="mt-1">
+            {managerPart.label} counts toward the mark only when the period
+            gives it a weight. It uses the overall mark each appraiser gave,
+            weighted by their share when a person has more than one. In a period
+            that weights it, a manager&rsquo;s form asks for an overall mark and
+            needs one. Someone whose appraisers have sent none has that share
+            spread over the other parts.
+          </p>
+        </div>
+      )}
 
       <div>
         <p className="text-body-sm font-semibold text-ink">

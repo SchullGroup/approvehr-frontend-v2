@@ -14,7 +14,10 @@ import {
 import { cn } from "@/lib/cn";
 import { openSprints } from "@/lib/projects/board";
 import { parsePoints } from "@/lib/projects/mutations";
+import { whereItWent } from "@/lib/projects/where-it-went";
+import { ApiError } from "@/lib/api/client";
 import {
+  CREATED_NOTE,
   CYCLE,
   DEFAULT_TYPE,
   EFFORT,
@@ -58,6 +61,18 @@ type Draft = {
   assigneeIds: string[];
 };
 
+/**
+ * The API refused the cycle the task was put in: it closed, or it was deleted,
+ * since the dialog opened. Anything else is a real refusal and is shown.
+ */
+function cycleIsGone(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 422 &&
+    /\bcycle\b/i.test(error.message)
+  );
+}
+
 function blank(defaults: Partial<NewIssueInput>): Draft {
   return {
     type: displayType(defaults.type ?? DEFAULT_TYPE),
@@ -77,9 +92,9 @@ function blank(defaults: Partial<NewIssueInput>): Draft {
 /**
  * Create an issue.
  *
- * Type, summary, description, priority, points, epic, sprint, dates, and "assign
+ * Type, title, description, priority, points, epic, sprint, dates, and "assign
  * to me". It stays mounted and reseeds its draft every time it opens, so the last
- * issue's text never greets the next; the summary takes focus on open.
+ * issue's text never greets the next; the title takes focus on open.
  *
  * A refusal from the API is shown inside the dialog, beside the form, rather than
  * as a toast over a dialog that is still open.
@@ -101,8 +116,20 @@ export function CreateIssueDialog({
   onClose: () => void;
   defaults: Partial<NewIssueInput>;
 }) {
-  const { project, sprints, epics, actions, meId, connected, people } =
-    useProject();
+  const {
+    project,
+    issues,
+    sprints,
+    epics,
+    actions,
+    meId,
+    connected,
+    people,
+    view,
+    filter,
+    today,
+    dayOf,
+  } = useProject();
   const toast = useToast();
   const formId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
@@ -153,35 +180,65 @@ export function CreateIssueDialog({
     event.preventDefault();
     const title = draft.title.trim();
     if (!title) {
-      setTitleError("Add a summary first.");
+      setTitleError("Add a title first.");
       titleRef.current?.focus();
       return;
     }
     setBusy(true);
     setFailure(null);
-    const result = await actions.createIssue(
-      {
-        type: draft.type,
-        title,
-        description: draft.description,
-        priority: draft.priority,
-        points: isEpic ? null : parsePoints(draft.points),
-        epicId: isEpic ? null : draft.epicId || null,
-        sprintId: isEpic || !scrum ? null : draft.sprintId || null,
-        startDate: isEpic ? draft.startDate || null : null,
-        dueDate: draft.dueDate || null,
-        dueTime: draft.dueDate && draft.dueTime ? draft.dueTime : null,
-        assigneeIds: draft.assigneeIds,
-      },
-      { quiet: true },
-    );
+    const input: NewIssueInput = {
+      type: draft.type,
+      title,
+      description: draft.description,
+      priority: draft.priority,
+      points: isEpic ? null : parsePoints(draft.points),
+      epicId: isEpic ? null : draft.epicId || null,
+      sprintId: isEpic || !scrum ? null : draft.sprintId || null,
+      startDate: isEpic ? draft.startDate || null : null,
+      dueDate: draft.dueDate || null,
+      dueTime: draft.dueDate && draft.dueTime ? draft.dueTime : null,
+      assigneeIds: draft.assigneeIds,
+    };
+    let result = await actions.createIssue(input, { quiet: true });
+    /* The cycle closed while the dialog was open (it was the running one when
+       it opened). The task is still wanted, so it goes to Later, once, and the
+       toast says why. */
+    let cycleEnded = false;
+    if (!result.ok && input.sprintId && cycleIsGone(result.error)) {
+      result = await actions.createIssue(
+        { ...input, sprintId: null },
+        { quiet: true },
+      );
+      cycleEnded = result.ok;
+    }
     if (!result.ok) {
       setBusy(false);
       setFailure(result.message);
       return;
     }
-    const issue = { id: result.value.id, key: result.value.key };
-    toast.push({ tone: "success", title: `${issue.key} created` });
+    const made = result.value;
+    const issue = { id: made.id, key: made.key };
+    const detail = cycleEnded
+      ? CREATED_NOTE.cycleEnded
+      : view
+        ? whereItWent({
+            view,
+            project,
+            issue: made,
+            issues,
+            sprints,
+            today,
+            doneDayOf: dayOf,
+            filter,
+            meId,
+            nameOf: people.nameOf,
+          })
+        : null;
+    toast.push({
+      tone: "success",
+      title: `${issue.key} created`,
+      ...(detail ? { detail } : {}),
+    });
     await attachFiles(issue);
   }
 
@@ -289,7 +346,7 @@ export function CreateIssueDialog({
         </div>
 
         <Field
-          label="Summary"
+          label="Title"
           required
           {...(titleError ? { error: titleError } : {})}
         >
@@ -297,7 +354,7 @@ export function CreateIssueDialog({
             ref={titleRef}
             value={draft.title}
             maxLength={240}
-            placeholder="Short, specific summary"
+            placeholder="What needs doing"
             autoComplete="off"
             onChange={(e) => {
               set("title", e.target.value);
