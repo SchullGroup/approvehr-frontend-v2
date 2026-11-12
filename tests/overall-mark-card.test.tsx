@@ -83,6 +83,8 @@ describe("the switch", () => {
   });
 
   it("says what it does not do: a mark is shown beside the score, and a given one is never touched", () => {
+    /* A server with no Manager appraisal part: a manager's overall mark is
+       never counted there, and the card says what it always did. */
     mount();
     expect(
       screen.getByText(/shown beside the score and is not counted in it/),
@@ -90,6 +92,20 @@ describe("the switch", () => {
     expect(
       screen.getByText(/A mark already given is never removed or changed/),
     ).toBeInTheDocument();
+  });
+
+  it("names the exception where the server has the Manager appraisal part, in the company's own word, and stops saying the mark is not counted", () => {
+    mount({ managerAppraisalLabel: "Line view" });
+    expect(
+      screen.getByText(
+        "The person picks one of the names below after the questions. It is optional, except for managers in a period that weights Line view: they have to give one.",
+      ),
+    ).toBeInTheDocument();
+    /* Whether the mark counts is the weights tab's to say, in the API's words:
+       it counts where a period weights the part, and a sentence that says it
+       never does would be false there. */
+    expect(screen.queryByText(/is not counted in it/)).toBeNull();
+    expect(screen.queryByText(/shown beside the score/)).toBeNull();
   });
 
   it("turns on with one press, and tells the page to read the weights again", async () => {

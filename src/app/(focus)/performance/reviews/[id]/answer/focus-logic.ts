@@ -1,4 +1,8 @@
-import type { ApiFormQuestion, ApiReviewDetail } from "@/lib/api/performance";
+import {
+  weightLabel,
+  type ApiFormQuestion,
+  type ApiReviewDetail,
+} from "@/lib/api/performance";
 import {
   draftFrom,
   filled,
@@ -47,6 +51,80 @@ export function closingNoteWords(kind: ApiReviewDetail["kind"]): {
     placeholder: "Type here if there is more to say",
     row: "Anything to add",
   };
+}
+
+/**
+ * Whether the form ends with an overall mark: the company's setting, or a period
+ * that needs one from this appraiser.
+ *
+ * Needed implies asked. A form the API will not take without a mark must never be
+ * one that has no page for it, whatever else the server sent.
+ */
+export function asksOverallMark(
+  review: Pick<ApiReviewDetail, "overallMark" | "overallMarkRequired">,
+): boolean {
+  return review.overallMark === true || review.overallMarkRequired === true;
+}
+
+/**
+ * Whether the mark has to be given before the review can go: only on a manager's
+ * form in a period that weights the Manager appraisal part. **Absent means not
+ * needed**, never needed: the API still refuses at Send where it is, in its own
+ * sentence, and the form shows that.
+ */
+export function needsOverallMark(
+  review: Pick<ApiReviewDetail, "overallMarkRequired">,
+): boolean {
+  return review.overallMarkRequired === true;
+}
+
+/**
+ * What the mark page is called, and what it says about being optional.
+ *
+ * Where it is needed the page does not ask "is there one?", and it says why: this
+ * period counts it, and for how much when the API said (`markShareBp`). The share
+ * is the API's figure; nothing here works one out.
+ */
+export function markPageWords(
+  required: boolean,
+  shareBp: number | undefined,
+): { title: string; lead: string } {
+  if (!required) {
+    return {
+      title: "Is there an overall mark?",
+      lead: "Optional. Leave it if the answers say enough.",
+    };
+  }
+  return {
+    title: "Your overall mark",
+    lead:
+      shareBp !== undefined && shareBp > 0
+        ? `Needed. It counts for ${weightLabel(shareBp)} of the mark in this period.`
+        : "Needed. This period counts it towards the score.",
+  };
+}
+
+/**
+ * What still stops a send, in one line, or null when nothing does: the questions
+ * that need an answer, and the overall mark where the period needs one.
+ */
+export function stillNeededLine(
+  questions: number,
+  markMissing: boolean,
+): string | null {
+  if (questions === 0) {
+    return markMissing
+      ? "The overall mark still needs an answer before this can go."
+      : null;
+  }
+  const counted =
+    questions === 1 ? "1 question" : `${String(questions)} questions`;
+  if (markMissing) {
+    return `${counted} and the overall mark still need an answer before this can go.`;
+  }
+  return questions === 1
+    ? "1 question still needs an answer before this can go."
+    : `${counted} still need an answer before this can go.`;
 }
 
 /** A signature of what is in a box, to tell "changed" from "typed and undone". */

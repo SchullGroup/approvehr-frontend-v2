@@ -26,14 +26,14 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
-  SCORE_COMPONENT_ORDER,
   scoringWeightProblem,
   shareOfTotalBp,
   weightLabel,
+  weightSetFromRows,
   type ApiScoringWeights,
   type ScoreComponent,
-  type WeightSet,
 } from "@/lib/api/performance";
+import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
 import { useCan } from "@/lib/permissions";
 import { useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
@@ -98,6 +98,8 @@ const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
     "Ratings against competencies filed under Behavioural competency.",
   LEADERSHIP:
     "Ratings under Leadership, and only for people who lead others: somebody reports to them, they lead a team, or they head a department.",
+  MANAGER_APPRAISAL:
+    "The overall mark each appraiser gave, weighted by their share when a person has more than one. Starts at 0%.",
   SELF_ASSESSMENT:
     "How somebody rated themselves: their overall mark if they gave one, otherwise their own answers to the rated subsections their manager answers too.",
 };
@@ -237,15 +239,21 @@ export function ScoringWeightsForm({
       (row.about.trim() === "" ? builtInDescription(row) : row.about.trim()) !==
       savedDescription(row),
   );
-  const dirty =
-    renamed.length > 0 ||
-    redescribed.length > 0 ||
-    entries.some(
-      (row) =>
-        row.weightBp !==
-        (weights?.rows.find((saved) => saved.component === row.component)
-          ?.weightBp ?? 0),
-    );
+  /* Whether any weight, as typed, differs from the saved one. What the API says
+     about the Manager appraisal weight depends on the weights beside it too, so
+     it is said to be about the saved set whenever any of them has moved. */
+  const weightsMoved = entries.some(
+    (row) =>
+      row.weightBp !==
+      (weights?.rows.find((saved) => saved.component === row.component)
+        ?.weightBp ?? 0),
+  );
+  const dirty = renamed.length > 0 || redescribed.length > 0 || weightsMoved;
+  /* Whether this server has the Manager appraisal part at all: it sends a row
+     for it. A server that predates it sends none, and nothing here is drawn or
+     sent for a part it has not heard of. */
+  const managerAppraisalLabel =
+    rows.find((row) => row.component === "MANAGER_APPRAISAL")?.label ?? null;
 
   /* The gap a self-rating can move, expressed once. A person who rates
      themselves 5 out of 5 instead of 3 out of 5 moves that component by half its
@@ -268,16 +276,11 @@ export function ScoringWeightsForm({
     if (draft === null) return;
     setSaving(true);
     try {
-      /* All six, always: Weekly tasks is sent even when the API's rows did
-         not carry it, so a save can never leave the set one key short. */
-      const payload = SCORE_COMPONENT_ORDER.reduce<WeightSet>(
-        (out, component) => ({
-          ...out,
-          [component]:
-            entries.find((row) => row.component === component)?.weightBp ?? 0,
-        }),
-        {} as WeightSet,
-      );
+      /* Every part the server has always had, even when its rows did not carry
+         one (Weekly tasks is sent so a save can never leave the set one key
+         short), and Manager appraisal only when the server sent a row for it:
+         a part it has not heard of is left out, never written as 0. */
+      const payload = weightSetFromRows(entries);
       /* Only the parts whose name changed: one left out keeps its name, and a
          blank goes back to the built-in one (the API reads "" that way). */
       const labels = Object.fromEntries(
@@ -421,6 +424,7 @@ export function ScoringWeightsForm({
                     {entries.map((row) => (
                       <div
                         key={row.component}
+                        data-part={row.component}
                         className="grid gap-3 sm:grid-cols-[1fr_9rem] sm:items-start"
                       >
                         <div className="flex min-w-0 flex-col gap-1.5">
@@ -478,6 +482,20 @@ export function ScoringWeightsForm({
                               ? "Left out of the mark"
                               : `${weightLabel(shareOfTotalBp(row.weightBp, totalBp))} of a mark`}
                           </p>
+                          {/* What this weight does to a mark, in the API's own
+                              words, beside the weight that causes it: that a
+                              manager's judgement then reaches the score both
+                              through the levels they record and through this
+                              overall mark. Nothing here writes a sentence of
+                              its own about it. It is about the **saved** set,
+                              and says so whenever a weight has been moved. */}
+                          {row.component === "MANAGER_APPRAISAL" &&
+                            weights?.managerAppraisalNote && (
+                              <SavedWeightsNote
+                                note={weights.managerAppraisalNote}
+                                moved={weightsMoved}
+                              />
+                            )}
                         </div>
                         {canManage && editable ? (
                           <Field
@@ -601,7 +619,11 @@ export function ScoringWeightsForm({
           <div hidden={tab !== "marks"} className="flex flex-col gap-6">
             {/* First, because it decides whether the names below are ever
                 offered on a form. */}
-            <OverallMarkCard connected={source === "api"} onChanged={reload} />
+            <OverallMarkCard
+              connected={source === "api"}
+              onChanged={reload}
+              managerAppraisalLabel={managerAppraisalLabel}
+            />
             {scale}
           </div>
         </Tabs>

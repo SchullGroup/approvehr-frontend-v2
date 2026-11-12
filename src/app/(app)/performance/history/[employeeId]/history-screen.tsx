@@ -37,6 +37,7 @@ import {
   type ApiHistoryPoint,
   type ApiScoreHistory,
 } from "@/lib/api/performance";
+import { scoredFromSentence } from "@/lib/performance/score-wording";
 import { BAND_TONE, useScoreHistory } from "@/lib/store/performance";
 
 const TAB_ITEMS = [
@@ -566,7 +567,7 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           value:
             point.appraiserMark.ratingBp === null
               ? "None yet"
-              : `${scoreLabel(point.appraiserMark.ratingBp)}, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). For reference; it is not part of the score.`,
+              : `${scoreLabel(point.appraiserMark.ratingBp)}, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
         },
       ]}
     />

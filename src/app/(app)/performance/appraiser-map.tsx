@@ -622,7 +622,7 @@ function PersonTableRow({
       </TD>
       <TD align="right">
         <IconButton
-          label={`Share the mark for ${row.employeeName} between several appraisers`}
+          label={`Set several appraisers for ${row.employeeName} and their shares`}
           variant="ghost"
           onClick={onEdit}
         >
@@ -832,7 +832,7 @@ export function AppraisersDialog({
       open
       onClose={onClose}
       title={`Who appraises ${row.employeeName}`}
-      description="Everybody who has a say, and how much of the mark each one carries. The shares have to make 100%."
+      description="Everybody who has a say, and how much each one's overall mark weighs against the others'. The shares have to make 100%."
       size="lg"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">

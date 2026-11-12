@@ -28,7 +28,9 @@ import {
 } from "./draft-storage";
 import { draftForPick, pickOptions, ratingOptions } from "./focus-question";
 import {
+  asksOverallMark,
   closingNoteWords,
+  needsOverallMark,
   onRecordOf,
   savedAnswerStands,
   sigOf,
@@ -64,7 +66,7 @@ import {
  * of their own — they travel with the send — so those are kept in this browser
  * until it goes (`draft-storage.ts`).
  *
- * ## The overall mark is the company's choice
+ * ## The overall mark is the company's choice, and sometimes the period's
  *
  * A review is its answers, and the form ends with "Is there an overall mark?"
  * only where the company has switched that on (`ApiReviewDetail.overallMark`, set
@@ -73,6 +75,12 @@ import {
  * asked is read **once**, when the form opens: a switch moved while somebody is
  * halfway through must not reshuffle the pages under them, and the API takes a
  * mark either way.
+ *
+ * A manager's form in a period that weights the Manager appraisal part is the
+ * exception (`overallMarkRequired`): the page is there whatever the company's
+ * switch says, it does not ask whether there is one, and the review does not go
+ * until one is given. It is treated like a required question: going on without
+ * it is nudged, and pressing Send walks the person to it rather than sending.
  *
  * ## What is on the record is not always what is in the box
  *
@@ -122,7 +130,8 @@ export function FocusForm({
   const development = useDevelopmentSuggestions();
 
   /* Read once. See "The overall mark is the company's choice" above. */
-  const [withMark] = useState(() => review.overallMark === true);
+  const [withMark] = useState(() => asksOverallMark(review));
+  const [markRequired] = useState(() => needsOverallMark(review));
 
   const steps = useMemo<Step[]>(
     () => [
@@ -186,6 +195,9 @@ export function FocusForm({
 
   /** The API says Send would be refused right now, and why. See `ApiReviewDetail`. */
   const sendClosed = Boolean(review.sendBlockedBy);
+
+  /** The period needs an overall mark and none has been picked. */
+  const markMissing = withMark && markRequired && !mark;
 
   /** Manager and peer forms get the language check; a self-review does not. */
   const coaching = review.kind !== "SELF";
@@ -359,6 +371,13 @@ export function FocusForm({
       setNudged(true);
       return;
     }
+    if (markMissing) {
+      /* The same walk for the mark, which is the page straight after the
+         questions. */
+      go(1 + review.questions.length);
+      setNudged(true);
+      return;
+    }
     if (coaching && languageFindings.length > 0 && !languageSeen) {
       setSeenFindings(findingsSignature);
       return;
@@ -403,6 +422,10 @@ export function FocusForm({
       current.question.required &&
       !filled(current.question, onRecord(current.question))
     ) {
+      setNudged(true);
+      return;
+    }
+    if (current.kind === "mark" && markMissing) {
       setNudged(true);
       return;
     }
@@ -491,7 +514,7 @@ export function FocusForm({
     (current.kind === "question" &&
       !current.question.required &&
       !filled(current.question, onRecord(current.question))) ||
-    (current.kind === "mark" && !mark) ||
+    (current.kind === "mark" && !mark && !markRequired) ||
     (current.kind === "summary" && !summary.trim());
 
   const nextLabel =
@@ -654,6 +677,9 @@ export function FocusForm({
               mark={mark}
               onPick={pickMark}
               onClear={() => setMark("")}
+              required={markRequired}
+              shareBp={review.appraiser?.markShareBp}
+              nudged={nudged}
             />
           )}
           {current.kind === "summary" && (
@@ -670,6 +696,7 @@ export function FocusForm({
               scale={scale}
               onRecord={onRecord}
               withMark={withMark}
+              markRequired={markRequired}
               mark={mark}
               summary={summary}
               outstanding={outstanding}

@@ -36,7 +36,11 @@ import {
   WriteBox,
   ratingOptions,
 } from "./focus-question";
-import { closingNoteWords } from "./focus-logic";
+import {
+  closingNoteWords,
+  markPageWords,
+  stillNeededLine,
+} from "./focus-logic";
 
 /**
  * What each page of the review says.
@@ -152,7 +156,11 @@ export function IntroStep({
       />
 
       {review.appraiser && (
-        <AppraiserStrip appraiser={review.appraiser} mine={review.mine} />
+        <AppraiserStrip
+          appraiser={review.appraiser}
+          mine={review.mine}
+          asksMark={review.overallMark === true}
+        />
       )}
 
       {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
@@ -294,18 +302,24 @@ export function MarkStep({
   mark,
   onPick,
   onClear,
+  required = false,
+  shareBp,
+  nudged = false,
 }: {
   scale: ApiRatingScale;
   mark: string;
   onPick: (value: string) => void;
   onClear: () => void;
+  /** This period needs it: there is no "leave it blank". See `needsOverallMark`. */
+  required?: boolean;
+  /** The part's share of the mark, from the API, for the line that says why it is needed. */
+  shareBp?: number | undefined;
+  /** They tried to go on without one. */
+  nudged?: boolean;
 }) {
+  const words = markPageWords(required, shareBp);
   return (
-    <Frame
-      headingId={HEADING}
-      title="Is there an overall mark?"
-      lead="Optional. Leave it if the answers say enough."
-    >
+    <Frame headingId={HEADING} title={words.title} lead={words.lead}>
       <div className="flex flex-col gap-3">
         <PickList
           name="overall-mark"
@@ -315,7 +329,7 @@ export function MarkStep({
         />
         <p className="text-meta text-muted">
           Pick one, or press its number.{" "}
-          {mark && (
+          {mark && !required && (
             <button
               type="button"
               onClick={onClear}
@@ -325,6 +339,11 @@ export function MarkStep({
             </button>
           )}
         </p>
+        {nudged && required && !mark && (
+          <p role="alert" className="text-body-sm font-medium text-danger-text">
+            This one needs an answer before you can go on.
+          </p>
+        )}
       </div>
     </Frame>
   );
@@ -401,6 +420,7 @@ export function CheckStep({
   scale,
   onRecord,
   withMark,
+  markRequired = false,
   mark,
   summary,
   outstanding,
@@ -415,6 +435,8 @@ export function CheckStep({
   onRecord: (question: ApiFormQuestion) => Draft;
   /** Whether the company asks for an overall mark, so whether it has a row here. */
   withMark: boolean;
+  /** This period needs one, so a missing mark is something to answer, like a required question. */
+  markRequired?: boolean;
   mark: string;
   summary: string;
   outstanding: ApiFormQuestion[];
@@ -426,6 +448,8 @@ export function CheckStep({
   onEdit: (where: ApiFormQuestion | "mark" | "summary") => void;
 }) {
   const words = ratingWordsFrom(scale.levels);
+  const markMissing = withMark && markRequired && !mark;
+  const stillNeeded = stillNeededLine(outstanding.length, markMissing);
   return (
     <Frame
       headingId={HEADING}
@@ -434,11 +458,9 @@ export function CheckStep({
     >
       {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
 
-      {outstanding.length > 0 && (
+      {stillNeeded && (
         <p role="alert" className="text-body-sm text-danger-text">
-          {outstanding.length === 1
-            ? "1 question still needs an answer before this can go."
-            : `${String(outstanding.length)} questions still need an answer before this can go.`}
+          {stillNeeded}
         </p>
       )}
 
@@ -489,8 +511,19 @@ export function CheckStep({
             >
               <p className="text-meta font-medium text-muted">Overall mark</p>
               <p className="mt-1 text-body-sm leading-relaxed text-ink">
-                {mark ? (words(Number(mark)) ?? mark) : "No overall mark"}
+                {mark
+                  ? (words(Number(mark)) ?? mark)
+                  : markRequired
+                    ? "Not given yet"
+                    : "No overall mark"}
               </p>
+              {markMissing && (
+                <span className="mt-1.5 block">
+                  <Badge tone="danger" size="sm">
+                    Needs an answer
+                  </Badge>
+                </span>
+              )}
             </button>
           </li>
         )}
