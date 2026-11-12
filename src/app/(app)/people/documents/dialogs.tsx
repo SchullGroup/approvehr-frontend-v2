@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy } from "lucide-react";
 import {
   Button,
+  Checkbox,
   Field,
   Input,
   Modal,
@@ -25,37 +26,42 @@ import {
 } from "@/lib/api/documents";
 import type { InlineFile } from "@/lib/api/uploads";
 import { chaseMessage, firstNameOf } from "@/lib/store/documents";
+import { useOpenSession } from "@/lib/use-open-session";
 
 /**
- * The four things anybody does with a document, as four dialogs.
+ * The things anybody does with a document, as dialogs.
  *
- * Kept together because they share one hard problem: **there is no upload
- * pipeline**, and three of them have to take a file from somebody anyway.
+ * ## The file goes up with the record
  *
- * ## The reference field, and why it is not a drop zone
+ * Two of them take a file from somebody. `FileField` reads the chosen file in
+ * the browser and hands over its bytes, and the dialog sends them in the same
+ * request that creates the record (`contentBase64`). A document is kept in the
+ * database, not in object storage, so no bucket is involved and a deployment
+ * without one attaches exactly as well as any other. One request is the point: a
+ * row recorded beside the upload, rather than with it, is a personnel file
+ * listing a certificate nobody uploaded.
  *
- * Nothing in this stack stores or serves a file. The API takes an
- * object-storage key and refuses anything that looks like a link, so a drop
- * zone here would accept a certificate, appear to succeed, and hold nothing —
- * which is worse than not offering it. What it takes instead is where the file
- * is kept: a folder path, a file name, a document reference. One short line
- * says so, and the field is usable today.
+ * A file the API refuses (too large, an unreadable type) is refused in the API's
+ * own sentence, and the dialog stays open with what was typed.
  *
- * `POST /api/v1/documents/employees/:id/upload-url` exists now, so
- * `ReferenceField` is gone and `FileField` takes its place: it presigns,
- * uploads to storage, and hands back the key only once the bytes are actually
- * there. The order is the point — a row recorded beside the request rather than
- * after it is a personnel file listing a certificate nobody uploaded.
+ * ## Every one of them starts blank each time it is opened
  *
- * A deployment with no bucket configured still refuses honestly, in the API's
- * own sentence, at the moment somebody picks a file.
+ * The screens keep these mounted so each can animate out, and `Modal` unmounts
+ * its children when it closes, so the controls inside start over while a field
+ * held above them does not. The old dialogs held their fields above the `Modal`:
+ * after a document was added, "Add a document" opened with the last name and the
+ * last file still in it, over a file picker that read "Choose a file". The button
+ * was live. One more press made a duplicate; the next request was answered with
+ * the previous request's PDF; one person's ID card went onto another's file.
+ *
+ * So each exported dialog is a thin wrapper that holds nothing but a session
+ * number (`useOpenSession`) and renders the real form below it, keyed by it. A
+ * new key is a new form, which owns every field. See `lib/use-open-session.ts`
+ * for exactly when a session starts and, as importantly, when it does not: a
+ * list that refreshes under a half-typed field must not wipe it.
  */
 
 /* --------------------------------------------------------------- the field */
-
-/* `ReferenceField` used to live here — a text input for a folder path, with a
-   line of honesty saying the product could not hold the file. Storage exists
-   now, so it is `FileField` from the design system instead. */
 
 function CategoryField({
   value,
@@ -92,15 +98,13 @@ function messageOf(error: unknown): string {
 
 /* ------------------------------------------------------ ask for a document */
 
-export function AskForDocumentModal({
-  people,
-  initial,
-  open,
-  onClose,
-  onAsk,
-}: {
+type AskProps = {
   people: { id: string; name: string }[];
-  /** Only ever read once, to seed the form — `null` while closed. */
+  /**
+   * Read once per open, to seed the form: `null` while closed, and a new object
+   * on every open (`{}` for "ask for anything"), which is why it is not read
+   * again when it changes under a form that is already open.
+   */
   initial?: {
     employeeId?: string;
     name?: string;
@@ -109,7 +113,20 @@ export function AskForDocumentModal({
   open: boolean;
   onClose: () => void;
   onAsk: (body: CreateRequestBody) => Promise<void>;
-}) {
+};
+
+export function AskForDocumentModal(props: AskProps) {
+  const session = useOpenSession(props.open);
+  return <AskForDocumentForm key={session} {...props} />;
+}
+
+function AskForDocumentForm({
+  people,
+  initial,
+  open,
+  onClose,
+  onAsk,
+}: AskProps) {
   const [employeeId, setEmployeeId] = useState(initial?.employeeId ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [category, setCategory] = useState<DocumentCategory>(
@@ -231,52 +248,72 @@ export function AskForDocumentModal({
 
 /* ------------------------------------------------------------ attach to one */
 
-/**
- * Answer a request.
- *
- * Two ways in, because both happen: point at something already on the file, or
- * give the reference of something just handed over. The API takes exactly one
- * of the two, so the control is a switch rather than two optional fields — and
- * when the file holds nothing yet there is nothing to switch to, so the switch
- * is not drawn.
- */
-export function AttachDocumentModal({
-  request: requestProp,
-  onFile,
-  open,
-  onClose,
-  onAttach,
-  /** "You" on your own screen, the person's first name on HR's. */
-  subject,
-}: {
+type AttachProps = {
   /** `null` while closed — see the freeze below for why. */
   request: ApiDocumentRequest | null;
   onFile: ApiDocument[];
   open: boolean;
   onClose: () => void;
   onAttach: (body: FulfilBody) => Promise<void>;
+  /** "You" on your own screen, the person's first name on HR's. */
   subject: "self" | "other";
-}) {
+};
+
+/**
+ * Answer a request.
+ *
+ * Two ways in, because both happen: point at something already on the file, or
+ * send the file just handed over. The API takes exactly one of the two, so the
+ * control is a switch rather than two optional fields — and when the file holds
+ * nothing yet there is nothing to switch to, so the switch is not drawn.
+ */
+export function AttachDocumentModal(props: AttachProps) {
+  const { request: requestProp, open } = props;
   /* Remembers the last real request: the parent clears its prop to null the
      instant it closes this, but the modal has to stay mounted with real
      content so `Modal` below can animate its own close off the real `open`. */
   const [request, setRequest] = useState(requestProp);
   if (requestProp && requestProp !== request) setRequest(requestProp);
 
+  /* Keyed by the request's id as well as by opening: a form for one request
+     must never go on answering for another. The same request handed over again
+     as a new object is not a new session. */
+  const session = useOpenSession(open, requestProp?.id);
+
+  if (!request) return null;
+  return <AttachDocumentForm key={session} {...props} request={request} />;
+}
+
+function AttachDocumentForm({
+  request,
+  onFile,
+  open,
+  onClose,
+  onAttach,
+  subject,
+}: Omit<AttachProps, "request"> & { request: ApiDocumentRequest }) {
   const candidates = onFile.filter(
     (d) => !d.archived && d.fulfilsRequestId === null,
   );
-  const [mode, setMode] = useState<"existing" | "new">(
+  const [chosenMode, setMode] = useState<"existing" | "new">(
     candidates.length > 0 ? "existing" : "new",
   );
-  const [documentId, setDocumentId] = useState(candidates[0]?.id ?? "");
+  const [chosenDocumentId, setDocumentId] = useState(candidates[0]?.id ?? "");
   const [file, setFile] = useState<InlineFile | null>(null);
-  const [name, setName] = useState(request?.name ?? "");
+  const [name, setName] = useState(request.name);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!request) return null;
+  /* What is chosen follows what is on the file now. The file reloads under an
+     open dialog, and a document that has been archived or attached elsewhere
+     since must not stay selected with a live button. With nothing on file to
+     pick from, the only way to answer is a new file, and the switch that would
+     say so is not drawn. */
+  const mode = candidates.length === 0 ? "new" : chosenMode;
+  const documentId = candidates.some((d) => d.id === chosenDocumentId)
+    ? chosenDocumentId
+    : (candidates[0]?.id ?? "");
 
   /* The file is set only once it has been read, and `uploading` keeps the
      button shut while it is being read. So a press can never send a record
@@ -384,13 +421,17 @@ export function AttachDocumentModal({
 
 /* ------------------------------------------------------ put one on the file */
 
-/** A document nobody asked for: a contract, an ID, whatever arrives. */
-export function AddDocumentModal({
-  whose: whoseProp,
-  open,
-  onClose,
-  onAdd,
-}: {
+/** What the dialog hands to its caller to save. */
+export type NewDocument = {
+  name: string;
+  category: DocumentCategory;
+  contentBase64: string;
+  mimeType: string;
+  /** Present, and `true`, only when the tick was offered **and** ticked. */
+  notifyEmployee?: boolean;
+};
+
+type AddProps = {
   /** Already possessive: `your`, or `Adaeze’s`. */
   whose: string;
   /* No `employeeId`. It existed only to scope the presigned upload, and the
@@ -398,23 +439,41 @@ export function AddDocumentModal({
      caller's own save, which was always the gate that mattered. */
   open: boolean;
   onClose: () => void;
-  onAdd: (body: {
-    name: string;
-    category: DocumentCategory;
-    contentBase64: string;
-    mimeType: string;
-  }) => Promise<void>;
-}) {
+  onAdd: (body: NewDocument) => Promise<void>;
+  /**
+   * Offer the "Tell them" tick. The **caller** decides, because only the caller
+   * knows the three things it depends on: that the API is there to send
+   * anything, that the reader holds `EDIT_RECORDS`, and that this is somebody
+   * else's file. Left out, there is no tick and `notifyEmployee` is never sent:
+   * the default is that nobody is told and nothing is offered that cannot work.
+   */
+  canNotify?: boolean;
+};
+
+/** A document nobody asked for: a contract, an ID, whatever arrives. */
+export function AddDocumentModal(props: AddProps) {
   /* Some callers derive `whose` from data that is only loaded while their own
      drawer is open (an employee's name); freezing it keeps the title reading
      right while this animates closed, instead of falling back to a
      placeholder the instant the caller's own data disappears. */
-  const [whose, setWhose] = useState(whoseProp);
-  if (whoseProp && whoseProp !== whose) setWhose(whoseProp);
+  const [whose, setWhose] = useState(props.whose);
+  if (props.whose && props.whose !== whose) setWhose(props.whose);
 
+  const session = useOpenSession(props.open);
+  return <AddDocumentForm key={session} {...props} whose={whose} />;
+}
+
+function AddDocumentForm({
+  whose,
+  open,
+  onClose,
+  onAdd,
+  canNotify = false,
+}: AddProps) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<DocumentCategory>("OTHER");
   const [file, setFile] = useState<InlineFile | null>(null);
+  const [notify, setNotify] = useState(false);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -446,6 +505,10 @@ export function AddDocumentModal({
                 category,
                 contentBase64: file.contentBase64,
                 mimeType: file.mimeType,
+                /* Sent as `true` or not at all. A tick that was never offered
+                   cannot have been ticked, so it is checked here as well as
+                   hidden below. */
+                ...(canNotify && notify ? { notifyEmployee: true } : {}),
               })
                 .catch((e: unknown) => setError(messageOf(e)))
                 .finally(() => setBusy(false));
@@ -488,6 +551,17 @@ export function AddDocumentModal({
             }
           }}
         />
+        {canNotify && (
+          <Checkbox
+            label="Tell them"
+            description="Sends them a notification that a document was added to their file. They can open it under Documents."
+            checked={notify}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setNotify(next);
+            }}
+          />
+        )}
       </div>
     </Modal>
   );
@@ -495,26 +569,7 @@ export function AddDocumentModal({
 
 /* ----------------------------------------------------------------- the nudge */
 
-/**
- * Chase somebody, through their own ApproveHR notifications.
- *
- * Used to be a text box and a Copy button — "copy this into WhatsApp", because
- * there was no route to send anything. There is now: opening this fires the
- * reminder straight into their inbox, the same one `createRequest` used the
- * first time. Nothing to compose, nothing to paste anywhere.
- *
- * The copy-paste text still exists, but only for the one case that is still
- * real: `notifiedEmployee: false` means the person has no sign-in, which is a
- * fact about their account rather than a missing feature, and it is the same
- * state `createRequest` can return. Showing it as the default for everybody
- * would misdescribe the other 90% of reminders, which now genuinely send.
- */
-export function RemindModal({
-  request: requestProp,
-  open,
-  onClose,
-  onRemind,
-}: {
+type RemindProps = {
   /* Structural rather than `ApiDocumentRequest`: the compliance list opens this
      too, and a `ComplianceRow` carries these fields but is not a request.
      `id` is nullable for the same reason — a future `kind: "DOCUMENT"` row
@@ -533,18 +588,49 @@ export function RemindModal({
   open: boolean;
   onClose: () => void;
   onRemind: (id: string) => Promise<{ notifiedEmployee: boolean }>;
-}) {
+};
+
+/**
+ * Chase somebody, through their own ApproveHR notifications.
+ *
+ * Used to be a text box and a Copy button — "copy this into WhatsApp", because
+ * there was no route to send anything. There is now: opening this fires the
+ * reminder straight into their inbox, the same one `createRequest` used the
+ * first time. Nothing to compose, nothing to paste anywhere.
+ *
+ * The copy-paste text still exists, but only for the one case that is still
+ * real: `notifiedEmployee: false` means the person has no sign-in, which is a
+ * fact about their account rather than a missing feature, and it is the same
+ * state `createRequest` can return. Showing it as the default for everybody
+ * would misdescribe the other 90% of reminders, which now genuinely send.
+ */
+export function RemindModal(props: RemindProps) {
+  const { request: requestProp, open } = props;
   /* Remembers the last real request: the parent clears its prop to null the
      instant it closes this, but the modal has to stay mounted with real
      content so `Modal` below can animate its own close off the real `open`. */
   const [request, setRequest] = useState(requestProp);
   if (requestProp && requestProp !== request) setRequest(requestProp);
 
+  /* A reminder is sent each time this opens, not once per request: opening it
+     again for the same person is asking to nudge them again, and a dialog that
+     kept last time's "Sent" would say so without sending anything. */
+  const session = useOpenSession(open);
+
+  if (!request) return null;
+  return <RemindForm key={session} {...props} request={request} />;
+}
+
+function RemindForm({
+  request,
+  open,
+  onClose,
+  onRemind,
+}: Omit<RemindProps, "request"> & {
+  request: NonNullable<RemindProps["request"]>;
+}) {
   const toast = useToast();
-  const message = useMemo(
-    () => (request ? chaseMessage(request) : ""),
-    [request],
-  );
+  const message = useMemo(() => chaseMessage(request), [request]);
   /* No "idle" phase: a request with an id always has a reminder in flight by
      the time anything paints, so there is nothing for an idle state to
      describe. */
@@ -553,7 +639,7 @@ export function RemindModal({
     | { phase: "sent" }
     | { phase: "no-account" }
     | { phase: "failed"; message: string }
-  >({ phase: request?.id == null ? "no-account" : "sending" });
+  >({ phase: request.id === null ? "no-account" : "sending" });
 
   /* Bumped by "Try again" to run the effect below a second time against the
      same request id, which does not otherwise change. */
@@ -566,7 +652,7 @@ export function RemindModal({
      effect running and the state being set — which an inlined async body
      gives it. Every `setState` below is already past that `await`. */
   useEffect(() => {
-    if (!request || request.id === null) return;
+    if (request.id === null) return;
     const id = request.id;
     let cancelled = false;
     void (async () => {
@@ -584,9 +670,7 @@ export function RemindModal({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request?.id, attempt]);
-
-  if (!request) return null;
+  }, [request.id, attempt]);
 
   const firstName = firstNameOf(request.employeeName);
   const showMessage = state.phase === "no-account" || state.phase === "failed";
@@ -659,29 +743,39 @@ export function RemindModal({
 /* ----------------------------------------------------------------- the drop */
 
 /** Dropping a requirement. The reason is stored, so it is asked for properly. */
-export function WaiveModal({
-  request: requestProp,
-  open,
-  onClose,
-  onWaive,
-}: {
+type WaiveProps = {
   /** `null` while closed — see the freeze below for why. */
   request: ApiDocumentRequest | null;
   open: boolean;
   onClose: () => void;
   onWaive: (reason: string) => Promise<void>;
-}) {
+};
+
+export function WaiveModal(props: WaiveProps) {
+  const { request: requestProp, open } = props;
   /* Remembers the last real request: the parent clears its prop to null the
      instant it closes this, but the modal has to stay mounted with real
      content so `Modal` below can animate its own close off the real `open`. */
   const [request, setRequest] = useState(requestProp);
   if (requestProp && requestProp !== request) setRequest(requestProp);
 
+  /* The reason is stored with the drop, so a reason typed for one request must
+     never be on the button for the next. */
+  const session = useOpenSession(open, requestProp?.id);
+
+  if (!request) return null;
+  return <WaiveForm key={session} {...props} request={request} />;
+}
+
+function WaiveForm({
+  request,
+  open,
+  onClose,
+  onWaive,
+}: Omit<WaiveProps, "request"> & { request: ApiDocumentRequest }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (!request) return null;
 
   return (
     <Modal

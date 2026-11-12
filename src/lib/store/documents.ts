@@ -134,6 +134,63 @@ export function chaseMessage(request: {
   return `Hi ${who}, we still need your ${what}. ${when} Open ApproveHR and go to My documents to attach it.`;
 }
 
+/**
+ * What to say once a document has been added to somebody's file.
+ *
+ * `asked` is whether the "Tell them" tick was on. `notifiedEmployee` is the
+ * API's own answer, and it is the only thing that may put a sentence about
+ * telling somebody on screen:
+ *
+ * - **`true`** (and asked): they were told, and where to find it.
+ * - **`false`** (and asked): they have no sign-in, so nobody was told. That is
+ *   a fact about their account, not a failure of the add: the document is on the
+ *   file, and HR is left to tell them some other way. It is a warning because
+ *   somebody would otherwise assume the person knows.
+ * - **absent**, with the tick on: an older server dropped a field it did not know
+ *   and answered with the document alone. Whether they were told is **not
+ *   known**, so nothing is said about it. Reading absent as `false` would warn
+ *   about a person who may have been told; reading it as `true` would claim it
+ *   of one who was not.
+ * - **not asked**: as it always was. An answer that carries `true` anyway is
+ *   not read, because nothing was asked of it.
+ */
+export function addedNotice({
+  asked,
+  notifiedEmployee,
+  employeeName,
+}: {
+  asked: boolean;
+  notifiedEmployee: boolean | undefined;
+  employeeName?: string | undefined;
+}): { title: string; tone: "success" | "warning"; detail?: string } {
+  const title = "Added to the file";
+  if (!asked || notifiedEmployee === undefined) {
+    return { title, tone: "success" };
+  }
+  const who =
+    employeeName && employeeName.trim() !== ""
+      ? firstNameOf(employeeName.trim())
+      : "They";
+  if (notifiedEmployee) {
+    return {
+      title,
+      tone: "success",
+      detail:
+        who === "They"
+          ? "They were told, and can open it under Documents."
+          : `${who} was told, and can open it under Documents.`,
+    };
+  }
+  return {
+    title,
+    tone: "warning",
+    detail:
+      who === "They"
+        ? "They have no sign-in yet, so nobody was told."
+        : `${who} has no sign-in yet, so nobody was told.`,
+  };
+}
+
 /* ---------------------------------------------------------------- the guard */
 
 /** Demo mode refuses each write by name, rather than one vague message. */

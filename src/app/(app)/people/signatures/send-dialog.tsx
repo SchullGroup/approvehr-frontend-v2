@@ -24,6 +24,7 @@ import {
 import type { InlineFile } from "@/lib/api/uploads";
 import { useEmployeeSearch } from "@/lib/store/employees-api";
 import { useSignatureMutations } from "@/lib/store/signatures";
+import { useOpenSession } from "@/lib/use-open-session";
 
 /**
  * Send a document for signature.
@@ -60,16 +61,35 @@ import { useSignatureMutations } from "@/lib/store/signatures";
  * whoever the contract is with. The API's only constraint is that the person
  * exists and is not archived. `Picker` searches, which a `<select>` of two
  * hundred people does not.
+ *
+ * ## It is a new form every time it is opened
+ *
+ * The screen keeps this mounted so the dialog can animate out, and `Modal`
+ * unmounts its children when it closes. So the file picker started over while
+ * the fields above it did not: after one contract was sent, the next open showed
+ * a picker reading "Choose a file" over a button that was still live and still
+ * carried the last PDF, and the last person picked. Press it and that document
+ * went for signature to somebody it was never meant for, in the company's name,
+ * on a record that cannot be unsent.
+ *
+ * So the fields, and the people search that feeds the picker, live one level
+ * down, and this decides when a new form starts: the dialog opening. It does
+ * not start one when the dialog closes, so what is on screen does not change
+ * while it animates away. Cancel therefore discards what was typed, as every
+ * other dialog here does. See `lib/use-open-session.ts`.
  */
-export function SendDialog({
-  open,
-  onClose,
-  onSent,
-}: {
+type SendDialogProps = {
   open: boolean;
   onClose: () => void;
   onSent: () => void;
-}) {
+};
+
+export function SendDialog(props: SendDialogProps) {
+  const session = useOpenSession(props.open);
+  return <SendForm key={session} {...props} />;
+}
+
+function SendForm({ open, onClose, onSent }: SendDialogProps) {
   const mutations = useSignatureMutations();
   /* Found by typing. This was the first two hundred people, which is the API's
      page ceiling, so the two hundred and first could not be sent a contract. */

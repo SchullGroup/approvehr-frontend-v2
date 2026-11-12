@@ -62,10 +62,11 @@ import { EmployeeFileDrawer } from "./employee-file";
  *
  * ## The chase button
  *
- * There is no remind endpoint. Creating a request notifies the person once;
- * asking again has no route, so nothing here claims to send one — Remind writes
- * the message and hands it over. See `chaseMessage` in
- * `lib/store/documents.ts` for the seam.
+ * Remind sends a real notification, through the same inbox that asking used the
+ * first time (`POST /documents/requests/:id/remind`), and the dialog says who
+ * it reached. Only for somebody with no sign-in, where there is no inbox to put
+ * it in, does it fall back to a message to copy: see `chaseMessage` in
+ * `lib/store/documents.ts`.
  */
 type DocumentsTab = "received" | "waiting" | "files";
 
