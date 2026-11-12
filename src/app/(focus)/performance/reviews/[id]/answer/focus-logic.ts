@@ -1,10 +1,16 @@
-import type { ApiFormQuestion, ApiReviewDetail } from "@/lib/api/performance";
+import {
+  weightLabel,
+  type ApiAppraiserContext,
+  type ApiFormQuestion,
+  type ApiReviewDetail,
+} from "@/lib/api/performance";
 import {
   draftFrom,
   filled,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
 import { WRITTEN_ANSWER_MAX_LENGTH } from "@/lib/performance/question-limits";
+import { appraiserStripLine } from "@/lib/performance/score-wording";
 import type { LocalDraft } from "./draft-storage";
 
 /**
@@ -47,6 +53,127 @@ export function closingNoteWords(kind: ApiReviewDetail["kind"]): {
     placeholder: "Type here if there is more to say",
     row: "Anything to add",
   };
+}
+
+/**
+ * Whether the form ends with an overall mark: the company's setting, or a period
+ * that needs one from this appraiser.
+ *
+ * Needed implies asked. A form the API will not take without a mark must never be
+ * one that has no page for it, whatever else the server sent.
+ */
+export function asksOverallMark(
+  review: Pick<ApiReviewDetail, "overallMark" | "overallMarkRequired">,
+): boolean {
+  return review.overallMark === true || review.overallMarkRequired === true;
+}
+
+/**
+ * Whether the mark has to be given before the review can go: only on a manager's
+ * form in a period that weights the Manager appraisal part. **Absent means not
+ * needed**, never needed: the API still refuses at Send where it is, in its own
+ * sentence, and the form shows that.
+ */
+export function needsOverallMark(
+  review: Pick<ApiReviewDetail, "overallMarkRequired">,
+): boolean {
+  return review.overallMarkRequired === true;
+}
+
+/**
+ * What the mark page is called, and what it says about being optional.
+ *
+ * Where it is needed the page does not ask "is there one?", and it says why: this
+ * period counts it, and for how much when the API said (`markShareBp`). The shares
+ * are the API's figures; nothing here works one out.
+ *
+ * **`markShareBp` is the whole part's share of the mark, not this appraiser's.**
+ * With several appraisers, "it counts for 30% of the mark" would be the whole
+ * part's weight said as this person's, and the strip on the same form says their
+ * own slice and the part's share separately. So where there is more than one
+ * appraiser the lead is the strip's own sentence (`appraiserStripLine`), written
+ * once, and the two pages cannot give two answers.
+ */
+export function markPageWords(
+  required: boolean,
+  appraiser?: Pick<
+    ApiAppraiserContext,
+    "weightBp" | "appraiserCount" | "markShareBp"
+  >,
+): { title: string; lead: string } {
+  if (!required) {
+    return {
+      title: "Is there an overall mark?",
+      lead: "Optional. Leave it if the answers say enough.",
+    };
+  }
+  const title = "Your overall mark";
+  const share = appraiser?.markShareBp;
+  if (appraiser && share !== undefined && share > 0) {
+    if (appraiser.appraiserCount > 1) {
+      const line = appraiserStripLine({
+        appraiser,
+        mine: true,
+        asksMark: true,
+      });
+      if (line) return { title, lead: `Needed. ${line}` };
+    }
+    return {
+      title,
+      lead: `Needed. It counts for ${weightLabel(share)} of the mark in this period.`,
+    };
+  }
+  return { title, lead: "Needed. This period counts it towards the score." };
+}
+
+/**
+ * The mark a form opens with.
+ *
+ * Only where the form asks for one at all. Then the one held in this browser
+ * wins, because it is what somebody last picked; and otherwise the one the review
+ * already holds, because a review sent back for revision keeps its rating (the
+ * API clears when it was sent, and keeps what was given). Without that a manager
+ * returned to a form that still has to carry a mark is blocked until they pick,
+ * again, a mark the record already has, and the preview says "Not given yet"
+ * beside a record that has one.
+ *
+ * A first-time form has no held mark (`null`, or absent from a fixture), so it
+ * still has to be given one. A form that does not ask for one opens on none, and
+ * sends none.
+ */
+export function startingMark(args: {
+  asks: boolean;
+  /** What this browser remembers, or "". */
+  local: string;
+  /** `ApiReview.rating`: what the record already holds. */
+  held: number | null | undefined;
+}): string {
+  if (!args.asks) return "";
+  if (args.local !== "") return args.local;
+  return args.held == null ? "" : String(args.held);
+}
+
+/**
+ * What still stops a send, in one line, or null when nothing does: the questions
+ * that need an answer, and the overall mark where the period needs one.
+ */
+export function stillNeededLine(
+  questions: number,
+  markMissing: boolean,
+): string | null {
+  if (questions === 0) {
+    return markMissing
+      ? "The overall mark still needs an answer before this can go."
+      : null;
+  }
+  const counted =
+    questions === 1 ? "1 question" : `${String(questions)} questions`;
+  if (markMissing) {
+    return `${counted} and the overall mark still need an answer before this can go.`;
+  }
+  return questions === 1
+    ? "1 question still needs an answer before this can go."
+    : `${counted} still need an answer before this can go.`;
 }
 
 /** A signature of what is in a box, to tell "changed" from "typed and undone". */

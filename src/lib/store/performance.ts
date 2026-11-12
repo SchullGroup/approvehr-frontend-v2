@@ -817,13 +817,15 @@ const SEED_RATINGS: readonly {
   { employeeId: "p-07", name: "Process and compliance", level: 2, target: 4 },
 ];
 
-/* What a demo period was fixed with: the shipped defaults, Weekly tasks at 0. */
+/* What a demo period was fixed with: the shipped defaults, Weekly tasks and
+   Manager appraisal at 0. */
 const DEMO_FROZEN_WEIGHTS: WeightSet = {
   OBJECTIVES: 4_000,
   TASKS: 0,
   CORE_COMPETENCY: 2_500,
   BEHAVIOURAL_COMPETENCY: 2_000,
   LEADERSHIP: 1_500,
+  MANAGER_APPRAISAL: 0,
   SELF_ASSESSMENT: 0,
 };
 
@@ -4146,6 +4148,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
       weightBp: 2_000,
     },
     { component: "LEADERSHIP", label: "Leadership", weightBp: 1_500 },
+    { component: "MANAGER_APPRAISAL", label: "Manager appraisal", weightBp: 0 },
     { component: "SELF_ASSESSMENT", label: "Self-assessment", weightBp: 0 },
   ],
   totalBp: FULL_WEIGHT_BP,

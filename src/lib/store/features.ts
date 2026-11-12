@@ -334,7 +334,7 @@ export const FEATURE_COPY: Record<
      management", and everybody recognises "two managers judging one person". */
   multiAppraiser: {
     label: "More than one appraiser per person",
-    line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser gets a share of the mark.",
+    line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser's share decides how much their overall mark weighs.",
   },
   /* Named for what it does rather than what it is called. "Two-factor
      authentication" is a phrase people have learnt to skip past; "a code from

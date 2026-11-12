@@ -39,8 +39,8 @@ export function nameList(names: readonly string[]): string {
  * did not say.
  *
  * It is a policy applied on the person's behalf, so it is said where somebody can
- * check it: the head becomes their line manager for the whole mark, and nobody
- * chose that for them.
+ * check it: the head becomes their line manager, as their only appraiser, and
+ * nobody chose that for them.
  */
 export function standInSentence(
   names: readonly string[] | undefined,
