@@ -509,7 +509,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "How much each part of an appraisal counts towards somebody's mark, and what each mark is called. The weights must make 100% exactly, and both are frozen onto an appraisal period when it starts."
+    "description": "How much each part of an appraisal counts towards somebody's mark, what each mark is called, and how long the work behind a final rating is kept. The weights must make 100% exactly, and the weights and the names are frozen onto an appraisal period when it starts."
   },
   {
     "href": "/settings/policies",

@@ -288,6 +288,33 @@ sees no change.
 > by 10%. That figure moves as you drag the weight, before you save, and it reads the same whether or
 > not forms ask for an overall mark. The API's own sentence above it says what the part is read from.
 
+The third tab on that page, **Records**, is not about scoring and moves no mark. It says how long **the
+finished work behind a final rating** is kept. The review shows what a person finished in the cycle
+beside the rating, and that list is read as it stands, so a task reopened or deleted later changes what
+an old review shows. For a company that sets a period here, the list as it stood on the day a rating was
+made final is kept with it, and removed when the period ends.
+
+|                |                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Work kept with a final rating**                                |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                       |
+| **Click**      | Type a whole number of **Months**, 1 to 120, then **Set this period**, then **Start keeping it**         |
+| **You'll see** | A toast saying it applies to ratings made final from now on, and the card now saying how long           |
+
+> ⚠️ **Nothing is kept until a company sets a period, and no figure is suggested.** The box starts empty,
+> and the card says how long is right is a decision for the company and its legal advice. It is the same
+> rule as how long rejected candidates are kept. **Stop keeping records** clears it, with one press and no
+> question, and a record already kept stays until its own date.
+
+> 💡 **What is kept, and what is not.** Which tasks the person finished in the cycle, when each was finished
+> and whether it met its due date, who set it when somebody else did, and whether it sat under an objective.
+> **Never task titles**, descriptions, comments, files, time spent or points: a title can hold health or
+> trade-union details. Nothing is kept while Projects is switched off, and a rating made final before a period
+> was set has nothing kept. A change of period affects only ratings made final afterwards, and a formal
+> dispute of a rating keeps its record a full period longer. The record is read by the people who can read the
+> review and the person's work: the person, their manager, an assigned appraiser and HR. On a server that has
+> not been updated, the card says so and offers nothing to change.
+
 ### Phase B — once per period: build it, and leave it as a draft
 
 A draft period is invisible to everybody except the person building it. Nobody has a form and nobody
@@ -1152,6 +1179,13 @@ tells the person.
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
 > route is step 30.
 
+> 💡 **The confirmation says what was kept with it.** For a company that has set a period under
+> **Records** (step 3), after the rating is final the confirmation adds a line such as _"A record of the 7
+> tasks Femi finished in this cycle is kept with it until 1 Nov 2027."_ An empty record says so ("no finished
+> tasks were recorded for Femi in this cycle"), and a record cut at its limit says it holds the newest of more.
+> For a company that has not set a period it says nothing about a record, and neither does a server that has
+> not been updated.
+
 > 💡 **HR can add a recommendation as they make it final.** Somebody holding **Edit records** sees an
 > optional box in the confirmation, **Your recommendation (optional)**, with the line _"Femi will read it
 > with their rating."_ under it, on the page and not behind an icon. It is written in the same step that
@@ -1326,6 +1360,18 @@ never as a score, in four more places:
   switched Projects on does not see it at all.** A person with nothing recorded reads "No finished tasks were
   recorded for you on the project boards in this period", which says nothing about the rest of their work. It
   is collapsed on a phone, and it does not change the mark.
+- **Work when the rating was made final**, on a manager's review whose rating is final, for a company that
+  kept it (see **Records** in step 3). It leads, in place of the list above: the finished tasks as they stood on
+  the day the rating was made final, with the totals, each task as its key (a link that opens the task as it is
+  now), the day it was finished, on time or late, **Personal** and **Set by**, and **Under an objective**. **It
+  shows no task title**, and says so: _Task titles are not kept in this record. Open a task to read it as it is
+  now._ A line says when it is removed ("Kept until 1 Nov 2027, then removed."), with a sentence about the
+  dispute when the rating was disputed. A record cut at its limit says it holds the newest of more. The list as
+  it stands now is one press away (**Show the list as it stands now**) and is not asked for until then. When
+  nothing was kept the review says so once, above the list that is read as it stands now ("Nothing was kept of
+  this list when the rating was made final..."), and when the record has been removed it says when
+  ("...was removed on 1 Nov 2027, when its retention period ended"). Nothing of this appears before a rating
+  is final, on a self review, with Projects off, or on a server that has not been updated.
 - **Completed work**, under an objective or KPI (its detail, and the objectives to agree): the linked tasks,
   by person for a team objective; for a personal KPI also the owner's tasks linked to an objective above it,
   each marked with the level it was linked at.
@@ -1495,7 +1541,8 @@ subsection asked on the review form, and step 6 on 3 November 2026, for the lock
 subsection's name and starting a new version, and steps 6, 17, 21 and 22 again on 6 November 2026, for a
 subsection answered in the person's own words, and the paragraph on finished project work in step 18 and the
 **Work this cycle** note in step 33 on 11 November 2026, for who may read it, what it leaves out and the retired
-bridge). Every button label, field name and
+bridge, and steps 3 and 28 and the **Work when the rating was made final** note in step 33 on 12 November 2026,
+for the work kept with a final rating). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._
