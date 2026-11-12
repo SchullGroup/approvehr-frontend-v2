@@ -184,7 +184,7 @@ const SHOWN = 10;
  * Projects, so a short list is not a short record of work: meetings, mentoring and
  * anything done outside Projects are not in it. True of every server, on purpose.
  */
-function LeftOut() {
+export function LeftOut() {
   return (
     <p className="text-meta text-muted">
       This is only what was tracked in Projects. It does not show meetings,
@@ -313,7 +313,7 @@ function Body({
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+export function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-meta text-muted">{label}</dt>

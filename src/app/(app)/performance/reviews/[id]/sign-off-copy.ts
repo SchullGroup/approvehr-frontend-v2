@@ -1,4 +1,5 @@
 import { dayLabel } from "@/lib/api/performance";
+import { count } from "@/lib/projects/terms";
 
 /**
  * What is said when a rating is made final, and when its subject acknowledges it.
@@ -28,6 +29,34 @@ export type SignOffCopy = {
 };
 
 /**
+ * What was kept with a rating, as the finalise said it: how many tasks, whether that is all of
+ * them, and the day the record is removed (`until`, already a day in the company's zone, because
+ * the clock and the zone are read where the caller is).
+ */
+export type KeptCopy = {
+  items: number;
+  total: number;
+  truncated: boolean;
+  until: string;
+};
+
+/**
+ * One sentence about the record kept with a rating. Said only when one was kept: a company that
+ * has not chosen a period keeps none, and a line on every rating saying so would nag about a
+ * setting it has left as it is. An empty record is said as what it is, nothing recorded, and not
+ * as a count of nought.
+ */
+function keptLine(first: string, kept: KeptCopy): string {
+  if (kept.items === 0) {
+    return `A record of the work behind it is kept until ${kept.until}: no finished tasks were recorded for ${first} in this cycle.`;
+  }
+  const tasks = kept.truncated
+    ? `the newest ${count(kept.items, "task")} of the ${String(kept.total)} ${first} finished`
+    : `the ${count(kept.items, "task")} ${first} finished`;
+  return `A record of ${tasks} in this cycle is kept with it until ${kept.until}.`;
+}
+
+/**
  * The appraiser's side: a rating was made the rating of record.
  *
  * `subjectNotified` is `undefined` only if an older API does not send it; then
@@ -46,6 +75,7 @@ export function finalisedCopy({
   subjectNotified,
   markShown = true,
   recommended = false,
+  kept = null,
 }: {
   subjectName: string;
   cycleName: string;
@@ -54,6 +84,8 @@ export function finalisedCopy({
   markShown?: boolean;
   /** Whether HR's recommendation went with it. Defaults to no, the old wording. */
   recommended?: boolean;
+  /** The record kept with it, when the API said one was; nothing is said otherwise. */
+  kept?: KeptCopy | null;
 }): SignOffCopy {
   const first = subjectName.split(" ")[0] ?? subjectName;
 
@@ -64,6 +96,7 @@ export function finalisedCopy({
     details.push(`${first} could not be told in the app. Tell them yourself.`);
   }
   if (recommended) details.push("Your recommendation is saved with it.");
+  if (kept) details.push(keptLine(first, kept));
   details.push("It cannot be changed.");
   /* Not for somebody who could not be told: with no sign-in there is nowhere
      for them to give one, and the line would promise an answer that cannot come. */
