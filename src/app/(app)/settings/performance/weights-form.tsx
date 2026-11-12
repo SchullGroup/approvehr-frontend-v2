@@ -13,6 +13,7 @@ import {
   DescriptionList,
   Field,
   Input,
+  Textarea,
   Spinner,
   Tabs,
   TextLink,
@@ -83,12 +84,9 @@ const TAB_ITEMS: TabItem[] = [
 const STEP = "0.01";
 
 /**
- * What each component is scored from. One line, in the words a manager uses.
- *
- * Deliberately **not** a second copy of the labels: `ApiScoringWeights.rows`
- * carries the label the API sends and this screen renders that. What is here is
- * the *provenance* of each figure, which the API has no field for and which is
- * the thing somebody deciding a weight actually needs to know.
+ * What each component is scored from, for an API from before descriptions were
+ * editable. The API now sends each part's description (the company's own, or
+ * this same built-in text), and that is what the screen shows and edits.
  */
 const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
   OBJECTIVES:
@@ -103,6 +101,18 @@ const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
   SELF_ASSESSMENT:
     "How somebody rated themselves: their overall mark if they gave one, otherwise their own answers to the rated subsections their manager answers too.",
 };
+
+/** A part's description as the API has it, or the built-in text from an older API. */
+const savedDescription = (row: {
+  component: ScoreComponent;
+  description?: string;
+}): string => row.description ?? COMPONENT_SOURCE[row.component];
+
+/** The built-in description, to go back to when the box is cleared. */
+const builtInDescription = (row: {
+  component: ScoreComponent;
+  defaultDescription?: string;
+}): string => row.defaultDescription ?? COMPONENT_SOURCE[row.component];
 
 /** Percent text to integer basis points. Never a float in the payload. */
 function toBp(text: string): number {
@@ -126,6 +136,7 @@ function invalid(text: string): boolean {
 type Draft = {
   weights: Record<ScoreComponent, string>;
   labels: Record<ScoreComponent, string>;
+  descriptions: Record<ScoreComponent, string>;
 };
 
 const draftFrom = (weights: ApiScoringWeights): Draft =>
@@ -133,8 +144,12 @@ const draftFrom = (weights: ApiScoringWeights): Draft =>
     (out, row) => ({
       weights: { ...out.weights, [row.component]: toText(row.weightBp) },
       labels: { ...out.labels, [row.component]: row.label },
+      descriptions: {
+        ...out.descriptions,
+        [row.component]: savedDescription(row),
+      },
     }),
-    { weights: {}, labels: {} } as Draft,
+    { weights: {}, labels: {}, descriptions: {} } as Draft,
   );
 
 /** A part's name as it would be saved: trimmed, and the built-in one when blank. */
@@ -193,19 +208,38 @@ export function ScoringWeightsForm({
     });
   };
 
+  const describe = (component: ScoreComponent, text: string) => {
+    if (weights === null || draft === null) return;
+    setEdited({
+      from: weights,
+      value: {
+        ...draft,
+        descriptions: { ...draft.descriptions, [component]: text },
+      },
+    });
+  };
+
   const rows = weights?.rows ?? [];
   const entries = rows.map((row) => ({
     ...row,
     text: draft?.weights[row.component] ?? "0",
     weightBp: toBp(draft?.weights[row.component] ?? "0"),
     name: draft?.labels[row.component] ?? row.label,
+    about: draft?.descriptions[row.component] ?? savedDescription(row),
   }));
   const totalBp = entries.reduce((sum, row) => sum + row.weightBp, 0);
   const problem = scoringWeightProblem(entries);
   const anyInvalid = entries.some((row) => invalid(row.text));
   const renamed = entries.filter((row) => nameOf(row.name, row) !== row.label);
+  /* A blank description goes back to the built-in one, the same as a name. */
+  const redescribed = entries.filter(
+    (row) =>
+      (row.about.trim() === "" ? builtInDescription(row) : row.about.trim()) !==
+      savedDescription(row),
+  );
   const dirty =
     renamed.length > 0 ||
+    redescribed.length > 0 ||
     entries.some(
       (row) =>
         row.weightBp !==
@@ -249,8 +283,20 @@ export function ScoringWeightsForm({
       const labels = Object.fromEntries(
         renamed.map((row) => [row.component, row.name.trim()]),
       ) as Partial<Record<ScoreComponent, string>>;
+      /* Only the descriptions that changed, the same rule as the names. */
+      const descriptions = Object.fromEntries(
+        redescribed.map((row) => [row.component, row.about.trim()]),
+      ) as Partial<Record<ScoreComponent, string>>;
       const saved =
-        renamed.length > 0 ? await save(payload, labels) : await save(payload);
+        redescribed.length > 0
+          ? await save(
+              payload,
+              renamed.length > 0 ? labels : undefined,
+              descriptions,
+            )
+          : renamed.length > 0
+            ? await save(payload, labels)
+            : await save(payload);
       setEdited(null);
       toast.push({
         tone: "success",
@@ -403,9 +449,30 @@ export function ScoringWeightsForm({
                               {row.label}
                             </p>
                           )}
-                          <p className="text-meta text-muted">
-                            {COMPONENT_SOURCE[row.component]}
-                          </p>
+                          {canManage && editable ? (
+                            <Field
+                              label="Description"
+                              help={
+                                row.about.trim() !== builtInDescription(row)
+                                  ? "Clear the box to go back to the built-in description."
+                                  : undefined
+                              }
+                            >
+                              <Textarea
+                                rows={2}
+                                maxLength={300}
+                                value={row.about}
+                                placeholder={builtInDescription(row)}
+                                onChange={(event) =>
+                                  describe(row.component, event.target.value)
+                                }
+                              />
+                            </Field>
+                          ) : (
+                            <p className="text-meta text-muted">
+                              {savedDescription(row)}
+                            </p>
+                          )}
                           <p className="tabular text-meta text-muted">
                             {row.weightBp === 0
                               ? "Left out of the mark"

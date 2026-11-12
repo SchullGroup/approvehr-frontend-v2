@@ -177,6 +177,25 @@ describe("Settings: the company defaults", () => {
     });
   });
 
+  it("edits a part's description and saves only the one that changed", async () => {
+    const user = userEvent.setup();
+    render(<ScoringWeightsForm scale={null} />);
+    const boxes = screen.getAllByLabelText("Description");
+    expect(boxes).toHaveLength(6);
+    expect(boxes[0]).toHaveValue(
+      "Progress on the objectives agreed for the cycle. Draft and unapproved ones are not read.",
+    );
+    await user.clear(boxes[0]!);
+    await user.type(boxes[0]!, "What we promised, delivered.");
+    await user.click(
+      screen.getByRole("button", { name: "Save the whole set" }),
+    );
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]![2]).toEqual({
+      OBJECTIVES: "What we promised, delivered.",
+    });
+  });
+
   it("saves a total that is not 100%, since weights are proportional", async () => {
     const user = userEvent.setup();
     render(<ScoringWeightsForm scale={null} />);
