@@ -7,7 +7,7 @@ import { ScoringWeightsForm } from "./weights-form";
 export const metadata: Metadata = {
   title: "Appraisal scoring",
   description:
-    "How much each part of an appraisal counts towards somebody's mark, what each mark is called, and how long the work behind a final rating is kept. The weights must make 100% exactly, and the weights and the names are frozen onto an appraisal period when it starts.",
+    "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, and how long the work behind a final rating is kept. The parts and the names are frozen onto an appraisal period when it starts.",
 };
 
 /**

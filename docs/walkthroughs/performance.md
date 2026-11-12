@@ -266,27 +266,42 @@ The first card on that same tab decides whether a form asks for one of those wor
 
 #### 3. Set what the mark is made of
 
-Seven parts — objectives, weekly tasks, core competencies, behavioural competencies, leadership,
-**manager appraisal**, and what somebody said about themselves. You choose the weight each one carries.
-The last one is the overall mark somebody gave themselves when there is one (step 2), and otherwise **how they answered, about
-themselves, the rated subsections their manager answers too**: the mean of those answers on a
-self-review they have sent. An answer to a subsection asked of the person alone is not counted again here,
-because it is already their rating. **Weekly tasks** and **Manager appraisal** start at 0%, so a company that
-has never weighted them sees no change.
+A mark is made of **parts**, and the company writes its own list of them. A part has a **name** of the
+company's choosing, a **description** (optional), a **weight**, and the thing its mark is **scored
+from**: delivery against objectives, weekly tasks, core competencies, behavioural competencies,
+leadership, **manager appraisal**, or what somebody said about themselves. Each source backs one part at
+most, so a source another part already uses is not offered. Weights are proportional: each part counts as
+its weight over the total, and the share it comes to is shown on its row, so the total does not have to be
+100%. A company that signs up starts with no parts, and **an appraisal period cannot start until at least
+one part has a weight**.
+
+Saved parts are plain rows, not open boxes: the name, **Scored from** and the source's own name, the
+weight with the share of a mark it comes to (**Counts for nothing** at 0%), and the description. Nothing is
+a text box until you choose to add or edit.
+
+The self-assessment source is the overall mark somebody gave themselves when there is one (step 2), and
+otherwise **how they answered, about themselves, the rated subsections their manager answers too**: the
+mean of those answers on a self-review they have sent. An answer to a subsection asked of the person alone
+is not counted again here, because it is already their rating. Self-assessment counts only when a part is
+scored from it; the card under the list says what it does to a mark and says **Not counted** until then.
 
 |                |                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **The parts of a mark**                                                    |
-| **Who**        | HR / Owner                                                                                           |
-| **Click**      | Type a percentage into each **Weight** box, then **Save the whole set**                              |
-| **You'll see** | Each part shows the share of a mark it comes to. **Save the whole set** stays dead until something has changed, and while a box is not a number from 0 to 100 or every part is at 0% |
+| **Where**      | `/settings/performance` → **Parts of a mark**                                                        |
+| **Who**        | HR / Owner (everybody else can read the parts)                                                       |
+| **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from**, a **Weight** in percent, and an optional **Description**, then **Add part** again. The pencil on a row edits it in the same form, and the bin deletes it after asking |
+| **You'll see** | A toast saying the part was added, saved or deleted and, for an add or a change, that **It applies to the next appraisal period you start.** **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. The **Total** badge turns red at 0%, because a set that is all zeros cannot make a mark |
+
+> 💡 **A change here does not move a period that has started.** When a period starts, its parts and
+> weights are copied onto it, so changing or deleting a part afterwards cannot move a mark that has already
+> been awarded. Deleting asks first (**Delete the part**) and says it stops counting from the next period
+> you start. These are the company's starting parts; a single period can change its own weights (step 4).
 
 > 💡 **What Weekly tasks counts.** When it carries a weight, the part is how the manager graded the tasks
 > people logged against the period's objectives (step 18): **Completed** counts in full, **Partly
 > completed** counts half, and **Not completed** and **Rejected** count nothing. Somebody with no graded
 > tasks is not marked down: their share is spread over the other parts. A mark with Weekly tasks weighted
-> at 0% does not list it at all. These are the company's starting weights; a single period can change them
-> (step 4).
+> at 0% does not list it at all. A single period can change the weights it starts with (step 4).
 
 > 💡 **What Manager appraisal counts.** When it carries a weight, the part is the overall mark each
 > appraiser gave, weighted by their share when a person has more than one appraiser (the **Who appraises whom** screen), and a
@@ -295,11 +310,11 @@ has never weighted them sees no change.
 > alone. A mark with it weighted at 0% does not
 > list it at all. In a period that weights it, a manager's form asks for an overall mark whatever the switch in
 > step 2 says, and cannot be sent without one (step 17). Somebody whose appraisers have sent none is not marked
-> down: the part's share is spread over the other parts. The sentence under the row is the API's own and says
-> what the weight does to a mark, including that a manager's judgement then reaches the score by two routes:
-> the levels they record under Competency ratings, and this overall mark. It says so as a note, never as a
-> refusal, and it is about the saved weight, so it reads **Saved now, not yet changed:** once you have moved
-> any weight and not yet saved.
+> down: the part's share is spread over the other parts. The sentence under the part scored from it is the
+> API's own and says what the weight does to a mark, including that a manager's judgement then reaches the
+> score by two routes: the levels they record under Competency ratings, and this overall mark. It says so as
+> a note, never as a refusal. A company with no part scored from Manager appraisal has no such sentence, and
+> a manager's form then does not need an overall mark.
 
 > 💡 **Worth showing a stakeholder.** The self-assessment card underneath does the arithmetic out loud:
 > at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final mark
