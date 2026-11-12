@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Plus } from "lucide-react";
 import { Badge, Button, LinkedText, Select, Textarea } from "@/components/ui";
 import { ProjectSourceTag } from "@/components/projects/project-source-tag";
-import { ApiError } from "@/lib/api/client";
 import type { ApiKeyResult } from "@/lib/api/performance";
 import {
   TASK_GRADE_LABEL,
   TASK_GRADE_TONE,
 } from "@/lib/performance/task-grade";
+import {
+  WEEKLY_LINE_MIN_LENGTH,
+  WEEKLY_LINE_TOO_LONG,
+  addLine,
+  weeklyLineCounter,
+  weeklyLineIsOver,
+  weeklyLineRefusal,
+} from "@/lib/performance/weekly-line";
 import { useGoalTasks, useTaskActions } from "@/lib/store/performance";
+import { TaskSuggestions } from "./task-suggestions";
 
 /**
  * What was actually done toward one objective, week by week.
@@ -47,9 +55,15 @@ export function TaskLogPanel({
   const [keyResultId, setKeyResultId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const base = useId();
+  const counterId = `${base}-count`;
+  const problemId = `${base}-problem`;
+  const counter = weeklyLineCounter(description);
+  /* Said while the person is still typing, in the server's own sentence, and not after a request. */
+  const over = weeklyLineIsOver(description);
 
   const submit = async () => {
-    if (description.trim().length < 3) {
+    if (description.trim().length < WEEKLY_LINE_MIN_LENGTH) {
       setError("Say what you did.");
       return;
     }
@@ -65,9 +79,8 @@ export function TaskLogPanel({
       setAdding(false);
       reload();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError ? caught.message : "Could not log that.",
-      );
+      /* The server's sentence about the field when it wrote one, never "Some fields are not valid". */
+      setError(weeklyLineRefusal(caught));
     } finally {
       setSaving(false);
     }
@@ -94,7 +107,44 @@ export function TaskLogPanel({
             value={description}
             disabled={saving}
             placeholder="What did you do toward this, this week?"
-            onChange={(event) => setDescription(event.target.value)}
+            aria-invalid={over ? true : undefined}
+            aria-describedby={
+              [counter ? counterId : null, over ? problemId : null]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+            onChange={(event) => {
+              setDescription(event.target.value);
+              setError(null);
+            }}
+          />
+          {/* Not a maxLength: that cuts a paste without a word. The count says how near the limit the
+              line is, and past it the server's own sentence says what to do. */}
+          {counter && (
+            <p
+              id={counterId}
+              className={
+                over ? "text-meta text-danger-text" : "text-meta text-muted"
+              }
+            >
+              {counter}
+            </p>
+          )}
+          {over && (
+            <p id={problemId} className="text-meta text-danger-text">
+              {WEEKLY_LINE_TOO_LONG}
+            </p>
+          )}
+          {/* The person's own finished tasks of the week, as text for this box. It writes nothing
+              and draws nothing unless the company switched the assists on. */}
+          <TaskSuggestions
+            goalId={goalId}
+            text={description}
+            disabled={saving}
+            onAdd={(line) => {
+              setDescription((current) => addLine(current, line));
+              setError(null);
+            }}
           />
           {keyResults.length > 1 && (
             <Select
@@ -116,6 +166,7 @@ export function TaskLogPanel({
               variant="accent"
               size="sm"
               loading={saving}
+              disabled={over}
               onClick={() => void submit()}
             >
               Save it

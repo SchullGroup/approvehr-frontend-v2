@@ -44,8 +44,8 @@ import { useFeatureSettings } from "@/lib/store/features";
  * about a setting that does not exist there. Four different sentences say which of loading, could not
  * be read, server behind and no server it is.
  *
- * This is the first of the "work in reviews" switches. A second, for the two assists, belongs beside
- * it in this card's tab and is not built here.
+ * This is the first of the "work in reviews" switches. The second, for the two assists, is
+ * `work-assists-card.tsx`, under it in the same tab.
  */
 export function WorkInAnswersCard({ connected }: { connected: boolean }) {
   const features = useFeatureSettings();

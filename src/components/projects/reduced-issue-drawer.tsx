@@ -8,6 +8,7 @@ import {
   type IssueLink,
   type ReducedIssueDetail,
 } from "@/lib/api/projects";
+import { FinishMarks } from "@/components/projects/finish-marks";
 import { ObjectiveLinkControl } from "@/components/projects/objective-link";
 import { objectiveLine } from "@/lib/projects/objectives";
 import type { IssueObjective } from "@/lib/projects/types";
@@ -109,6 +110,16 @@ export function ReducedIssueDrawer({
               )}
             </dd>
           </dl>
+
+          {/* How it finished. A leader off the board may accept their report's finished task from
+              here and read nothing else about it; the section draws only what the API says this
+              reader may do, and nothing for a task with no mark. */}
+          <FinishMarks
+            key={issue.id}
+            issue={issue}
+            canMarkWontDo={detail.canMarkWontDo === true}
+            canAccept={detail.canAccept === true}
+          />
 
           {/* The one thing a leader may change here: where this task is under an
               objective. Absent when the API says they may not. */}

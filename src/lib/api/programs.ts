@@ -257,6 +257,7 @@ export function toWorkRow(raw: Raw): WorkRow {
     dueTime: strOrNull(raw["dueTime"]),
     overdue: raw["overdue"] === true,
     doneAt: strOrNull(raw["doneAt"]),
+    ...(raw["wontDo"] === true ? { wontDo: true } : {}),
     createdAt: str(raw["createdAt"]),
     updatedAt: str(raw["updatedAt"]),
     ...(raw["archivedBecause"] === "project" ||

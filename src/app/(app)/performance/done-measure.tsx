@@ -8,6 +8,7 @@ import type { ApiKeyResult } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
+import { LinkedWorkHint } from "./linked-work-hint";
 
 /**
  * A measure that is done or not done.
@@ -119,6 +120,11 @@ export function DoneMeasureRow({
           Your manager confirms it when it is done.
         </p>
       ) : null}
+
+      {/* The tasks linked to this measure, for whoever is about to confirm it. It lists and never
+          decides, draws nothing unless the company switched the assists on, and is shown only while
+          there is a Confirm to look at it beside. */}
+      {act && !confirmed && <LinkedWorkHint measureId={measure.id} />}
 
       {act && !confirmed && !asking && (
         <div>

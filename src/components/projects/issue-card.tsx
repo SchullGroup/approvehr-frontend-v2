@@ -18,6 +18,7 @@ import {
 } from "./glyphs";
 import { assigneesOf } from "@/lib/projects/assignees";
 import { AssigneeStack } from "./assignees";
+import { FinishTag } from "./finish-tag";
 
 /**
  * A card on the board.
@@ -125,6 +126,7 @@ export function IssueCard({
             <div className="flex items-center gap-2">
               <TypeIcon type={issue.type} />
               <IssueKey issueKey={issue.key} done={done} />
+              <FinishTag wontDo={issue.wontDo} accepted={issue.accepted} />
               {overdue && issue.dueDate && (
                 <span className="whitespace-nowrap text-meta font-medium text-warning-text">
                   Due {dueLabel(issue, today, "card")}

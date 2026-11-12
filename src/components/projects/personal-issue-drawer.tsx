@@ -193,6 +193,10 @@ export function PersonalIssueDrawer({
           const fresh = await projectsApi.getIssue(target.id);
           remember(target.id, fresh);
           keep(fresh);
+          /* The list behind the drawer (My tasks, with its "1 finished, 1 won't do" and the row's own
+             tag) reads the task again whenever the drawer does: a save does the same. Not on a read that
+             failed, which knows nothing changed. */
+          onChanged?.();
           return { ok: true as const, value: fresh };
         } catch (error) {
           return { ok: false as const, message: "", error };
