@@ -106,6 +106,17 @@ type State = {
    */
   workEvidenceMonths: number | null | undefined;
   /**
+   * Whether people may use their own finished project work in their review answers: pins, flags
+   * and colleagues who shared a project listed first. **Null when the server has not said**: an
+   * API one deploy behind, or demo mode, which has no company setting to carry. Null is not
+   * "off", because a switch is offered only for a setting the server actually has.
+   *
+   * Not in `flags`, which is booleans by construction and what the nav filters on: it hides no
+   * screen, and its switch is in Appraisal scoring, under Records. It is the first of the
+   * "work in reviews" switches; a second (`workAssists`) belongs beside it.
+   */
+  workInAnswers: boolean | null;
+  /**
    * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
    * company cannot set it, so it must not turn up as a toggle. The sidebar
    * reads it through `NavFacts.earlyPay`.
@@ -233,6 +244,7 @@ const LOADING: State = {
   probationMonths: PROBATION_MONTHS_FALLBACK,
   overallMark: null,
   workEvidenceMonths: undefined,
+  workInAnswers: null,
   /* Hidden until the server answers: a row that appears late is better than
      one that vanishes under somebody's pointer. */
   earlyPay: false,
@@ -782,6 +794,10 @@ function fromApi(features: ApiFeatures): State {
        absent (a server one deploy behind, with no such setting). The three are
        different, and `??` here would collapse the last two. */
     workEvidenceMonths: features.workEvidenceRetentionMonths,
+    /* Absent from an API one deploy behind, and kept as null rather than read as
+       off, as `overallMark` is: that server has no such setting, so no switch is
+       offered for it. */
+    workInAnswers: features.workInAnswers ?? null,
     /* An API one deploy behind does not send it, and that API has no switch
        to have turned anybody off. */
     earlyPay: features.earlyPay ?? true,
@@ -844,6 +860,9 @@ function fromDemo(demo: DemoState): State {
     overallMark: null,
     /* No record is kept in a browser, so no period is chosen here either. */
     workEvidenceMonths: undefined,
+    /* Nothing is pinned, flagged or suggested in a browser: those need the
+       server, and a switch for them would describe no record anywhere. */
+    workInAnswers: null,
     /* Nobody switches a demo company off. */
     earlyPay: true,
     earnedWage: null,
@@ -1004,6 +1023,7 @@ export function useFeatureSettings() {
     | "headcountBand"
     | "overallMark"
     | "workEvidenceRetentionMonths"
+    | "workInAnswers"
     | null
   >(null);
 
@@ -1016,7 +1036,8 @@ export function useFeatureSettings() {
         | FeatureKey
         | "headcountBand"
         | "overallMark"
-        | "workEvidenceRetentionMonths",
+        | "workEvidenceRetentionMonths"
+        | "workInAnswers",
     ): Promise<FeatureFlags & { headcountBand: HeadcountBand }> => {
       setSaving(field);
       try {
@@ -1127,6 +1148,17 @@ export function useFeatureSettings() {
     setWorkEvidenceMonths: useCallback(
       (workEvidenceRetentionMonths: number | null) =>
         save({ workEvidenceRetentionMonths }, "workEvidenceRetentionMonths"),
+      [save],
+    ),
+    /** See `State.workInAnswers`. */
+    workInAnswers: state.workInAnswers,
+    /**
+     * Whether people may use their own finished project work in their review answers. Turning it
+     * off keeps everything already written and stops anything new; it takes effect for the next
+     * thing anybody does, and nothing already sent is touched.
+     */
+    setWorkInAnswers: useCallback(
+      (workInAnswers: boolean) => save({ workInAnswers }, "workInAnswers"),
       [save],
     ),
   };

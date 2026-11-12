@@ -12,7 +12,8 @@ import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { useKeptWork } from "@/lib/store/kept-work";
 import { formatDateShort } from "@/lib/time";
-import { Fact, LeftOut, WorkThisCycle } from "./work-this-cycle";
+import { useFlagging } from "./work-flags";
+import { Fact, FlagNote, LeftOut, WorkThisCycle } from "./work-this-cycle";
 
 /**
  * The work behind a rating, on a review.
@@ -47,6 +48,14 @@ import { Fact, LeftOut, WorkThisCycle } from "./work-this-cycle";
  * Like the live list, nothing is drawn while the company has Projects off or its switches are
  * still on their way. Nothing is deleted when Projects goes off, and it is all there when it
  * comes back.
+ *
+ * ## "This is wrong"
+ *
+ * A row of the record carries the person's flag, and the person's controls for it, exactly as a row
+ * of the live list does (`WorkThisCycle`), and from the same shared state: a flag that was written is
+ * drawn whether or not the switch is still on, and raising or changing one needs it on. A flag is the
+ * person's word that an item is not right. It does not remove the item from the record or change the
+ * mark.
  */
 export function WorkBehindTheMark({
   reviewId,
@@ -139,6 +148,10 @@ export function WorkBehindTheMark({
       timeZone={timeZone}
       who={own ? "you" : subjectName}
       live={live}
+      cycleId={cycleId}
+      subjectId={subjectId}
+      subjectName={subjectName}
+      own={own}
     />
   );
 }
@@ -149,12 +162,20 @@ function KeptBesideLive({
   timeZone,
   who,
   live,
+  cycleId,
+  subjectId,
+  subjectName,
+  own,
 }: {
   record: KeptWorkRecord;
   disputed: boolean;
   timeZone: string;
   who: string;
   live: React.ReactNode;
+  cycleId: string | null;
+  subjectId: string;
+  subjectName: string;
+  own: boolean;
 }) {
   const [showLive, setShowLive] = useState(false);
   return (
@@ -164,6 +185,10 @@ function KeptBesideLive({
         disputed={disputed}
         timeZone={timeZone}
         who={who}
+        cycleId={cycleId}
+        subjectId={subjectId}
+        subjectName={subjectName}
+        own={own}
       />
       {showLive ? (
         live
@@ -197,19 +222,35 @@ function KeptRecord({
   disputed,
   timeZone,
   who,
+  cycleId,
+  subjectId,
+  subjectName,
+  own,
 }: {
   record: KeptWorkRecord;
   disputed: boolean;
   timeZone: string;
   who: string;
+  cycleId: string | null;
+  subjectId: string;
+  subjectName: string;
+  own: boolean;
 }) {
   const phone = usePhone();
+  const flagging = useFlagging({
+    cycleId,
+    subjectId,
+    subjectName,
+    own,
+    enabled: true,
+  });
   const [choice, setChoice] = useState<boolean | null>(null);
   const [all, setAll] = useState(false);
   const open = choice ?? !phone;
   const { summary, items } = record;
   const rows = all ? items : items.slice(0, SHOWN);
   const period = `${dayLabel(record.period.start)} to ${dayLabel(record.period.end)}`;
+  const flagged = flagging.countIn(items.map((item) => item.id));
 
   return (
     <Disclosure
@@ -219,6 +260,7 @@ function KeptRecord({
         summary.finished > 0 ? (
           <span className="text-body-sm font-normal text-muted">
             {count(summary.finished, "task")} finished
+            {flagged ? ` · ${flagged}` : ""}
           </span>
         ) : undefined
       }
@@ -259,9 +301,15 @@ function KeptRecord({
               >
                 Finished tasks
               </h4>
+              <FlagNote flagging={flagging} />
               <ul className="divide-y divide-line">
                 {rows.map((item) => (
-                  <KeptRow key={item.id} item={item} timeZone={timeZone} />
+                  <KeptRow
+                    key={item.id}
+                    item={item}
+                    timeZone={timeZone}
+                    extra={flagging.lineFor(item.id, item.key)}
+                  />
                 ))}
               </ul>
               {items.length > SHOWN && (
@@ -285,6 +333,8 @@ function KeptRecord({
           </>
         )}
 
+        {flagging.dialog}
+
         <div className="flex flex-col gap-1.5">
           <p className="text-meta text-muted">
             Task titles are not kept in this record. Open a task to read it as
@@ -300,7 +350,16 @@ function KeptRecord({
   );
 }
 
-function KeptRow({ item, timeZone }: { item: KeptWorkItem; timeZone: string }) {
+function KeptRow({
+  item,
+  timeZone,
+  extra,
+}: {
+  item: KeptWorkItem;
+  timeZone: string;
+  /** The person's flag on this row, or nothing. */
+  extra?: React.ReactNode;
+}) {
   const facts: string[] = [
     ...(item.personal ? ["Personal"] : []),
     `Finished ${formatDateShort(item.doneAt, timeZone)}`,
@@ -328,6 +387,7 @@ function KeptRow({ item, timeZone }: { item: KeptWorkItem; timeZone: string }) {
           <span key={index}>{fact}</span>
         ))}
       </p>
+      {extra}
     </li>
   );
 }

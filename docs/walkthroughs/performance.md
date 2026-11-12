@@ -333,6 +333,38 @@ made final is kept with it, and removed when the period ends.
 > review and the person's work: the person, their manager, an assigned appraiser and HR. On a server that has
 > not been updated, the card says so and offers nothing to change.
 
+Under it, the same tab holds **Work in review answers**: whether people may use their own finished project
+work in what they write about it. **It is off for every company**, it moves no mark, and it only does
+anything while Projects is switched on.
+
+|                |                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Work in review answers**                                               |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                               |
+| **Click**      | The switch **Let people use their own project work in their review answers**, then **Switch it on**              |
+| **You'll see** | A toast, _People can now use their own work in their review answers_, and the card describing what people can do |
+
+> ⚠️ **Turning it on asks first, and says what it does.** The question, _Let people use their own work in
+> their review answers?_, lists it. A person writing their self-review can attach finished tasks from their own
+> list to an answer, each with a note of their own, and **the task's title is not saved with it**. The people
+> who read the review see them beside the answer, and the full list of finished work stays one press away for
+> them. A person can flag an item on their list as wrong, which does not remove it or change a mark. When
+> feedback is asked for, or an appraiser is chosen, the colleagues who shared a project with the person are
+> listed first, and nobody is chosen for anybody. It only works while Projects is switched on. It ends with a
+> plain reminder: _Before you switch it on, tell your staff, and check with whoever looks after data protection
+> at your company whether an assessment should be filed first. This page does not do that for you._ **Turning
+> it off is one press, with no question,** and keeps everything already written (the toast says so: _People can
+> no longer add work to their review answers_). A pin already added is still read and can still be taken off, and
+> a flag already raised stays on the list and in the count and can still be taken back; only a new pin or a new
+> or changed flag stops.
+
+> 💡 **What it never does.** Change a mark, a score, a band or a rank; save a task title with an attached task;
+> remove anything from the finished-work list; choose anybody for anybody; or offer anything while Projects is
+> switched off. What a person attaches is read by the people who can read the review, and a flag by the people
+> who can read that person's work: the person, their manager, an assigned appraiser and HR. Where Projects is
+> off the card says so, with a link to **Features**, and the switch is still there. On a server that has not
+> been updated the card says so and offers no switch.
+
 ### Phase B — once per period: build it, and leave it as a draft
 
 A draft period is invisible to everybody except the person building it. Nobody has a form and nobody
@@ -983,6 +1015,33 @@ the module, so it is worth walking properly.
   carries it, whether they fill it in themselves or their manager or a colleague does, so an
   ordinary employee who sees no leadership question is seeing it work. An answer that was already
   recorded stays on record.
+- **Add work, where the company has switched it on** (step 3). Under each question of the person's own
+  self-review there is **Add work**, which opens **Add work to this answer**: the person's finished work in
+  the period, one task at a time, each with its key, its title, the project, the day it was finished, on time
+  or late, and **Set by** when somebody else made it. The title is shown to help them choose and is **not saved
+  with the pin**, which the dialog says. They pick a task, write an optional note of up to 280 characters
+  (**Why this one? (optional)**), and press **Add to this answer**; **Done** closes it. **If a task is picked,
+  or a note typed, and it has not been added, Done (and the cross, Escape and clicking outside) asks first**:
+  _You picked PLT-12 and have not added it._, with **Keep editing**, **Discard** and **Add it and close**, and
+  nothing is thrown away until one of them is pressed. The keyboard focus goes to **Keep editing** when the
+  question appears (and back to **Done** if that is chosen), so the next key is not lost on the page behind.
+  The tasks are one named group for a screen reader (_Which task to add to this answer_). Up to five go on each
+  answer._, then _1 of 5 added._, and at five _5 of 5 added. Unpin one to add another._), and a task cannot
+  go on the same answer twice. Each is saved as it is added and not with the answer, so closing the page loses
+  nothing, and a refusal comes back in the server's own sentence, in the dialog, with the pick and the note
+  still there (if the review itself has gone it says so: _That review is not there any more, so nothing was
+  changed._); while a request is out nothing closes the dialog, so a refusal is always seen. **Add work** is
+  offered only where the period has a start and an end date, because the list is the work done between them:
+  a period with no dates says nothing about the person's work and offers nothing to choose from. The pins sit
+  under the question as **Work you added to this answer**, each with an **Unpin** until the review is sent, and
+  the **Preview** reads them back under the answer as **Work pinned to this answer**. After a pin is taken off,
+  or the dialog closes, the keyboard focus is on **Add work**, or on the list when that is off, or on the empty
+  place the list leaves when the last pin goes and nothing can be added, so the next key goes where the person
+  is and not to the page behind. While the picker is open the form's own keys are off (a letter does not pick an
+  answer behind it), and they come back when it closes, including when the company turns the setting off under
+  it: the picker goes with its button and does not return by itself. A pin can still be taken off after the
+  company turns the setting off, and nothing new is offered. A pin the server no longer holds (taken off in another window) leaves the list, and
+  one that was already gone when **Unpin** was pressed is simply removed. It does not change the mark.
 
 #### 18. _Optional_ — log what you did each week
 
@@ -1122,6 +1181,20 @@ manager's answer, and an employee's send records theirs only where the employee 
 | **Click**      | Search names, tick who to ask, send. Each of them gets a form waiting in the app         |
 | **You'll see** | Answers appear on the person's own Overview under _Peer feedback_, with no name attached |
 
+Where the company has switched on **Work in review answers** (step 3), the people who shared a project with
+the person are listed first, each saying how many (_Shared 3 projects_, _Shared 1 project_), under the line
+_People who shared a project with Femi Balogun are listed first. You still choose who to ask._ The same
+ordering is on `/performance/appraisers`: once somebody opens a row's list of people it puts **Shared a
+project** before **Everybody else**, and so does the **Appraiser** list in the dialog that shares the mark
+between several. **A list that is open is never rearranged.** What it shows is fixed at the moment somebody
+reaches into it (focus, a press, a key), and an answer that arrives after is applied the next time it is
+opened, so a name never moves under the pointer. Resting the pointer on a row's list for a moment asks early,
+so the answer is usually there by the time the list is opened, and a pointer that only crosses the table asks
+for nothing. It is a count of the projects both people belong to, with no project named and nothing about any
+task. It only orders the list. Nobody is chosen for the person, and where the server says nothing (the
+setting is off, or the reader is one it does not answer) the list is as it was and nothing claims that
+anybody shared no projects.
+
 ### Phase E — calibration: compare across the company, then make the marks final
 
 Calibration is the stage where a company looks at every mark side by side and asks whether two
@@ -1250,6 +1323,14 @@ A question only one of them was asked reads **Not asked**, which is not the same
 Under the questions, **Closing note and recommendations** puts the manager's recommendations beside
 anything the person added, and **Overall mark** appears as a row only where the company asks for one or
 somebody gave one. Where the self-review is not there the card is simply **Manager review**.
+
+Where the person pinned finished work to an answer (step 17), it is read under their answer in the **Self
+review** column: _Work pinned to this answer_ (or _2 pieces of work pinned to this answer_), each pin the task's
+key, which opens the task as it is now **where the server says the reader may open it** (where it says they
+may not, or says nothing, the key is plain text and everything else is read as usual), the day it was finished, on time or late, **Set by**, the person's own
+note and a line such as _Pinned by Femi Balogun on 5 Nov 2026_ (_Pinned by you_ to the person themselves). It
+is the person's own selection and shows no title, and the full list of finished work is still one press away
+under **Work this cycle**. The manager's column never carries pins, and an answer with none says nothing.
 
 Above it, **What the mark is made of** lists each part with what it scored, what it counts for and what
 it is based on: _Based on 4 ratings_, _Based on 1 agreed objective_. A part left out says why in the API's
@@ -1411,7 +1492,22 @@ never as a score, in four more places:
   somebody else put on their list is kept, shown with **Personal** and **Set by**. **A company that has not
   switched Projects on does not see it at all.** A person with nothing recorded reads "No finished tasks were
   recorded for you on the project boards in this period", which says nothing about the rest of their work. It
-  is collapsed on a phone, and it does not change the mark.
+  is collapsed on a phone, and it does not change the mark. Where the company has switched on **Work in review
+  answers** (step 3), the person the work is about can say **This is wrong** beside an item, with a reason of 3
+  to 280 characters (**What is wrong with it?**) and **Flag it**, and can **Change** it or **Take it back**.
+  Whoever reads the list sees _Flagged by Chidi Nwosu on 6 Nov 2026: …_ on the row and a count in the heading
+  (_3 tasks finished · 1 flagged as wrong_), and no control. **A flag that was raised stays on the list, and in
+  the count, when the company later switches the setting off**: the person still has **Take it back**, nobody
+  can raise or change one, and the panel says so (_Raising or changing a flag is not available at the
+  moment. A flag you raised stays on the list, and you can still take it back…_). A flag does not remove the
+  item or change the mark, and the panel says so. The dialog cannot be closed while a request is out, and a
+  refusal is shown in it with the reason still typed; after a flag is raised, changed or taken back the
+  keyboard focus is on that row's own control, and both panels (this list and the record kept with a rating)
+  show the same flags without reloading. A flag the server says is already gone when **Take it back** is
+  pressed (taken back in another window) simply leaves the list, with nothing said. While **Your work** is open
+  on the answering form the form's own keys are off, **Ctrl or ⌘ Enter** included (it goes on even from a text
+  box), so a reason typed in the flag dialog on the drawer does not move the form on behind it; Escape closes the
+  drawer and not the form.
 - **Work when the rating was made final**, on a manager's review whose rating is final, for a company that
   kept it (see **Records** in step 3). It leads, in place of the list above: the finished tasks as they stood on
   the day the rating was made final, with the totals, each task as its key (a link that opens the task as it is
@@ -1423,7 +1519,8 @@ never as a score, in four more places:
   nothing was kept the review says so once, above the list that is read as it stands now ("Nothing was kept of
   this list when the rating was made final..."), and when the record has been removed it says when
   ("...was removed on 1 Nov 2027, when its retention period ended"). Nothing of this appears before a rating
-  is final, on a self review, with Projects off, or on a server that has not been updated.
+  is final, on a self review, with Projects off, or on a server that has not been updated. A flag raised on one
+  of its rows (see **Work this cycle**) is shown on that row the same way.
 - **Completed work**, under an objective or KPI (its detail, and the objectives to agree): the linked tasks,
   by person for a team objective; for a personal KPI also the owner's tasks linked to an objective above it,
   each marked with the level it was linked at.
@@ -1596,7 +1693,8 @@ subsection answered in the person's own words, and the paragraph on finished pro
 bridge, and steps 3 and 28 and the **Work when the rating was made final** note in step 33 on 12 November 2026,
 for the work kept with a final rating, and steps 2, 3, 4 and 17, the reading of a mark and the twelfth
 surprise again on 12 November 2026, for the Manager appraisal part, and steps 3, 4, 17 and 30 once more on the
-same day, for when Save is dead, the mark page with several appraisers and a review sent back). Every button label, field name and
+same day, for when Save is dead, the mark page with several appraisers and a review sent back, and steps 3, 17 and 23,
+the notes in step 33 and the reading of the two reviews on 12 November 2026, for work in review answers). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

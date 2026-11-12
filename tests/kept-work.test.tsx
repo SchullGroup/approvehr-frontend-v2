@@ -41,6 +41,16 @@ vi.mock("@/lib/store/project-session", () => ({
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
 }));
+/* The panels read the person's flags through their own hook. Flags are not what this file is
+   about, so the server never says they are on; tests/work-flags-panels.test.tsx covers them. */
+vi.mock("@/lib/store/work-flags", () => ({
+  useWorkFlags: () => ({
+    on: false,
+    flags: null,
+    flag: vi.fn(),
+    unflag: vi.fn(),
+  }),
+}));
 vi.mock("@/app/(app)/hiring/requisitions/[id]/use-phone", () => ({
   usePhone: () => hook.phone,
 }));
