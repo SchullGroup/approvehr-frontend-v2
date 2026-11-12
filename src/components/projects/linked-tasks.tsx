@@ -14,13 +14,17 @@ import {
 import { StatusPill } from "./glyphs";
 import { useProject } from "./project-context";
 
-/** The choices in the order people read them, with what the API is sent. */
+/**
+ * The choices in the order people read them, with what the API is sent.
+ *
+ * `IMPLEMENTS` / `IMPLEMENTED_BY` ("Front end for" / "Back end for") are not
+ * offered: they are a software team's words. A link already stored with one of
+ * them still shows, under the label the API sends with it.
+ */
 export const LINK_CHOICES: { label: string; value: LinkChoice }[] = [
   { label: "Relates to", value: "RELATES" },
   { label: "Blocks", value: "BLOCKS" },
   { label: "Blocked by", value: "BLOCKED_BY" },
-  { label: "Front end for", value: "IMPLEMENTS" },
-  { label: "Back end for", value: "IMPLEMENTED_BY" },
   { label: "Duplicates", value: "DUPLICATES" },
   { label: "Duplicated by", value: "DUPLICATED_BY" },
 ];

@@ -45,6 +45,76 @@ describe("a rating was made final", () => {
     expect(copy.details.join(" ")).not.toMatch(/answer/);
   });
 
+  describe("the work kept with it", () => {
+    const until = "1 Nov 2027";
+
+    it("says how many tasks were kept and until when, when a record was", () => {
+      const copy = finalisedCopy({
+        ...base,
+        subjectNotified: true,
+        kept: { items: 7, total: 7, truncated: false, until },
+      });
+      expect(copy.details).toContain(
+        "A record of the 7 tasks Chidi finished in this cycle is kept with it until 1 Nov 2027.",
+      );
+    });
+
+    it("says one task, not 1 tasks", () => {
+      const copy = finalisedCopy({
+        ...base,
+        subjectNotified: true,
+        kept: { items: 1, total: 1, truncated: false, until },
+      });
+      expect(copy.details.join(" ")).toMatch(/the 1 task Chidi finished/);
+    });
+
+    it("says it holds the newest of more than it could, with the true total", () => {
+      const copy = finalisedCopy({
+        ...base,
+        subjectNotified: true,
+        kept: { items: 1000, total: 1432, truncated: true, until },
+      });
+      expect(copy.details.join(" ")).toMatch(
+        /the newest 1000 tasks of the 1432 Chidi finished in this cycle is kept with it until 1 Nov 2027/,
+      );
+    });
+
+    it("says an empty record is nothing recorded, and not a count of nought", () => {
+      const copy = finalisedCopy({
+        ...base,
+        subjectNotified: true,
+        kept: { items: 0, total: 0, truncated: false, until },
+      });
+      expect(copy.details).toContain(
+        "A record of the work behind it is kept until 1 Nov 2027: no finished tasks were recorded for Chidi in this cycle.",
+      );
+      expect(copy.details.join(" ")).not.toMatch(/\b0 tasks\b/);
+    });
+
+    it("says nothing when nothing was kept, which is every company until it chooses a period", () => {
+      for (const kept of [null, undefined]) {
+        const copy = finalisedCopy({
+          ...base,
+          subjectNotified: true,
+          ...(kept === undefined ? {} : { kept }),
+        });
+        expect(copy.details.join(" ")).not.toMatch(/record|kept/i);
+      }
+    });
+
+    it("comes before the line that says it cannot be changed", () => {
+      const copy = finalisedCopy({
+        ...base,
+        subjectNotified: true,
+        kept: { items: 2, total: 2, truncated: false, until },
+      });
+      const at = (needle: string) =>
+        copy.details.findIndex((line) => line.includes(needle));
+      expect(at("A record of")).toBeGreaterThan(-1);
+      expect(at("A record of")).toBeLessThan(at("It cannot be changed"));
+    });
+  });
+
   it("says nothing about telling them when the API did not answer either way", () => {
     const copy = finalisedCopy({ ...base, subjectNotified: undefined });
     expect(copy.details.join(" ")).not.toMatch(/told/i);

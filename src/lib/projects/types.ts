@@ -186,6 +186,13 @@ export type Project = {
   archivedAt?: string | null;
   /** The program it sits in is archived, which hides its tasks the same way. */
   programArchived?: boolean;
+  /**
+   * When this project was moved from cycles to a simple board for its people
+   * (it was on cycles and had never had one). Null or absent for every other
+   * project, and cleared when it is switched back to cycles. The header says so
+   * for 30 days.
+   */
+  boardSwitchedAt?: string | null;
 };
 
 export type Sprint = {
