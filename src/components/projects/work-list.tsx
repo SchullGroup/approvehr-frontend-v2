@@ -297,7 +297,9 @@ export function WorkTasks({
             {/* No "any not started / in progress / done" choices. A link that
                 arrives with a group still shows what it applied. */}
             {query.category?.[0] &&
-              STATUS_CATEGORIES.includes(query.category[0] as StatusCategory) && (
+              STATUS_CATEGORIES.includes(
+                query.category[0] as StatusCategory,
+              ) && (
                 <option value={`cat:${query.category[0]}`}>
                   {`Any ${STATUS_FILTER_LABEL[query.category[0] as StatusCategory].toLowerCase()}`}
                 </option>
