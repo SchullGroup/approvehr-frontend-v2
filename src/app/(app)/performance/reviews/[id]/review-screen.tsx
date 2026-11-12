@@ -51,7 +51,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraiserStrip } from "../../review-parts";
 import { WorkEvidence } from "@/components/performance/work-evidence";
-import { WorkThisCycle } from "@/components/performance/work-this-cycle";
+import { WorkBehindTheMark } from "@/components/performance/kept-work";
 import { FinaliseDialog } from "./finalise-dialog";
 import { ReviewFormCard } from "./review-form-card";
 import { SignOffDialog } from "./sign-off-dialog";
@@ -530,14 +530,17 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {/* ------------------------------------------- finished on the project boards */}
           {/* Read-only evidence beside the answers, for the self review and the
               manager's. Peer feedback is an aggregate nobody signs, so it has none. */}
-          <WorkThisCycle
+          <WorkBehindTheMark
+            reviewId={review.id}
+            kind={review.kind}
+            final={review.finalised}
+            disputed={review.disputed}
             subjectId={review.subjectId}
             cycleId={review.cycleId}
             periodStart={review.periodStart}
             periodEnd={review.periodEnd}
             subjectName={review.subjectName}
             own={isSubject}
-            enabled={review.kind !== "PEER"}
           />
 
           {/* ------------------------------------------------------------- the form */}
@@ -584,7 +587,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             signOff.finalise(review.id, recommendation),
           );
           return outcome.ok
-            ? { subjectNotified: outcome.value.subjectNotified }
+            ? {
+                subjectNotified: outcome.value.subjectNotified,
+                kept: outcome.value.workEvidence ?? null,
+              }
             : null;
         }}
       />

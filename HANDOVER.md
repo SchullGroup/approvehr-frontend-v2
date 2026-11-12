@@ -12321,6 +12321,226 @@ Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no lo
 
 ---
 
+# Work this cycle: open to its appraisers, honest about its limits, and gone without Projects
+
+Stage 1 of the Projects-in-Performance research (the Claude Doc "Project tracker inside the
+performance module: research", 11 November 2026: its options 1 and 2, and "switch the panel off when
+Projects is off"). It changes what an assigned appraiser, a company without Projects and anybody
+reading an empty list sees. **It changes no mark and files no weekly task.** The backend half is the
+branch of the same name in `approvehr-backend` (note: `docs/backend/work-evidence-handover.md`).
+Backend first; this half is safe against a server without it (below).
+
+## What the panel does now
+
+- **It is not there when Projects is off.** `WorkThisCycle` reads `useProjectsGate()`, "the one place
+  the gate is read", and draws nothing and asks for nothing when Projects is off and while the
+  company's switches are still on their way. Before, a company without Projects read "You finished no
+  tasks on the project boards in this period" under every review: a claim about work nobody tracks,
+  read as low output. The research inferred this from the code; this is the first time it is a test.
+- **An empty list says nothing was recorded.** "No finished tasks were recorded for you on the project
+  boards in this period." It was "You finished no tasks …", which reads as a verdict.
+- **A line under the list, and under an empty one, says what it cannot show:** "This is only what was
+  tracked in Projects. It does not show meetings, mentoring or anything done outside Projects, so a
+  short list is not a short record of work."
+- **Each task says who set it**, "Set by Pat Projects", when somebody other than the person made it,
+  in every list that uses `CompletedItem` (this panel, the manager's Completed view, the work under an
+  objective). It is the task's creator, not the last person to assign it. `Completion.setBy` is absent
+  for a person's own task and for a server that does not say; the two are not told apart because they
+  say the same thing, which is nothing.
+- **For an assigned appraiser, and for a person's own to-dos, the web needed nothing.** Those are the
+  server's: `cycleWork` now admits an assigned appraiser, and leaves out a to-do the person made for
+  themselves. The panel already drew nothing for the 404 an appraiser used to get.
+
+## Decisions worth not undoing
+
+1. **The line under the list is true against any server.** The first draft said "It leaves out their
+   own to-do list", which is the new server's rule and is false against one that has not deployed it.
+   Copy that describes a rule has to be true against the server that is deployed, not the one in a
+   branch. Which tasks the list leaves out shows row by row (**Personal**, **Set by**) and is in the
+   walkthrough; a test says the sentence names no to-do list.
+2. **Hidden, not refused.** Without Projects the panel is not offered, instead of drawing a callout:
+   there is nothing for the reader to do, and a company that never used Projects should not be told
+   about it under every review. The nav hides Projects from the same flag.
+3. **What the list leaves out is the API's rule, once.** `exceptOwnToDos` is in the backend's
+   `counted-work.ts`. A copy here would be a second definition of "finished work", which that module
+   exists to keep to one.
+
+## Not done
+
+- **Stages 2 to 4 of the research.** Freezing the evidence when a review is finalised needs a
+  retention rule the owner picks and counsel's agreement on what may be stored. Letting people pin work
+  to an answer needs an impact assessment, a legitimate-interest assessment and one pilot first. The two
+  optional assists wait for that pilot. Each has a gate in the research; none is started.
+- **The Work record, the manager's Completed view and the work under an objective still list a
+  person's own to-dos** (labelled **Personal**). Only the review's list leaves them out. A decision for
+  the owner, in the pull request.
+- **Three code comments** (`project-screen.tsx`, `project-context.tsx` and `lib/store/projects.ts`)
+  still describe the retired weekly-task bridge. Left alone so as not to touch files Projects work is
+  changing. The walkthrough's account of it (step 18) is corrected.
+- **`docs/components/backend-api.md` will be two exports short** (`isAppraiserOf`, `exceptOwnToDos`)
+  once the backend is on `staging`. Run `npm run docs` then. `docs/components/frontend-v2.md` was
+  already stale on `dev` for the Projects screens before this change; none of its rows is about these
+  files, and it is not regenerated here.
+
+## Verified
+
+Tests: the nine files that touch the change, 148 tests, pass (`work-this-cycle` 31 of them, with
+`completions-api`, `projects-completions`, `completions-demo-hooks`, `completions-store`,
+`review-work-panel`, `review-record-work` and the two copy guards `performance-link-copy` and
+`projects-friendly-words`). Eight deliberate breaks, each caught by a test written for it: the panel
+offered without Projects, the work asked for before the switches answered, no line about what it
+cannot show, the old "finished no tasks" sentence, no "Set by", "Set by" for the person's own task, a
+mapper that invents a setter, and a demo that names the person as having set their own task. The tree
+was clean after each.
+
+Gates: `tsc --noEmit` and ESLint exit 0 (16 warnings, none in a file this changes). Every step of
+`npm run check` after Format exits 0, run with `APPROVEHR_BACKEND_DIR` at the backend branch so the
+four cross-repo gates compared and did not skip (template 81 assertions, rating scale, payroll,
+signature wording). **The Format step fails on `dev` itself**, on four files from #623 (project-screen,
+issue-filter-bar, work-list and `tests/projects-access-matrix.test.tsx`); none is in this change, and
+the formatting fix is its own pull request (#627).
+
+**Not exercised:** a browser against a real API (an assigned appraiser's panel, "Set by" on real rows,
+and the panel gone with Projects off are covered by tests and by the backend's, not by a screenshot),
+demo mode in a browser, the whole vitest suite in one run, the QA site, iOS Safari or a real device.
+
+---
+
+# The work behind a final rating is kept with it, for a company that chose a period
+
+Stage 2 of the Projects-in-Performance research (the web half; the backend is
+`approvehr-backend` #284, whose own note is `docs/backend/work-evidence-frozen-handover.md`). Stage 1
+(#628) made the review show the finished-work list. That list is **live**: reopen, rename, relink or
+delete a task later and an old review shows something else, so a mark somebody disputes cannot be
+explained from what the appraiser saw. For a company that chooses a retention period, the list as it
+stood on the day the rating was made final is kept with it. This is where the period is chosen and
+where the record is read. **Nothing is kept for any company until it chooses, and no figure is
+suggested.** This branch is stacked on #628, and its base is that branch until #628 merges.
+
+## What it does
+
+| Where | What |
+| ----- | ---- |
+| Settings, **Appraisal scoring**, **Records** (`settings/performance/work-record-card.tsx`) | **Work kept with a final rating**: a box for whole months, 1 to 120, empty, with the placeholder "Keep nothing" and the sentence that none is suggested. **Set this period** asks first and says what it will and will not do. **Stop keeping records** is one press. `MANAGE_SETTINGS` to change it; everybody else reads it, with the reason. |
+| A manager's review whose rating is final (`components/performance/kept-work.tsx`, `WorkBehindTheMark`) | In the slot the live list had. By what the API says: **kept**, the record leads and the live list is one press away; **never kept**, one line saying so above the live list; **removed**, one line saying when it ended above the live list; anything else, the live list alone. |
+| The finalise confirmation (`finalise-dialog.tsx`, `sign-off-copy.ts`) | After "Make it final", one more line: "A record of the 4 tasks Chidi finished in this cycle is kept with it until 12 Nov 2027." Nothing when none was kept. |
+| `lib/api/kept-work.ts`, `lib/store/kept-work.ts`, `lib/store/features.ts` | The read, its keyed hook, and the setting (three states). |
+
+## Decisions worth not undoing
+
+1. **The setting has three states and the card keeps them apart.** A number is the period the
+   company chose; `null` is the company's own answer, none chosen, which keeps nothing and is every
+   company's start; `undefined` is a server that has no such setting, or no server. A control is
+   offered for the first two only, so reading an absent field as `null` would offer a control against
+   a server that cannot keep anything. Each of "still reading", "could not be read", "this server has
+   not been updated" and "no server" says its own thing.
+2. **No figure is suggested, anywhere.** How long personal data about somebody's work may be held is
+   the company's decision and its counsel's, and a default here would be the product making it. It is
+   the rule the hiring-retention screen already follows.
+3. **Setting asks first, stopping does not.** The question says what will happen (which tasks are
+   kept, that titles are not, that a dispute keeps a record a full period longer, that ratings already
+   final are not touched). Stopping keeps less and removes nothing, so it is one press, and says what
+   it leaves: "A record already kept stays until its own date."
+4. **The record leads, and the live list is behind "Show the list as it stands now".** Two lists on one
+   page saying different things about the same person is the failure. The record is what the
+   appraiser could read.
+5. **It asks only when it can be answered:** a manager's review, final, with dates, for a company with
+   Projects on. Otherwise the page is exactly Stage 1's.
+6. **A server that does not say makes no claim.** A 404, a 403, a server a deploy behind and a failed
+   request all draw the live list and nothing about a record. `null` is never read as "none was kept",
+   and a record that is not there is never an empty list.
+7. **No title anywhere, because none is kept.** A row is the task's key, which opens the task as it is
+   now, and the panel says so beside the list. A title can hold health or trade-union details, which
+   the NDPA names as sensitive.
+8. **The finalise confirmation never nags.** It speaks of a record only when one was kept, so a
+   company that has left the setting alone never reads about it. An empty record is said as what it is
+   ("no finished tasks were recorded for Femi in this cycle"), never as a count of nought, and one cut
+   at its limit says it holds the newest of more.
+9. **Dates are days in the company's zone.** A record kept late in the evening is not a day out.
+10. **A confirmation keeps its question while it leaves.** The confirm dialog stays on screen for a
+    moment as it closes and is drawn from the props it has then, so a title read from "what is being
+    asked" flipped to a default sentence over a dialog that was going away. Seen in a screenshot taken
+    just after the toast, not by any type or gate. The question and whether it is open are two pieces
+    of state, and a test holds it.
+
+## Not done
+
+- **Stage 3** (pinning work to an answer, suggesting colleagues) needs an impact assessment, a
+  legitimate-interest assessment and one pilot first, and it is the stage that puts people's names
+  beside each other's work. **Stage 4** (a milestone hint, a pre-filled weekly line) reopens the
+  decision of 6 November and needs "won't do" and acceptance states first. Neither is started.
+- **The Work record, the manager's Completed view and the work under an objective** still list the
+  live work, and a person's own to-dos in it, as in Stage 1.
+- **No "remove it now"** control: only the date removes a record (a decision in the backend's
+  pull request).
+- **`docs/components/backend-api.md` will be one route and four exports short** once the backend is on
+  `staging` (`GET /performance/reviews/:id/work-evidence`). Run `npm run docs -- --only backend-api`
+  then, as its own change.
+
+## Verified
+
+Tests: seven files, 108 tests, all passing: `kept-work-api` (16), `kept-work` (28), `kept-work-hook` (6),
+`work-record-card` (29), `work-evidence-retention-store` (7), `finalise-kept-work` (5) and `sign-off-copy`
+(17, extended). With every test that imports a file this change touches (`vitest related`), 219 files and
+3,258 tests, all passing.
+
+Thirty-one deliberate breaks, each made in the source and each caught by a test written for it, the tree
+checked clean after each: a rating that is not final, a self review, a cycle with no dates or Projects off
+asking for a record; nothing known read as "none kept", and a state the web does not know read as one; the
+removal date read as the day it was taken; the live list shown beside the record at once; a task with no
+due date called late; the dispute sentence always said; nothing said about titles; an empty record headed
+with a count of nought; a record that holds fewer not saying so; every task opening on its board; an item
+with no id kept; a setter with no name named; a period of 0 or 1,200 months accepted; a period set without
+asking; a period suggested; a control offered to a server that has not said; an absent setting read as none
+chosen; stopping that leaves the key out; and a finalise that says nothing of what was kept. **One got
+through** (a hook that kept showing a stale answer after it was switched off), which is why `kept-work-hook`
+has a "switched off after it has read" case now. The last, a confirmation title read from a nullable value,
+was found in a screenshot, and its test failed on the old code before the fix.
+
+Gates: `tsc --noEmit` and ESLint exit 0 (16 warnings, none from this change: the one in
+`store/features.ts` is an unused `ApiError` import at the top of the file, already on `dev`). Every step of
+`npm run check` exits 0, run with `APPROVEHR_BACKEND_DIR` at the backend branch so the cross-repo gates
+compared against it and did not skip (payroll 62 assertions, template 81, rating scale, signature wording).
+Both generated inventories are current (`npm run docs -- --check --only frontend-pages,frontend-components`).
+
+In a browser, against a scratch API (the backend branch, on a real Postgres) and a production build of this
+branch, signed in for real as the administrator, the line manager and the person the rating is about, with
+HR's dispute and the daily removal run from the API side: **18 of 18 steps**, and no console, page or server
+error apart from one 401 on `/auth/me` while a saved session's expired token was refreshed.
+
+- Before any period is chosen a rating made final keeps nothing, and the API says so.
+- The Records tab starts empty with no figure suggested, refuses 121 on the page, asks before 12 and saves
+  only when confirmed (the stored value read from the database), and has no sideways scroll at 375px with a
+  16px field.
+- A rating made final before a period was set says once that nothing was kept, above the live list. One not
+  yet final shows the live list alone.
+- Make it final names the record, "A record of the 4 tasks Chidi finished in this cycle is kept with it until
+  12 Nov 2027.", and the database holds one row of four.
+- The record leads with the counts and four tasks by key, none of five titles on the page (searched), "Set by
+  Adaeze Okonkwo", "2 of 3" by the due date, "Task titles are not kept", and the day it is removed. The key
+  opens `/projects/<id>?issue=PLT-1`.
+- A task reopened, one renamed and one deleted afterwards leave it as it was, and "Show the list as it stands
+  now" shows the live two.
+- On a phone it is closed and opens on a press, and the person reads the same record about themselves.
+- A formal dispute adds "so it is kept for a full period from then". With its date in the past the daily
+  removal moves a disputed record a full period on and removes nothing.
+- A quarter with no finished work is an empty record that says so, not "0 tasks finished". When its date
+  comes the removal clears the list, keeps the row, and the page says when it ended.
+- With Projects off nothing about the work is drawn, and it is all back when it is on.
+
+The pictures are in `out/work-evidence-walk-2026-11-12/shots/`, and they found the one defect above. A first
+sign-in opens the product's own tour, which covers the buttons until it is skipped, so a walk skips it as a
+person would, and a screenshot is of the visible screen only, so it has to be scrolled to the panel it is of.
+
+**Not exercised:** the QA site; iOS Safari or any real device, and any browser but Chromium; demo mode in a
+browser (the Records card says it needs the server, and nothing about a record is drawn); the daily scheduler
+on its own timer (the removal was run once, from a script); an assigned appraiser's or a department head's own
+view in a browser (the backend's tests cover who may read it); a record cut at its limit of 1,000 (a test, not
+a database of that size); a server a deploy behind, in a browser (tests only); and the whole vitest suite in
+one run (CI does not run vitest, and `vitest related` ran the 3,258 above).
+
+---
+
 # The manager's overall mark can be scored, and a form that has to carry one says so
 
 The owner's words: _"we wanna be able to Set a weight for the manager appraisal too."_ The manager's overall

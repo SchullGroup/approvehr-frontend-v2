@@ -896,6 +896,18 @@ export type ApiReview = {
 export type ApiReviewFinalised = ApiReview & {
   finalised: true;
   subjectNotified: boolean;
+  /**
+   * What was kept with the rating: how many tasks, whether that is all of them, and when the
+   * record is removed. `null` when nothing was kept, which is every company until it chooses a
+   * period. Optional because an older server does not send it, and **absent says nothing**:
+   * the screen mentions a record only when this is there and not `null`.
+   */
+  workEvidence?: {
+    items: number;
+    total: number;
+    truncated: boolean;
+    retainUntil: string;
+  } | null;
 };
 
 export type ApiReviewAcknowledged = ApiReview & { acknowledged: true };

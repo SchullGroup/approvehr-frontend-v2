@@ -138,8 +138,8 @@ describe("the words themselves", () => {
     }
   });
 
-  it("name the lanes by initiative, not epic", () => {
-    expect(SWIMLANE_LABEL.epic).toBe("Lanes by initiative");
+  it("name the grouping by initiative, not epic", () => {
+    expect(SWIMLANE_LABEL.epic).toBe("Group by initiative");
   });
 });
 

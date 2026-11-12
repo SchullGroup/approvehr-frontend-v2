@@ -68,6 +68,13 @@ export function toCompletion(
   /* An item under an objective above the KPI it is listed beneath says at which
      level, by that objective's own level. */
   const above = raw["linkedAt"] === "ANCESTOR" && isLevel(objective.level);
+  /* Who set it, when somebody else did. Null, a missing field or one that is not a named
+     person all say nothing: the line is for work somebody asked for, never for a gap. */
+  const setter = obj(raw["setBy"]);
+  const setBy =
+    str(setter["id"]) !== "" && str(setter["name"]) !== ""
+      ? { id: str(setter["id"]), name: str(setter["name"]) }
+      : null;
   return {
     id: str(raw["id"]),
     key: str(raw["key"]),
@@ -84,6 +91,7 @@ export function toCompletion(
     objective,
     canOpen: raw["canOpen"] !== false,
     ...(above ? { linkedAt: objective.level as ObjectiveLevel } : {}),
+    ...(setBy ? { setBy } : {}),
   };
 }
 

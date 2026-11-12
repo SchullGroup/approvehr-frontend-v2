@@ -8,6 +8,7 @@ import type {
   Project,
   Sprint,
 } from "@/lib/projects/types";
+import type { ProjectViewId } from "@/lib/projects/terms";
 import type { ProjectActions } from "@/lib/store/projects";
 import type { People } from "@/lib/store/project-session";
 
@@ -76,6 +77,12 @@ export type ProjectContextValue = {
   setFilter: (next: IssueFilter) => void;
   openIssue: (issue: Pick<Issue, "key">) => void;
   openCreate: (defaults?: Partial<NewIssueInput>) => void;
+  /**
+   * The tab on screen (`?view=` id), so the New task dialog can tell whether
+   * the task it just made is among the ones showing. Absent outside a project
+   * screen (the personal drawer), where nothing is judged.
+   */
+  view?: ProjectViewId;
   /**
    * Set when the drawer is showing a task on somebody's own list ("My tasks"),
    * which has no board, no assignee to pick, no epic and no link by key (every

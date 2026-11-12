@@ -38,11 +38,13 @@ import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wordin
 import { useCan } from "@/lib/permissions";
 import { useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
+import { WorkRecordCard } from "./work-record-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
 
 const TAB_ITEMS: TabItem[] = [
   { id: "weights", label: "Weights" },
   { id: "marks", label: "Names of marks" },
+  { id: "records", label: "Records" },
 ];
 
 /**
@@ -633,6 +635,9 @@ export function ScoringWeightsForm({
               managerAppraisal={managerAppraisal}
             />
             {scale}
+          </div>
+          <div hidden={tab !== "records"} className="flex flex-col gap-6">
+            <WorkRecordCard connected={source === "api"} />
           </div>
         </Tabs>
       </PageBody>

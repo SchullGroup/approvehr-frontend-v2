@@ -19,19 +19,14 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { DraftInput, DraftTextarea } from "@/components/projects/draft-fields";
+import { BoardTypeChoice } from "@/components/projects/board-type-choice";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { ProjectObjectiveField } from "@/components/projects/objective-link";
 import { PersonAvatar, PersonPicker } from "@/components/projects/person";
 import { useProject } from "@/components/projects/project-context";
 import { MANAGE_REASON } from "@/lib/projects/access";
 import { removalHolders, removalRefusal } from "@/lib/projects/members";
-import {
-  PROJECT_COLORS,
-  PROJECT_COLOR_NAMES,
-  PROJECT_TYPES,
-  PROJECT_TYPE_LABEL,
-  type ProjectType,
-} from "@/lib/projects/types";
+import { PROJECT_COLORS, PROJECT_COLOR_NAMES } from "@/lib/projects/types";
 import {
   CYCLE,
   LIMIT,
@@ -245,43 +240,26 @@ function DetailsCard({ editable }: { editable: boolean }) {
         <ProgramField editable={editable} />
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Board type"
-            {...(typeNotice ? { error: typeNotice } : {})}
-            help={
-              typeNotice
-                ? undefined
-                : project.type === "SCRUM"
-                  ? `Work is planned into ${CYCLE.many} and the board shows the active one.`
-                  : `Work flows through the columns with no ${CYCLE.many}.`
-            }
-          >
-            <Select
-              value={project.type}
-              disabled={!editable}
-              onChange={(event) => {
-                const next = event.target.value as ProjectType;
-                const blocker = boardTypeChangeBlocker(
-                  project,
-                  next,
-                  issues,
-                  sprints,
-                );
-                if (blocker) {
-                  setTypeNotice(blocker);
-                  return;
-                }
-                setTypeNotice(null);
-                void patch({ type: next });
-              }}
-            >
-              {PROJECT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {PROJECT_TYPE_LABEL[type]}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <BoardTypeChoice
+            value={project.type}
+            disabled={!editable}
+            error={typeNotice}
+            onChange={(next) => {
+              if (next === project.type) return;
+              const blocker = boardTypeChangeBlocker(
+                project,
+                next,
+                issues,
+                sprints,
+              );
+              if (blocker) {
+                setTypeNotice(blocker);
+                return;
+              }
+              setTypeNotice(null);
+              void patch({ type: next });
+            }}
+          />
 
           <Field
             label="Department"
