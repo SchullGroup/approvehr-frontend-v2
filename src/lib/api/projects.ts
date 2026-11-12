@@ -25,6 +25,8 @@ import type {
   SprintPatch,
   StatusInput,
   WatchState,
+  AcceptedMark,
+  WontDoMark,
 } from "@/lib/projects/types";
 
 /**
@@ -300,9 +302,64 @@ export function toIssue(raw: Raw): Issue {
     ...(typeof raw["canLinkObjective"] === "boolean"
       ? { canLinkObjective: raw["canLinkObjective"] }
       : {}),
+    wontDo: toWontDo(raw["wontDo"]),
+    accepted: toAccepted(raw["accepted"]),
     commentCount: num(raw["commentCount"]),
     createdAt: str(raw["createdAt"]),
     updatedAt: str(raw["updatedAt"]),
+  };
+}
+
+/**
+ * The won't-do mark on a task as the API sends it, or null. Anything that is not a whole mark reads as
+ * none: a mark with no time or no who is not a claim, and a task is never shown as closed on the
+ * strength of one. A mark with no **reason** is a whole mark: a leader's reduced read carries none.
+ */
+export function toWontDo(value: unknown): WontDoMark | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Raw;
+  const at = str(raw["at"]);
+  const byId = str(raw["byId"]);
+  if (!at || !byId) return null;
+  /* No reason is not an empty one: a leader's reduced read carries none, and a blank reason is read as
+     none too, so nothing here can quote nothing. */
+  const reason = str(raw["reason"]);
+  return {
+    at,
+    byId,
+    byName: str(raw["byName"]),
+    reason: reason.trim() === "" ? null : reason,
+  };
+}
+
+/** The acceptance on a task as the API sends it, or null, read as strictly as `toWontDo`. */
+export function toAccepted(value: unknown): AcceptedMark | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Raw;
+  const at = str(raw["at"]);
+  const byId = str(raw["byId"]);
+  if (!at || !byId) return null;
+  return { at, byId, byName: str(raw["byName"]) };
+}
+
+/** What a finish-mark route answers: the task, and what this reader may now do about its finish. */
+export type FinishRead = FinishFlags & { issue: Issue };
+
+export function toFinishRead(raw: Raw): FinishRead {
+  return { issue: toIssue(raw), ...toFinishFlags(raw) };
+}
+
+/**
+ * What the reader may do about a task's finish, as the API says it, on the task's detail and the
+ * leader's reduced read. Absent means the server did not say, which is read as "may not": a control
+ * is offered only for what the server allowed, and the server still decides.
+ */
+export type FinishFlags = { canMarkWontDo: boolean; canAccept: boolean };
+
+export function toFinishFlags(raw: Raw): FinishFlags {
+  return {
+    canMarkWontDo: raw["canMarkWontDo"] === true,
+    canAccept: raw["canAccept"] === true,
   };
 }
 
@@ -642,7 +699,7 @@ export function toTeamPerson(raw: Raw): TeamPerson {
  * (`GET /issues/:id` answers `reduced: true`): what it is and where it stands,
  * never what is said about it. No description, comments or files.
  */
-export type ReducedIssueDetail = {
+export type ReducedIssueDetail = Partial<FinishFlags> & {
   issue: Issue;
   projectName: string;
   statusName: string;
@@ -673,6 +730,7 @@ export function toLeaderRead(raw: Raw): LeaderRead {
     projectName: str(raw["projectName"]),
     statusName: str(raw["statusName"]),
     statusCategory: categoryOf(raw["statusCategory"]),
+    ...toFinishFlags(raw),
     subtasks: list(raw["subtasks"]).map((s) => ({
       id: str(s["id"]),
       key: str(s["key"]),
@@ -1099,6 +1157,7 @@ export const projectsApi = {
         ? { canLinkObjective: issue["canLinkObjective"] }
         : {}),
       canAttachToTask: issue["canAttachToTask"] === true,
+      ...toFinishFlags(issue),
     };
   },
 
@@ -1113,6 +1172,42 @@ export const projectsApi = {
         method: "POST",
         body: attachments.length > 0 ? { body, attachments } : { body },
       }),
+    ),
+
+  /* ------------------------------------------------------------ finish marks */
+
+  /**
+   * Close a finished task as won't do. `reason` is the person's own words, 3 to 280 characters; the
+   * server trims and refuses anything else, and its sentence is what a refusal says. Answers with
+   * the task as `GET /issues/:id` reads it for this caller.
+   */
+  markWontDo: async (issueId: string, reason: string): Promise<FinishRead> =>
+    toFinishRead(
+      await request<Raw>(`/issues/${issueId}/wont-do`, {
+        method: "POST",
+        body: { reason },
+      }),
+    ),
+
+  /** Take a won't-do mark back. */
+  takeBackWontDo: async (issueId: string): Promise<FinishRead> =>
+    toFinishRead(
+      await request<Raw>(`/issues/${issueId}/wont-do`, { method: "DELETE" }),
+    ),
+
+  /**
+   * A leader says they have seen a finished task and it stands. No body: who they are is who is
+   * signed in, and the server decides whether they lead the person it is credited to.
+   */
+  acceptTask: async (issueId: string): Promise<FinishRead> =>
+    toFinishRead(
+      await request<Raw>(`/issues/${issueId}/accept`, { method: "POST" }),
+    ),
+
+  /** Take their own acceptance back. */
+  withdrawAcceptance: async (issueId: string): Promise<FinishRead> =>
+    toFinishRead(
+      await request<Raw>(`/issues/${issueId}/accept`, { method: "DELETE" }),
     ),
 
   /* --------------------------------------------------------------- watchers */

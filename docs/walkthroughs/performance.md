@@ -365,6 +365,32 @@ anything while Projects is switched on.
 > off the card says so, with a link to **Features**, and the switch is still there. On a server that has not
 > been updated the card says so and offers no switch.
 
+Under that, the third card on the tab, **Work behind a milestone, and weekly lines**, is the switch for two
+small helpers. **It is off for every company**, it moves no mark, and it only does anything while Projects is
+switched on.
+
+|                |                                                                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Work behind a milestone, and weekly lines**                                            |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                                               |
+| **Click**      | The switch **Offer the linked tasks beside Confirm, and finished tasks for weekly lines**, then **Switch it on**                 |
+| **You'll see** | A toast, _The two assists are now offered_, and the card describing what they offer                                              |
+
+> ⚠️ **Turning it on asks first, and says what it does.** The question, _Offer the linked tasks and the
+> weekly-line suggestions?_, lists it: beside **Confirm** on a done-or-not measure, the tasks linked to that
+> measure are listed with where each stands (step 11), and a person writing a weekly line can add the tasks
+> they finished that week as text, then edit it (step 18). Nothing is filed, submitted, graded or scored; the
+> list never says a measure is done and never recommends confirming it; a task's title is shown only to the
+> person whose task it is, in the weekly line, and is not saved by this. It only works while Projects is
+> switched on. **Turning it off is one press, with no question,** and deletes nothing (the toast says so:
+> _Nothing is deleted. Tasks closed as won't do and accepted tasks stay as recorded._).
+
+> 💡 **Won't do and acceptance are not behind this switch.** Closing a finished task as **won't do**, and a
+> leader **accepting** one, are recordings available to whoever the server says may make them, whatever this
+> says, and they change nothing until a person makes one. Neither feeds a mark. Where Projects is off the card
+> says so, with a link to **Features**, and the switch is still there. On a server that has not been updated the
+> card says so and offers no switch.
+
 ### Phase B — once per period: build it, and leave it as a draft
 
 A draft period is invisible to everybody except the person building it. Nobody has a form and nobody
@@ -771,6 +797,19 @@ back** undoes it. A company or department objective has no owner, so confirming 
 permission. It still works once the objective is agreed, because progress is the half that does not
 freeze.
 
+**The tasks linked to the measure, beside Confirm.** Where the company has switched on **Work behind a
+milestone, and weekly lines** (step 3), whoever sees **Confirm it is done** on a measure that is not confirmed
+also sees **Tasks linked to this measure** with a count, closed until it is opened. It lists each linked task by
+its key (a link that opens the task) and where it stands: **Open**, **Finished 9 Nov 2026**, **Closed as won't do**,
+and, where a leader accepted it, _accepted by Ada Eze on 11 Nov 2026_. A task the reader cannot open is one plain
+line, **A task you cannot open**, with nothing else about it, and those lines come last, after the tasks that can
+be opened, so where one sits says nothing about it. When nothing is linked it says **No task is
+linked to this measure.** When there are more than the page lists it says **Showing 50 of 63.** **It lists and
+never decides:** it does not say the measure is done, how many are left or that anything is ready, and it does
+not recommend confirming. Which tasks count towards a measure is set on the task (**Link to an objective**).
+It is not shown once the measure is confirmed, to the person whose objective it is, or to a reader who may not
+confirm, and nothing is asked for in those cases or while the setting is off.
+
 > ⚠️ **Until it is confirmed a milestone counts as not done**, at 0% in the average, from the day it is
 > made. That is deliberate: a milestone nobody confirmed by the end of the period was not met, and
 > leaving it out of the average would let a miss disappear. The message after you add one says so:
@@ -1061,6 +1100,23 @@ task log and in the grading queue. The tag says where the work came from; the gr
 It is a link only if you can open that project, and plain text if you cannot. **Finishing a project task no
 longer files a weekly task**: finished project work is evidence to read (see **Work this cycle**), and
 nothing waits for a grade because of it.
+
+**Starting a weekly line from finished work.** On an agreed objective's own card, **Log a task** opens a box for
+the line. Where the company has switched on **Work behind a milestone, and weekly lines** (step 3), under the
+box there is **Add from my finished work** with a count, closed until it is opened: the tasks the person
+finished that week (Monday to Sunday) under that objective, each as the text _KEY title_ with the day it was
+finished. **Add** puts that text in the box (on a new line if something is already there, never replacing it),
+and a line already in the box reads **Added**. **A weekly line is 300 characters at most.** The box counts
+(**260 of 300 characters**) from 250 on and keeps counting past 300, where it says **Keep it short enough to read
+in a list.** and **Save it** is off; it never cuts what is pasted. A finished task that would take the box past
+300 is not added: its row says **Would take the line past 300 characters.** and, once, under the list, **A weekly
+line is 300 characters at most. Save this one, then log the next on its own.** Two or three ordinary titles fill
+a line, so a week's tasks are usually logged one line at a time. If the server refuses a line, the sentence it
+wrote about the line is the one shown. Adding is all it does: **nothing is logged, filed or graded** until
+the person has read it, changed it and pressed **Save it**, and a manager grades what the person sent. It shows
+only the owner's own tasks, says **Showing 50 of 63.** when the week has more than it lists, and draws nothing
+at all when the helpers are off, the week has nothing finished under that objective, or the server does not
+answer.
 
 #### 19. Chase the people who have not sent theirs
 
@@ -1473,7 +1529,13 @@ with nothing in it reads "Nothing finished on the board in this week." Where som
 person's record it says "You can't open this person's work record."
 
 **Finished project work elsewhere in Performance.** The same finished tasks appear, as evidence to read and
-never as a score, in four more places:
+never as a score, in four more places. **A task somebody closed as _won't do_ is in a Done column and is not
+finished work:** it is left out of every list below and of the _done this week_ counts on Team tasks and the
+Master view; on a board it stays in its column with
+**Won't do** beside it, and in **My tasks** the **Done** group, in the list and in the Board layout's Done
+column, counts the finished ones and says how many were closed as won't do (_1 finished, 1 won't do_). A task
+dragged out of the Done column on the board stops saying **Won't do** or **Accepted** at once, as the server clears
+both when it is reopened.
 
 - **Team tasks, Completed** (`/projects/team?view=completed`): for somebody who leads people, what they
   finished over a **Week**, **Month** or **Quarter**, a person at a time, with the project, the day and on
@@ -1694,7 +1756,9 @@ bridge, and steps 3 and 28 and the **Work when the rating was made final** note 
 for the work kept with a final rating, and steps 2, 3, 4 and 17, the reading of a mark and the twelfth
 surprise again on 12 November 2026, for the Manager appraisal part, and steps 3, 4, 17 and 30 once more on the
 same day, for when Save is dead, the mark page with several appraisers and a review sent back, and steps 3, 17 and 23,
-the notes in step 33 and the reading of the two reviews on 12 November 2026, for work in review answers). Every button label, field name and
+the notes in step 33 and the reading of the two reviews on 12 November 2026, for work in review answers, and steps 3, 11,
+18 and 33 on 12 November 2026, for the linked tasks beside Confirm, the weekly-line suggestions and tasks closed as
+won't do). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

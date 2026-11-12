@@ -207,7 +207,13 @@ export function patchIssue(
     const was = categoryOf(data.project.statuses, current.statusId) === "DONE";
     const is = categoryOf(data.project.statuses, next.statusId) === "DONE";
     if (is && !was) next.doneAt = now;
-    if (!is && was) next.doneAt = null;
+    if (!is && was) {
+      /* Leaving Done ends the finish, and a mark on a finish (won't do, accepted) ends with it, as the
+         API does in the same write. Shown here at once so a reopened task never reads as closed. */
+      next.doneAt = null;
+      next.wontDo = null;
+      next.accepted = null;
+    }
   }
   next.updatedAt = now;
 

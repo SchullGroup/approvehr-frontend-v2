@@ -20,6 +20,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FinishTag } from "@/components/projects/finish-tag";
 import { ProjectsOff } from "@/components/projects/module-off";
 import { MyTasksBoard } from "@/components/projects/my-tasks-board";
 import { PersonalIssueDrawer } from "@/components/projects/personal-issue-drawer";
@@ -39,6 +40,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/cn";
 import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
+import { finishedMeta } from "@/lib/projects/finish-marks";
 import {
   assigneeSummary,
   matchesMyTask,
@@ -578,7 +580,7 @@ function Lists({
         description="Tasks you finish show here for 14 days, then move to the Archive."
       />
     ) : (
-      <Group title="Done (last 14 days)" count={done.length}>
+      <Group title="Done (last 14 days)" count={finishedMeta(done)}>
         {done.map(row)}
       </Group>
     );
@@ -626,7 +628,7 @@ function Lists({
         </Group>
       )}
       {done.length > 0 && (
-        <Disclosure title="Done (last 14 days)" meta={String(done.length)}>
+        <Disclosure title="Done (last 14 days)" meta={finishedMeta(done)}>
           <ul className="divide-y divide-line overflow-hidden rounded-md border border-line">
             {done.map(row)}
           </ul>
@@ -642,7 +644,8 @@ function Group({
   children,
 }: {
   title: string;
-  count: number;
+  /** A number, or words where a bare number would count something that is not what the title says. */
+  count: number | string;
   children: React.ReactNode;
 }) {
   return (
@@ -696,6 +699,7 @@ function TaskRow({
           {task.title}
         </span>
         <SourceChip task={task} />
+        <FinishTag wontDo={task.wontDo} accepted={task.accepted} />
       </span>
       <span className="col-start-2 flex items-center gap-2 text-meta text-muted sm:col-start-auto">
         {task.lostAccess ? (
@@ -927,14 +931,20 @@ function ArchiveList({
                   {task.key}
                 </span>
                 <span className="text-body-sm text-ink">{task.title}</span>
+                <span className="ml-2 inline-flex gap-2 align-baseline">
+                  <FinishTag wontDo={task.wontDo} accepted={task.accepted} />
+                </span>
               </span>
               <span className="min-w-0 truncate text-body-sm text-muted">
                 {task.project.personal ? "Personal" : task.project.name}
               </span>
               <span className="tabular text-body-sm text-muted">
-                {task.doneAt
-                  ? formatDateShort(task.doneAt.slice(0, 10), timeZone)
-                  : "Not recorded"}
+                {/* In a Done column and not finished: it was not completed, so the column does not say so. */}
+                {task.wontDo
+                  ? `Won't do ${formatDateShort(task.wontDo.at, timeZone)}`
+                  : task.doneAt
+                    ? formatDateShort(task.doneAt.slice(0, 10), timeZone)
+                    : "Not recorded"}
               </span>
               <span
                 className="min-w-0 truncate text-body-sm text-muted"

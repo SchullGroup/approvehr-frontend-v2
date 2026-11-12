@@ -101,6 +101,13 @@ export function formatValue(
   }
 }
 
+/** The reason inside a won't-do history row, or null when the row carries none. */
+function reasonOf(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const reason = (value as { reason?: unknown }).reason;
+  return typeof reason === "string" && reason.trim() !== "" ? reason : null;
+}
+
 export function describeActivity(
   activity: Pick<IssueActivity, "field" | "from" | "to">,
   lookup: HistoryLookup,
@@ -127,6 +134,34 @@ export function describeActivity(
         : `linked this ${TASK.one}`;
     return {
       verb: `${what}: ${change.label ? `${change.label} ` : ""}${target}`,
+      from: null,
+      to: null,
+    };
+  }
+  if (activity.field === "wontDo") {
+    /* Set: `to` carries the reason. Taken back, or cleared by leaving Done: `from` does and `to` is
+       null. The reason is the person's own words, kept with the task, so it is quoted when there is
+       one; an object is never printed as text. */
+    const set = reasonOf(activity.to);
+    if (activity.to !== null && activity.to !== undefined) {
+      return {
+        verb: `closed the ${TASK.one} as won't do${set ? `: ${set}` : ""}`,
+        from: null,
+        to: null,
+      };
+    }
+    return {
+      verb: `removed the won't-do mark from the ${TASK.one}`,
+      from: null,
+      to: null,
+    };
+  }
+  if (activity.field === "accepted") {
+    return {
+      verb:
+        activity.to === true
+          ? `accepted the ${TASK.one}`
+          : `removed the acceptance of the ${TASK.one}`,
       from: null,
       to: null,
     };

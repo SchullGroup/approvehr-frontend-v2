@@ -15,6 +15,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { LoadMore } from "@/components/portal/load-more";
+import { FinishTag } from "@/components/projects/finish-tag";
 import { StatusPill } from "@/components/projects/glyphs";
 import { ApiError } from "@/lib/api/client";
 import { dueLabel } from "@/lib/projects/due";
@@ -498,7 +499,10 @@ function Results({
                       )}
                     </span>
                   )}
-                  <span role="cell">
+                  <span
+                    role="cell"
+                    className="flex flex-wrap items-center gap-x-2"
+                  >
                     <StatusPill
                       status={{
                         name:
@@ -506,6 +510,8 @@ function Results({
                         category: row.statusCategory,
                       }}
                     />
+                    {/* In a Done column and not finished: said, so it is not read as work done. */}
+                    <FinishTag wontDo={row.wontDo} />
                   </span>
                   <span
                     role="cell"
@@ -519,11 +525,13 @@ function Results({
                   </span>
                   {archive ? (
                     <span role="cell" className="text-body-sm text-muted">
-                      {row.archivedBecause === "done" && row.doneAt
-                        ? `Finished ${formatDateShort(row.doneAt, timeZone)}`
-                        : row.archivedBecause
-                          ? ARCHIVE_REASON_LABEL[row.archivedBecause]
-                          : ""}
+                      {row.archivedBecause === "done" && row.wontDo
+                        ? "Closed as won't do"
+                        : row.archivedBecause === "done" && row.doneAt
+                          ? `Finished ${formatDateShort(row.doneAt, timeZone)}`
+                          : row.archivedBecause
+                            ? ARCHIVE_REASON_LABEL[row.archivedBecause]
+                            : ""}
                     </span>
                   ) : (
                     <span role="cell" className="tabular text-body-sm">

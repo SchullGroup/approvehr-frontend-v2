@@ -70,6 +70,7 @@ import { TaskFiles } from "./task-files";
 import { Watchers } from "./watchers";
 import { AssigneeList, AssigneeMenu, AssigneeStack } from "./assignees";
 import { SubtaskComposer } from "./subtask-composer";
+import { FinishMarks } from "./finish-marks";
 import { assigneesOf, isOn } from "@/lib/projects/assignees";
 import type { NewIssueInput } from "@/lib/projects/types";
 
@@ -417,6 +418,19 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         clean={(draft) => (draft.trim() ? draft.trim() : null)}
         onCommit={(title) => save({ title })}
         buttons
+      />
+
+      {/* How it finished: won't do and acceptance, for the reader the server says may make them.
+          Draws nothing for a task with no mark and nothing to offer. The server's refusal is shown
+          as it wrote it, and the task is read again whether the write worked or not. */}
+      <FinishMarks
+        issue={issue}
+        canMarkWontDo={connected && thread.canMarkWontDo === true}
+        canAccept={connected && thread.canAccept === true}
+        onSettled={() => {
+          void actions.refreshIssue(issue);
+          reloadThread();
+        }}
       />
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_18rem]">
@@ -1017,13 +1031,24 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 {formatDateTimeShort(issue.updatedAt, timeZone)}
               </dd>
             </div>
-            {issue.doneAt && (
+            {issue.wontDo ? (
+              /* In a Done column and not finished: the row says what is true, and when it was closed,
+                 and does not call it Done. */
               <div className="flex justify-between gap-3">
-                <dt>Done</dt>
+                <dt>Won&apos;t do</dt>
                 <dd className="tabular text-right">
-                  {formatDateTimeShort(issue.doneAt, timeZone)}
+                  {formatDateTimeShort(issue.wontDo.at, timeZone)}
                 </dd>
               </div>
+            ) : (
+              issue.doneAt && (
+                <div className="flex justify-between gap-3">
+                  <dt>Done</dt>
+                  <dd className="tabular text-right">
+                    {formatDateTimeShort(issue.doneAt, timeZone)}
+                  </dd>
+                </div>
+              )
             )}
           </dl>
         </aside>

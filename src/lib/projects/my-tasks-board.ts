@@ -81,7 +81,13 @@ export function projectIsReadOnly(
   return project.canWrite === false || project.access === "READ";
 }
 
-/** The rows with one task moved to a stage, for the optimistic board. */
+/**
+ * The rows with one task moved to a stage, for the optimistic board.
+ *
+ * A task that leaves Done stops being closed as won't do and stops being accepted: the server clears
+ * both marks in the same write that reopens it, so a card dragged out of Done must not go on saying
+ * either for the length of a round trip. A move that does not leave Done carries nothing off.
+ */
 export function withMove<T extends PersonalTask>(
   tasks: readonly T[],
   id: string,
@@ -94,6 +100,9 @@ export function withMove<T extends PersonalTask>(
           statusId: status.id,
           statusName: status.name,
           statusCategory: status.category,
+          ...(task.statusCategory === "DONE" && status.category !== "DONE"
+            ? { wontDo: null, accepted: null }
+            : {}),
         }
       : task,
   );

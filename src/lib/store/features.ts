@@ -113,9 +113,19 @@ type State = {
    *
    * Not in `flags`, which is booleans by construction and what the nav filters on: it hides no
    * screen, and its switch is in Appraisal scoring, under Records. It is the first of the
-   * "work in reviews" switches; a second (`workAssists`) belongs beside it.
+   * "work in reviews" switches; `workAssists` is the second, beside it.
    */
   workInAnswers: boolean | null;
+  /**
+   * Whether the two assists are offered: closing a finished task as won't do or accepting it, the
+   * linked-work hint beside Confirm on a done-or-not measure, and the weekly-line pre-fill. **Null
+   * when the server has not said**, for the reason `workInAnswers` gives: an API one deploy behind,
+   * or demo mode, which has nothing to carry. Null is not "off", because a switch is offered only for
+   * a setting the server actually has.
+   *
+   * Not in `flags`: it hides no screen, and its switch is in Appraisal scoring, under Records.
+   */
+  workAssists: boolean | null;
   /**
    * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
    * company cannot set it, so it must not turn up as a toggle. The sidebar
@@ -245,6 +255,7 @@ const LOADING: State = {
   overallMark: null,
   workEvidenceMonths: undefined,
   workInAnswers: null,
+  workAssists: null,
   /* Hidden until the server answers: a row that appears late is better than
      one that vanishes under somebody's pointer. */
   earlyPay: false,
@@ -798,6 +809,9 @@ function fromApi(features: ApiFeatures): State {
        off, as `overallMark` is: that server has no such setting, so no switch is
        offered for it. */
     workInAnswers: features.workInAnswers ?? null,
+    /* Absent from an API one deploy behind, and kept as null rather than read as off, for the same
+       reason: that server has no such setting, so no switch is offered for it. */
+    workAssists: features.workAssists ?? null,
     /* An API one deploy behind does not send it, and that API has no switch
        to have turned anybody off. */
     earlyPay: features.earlyPay ?? true,
@@ -863,6 +877,9 @@ function fromDemo(demo: DemoState): State {
     /* Nothing is pinned, flagged or suggested in a browser: those need the
        server, and a switch for them would describe no record anywhere. */
     workInAnswers: null,
+    /* Nothing is closed as won't do, accepted, hinted or pre-filled in a browser: those need the
+       server, and a switch for them would describe no record anywhere. */
+    workAssists: null,
     /* Nobody switches a demo company off. */
     earlyPay: true,
     earnedWage: null,
@@ -1024,6 +1041,7 @@ export function useFeatureSettings() {
     | "overallMark"
     | "workEvidenceRetentionMonths"
     | "workInAnswers"
+    | "workAssists"
     | null
   >(null);
 
@@ -1037,7 +1055,8 @@ export function useFeatureSettings() {
         | "headcountBand"
         | "overallMark"
         | "workEvidenceRetentionMonths"
-        | "workInAnswers",
+        | "workInAnswers"
+        | "workAssists",
     ): Promise<FeatureFlags & { headcountBand: HeadcountBand }> => {
       setSaving(field);
       try {
@@ -1159,6 +1178,17 @@ export function useFeatureSettings() {
      */
     setWorkInAnswers: useCallback(
       (workInAnswers: boolean) => save({ workInAnswers }, "workInAnswers"),
+      [save],
+    ),
+    /** See `State.workAssists`. */
+    workAssists: state.workAssists,
+    /**
+     * Whether the assists are offered. Turning it off deletes nothing, because they store nothing and
+     * the two marks on a task are recordings that stay; it takes effect for the next thing anybody
+     * does.
+     */
+    setWorkAssists: useCallback(
+      (workAssists: boolean) => save({ workAssists }, "workAssists"),
       [save],
     ),
   };
