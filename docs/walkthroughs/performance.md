@@ -106,7 +106,7 @@ opens is empty, and says so in a sentence.
 | **Competency ratings**  | `/performance/skills`       | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                        | Everyone                                                                                                   |
 | **Appraisal periods**   | `/performance/periods`      | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                  | HR / Owner                                                                                                 |
 | **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it, send it back, or refuse it.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
-| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and for what share of the mark.           | HR / Owner                                                                                                 |
+| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and how much each one's overall mark weighs. | HR / Owner                                                                                                 |
 
 A further item, **My work record** (`/performance/work-record`), sits beside these for a company that has
 Projects switched on, and for nobody else. It is open to everyone and shows only their own (step 33).
@@ -253,28 +253,31 @@ The first card on that same tab decides whether a form asks for one of those wor
 | **Click**      | **Ask for an overall mark at the end of an appraisal**                                                    |
 | **You'll see** | A toast saying it applies to the next form anybody opens, and that marks already given are not touched    |
 
-> 💡 **What it does and does not do.** A manager's overall mark is shown beside the score and is **not**
-> counted in it. Self-assessment (step 3) reads from the overall mark somebody gave themselves when
-> there is one, and from how they answered when there is not, so this switch does not decide whether
-> that part has anything to count. Switching this off never hides or changes a mark already given, and
-> a form that is already open keeps the pages it opened with.
+> 💡 **What it does and does not do.** The switch decides what a form offers, and the page is optional.
+> It does not decide whether a manager's overall mark counts towards the score: that happens only in a
+> period that weights **Manager appraisal** (step 3), and then a manager's form asks for the mark whatever
+> this switch says, and needs it. The card says so under the switch, in the company's own name for the
+> part. Self-assessment (step 3) reads from the overall mark somebody gave themselves when there is one,
+> and from how they answered when there is not, so this switch does not decide whether that part has
+> anything to count. Switching this off never hides or changes a mark already given, and a form that is
+> already open keeps the pages it opened with.
 
 #### 3. Set what the mark is made of
 
-Six parts — objectives, weekly tasks, core competencies, behavioural competencies, leadership, and what
-somebody said about themselves. You choose the percentage each one carries. That last one is the overall
-mark somebody gave themselves when there is one (step 2), and otherwise **how they answered, about
+Seven parts — objectives, weekly tasks, core competencies, behavioural competencies, leadership,
+**manager appraisal**, and what somebody said about themselves. You choose the weight each one carries.
+The last one is the overall mark somebody gave themselves when there is one (step 2), and otherwise **how they answered, about
 themselves, the rated subsections their manager answers too**: the mean of those answers on a
 self-review they have sent. An answer to a subsection asked of the person alone is not counted again here,
-because it is already their rating. **Weekly tasks** start at 0%, so a company that has never weighted them
-sees no change.
+because it is already their rating. **Weekly tasks** and **Manager appraisal** start at 0%, so a company that
+has never weighted them sees no change.
 
 |                |                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
 | **Where**      | `/settings/performance` → **The parts of a mark**                                                    |
 | **Who**        | HR / Owner                                                                                           |
-| **Click**      | Type a whole percentage into each **Weight** box until the running total reads 100%, then save       |
-| **You'll see** | Save stays dead until the total is exactly 100%, with a line telling you how much to add or take off |
+| **Click**      | Type a percentage into each **Weight** box, then **Save the whole set**                              |
+| **You'll see** | Each part shows the share of a mark it comes to; Save stays dead only if every part is 0%             |
 
 > 💡 **What Weekly tasks counts.** When it carries a weight, the part is how the manager graded the tasks
 > people logged against the period's objectives (step 18): **Completed** counts in full, **Partly
@@ -282,6 +285,19 @@ sees no change.
 > tasks is not marked down: their share is spread over the other parts. A mark with Weekly tasks weighted
 > at 0% does not list it at all. These are the company's starting weights; a single period can change them
 > (step 4).
+
+> 💡 **What Manager appraisal counts.** When it carries a weight, the part is the overall mark each
+> appraiser gave, weighted by their share when a person has more than one appraiser (the **Who appraises whom** screen), and a
+> person's appraisers who have sent one are the only ones counted. It is the way for a company that does not
+> record competency levels to count its managers' judgement: without it those marks are built from objectives
+> alone. A mark with it weighted at 0% does not
+> list it at all. In a period that weights it, a manager's form asks for an overall mark whatever the switch in
+> step 2 says, and cannot be sent without one (step 17). Somebody whose appraisers have sent none is not marked
+> down: the part's share is spread over the other parts. The sentence under the row is the API's own and says
+> what the weight does to a mark, including that a manager's judgement then reaches the score by two routes:
+> the levels they record under Competency ratings, and this overall mark. It says so as a note, never as a
+> refusal, and it is about the saved weight, so it reads **Saved now, not yet changed:** once you have moved
+> any weight and not yet saved.
 
 > 💡 **Worth showing a stakeholder.** The self-assessment card underneath does the arithmetic out loud:
 > at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final mark
@@ -330,16 +346,21 @@ them on its own page.
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Where**      | `/performance/periods/{id}`, on a draft: the card **How the mark is made up**                                                                    |
 | **Who**        | HR / Owner                                                                                                                                       |
-| **Click**      | Type a whole number from 0 to 100 into each of the six parts, then **Save the weights**. **Use the company defaults** puts the company's back    |
-| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **These must add up to 100%.**   |
+| **Click**      | Type a whole number from 0 to 100 into each part, then **Save the weights**. **Use the company defaults** puts the company's back               |
+| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** |
 
 Two things about it. Whole numbers only: the company defaults in Settings take two decimal places, but here
-the rule is exactly 100%, and a field that took 33.33 would let three of them make 99.99. And an untouched
+a weight is a whole number from 0 to 100, and the parts count in proportion to their total. And an untouched
 card does nothing: the period keeps following the company's weights, and when it starts whatever the company
 holds at that moment is fixed onto it. From the moment it starts the card is read-only and reads **Fixed
 when this period started.** (a period from before this existed reads **This period follows the company's
 weights as they are today.**). The assistant's draft (step 5) shows the same card on its first page, under
-the description, and **Draft it** stays off while a total you typed is not 100%.
+the description, and **Draft it** stays off while a weight you typed is not a whole number from 0 to 100 or
+every part is at 0%. **Manager appraisal** has a row of its own between Leadership and Self-assessment, with a
+line under the card saying that where no appraiser has sent an overall mark for somebody, its share is spread
+over the other parts. On the period's own page the API adds one sentence under the card, in its own words, about
+what weighting Manager appraisal does to this period's marks, and it reads **Saved now, not yet changed:** once
+you have typed over the saved weights.
 
 **Changing the name afterwards.** A name typed wrongly can be fixed at any stage, a running or published
 period as well as a draft.
@@ -888,6 +909,19 @@ the module, so it is worth walking properly.
   the last question and the closing page, the **Preview** has an **Overall mark** row, and the
   confirmation says _"… and an overall mark of Meets Expectations"_. Either way the mark comes from
   the scores (step 22).
+- **A manager's form in a period that weights Manager appraisal (step 3) has to carry an overall mark.** The
+  page is there whatever the switch says. It is called **Your overall mark** and says _"Needed. It counts for
+  30% of the mark in this period."_ (the figure is the part's share, and the line reads _"Needed. This period
+  counts it towards the score."_ where the server did not send one); there is no **Leave it blank instead** and
+  the button reads **Next**, never **Skip**. Going on without one stays on the page with _"This one needs an
+  answer before you can go on."_ On the **Preview** the **Overall mark** row reads _Not given yet_ with a
+  **Needs an answer** badge and a line says _"The overall mark still needs an answer before this can go."_;
+  **Send it** walks you back to the page instead of sending. A self-review is never held to it.
+- **The strip at the top of a manager's form says what the overall mark is worth.** _"Your overall mark counts
+  for 30% of the mark."_ where the period weights Manager appraisal; with several appraisers _"Your overall mark
+  counts for 40% of what the appraisers say, alongside 2 others. What they say is 30% of the mark."_; and
+  _"Your overall mark does not count towards the score."_ where the period does not weight it and the form asks
+  for one. It used to say the review counted for the mark, which was never true of the review.
 - **The closing page is named for who is writing.** On the person's own form, and on peer feedback, it is
   **Anything to add?**. On a manager's form it is **Your recommendations** (_"Optional. What you recommend
   for them, and anything else you want to say, in your own words."_), and the **Preview** row and the line
@@ -1174,7 +1208,11 @@ somebody gave one. Where the self-review is not there the card is simply **Manag
 Above it, **What the mark is made of** lists each part with what it scored, what it counts for and what
 it is based on: _Based on 4 ratings_, _Based on 1 agreed objective_. A part left out says why in the API's
 own words. When parts were left out, one sentence above the list names them and says the others count for
-more than the company set (see _The mark_), and each part that moved says only what was set.
+more than the company set (see _The mark_), and each part that moved says only what was set. **Manager
+appraisal** is listed only where it carries a weight, and _Based on 2 overall marks_ is what it counted.
+Beside the score, **Appraisers' overall rating** says whether it is in the mark: _"It is what Manager
+appraisal is scored from."_ where the part carries a weight, and _"For reference. It does not count towards the
+score."_ where it does not.
 
 ### Phase F — the person answers: sign-off
 
@@ -1423,7 +1461,7 @@ on purpose — they are the arguments the module is built on.
 | **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
 | **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
 | **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21). |
-| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it. Self-assessment reads from the mark somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
+| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it, unless a period weights Manager appraisal: then managers are asked for one whatever the switch says. Self-assessment reads from the mark somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
 | **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---
@@ -1459,7 +1497,7 @@ seeded accounts to use.
 
 | #   | Do this                                                                                                                     | What to point at                                                                                                                   |
 | --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **HR** — `/settings/performance`. Show the five weights totalling 100%, then drag one so it does not.                       | Save goes dead and the product tells you how much to add. A mark that cannot fail to add up.                                       |
+| 1   | **HR** — `/settings/performance`. Show the parts of a mark and their weights, then change one.                              | Each part counts in proportion to the total, and the share it comes to is shown beside it. Manager appraisal starts at 0%.        |
 | 2   | **HR** — **Start an appraisal period**. Name it, set a due date, open _What to tell people_, type two sentences. Create it. | Nobody has been told anything yet. Say so.                                                                                         |
 | 3   | **HR** — **Write the questions**. Add one for the person and one for their manager.                                         | _Filed under_. And Start is dead until at least one question exists, and says why.                                                 |
 | 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
@@ -1482,7 +1520,8 @@ period's own weights), 6 (the questions and the subsections), 16 (the no-apprais
 were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated
 subsection asked on the review form, and step 6 on 3 November 2026, for the lock, the answer type in front of a
 subsection's name and starting a new version, and steps 6, 17, 21 and 22 again on 6 November 2026, for a
-subsection answered in the person's own words). Every button label, field name and
+subsection answered in the person's own words, and steps 2, 3, 4 and 17, the reading of a mark and the twelfth
+surprise again on 12 November 2026, for the Manager appraisal part). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._
