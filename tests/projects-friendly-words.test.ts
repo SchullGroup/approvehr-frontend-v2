@@ -1,6 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { LINK_CHOICES } from "@/components/projects/linked-tasks";
 import { visibleStrings, type VisibleString } from "./support/visible-strings";
 
 /**
@@ -90,6 +91,11 @@ const RETIRED: { re: RegExp; use: string }[] = [
   { re: /\bwatch(?:ers?|ing)?\b/i, use: "follow / following" },
   { re: /\broadmap\b/i, use: "timeline" },
   { re: /\bstatus(?:es)?\b/i, use: "stage" },
+  /* The board types are "Simple board" and "Board with cycles". The stored value
+     `SCRUM` is all capitals and is skipped, like `EPIC`. "kanban" and "swimlane"
+     join this list when the board's own heading and Group by control stop using
+     them. */
+  { re: /\bscrum\b/i, use: "board with cycles" },
 ];
 
 /** A figure followed by one of these, hard-coded, reads wrongly for one. */
@@ -252,5 +258,22 @@ describe("the Projects module's friendly words", () => {
   it("reads a real number of files, so it cannot pass by reading none", () => {
     const files = [...new Set(SCOPE.flatMap(filesIn))];
     expect(files.length).toBeGreaterThan(80);
+  });
+});
+
+describe("the link picker", () => {
+  /* A software team's words. Links already stored with them still show, under
+     the label the API sends; the picker just stops offering them. */
+  it("does not offer Front end for or Back end for", () => {
+    const labels = LINK_CHOICES.map((c) => c.label.toLowerCase());
+    expect(labels).not.toContain("front end for");
+    expect(labels).not.toContain("back end for");
+    expect(LINK_CHOICES.map((c) => c.value)).toEqual([
+      "RELATES",
+      "BLOCKS",
+      "BLOCKED_BY",
+      "DUPLICATES",
+      "DUPLICATED_BY",
+    ]);
   });
 });

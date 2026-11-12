@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `137ecb73` (2026-11-11) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `513bf244` (2026-11-12) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -17,18 +17,18 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       37 |         91 |       6 |        12 |
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       45 |         44 |       1 |        18 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       22 |         49 |       0 |         6 |
-| [Module components — `src/components/*`](#module-components--srccomponents)                        |      151 |        224 |      10 |        40 |
+| [Module components — `src/components/*`](#module-components--srccomponents)                        |      153 |        226 |      10 |        42 |
 | [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       71 |          0 |       0 |       258 |
 | [Data hooks — `src/lib/store`](#data-hooks--srclibstore)                                           |       97 |          0 |     368 |        96 |
 | [Seed data — `src/lib/mock`](#seed-data--srclibmock)                                               |       10 |          0 |       0 |        21 |
-| [Domain helpers — `src/lib/*`](#domain-helpers--srclib)                                            |      224 |          0 |      57 |       980 |
+| [Domain helpers — `src/lib/*`](#domain-helpers--srclib)                                            |      225 |          0 |      57 |       981 |
 | [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        5 |          0 |       5 |         1 |
 | [Screens — `/dashboard`](#screens--dashboard)                                                      |       12 |         10 |       0 |         6 |
 | [Screens — `/people`](#screens--people)                                                            |      119 |        122 |       0 |        29 |
 | [Screens — `/payroll`](#screens--payroll)                                                          |       71 |         78 |       1 |        34 |
 | [Screens — `/performance`](#screens--performance)                                                  |       89 |        100 |       3 |        60 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         69 |       1 |         9 |
-| [Screens — `/projects`](#screens--projects)                                                        |       38 |         36 |       0 |         3 |
+| [Screens — `/projects`](#screens--projects)                                                        |       38 |         37 |       0 |         3 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
 | [Screens — `/reports`](#screens--reports)                                                          |       12 |         15 |       0 |         8 |
 | [Screens — `/settings`](#screens--settings)                                                        |      102 |        104 |       1 |         9 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        13 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       46 |         51 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1282** |   **1067** | **453** |  **1612** |
+| **Total**                                                                                          | **1285** |   **1070** | **453** |  **1615** |
 
 ---
 
@@ -287,6 +287,8 @@ Shared pieces owned by one module but used from more than one screen.
 | `src/components/projects/assignees.tsx`                    | `AssigneeStack`, `AssigneeList`, `AssigneeMenu`                                                                                         | —                                 | —                                                               | —                 |
 | `src/components/projects/backlog-row.tsx`                  | `BacklogRow`                                                                                                                            | —                                 | —                                                               | —                 |
 | `src/components/projects/board-motion.tsx`                 | `BoardGhost`                                                                                                                            | `useFlip`                         | —                                                               | 1 const · 1 type  |
+| `src/components/projects/board-switched-note.tsx`          | `BoardSwitchedNote`                                                                                                                     | —                                 | `boardSwitchedNoteKey`, `switchedRecently`                      | 1 const           |
+| `src/components/projects/board-type-choice.tsx`            | `BoardTypeChoice`                                                                                                                       | —                                 | —                                                               | —                 |
 | `src/components/projects/bulk-link-dialog.tsx`             | `BulkLinkDialog`                                                                                                                        | —                                 | —                                                               | —                 |
 | `src/components/projects/comment-item.tsx`                 | `CommentItem`                                                                                                                           | —                                 | —                                                               | —                 |
 | `src/components/projects/create-issue-dialog.tsx`          | `CreateIssueDialog`                                                                                                                     | —                                 | —                                                               | —                 |
@@ -755,8 +757,9 @@ Pure logic with no React in it: payroll settings, the import framework, CSV and 
 | `src/lib/projects/sample.ts`                            | —          | —                                                                                                                                                                     | `buildSample`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 2 const · 1 type                               |
 | `src/lib/projects/sort.ts`                              | —          | —                                                                                                                                                                     | `nextSort`, `sortIssues`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 1 const · 2 types                              |
 | `src/lib/projects/sprints.ts`                           | —          | —                                                                                                                                                                     | `startBlocker`, `sprintDatesProblem`, `nextSprintDraft`, `startSprint`, `completeSprint`, `sprintLength`                                                                                                                                                                                                                                                                                                                                                                                                                                     | 1 const · 1 type                               |
-| `src/lib/projects/terms.ts`                             | —          | —                                                                                                                                                                     | `count`, `nounFor`, `displayType`, `cycleName`, `readOnlyProject`, `LIST_CAPPED`                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 55 const · 5 types                             |
+| `src/lib/projects/terms.ts`                             | —          | —                                                                                                                                                                     | `count`, `nounFor`, `displayType`, `cycleName`, `readOnlyProject`, `LIST_CAPPED`                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 60 const · 5 types                             |
 | `src/lib/projects/types.ts`                             | —          | —                                                                                                                                                                     | `isLinked`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 14 const · 26 types                            |
+| `src/lib/projects/where-it-went.ts`                     | —          | —                                                                                                                                                                     | `whereItWent`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | —                                              |
 | `src/lib/projects/work-periods.ts`                      | —          | —                                                                                                                                                                     | `dayText`, `periodAround`, `periodBefore`, `periodAfter`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 2 types                                        |
 | `src/lib/projects/work-query.ts`                        | —          | —                                                                                                                                                                     | `queryFromParams`, `filterCount`, `withParam`, `withoutFilters`                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 2 const · 1 type                               |
 | `src/lib/projects/workflow.ts`                          | —          | —                                                                                                                                                                     | `sortStatuses`, `statusOf`, `effectiveStatus`, `categoryOf`, `isDone`, `firstOfCategory`, `checkboxTarget`, `statusInUse`, `removalBlocker`, `workflowProblem`, `wipState`, `boardTypeChangeBlocker`                                                                                                                                                                                                                                                                                                                                         | 3 const · 1 type                               |
@@ -1191,46 +1194,46 @@ Screen components for the hiring module, including its dialogs and panels.
 
 Screen components for the projects module, including its dialogs and panels.
 
-| File                                                      | Components            | Hooks | Functions              | Also             |
-| --------------------------------------------------------- | --------------------- | ----- | ---------------------- | ---------------- |
-| `src/app/(app)/projects/new-project-dialog.tsx`           | `NewProjectDialog`    | —     | —                      | —                |
-| `src/app/(app)/projects/page.tsx`                         | `ProjectsPage`        | —     | —                      | 1 const          |
-| `src/app/(app)/projects/projects-screen.tsx`              | `ProjectsScreen`      | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/backlog-view.tsx`            | `BacklogView`         | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/board-view.tsx`              | `BoardView`           | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/issues-view.tsx`             | `IssuesView`          | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/page.tsx`                    | `ProjectPage`         | —     | —                      | 1 const          |
-| `src/app/(app)/projects/[id]/project-screen.tsx`          | `ProjectScreen`       | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/reports-view.tsx`            | `ReportsView`         | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/roadmap-view.tsx`            | `RoadmapView`         | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/settings-view.tsx`           | `SettingsView`        | —     | —                      | —                |
-| `src/app/(app)/projects/[id]/views.tsx`                   | —                     | —     | `viewById`             | 2 const · 1 type |
-| `src/app/(app)/projects/[id]/workflow-editor.tsx`         | `WorkflowEditor`      | —     | —                      | —                |
-| `src/app/(app)/projects/archive/archive-screen.tsx`       | `ArchiveScreen`       | —     | —                      | —                |
-| `src/app/(app)/projects/archive/page.tsx`                 | `ArchivePage`         | —     | —                      | 1 const          |
-| `src/app/(app)/projects/master/master-screen.tsx`         | `MasterScreen`        | —     | —                      | —                |
-| `src/app/(app)/projects/master/page.tsx`                  | `MasterPage`          | —     | —                      | 1 const          |
-| `src/app/(app)/projects/mine/my-tasks-screen.tsx`         | `MyTasksScreen`       | —     | —                      | —                |
-| `src/app/(app)/projects/mine/page.tsx`                    | `MyTasksPage`         | —     | —                      | 1 const          |
-| `src/app/(app)/projects/programs/new-program-dialog.tsx`  | `NewProgramDialog`    | —     | —                      | —                |
-| `src/app/(app)/projects/programs/page.tsx`                | `ProgramsPage`        | —     | —                      | 1 const          |
-| `src/app/(app)/projects/programs/programs-screen.tsx`     | `ProgramsScreen`      | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/board-view.tsx`     | `WorkBoardView`       | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/overview-view.tsx`  | `OverviewView`        | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/page.tsx`           | `ProgramPage`         | —     | —                      | 1 const          |
-| `src/app/(app)/projects/programs/[id]/people-view.tsx`    | `PeopleView`          | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/program-screen.tsx` | `ProgramScreen`       | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/program-views.tsx`  | —                     | —     | `viewsFor`, `viewById` | 2 const · 1 type |
-| `src/app/(app)/projects/programs/[id]/projects-view.tsx`  | `ProgramProjectsView` | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/settings-view.tsx`  | `ProgramSettingsView` | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/tasks-view.tsx`     | `TasksView`           | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/timeline-view.tsx`  | `TimelineView`        | —     | —                      | —                |
-| `src/app/(app)/projects/programs/[id]/workload-view.tsx`  | `WorkloadView`        | —     | —                      | —                |
-| `src/app/(app)/projects/tasks/[id]/page.tsx`              | `TaskPage`            | —     | —                      | 1 const          |
-| `src/app/(app)/projects/tasks/[id]/task-screen.tsx`       | `TaskScreen`          | —     | —                      | —                |
-| `src/app/(app)/projects/team/completed-view.tsx`          | `CompletedTeam`       | —     | —                      | —                |
-| `src/app/(app)/projects/team/page.tsx`                    | `TeamTasksPage`       | —     | —                      | 1 const          |
-| `src/app/(app)/projects/team/team-tasks-screen.tsx`       | `TeamTasksScreen`     | —     | —                      | —                |
+| File                                                      | Components                            | Hooks | Functions              | Also             |
+| --------------------------------------------------------- | ------------------------------------- | ----- | ---------------------- | ---------------- |
+| `src/app/(app)/projects/new-project-dialog.tsx`           | `NewProjectDialog`                    | —     | —                      | —                |
+| `src/app/(app)/projects/page.tsx`                         | `ProjectsPage`                        | —     | —                      | 1 const          |
+| `src/app/(app)/projects/projects-screen.tsx`              | `ProjectsScreen`                      | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/backlog-view.tsx`            | `BacklogView`                         | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/board-view.tsx`              | `BoardView`                           | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/issues-view.tsx`             | `IssuesView`                          | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/page.tsx`                    | `ProjectPage`                         | —     | —                      | 1 const          |
+| `src/app/(app)/projects/[id]/project-screen.tsx`          | `ProjectScreen`                       | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/reports-view.tsx`            | `ReportsView`                         | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/roadmap-view.tsx`            | `RoadmapView`                         | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/settings-view.tsx`           | `SettingsView`, `DeleteProjectDialog` | —     | —                      | —                |
+| `src/app/(app)/projects/[id]/views.tsx`                   | —                                     | —     | `viewById`             | 2 const · 1 type |
+| `src/app/(app)/projects/[id]/workflow-editor.tsx`         | `WorkflowEditor`                      | —     | —                      | —                |
+| `src/app/(app)/projects/archive/archive-screen.tsx`       | `ArchiveScreen`                       | —     | —                      | —                |
+| `src/app/(app)/projects/archive/page.tsx`                 | `ArchivePage`                         | —     | —                      | 1 const          |
+| `src/app/(app)/projects/master/master-screen.tsx`         | `MasterScreen`                        | —     | —                      | —                |
+| `src/app/(app)/projects/master/page.tsx`                  | `MasterPage`                          | —     | —                      | 1 const          |
+| `src/app/(app)/projects/mine/my-tasks-screen.tsx`         | `MyTasksScreen`                       | —     | —                      | —                |
+| `src/app/(app)/projects/mine/page.tsx`                    | `MyTasksPage`                         | —     | —                      | 1 const          |
+| `src/app/(app)/projects/programs/new-program-dialog.tsx`  | `NewProgramDialog`                    | —     | —                      | —                |
+| `src/app/(app)/projects/programs/page.tsx`                | `ProgramsPage`                        | —     | —                      | 1 const          |
+| `src/app/(app)/projects/programs/programs-screen.tsx`     | `ProgramsScreen`                      | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/board-view.tsx`     | `WorkBoardView`                       | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/overview-view.tsx`  | `OverviewView`                        | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/page.tsx`           | `ProgramPage`                         | —     | —                      | 1 const          |
+| `src/app/(app)/projects/programs/[id]/people-view.tsx`    | `PeopleView`                          | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/program-screen.tsx` | `ProgramScreen`                       | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/program-views.tsx`  | —                                     | —     | `viewsFor`, `viewById` | 2 const · 1 type |
+| `src/app/(app)/projects/programs/[id]/projects-view.tsx`  | `ProgramProjectsView`                 | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/settings-view.tsx`  | `ProgramSettingsView`                 | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/tasks-view.tsx`     | `TasksView`                           | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/timeline-view.tsx`  | `TimelineView`                        | —     | —                      | —                |
+| `src/app/(app)/projects/programs/[id]/workload-view.tsx`  | `WorkloadView`                        | —     | —                      | —                |
+| `src/app/(app)/projects/tasks/[id]/page.tsx`              | `TaskPage`                            | —     | —                      | 1 const          |
+| `src/app/(app)/projects/tasks/[id]/task-screen.tsx`       | `TaskScreen`                          | —     | —                      | —                |
+| `src/app/(app)/projects/team/completed-view.tsx`          | `CompletedTeam`                       | —     | —                      | —                |
+| `src/app/(app)/projects/team/page.tsx`                    | `TeamTasksPage`                       | —     | —                      | 1 const          |
+| `src/app/(app)/projects/team/team-tasks-screen.tsx`       | `TeamTasksScreen`                     | —     | —                      | —                |
 
 ---
 
