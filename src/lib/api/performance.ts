@@ -1503,6 +1503,47 @@ export type ApiScoringWeightsSaved = ApiScoringWeights & {
   frozenCycles: string[];
 };
 
+/**
+ * One appraisal scoring part, as the company wrote it: its own name and
+ * description, a weight, and the source its mark is scored from. Each source
+ * backs one part at most.
+ */
+export type ApiScoringPart = {
+  id: string;
+  source: ScoreComponent;
+  /** The source's built-in name, for "Scored from". */
+  sourceLabel: string;
+  name: string;
+  /** Null when the company wrote none. */
+  description: string | null;
+  weightBp: number;
+  /** Its share of a whole mark: weight over the total. */
+  shareBp: number;
+};
+
+export type ApiScoringParts = {
+  parts: ApiScoringPart[];
+  /** Weights are proportional, so this need not be 10000. */
+  totalBp: number;
+  /** Every source a part can be scored from, and the part using it if any. */
+  sources: {
+    source: ScoreComponent;
+    label: string;
+    description: string;
+    usedBy: string | null;
+  }[];
+  /** What self-assessment does to a mark, in the API's own words. */
+  selfAssessmentNote: string;
+};
+
+export type ScoringPartInput = {
+  source: ScoreComponent;
+  name: string;
+  /** Empty or null means no description. */
+  description?: string | null;
+  weightBp: number;
+};
+
 /* ---------------------------------------------------- bands and the report */
 
 /**
@@ -2984,6 +3025,29 @@ export const performanceApi = {
         ...(labels === undefined ? {} : { labels }),
         ...(descriptions === undefined ? {} : { descriptions }),
       },
+    }),
+
+  /** The company's scoring parts. Open to everybody, like the weights. */
+  scoringParts: (signal?: AbortSignal) =>
+    request<ApiScoringParts>("/performance/scoring-parts", signalOf(signal)),
+
+  /** Add a part. A second part on a source already used is a 409. */
+  createScoringPart: (input: ScoringPartInput) =>
+    request<ApiScoringPart>("/performance/scoring-parts", {
+      method: "POST",
+      body: input,
+    }),
+
+  updateScoringPart: (id: string, patch: Partial<ScoringPartInput>) =>
+    request<ApiScoringPart>(`/performance/scoring-parts/${id}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+
+  /** Gone for good: its source counts for nothing until a part uses it again. */
+  deleteScoringPart: (id: string) =>
+    request<{ id: string; name: string }>(`/performance/scoring-parts/${id}`, {
+      method: "DELETE",
     }),
 
   /** Everybody's composite score in one cycle. `EDIT_RECORDS`, as an aggregate is. */

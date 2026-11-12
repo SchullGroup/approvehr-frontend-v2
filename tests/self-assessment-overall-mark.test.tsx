@@ -8,7 +8,7 @@ import { ToastProvider } from "@/components/ui";
  *
  * Self-assessment is read from the mark somebody gave themselves when there is
  * one, and from how they answered when there is not, so whether forms ask for an
- * overall mark does not decide whether the part has anything to count. The weights
+ * overall mark does not decide whether the part has anything to count. The parts
  * page therefore reads the same either way: the API's sentence about what is
  * saved, once; what a weight costs; and no offer to switch marks on, which used to
  * be there because "nothing to count" was true.
@@ -22,22 +22,23 @@ const setOverallMark = vi.fn<(next: boolean) => Promise<object>>(
   async () => ({}),
 );
 
-type Row = { component: string; label: string; weightBp: number };
-const rows = (self: number): Row[] => [
-  {
-    component: "OBJECTIVES",
-    label: "Delivery against objectives",
-    weightBp: 4000,
-  },
-  { component: "CORE_COMPETENCY", label: "Core competencies", weightBp: 2000 },
-  {
-    component: "BEHAVIOURAL_COMPETENCY",
-    label: "Behavioural competencies",
-    weightBp: 1000,
-  },
-  { component: "LEADERSHIP", label: "Leadership", weightBp: 3000 - self },
-  { component: "SELF_ASSESSMENT", label: "Self-assessment", weightBp: self },
-];
+type Part = { source: string; name: string; weightBp: number };
+const partsOf = (self: number): Part[] =>
+  [
+    {
+      source: "OBJECTIVES",
+      name: "Delivery against objectives",
+      weightBp: 4000,
+    },
+    { source: "CORE_COMPETENCY", name: "Core competencies", weightBp: 2000 },
+    {
+      source: "BEHAVIOURAL_COMPETENCY",
+      name: "Behavioural competencies",
+      weightBp: 1000,
+    },
+    { source: "LEADERSHIP", name: "Leadership", weightBp: 3000 - self },
+    { source: "SELF_ASSESSMENT", name: "Self-assessment", weightBp: self },
+  ].filter((part) => part.weightBp > 0);
 let selfSaved = 2000;
 let overallMark: boolean | null = false;
 
@@ -48,31 +49,41 @@ vi.mock("@/components/portal/shell", () => ({
     <div>{children}</div>
   ),
 }));
-/* One object per saved weight. The form keeps a draft only while the weights it
-   was started from are the same object, so a fresh one on every render would
-   throw every keystroke away and the draft cases below would prove nothing. */
-const weightsBySaved = new Map<number, unknown>();
-const weightsFor = (self: number) => {
-  if (!weightsBySaved.has(self)) {
-    weightsBySaved.set(self, {
-      source: "saved",
+/* One object per saved set, so a re-render hands the screen the same list. */
+const viewBySaved = new Map<number, unknown>();
+const viewFor = (self: number) => {
+  if (!viewBySaved.has(self)) {
+    const parts = partsOf(self);
+    const totalBp = parts.reduce((sum, part) => sum + part.weightBp, 0);
+    viewBySaved.set(self, {
+      parts: parts.map((part) => ({
+        id: part.source,
+        source: part.source,
+        sourceLabel: part.name,
+        name: part.name,
+        description: null,
+        weightBp: part.weightBp,
+        shareBp: Math.round((part.weightBp * 10000) / totalBp),
+      })),
+      totalBp,
+      sources: [],
       selfAssessmentNote: "THE API'S NOTE",
-      frozenCycles: [],
-      rows: rows(self),
     });
   }
-  return weightsBySaved.get(self);
+  return viewBySaved.get(self);
 };
 vi.mock("@/lib/store/performance", async (original) => ({
   ...(await original<typeof import("@/lib/store/performance")>()),
-  useScoringWeights: () => ({
-    weights: weightsFor(selfSaved),
+  useScoringParts: () => ({
+    parts: viewFor(selfSaved),
     loading: false,
     error: null,
     source: "api",
     editable: true,
     refusal: "",
-    save: vi.fn(),
+    add: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
     reload,
   }),
 }));
@@ -135,7 +146,9 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
     selfSaved = 0;
     overallMark = false;
     mount();
-    expect(screen.getByText(/Set this above 0%/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Add a part scored from self-assessment/),
+    ).toBeInTheDocument();
   });
 
   it("keeps the API's own sentence about what is saved, so it is said once and by the API", () => {
@@ -163,7 +176,7 @@ describe("the Names of marks tab", () => {
     expect(screen.getByRole("switch")).toBeInTheDocument();
   });
 
-  it("asks the weights to be read again after the switch moves, so the API's note follows it", async () => {
+  it("asks the parts to be read again after the switch moves, so the API's note follows it", async () => {
     mount("marks");
     await userEvent.click(screen.getByRole("switch"));
     expect(setOverallMark).toHaveBeenCalledWith(true);

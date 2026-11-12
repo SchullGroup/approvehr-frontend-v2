@@ -8,8 +8,9 @@ import type {
 } from "@/lib/api/performance";
 
 /**
- * The three places the weights are chosen: the new-period wizard, the draft
- * period's own settings, and the company defaults in Settings.
+ * The two places a period's weights are chosen: the new-period wizard and the
+ * draft period's own settings. The company's parts in Settings have their own
+ * file, `scoring-parts-settings.test.tsx`.
  *
  * Stores are mocked at the hook, so what is asserted is what each screen
  * *sends*, in basis points, and what it refuses before sending.
@@ -109,8 +110,6 @@ vi.mock("@/lib/store/performance", () => ({
   useKpiMutations: () => ({ createGoal: vi.fn(), addKeyResult: vi.fn() }),
 }));
 
-const { ScoringWeightsForm } =
-  await import("@/app/(app)/settings/performance/weights-form");
 const { DraftPeriodWizard } =
   await import("@/app/(app)/performance/periods/new/draft-wizard");
 const { PeriodWeightsSection } =
@@ -119,7 +118,6 @@ const { PeriodWeightsSection } =
 beforeEach(() => {
   vi.clearAllMocks();
   companySet = { weights: defaults, error: null };
-  save.mockResolvedValue({ ...defaults, saved: true, frozenCycles: [] });
   createCycle.mockResolvedValue({ id: "c-1" });
   updateCycle.mockResolvedValue({});
 });
@@ -144,101 +142,6 @@ const cycle = (over: Partial<ApiCycle> = {}): ApiCycle =>
     },
     ...over,
   }) as unknown as ApiCycle;
-
-describe("Settings: the company defaults", () => {
-  it("shows the Weekly tasks row and says it starts new periods", () => {
-    render(<ScoringWeightsForm scale={null} />);
-    expect(screen.getByDisplayValue("Weekly tasks")).toBeInTheDocument();
-    expect(
-      screen.getByText("This is the starting point for new appraisal periods."),
-    ).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Weight")).toHaveLength(6);
-  });
-
-  it("saves all six components", async () => {
-    const user = userEvent.setup();
-    render(<ScoringWeightsForm scale={null} />);
-    const fields = screen.getAllByLabelText("Weight");
-    await user.clear(fields[0]!);
-    await user.type(fields[0]!, "25");
-    await user.clear(fields[1]!);
-    await user.type(fields[1]!, "15");
-    await user.click(
-      screen.getByRole("button", { name: "Save the whole set" }),
-    );
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save).toHaveBeenCalledWith({
-      OBJECTIVES: 2500,
-      TASKS: 1500,
-      CORE_COMPETENCY: 2500,
-      BEHAVIOURAL_COMPETENCY: 2000,
-      LEADERSHIP: 1500,
-      SELF_ASSESSMENT: 0,
-    });
-  });
-
-  it("edits a part's description and saves only the one that changed", async () => {
-    const user = userEvent.setup();
-    render(<ScoringWeightsForm scale={null} />);
-    const boxes = screen.getAllByLabelText("Description");
-    expect(boxes).toHaveLength(6);
-    expect(boxes[0]).toHaveValue(
-      "Progress on the objectives agreed for the cycle. Draft and unapproved ones are not read.",
-    );
-    await user.clear(boxes[0]!);
-    await user.type(boxes[0]!, "What we promised, delivered.");
-    await user.click(
-      screen.getByRole("button", { name: "Save the whole set" }),
-    );
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.calls[0]![2]).toEqual({
-      OBJECTIVES: "What we promised, delivered.",
-    });
-  });
-
-  it("saves a total that is not 100%, since weights are proportional", async () => {
-    const user = userEvent.setup();
-    render(<ScoringWeightsForm scale={null} />);
-    const fields = screen.getAllByLabelText("Weight");
-    await user.clear(fields[0]!);
-    await user.type(fields[0]!, "80");
-    await user.click(
-      screen.getByRole("button", { name: "Save the whole set" }),
-    );
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.calls[0]![0]).toMatchObject({ OBJECTIVES: 8000 });
-  });
-
-  it("refuses a set with every part at zero, in the server's words", async () => {
-    const user = userEvent.setup();
-    render(<ScoringWeightsForm scale={null} />);
-    for (const field of screen.getAllByLabelText("Weight")) {
-      await user.clear(field);
-      await user.type(field, "0");
-    }
-    expect(
-      screen.getByText(
-        "Give at least one part a weight above 0%, or there is nothing to make a mark from.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Save the whole set" }),
-    ).toBeDisabled();
-  });
-
-  it("renames a part, sending only the parts whose name changed", async () => {
-    const user = userEvent.setup();
-    render(<ScoringWeightsForm scale={null} />);
-    const objectives = screen.getByDisplayValue("Delivery against objectives");
-    await user.clear(objectives);
-    await user.type(objectives, "Delivery");
-    await user.click(
-      screen.getByRole("button", { name: "Save the whole set" }),
-    );
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.calls[0]![1]).toEqual({ OBJECTIVES: "Delivery" });
-  });
-});
 
 describe("the new-period wizard", () => {
   const toReview = async (user: ReturnType<typeof userEvent.setup>) => {

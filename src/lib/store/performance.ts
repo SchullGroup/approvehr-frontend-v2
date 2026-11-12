@@ -43,7 +43,10 @@ import {
   type ApiRatingScale,
   type ApiScoreHistory,
   type ApiScoreRegister,
+  type ApiScoringParts,
+  type ApiScoringPart,
   type ApiScoringWeights,
+  type ScoringPartInput,
   type ApiScoringWeightsSaved,
   type ApiTask,
   type ApiTaskGrade,
@@ -4325,6 +4328,108 @@ export function useScoringWeights(): {
         );
         reload();
         return saved;
+      },
+      [isConnected, reload],
+    ),
+    reload,
+  };
+}
+
+/**
+ * The demo's parts: the built-in parts that count, read-only. The same set a
+ * company that existed before parts were editable sees on its first visit.
+ */
+const DEMO_PARTS: ApiScoringParts = (() => {
+  const counted = DEMO_WEIGHTS.rows.filter((row) => row.weightBp > 0);
+  const totalBp = counted.reduce((sum, row) => sum + row.weightBp, 0);
+  return {
+    parts: counted.map((row) => ({
+      id: row.component,
+      source: row.component,
+      sourceLabel: row.label,
+      name: row.label,
+      description: null,
+      weightBp: row.weightBp,
+      shareBp: Math.round((row.weightBp * FULL_WEIGHT_BP) / totalBp),
+    })),
+    totalBp,
+    sources: DEMO_WEIGHTS.rows.map((row) => ({
+      source: row.component,
+      label: row.label,
+      description: "",
+      usedBy: row.weightBp > 0 ? row.component : null,
+    })),
+    selfAssessmentNote: DEMO_WEIGHTS.selfAssessmentNote,
+  };
+})();
+
+const PARTS_SAVE_OFFLINE =
+  "Changing the scoring parts needs the API. They decide how everybody's mark " +
+  "is put together, and parts kept in this browser would change no score.";
+
+/**
+ * The company's scoring parts, and the writes on one part at a time: add,
+ * edit, delete. Each write reloads the list, because every part's share moves
+ * when one weight does.
+ */
+export function useScoringParts(): {
+  parts: ApiScoringParts | null;
+  loading: boolean;
+  error: ApiError | null;
+  source: Source;
+  /** False offline. The screen renders read-only and says why. */
+  editable: boolean;
+  refusal: string;
+  add: (input: ScoringPartInput) => Promise<ApiScoringPart>;
+  update: (
+    id: string,
+    patch: Partial<ScoringPartInput>,
+  ) => Promise<ApiScoringPart>;
+  remove: (id: string) => Promise<void>;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.scoringParts(signal),
+    [],
+  );
+  const fetched = useFetched<ApiScoringParts>(
+    "scoring-parts",
+    isConnected,
+    load,
+  );
+  const { reload } = fetched;
+
+  return {
+    parts: isConnected ? fetched.data : DEMO_PARTS,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    source: isConnected ? "api" : "demo",
+    editable: isConnected,
+    refusal: PARTS_SAVE_OFFLINE,
+    add: useCallback(
+      async (input: ScoringPartInput) => {
+        if (!isConnected) offline(PARTS_SAVE_OFFLINE);
+        const part = await performanceApi.createScoringPart(input);
+        reload();
+        return part;
+      },
+      [isConnected, reload],
+    ),
+    update: useCallback(
+      async (id: string, patch: Partial<ScoringPartInput>) => {
+        if (!isConnected) offline(PARTS_SAVE_OFFLINE);
+        const part = await performanceApi.updateScoringPart(id, patch);
+        reload();
+        return part;
+      },
+      [isConnected, reload],
+    ),
+    remove: useCallback(
+      async (id: string) => {
+        if (!isConnected) offline(PARTS_SAVE_OFFLINE);
+        await performanceApi.deleteScoringPart(id);
+        reload();
       },
       [isConnected, reload],
     ),
