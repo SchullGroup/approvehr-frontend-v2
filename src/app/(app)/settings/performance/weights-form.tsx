@@ -16,16 +16,16 @@ import {
   Field,
   IconButton,
   Input,
+  LoadState,
   Modal,
   Select,
-  Spinner,
   Tabs,
   Textarea,
   TextLink,
   useToast,
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
+import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -36,15 +36,21 @@ import {
   type ApiScoringParts,
   type ScoreComponent,
 } from "@/lib/api/performance";
+import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
 import { useCan } from "@/lib/permissions";
-import { useScoringParts } from "@/lib/store/performance";
+import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
+import { WorkRecordCard } from "./work-record-card";
 
 const TAB_ITEMS: TabItem[] = [
   { id: "weights", label: "Parts of a mark" },
   { id: "marks", label: "Names of marks" },
+  { id: "records", label: "Records" },
 ];
+
+/** The source the appraisers' overall mark is scored from. */
+const MANAGER_SOURCE: ScoreComponent = "MANAGER_APPRAISAL";
 
 /**
  * The parts an appraisal mark is made of, as a list the company writes.
@@ -105,6 +111,26 @@ export function ScoringWeightsForm({
   const [tab, changeTab] = useUrlTab<ScoringTabId>(initialTab, SCORING_TABS);
   const scoring = useScoringParts();
 
+  /* What this side knows about the Manager appraisal source, for the overall-mark
+     card: a server that lists it as a source has the part, whether or not the
+     company has written a part from it yet; one that does not list it predates it;
+     and with the parts not in (loading, or failed) nothing is known, so nothing
+     is said about whether a manager's form asks for a mark. Treating "not in yet"
+     as "no part" printed "is not counted in it" on a server that has it. The
+     company's own name for the part is what the card uses when there is one. */
+  const managerSource = scoring.parts?.sources.find(
+    (source) => source.source === MANAGER_SOURCE,
+  );
+  const managerPart = scoring.parts?.parts.find(
+    (part) => part.source === MANAGER_SOURCE,
+  );
+  const managerAppraisal: ManagerAppraisalPart =
+    scoring.parts === null
+      ? { state: "unknown" }
+      : managerSource
+        ? { state: "has", label: managerPart?.name ?? managerSource.label }
+        : { state: "none" };
+
   return (
     <>
       <PageHeader
@@ -130,8 +156,12 @@ export function ScoringWeightsForm({
             <OverallMarkCard
               connected={scoring.source === "api"}
               onChanged={scoring.reload}
+              managerAppraisal={managerAppraisal}
             />
             {scale}
+          </div>
+          <div hidden={tab !== "records"} className="flex flex-col gap-6">
+            <WorkRecordCard connected={scoring.source === "api"} />
           </div>
         </Tabs>
       </PageBody>
@@ -155,38 +185,29 @@ function PartsPanel({
     add,
     update,
     remove,
+    reload,
   } = scoring;
   const canManage = useCan("MANAGE_SETTINGS");
   const manage = canManage && editable;
   const toast = useToast();
+  /* Read for one thing: the API's sentence about what weighting the Manager
+     appraisal part does, which the parts read does not carry. It is about the
+     saved set, so it is read again after every write below. Nothing here writes
+     a sentence about it. */
+  const { weights, reload: reloadWeights } = useScoringWeights();
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<ApiScoringPart | null>(null);
   const [removing, setRemoving] = useState(false);
 
-  if (loading) {
-    return (
-      <span className="flex items-center gap-2 text-body-sm text-muted">
-        <Spinner size="sm" />
-        Reading the parts
-      </span>
-    );
-  }
-  if (view === null) {
-    return (
-      <>
-        <LoadFailure subject="the scoring parts" error={error} />
-        <Callout tone="warning" title="No parts to show">
-          The scoring parts could not be read, so nothing is shown here rather
-          than a list that might not be yours.
-        </Callout>
-      </>
-    );
-  }
-
-  const free = view.sources.filter((source) => source.usedBy === null);
-  const selfPart = view.parts.find((part) => part.source === "SELF_ASSESSMENT");
+  /* Nothing is known until the parts have answered, and a failed read is not an
+     empty list: both are `LoadState`'s to say, below, so a count, "No parts yet"
+     and the Add button are never drawn under a failure or before an answer. */
+  const free = view?.sources.filter((source) => source.usedBy === null) ?? [];
+  const selfPart = view?.parts.find(
+    (part) => part.source === "SELF_ASSESSMENT",
+  );
   const selfShareBp = selfPart?.shareBp ?? 0;
 
   const onSave = async () => {
@@ -202,6 +223,7 @@ function PartsPanel({
     try {
       if (draft.id === null) {
         await add(body);
+        reloadWeights();
         toast.push({
           tone: "success",
           title: `${body.name} added`,
@@ -209,6 +231,7 @@ function PartsPanel({
         });
       } else {
         await update(draft.id, body);
+        reloadWeights();
         toast.push({
           tone: "success",
           title: `${body.name} saved`,
@@ -235,6 +258,7 @@ function PartsPanel({
     setRemoving(true);
     try {
       await remove(deleting.id);
+      reloadWeights();
       toast.push({
         tone: "success",
         title: `${deleting.name} deleted`,
@@ -266,8 +290,6 @@ function PartsPanel({
 
   return (
     <>
-      <LoadFailure subject="the scoring parts" error={error} />
-
       {!editable && (
         <Callout tone="warning" title="Changing these needs the API">
           <p>{refusal}</p>
@@ -282,141 +304,169 @@ function PartsPanel({
         </Callout>
       )}
 
-      <Card>
-        <CardHeader
-          title="The parts of a mark"
-          description="A mark is the weighted average of these parts. Each counts in proportion to the total."
-          action={
-            <span className="flex flex-wrap items-center gap-3">
-              <Total totalBp={view.totalBp} />
-              {manage && (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  disabled={free.length === 0}
-                  title={
-                    free.length === 0
-                      ? "Every source already has a part. Edit or delete one first."
-                      : undefined
-                  }
-                  onClick={newPart}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                  Add part
-                </Button>
-              )}
-            </span>
-          }
-        />
-        <CardBody className="flex flex-col gap-0 p-0">
-          {view.parts.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                title="No parts yet"
-                description="Add the parts your appraisals are marked on: a name, what it is scored from, its weight and a description. An appraisal period cannot start until at least one part has a weight."
-                {...(manage
-                  ? {
-                      action: (
-                        <Button variant="accent" onClick={newPart}>
-                          <Plus aria-hidden="true" className="size-4" />
-                          Add the first part
-                        </Button>
-                      ),
-                    }
-                  : {})}
-              />
-            </div>
-          ) : (
-            <ul className="divide-y divide-line">
-              {view.parts.map((part) => (
-                <li
-                  key={part.id}
-                  className="flex flex-wrap items-start gap-x-4 gap-y-2 px-5 py-4"
-                >
-                  <div className="min-w-0 flex-1 basis-64">
-                    <p className="text-body-sm font-medium text-ink">
-                      {part.name}
-                    </p>
-                    <p className="text-meta text-muted">
-                      Scored from {part.sourceLabel}
-                    </p>
-                    {part.description && (
-                      <p className="mt-1 text-body-sm text-body">
-                        {part.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="tabular text-body-sm font-medium text-ink">
-                        {weightLabel(part.weightBp)}
-                      </p>
-                      <p className="tabular text-meta text-muted">
-                        {part.weightBp === 0
-                          ? "Counts for nothing"
-                          : `${weightLabel(part.shareBp)} of a mark`}
-                      </p>
-                    </div>
+      <LoadState
+        loading={loading}
+        error={error}
+        hasData={view !== null}
+        subject="the scoring parts"
+        onRetry={reload}
+        skeleton="list"
+      >
+        {view && (
+          <>
+            <Card>
+              <CardHeader
+                title="The parts of a mark"
+                description="A mark is the weighted average of these parts. Each counts in proportion to the total."
+                action={
+                  <span className="flex flex-wrap items-center gap-3">
+                    <Total totalBp={view.totalBp} />
                     {manage && (
-                      <span className="flex gap-1">
-                        <IconButton
-                          label={`Edit ${part.name}`}
-                          size="sm"
-                          className="size-11 sm:size-8"
-                          onClick={() => setDraft(draftOf(part))}
-                        >
-                          <Pencil aria-hidden="true" className="size-4" />
-                        </IconButton>
-                        <IconButton
-                          label={`Delete ${part.name}`}
-                          size="sm"
-                          className="size-11 sm:size-8"
-                          onClick={() => setDeleting(part)}
-                        >
-                          <Trash2 aria-hidden="true" className="size-4" />
-                        </IconButton>
-                      </span>
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        disabled={free.length === 0}
+                        title={
+                          free.length === 0
+                            ? "Every source already has a part. Edit or delete one first."
+                            : undefined
+                        }
+                        onClick={newPart}
+                      >
+                        <Plus aria-hidden="true" className="size-4" />
+                        Add part
+                      </Button>
                     )}
+                  </span>
+                }
+              />
+              <CardBody className="flex flex-col gap-0 p-0">
+                {view.parts.length === 0 ? (
+                  <div className="p-6">
+                    <EmptyState
+                      title="No parts yet"
+                      description="Add the parts your appraisals are marked on: a name, what it is scored from, its weight and a description. An appraisal period cannot start until at least one part has a weight."
+                      {...(manage
+                        ? {
+                            action: (
+                              <Button variant="accent" onClick={newPart}>
+                                <Plus aria-hidden="true" className="size-4" />
+                                Add the first part
+                              </Button>
+                            ),
+                          }
+                        : {})}
+                    />
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
+                ) : (
+                  <ul className="divide-y divide-line">
+                    {view.parts.map((part) => (
+                      <li
+                        key={part.id}
+                        data-part={part.source}
+                        className="flex flex-wrap items-start gap-x-4 gap-y-2 px-5 py-4"
+                      >
+                        <div className="min-w-0 flex-1 basis-64">
+                          <p className="text-body-sm font-medium text-ink">
+                            {part.name}
+                          </p>
+                          <p className="text-meta text-muted">
+                            Scored from {part.sourceLabel}
+                          </p>
+                          {part.description && (
+                            <p className="mt-1 text-body-sm text-body">
+                              {part.description}
+                            </p>
+                          )}
+                          {/* The API's own sentence about what weighting this part does,
+                        beside the weight that causes it: that a manager's judgement
+                        then reaches the score both through the levels they record
+                        and through this overall mark. It is about the saved set,
+                        which is what this row shows, so it never says "moved". */}
+                          {part.source === MANAGER_SOURCE &&
+                            weights?.managerAppraisalNote && (
+                              <div className="mt-2">
+                                <SavedWeightsNote
+                                  note={weights.managerAppraisalNote}
+                                  moved={false}
+                                />
+                              </div>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="tabular text-body-sm font-medium text-ink">
+                              {weightLabel(part.weightBp)}
+                            </p>
+                            <p className="tabular text-meta text-muted">
+                              {part.weightBp === 0
+                                ? "Counts for nothing"
+                                : `${weightLabel(part.shareBp)} of a mark`}
+                            </p>
+                          </div>
+                          {manage && (
+                            <span className="flex gap-1">
+                              <IconButton
+                                label={`Edit ${part.name}`}
+                                size="sm"
+                                className="size-11 sm:size-8"
+                                onClick={() => setDraft(draftOf(part))}
+                              >
+                                <Pencil aria-hidden="true" className="size-4" />
+                              </IconButton>
+                              <IconButton
+                                label={`Delete ${part.name}`}
+                                size="sm"
+                                className="size-11 sm:size-8"
+                                onClick={() => setDeleting(part)}
+                              >
+                                <Trash2 aria-hidden="true" className="size-4" />
+                              </IconButton>
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardBody>
+            </Card>
 
-      <SelfAssessment
-        note={view.selfAssessmentNote}
-        weightBp={selfShareBp}
-        swingBp={Math.round(selfShareBp / 2)}
-      />
-
-      <Card>
-        <CardHeader
-          title="A change here does not move a period that has started"
-          description="The same rule payroll uses for its settings snapshot."
-        />
-        <CardBody className="flex flex-col gap-3 text-body-sm text-body">
-          <p>
-            When a period starts, its parts and weights are copied onto it.
-            Changing or deleting a part afterwards cannot move a mark that has
-            already been awarded.
-          </p>
-          <p className="flex items-start gap-2 text-body-sm text-body">
-            <Lock
-              aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 text-faint"
+            <SelfAssessment
+              note={view.selfAssessmentNote}
+              weightBp={selfShareBp}
+              swingBp={Math.round(selfShareBp / 2)}
             />
-            <span className="min-w-0">
-              A period screen says whether its weights are frozen, and{" "}
-              <TextLink href="/performance">the appraisals tab</TextLink> is
-              where appraisal periods are started.
-            </span>
-          </p>
-        </CardBody>
-      </Card>
 
-      {draft && (
+            <Card>
+              <CardHeader
+                title="A change here does not move a period that has started"
+                description="The same rule payroll uses for its settings snapshot."
+              />
+              <CardBody className="flex flex-col gap-3 text-body-sm text-body">
+                <p>
+                  When a period starts, its parts and weights are copied onto
+                  it. Changing or deleting a part afterwards cannot move a mark
+                  that has already been awarded.
+                </p>
+                <p className="flex items-start gap-2 text-body-sm text-body">
+                  <Lock
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0 text-faint"
+                  />
+                  <span className="min-w-0">
+                    A period screen says whether its weights are frozen, and{" "}
+                    <TextLink href="/performance">the appraisals tab</TextLink>{" "}
+                    is where appraisal periods are started.
+                  </span>
+                </p>
+              </CardBody>
+            </Card>
+          </>
+        )}
+      </LoadState>
+
+      {draft && view && (
         <PartModal
           draft={draft}
           view={view}

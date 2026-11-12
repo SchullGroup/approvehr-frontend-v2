@@ -509,7 +509,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, and what each mark is called. Both are frozen onto an appraisal period when it starts."
+    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, and how long the work behind a final rating is kept. The parts and the names are frozen onto an appraisal period when it starts."
   },
   {
     "href": "/settings/policies",

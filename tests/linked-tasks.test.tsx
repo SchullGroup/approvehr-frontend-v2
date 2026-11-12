@@ -79,6 +79,19 @@ describe("the linked tasks list", () => {
     expect(note.tagName).toBe("EM");
   });
 
+  it("still shows a stored link of a type the picker no longer offers", async () => {
+    api.links.mockResolvedValue([
+      visible({
+        type: "IMPLEMENTS",
+        direction: "outgoing",
+        label: "front end for",
+      }),
+    ]);
+    renderLinks();
+    const row = (await screen.findByText("PAY-120")).closest("li")!;
+    expect(row).toHaveTextContent("Front end for");
+  });
+
   it("shows a task the reader cannot open, and still lets them remove the link", async () => {
     api.links.mockResolvedValue([
       visible({
@@ -241,7 +254,7 @@ describe("adding a link", () => {
     );
   }
 
-  it("offers the seven types in order", async () => {
+  it("offers the five types in order, without the software-team ones", async () => {
     renderLinks();
     const select = await screen.findByLabelText("Link type");
     expect(
@@ -252,8 +265,6 @@ describe("adding a link", () => {
       "Relates to",
       "Blocks",
       "Blocked by",
-      "Front end for",
-      "Back end for",
       "Duplicates",
       "Duplicated by",
     ]);

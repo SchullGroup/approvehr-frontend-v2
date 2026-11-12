@@ -159,6 +159,7 @@ export function toProject(raw: Raw): Project {
     archived: raw["archived"] === true,
     archivedAt: strOrNull(raw["archivedAt"]),
     programArchived: raw["programArchived"] === true,
+    boardSwitchedAt: strOrNull(raw["boardSwitchedAt"]),
     access:
       raw["access"] === "READ" ||
       raw["access"] === "WRITE" ||

@@ -8,7 +8,17 @@ import {
   type ApiReviewDetail,
 } from "@/lib/api/performance";
 import { useRatingScale } from "@/lib/store/performance";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
 import { finalisedCopy, type SignOffCopy } from "./sign-off-copy";
+
+/** What the API said was kept with the rating, as the dialog is handed it. */
+export type KeptOutcome = {
+  items: number;
+  total: number;
+  truncated: boolean;
+  retainUntil: string;
+};
 
 /**
  * Finalising, behind a confirmation that names what it does — and then an
@@ -52,9 +62,11 @@ export function FinaliseDialog({
    * whether the API could tell the person, or to `null` when it failed and the
    * caller has said so in a toast.
    */
-  onConfirm: (
-    recommendation?: string,
-  ) => Promise<{ subjectNotified: boolean | undefined } | null>;
+  onConfirm: (recommendation?: string) => Promise<{
+    subjectNotified: boolean | undefined;
+    /** What was kept with it; absent or `null` says nothing. */
+    kept?: KeptOutcome | null | undefined;
+  } | null>;
 }) {
   /* Its own read of the same cached scale rather than a prop. This dialog
      quotes the mark somebody is about to make final, and quoting it in the
@@ -62,6 +74,7 @@ export function FinaliseDialog({
      picker-versus-record split all over again, inside one screen. */
   const { scale } = useRatingScale();
   const ratingWords = ratingWordsFrom(scale.levels);
+  const timeZone = useOrgTimezone();
 
   const [busy, setBusy] = useState(false);
   /* What it said. While it is set the dialog shows it in place of the question,
@@ -99,6 +112,14 @@ export function FinaliseDialog({
             subjectNotified: outcome.subjectNotified,
             markShown: showsOverallMark(review),
             recommended: typed.length > 0,
+            kept: outcome.kept
+              ? {
+                  items: outcome.kept.items,
+                  total: outcome.kept.total,
+                  truncated: outcome.kept.truncated,
+                  until: formatDateShort(outcome.kept.retainUntil, timeZone),
+                }
+              : null,
           }),
         );
       }

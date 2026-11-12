@@ -20,7 +20,9 @@ import {
   useToast,
   LoadState,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { BoardSwitchedNote } from "@/components/projects/board-switched-note";
 import { CreateIssueDialog } from "@/components/projects/create-issue-dialog";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { FILTER_INPUT_ID } from "@/components/projects/issue-filter-bar";
@@ -31,6 +33,7 @@ import {
   type ProjectContextValue,
 } from "@/components/projects/project-context";
 import { accessFor, accessOfProject } from "@/lib/projects/access";
+import { activeSprint } from "@/lib/projects/board";
 import { isModuleOff } from "@/lib/api/projects";
 import {
   EMPTY_FILTER,
@@ -44,6 +47,7 @@ import {
   type ProjectData,
 } from "@/lib/projects/types";
 import {
+  BOARD_WITH_CYCLES_TIP,
   CYCLE,
   NEW_TASK,
   readOnlyProject,
@@ -360,6 +364,16 @@ function ProjectShell({
     [canAdd],
   );
 
+  /* The header's New task (and its key, c) on a project with cycles starts in
+     the running cycle, so a task made from the board lands on the board rather
+     than in Later. With no cycle running there is nothing to start it in. */
+  const running = project.type === "SCRUM" ? activeSprint(sprints) : null;
+  const runningId = running?.id ?? null;
+  const headerDefaults = useMemo<Partial<NewIssueInput>>(
+    () => (runningId ? { sprintId: runningId } : {}),
+    [runningId],
+  );
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -375,7 +389,7 @@ function ProjectShell({
       if (document.querySelector('[role="dialog"]')) return;
       if (event.key === "c" && canAdd) {
         event.preventDefault();
-        setCreate({ open: true, defaults: {} });
+        setCreate({ open: true, defaults: headerDefaults });
       } else if (event.key === "/") {
         const field = document.getElementById(FILTER_INPUT_ID);
         if (field) {
@@ -386,7 +400,7 @@ function ProjectShell({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [canAdd]);
+  }, [canAdd, headerDefaults]);
 
   /* ------------------------------------------------------------ the context -- */
 
@@ -411,6 +425,7 @@ function ProjectShell({
       setFilter,
       openIssue,
       openCreate,
+      view: view.id,
     }),
     [
       project,
@@ -431,6 +446,7 @@ function ProjectShell({
       filter,
       openIssue,
       openCreate,
+      view.id,
     ],
   );
 
@@ -465,9 +481,19 @@ function ProjectShell({
         meta={
           <>
             <ProjectKeyChip project={project} />
-            <Badge tone="neutral" size="sm">
-              {PROJECT_TYPE_LABEL[project.type]}
-            </Badge>
+            {/* A simple board is the plain case and says nothing. Cycles change
+                where a new task goes, so that one is named, with why. */}
+            {project.type === "SCRUM" && (
+              <span className="inline-flex items-center gap-1">
+                <Badge tone="neutral" size="sm">
+                  {PROJECT_TYPE_LABEL.SCRUM}
+                </Badge>
+                <InfoTooltip
+                  text={BOARD_WITH_CYCLES_TIP}
+                  label={`About ${PROJECT_TYPE_LABEL.SCRUM.toLowerCase()}`}
+                />
+              </span>
+            )}
             {archived && (
               <Badge tone="neutral" size="sm">
                 Archived
@@ -511,7 +537,10 @@ function ProjectShell({
                     />
                   )}
                   {canAdd && (
-                    <Button variant="primary" onClick={() => openCreate()}>
+                    <Button
+                      variant="primary"
+                      onClick={() => openCreate(headerDefaults)}
+                    >
                       <Plus aria-hidden="true" className="size-4" />
                       {NEW_TASK}
                     </Button>
@@ -562,6 +591,7 @@ function ProjectShell({
             {readOnlyProject(programName)}
           </p>
         )}
+        <BoardSwitchedNote project={project} />
         {capped && (
           <Callout
             tone="warning"

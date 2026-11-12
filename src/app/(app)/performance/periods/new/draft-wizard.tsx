@@ -42,7 +42,7 @@ import {
   weightsToText,
   type WeightText,
 } from "@/components/performance/period-weights";
-import { SCORE_COMPONENT_ORDER, type WeightSet } from "@/lib/api/performance";
+import { weightSetFromRows } from "@/lib/api/performance";
 
 /**
  * A whole appraisal period, from a paragraph.
@@ -275,15 +275,7 @@ export function DraftPeriodWizard() {
      copy them in. */
   const [weightEdit, setWeightEdit] = useState<WeightText | null>(null);
   const defaultText: WeightText | null = companyWeights
-    ? weightsToText(
-        Object.fromEntries(
-          SCORE_COMPONENT_ORDER.map((c) => [
-            c,
-            companyWeights.rows.find((row) => row.component === c)?.weightBp ??
-              0,
-          ]),
-        ) as WeightSet,
-      )
+    ? weightsToText(weightSetFromRows(companyWeights.rows))
     : null;
   const weightText = weightEdit ?? defaultText;
   /* Only a set somebody typed here is held to the whole-percent rule. Left

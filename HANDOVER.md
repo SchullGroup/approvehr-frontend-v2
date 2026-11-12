@@ -12318,3 +12318,469 @@ This decides what to **list**. Every page still enforces its own access when ope
 Records inside the system (payslips, leave requests, tickets, objectives by name). Each type needs its own permission-narrowed search endpoint; people and roles are still narrowed by the API as before.
 
 Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no loans, leave policies or hiring settings; a hidden sibling door is not handed over through a shorter owner; the account pages are offered to everybody) and `tests/page-index-current.test.ts`. Three rules were broken on purpose and each was caught: no owner check, the owner taken from the visible menu only, and the account pages not offered. Not walked in a browser.
+
+---
+
+# Work this cycle: open to its appraisers, honest about its limits, and gone without Projects
+
+Stage 1 of the Projects-in-Performance research (the Claude Doc "Project tracker inside the
+performance module: research", 11 November 2026: its options 1 and 2, and "switch the panel off when
+Projects is off"). It changes what an assigned appraiser, a company without Projects and anybody
+reading an empty list sees. **It changes no mark and files no weekly task.** The backend half is the
+branch of the same name in `approvehr-backend` (note: `docs/backend/work-evidence-handover.md`).
+Backend first; this half is safe against a server without it (below).
+
+## What the panel does now
+
+- **It is not there when Projects is off.** `WorkThisCycle` reads `useProjectsGate()`, "the one place
+  the gate is read", and draws nothing and asks for nothing when Projects is off and while the
+  company's switches are still on their way. Before, a company without Projects read "You finished no
+  tasks on the project boards in this period" under every review: a claim about work nobody tracks,
+  read as low output. The research inferred this from the code; this is the first time it is a test.
+- **An empty list says nothing was recorded.** "No finished tasks were recorded for you on the project
+  boards in this period." It was "You finished no tasks …", which reads as a verdict.
+- **A line under the list, and under an empty one, says what it cannot show:** "This is only what was
+  tracked in Projects. It does not show meetings, mentoring or anything done outside Projects, so a
+  short list is not a short record of work."
+- **Each task says who set it**, "Set by Pat Projects", when somebody other than the person made it,
+  in every list that uses `CompletedItem` (this panel, the manager's Completed view, the work under an
+  objective). It is the task's creator, not the last person to assign it. `Completion.setBy` is absent
+  for a person's own task and for a server that does not say; the two are not told apart because they
+  say the same thing, which is nothing.
+- **For an assigned appraiser, and for a person's own to-dos, the web needed nothing.** Those are the
+  server's: `cycleWork` now admits an assigned appraiser, and leaves out a to-do the person made for
+  themselves. The panel already drew nothing for the 404 an appraiser used to get.
+
+## Decisions worth not undoing
+
+1. **The line under the list is true against any server.** The first draft said "It leaves out their
+   own to-do list", which is the new server's rule and is false against one that has not deployed it.
+   Copy that describes a rule has to be true against the server that is deployed, not the one in a
+   branch. Which tasks the list leaves out shows row by row (**Personal**, **Set by**) and is in the
+   walkthrough; a test says the sentence names no to-do list.
+2. **Hidden, not refused.** Without Projects the panel is not offered, instead of drawing a callout:
+   there is nothing for the reader to do, and a company that never used Projects should not be told
+   about it under every review. The nav hides Projects from the same flag.
+3. **What the list leaves out is the API's rule, once.** `exceptOwnToDos` is in the backend's
+   `counted-work.ts`. A copy here would be a second definition of "finished work", which that module
+   exists to keep to one.
+
+## Not done
+
+- **Stages 2 to 4 of the research.** Freezing the evidence when a review is finalised needs a
+  retention rule the owner picks and counsel's agreement on what may be stored. Letting people pin work
+  to an answer needs an impact assessment, a legitimate-interest assessment and one pilot first. The two
+  optional assists wait for that pilot. Each has a gate in the research; none is started.
+- **The Work record, the manager's Completed view and the work under an objective still list a
+  person's own to-dos** (labelled **Personal**). Only the review's list leaves them out. A decision for
+  the owner, in the pull request.
+- **Three code comments** (`project-screen.tsx`, `project-context.tsx` and `lib/store/projects.ts`)
+  still describe the retired weekly-task bridge. Left alone so as not to touch files Projects work is
+  changing. The walkthrough's account of it (step 18) is corrected.
+- **`docs/components/backend-api.md` will be two exports short** (`isAppraiserOf`, `exceptOwnToDos`)
+  once the backend is on `staging`. Run `npm run docs` then. `docs/components/frontend-v2.md` was
+  already stale on `dev` for the Projects screens before this change; none of its rows is about these
+  files, and it is not regenerated here.
+
+## Verified
+
+Tests: the nine files that touch the change, 148 tests, pass (`work-this-cycle` 31 of them, with
+`completions-api`, `projects-completions`, `completions-demo-hooks`, `completions-store`,
+`review-work-panel`, `review-record-work` and the two copy guards `performance-link-copy` and
+`projects-friendly-words`). Eight deliberate breaks, each caught by a test written for it: the panel
+offered without Projects, the work asked for before the switches answered, no line about what it
+cannot show, the old "finished no tasks" sentence, no "Set by", "Set by" for the person's own task, a
+mapper that invents a setter, and a demo that names the person as having set their own task. The tree
+was clean after each.
+
+Gates: `tsc --noEmit` and ESLint exit 0 (16 warnings, none in a file this changes). Every step of
+`npm run check` after Format exits 0, run with `APPROVEHR_BACKEND_DIR` at the backend branch so the
+four cross-repo gates compared and did not skip (template 81 assertions, rating scale, payroll,
+signature wording). **The Format step fails on `dev` itself**, on four files from #623 (project-screen,
+issue-filter-bar, work-list and `tests/projects-access-matrix.test.tsx`); none is in this change, and
+the formatting fix is its own pull request (#627).
+
+**Not exercised:** a browser against a real API (an assigned appraiser's panel, "Set by" on real rows,
+and the panel gone with Projects off are covered by tests and by the backend's, not by a screenshot),
+demo mode in a browser, the whole vitest suite in one run, the QA site, iOS Safari or a real device.
+
+---
+
+# The work behind a final rating is kept with it, for a company that chose a period
+
+Stage 2 of the Projects-in-Performance research (the web half; the backend is
+`approvehr-backend` #284, whose own note is `docs/backend/work-evidence-frozen-handover.md`). Stage 1
+(#628) made the review show the finished-work list. That list is **live**: reopen, rename, relink or
+delete a task later and an old review shows something else, so a mark somebody disputes cannot be
+explained from what the appraiser saw. For a company that chooses a retention period, the list as it
+stood on the day the rating was made final is kept with it. This is where the period is chosen and
+where the record is read. **Nothing is kept for any company until it chooses, and no figure is
+suggested.** This branch is stacked on #628, and its base is that branch until #628 merges.
+
+## What it does
+
+| Where | What |
+| ----- | ---- |
+| Settings, **Appraisal scoring**, **Records** (`settings/performance/work-record-card.tsx`) | **Work kept with a final rating**: a box for whole months, 1 to 120, empty, with the placeholder "Keep nothing" and the sentence that none is suggested. **Set this period** asks first and says what it will and will not do. **Stop keeping records** is one press. `MANAGE_SETTINGS` to change it; everybody else reads it, with the reason. |
+| A manager's review whose rating is final (`components/performance/kept-work.tsx`, `WorkBehindTheMark`) | In the slot the live list had. By what the API says: **kept**, the record leads and the live list is one press away; **never kept**, one line saying so above the live list; **removed**, one line saying when it ended above the live list; anything else, the live list alone. |
+| The finalise confirmation (`finalise-dialog.tsx`, `sign-off-copy.ts`) | After "Make it final", one more line: "A record of the 4 tasks Chidi finished in this cycle is kept with it until 12 Nov 2027." Nothing when none was kept. |
+| `lib/api/kept-work.ts`, `lib/store/kept-work.ts`, `lib/store/features.ts` | The read, its keyed hook, and the setting (three states). |
+
+## Decisions worth not undoing
+
+1. **The setting has three states and the card keeps them apart.** A number is the period the
+   company chose; `null` is the company's own answer, none chosen, which keeps nothing and is every
+   company's start; `undefined` is a server that has no such setting, or no server. A control is
+   offered for the first two only, so reading an absent field as `null` would offer a control against
+   a server that cannot keep anything. Each of "still reading", "could not be read", "this server has
+   not been updated" and "no server" says its own thing.
+2. **No figure is suggested, anywhere.** How long personal data about somebody's work may be held is
+   the company's decision and its counsel's, and a default here would be the product making it. It is
+   the rule the hiring-retention screen already follows.
+3. **Setting asks first, stopping does not.** The question says what will happen (which tasks are
+   kept, that titles are not, that a dispute keeps a record a full period longer, that ratings already
+   final are not touched). Stopping keeps less and removes nothing, so it is one press, and says what
+   it leaves: "A record already kept stays until its own date."
+4. **The record leads, and the live list is behind "Show the list as it stands now".** Two lists on one
+   page saying different things about the same person is the failure. The record is what the
+   appraiser could read.
+5. **It asks only when it can be answered:** a manager's review, final, with dates, for a company with
+   Projects on. Otherwise the page is exactly Stage 1's.
+6. **A server that does not say makes no claim.** A 404, a 403, a server a deploy behind and a failed
+   request all draw the live list and nothing about a record. `null` is never read as "none was kept",
+   and a record that is not there is never an empty list.
+7. **No title anywhere, because none is kept.** A row is the task's key, which opens the task as it is
+   now, and the panel says so beside the list. A title can hold health or trade-union details, which
+   the NDPA names as sensitive.
+8. **The finalise confirmation never nags.** It speaks of a record only when one was kept, so a
+   company that has left the setting alone never reads about it. An empty record is said as what it is
+   ("no finished tasks were recorded for Femi in this cycle"), never as a count of nought, and one cut
+   at its limit says it holds the newest of more.
+9. **Dates are days in the company's zone.** A record kept late in the evening is not a day out.
+10. **A confirmation keeps its question while it leaves.** The confirm dialog stays on screen for a
+    moment as it closes and is drawn from the props it has then, so a title read from "what is being
+    asked" flipped to a default sentence over a dialog that was going away. Seen in a screenshot taken
+    just after the toast, not by any type or gate. The question and whether it is open are two pieces
+    of state, and a test holds it.
+
+## Not done
+
+- **Stage 3** (pinning work to an answer, suggesting colleagues) needs an impact assessment, a
+  legitimate-interest assessment and one pilot first, and it is the stage that puts people's names
+  beside each other's work. **Stage 4** (a milestone hint, a pre-filled weekly line) reopens the
+  decision of 6 November and needs "won't do" and acceptance states first. Neither is started.
+- **The Work record, the manager's Completed view and the work under an objective** still list the
+  live work, and a person's own to-dos in it, as in Stage 1.
+- **No "remove it now"** control: only the date removes a record (a decision in the backend's
+  pull request).
+- **`docs/components/backend-api.md` will be one route and four exports short** once the backend is on
+  `staging` (`GET /performance/reviews/:id/work-evidence`). Run `npm run docs -- --only backend-api`
+  then, as its own change.
+
+## Verified
+
+Tests: seven files, 108 tests, all passing: `kept-work-api` (16), `kept-work` (28), `kept-work-hook` (6),
+`work-record-card` (29), `work-evidence-retention-store` (7), `finalise-kept-work` (5) and `sign-off-copy`
+(17, extended). With every test that imports a file this change touches (`vitest related`), 219 files and
+3,258 tests, all passing.
+
+Thirty-one deliberate breaks, each made in the source and each caught by a test written for it, the tree
+checked clean after each: a rating that is not final, a self review, a cycle with no dates or Projects off
+asking for a record; nothing known read as "none kept", and a state the web does not know read as one; the
+removal date read as the day it was taken; the live list shown beside the record at once; a task with no
+due date called late; the dispute sentence always said; nothing said about titles; an empty record headed
+with a count of nought; a record that holds fewer not saying so; every task opening on its board; an item
+with no id kept; a setter with no name named; a period of 0 or 1,200 months accepted; a period set without
+asking; a period suggested; a control offered to a server that has not said; an absent setting read as none
+chosen; stopping that leaves the key out; and a finalise that says nothing of what was kept. **One got
+through** (a hook that kept showing a stale answer after it was switched off), which is why `kept-work-hook`
+has a "switched off after it has read" case now. The last, a confirmation title read from a nullable value,
+was found in a screenshot, and its test failed on the old code before the fix.
+
+Gates: `tsc --noEmit` and ESLint exit 0 (16 warnings, none from this change: the one in
+`store/features.ts` is an unused `ApiError` import at the top of the file, already on `dev`). Every step of
+`npm run check` exits 0, run with `APPROVEHR_BACKEND_DIR` at the backend branch so the cross-repo gates
+compared against it and did not skip (payroll 62 assertions, template 81, rating scale, signature wording).
+Both generated inventories are current (`npm run docs -- --check --only frontend-pages,frontend-components`).
+
+In a browser, against a scratch API (the backend branch, on a real Postgres) and a production build of this
+branch, signed in for real as the administrator, the line manager and the person the rating is about, with
+HR's dispute and the daily removal run from the API side: **18 of 18 steps**, and no console, page or server
+error apart from one 401 on `/auth/me` while a saved session's expired token was refreshed.
+
+- Before any period is chosen a rating made final keeps nothing, and the API says so.
+- The Records tab starts empty with no figure suggested, refuses 121 on the page, asks before 12 and saves
+  only when confirmed (the stored value read from the database), and has no sideways scroll at 375px with a
+  16px field.
+- A rating made final before a period was set says once that nothing was kept, above the live list. One not
+  yet final shows the live list alone.
+- Make it final names the record, "A record of the 4 tasks Chidi finished in this cycle is kept with it until
+  12 Nov 2027.", and the database holds one row of four.
+- The record leads with the counts and four tasks by key, none of five titles on the page (searched), "Set by
+  Adaeze Okonkwo", "2 of 3" by the due date, "Task titles are not kept", and the day it is removed. The key
+  opens `/projects/<id>?issue=PLT-1`.
+- A task reopened, one renamed and one deleted afterwards leave it as it was, and "Show the list as it stands
+  now" shows the live two.
+- On a phone it is closed and opens on a press, and the person reads the same record about themselves.
+- A formal dispute adds "so it is kept for a full period from then". With its date in the past the daily
+  removal moves a disputed record a full period on and removes nothing.
+- A quarter with no finished work is an empty record that says so, not "0 tasks finished". When its date
+  comes the removal clears the list, keeps the row, and the page says when it ended.
+- With Projects off nothing about the work is drawn, and it is all back when it is on.
+
+The pictures are in `out/work-evidence-walk-2026-11-12/shots/`, and they found the one defect above. A first
+sign-in opens the product's own tour, which covers the buttons until it is skipped, so a walk skips it as a
+person would, and a screenshot is of the visible screen only, so it has to be scrolled to the panel it is of.
+
+**Not exercised:** the QA site; iOS Safari or any real device, and any browser but Chromium; demo mode in a
+browser (the Records card says it needs the server, and nothing about a record is drawn); the daily scheduler
+on its own timer (the removal was run once, from a script); an assigned appraiser's or a department head's own
+view in a browser (the backend's tests cover who may read it); a record cut at its limit of 1,000 (a test, not
+a database of that size); a server a deploy behind, in a browser (tests only); and the whole vitest suite in
+one run (CI does not run vitest, and `vitest related` ran the 3,258 above).
+
+---
+
+# Only the topmost open layer handles Tab and Escape
+
+The independent review of the Stage 3 web work reported that in a dialog opened over a side panel, Tab did not
+reach the fields in it and one Escape closed both layers. The cause is not in that screen. It is in
+`hooks/use-focus-trap.ts`, which every `Modal` and `Drawer` calls, so it applies to any layer opened over another.
+
+## What was wrong
+
+Every open layer adds its own capture `keydown` listener to `document`, and nothing said which of them should act.
+With two open, both did:
+
+- **Tab.** The lower layer saw focus outside itself and pulled it in; the upper layer saw the same and pulled it
+  back. Both call `preventDefault`, so the browser never moved focus itself. Tab always ended on the upper layer's
+  first control and Shift+Tab on its last, and the fields between could not be reached from the keyboard.
+- **Escape.** Both called their `onClose`. `stopPropagation()` does not stop a second listener on the same node, so
+  one press closed the dialog and the layer under it, with whatever was typed into it.
+
+## What it is now
+
+A module-level stack of open layers. Each open mints its own `Symbol`, pushes it when the trap is set up and removes
+that exact one on cleanup, and the handler returns at once unless its layer is on top. The layer below hears nothing
+until the one above closes, and takes the keyboard back the moment it does. Initial focus, focus restore, the
+`data-escape-to-popup` rule and the counted scroll lock are unchanged.
+
+Two decisions worth keeping:
+
+- **Removal is by identity, never by popping.** Layers do not close in the order they opened: a parent clearing its
+  state closes both at once, and the lower one can be closed from outside while the upper stays. Popping would take
+  out the wrong one and leave the layer still open believing something sits above it, with its keyboard dead. It is
+  the reason the scroll lock is a count and not a memory per layer.
+- **Registration order is paint order, and that was measured.** In React 19.2.8 a child's effect runs before its
+  parent's and the portals go into `document.body` in the same order, so the layer registered last is the one painted
+  last, however the dialog is written relative to the panel. The test pins all three arrangements. If a React upgrade
+  changes either order that test fails, and the fallback is to place a layer by its position in the document when it
+  registers, not at the end of the stack.
+
+## Not handled
+
+- A layer closed and reopened inside its own 250 ms exit animation keeps its old place in the document, so it can
+  register above a layer that is painted over it. It takes the lower of two open layers being closed and reopened within
+  a quarter of a second while the upper one stays open.
+- When the lower layer closes from outside, its focus restore moves focus behind the open upper dialog, and the next Tab
+  pulls it back. That was already so.
+- `search-picker.tsx` is not a layer here: it does not call `useFocusTrap`. It only marks its input
+  `data-escape-to-popup`, which the topmost layer still honours.
+
+## Verified
+
+`tests/focus-trap-stacked-layers.test.tsx`, 33 tests, with the real `Drawer` and `Modal` and a real Tab through
+`user-event`. jsdom reports `offsetParent` as null for everything, so the test stubs it, or the trap would see nothing
+to focus. No test stubbed it before, so Tab trapping had no coverage at all. Against the old hook 17 fail (every stacked
+case); the other 16 (one layer alone, the scroll lock in six teardown orders, handing the keyboard back) pass either
+way. Eleven deliberate breaks of the new code were each caught. `tsc --noEmit` is clean and `vitest related` over the
+files that import the hook passed (300 files, 4,307 tests; run before one last assertion was added to the new file,
+which was then run alone). **Not exercised in a real browser.**
+
+---
+
+# The manager's overall mark can be scored, and a form that has to carry one says so
+
+The owner's words: _"we wanna be able to Set a weight for the manager appraisal too."_ The manager's overall
+mark (`Review.rating` on a manager review, only asked where `OrgFeatures.overallMark` is on) was returned as
+`appraiserMark` and **never scored**, on purpose: the same judgement already reaches the mark through the levels
+a manager records under Competency ratings (Core, Behavioural and Leadership), and counting one judgement twice
+is a choice a company should make deliberately. This is that choice. **Manager appraisal is a seventh part of the
+mark, weighted at 0% everywhere until somebody sets it**, so no mark, no running period and no company moves.
+
+This is the web half. The API half is `approvehr-backend` branch `feat/manager-appraisal-part-20261112` (pull request
+#288: the new `ScoreComponent`, the part's arithmetic, `managerAppraisalNote`, `overallMarkRequired`,
+`appraiser.markShareBp`, the refusal at Send, and, where a period weights the part, the two doors that keep a mark
+somebody was told from moving). **Merge the backend first.** Against a server that predates it every new field is absent
+and every screen below behaves as it did, with no row, no sentence and nothing sent for the part.
+
+## What changed
+
+| Where | What |
+| ----- | ---- |
+| Settings > Appraisal scoring > Weights | A seventh row, **Manager appraisal**, between Leadership and Self-assessment, editable like the others. The API's own sentence about what the weight does (`managerAppraisalNote`, the double count included) is drawn once, under the row. |
+| A period's own weights (`PeriodWeights`: the draft's **How the mark is made up**, and the assistant's first page) | The same seventh row, whole percents, and a line saying that where no appraiser has sent an overall mark the share is spread over the other parts. On the period's own page the API's sentence for **that period's** weights (`ApiCycle.managerAppraisalNote`) is drawn under the card, draft and started alike. |
+| The answer flow | On a manager's form in a period that weights the part (`overallMarkRequired`) the mark page is there whatever the company's switch says, is called **Your overall mark**, cannot be left blank, and the review does not go without one. With several appraisers the page says the strip's own sentence, because the part's share belongs to all of them. A review sent back for revision opens on the mark it already holds. |
+| The strip above a manager's form | Says what the overall mark is worth, from the period's share (`appraiser.markShareBp`). It no longer says the review counts for the mark. |
+| The record page and the history page | The sentence beside the appraisers' overall rating says whether it is in the score, read off the part. |
+| Settings > Names of marks, the overall-mark card | Says, in its header, under the switch and in the toast after pressing it, that a manager's form in a period that weights the part asks for a mark whatever the switch says, in the company's own name for the part. While the weights are not in, or could not be read, it says nothing about whether a form asks for a mark or whether the mark counts. |
+| How it works, the appraiser mapping, the feature line, the Settings search blurb | Every sentence that said the manager's mark is not counted, that an appraiser holds "the whole mark" or a share "of the mark", or that the weights must make 100% exactly, is true at every weight now. |
+
+## Sentences that said the wrong thing
+
+The first pass found four: "Your review counts for 100% of the mark" (the strip), "how much of the mark each one
+carries" (the mapping dialog), "Each appraiser gets a share of the mark" (the feature line) and "not counted in it"
+(the overall-mark switch card). The first three were never true of anything a manager wrote: the answers to the
+questions and the closing note never counted, and the overall mark did not either. They are the likely cause of the
+report that "the manager's appraisal carries no weight". `appraiserStripLine` in `lib/performance/score-wording.ts`
+is the one place the strip's sentence is written, and `tests/manager-appraisal-wording.test.ts` pins every state of it.
+
+An independent review of that first pass then found no wrong send and no wrong weight, and **five more false
+sentences and one block that was too strict**. All six are fixed after that review, each with a test:
+
+1. **The overall-mark card said forms do not ask for an overall mark** in its header and in its toast, where a
+   manager's form in a period that weights the part asks for one and needs one whatever the switch says. Only the
+   line under the switch had been corrected, so the card made two claims at once.
+2. **The mark page gave the whole part's share as this appraiser's own.** `markShareBp` is the part's share, not one
+   appraiser's. Two appraisers at 60/40 and the part at 30% said 30% where the strip on the same form said "60% of
+   what the appraisers say ... 30% of the mark".
+3. **The card said "not counted in it" whenever the weights were not in.** That is false on a server that has the
+   part, for as long as the read is in flight and for good if it fails.
+4. **Two strings in the appraiser map said "for the whole mark"**: the toast after choosing an appraiser and the
+   Fill in tooltip. That is true at no weight: at 0% the overall mark counts for nothing, and at 30% for 30%.
+5. **A review sent back for revision blocked the manager** until they picked again a mark the record already held.
+6. **Adjacent stale claims**: the Settings search blurb said the weights "must make 100% exactly" (false since weights
+   became proportional), a comment in the report screen counted "all six" parts, and the walkthrough said Save is
+   dead "only if every part is 0%".
+
+## Decisions not to undo
+
+- **A server that does not say makes no claim.** The part is a `LaterComponent` (`lib/api/performance.ts`): its row,
+  its weight and its score are absent from a server that predates it, and **absent is how this side tells that from a
+  server that has it at 0%.** A weights screen draws a row for it only when the server spoke of it, and what is sent
+  back leaves it out otherwise (`weightSetFromRows`, the one place that rule is written). Drawing a row the server
+  would drop is a control that looks saved and moves no mark; sending a 0 for it would write over a weight set on a
+  newer screen. The older tests (six keys in, six keys out) are the regression guard for this and pass with their
+  assertions unchanged (one type annotation in `period-weights-screens` was loosened from `Record<ScoreComponent, number>`
+  to `WeightSet`, which is the honest type for a set from an older server).
+- **"Counts" is read off the part, never assumed.** `scoredFrom` says the appraisers' overall mark is scored only
+  where a Manager appraisal part is present **and** carries a weight. Absent and weighted-at-nothing both keep the
+  words that were true of them ("For reference. It does not count towards the score."). A sentence saying it does
+  not count beside a part that says "counts for 30%" would be two claims on one screen.
+- **The strip says nothing about the levels a manager records.** The first draft said that they count. That is
+  false when Core, Behavioural and Leadership are all weighted at nothing, and nothing on a review screen knows
+  that. The weights page says what counts, in the API's words, once.
+- **A needed mark is a required question.** `overallMarkRequired` makes the page, hides **Leave it blank instead**,
+  swaps **Skip** for **Next**, and nudges (_"This one needs an answer before you can go on."_). **Send it** is not
+  disabled: pressing it walks the person to the mark page and says why, exactly as it does for an unanswered
+  required question, and the preview marks the row **Needs an answer**. Required implies asked (`asksOverallMark`):
+  a form the server will not take without a mark is never one with no page for it.
+- **Read once.** Like the company's switch, whether the mark is needed is read when the form opens. It is frozen on
+  the period, so it cannot move, but a form must not reshuffle under somebody if it ever does.
+- **The mark page's sentence for several appraisers is the strip's, not a second one.** `markPageWords` calls
+  `appraiserStripLine` when `appraiserCount > 1`, so the strip and the page cannot give two answers. With one
+  appraiser the part's share is theirs, because they hold the whole part. Where the server sent no share the page
+  gives no figure.
+- **A review sent back keeps its mark, and the form opens on it** (`startingMark`). The backend's `requestRevision`
+  clears when the review was sent, signed off, acknowledged and disputed, and leaves `rating` alone; `submitReview`
+  refuses a manager's review only when `(input.rating ?? row.rating)` is null, and says in a comment that a review
+  sent back keeps its old mark; `getReview` returns `rating`. (Read in the backend's source, not run.) So the form
+  seeds the mark from the record, **only where it asks for one**, with these rules: a mark this browser remembers
+  wins, a first-time form holds none and still needs one, a form that does not ask opens on none and sends none, and
+  **a mark the record holds can be replaced but not left blank**, so there is no **Leave it blank instead** for it
+  (that would empty the box and leave the record's mark standing under a preview that said there was none).
+- **The note is the API's, and it is about the saved set.** It reads _"Saved now, not yet changed:"_ whenever any
+  weight has been moved and not yet saved, because what it says about the double count depends on the weights beside
+  it. This side writes no sentence of its own about the double count.
+- **The period's own sentence is drawn, the wizard's is not.** `ApiCycle.managerAppraisalNote` is a sibling of `weights`
+  that the backend added beyond the contract. It is drawn under a period's card (`SavedWeightsNote`, shared with the
+  company form) and says it is about the saved weights once typed over. The new-period wizard draws none: no period
+  exists yet, and the company's sentence is about the company's weights, not the set being typed.
+- **The switch card has three states, and says nothing in the third.** The weights read can say the server sent a row
+  for the part (the card names the exception, in the company's own word), that it loaded with none (a server that
+  predates the part: the card says what it always did, which is true there), or that it is not in or failed (the card
+  says nothing about whether a form asks for a mark or whether the mark counts, because it does not know). Treating
+  the third as the second is what printed "is not counted in it" on a server that has the part. Every sentence the
+  card writes is in `lib/performance/overall-mark-wording.ts` (`ManagerAppraisalPart`), so the header, the line under
+  the switch and the toast cannot disagree.
+
+## Found, and not changed
+
+- `settings/performance/page.tsx`'s metadata description still says "The weights must make 100% exactly", and
+  `lib/page-index.generated.ts` carries a copy of it. That is false since weights became proportional. It is left
+  alone on this branch on purpose: the Stage 3 branch edits the first sentence of the same string, and a second edit
+  to it here would conflict; that branch corrects this sentence as well. The Settings search blurb (`settings/filter.ts`)
+  is fixed and tested here.
+- The walkthrough said the same at steps 3 and 4 and in demo step 1. They were corrected in passing, and steps 3, 4,
+  17 and 30 again in the second commit.
+- `evidenceCount` for the part is read as "overall marks counted". If the API counts something else, `evidenceLine`
+  (`Based on 2 overall marks`) is the one place to change.
+- `docs/components/landing-frontend.md` and `docs/components/backend-api.md` read as stale under `npm run docs --
+  --check`. They are read from `origin/main` and `origin/staging` of the sibling repositories, which have moved
+  (the committed snapshots are 24 September for the landing site and 30 October for the backend), and nothing here touches either. Left alone.
+
+## Verified
+
+**Tests.** First pass: 92 new cases in eight files. Review fixes: 39 cases added or rewritten in seven files
+(`manager-appraisal-wording` +7, `overall-mark-card` +10, `weights-form-manager-appraisal` +4,
+`manager-appraisal-form` +8, `manager-appraisal-copy` +2, `settings-filter` +2, and a new
+`manager-appraisal-stale-claims` with 6, which reads `src` for phrases that are false at every weight and the
+walkthrough for the Save rule). The ten files that bear on this (`manager-appraisal-copy`, `-form`, `-stale-claims`
+and `-wording`, `overall-mark-card`, `period-weights-manager-appraisal`, `period-weights-screens`,
+`score-panel-manager-appraisal`, `settings-filter`, `weights-form-manager-appraisal`) run **169 tests and all pass**, on
+the tip. Every case where the server sends none of the new fields reads as it did before.
+
+**Breaks.** First pass: forty-seven, each one exact replacement in one source file, the file restored with
+`git checkout --` and the tree checked clean after each. Forty-six were caught on the first run. One was not (the
+record page not being told whether the form asks for a mark); a case was added and it is caught now. Review fixes:
+**twenty-nine, all caught on the first run**, one for each way of undoing a fix: the card's header, line under the
+switch and toast each dropping the exception; the card not being told what the weights say, in each of its three
+places and from the weights form; the three states each read as another (weights not in as no row, no row as not
+known, and "not known" speaking as a server without the part in the header, the line and the toast); the mark page
+giving the part's share as the appraiser's, not being told who the appraiser is, wording its own sentence, and asking
+the strip for somebody else's line; the form ignoring the record's mark, the record beating the browser's, a form
+that does not ask opening on a mark, a first-time form opening on a mark nobody gave, the form not told what the
+record holds, a held mark that can be left blank, the page not told it is held; the two "for the whole mark" strings
+put back; the search blurb, the report comment and both walkthrough sentences put back.
+
+**Gates**, each exit code read from `$?`, on the tree before this entry was added: `npm run check` exit 0, run with
+`APPROVEHR_BACKEND_DIR` at the backend branch's tip (`0a289c9`), so the cross-repo gates printed `comparing with` that
+checkout (the rating scale in `scoring.ts` and the signature wording in `signatures/service.ts`) and did not skip.
+ESLint 0 errors and 16 warnings, all of them on `dev` already (the two in files this branch touches, `'Callout'` in
+`history-screen.tsx` and `'ApiError'` in `store/features.ts`, are unused imports that `dev` has at the same lines).
+`npm run verify-demo:build` exit 0 (a production build with `NEXT_PUBLIC_DEMO=off`, then the check against it): Demo source check: 1294 files, no ungated demo copy. Demo bundle check: 3184 built files, none carries demo copy. Fabrication check: 10 seed personas and 3 credential shape(s), none loose in src/ or the build.
+
+**In a browser, against the backend branch.** A scratch API on a real Postgres (the backend branch at `0a289c9`) and a
+production build of this branch's tip, signed in for real as the administrator, a line manager and an employee: **21
+steps, 298 checks, 0 failures**, the walk re-run on a fresh database after two mistakes in the walk's own expectations
+were corrected (a sentence for the owner, who has nobody above them, and the pattern for a 404 that is not this work's).
+It covered: the seven rows and their defaults; a weight saved and read back with the API's note; a period's own weights
+(save, reset to the company's, start it weighted); an employee's self-review with no mark page while the switch is
+off; a manager's form that asks for the mark with the switch off, and a Send that the real API refuses without one;
+the part reading "Nothing recorded, not counted" before anyone has sent and 75% after, with the composite worked by
+hand and one figure for the part and the appraisers' overall rating (on the score panel, the report, the Marks tab and
+the history page); the same period weighted at 0% (no mark page, a send without one accepted); two appraisers at 50/50
+(the strip; 100% after one sends a 5; 75% after the other sends a 3); the overall-mark switch turned on and off and the
+forms following it; a period frozen before the part existed (no row, no mark moved); HR sending a manager's form back
+(the mark it holds is what the form opens on); and, at 375px with touch, no sideways scroll, 16px fields and nothing
+under 14px in the new rows. No console error, page error or server error, apart from one refusal the walk causes on
+purpose and one 404 on `GET /performance/cycles/:id/review-flags/:employeeId` for a person with no flag row, which is
+`staging`'s behaviour and not from this work. The driver, the logs and 49 screenshots are in
+`out/manager-appraisal-walk-2026-11-12/` (not committed).
+
+## Not exercised
+
+The QA site; iOS Safari or any real device, or any browser but Chromium; demo mode in a browser (nothing here changes
+it); a published period in a browser; a company with real data; several appraisers sending at once; a server that
+predates the part, in a browser (tests cover the absent fields); and the whole vitest suite in one run (CI does not run
+vitest; `vitest related` over the 22 source files this branch changes, at a machine load of about 33, passed 3,280
+tests and failed 7 in four files that each pass alone).
+
+## Order, and what was left
+
+The backend goes first. **Whichever of this and the Stage 3 pull request merges second needs `dev` merged into its
+branch**: both append a HANDOVER entry, both change `weights-form.tsx` and the components inventory, and the two add
+one optional field each to `ApiReviewDetail` in `lib/api/performance.ts` (`overallMarkRequired` here, `workPins` there;
+keep both). Not built, on purpose: any change to how the part is scored (the scale is unchanged, so "Meets
+Expectations" is 50% of this part, as it is of every competency level), a way to see which appraisers have sent a mark
+on the period page, and the department head standing in as an appraiser, which is a different change.

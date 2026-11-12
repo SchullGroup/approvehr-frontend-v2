@@ -587,6 +587,14 @@ export type ApiCycle = {
    * change. Absent from an API older than per-period weights, so optional.
    */
   weights?: CycleWeights;
+  /**
+   * What weighting the appraisers' overall mark does, in the API's own words, for
+   * **this period's** weights: a sibling of `weights`, so that the screen that sets
+   * a period's weights says what the weight does without writing a sentence of its
+   * own. Absent from a server that predates the part, and then nothing is said.
+   * See `ApiScoringWeights.managerAppraisalNote`, which is the company's.
+   */
+  managerAppraisalNote?: string;
   /** Empty means everybody — see `createCycle`'s own note. */
   departmentIds: string[];
   /** Null means no automatic reminder, which is the default. */
@@ -647,7 +655,7 @@ export type ApiCycleActivated = ApiCycle & {
    */
   withoutAgreedObjectives: string[];
   /** The weights this cycle is now frozen against, in basis points. */
-  scoringWeights: Record<ScoreComponent, number>;
+  scoringWeights: WeightSet;
 };
 
 export type ApiCyclePublished = ApiCycle & {
@@ -888,6 +896,18 @@ export type ApiReview = {
 export type ApiReviewFinalised = ApiReview & {
   finalised: true;
   subjectNotified: boolean;
+  /**
+   * What was kept with the rating: how many tasks, whether that is all of them, and when the
+   * record is removed. `null` when nothing was kept, which is every company until it chooses a
+   * period. Optional because an older server does not send it, and **absent says nothing**:
+   * the screen mentions a record only when this is there and not `null`.
+   */
+  workEvidence?: {
+    items: number;
+    total: number;
+    truncated: boolean;
+    retainUntil: string;
+  } | null;
 };
 
 export type ApiReviewAcknowledged = ApiReview & { acknowledged: true };
@@ -938,6 +958,16 @@ export type ApiReviewDetail = ApiReview & {
    * carries one still shows it.
    */
   overallMark?: boolean;
+  /**
+   * Whether the form **has to** end with an overall mark: true only on a manager's
+   * form in a period that weights the Manager appraisal part, because without one
+   * that appraiser's share of the mark would be silently left out and two people
+   * in one period could be scored on different mixes. Then `overallMark` is true
+   * too, whatever the company's own setting says. **Absent from a server that
+   * predates it, and absent means not required**, never required: the API still
+   * refuses a send without one where it is, in a sentence the form shows.
+   */
+  overallMarkRequired?: boolean;
   /**
    * Why Send would be refused right now, in the API's own sentence, or `null`
    * when it would not.
@@ -1021,6 +1051,17 @@ export type ApiAppraiserContext = {
   note: string | null;
   /** How many appraisers this person has, so "30%" reads as a share of what. */
   appraiserCount: number;
+  /**
+   * The Manager appraisal part's share of the whole mark in this period, in basis
+   * points: what the overall marks of everybody who appraises this person are
+   * worth between them. **0 when the period does not weight it**, which is the
+   * ordinary case, and then the overall mark is for reference only.
+   *
+   * **Absent from a server that predates the part, and absent says nothing**:
+   * not 0, and so not "does not count". The strip makes no claim about the mark
+   * without it (`appraiserStripLine`).
+   */
+  markShareBp?: number;
 };
 
 export type ApiAppraiser = {
@@ -1218,19 +1259,25 @@ export type ApiAutoAssigned = {
  * leadership" are different statements and only one of them is true.
  */
 
-/** Mirrors `ScoreComponent`. Self-assessment ships weighted at zero. */
+/**
+ * Mirrors `ScoreComponent`. Self-assessment and Weekly tasks ship weighted at
+ * zero, and so does Manager appraisal.
+ */
 export type ScoreComponent =
   | "OBJECTIVES"
   | "TASKS"
   | "CORE_COMPETENCY"
   | "BEHAVIOURAL_COMPETENCY"
   | "LEADERSHIP"
+  | "MANAGER_APPRAISAL"
   | "SELF_ASSESSMENT";
 
 /**
  * The components in the order they are listed everywhere, which is the order
  * the API sends them: Weekly tasks sits straight after objectives, because both
- * are measured delivery.
+ * are measured delivery, and Manager appraisal sits before Self-assessment,
+ * because what the manager says comes before what the person says of
+ * themselves.
  */
 export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
   "OBJECTIVES",
@@ -1238,16 +1285,62 @@ export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
   "CORE_COMPETENCY",
   "BEHAVIOURAL_COMPETENCY",
   "LEADERSHIP",
+  "MANAGER_APPRAISAL",
   "SELF_ASSESSMENT",
 ];
 
 /**
+ * The parts a server may predate.
+ *
+ * A server that has never heard of one sends no row, no weight and no score for
+ * it, and **that is how this side tells it apart from a server that has**: an
+ * absent part is not a part at 0%. So a weights screen draws a row for one only
+ * when the server spoke of it, and what is sent back leaves it out when it did
+ * not. Offering a weight the server would silently drop is a control that looks
+ * saved and moves no mark, and writing a 0 over one set on a newer screen
+ * would be worse.
+ *
+ * Every other part has been there since weights were per period, and an absent
+ * one of those is read as 0, as it always was.
+ */
+export type LaterComponent = "MANAGER_APPRAISAL";
+
+export function isLaterComponent(
+  component: ScoreComponent,
+): component is LaterComponent {
+  return component === "MANAGER_APPRAISAL";
+}
+
+/**
  * A whole weight set, in basis points (10000 = 100%).
  *
- * All six keys, always. The API refuses a partial set on a period, because a
- * missing key is a weight nobody chose.
+ * Every part the server has always had, and a `LaterComponent` only when the
+ * server spoke of it. The API refuses a partial set on a period, because a
+ * missing key is a weight nobody chose; a part it has never heard of is the one
+ * thing that is not that.
  */
-export type WeightSet = Record<ScoreComponent, number>;
+export type WeightSet = Record<
+  Exclude<ScoreComponent, LaterComponent>,
+  number
+> &
+  Partial<Record<LaterComponent, number>>;
+
+/**
+ * A weight set from the rows a server sent: a part the server has always had is
+ * 0 when its row is missing, and a `LaterComponent` is left out unless the
+ * server sent it. The one place that rule is written.
+ */
+export function weightSetFromRows(
+  rows: readonly { component: ScoreComponent; weightBp: number }[],
+): WeightSet {
+  const set: Partial<Record<ScoreComponent, number>> = {};
+  for (const component of SCORE_COMPONENT_ORDER) {
+    const row = rows.find((one) => one.component === component);
+    if (row) set[component] = row.weightBp;
+    else if (!isLaterComponent(component)) set[component] = 0;
+  }
+  return set as WeightSet;
+}
 
 /**
  * Where a period's weights come from, as the API reports it.
@@ -1263,7 +1356,11 @@ export type CycleWeights = {
 
 /** Why a component did not enter the arithmetic. Null means it did. */
 export type ScoreExclusionReason =
-  "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER" | "NO_GRADED_TASKS";
+  | "NOT_WEIGHTED"
+  | "NO_DATA"
+  | "NOT_A_MANAGER"
+  | "NO_GRADED_TASKS"
+  | "NO_APPRAISER_MARK";
 
 /**
  * Where a score's weights came from. `"period"` is a draft previewing the set
@@ -1279,17 +1376,21 @@ export function weightsFromNote(from: WeightsFrom): string | null {
 }
 
 /**
- * The components a breakdown shows. Weekly tasks weighted at nothing is
- * dropped: every period set up before it became a component carries it at 0%,
- * and "Weekly tasks: weighted at 0%" on every mark says nothing. Every other
- * exclusion stays, in the API's words.
+ * The components a breakdown shows. Weekly tasks and Manager appraisal weighted
+ * at nothing are dropped: every period set up before either became a component
+ * carries it at 0%, and "Weekly tasks: weighted at 0%" on every mark says
+ * nothing. Every other exclusion stays, in the API's words.
  */
 export function visibleComponents<
   T extends Pick<ApiComponentScore, "component" | "excludedBecause">,
 >(components: T[]): T[] {
   return components.filter(
     (part) =>
-      !(part.component === "TASKS" && part.excludedBecause === "NOT_WEIGHTED"),
+      !(
+        (part.component === "TASKS" ||
+          part.component === "MANAGER_APPRAISAL") &&
+        part.excludedBecause === "NOT_WEIGHTED"
+      ),
   );
 }
 
@@ -1412,9 +1513,14 @@ export type ApiScoreRow = {
   };
   /**
    * The appraisers' own overall mark, weighted across them by `weightBp` over
-   * the weight that has actually come in. **Not a scored component** — it is the
-   * same judgement the competency ratings already express, and weighting one
-   * judgement twice is the defect in the incumbent's formula, not a feature.
+   * the weight that has actually come in.
+   *
+   * **Scored only where a period weights the Manager appraisal part**, and that
+   * part is this same figure: `components` says which. Otherwise it is for
+   * reference, because it is the same judgement the competency ratings already
+   * express and weighting one judgement twice is a choice a company has to make
+   * on purpose. Read whether it counts off the part (`scoredFrom`), never assume
+   * it.
    */
   appraiserMark: {
     ratingBp: number | null;
@@ -1495,6 +1601,18 @@ export type ApiScoringWeights = {
    * without reading a sentence about it, so the sentence travels with the data.
    */
   selfAssessmentNote: string;
+  /**
+   * What the Manager appraisal weight does to a mark, in the API's own words,
+   * including that the manager's judgement then reaches the score both through
+   * the levels they record under Competency ratings and through the overall
+   * mark. A note, never a refusal.
+   *
+   * It is about the **saved** weight. **Absent from a server that predates the
+   * part, and absent means there is nothing to say**: this side writes no
+   * sentence of its own about the double count. What tells this side that the
+   * server has the part is the row for it (`rows`), not this sentence.
+   */
+  managerAppraisalNote?: string;
 };
 
 export type ApiScoringWeightsSaved = ApiScoringWeights & {
