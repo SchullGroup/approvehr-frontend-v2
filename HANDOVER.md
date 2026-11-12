@@ -12784,3 +12784,247 @@ one optional field each to `ApiReviewDetail` in `lib/api/performance.ts` (`overa
 keep both). Not built, on purpose: any change to how the part is scored (the scale is unchanged, so "Meets
 Expectations" is 50% of this part, as it is of every competency level), a way to see which appraisers have sent a mark
 on the period page, and the department head standing in as an appraiser, which is a different change.
+
+---
+
+# People can use their own finished work in their review answers, for a company that chose to
+
+Stage 3 of the Projects-in-Performance research (the web half; the backend is `approvehr-backend`'s
+`feat/work-answers-stage3-20261112`, whose own note is in its `docs/backend/`). Stage 1 (#628) put the finished
+work beside a review, and Stage 2 (#632) kept it with a final rating. This lets the person put **their own**
+finished work beside **their own** answers: pin a task to an answer with a note, flag an item on their list as
+wrong, and have the colleagues who shared a project listed first when somebody is chosen. It is **one company
+switch, off for every company** (`OrgFeatures.workInAnswers`), asked about before it is turned on, and it moves
+no mark. Both are merged, so this branches straight off `dev`.
+
+## What it does
+
+| Where | What |
+| ----- | ---- |
+| Settings, **Appraisal scoring**, **Records**, **Work in review answers** (`settings/performance/work-in-answers-card.tsx`) | The switch **Let people use their own project work in their review answers**, off for every company. Turning it **on** asks first (_Let people use their own work in their review answers?_), says what it does, that it needs Projects, and ends with a plain reminder to tell staff and to check with whoever looks after data protection whether an assessment should be filed. Turning it **off** is one press and keeps everything already written. `MANAGE_SETTINGS` to change it, read-only with the reason for everybody else. |
+| The answer flow (`components/performance/answer-pins.tsx`, `pin-work-dialog.tsx`) | On a person's own unsent self-review, where the server says the setting is on (`review.workPins`), **Add work** under each question opens a picker of their finished work for the period. One task at a time, an optional note of up to 280 characters, **Add to this answer**. Up to five an answer. Each pin is saved as it is added, so closing the page loses nothing. **Done**, the cross, Escape and the backdrop ask first when a task is picked or a note typed and not added (_Keep editing_, _Discard_, _Add it and close_), and nothing closes it while a request is out. **Add work** is offered only for a period that has dates. **Unpin** until the review is sent. The **Preview** reads the pins back. |
+| Reading (`components/performance/pins-read.tsx`, `reviews/[id]/review-form-card.tsx`) | The pins sit under the person's answer in the **Self review** column and on a self review read on its own: the task's key (a link that opens it **where the reader may**: the server says so per pin, `canOpen`; where it says they may not the key is plain text), the day it was finished, on time or late, **Set by**, the note, and _Pinned by Chidi Nwosu on 5 Nov 2026_ (_by you_ to the person). **No title, ever.** |
+| **Ask colleagues**, the appraiser map and its dialog (`periods/[id]/ask-peers.tsx`, `appraiser-map.tsx`, `components/performance/shared-project-options.tsx`) | People who shared a project with the person are listed first, most shared first, each labelled _Shared 3 projects_. It orders a list the person still picks from. A table row asks the server only when somebody reaches for its list or rests the pointer on it for 250 ms, and **a list that is open is never rearranged**: what it shows is fixed when it is reached for and an answer that lands after applies the next time. |
+| **Work this cycle** and **Work when the rating was made final** (`work-this-cycle.tsx`, `kept-work.tsx`, `work-flags.tsx`) | The person the work is about can say **This is wrong** beside an item, with a reason (3 to 280 characters), change it, or take it back. A reader sees _Flagged by Chidi Nwosu on 6 Nov 2026: …_ on the row and a count in the heading, and no control. **A flag that was written stays drawn when the company turns the setting off**, and the person can still take it back; only raising and changing stop. It removes nothing and moves no mark, and says so. The two panels share one state (`useWorkFlags`, a shared resource keyed by cycle and person). |
+| `lib/api/work-pins.ts`, `shared-projects.ts`, `work-flags.ts`, `lib/store/work-pins.ts`, `shared-projects.ts`, `work-flags.ts`, `lib/performance/work-in-answers.ts` | The wire layer and the words. Each normaliser claims only what the API said. |
+
+## Decisions worth not undoing
+
+1. **A pin is the person's own, on their own self-review, and keeps no title.** The picker shows the live title
+   to the person so they can tell their tasks apart, and says it is not saved. What is sent is the task's id and
+   the person's note; what comes back is the key, the dates and who set it. A title can hold health or
+   trade-union details. `toPin` picks every field by name, so a title that arrives anyway is dropped, and a test
+   holds the exact set.
+2. **Absent is not off, and off is not empty, in five places.** The features store keeps the setting as
+   `boolean | null` (null is a server that does not say, and no switch is offered for it). `review.workPins`
+   absent is off, never on. A shared-projects answer of `{ on: false }` carries no `colleagues` key and is not
+   "nobody shared a project"; only `{ on: true, colleagues: [] }` says that. A flags answer **without a `flags`
+   list** is no claim and is not "nothing was flagged" (`flags: null`); only a list, even an empty one, says
+   what was written. Anything this side cannot read is `null`, and a screen changes nothing and says nothing
+   for `null`.
+3. **Taking a pin off needs less than adding one.** Adding needs the person's own unsent self-review **and** the
+   setting on. Removing needs only the first, so a company that turns the setting off does not trap what somebody
+   pinned. Pins already written are drawn whatever the setting says, because they are part of what was sent.
+   **Flags are the same.** `GET .../work-flags` always answers `{ on, flags }`; `flags` is what was written and
+   is read whether or not `on`, and `on` says only whether one can be raised or changed. A flag stays drawn, and
+   in the count, when the switch is turned off, and the person can still take it back (the API's `DELETE` is not
+   gated by the setting); `PUT` is refused while it is off, and the panel says so beside the list. A first
+   version drew nothing for a flag unless the setting was on, which made turning it off hide what somebody had
+   said about their own work.
+4. **A pin hangs off the question, so it is saved as it is added.** The form's answers are saved shortly after
+   typing stops; a pin goes straight to the server. The form holds pins as a diff over what the server sent
+   (`mergePins`), so a review that is read again is not shadowed by a stale copy, and nothing is added or removed
+   until the server agrees.
+5. **The form leaves every key alone while the picker or the "Your work" drawer is open.** `FocusForm`
+   registers one `keydown` on the window, and a letter pressed on a radio in the picker is not "typing" to it,
+   so "Y" on a task picked Yes on the question behind and Enter moved on. `pinOpen` stops that. The drawer
+   (`workOpen`) had a guard for letters and plain Enter and not for Ctrl/Cmd+Enter, which goes on even from
+   inside a box: typing a reason in the flag dialog on the drawer and pressing Ctrl+Enter moved the form from
+   one question to the next behind both dialogs. One early return now covers both (Escape stays theirs: they
+   close on it and the form must not close as well). **`pinOpen` could stick true**: the picker unmounts with
+   its "Add work" button when the setting is turned off (or the review stops being the person's) while it is
+   open, so it never called `onClose`, the form's keys stayed off for the rest of that question, and the picker
+   came back by itself if the setting came back. `AnswerPins` now tells the form from `open` itself, by an
+   effect on every path, and closes the picker while rendering when `canAdd` goes. Held by real-`FocusForm`
+   tests (`focus-form-work-drawer`, `focus-form-pins`).
+6. **A dialog is a fresh form every time it opens, and keeps its title while it fades.** The picker and the flag
+   dialog start a new session when they open (the `Modal` stays mounted while it leaves and keeps the state
+   above it), and the flag dialog keeps the task apart from whether it is open.
+7. **Colleague suggestions are an ordering and a count, and nothing is chosen.** No project is named and no task
+   is read. They ask only where the company has the setting on, and a table of two hundred rows asks for a row
+   only once somebody reaches for it. A person who is neither the one asked about nor holding the records
+   permission gets a 404 from the server, and the list is as it was.
+8. **"This is wrong" removes nothing.** The control, the dialog and the panel all say so, and a reader sees the
+   flag and no control. Only the person can raise, change or take one back.
+9. **The existing panels got one new dependency, and four existing test files a one-line mock for it.**
+   `WorkThisCycle` and the kept record now read the flags through `useWorkFlags`. `kept-work`, `work-this-cycle`,
+   `review-screen-recommendation` and `self-assessment-overall-mark` mock sessions or features partially, so each
+   mocks that hook (or carries the two fields the card reads). None of their assertions changed.
+10. **A write never blanks the panel, and focus never falls to the page.** `useWorkFlags` is one shared
+    resource per cycle and person; a write publishes the server's own reply into it (`set`) and nothing is dropped
+    and re-read (`refresh` blanks, which unmounted the dialog and the controls under the person). A reply that
+    cannot be read falls back to a quiet re-read that keeps the old answer until the new one lands. Focus on the
+    page body is where the answering form's keys act (Enter moves on, a letter picks an answer), so after a flag
+    is raised or changed focus goes to that row's **Change**, after one is taken back to its **This is wrong**
+    (or to an invisible landing place on the row when the switch is off and there is nothing to press), and after
+    a refusal back to the **Take it back** that was pressed; `AnswerPins` does the same after an **Unpin** (to
+    **Add work**, or to the label, or to the empty region left when the last pin goes and nothing can be added),
+    after the picker closes, and after a refused **Unpin**. **The real form had to keep the section mounted for
+    that landing to exist**: `FocusForm.pinningFor` returned `null` for a question with no pins and nothing to
+    add, so with the setting off the last **Unpin** unmounted `AnswerPins` before its empty region could render
+    and focus fell to the page, where the form's keys act. It now returns `null` only when the person could not
+    take a pin off either (a manager's form, peer feedback, a sent review). In the pin picker, asking replaces the
+    footer and removes the focused **Done**, so focus goes to **Keep editing** when the question appears and
+    back to **Done** if it is chosen (only on that change and only while open, so a dialog that is closing hands
+    focus back to what opened it). Held by `work-flags-focus`, `answer-pins`, `pin-work-dialog` and the real
+    `FocusForm` in `focus-form-pins`, with the real `Modal` and focus trap.
+11. **An answer that cannot be read is never "nothing was recorded".** The picker asked for the list only while
+    it was open, so for the length of its exit the read was `null` and the dialog said "No finished tasks were
+    recorded for you", a claim about the person's work, to somebody closing it. It is asked for as long as the
+    dialog has been open, and a `null` says only that this period's work cannot be read here. A period with no
+    dates makes the read `null`, so **Add work** is not offered for one.
+12. **A list that is open is never rearranged under the pointer** (`lib/use-held-while-open.ts`). The answer
+    about who shared a project arrives late, and inserting a group at the top of a native `<select>` that is open
+    moves every option under the pointer: the click meant for one person assigns another, and an appraiser moves
+    a mark. What the list shows is fixed when it is reached for (focus, a key, a press; a press takes a new
+    snapshot, so Escape and a second press picks up what arrived) and let go on blur or a choice; for **Ask
+    colleagues** the order is held from the first press or key in the list until the dialog closes. A row asks on
+    a 250 ms pointer dwell so the answer is usually there by the time the list is opened, and a pointer crossing
+    a column asks for nothing.
+13. **Dialogs do not throw work away or close on an answer.** Done, the cross, Escape and the backdrop of the pin
+    picker ask first when something is picked or typed and not added (the pattern of the Questions dialog), and
+    the picker and the flag dialog cannot be closed while a request is out, so a refusal is always seen in the
+    server's own words with what was typed still there. The flag dialog does not ask before Cancel discards a
+    typed reason: that is what Cancel does everywhere else in this product, and a reason is a few words. The
+    picker's tasks are one named group (a `fieldset` with a screen-reader legend, as the shift-swap list does), and
+    a 404 on adding says _That review is not there any more_: the pin does not exist yet, so it cannot be the
+    thing that is missing, and the shared wording would have named it.
+14. **The server's list wins whenever the review is read again** (`useReviewPins`). What was added here is
+    dropped once a new list arrives (it either carries it or no longer does), a pin removed in another tab
+    leaves the screen, a pin taken off here is hidden only while a read still lists it, and a `DELETE` the server
+    answers with 404 is a pin that is already gone and is removed without an error. **Taking a flag back is the
+    same** (`useWorkFlags.unflag`): a 404 is a flag already taken back elsewhere, so it leaves the answer and
+    nothing is said; every other failure is still thrown.
+15. **A pin's key is a link only where the server says the reader may open the task** (`pins[].canOpen ===
+    true`). Absent makes no claim, as everywhere else in this repo, and Stage 4's hint reads an absent
+    `canOpen` as "may not open"; so absent and `false` both draw the key as plain text and everything else about
+    the pin as usual. The wire reader still leaves an absent field absent (it does not invent `false`). The real
+    server always sends the field, so nothing changes against it; against one that does not, no pin key opens
+    anything. The picker's note says readers "can open the task to read it where they are allowed to", which is
+    true in every state.
+16. **Every control's accessible name starts with the words drawn on it** (WCAG 2.5.3, label in name). The flag
+    buttons were announced as "Change why PLT-12 is wrong", "Take back the flag on PLT-12" and "Say that PLT-12
+    is wrong", which a voice-control user speaking what they see ("click Take it back") could not match. They
+    are now "This is wrong, PLT-12", "Change, flag on PLT-12" and "Take it back, flag on PLT-12": the visible
+    words first, then which item, as the sidebar's back button does. Nothing else this work added overrides a
+    name. `tests/label-in-name.ts` reads every button and link under a rendered tree, by what a sighted person
+    sees (screen-reader-only text and icons do not count), and is run over the flag rows and dialog, the pins
+    under an answer, both footers of the picker and the settings card.
+
+## Not done
+
+- **Pins are not read in the manager's answering form.** A manager's form shows the person's own answer beside
+  their control only for a directly rated subsection (`selfAnswer`), and that carries no pins. The appraiser
+  reads the pins on the review page, in the comparison card. Putting them in the answering form would need the
+  server to send them there.
+- **The first open of an appraiser row's list can be the plain one.** The answer is held back from a list that
+  is open (decision 12), and is asked for on a 250 ms pointer dwell or when the list is reached, so a person
+  who goes straight to the list and presses it sees the ordinary order the first time and the ordered one the
+  next. That is the price of never moving a name under the pointer. The browser walk saw exactly this in Chromium: the
+  plain list at the moment of reaching for it, the answer arriving while it was held without moving an option, and
+  the ordered list the next time it was opened.
+- **A flag written while the server's reply could not be read, and whose quiet re-read also failed, is not
+  drawn** until the page is read again, and the dialog has already closed. The pin dialog says the pin was
+  saved and could not be read back; the flag dialog does not.
+- **A review read that was already in flight when a pin was added can drop it from the screen for a moment.**
+  The server's list wins on every read (decision 14) and that read predates the write, so the pin returns on the
+  next read. The server holds it throughout. Not seen.
+- **No separate retention period for pins and flags** (the backend holds them as long as the review). The
+  assessment starter says so and asks counsel.
+- **The picker offers what the cycle-work read returns, at most 50** (`REVIEW_LIST_CAP`), and says "Showing your latest N of M finished tasks" when it is cut. The server would accept any task in the person's list, so somebody with more than 50 finished tasks in a period cannot pin the older ones from here. Raising it means a paged read.
+- **Tab and Escape inside a flag dialog nested in the "Your work" drawer rely on #637** (only the topmost open
+  layer handles them), which is merged. This branch does not touch `use-focus-trap.ts` or `Modal`. The browser
+  walk pressed Tab and Escape in Stage 4's won't-do dialog over the task drawer, where they held; it did not press
+  them in this branch's nested flag dialog.
+- **Opening any dialog puts focus on its Close button, and not on its first field.** `use-focus-trap.ts` focuses the
+  first focusable thing inside, which in every `Modal` here is the Close button, so an `autoFocus` inside is
+  overridden. For the pin picker that means a person who opens it and starts typing presses Space on Close (the
+  walk saw typing words with spaces do nothing there and dismiss the won't-do dialog in Stage 4). One Tab reaches
+  the field. Found by the browser walk; **not changed here**, because it is shared infrastructure that every dialog
+  in the product inherits, and moving first focus is a decision about all of them.
+- **Stage 4** (the milestone hint and the weekly-line pre-fill) is a separate branch on top of this one.
+
+The starter a customer's data protection officer can fill in before switching this on is
+`docs/specs/work-in-reviews-assessment-starter.md`. It is hand-written, cites the law only as the research did, and
+says on its first page that it is not legal advice and not a filed assessment.
+
+## Verified
+
+On the tree these commits make:
+
+- `npm run check` exit 0 (typecheck, lint, format and every `verify-*`), run with `APPROVEHR_BACKEND_DIR` at the
+  Stage 3 backend branch (`feat/work-answers-stage3-20261112`, merged with `staging` at `6881605`), so the four
+  cross-repo gates compared against it and did not print `skip`. ESLint 0 errors.
+- `vitest related` over the 29 changed source files: Test Files 243 passed (243); Tests 3830 passed (3830).
+- `npm run verify-demo:build` (a production build with `NEXT_PUBLIC_DEMO=off` into `.next-verify`, then the check
+  against it) exit 0. The check's own lines: Demo source check: 1315 files, no ungated demo copy. / Demo bundle check: 3188 built files, none carries demo copy. / Fabrication check: 10 seed personas and 3 credential shape(s), none loose in src/ or the build. The directory was removed afterwards.
+- `npm run docs -- --check --only frontend-pages,frontend-components` and `npm run page-index` are current.
+- The tests this adds: 19 new test files, 459 tests (run on their own: 19 files passed), plus a few lines of mock in six existing files (46 added, none removed, no assertion changed).
+
+Deliberate breaks, run before `dev` was merged into this branch (one exact replacement in one source file, in a
+disposable worktree after a local commit, restored with `git checkout --`, the tree refused unless clean before
+and after each): 69 in the first pass and 63 after the second review's fixes. Every one is caught by the final
+tests. Five (a failed quiet read, focus put back after a refused take-back and after a refused Unpin, a held list
+let go on a choice, a flag dialog closable while a request was out) were not caught the first time, each because
+of the test and not the fix; the tests were rewritten and catch them now. The merges with `dev` changed no
+assertion: four existing test files gained a one-line mock for the panels' new dependency.
+
+**A browser walk by somebody who did not write it.** A separate agent, given the plan and no code to change,
+walked Stage 3 and Stage 4 together against a scratch API on the Stage 4 backend and a production build of the
+Stage 4 web tip (`03796024`, before the three fixes below), as the administrator, a line manager, an assigned
+appraiser, HR and employees, at desktop width and at 375px with touch: **38 runs, 448 checks.** 26 did not pass.
+Each is annotated in the walk's `results.json`: three are the findings below, and the rest are faults of the walk's
+own script (a selector that matched an outer element, touch emulation that stopped being coarse after a mouse
+click, wording assumed and not read, a collapsed group), each redone in a later run that passes. For Stage 3 it
+covered: the settings card with Projects off and on; the answer flow (pick, note, add, unpin, the preview, the
+keyboard, focus after an unpin, the guard on closing the picker); the pins as the person, the line manager, an
+assigned appraiser and HR read them; **no task title in any response, page, table, audit entry or notification**
+(searched for a marker title in all of them); raising, changing and taking back a flag, and the panel with the
+setting turned off; and the shared-project order in Ask colleagues and in the appraiser map. The score register was
+read before and after raising, changing and taking back a flag, flags with the setting off, and pins with the setting
+off, and was the same each time. The walk's folder is `out/work-evidence-stage34-walk-2026-11-12/` in the author's
+checkout and is not in the repository.
+
+It found three things, all Low, none touching a mark or a title: **the project List tab did not say "Won't do"**
+(Stage 4, fixed on that branch); **the milestone hint's list order told the reader whether a task they may not open
+is open or finished, and how recent** (Stage 4, backend, fixed there); and **first focus in a dialog is on its Close
+button** (above, not changed). It also noted, and these are not from this work: opening a review as an assigned
+appraiser logs a 403 on `GET /work-trackers/evidence/:id` (Stage 1's read) as a console error, and the live "Work
+this cycle" list shows the **title** of a task the reader cannot open, beside a plain-text key. A pin carries no
+title; the live list did before this work and still does.
+
+Wire fields this reads, for diffing against the backend's note (`docs/backend/work-answers-handover.md` on that
+branch): features `workInAnswers` (boolean; absent is "the server does not say"); the review's `workPins` (boolean;
+absent is off), its `periodStart` and `periodEnd` (a missing one means there is no stretch of work to choose from,
+so no **Add work**) and, on a SELF review's `questions[].pins`, each pin by name (`id`, `issueId` and `key` make it a
+pin; `type`, `personal`, `projectId`, `doneAt`, `finishedOn`, `dueDate`, `timing` of `ON_TIME`, `LATE` or
+`NO_DUE_DATE`, `linked`, `setBy` as `{ id, name }` or null, `note`, `pinnedAt`, and **`canOpen`**, kept only when it
+is a boolean: only `true` makes the key a link, and absent or `false` leaves it plain text; nothing else is read, so
+a title that arrives is dropped); `POST .../questions/:questionId/pins` body `{ issueId, note? }` answered with
+`{ pin }`; `DELETE .../pins/:pinId` (the answer is not read, and a 404 is a pin that is already gone; a 404 on
+`POST` is the review); `GET /performance/employees/:id/shared-projects` as `{ on:false }` or
+`{ on:true, colleagues:[{ employeeId, name, sharedProjects }] }` (a count that is not an integer of at least 1
+leaves the person out); `GET .../cycles/:cycleId/employees/:employeeId/work-flags` as
+**`{ on: boolean, flags: [{ issueId, key, reason, flaggedAt }] }`**: `on` has to be a boolean or the whole answer is
+unreadable, `flags` is read whether or not `on`, and an answer with no `flags` list (an older server's `{ on:false }`)
+is no claim; `PUT` with `{ reason }` answered with `{ flag }` (written straight into the shared answer; a reply with
+no readable `flag` falls back to a quiet re-read) and `DELETE` on `.../work-flags/:issueId` (the answer is not read,
+and a 404 is a flag that is already gone). The picker's task list is the existing cycle-work read, and the pin
+body's `issueId` is that read's `items[].id`. A refusal is shown as the server's own sentence; nothing keys on
+`details.reason`.
+
+**Not exercised:** a second company (so no cross-company 404 was seen in a browser; the backend tests cover it),
+iOS Safari or any real device, demo mode in a browser (a production build has none; the card's no-server sentence and
+the null states are covered by tests), the QA site, a company with real data and a long list, a server that predates
+the backend half (reasoned from the absent-field rules, with a test per field, not run), a native `<select>` whose
+options are held while it is open on any browser but Chromium, and the whole vitest suite in one run.
