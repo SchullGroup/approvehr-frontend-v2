@@ -12298,13 +12298,23 @@ Clicking into the empty box lists the last 8 (`lib/store/settings-search-history
 
 ---
 
-# The header search finds pages, and only the ones this person has
+# The header search reaches every page, and only the ones this person has
 
-`CommandPalette` used to find people and roles. It now has a **Pages** group first, read from the same sidebar the person sees: `findDestinations(buildSidebar(nav))`, where `nav` is the shell's already-filtered menu (permissions, the company's modules, the plan). There is no second list of who may see what, so a page their own sidebar hides cannot be offered, and a page added to the nav is searchable with no further change.
+`CommandPalette` (the header search) found people and roles, then only the sidebar's own pages. About half the product's pages are not sidebar doors (Leave policies, the hiring settings, the wellness pages, Add employee, How appraisals work), so searching "leave types" or a Performance page found nothing. It now reaches all of them.
 
-- **Settings pages** sit behind one sidebar row, so they are offered only to somebody who has the Settings row (`MANAGE_SETTINGS`). They come from `SETTINGS_PAGES` in `settings/filter.ts`, which the Settings screen now reads too; the screen only adds the icons. `/people` is skipped there because the nav already has it.
-- **People and roles are still narrowed by the API**, as before.
-- **Not searched:** records inside the system (payslips, leave requests, tickets). Each would need its own permission-narrowed search endpoint; add them one type at a time.
-- A permission-aware search is only as honest as the nav filter. If a page is reachable by URL but hidden from the sidebar on purpose, search will not show it either.
+## Where the pages come from
 
-Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no payroll or settings page; the admin's does).
+- **`src/lib/page-index.generated.ts`** is every signed-in page with a fixed address and a stated title, generated from each `page.tsx`'s own `metadata` by `npm run page-index` (`scripts/docs/page-index.ts`, the same reading the pages inventory uses). **Do not edit it.** `tests/page-index-current.test.ts` fails when it is stale, so a new page is searchable once it is committed with its regenerated index, and a page cannot be searchable without being in the pages inventory. Routes with a parameter (records) and the finishing steps in `EXCLUDED` are left out.
+- **`src/components/portal/page-search.ts`** (`searchPages`) joins two sources: the sidebar's own doors, found the way the sidebar's Find box finds them (`findDestinations`, ranked, with its synonyms), then every other indexed page matched on title, description, its module and its keywords (`PAGE_WORDS` for settings pages, `INDEX_WORDS` for the rest). At most 12.
+
+## The permission rule
+
+There is no second list of who may see what. A page that is not a sidebar door borrows its **owner's** permission: the longest sidebar address that is a path prefix of it, taken from the **whole** menu (`NAV`), and it is offered only if that owner is in this person's visible menu. The longest match is the point: `/people/leave` is its own door, so somebody who may not see Leave is not handed it through `/people`, which they may see. A page nothing owns is offered only if it is one of the account pages everybody has (`PERSONAL`: profile, documents, equipment, notifications). The Settings pages sit under the one `/settings` row, so they are offered only to somebody who has it.
+
+This decides what to **list**. Every page still enforces its own access when opened; a mistake here costs a title and not data. A page reachable by URL but hidden from the sidebar on purpose is not offered either.
+
+## Not searched
+
+Records inside the system (payslips, leave requests, tickets, objectives by name). Each type needs its own permission-narrowed search endpoint; people and roles are still narrowed by the API as before.
+
+Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no loans, leave policies or hiring settings; a hidden sibling door is not handed over through a shorter owner; the account pages are offered to everybody) and `tests/page-index-current.test.ts`. Three rules were broken on purpose and each was caught: no owner check, the owner taken from the visible menu only, and the account pages not offered. Not walked in a browser.

@@ -375,9 +375,7 @@ describe("the project screen around the views", () => {
     await userEvent.click(
       screen.getByRole("menuitem", { name: /Delete project/ }),
     );
-    expect(
-      await screen.findByLabelText(/to confirm/),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText(/to confirm/)).toBeInTheDocument();
   });
 
   it("WRITE: no edit or delete menu", async () => {

@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArchiveRestore, FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArchiveRestore,
+  FolderKanban,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -488,12 +494,16 @@ function ProjectShell({
                       items={[
                         {
                           label: "Edit project",
-                          icon: <Pencil aria-hidden="true" className="size-4" />,
+                          icon: (
+                            <Pencil aria-hidden="true" className="size-4" />
+                          ),
                           href: hrefFor("settings"),
                         },
                         {
                           label: "Delete project",
-                          icon: <Trash2 aria-hidden="true" className="size-4" />,
+                          icon: (
+                            <Trash2 aria-hidden="true" className="size-4" />
+                          ),
                           tone: "danger",
                           onSelect: () => setDeleting(true),
                         },
