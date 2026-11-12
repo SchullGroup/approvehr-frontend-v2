@@ -13028,3 +13028,208 @@ iOS Safari or any real device, demo mode in a browser (a production build has no
 the null states are covered by tests), the QA site, a company with real data and a long list, a server that predates
 the backend half (reasoned from the absent-field rules, with a test per field, not run), a native `<select>` whose
 options are held while it is open on any browser but Chromium, and the whole vitest suite in one run.
+
+---
+
+# A finished task can be closed as won't do or accepted, and two small helpers are offered, for a company that chose them
+
+Stage 4 of the Projects-in-Performance research (the web half; the backend is `approvehr-backend`'s
+`feat/work-assists-stage4-20261112`, whose own note is `docs/backend/work-assists-handover.md`). Stage 3 (this
+branch's base) let a person put their own finished work beside their own answers. This adds two **recordings** on
+a finished task, available whatever the company has chosen, and two **helpers** behind **one company switch, off
+for every company** (`OrgFeatures.workAssists`), asked about before it is turned on. Nothing here moves a mark, a
+score, a band or a rank. Stage 3 is its base, so it merges after Stage 3.
+
+## What it does
+
+| Where | What |
+| ----- | ---- |
+| The task drawer (`components/projects/finish-marks.tsx`, in `issue-drawer.tsx`, which a personal task's drawer wraps) and a leader's reduced view (`reduced-issue-drawer.tsx`) | A section, **How it finished**, drawn only when the task carries a mark or the server says this reader may make one: _Closed as won't do by Adaeze Okonkwo on 10 Nov_ with the reason the person wrote, _Accepted by Adaeze Okonkwo on 11 Nov_, and the buttons **Won't do…**, **Accept**, **Take back won't do**, **Take back acceptance**, each drawn for exactly what the task's own read says the reader may do (`canMarkWontDo`, `canAccept`). **Won't do…** asks **Why is it not being done?** (3 to 280 characters) and sends it trimmed. |
+| A board card, a backlog row, a Master list row and **My tasks** (`finish-tag.tsx`) | **Won't do** and **Accepted** as plain words beside the task's key or stage. In **My tasks**, in the list and in the Board layout's Done column, the **Done (last 14 days)** count is _1 finished, 1 won't do_, never a bare number that includes a task nobody did, and a board card says **Won't do** or **Accepted**, and the Archive says _Closed as won't do_ / _Won't do 20 Oct_ instead of a completion date. The Master list's Archive says _Closed as won't do_ in place of _Finished …_. |
+| A project's **List** tab (`projects/[id]/issues-view.tsx`) | **Won't do** and **Accepted** beside the task's stage in its own row, in the same words as the board. Found by the browser walk: every other place that lists a task with its stage said it, and this table drew a plain Done. |
+| The history of a task (`lib/projects/history.ts`) | _closed the task as won't do: <the reason>_, _removed the won't-do mark from the task_, _accepted the task_, _removed the acceptance of the task_. An object is never printed. |
+| A done-or-not measure's row (`performance/linked-work-hint.tsx`, in `done-measure.tsx`) | **Tasks linked to this measure** with a count, closed until opened, beside **Confirm it is done**: each task as its key (a link where the API said the reader may open it), where it stands in words (**Open**, **Finished 9 Nov 2026**, **Closed as won't do**, _accepted by Ada Eze on 11 Nov 2026_), and **A task you cannot open** as one plain line, listed after the others, for a task the reader may not open. **No task is linked to this measure.** when none is. |
+| A weekly line (`performance/task-suggestions.tsx`, in `task-log.tsx`) | Under the box that **Log a task** opens: **Add from my finished work** with a count, closed until opened, the owner's own tasks finished that week under that objective as _KEY title_ with the day. **Add** puts the text in the box; nothing else happens. The weekly line is 300 characters at most: the box counts from 250 (_260 of 300 characters_), says the server's sentence past 300 and cannot be saved, and a task that would take it past 300 is not added (its row says so). |
+| Settings, **Appraisal scoring**, **Records**, **Work behind a milestone, and weekly lines** (`settings/performance/work-assists-card.tsx`) | The switch **Offer the linked tasks beside Confirm, and finished tasks for weekly lines**, under **Work in review answers**. Off by default; turning it on asks first (_Offer the linked tasks and the weekly-line suggestions?_); turning it off is one press and deletes nothing. It says that won't do and acceptance are **not** behind it. |
+| `lib/api/work-assists.ts`, `lib/store/work-assists.ts`, `lib/projects/finish-marks.ts`, `lib/api/projects.ts`, `lib/store/features.ts`, `lib/api/setup.ts` | The wire layer, the two hooks, the words and limits, the four routes (`POST` and `DELETE /issues/:id/wont-do` and `/accept`, under `/issues` and not under `/projects`), and the setting as `boolean | null`. |
+
+## Decisions worth not undoing
+
+1. **Won't do and acceptance are not behind the switch.** They are recordings that change nothing until a person
+   makes one, so the switch covers the two helpers only, and the card says so beside the switch. The screen
+   works out no rule of its own about them: who leads whom, whether the task is finished and whether the reader
+   is on it are the server's, said as `canMarkWontDo` and `canAccept` on the task's own read (the thread, for the
+   board's drawer and a personal task's; the reduced read for a leader off the board), and a button is drawn for
+   exactly what they say. A server that says nothing offers nothing.
+2. **A task closed as won't do is not finished work anywhere the web counts it.** The lists the server reads
+   already leave it out (the Work record, Work this cycle, Completed, the work under an objective, Team tasks and
+   the Master view's _done this week_). Where the web shows a count of a Done group itself (**My tasks**) it says
+   how many were finished and how many were won't do. The board's stage counts and a parent's sub-task progress are
+   left alone, as the backend leaves its own: they say where tasks stand on the board, and a won't-do task is in
+   its Done column. A task that leaves Done loses both marks in the board's own optimistic moves too (the project
+   board's `patchIssue` and My tasks' Board layout `withMove`), as the API does in the same write, so a reopened
+   task never reads as closed for the length of a round trip. In My tasks every place that shows a Done count says
+   it as two numbers: the list's group, the Done view and the Board layout's Done column. Team tasks' _done this
+   week_ is the server's own count, which already leaves a won't-do task out.
+3. **The reason is the person's own words and is shown to whoever can read the task, except a leader's reduced
+   read, which carries none** (the API withholds free text there). The web reads a reason that is absent or blank as
+   `null` and draws no reason line at all, so nothing quotes nothing and nothing implies a reason. The history
+   quotes the reason on the row that set it, and says only _removed the won't-do mark_ on the row that took it off.
+4. **A refusal is the server's own sentence, and the screen reads the task again whether the write worked or not.**
+   A refusal usually means what is on screen is not what the server holds. In the dialog the sentence is shown
+   where it can be read, the dialog stays open with what was typed, and it cannot be closed while the request is
+   out. The reason is checked by length only (3 to 280, trimmed) and is never cut by a `maxLength`, so a pasted
+   reason that is too long says so with a counter instead of losing words.
+5. **What was just answered is believed until the task holds anything else.** The section shows what the server
+   answered at once, kept with the values it was made over and **cleared** in render when the task changes (not
+   merely ignored: ignored, it matched again when the task came back to the state it was made over, after a
+   reopen and a second finish, and showed a mark the server no longer held), so the leader's reduced view (which
+   has nothing to re-read) updates, and an answer can never outlive the state it described.
+6. **The hint lists and never decides.** It is drawn only where there is a **Confirm** to look at it beside (a
+   reader who may confirm, on a measure not yet confirmed), never to the person whose objective it is (the server
+   would allow them to read it; this does not offer it), and a request is made only for a company that has the
+   switch on, because every company has it off until it chooses and must not open a request per measure. It
+   never says the measure is done, how many are left or that anything is ready, and its only figure is how many
+   tasks are linked. **A task the reader may not open is one line and nothing else**: the API sends its id and
+   `canOpen: false` and no key, state, day or acceptance, and the parser ignores anything else that arrives with
+   it, so a key or a state for work the reader cannot see cannot reach a screen. A task whose openness is not said
+   is read as one the reader may not open, never as one they may. A list the API cut says _Showing 50 of 63._ **The lines the reader cannot open are listed last**: left where the
+   server's own order put them, such a line told the reader whether the task was open or finished and roughly
+   when. The browser walk found that the API did exactly that, so the API now puts them last itself, in an order
+   that says nothing about them (backend note, item 14), and the web still puts them last too (`openableFirst`), so
+   the screen is the same against a server from before that fix. A finished day is the company's calendar day
+   and is read with `dayLabel`, never put through a zone (read as an instant it is the day before west of
+   Greenwich); an acceptance is an instant and is read in the company's zone. `stateWords` takes the two
+   formatters apart for that reason, and the pre-fill's week and days use `dayLabel` too.
+7. **Everything that is not an answer draws nothing.** The two reads are `null` for the switch off (`{ on: false }`
+   carries nothing else), a reader the API refuses, a server with no such route, a failed request and a shape it
+   cannot read, and a screen draws nothing for `null`: no list, no _No task is linked_, no zero, no banner. A hint
+   that did not arrive is not a reason to hold up a confirmation or a weekly line. **No task is linked to this
+   measure.** and an empty week are said only for an `on` answer with an empty list, and an empty week draws no
+   control at all.
+8. **The pre-fill offers text and writes nothing.** **Add** puts the words in the box the person is typing into: in an
+   empty box as they are, otherwise on a new line after what is there, never replacing it; a line already in the box
+   reads **Added** and is not offered twice. Nothing is logged, filed, submitted or graded until the person reads it,
+   changes it and presses **Save it**, as they always have, and the caption says so once, where it is needed. **A weekly line is one line of 3 to 300 characters**
+   (`lib/performance/weekly-line.ts`, the server's `submitTaskSchema`, counted on the trimmed text, with no
+   `maxLength` so a paste is never cut). Two or three ordinary titles fill it, so **Add** does not take a line that
+   would take the box past 300: its row says so, once under the list the way on is said (save this one, then log
+   the next on its own), the count shows from 250 and keeps counting past 300 with the server's own sentence, and
+   **Save it** is off while the box is over. When the server refuses a line, the sentence it wrote about the field
+   is the one shown, not "Some fields are not valid". It is
+   asked for only while the box is open, so a screen of objectives opens no request per card, and a title is read
+   live and shown only to the objective's owner.
+9. **No demo.** All of it needs the API, which is the only thing that can record, count or answer for it. The
+   drawer draws the section only when connected, the two reads are never asked for with no server, and the setting
+   is `null` in demo so no switch is offered for it. Nothing is invented to fill a demo.
+10. **Built to the backend note after its review, not to the note as it first stood (`0650f28`).** A leader's reduced
+    read carries `wontDo` as `{ at, byId, byName }` with no `reason`; a linked task the reader cannot open is
+    `{ issueId, canOpen: false }` and nothing else. The backend's change to notify the person a task is credited to
+    when somebody else closes it as won't do has no web effect.
+
+11. **A button that writes on one press says what it does on the page.** Accept, Take back acceptance and Take back
+    won't do write at once, so one short line says what they mean (_Acceptance says a leader has seen it and it
+    stands. It changes no mark._ and _Taking it back puts it among finished work again._), drawn only beside the
+    controls that are drawn; **Won't do…** needs none, because it asks before it writes. The server lets any
+    leader of the person the task is credited to take an acceptance back, whoever gave it, so the toast says _The
+    acceptance of PLT-12 is taken back_ and never "your" acceptance.
+12. **Focus goes back where the person was working.** A button that is off lets go of focus, and a request being
+    out turns it off, so after a write (worked or refused) focus goes to the control of the pressed kind, else the
+    other kind, else the section: the shape of Stage 3's pins. Safari does not focus a button on a press, so the
+    dialog's success moves focus explicitly instead of relying on the focus trap to hand it back.
+13. **A dialog that is open is not taken from under the person.** The section draws nothing for a task with nothing
+    to say, but not while the won't-do dialog is open: the task is read again on window focus, and a reader whose
+    flags go must not lose what they typed or the sentence the server answers with. The dialog stays in the same
+    place in the tree (moving it remounted it and emptied the box), and is a landmark only while it says something.
+14. **The settings confirmation cannot be closed while its save is out.** It is a `Modal` with its own footer
+    (Cancel off, Escape ignored) and not `ConfirmDialog`, which has no idea a request is out. That is true of
+    every one of the 62 `ConfirmDialog` call sites, Stage 3's two cards among them.
+15. **Every list that shows a task with its stage says how it finished.** The List tab of a project was the one
+    that did not (found by the walk): a task closed as won't do read _Done_ there, beside rows elsewhere that said
+    _Won't do_. `FinishTag` is the one component for it, drawn after the stage pill in the status cell and drawing
+    nothing for a task with no mark (and for a server that sends neither field, which is no claim).
+
+## Not done
+
+- **The flags come with a task's own read, so a row on a list has only the words.** A card, a row or a My tasks line
+  says **Won't do** or **Accepted** from the mark it carries, but the buttons are in the drawer, where the read that
+  says what this reader may do is made. Offering **Won't do…** on a card would need the server to send the flags on
+  every list row, which it does not (a permission check per task on a 5,000-row board).
+- **The linked-task list is not shown to the objective's owner**, although the API would answer them. The brief was
+  beside **Confirm**, which they do not see.
+- **The board's stage counts and sub-task progress still count a won't-do task as in its Done column**, as the backend
+  leaves its own (sprint velocity too). If a company wants its points out of velocity it is one line there and a
+  decision of its own.
+- **A suggestion line already logged this week is not recognised**: the server does not say which tasks a weekly line
+  came from, so **Added** means only that the words are in the box now.
+- **A weekly line is one line.** The server takes 300 characters, so several finished tasks cannot go into one
+  line; they are logged one at a time, and the screen says so. Nothing here splits a week's tasks into lines for
+  the person.
+- **The Archive's completion date for a task that was finished still cuts the UTC date** (`doneAt.slice(0, 10)`
+  in `my-tasks-screen.tsx`), which is the same defect the won't-do date had and is older than this work.
+- **`ConfirmDialog` is not busy-aware** (see decision 14). A shared fix (Cancel off and not dismissible while
+  `loading`) is one change in `components/ui/modal.tsx` and touches 62 call sites.
+- **Opening a dialog puts focus on its Close button, not on its first field.** Shared: `use-focus-trap.ts` does it for
+  every `Modal`. In this work it affects the won't-do dialog, where typing a reason with spaces presses Space on
+  Close and dismisses it (one Tab reaches the box), and Stage 3's pin picker. Found by the browser walk and not changed
+  here. **Escape in the won't-do dialog with a reason typed discards it without asking**, as it does in the other
+  dialogs of the product.
+
+## Verified
+
+On the tree these commits make:
+
+- `npm run check` exit 0 (typecheck, lint, format and every `verify-*`), run with `APPROVEHR_BACKEND_DIR` at the
+  Stage 4 backend branch (`feat/work-assists-stage4-20261112`, merged with `staging` at `6881605`), so the four
+  cross-repo gates compared against it and did not print `skip`. ESLint 0 errors.
+- `vitest related` over the changed source files: Test Files 214 passed, 1 failed (215); Tests 3561 passed, 1 failed (3562). The one failure is `completed-team` "stops at a hundred chosen", a 30-second timeout while the machine was at a load of 30; the file passes on its own (28 tests), and it is not a file this work touches.
+- `npm run verify-demo:build` (a production build with `NEXT_PUBLIC_DEMO=off` into `.next-verify`, then the check
+  against it) exit 0. The check's own lines: Demo source check: 1324 files, no ungated demo copy. / Demo bundle check: 3191 built files, none carries demo copy. / Fabrication check: 10 seed personas and 3 credential shape(s), none loose in src/ or the build. The directory was removed afterwards.
+- `npm run docs -- --check --only frontend-pages,frontend-components` and `npm run page-index` are current.
+- The tests this adds: 16 new test files, 296 tests (run on their own: 16 files passed), and two existing files changed: `my-tasks` (a won't-do task in the Done group, the Done view and the Archive: 109 lines added) and `scoring-records-tab` (the third card, in order; its header comment rewritten).
+
+Deliberate breaks (one exact replacement in one source file, the file restored, the tree checked clean before and
+after each): 71 in the first pass and 37 for the second review's fixes. 67 and 34 were caught the first time. The
+misses were each the test and not the fix (a dialog told to close stays in the page for its 250 ms exit, so two
+"still open" tests passed with the guard removed; a week with both ends wrong hid the check on one end; nothing
+pinned that a card moved inside Done keeps its marks), and each is caught now.
+
+Two of the second review's ten findings were not defects on this code and the tests say so: the workflow save already
+re-reads the whole project, and focus after the won't-do dialog closes already worked in jsdom (the test now models
+Safari, where a press does not focus a button, and removing the explicit refocus fails it).
+
+**A browser walk by somebody who did not write it**: the one described in the Stage 3 entry, which walked both stages
+together (38 runs, 448 checks, 26 not passing, each annotated: three findings and the walk script's own faults, all
+redone in passing runs). For Stage 4 it covered: **Won't do…** as the person, as their leader and as a leader off the
+board (the reduced read, with no reason on the page); the reason's length limits and the dialog's guards (cannot close
+while a request is out, one Tab to the box, Tab and Shift+Tab held inside, Escape closing only the dialog and focus
+returning to **Won't do…**); **Accept** and the two takings-back, including from the reduced read, and refusals in the
+server's own words; the history of a task; **Won't do** and **Accepted** on a board card, a backlog row, the Plan row,
+the Master list and **My tasks** (including the Done count as two numbers and the Archive); dragging a won't-do task out of Done, which cleared the mark at once; the milestone hint (open tasks first, then the finished, **A task you cannot open** as one plain line with
+nothing else and last, absent for the owner and for a number measure, absent with the switch off); the weekly-line pre-fill (the week, **Add**, the 300
+characters, a line already in the box); the settings card; the notice to the person a task is credited to (it names the key and not the title, the body is the reason,
+and it links to the task); and, at 375px with touch, no sideways scroll, 16px text
+fields and nothing under 14px. The score register was read before and after acceptance given, taken back and given,
+the reduced read, opening the hint, and saving a pre-filled weekly line, and was the same each time.
+
+It found three things, all Low (also in the Stage 3 entry): **the List tab did not say "Won't do"** (fixed here, decision
+15, with `finish-marks-list-view`: 5 tests, 3 of which fail without the fix); **the hint's order leaked** (fixed on the
+backend, and this branch's tests are unchanged by it); **first focus in a dialog is its Close button** (not changed).
+It also noted that HR reading a won't-do task on a board it is not on gets the full read, reason included (the
+reduced read is for managers and heads outside the project); the backend note says so.
+
+The walk ran the Stage 4 tip at `03796024`, before those fixes: the fixes were tested and not walked again.
+
+Wire fields this reads, for diffing against the backend's note (`docs/backend/work-assists-handover.md` on that
+branch): features `workAssists`; on an issue `wontDo` (`{ at, byId, byName, reason }`, with **no `reason` on a
+leader's reduced read**), `accepted` (`{ at, byId, byName }`), and on the task's own read and the reduced read
+`canMarkWontDo` and `canAccept`; `POST` and `DELETE /issues/:id/wont-do` (body `{ reason }`) and `/issues/:id/accept`,
+each answering with the task and the flags; Master list rows' `wontDo: boolean`; history rows with `field: "wontDo"`
+(`to: { reason }` / `from: { reason }`) and `field: "accepted"` (`to: true` / `from: true`);
+`GET /performance/key-results/:id/linked-work` (`{ on: false }`, or `{ on: true, measure, items, total, truncated }` with
+an item either `{ issueId, canOpen: false }` alone or `{ issueId, key, type, state, finishedOn, personal, accepted,
+canOpen: true }`); `GET /performance/goals/:id/task-suggestions` (`{ on: false }`, or `{ on: true, week: { start, end },
+items: [{ issueId, key, type, finishedOn, text }], total, truncated }`).
+
+**Not exercised:** a second company, iOS Safari or any real device, demo mode in a browser (none in a production
+build), the QA site, a company with real data, a board of thousands of tasks, and the whole vitest suite in one run.
