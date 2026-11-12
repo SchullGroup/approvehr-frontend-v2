@@ -11,6 +11,7 @@ import {
   type IssueThread,
   type ProjectData,
 } from "@/lib/projects/types";
+import { ToastProvider } from "@/components/ui";
 import { contextFor, fakeActions, sampleData } from "./projects-fixture";
 import { closedLink, linkedTo } from "./support/objective-fixtures";
 
@@ -98,7 +99,7 @@ const dialog = () => screen.getByRole("dialog");
  * something that cannot take focus blurs the field the way a person's click does.
  */
 const leave = () =>
-  userEvent.click(screen.getByRole("heading", { name: "CHK-10" }));
+  userEvent.click(screen.getAllByRole("heading", { level: 2 })[0]!);
 const status = (d: ProjectData, name: string) =>
   d.project.statuses.find((s) => s.name === name)!;
 
@@ -110,8 +111,13 @@ beforeEach(() => {
 describe("what the drawer shows", () => {
   it("names the issue, and shows its summary, description, fields and sub-tasks", () => {
     renderDrawer();
-    expect(screen.getByRole("heading", { name: "CHK-10" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Summary")).toHaveValue(
+    expect(screen.getByRole("dialog")).toHaveAccessibleName(
+      "3-D Secure challenge flow for EU cards",
+    );
+    expect(
+      screen.getByRole("button", { name: "Copy link to CHK-10" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue(
       "3-D Secure challenge flow for EU cards",
     );
     expect(
@@ -164,13 +170,12 @@ describe("what the drawer shows", () => {
     const dialog = screen.getByRole("dialog");
     /* Not a switched-off control: none of the editors exists at all. */
     expect(dialog.querySelectorAll("input, select, textarea")).toHaveLength(0);
-    expect(screen.queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+    /* The panel is titled by the task's name, shown as words. */
+    expect(dialog).toHaveAccessibleName(issue.title);
     expect(
-      within(dialog).getByRole("heading", {
-        level: 3,
-        name: issue.title,
-      }),
-    ).toBeInTheDocument();
+      within(dialog).getByText(issue.title, { selector: "p" }),
+    ).toBeVisible();
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
     );
@@ -200,13 +205,15 @@ describe("saving as you go", () => {
 
   it("saves a new summary when you leave the field, and ignores an empty one", async () => {
     const { actions, issue } = renderDrawer();
-    const summary = screen.getByLabelText("Summary");
+    const summary = screen.getByLabelText("Title");
     await userEvent.clear(summary);
     await userEvent.type(summary, "Challenge flow for EU cards");
     await leave();
-    expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
-      title: "Challenge flow for EU cards",
-    });
+    expect(actions.patchIssue).toHaveBeenCalledWith(
+      issue,
+      { title: "Challenge flow for EU cards" },
+      { quiet: true },
+    );
 
     actions.patchIssue.mockClear();
     await userEvent.clear(summary);
@@ -216,7 +223,7 @@ describe("saving as you go", () => {
 
   it("does not save when nothing changed", async () => {
     const { actions } = renderDrawer();
-    await userEvent.click(screen.getByLabelText("Summary"));
+    await userEvent.click(screen.getByLabelText("Title"));
     await leave();
     expect(actions.patchIssue).not.toHaveBeenCalled();
   });
@@ -854,7 +861,7 @@ describe("somebody's personal task", () => {
       personalCtx({ canEditDetails: true }),
       personalData(),
     );
-    expect(screen.getByLabelText("Summary")).toBeEnabled();
+    expect(screen.getByLabelText("Title")).toBeEnabled();
     expect(screen.getByRole("textbox", { name: "Description" })).toBeEnabled();
     const details = within(
       screen.getByRole("complementary", { name: "Details" }),
@@ -865,13 +872,15 @@ describe("somebody's personal task", () => {
     expect(details.queryByLabelText("Priority")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Delete this task")).not.toBeInTheDocument();
 
-    const summary = screen.getByLabelText("Summary");
+    const summary = screen.getByLabelText("Title");
     await userEvent.clear(summary);
     await userEvent.type(summary, "Fixed by the manager");
     await leave();
-    expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
-      title: "Fixed by the manager",
-    });
+    expect(actions.patchIssue).toHaveBeenCalledWith(
+      issue,
+      { title: "Fixed by the manager" },
+      { quiet: true },
+    );
   });
 
   it("keeps them read-only for anybody else who can see it", () => {
@@ -880,7 +889,7 @@ describe("somebody's personal task", () => {
       personalCtx({ canEditDetails: false }),
       personalData(),
     );
-    expect(screen.queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("textbox", { name: "Description" }),
     ).not.toBeInTheDocument();
@@ -913,5 +922,140 @@ describe("somebody's personal task", () => {
     actor.editRecords = false;
     renderDrawer("CHK-10", personalCtx({ meId: "p-02" }), personalData());
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+});
+
+describe("a calmer panel", () => {
+  const details = () =>
+    within(screen.getByRole("complementary", { name: "Details" }));
+
+  it("always shows stage, assignees, due, priority and cycle, and keeps the rest under More details", () => {
+    renderDrawer();
+    for (const label of ["Stage", "Priority", "Due", "Cycle"]) {
+      expect(details().getByLabelText(label)).toBeVisible();
+    }
+    expect(details().getByText("Assignees")).toBeVisible();
+    const more = details().getByRole("button", { name: "More details" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    for (const label of ["Type", "Effort", "Initiative", "Labels"]) {
+      expect(details().getByLabelText(label)).not.toBeVisible();
+    }
+    expect(details().getByText("Reporter")).not.toBeVisible();
+    expect(details().getByText("Created")).not.toBeVisible();
+  });
+
+  it("opens More details on a press", async () => {
+    renderDrawer();
+    await userEvent.click(
+      details().getByRole("button", { name: "More details" }),
+    );
+    expect(details().getByLabelText("Effort")).toBeVisible();
+    expect(details().getByText("Reporter")).toBeVisible();
+  });
+
+  it("has no cycle at all on a simple board", () => {
+    const data = sampleData();
+    data.project = { ...data.project, type: "KANBAN" };
+    renderDrawer("CHK-10", {}, data);
+    expect(details().queryByLabelText("Cycle")).not.toBeInTheDocument();
+    expect(details().queryByText("Cycle")).not.toBeInTheDocument();
+  });
+
+  it("puts the key facts before the description, for a phone", () => {
+    renderDrawer();
+    const aside = screen.getByRole("complementary", { name: "Details" });
+    /* One column below md: `order-first` puts the facts right under the title. */
+    expect(aside).toHaveClass("order-first");
+    const description = screen.getByRole("heading", { name: "Description" });
+    expect(description.closest(".order-last")).not.toBeNull();
+  });
+
+  it("starts Linked tasks as one button, and opens the picker from it", async () => {
+    renderDrawer();
+    const button = await screen.findByRole("button", { name: "Link a task" });
+    expect(screen.queryByLabelText("Link type")).not.toBeInTheDocument();
+    await userEvent.click(button);
+    expect(screen.getByLabelText("Link type")).toBeInTheDocument();
+  });
+});
+
+describe("the title, edited in place", () => {
+  const title = () => screen.getByLabelText("Title");
+
+  it("saves on Enter, saying it is saving while it waits", async () => {
+    const { actions, issue } = renderDrawer();
+    let finish: (value: unknown) => void = () => {};
+    actions.patchIssue.mockImplementationOnce(
+      () => new Promise((resolve) => (finish = resolve)),
+    );
+    await userEvent.clear(title());
+    await userEvent.type(title(), "EU card challenge{Enter}");
+    expect(actions.patchIssue).toHaveBeenCalledWith(
+      issue,
+      { title: "EU card challenge" },
+      { quiet: true },
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Saving");
+    expect(title()).toHaveAttribute("aria-busy", "true");
+    await act(async () => finish({ ok: true, value: issue }));
+    expect(screen.queryByText("Saving")).not.toBeInTheDocument();
+    expect(title()).toHaveValue("EU card challenge");
+  });
+
+  it("says why a save was refused, under the title, and keeps what was typed", async () => {
+    const { actions } = renderDrawer();
+    actions.patchIssue.mockResolvedValueOnce({
+      ok: false,
+      message: "That title is too long.",
+      error: null,
+    });
+    await userEvent.clear(title());
+    await userEvent.type(title(), "A better name{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That title is too long.",
+    );
+    expect(title()).toHaveValue("A better name");
+    expect(title()).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("puts the saved name back on Escape, sends nothing, and keeps the panel open", async () => {
+    const { actions, onClose } = renderDrawer();
+    await userEvent.clear(title());
+    await userEvent.type(title(), "Not this{Escape}");
+    expect(title()).toHaveValue("3-D Secure challenge flow for EU cards");
+    expect(actions.patchIssue).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("puts the saved name back when emptied, and sends nothing", async () => {
+    const { actions } = renderDrawer();
+    await userEvent.clear(title());
+    await userEvent.type(title(), "{Enter}");
+    expect(title()).toHaveValue("3-D Secure challenge flow for EU cards");
+    expect(actions.patchIssue).not.toHaveBeenCalled();
+  });
+
+  it("copies a link from the key, and says so", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const data = sampleData();
+    const ctx = contextFor(data);
+    render(
+      <ToastProvider>
+        <ProjectProvider value={ctx}>
+          <IssueDrawer issue={find(data, "CHK-10")} onClose={vi.fn()} />
+        </ProjectProvider>
+      </ToastProvider>,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link to CHK-10" }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(/\?issue=CHK-10$/),
+    );
+    expect(await screen.findByText("Link copied")).toBeInTheDocument();
   });
 });

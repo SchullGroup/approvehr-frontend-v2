@@ -152,6 +152,11 @@ const ALLOWED: Allowed[] = [
     text: /^(status|points|sprint)$/,
     why: "Sort keys of the table (`SortKey`), the first argument of `th()`; the label is the second.",
   },
+  {
+    file: "components/projects/create-issue-dialog.tsx",
+    text: "points",
+    why: "The API's field name, looked up in a refusal to put its message on the Effort field; never shown.",
+  },
 ];
 
 /* ------------------------------------------------------------------------- */

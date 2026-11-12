@@ -1,4 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -174,6 +181,8 @@ function renderDrawer(
       <IssueDrawer issue={issue} onClose={vi.fn()} />
     </ProjectProvider>,
   );
+  /* The objective sits under More details in the task panel. */
+  fireEvent.click(screen.getByRole("button", { name: "More details" }));
   return { ctx, actions };
 }
 
@@ -475,6 +484,7 @@ describe("link to an objective, on a task", () => {
       };
       renderDrawer(epic, {}, data);
       expect(screen.queryByText(LABEL)).not.toBeInTheDocument();
+      cleanup();
       const sub = {
         ...find(data, (i) => i.type === "SUBTASK"),
         assigneeId: "p-03",

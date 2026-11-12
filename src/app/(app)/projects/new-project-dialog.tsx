@@ -24,8 +24,15 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { BoardTypeChoice } from "@/components/projects/board-type-choice";
 import { DepartmentField } from "@/components/projects/department-field";
+import {
+  MoreOptions,
+  useMoreOptions,
+} from "@/components/projects/more-options";
+
+/** Per browser, like the new-task form's, but its own: two forms, two habits. */
+const MORE_OPTIONS_KEY_PROJECT = "projects.newProject.moreOptions";
 import { PersonPicker } from "@/components/projects/person";
-import { PROGRAM } from "@/lib/projects/terms";
+import { PROGRAM, PROJECT_TYPE_LABEL } from "@/lib/projects/terms";
 import { useProgramList } from "@/lib/store/programs";
 
 type Draft = {
@@ -37,6 +44,8 @@ type Draft = {
   keyTouched: boolean;
   type: ProjectType;
   departmentId: string;
+  /** Once the person has chosen a department, their own stops being suggested. */
+  departmentTouched: boolean;
   /** Add everybody in the department as members. On, as choosing one always did. */
   seedDepartment: boolean;
   description: string;
@@ -53,6 +62,7 @@ const BLANK: Draft = {
      made. On cycles it waited in Later, and a new project looked broken. */
   type: "KANBAN",
   departmentId: "",
+  departmentTouched: false,
   seedDepartment: true,
   description: "",
   programId: "",
@@ -71,8 +81,10 @@ function inDepartment(
 }
 
 /**
- * New project: a name, a key, a board type, a department if there is one, and a
- * line about what it is for.
+ * New project: a name and a department, which starts as the creator's own when
+ * the directory knows it. The key, the board type, a program and a line about
+ * what it is for are under "More options" (remembered open per browser, and
+ * opened by a refused key), because the defaults suit most projects.
  *
  * A program, when the person may start a project in one, is chosen here too, and
  * starts as the one they came from. Only programs that will take the project are
@@ -120,6 +132,10 @@ export function NewProjectDialog({
   const [failure, setFailure] = useState<string | null>(null);
   const [leadError, setLeadError] = useState<string | undefined>();
   const [departmentError, setDepartmentError] = useState<string | undefined>();
+  const more = useMoreOptions(MORE_OPTIONS_KEY_PROJECT, open);
+  /* Set when the key is refused, and kept until the section is closed by hand,
+     so it does not fold away under the person while they fix it. */
+  const [moreForced, setMoreForced] = useState(false);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -131,6 +147,7 @@ export function NewProjectDialog({
       setLeadError(undefined);
       setDepartmentError(undefined);
       setFailure(null);
+      setMoreForced(false);
     }
   }
 
@@ -144,11 +161,26 @@ export function NewProjectDialog({
     (p) => p.canCreateProject && !p.archived,
   );
   const liveDepartments = departments.flat.filter((d) => !d.archived);
+  /* The creator's own department is the likely one, so it starts chosen; with
+     none known the field starts empty, and is still required. Matched by id,
+     or by name where the directory only has that. */
+  const me = actor.employeeId
+    ? people.people.find((p) => p.id === actor.employeeId)
+    : undefined;
+  const ownDepartmentId =
+    (me?.departmentId &&
+      liveDepartments.find((d) => d.id === me.departmentId)?.id) ||
+    (me?.department &&
+      liveDepartments.find((d) => d.name === me.department)?.id) ||
+    "";
+  const departmentId = draft.departmentTouched
+    ? draft.departmentId
+    : draft.departmentId || ownDepartmentId;
   /* A department added from the field below is chosen at once, before this
      dialog's own list has reloaded and heard of it; it is used from here until then. */
   const department: { id: string; name: string } | undefined =
-    liveDepartments.find((d) => d.id === draft.departmentId) ??
-    (justAdded?.id === draft.departmentId ? justAdded : undefined);
+    liveDepartments.find((d) => d.id === departmentId) ??
+    (justAdded?.id === departmentId ? justAdded : undefined);
   const seeded =
     department && draft.seedDepartment
       ? inDepartment(people.people, department)
@@ -160,6 +192,17 @@ export function NewProjectDialog({
     (p) => p.id !== (draft.leadId || actor.employeeId),
   );
 
+  /* The key is the one field under More options that can be refused; its
+     error opens the section, whatever was remembered. */
+  const moreOpen = more.remembered || moreForced;
+  const programName = programs.find((p) => p.id === draft.programId)?.name;
+  const summary = [
+    draft.key && `Key: ${draft.key.toUpperCase()}`,
+    draft.type !== "KANBAN" && PROJECT_TYPE_LABEL[draft.type],
+    programName && `${PROGRAM.One}: ${programName}`,
+    draft.description.trim() !== "" && "Description added",
+  ].filter((line): line is string => typeof line === "string");
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const name = draft.name.trim();
@@ -170,6 +213,7 @@ export function NewProjectDialog({
       needsLead && !draft.leadId ? "Choose who will lead it." : undefined;
     setNameError(nameProblem);
     setKeyError(keyIssue);
+    if (keyIssue) setMoreForced(true);
     setLeadError(leadProblem);
     const departmentProblem = department ? undefined : "Choose a department.";
     setDepartmentError(departmentProblem);
@@ -203,8 +247,10 @@ export function NewProjectDialog({
           : /key/i.test(result.message)
             ? result.message
             : undefined;
-      if (keyMessage) setKeyError(keyMessage);
-      else setFailure(result.message);
+      if (keyMessage) {
+        setKeyError(keyMessage);
+        setMoreForced(true);
+      } else setFailure(result.message);
       return;
     }
     toast.push({ tone: "success", title: `${name} created` });
@@ -255,66 +301,19 @@ export function NewProjectDialog({
           />
         </Field>
 
-        <Field
-          label="Key"
-          required
-          help="2 to 6 letters or digits. It starts every task number, like MOB-12, and cannot change later."
-          {...(keyError ? { error: keyError } : {})}
-        >
-          <Input
-            value={draft.key}
-            maxLength={6}
-            placeholder="MOB"
-            autoComplete="off"
-            spellCheck={false}
-            className="uppercase"
-            onChange={(event) => {
-              setDraft((d) => ({
-                ...d,
-                key: normaliseKey(event.target.value),
-                keyTouched: true,
-              }));
-              if (keyError) setKeyError(undefined);
-            }}
-          />
-        </Field>
-
-        <BoardTypeChoice
-          value={draft.type}
-          onChange={(type) => setDraft((d) => ({ ...d, type }))}
-        />
-
-        {programs.length > 0 && (
-          <Field
-            label={PROGRAM.One}
-            optional
-            help={`People with access to the ${PROGRAM.one} can see this project.`}
-          >
-            <Select
-              value={draft.programId}
-              onChange={(event) =>
-                setDraft((d) => ({ ...d, programId: event.target.value }))
-              }
-            >
-              <option value="">No {PROGRAM.one}</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
-
         <DepartmentField
           onAdded={(made) => {
             setJustAdded(made);
             departments.reload();
           }}
-          value={draft.departmentId}
+          value={departmentId}
           error={departmentError}
           onChange={(id) => {
-            setDraft((d) => ({ ...d, departmentId: id }));
+            setDraft((d) => ({
+              ...d,
+              departmentId: id,
+              departmentTouched: true,
+            }));
             setDepartmentError(undefined);
           }}
         />
@@ -355,16 +354,76 @@ export function NewProjectDialog({
           </Field>
         )}
 
-        <Field label="Description" optional>
-          <Textarea
-            value={draft.description}
-            rows={3}
-            placeholder="What is this project for?"
-            onChange={(event) =>
-              setDraft((d) => ({ ...d, description: event.target.value }))
-            }
+        <MoreOptions
+          open={moreOpen}
+          onToggle={(next) => {
+            more.toggle(next);
+            if (!next) setMoreForced(false);
+          }}
+          summary={summary}
+        >
+          <Field
+            label="Key"
+            required
+            help="2 to 6 letters or digits. It starts every task number, like MOB-12, and cannot change later."
+            {...(keyError ? { error: keyError } : {})}
+          >
+            <Input
+              value={draft.key}
+              maxLength={6}
+              placeholder="MOB"
+              autoComplete="off"
+              spellCheck={false}
+              className="uppercase"
+              onChange={(event) => {
+                setDraft((d) => ({
+                  ...d,
+                  key: normaliseKey(event.target.value),
+                  keyTouched: true,
+                }));
+                if (keyError) setKeyError(undefined);
+              }}
+            />
+          </Field>
+
+          <BoardTypeChoice
+            value={draft.type}
+            onChange={(type) => setDraft((d) => ({ ...d, type }))}
           />
-        </Field>
+
+          {programs.length > 0 && (
+            <Field
+              label={PROGRAM.One}
+              optional
+              help={`People with access to the ${PROGRAM.one} can see this project.`}
+            >
+              <Select
+                value={draft.programId}
+                onChange={(event) =>
+                  setDraft((d) => ({ ...d, programId: event.target.value }))
+                }
+              >
+                <option value="">No {PROGRAM.one}</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          <Field label="Description" optional>
+            <Textarea
+              value={draft.description}
+              rows={3}
+              placeholder="What is this project for?"
+              onChange={(event) =>
+                setDraft((d) => ({ ...d, description: event.target.value }))
+              }
+            />
+          </Field>
+        </MoreOptions>
 
         {failure && (
           <p role="alert" className="text-body-sm text-danger-text">

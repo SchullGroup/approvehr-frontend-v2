@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -119,6 +119,8 @@ function drawer(
       <IssueDrawer issue={withIssue} onClose={vi.fn()} />
     </ProjectProvider>,
   );
+  /* The objective sits under More details in the task panel. */
+  fireEvent.click(screen.getByRole("button", { name: "More details" }));
 }
 
 beforeEach(() => {

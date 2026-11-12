@@ -428,7 +428,7 @@ describe("opening a task", () => {
     render(<MyTasksScreen />);
     await userEvent.click(await screen.findByText("Set for somebody"));
     const drawer = await screen.findByRole("dialog");
-    expect(within(drawer).getByLabelText("Summary")).toBeEnabled();
+    expect(within(drawer).getByLabelText("Title")).toBeEnabled();
     expect(within(drawer).getByLabelText("Due")).toBeEnabled();
     /* Status is not theirs to change: it is read, not offered as a switched-off box. */
     expect(
@@ -449,7 +449,7 @@ describe("opening a task", () => {
     const drawer = await screen.findByRole("dialog");
     /* Read, not offered: the title is a heading and the date is text, with no
        switched-off editor in their place. */
-    expect(within(drawer).queryByLabelText("Summary")).not.toBeInTheDocument();
+    expect(within(drawer).queryByLabelText("Title")).not.toBeInTheDocument();
     expect(
       within(drawer).getByRole("heading", { name: "Not mine to fix" }),
     ).toBeInTheDocument();

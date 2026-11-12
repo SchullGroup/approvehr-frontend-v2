@@ -379,7 +379,7 @@ describe("?issue= and the drawer", () => {
     search = new URLSearchParams("issue=CHK-14");
     render(<ProjectScreen id="pj-chk" />);
     expect(await screen.findByRole("dialog")).toHaveTextContent("CHK-14");
-    expect(screen.getByLabelText("Summary")).toHaveValue(
+    expect(screen.getByLabelText("Title")).toHaveValue(
       "Instrument payment error rates by provider",
     );
   });
@@ -391,7 +391,7 @@ describe("?issue= and the drawer", () => {
     search = new URLSearchParams("task=CHK-14");
     render(<ProjectScreen id="pj-chk" />);
     expect(await screen.findByRole("dialog")).toHaveTextContent("CHK-14");
-    expect(screen.getByLabelText("Summary")).toHaveValue(
+    expect(screen.getByLabelText("Title")).toHaveValue(
       "Instrument payment error rates by provider",
     );
   });

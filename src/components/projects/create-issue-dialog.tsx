@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   Button,
   Field,
+  FieldRow,
   Input,
   Modal,
   Select,
@@ -37,6 +38,7 @@ import {
   type Priority,
 } from "@/lib/projects/types";
 import { AssigneeList } from "./assignees";
+import { MORE_OPTIONS_KEY, MoreOptions, useMoreOptions } from "./more-options";
 import { useProject } from "./project-context";
 import {
   AttachButton,
@@ -73,6 +75,28 @@ function cycleIsGone(error: unknown): boolean {
   );
 }
 
+/** The fields under More options, as the API names them in a refusal. */
+const HIDDEN_FIELDS = [
+  "type",
+  "priority",
+  "description",
+  "points",
+  "epicId",
+  "startDate",
+  "dueTime",
+] as const;
+
+/** A refusal's messages for fields under More options, by field. */
+function hiddenFieldErrors(error: unknown): Record<string, string> {
+  if (!(error instanceof ApiError)) return {};
+  const found: Record<string, string> = {};
+  for (const field of HIDDEN_FIELDS) {
+    const message = error.messageFor(field);
+    if (message) found[field] = message;
+  }
+  return found;
+}
+
 function blank(defaults: Partial<NewIssueInput>): Draft {
   return {
     type: displayType(defaults.type ?? DEFAULT_TYPE),
@@ -92,9 +116,15 @@ function blank(defaults: Partial<NewIssueInput>): Draft {
 /**
  * Create an issue.
  *
- * Type, title, description, priority, points, epic, sprint, dates, and "assign
- * to me". It stays mounted and reseeds its draft every time it opens, so the last
- * issue's text never greets the next; the title takes focus on open.
+ * Short by default: the title (first, and focused on open), who it is for (with
+ * "Assign to me") and the due date, plus the cycle beside it on a project with
+ * cycles. Type, priority, description, effort, initiative, due time and files
+ * are under "More options", which stays open if it was left open last time
+ * (per browser), says in one line what in it is not at its default while
+ * closed, and opens itself when the API refuses a field inside it.
+ *
+ * It stays mounted and reseeds its draft every time it opens, so the last
+ * issue's text never greets the next.
  *
  * A refusal from the API is shown inside the dialog, beside the form, rather than
  * as a toast over a dialog that is still open.
@@ -138,7 +168,10 @@ export function CreateIssueDialog({
   const [wasOpen, setWasOpen] = useState(open);
   const [titleError, setTitleError] = useState<string | undefined>();
   const [failure, setFailure] = useState<string | null>(null);
+  /* A refusal the API pinned on a field under More options, by field name. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const more = useMoreOptions(MORE_OPTIONS_KEY, open);
   /* Set once the issue exists but a file did not attach to it. */
   const [created, setCreated] = useState<{ id: string; key: string } | null>(
     null,
@@ -155,6 +188,7 @@ export function CreateIssueDialog({
       setDraft(blank(defaults));
       setTitleError(undefined);
       setFailure(null);
+      setFieldErrors({});
       setBusy(false);
       setCreated(null);
       staged.clear();
@@ -175,6 +209,26 @@ export function CreateIssueDialog({
   const scrum = project.type === "SCRUM";
   const choices = openSprints(sprints);
   const canAssignMe = meId !== null && project.memberIds.includes(meId);
+  /* Cycle sits beside Due date on a project with cycles, not under More options. */
+  const showCycle = scrum && !isEpic;
+  /* A field under More options with an error opens it, whatever was remembered. */
+  const moreOpen = more.remembered || Object.keys(fieldErrors).length > 0;
+  const fieldError = (name: string) =>
+    fieldErrors[name] ? { error: fieldErrors[name] } : {};
+  const epicName = epics.find((e) => e.id === draft.epicId);
+  const summary = [
+    displayType(draft.type) !== DEFAULT_TYPE &&
+      `Type: ${TYPE_LABEL[draft.type]}`,
+    draft.priority !== "MEDIUM" &&
+      `Priority: ${PRIORITY_LABEL[draft.priority]}`,
+    !isEpic && draft.points.trim() !== "" && `${EFFORT.One}: ${draft.points}`,
+    !isEpic && epicName && `${INITIATIVE.One}: ${epicName.title}`,
+    isEpic && draft.startDate && `Start: ${draft.startDate}`,
+    draft.dueDate && draft.dueTime && `Due time: ${draft.dueTime}`,
+    draft.description.trim() !== "" && "Description added",
+    staged.items.length > 0 &&
+      `${staged.items.length} ${staged.items.length === 1 ? "file" : "files"}`,
+  ].filter((line): line is string => typeof line === "string");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -213,7 +267,10 @@ export function CreateIssueDialog({
     }
     if (!result.ok) {
       setBusy(false);
-      setFailure(result.message);
+      const pinned = hiddenFieldErrors(result.error);
+      setFieldErrors(pinned);
+      /* A message already beside its field is not repeated under the form. */
+      setFailure(Object.keys(pinned).length > 0 ? null : result.message);
       return;
     }
     const made = result.value;
@@ -318,33 +375,6 @@ export function CreateIssueDialog({
         )}
         {...drop.handlers}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Type">
-            <Select
-              value={draft.type}
-              onChange={(e) => set("type", e.target.value as IssueType)}
-            >
-              {PICKABLE_ISSUE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {TYPE_LABEL[type]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Priority">
-            <Select
-              value={draft.priority}
-              onChange={(e) => set("priority", e.target.value as Priority)}
-            >
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {PRIORITY_LABEL[p]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-
         <Field
           label="Title"
           required
@@ -363,96 +393,9 @@ export function CreateIssueDialog({
           />
         </Field>
 
-        <Field label="Description" optional>
-          <Textarea
-            value={draft.description}
-            rows={4}
-            placeholder="What needs doing, and why"
-            onChange={(e) => set("description", e.target.value)}
-          />
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {!isEpic && (
-            <Field label={EFFORT.One} optional>
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                inputMode="numeric"
-                value={draft.points}
-                placeholder="None"
-                onChange={(e) => set("points", e.target.value)}
-              />
-            </Field>
-          )}
-          {!isEpic && (
-            <Field label={INITIATIVE.One} optional>
-              <Select
-                value={draft.epicId}
-                onChange={(e) => set("epicId", e.target.value)}
-              >
-                <option value="">None</option>
-                {epics.map((epic) => (
-                  <option key={epic.id} value={epic.id}>
-                    {epic.key} {epic.title}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          )}
-          {scrum && !isEpic && (
-            <Field label={CYCLE.One} optional>
-              <Select
-                value={draft.sprintId}
-                onChange={(e) => set("sprintId", e.target.value)}
-              >
-                <option value="">{LATER}</option>
-                {choices.map((sprint) => (
-                  <option key={sprint.id} value={sprint.id}>
-                    {sprint.name}
-                    {sprint.state === "ACTIVE" ? " (active)" : ""}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          )}
-          {isEpic && (
-            <Field
-              label="Start date"
-              optional
-              help={`${INITIATIVE.Many} with dates appear on the timeline.`}
-            >
-              <Input
-                type="date"
-                value={draft.startDate}
-                onChange={(e) => set("startDate", e.target.value)}
-              />
-            </Field>
-          )}
-          <Field label="Due date" optional>
-            <Input
-              type="date"
-              value={draft.dueDate}
-              onChange={(e) => {
-                set("dueDate", e.target.value);
-                /* Clearing the date clears the time, on screen as on save. */
-                if (!e.target.value) set("dueTime", "");
-              }}
-            />
-          </Field>
-          <Field label="Due time" optional>
-            <DueTimeInput
-              date={draft.dueDate}
-              value={draft.dueTime}
-              onChange={(next) => set("dueTime", next ?? "")}
-            />
-          </Field>
-        </div>
-
         <fieldset className="space-y-2">
           <legend className="text-body-sm font-medium text-ink">
-            Assignees <span className="font-normal text-muted">(optional)</span>
+            Assignee <span className="font-normal text-muted">(optional)</span>
           </legend>
           <AssigneeList
             people={people}
@@ -473,17 +416,144 @@ export function CreateIssueDialog({
           )}
         </fieldset>
 
-        {connected && !created && (
-          <div className="space-y-2">
-            <AttachButton onFiles={(files) => void staged.add(files)} />
-            <StagedList
-              items={staged.items}
-              onRemove={staged.remove}
-              busy={busy}
-              label="Files to attach"
+        <FieldRow>
+          <Field label="Due date" optional>
+            <Input
+              type="date"
+              value={draft.dueDate}
+              onChange={(e) => {
+                set("dueDate", e.target.value);
+                /* Clearing the date clears the time, on screen as on save. */
+                if (!e.target.value) set("dueTime", "");
+              }}
             />
-          </div>
-        )}
+          </Field>
+          {showCycle && (
+            <Field label={CYCLE.One} optional>
+              <Select
+                value={draft.sprintId}
+                onChange={(e) => set("sprintId", e.target.value)}
+              >
+                <option value="">{LATER}</option>
+                {choices.map((sprint) => (
+                  <option key={sprint.id} value={sprint.id}>
+                    {sprint.name}
+                    {sprint.state === "ACTIVE" ? " (active)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+        </FieldRow>
+
+        <MoreOptions
+          open={moreOpen}
+          onToggle={(next) => {
+            more.toggle(next);
+            if (!next) setFieldErrors({});
+          }}
+          summary={summary}
+        >
+          <FieldRow>
+            <Field label="Type" {...fieldError("type")}>
+              <Select
+                value={draft.type}
+                onChange={(e) => set("type", e.target.value as IssueType)}
+              >
+                {PICKABLE_ISSUE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {TYPE_LABEL[type]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Priority" {...fieldError("priority")}>
+              <Select
+                value={draft.priority}
+                onChange={(e) => set("priority", e.target.value as Priority)}
+              >
+                {PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_LABEL[p]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </FieldRow>
+
+          <Field label="Description" optional {...fieldError("description")}>
+            <Textarea
+              value={draft.description}
+              rows={4}
+              placeholder="What needs doing, and why"
+              onChange={(e) => set("description", e.target.value)}
+            />
+          </Field>
+
+          <FieldRow>
+            {!isEpic && (
+              <Field label={EFFORT.One} optional {...fieldError("points")}>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  value={draft.points}
+                  placeholder="None"
+                  onChange={(e) => set("points", e.target.value)}
+                />
+              </Field>
+            )}
+            {!isEpic && (
+              <Field label={INITIATIVE.One} optional {...fieldError("epicId")}>
+                <Select
+                  value={draft.epicId}
+                  onChange={(e) => set("epicId", e.target.value)}
+                >
+                  <option value="">None</option>
+                  {epics.map((epic) => (
+                    <option key={epic.id} value={epic.id}>
+                      {epic.key} {epic.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            {isEpic && (
+              <Field
+                label="Start date"
+                optional
+                help={`${INITIATIVE.Many} with dates appear on the timeline.`}
+                {...fieldError("startDate")}
+              >
+                <Input
+                  type="date"
+                  value={draft.startDate}
+                  onChange={(e) => set("startDate", e.target.value)}
+                />
+              </Field>
+            )}
+            <Field label="Due time" optional {...fieldError("dueTime")}>
+              <DueTimeInput
+                date={draft.dueDate}
+                value={draft.dueTime}
+                onChange={(next) => set("dueTime", next ?? "")}
+              />
+            </Field>
+          </FieldRow>
+
+          {connected && !created && (
+            <div className="space-y-2">
+              <AttachButton onFiles={(files) => void staged.add(files)} />
+              <StagedList
+                items={staged.items}
+                onRemove={staged.remove}
+                busy={busy}
+                label="Files to attach"
+              />
+            </div>
+          )}
+        </MoreOptions>
 
         {failure && (
           <p role="alert" className="text-body-sm text-danger-text">

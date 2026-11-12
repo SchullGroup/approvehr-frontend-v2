@@ -203,6 +203,7 @@ export function Drawer({
   onClose,
   title,
   description,
+  header,
   side = "right",
   size = "md",
   footer,
@@ -213,6 +214,12 @@ export function Drawer({
   onClose: () => void;
   title: string;
   description?: string;
+  /**
+   * Drawn in place of the visible title, for a panel whose heading is itself a
+   * control (a task's name, edited in place). `title` still names the dialog,
+   * read by a screen reader from a hidden heading.
+   */
+  header?: React.ReactNode;
   side?: "right" | "left";
   size?: DrawerSize;
   footer?: React.ReactNode;
@@ -272,9 +279,13 @@ export function Drawer({
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div className="min-w-0 flex-1 break-words">
-            <h2 id={`${id}-title`} className="text-h4 text-ink">
+            <h2
+              id={`${id}-title`}
+              className={header ? "sr-only" : "text-h4 text-ink"}
+            >
               {title}
             </h2>
+            {header}
             {description && (
               <p
                 id={`${id}-desc`}
