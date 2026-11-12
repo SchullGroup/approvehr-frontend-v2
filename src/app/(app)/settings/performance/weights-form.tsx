@@ -34,6 +34,7 @@ import {
   type ScoreComponent,
 } from "@/lib/api/performance";
 import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
+import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
 import { useCan } from "@/lib/permissions";
 import { useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
@@ -251,9 +252,16 @@ export function ScoringWeightsForm({
   const dirty = renamed.length > 0 || redescribed.length > 0 || weightsMoved;
   /* Whether this server has the Manager appraisal part at all: it sends a row
      for it. A server that predates it sends none, and nothing here is drawn or
-     sent for a part it has not heard of. */
-  const managerAppraisalLabel =
-    rows.find((row) => row.component === "MANAGER_APPRAISAL")?.label ?? null;
+     sent for a part it has not heard of. **Not in yet, or failed, is not "no
+     row"**: with no weights nothing is known, and the switch card must not say
+     the manager's mark is not counted on a server that may well have the part. */
+  const managerRow = rows.find((row) => row.component === "MANAGER_APPRAISAL");
+  const managerAppraisal: ManagerAppraisalPart =
+    weights === null
+      ? { state: "unknown" }
+      : managerRow
+        ? { state: "has", label: managerRow.label }
+        : { state: "none" };
 
   /* The gap a self-rating can move, expressed once. A person who rates
      themselves 5 out of 5 instead of 3 out of 5 moves that component by half its
@@ -622,7 +630,7 @@ export function ScoringWeightsForm({
             <OverallMarkCard
               connected={source === "api"}
               onChanged={reload}
-              managerAppraisalLabel={managerAppraisalLabel}
+              managerAppraisal={managerAppraisal}
             />
             {scale}
           </div>

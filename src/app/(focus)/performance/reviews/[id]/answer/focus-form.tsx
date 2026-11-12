@@ -35,6 +35,7 @@ import {
   savedAnswerStands,
   sigOf,
   startIndex,
+  startingMark,
 } from "./focus-logic";
 import {
   CheckStep,
@@ -81,6 +82,11 @@ import {
  * switch says, it does not ask whether there is one, and the review does not go
  * until one is given. It is treated like a required question: going on without
  * it is nudged, and pressing Send walks the person to it rather than sending.
+ *
+ * A review sent back for revision keeps the mark it was given, so where the form
+ * asks for one it opens on that mark unless this browser remembers a newer pick
+ * (`startingMark`), and a given mark can be replaced but not left blank. A
+ * first-time form holds none, and still has to be given one.
  *
  * ## What is on the record is not always what is in the box
  *
@@ -155,8 +161,12 @@ export function FocusForm({
   const [draft, setDraft] = useState<Record<string, Draft>>({});
   /** What has been saved during this visit, which the review itself does not show until it is read again. */
   const [savedHeld, setSavedHeld] = useState<Record<string, Draft>>({});
-  /* A mark left in a draft from before the setting moved is not carried in. */
-  const [mark, setMark] = useState(withMark ? local.mark : "");
+  /* A mark left in a draft from before the setting moved is not carried in. What
+     the review already holds is, where the form asks for one: a review sent back
+     for revision keeps its rating. See `startingMark`. */
+  const [mark, setMark] = useState(() =>
+    startingMark({ asks: withMark, local: local.mark, held: review.rating }),
+  );
   const [summary, setSummary] = useState(local.summary);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [failed, setFailed] = useState<string | null>(null);
@@ -678,7 +688,8 @@ export function FocusForm({
               onPick={pickMark}
               onClear={() => setMark("")}
               required={markRequired}
-              shareBp={review.appraiser?.markShareBp}
+              appraiser={review.appraiser}
+              held={review.rating != null}
               nudged={nudged}
             />
           )}

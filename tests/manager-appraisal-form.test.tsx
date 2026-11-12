@@ -287,3 +287,132 @@ describe("the strip above the form says what the overall mark is worth, from the
     expect(screen.queryByText(/of the mark/)).toBeNull();
   });
 });
+
+describe("with several appraisers, the mark page and the strip say the same thing", () => {
+  /* `markShareBp` is the whole part's share of the mark. At 60/40 with the part at
+     30% this appraiser's own slice is 18%, and a page saying "it counts for 30%"
+     would be the whole part said as theirs, beside a strip that says otherwise. */
+  const STRIP =
+    "Your overall mark counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the mark.";
+  const shared = () =>
+    appraiser({ weightBp: 6000, appraiserCount: 2, markShareBp: 3000 });
+
+  it("gives the strip's own sentence on the page that asks for the mark", async () => {
+    mount({
+      overallMarkRequired: true,
+      appraiser: shared() as never,
+    });
+    expect(screen.getByText(STRIP)).toBeInTheDocument();
+    await next("Start");
+    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(screen.getByText(`Needed. ${STRIP}`)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/counts for 30% of the mark in this period/),
+    ).toBeNull();
+  });
+
+  it("does not say a figure the server did not send", async () => {
+    mount({
+      overallMarkRequired: true,
+      appraiser: appraiser({ weightBp: 6000, appraiserCount: 2 }) as never,
+    });
+    await next("Start");
+    expect(
+      screen.getByText("Needed. This period counts it towards the score."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/%/)).toBeNull();
+  });
+});
+
+describe("a review sent back for revision keeps the mark it was given", () => {
+  /* The API clears when it was sent and keeps the rating, and the browser's draft
+     was cleared on the first send. A form that still has to carry a mark would
+     otherwise block the manager until they pick, again, a mark the record has. */
+  const picked = (name: RegExp) => screen.getByRole("radio", { name: name });
+
+  it("opens on it where the period needs one, so nothing blocks the manager", async () => {
+    mount({ overallMarkRequired: true, rating: 4 } as never);
+    await next("Start");
+    expect(picked(/Exceeds Expectations/)).toBeChecked();
+    await next("Next");
+    expect(heading("Your recommendations")).toBeInTheDocument();
+    expect(
+      screen.queryByText("This one needs an answer before you can go on."),
+    ).toBeNull();
+    await next("Skip");
+    expect(heading("Preview")).toBeInTheDocument();
+    expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
+    expect(screen.queryByText("Not given yet")).toBeNull();
+    expect(screen.queryByText("Needs an answer")).toBeNull();
+    await next("Send it");
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send).toHaveBeenCalledWith("r1", { rating: 4 }, []);
+  });
+
+  it("lets the pick this browser remembers win over the record's", async () => {
+    window.localStorage.setItem(
+      "ahr:review-draft:r1",
+      JSON.stringify({ mark: "2", summary: "", step: 0 }),
+    );
+    mount({ overallMarkRequired: true, rating: 4 } as never);
+    /* A remembered mark opens the form on the page that holds it. */
+    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(picked(/Below Expectations/)).toBeChecked();
+    expect(picked(/Exceeds Expectations/)).not.toBeChecked();
+    await next("Next");
+    await next("Skip");
+    await next("Send it");
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send).toHaveBeenCalledWith("r1", { rating: 2 }, []);
+  });
+
+  it("still needs a mark on a first-time form, where none is held", async () => {
+    mount({ overallMarkRequired: true, rating: null } as never);
+    await next("Start");
+    expect(
+      screen
+        .getAllByRole("radio")
+        .filter((radio) => (radio as HTMLInputElement).checked),
+    ).toHaveLength(0);
+    await next("Next");
+    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(
+      screen.getByText("This one needs an answer before you can go on."),
+    ).toBeInTheDocument();
+  });
+
+  it("is not carried into a form that does not ask for a mark, which sends none", async () => {
+    mount({
+      overallMark: false,
+      overallMarkRequired: false,
+      rating: 4,
+    } as never);
+    await next("Start");
+    expect(heading("Your overall mark")).toBeNull();
+    expect(heading("Is there an overall mark?")).toBeNull();
+    await next("Skip");
+    await next("Send it");
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    const body = (send.mock.calls[0] as unknown[])[1] as { rating?: number };
+    expect(body).not.toHaveProperty("rating");
+  });
+
+  it("offers no way to blank a mark the record holds, because that would leave the record's mark under a preview that says there is none", async () => {
+    mount({
+      overallMark: true,
+      overallMarkRequired: false,
+      rating: 3,
+    } as never);
+    await next("Start");
+    expect(picked(/Meets Expectations/)).toBeChecked();
+    expect(screen.queryByText("Leave it blank instead")).toBeNull();
+  });
+
+  it("still offers it for a mark picked in this visit, where the record holds none", async () => {
+    mount({ overallMark: true, rating: null } as never);
+    await next("Start");
+    await userEvent.click(picked(/Meets Expectations/));
+    await userEvent.click(screen.getByText("Leave it blank instead"));
+    expect(picked(/Meets Expectations/)).not.toBeChecked();
+  });
+});

@@ -303,7 +303,8 @@ export function MarkStep({
   onPick,
   onClear,
   required = false,
-  shareBp,
+  appraiser,
+  held = false,
   nudged = false,
 }: {
   scale: ApiRatingScale;
@@ -312,12 +313,22 @@ export function MarkStep({
   onClear: () => void;
   /** This period needs it: there is no "leave it blank". See `needsOverallMark`. */
   required?: boolean;
-  /** The part's share of the mark, from the API, for the line that says why it is needed. */
-  shareBp?: number | undefined;
+  /**
+   * What the author is to the subject, for the line that says why a mark is needed
+   * and what it counts for: the strip's own figures, so the two pages agree.
+   */
+  appraiser?: ApiReviewDetail["appraiser"];
+  /**
+   * The record already holds a mark, and a given mark can be replaced and not
+   * taken back, so there is no "Leave it blank instead" for it: pressing that
+   * would empty the box and leave the record's mark standing under a preview that
+   * said there was none.
+   */
+  held?: boolean;
   /** They tried to go on without one. */
   nudged?: boolean;
 }) {
-  const words = markPageWords(required, shareBp);
+  const words = markPageWords(required, appraiser);
   return (
     <Frame headingId={HEADING} title={words.title} lead={words.lead}>
       <div className="flex flex-col gap-3">
@@ -329,7 +340,7 @@ export function MarkStep({
         />
         <p className="text-meta text-muted">
           Pick one, or press its number.{" "}
-          {mark && !required && (
+          {mark && !required && !held && (
             <button
               type="button"
               onClick={onClear}

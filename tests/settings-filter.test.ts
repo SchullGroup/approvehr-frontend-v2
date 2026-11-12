@@ -3,6 +3,7 @@ import {
   BILLING,
   PAGE_WORDS,
   ROW_WORDS,
+  SETTINGS_PAGES,
   matches,
   termsOf,
 } from "@/app/(app)/settings/filter";
@@ -46,5 +47,30 @@ describe("settings filter", () => {
   it("finds billing by plan or renewal", () => {
     expect(matches(termsOf("renew"), BILLING)).toBe(true);
     expect(matches(termsOf("overtime"), BILLING)).toBe(false);
+  });
+});
+
+describe("what the search says Appraisal scoring is", () => {
+  /* The weights became proportional, and the blurb went on saying they "must make
+     100% exactly". It is what somebody reads under the page's name in the results,
+     and what a search for "exactly" would have found it by. */
+  const page = SETTINGS_PAGES.find(
+    (one) => one.href === "/settings/performance",
+  );
+
+  it("says the parts count in proportion to the total, not that they must make 100%", () => {
+    expect(page).toBeDefined();
+    expect(page?.description).toMatch(/in proportion to the total/);
+    expect(page?.description).not.toMatch(/100% exactly|must make 100%/);
+  });
+
+  it("is still found by what it is for", () => {
+    expect(
+      matches(termsOf("weights"), {
+        title: page?.title ?? "",
+        description: page?.description,
+        words: PAGE_WORDS["/settings/performance"],
+      }),
+    ).toBe(true);
   });
 });

@@ -52,6 +52,9 @@ const withManager = (weightBp: number, label = "Manager appraisal"): Row[] => {
 /* One object per scenario: the form keeps a draft only while the weights it was
    started from are the same object. */
 let current: unknown = null;
+/* Whether the read has come back. Not in yet and failed both leave `weights` null,
+   and are not the same as a set that came back with no row for the part. */
+let read: "loaded" | "loading" | "failed" = "loaded";
 const serve = (rows: Row[], note?: string) => {
   current = {
     source: "saved",
@@ -63,6 +66,9 @@ const serve = (rows: Row[], note?: string) => {
 };
 
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
+vi.mock("@/components/portal/load-failure", () => ({
+  LoadFailure: () => null,
+}));
 vi.mock("@/components/portal/shell", () => ({
   PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
   PageBody: ({ children }: { children: React.ReactNode }) => (
@@ -72,9 +78,10 @@ vi.mock("@/components/portal/shell", () => ({
 vi.mock("@/lib/store/performance", async (original) => ({
   ...(await original<typeof import("@/lib/store/performance")>()),
   useScoringWeights: () => ({
-    weights: current,
-    loading: false,
-    error: null,
+    weights: read === "loaded" ? current : null,
+    loading: read === "loading",
+    error:
+      read === "failed" ? new Error("The weights could not be read.") : null,
     source: "api",
     editable: true,
     refusal: "",
@@ -108,6 +115,7 @@ const row = (component: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  read = "loaded";
   window.history.replaceState(null, "", "/settings/performance");
 });
 
@@ -237,4 +245,48 @@ describe("a server that predates the part", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/have to give one/)).toBeNull();
   });
+});
+
+describe("what the form tells the overall-mark card about the part", () => {
+  const header = {
+    has: "Forms do not ask for an overall mark, except a manager's form in a period that weights Line view. Otherwise the answers stand on their own.",
+    none: "Forms do not ask for an overall mark. The answers stand on their own.",
+    unknown: "Whether each form ends with a page asking for one overall mark.",
+  };
+
+  it("has the part: the card names the exception, in the company's own word", () => {
+    serve(withManager(0, "Line view"), NOTE);
+    mount("marks");
+    expect(screen.getByText(header.has)).toBeInTheDocument();
+    expect(screen.queryByText(/is not counted in it/)).toBeNull();
+  });
+
+  it("loaded with no row, a server that predates the part: the card says what it always did", () => {
+    serve(baseRows());
+    mount("marks");
+    expect(screen.getByText(header.none)).toBeInTheDocument();
+    expect(screen.getByText(/is not counted in it/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["not in yet", "loading"],
+    ["failed", "failed"],
+  ] as const)(
+    "the weights %s: nothing is known, so the card says nothing about whether forms ask or the mark counts",
+    (_name, state) => {
+      serve(withManager(0, "Line view"), NOTE);
+      read = state;
+      mount("marks");
+      expect(screen.getByText(header.unknown)).toBeInTheDocument();
+      expect(screen.queryByText(header.none)).toBeNull();
+      expect(screen.queryByText(/is not counted in it/)).toBeNull();
+      expect(screen.queryByText(/shown beside the score/)).toBeNull();
+      expect(screen.queryByText(/have to give one/)).toBeNull();
+      expect(
+        screen.getByText(
+          "The person picks one of the names below after the questions.",
+        ),
+      ).toBeInTheDocument();
+    },
+  );
 });

@@ -18,6 +18,7 @@ import {
   asksOverallMark,
   markPageWords,
   needsOverallMark,
+  startingMark,
   stillNeededLine,
 } from "@/app/(focus)/performance/reviews/[id]/answer/focus-logic";
 
@@ -382,21 +383,64 @@ describe("the overall mark page in the answer flow", () => {
     expect(needsOverallMark({})).toBe(false);
   });
 
+  const alone = (markShareBp?: number) => ({
+    weightBp: 10000,
+    appraiserCount: 1,
+    ...(markShareBp === undefined ? {} : { markShareBp }),
+  });
+
   it("asks whether there is one when it is optional, and says why it is needed when it is", () => {
     expect(markPageWords(false, undefined)).toEqual({
       title: "Is there an overall mark?",
       lead: "Optional. Leave it if the answers say enough.",
     });
-    expect(markPageWords(true, 3000)).toEqual({
+    expect(markPageWords(true, alone(3000))).toEqual({
       title: "Your overall mark",
       lead: "Needed. It counts for 30% of the mark in this period.",
     });
     expect(markPageWords(true, undefined).lead).toBe(
       "Needed. This period counts it towards the score.",
     );
-    expect(markPageWords(true, 0).lead).toBe(
+    expect(markPageWords(true, alone(0)).lead).toBe(
       "Needed. This period counts it towards the score.",
     );
+    expect(markPageWords(true, alone()).lead).toBe(
+      "Needed. This period counts it towards the score.",
+    );
+  });
+
+  it("with several appraisers says their own slice and the part's share, in the strip's own sentence", () => {
+    /* `markShareBp` is the whole part's share of the mark. Two appraisers at 60/40
+       and the part at 30% is 18% for this one, so "it counts for 30%" would be the
+       whole part said as theirs, and the strip on the same form says otherwise. */
+    const appraiser = { weightBp: 6000, appraiserCount: 2, markShareBp: 3000 };
+    const strip = appraiserStripLine({ appraiser, mine: true, asksMark: true });
+    expect(markPageWords(true, appraiser).lead).toBe(`Needed. ${strip}`);
+    expect(markPageWords(true, appraiser).lead).toBe(
+      "Needed. Your overall mark counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the mark.",
+    );
+    expect(markPageWords(true, appraiser).lead).not.toMatch(
+      /counts for 30% of the mark in this period/,
+    );
+  });
+
+  it("with several appraisers and no share from the server makes no figure up", () => {
+    const lead = markPageWords(true, {
+      weightBp: 6000,
+      appraiserCount: 2,
+    }).lead;
+    expect(lead).toBe("Needed. This period counts it towards the score.");
+    expect(lead).not.toMatch(/%/);
+  });
+
+  it("keeps the sole appraiser's wording when there is one appraiser", () => {
+    expect(
+      markPageWords(true, {
+        weightBp: 10000,
+        appraiserCount: 1,
+        markShareBp: 3000,
+      }).lead,
+    ).toBe("Needed. It counts for 30% of the mark in this period.");
   });
 
   it("says what still stops a send, the questions and the mark together", () => {
@@ -416,5 +460,22 @@ describe("the overall mark page in the answer flow", () => {
     expect(stillNeededLine(2, true)).toBe(
       "2 questions and the overall mark still need an answer before this can go.",
     );
+  });
+  it("opens on no mark where the form does not ask for one, whatever is remembered or held", () => {
+    expect(startingMark({ asks: false, local: "4", held: 3 })).toBe("");
+    expect(startingMark({ asks: false, local: "", held: 3 })).toBe("");
+  });
+
+  it("opens on the mark this browser remembers, over the one the record holds", () => {
+    expect(startingMark({ asks: true, local: "2", held: 4 })).toBe("2");
+  });
+
+  it("opens on the mark the record already holds where the browser remembers none, as a review sent back for revision does", () => {
+    expect(startingMark({ asks: true, local: "", held: 4 })).toBe("4");
+  });
+
+  it("opens on none for a first-time form, so a needed mark still has to be given", () => {
+    expect(startingMark({ asks: true, local: "", held: null })).toBe("");
+    expect(startingMark({ asks: true, local: "", held: undefined })).toBe("");
   });
 });

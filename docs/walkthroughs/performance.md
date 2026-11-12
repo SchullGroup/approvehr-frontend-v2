@@ -256,8 +256,10 @@ The first card on that same tab decides whether a form asks for one of those wor
 > 💡 **What it does and does not do.** The switch decides what a form offers, and the page is optional.
 > It does not decide whether a manager's overall mark counts towards the score: that happens only in a
 > period that weights **Manager appraisal** (step 3), and then a manager's form asks for the mark whatever
-> this switch says, and needs it. The card says so under the switch, in the company's own name for the
-> part. Self-assessment (step 3) reads from the overall mark somebody gave themselves when there is one,
+> this switch says, and needs it. The card says so in its header, under the switch and in the toast after
+> you press it, in the company's own name for the part. Until the weights have loaded, or if they cannot be
+> read, it says nothing about whether a form asks for a mark or whether the mark counts, because it does not
+> know. Self-assessment (step 3) reads from the overall mark somebody gave themselves when there is one,
 > and from how they answered when there is not, so this switch does not decide whether that part has
 > anything to count. Switching this off never hides or changes a mark already given, and a form that is
 > already open keeps the pages it opened with.
@@ -277,7 +279,7 @@ has never weighted them sees no change.
 | **Where**      | `/settings/performance` → **The parts of a mark**                                                    |
 | **Who**        | HR / Owner                                                                                           |
 | **Click**      | Type a percentage into each **Weight** box, then **Save the whole set**                              |
-| **You'll see** | Each part shows the share of a mark it comes to; Save stays dead only if every part is 0%             |
+| **You'll see** | Each part shows the share of a mark it comes to. **Save the whole set** stays dead until something has changed, and while a box is not a number from 0 to 100 or every part is at 0% |
 
 > 💡 **What Weekly tasks counts.** When it carries a weight, the part is how the manager graded the tasks
 > people logged against the period's objectives (step 18): **Completed** counts in full, **Partly
@@ -347,7 +349,7 @@ them on its own page.
 | **Where**      | `/performance/periods/{id}`, on a draft: the card **How the mark is made up**                                                                    |
 | **Who**        | HR / Owner                                                                                                                                       |
 | **Click**      | Type a whole number from 0 to 100 into each part, then **Save the weights**. **Use the company defaults** puts the company's back               |
-| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** |
+| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. |
 
 Two things about it. Whole numbers only: the company defaults in Settings take two decimal places, but here
 a weight is a whole number from 0 to 100, and the parts count in proportion to their total. And an untouched
@@ -910,13 +912,21 @@ the module, so it is worth walking properly.
   confirmation says _"… and an overall mark of Meets Expectations"_. Either way the mark comes from
   the scores (step 22).
 - **A manager's form in a period that weights Manager appraisal (step 3) has to carry an overall mark.** The
-  page is there whatever the switch says. It is called **Your overall mark** and says _"Needed. It counts for
-  30% of the mark in this period."_ (the figure is the part's share, and the line reads _"Needed. This period
-  counts it towards the score."_ where the server did not send one); there is no **Leave it blank instead** and
-  the button reads **Next**, never **Skip**. Going on without one stays on the page with _"This one needs an
+  page is there whatever the switch says. It is called **Your overall mark**. With one appraiser it says
+  _"Needed. It counts for 30% of the mark in this period."_ (the figure is the part's share). With several it
+  says the strip's own sentence after _"Needed."_ (_"Your overall mark counts for 60% of what the appraisers say,
+  alongside 1 other. What they say is 30% of the mark."_), because the part's share belongs to all of them and not
+  to this one, and the two pages must not give two answers. Where the server sent no share the line reads
+  _"Needed. This period counts it towards the score."_ and gives no figure. There is no **Leave it blank
+  instead** and the button reads **Next**, never **Skip**. Going on without one stays on the page with _"This one needs an
   answer before you can go on."_ On the **Preview** the **Overall mark** row reads _Not given yet_ with a
   **Needs an answer** badge and a line says _"The overall mark still needs an answer before this can go."_;
   **Send it** walks you back to the page instead of sending. A self-review is never held to it.
+- **A review that was sent back keeps the mark it was given** (step 30). Where the form asks for a mark it opens
+  on that one, unless this browser remembers a newer pick, so the manager is not blocked until they pick, again, a
+  mark the record already holds. A mark the record holds can be replaced but not left blank, so **Leave it blank
+  instead** is not offered for it. A first-time form holds none and still needs one, and a form that does not ask
+  for a mark sends none.
 - **The strip at the top of a manager's form says what the overall mark is worth.** _"Your overall mark counts
   for 30% of the mark."_ where the period weights Manager appraisal; with several appraisers _"Your overall mark
   counts for 40% of what the appraisers say, alongside 2 others. What they say is 30% of the mark."_; and
@@ -1263,6 +1273,10 @@ else's review moves.
 > different documents by two different people. Reopening the wrong one would send the wrong person
 > back to work.
 
+> 💡 **A manager's review keeps the mark it was given.** Sending it back clears when it was sent, not the
+> rating, so the form opens on the mark it already holds (step 17) and Send is not held up for a mark that is
+> already there.
+
 ### Phase G — close it out: publish, then read what the period actually said
 
 #### 31. Publish the results
@@ -1521,7 +1535,8 @@ were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 Octob
 subsection asked on the review form, and step 6 on 3 November 2026, for the lock, the answer type in front of a
 subsection's name and starting a new version, and steps 6, 17, 21 and 22 again on 6 November 2026, for a
 subsection answered in the person's own words, and steps 2, 3, 4 and 17, the reading of a mark and the twelfth
-surprise again on 12 November 2026, for the Manager appraisal part). Every button label, field name and
+surprise again on 12 November 2026, for the Manager appraisal part, and steps 3, 4, 17 and 30 once more on the
+same day, for when Save is dead, the mark page with several appraisers and a review sent back). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

@@ -36,7 +36,10 @@ const appraiser = (name: string): ApiAppraiser => ({
   unavailable: false,
 });
 
-const row = (name: string): ApiAppraiserMapRow => ({
+const row = (
+  name: string,
+  appraisers: ApiAppraiser[] = [appraiser("Hana Test")],
+): ApiAppraiserMapRow => ({
   employeeId: `e-${name}`,
   employeeName: name,
   jobTitle: "Analyst",
@@ -44,8 +47,8 @@ const row = (name: string): ApiAppraiserMapRow => ({
   departmentName: null,
   lineManagerId: null,
   lineManagerName: null,
-  appraisers: [appraiser("Hana Test")],
-  totalWeightBp: 10_000,
+  appraisers,
+  totalWeightBp: appraisers.length > 0 ? 10_000 : 0,
   submittedWeightBp: 0,
   weightedRating: null,
   exceptions: [],
@@ -56,16 +59,18 @@ const MAP: ApiAppraiserMap = {
   cycleName: "H2 2026",
   stage: "SELF",
   started: true,
-  rows: [row("Pat Test")],
+  rows: [row("Pat Test"), row("Ola Test", [])],
   counts: {
-    people: 1,
+    people: 2,
     simple: 1,
     multiAppraiser: 0,
-    unassigned: 0,
-    blockers: 0,
+    unassigned: 1,
+    blockers: 1,
     warnings: 0,
   },
 };
+
+const setAppraisers = vi.fn(async () => ({}));
 
 vi.mock("@/lib/store/performance", () => ({
   useScoringWeights: () => ({
@@ -98,11 +103,17 @@ vi.mock("@/lib/store/performance", () => ({
     editable: true,
     refusal: "",
     autoAssign: vi.fn(),
-    setAppraisers: vi.fn(),
+    setAppraisers,
   }),
 }));
 vi.mock("@/lib/store/employees-api", () => ({
-  useEmployeeDirectory: () => ({ employees: [], people: [] }),
+  /* The mapping is an "edit records" screen, so it reads the full rows. */
+  useEmployeeDirectory: () => ({
+    employees: [
+      { id: "id-hana", firstName: "Hana", lastName: "Test", jobTitle: "Lead" },
+    ],
+    people: [],
+  }),
 }));
 
 const { HowItWorksBody } = await import("@/app/(app)/performance/how-it-works");
@@ -140,6 +151,7 @@ const serve = (managerLabel: string | null, note?: string) => {
 };
 
 beforeEach(() => {
+  setAppraisers.mockClear();
   serve("Manager appraisal", "THE API'S MANAGER NOTE");
 });
 afterEach(cleanup);
@@ -206,6 +218,50 @@ describe("the appraiser mapping", () => {
     expect(
       screen.queryByText(/how much of the mark each one carries/),
     ).toBeNull();
+  });
+
+  it("says a chosen appraiser is the only one, never that they hold the whole mark, which is true at no weight", async () => {
+    /* At 0% the overall mark counts for nothing and at 30% it counts for 30%, so
+       "for the whole mark" was true of neither. What the pick does is set a set of
+       one. */
+    render(
+      <ToastProvider>
+        <AppraiserMapTab />
+      </ToastProvider>,
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText("Appraiser for Ola Test"),
+      "Hana Test",
+    );
+    expect(
+      await screen.findByText(
+        "As their line manager, and the only appraiser. Change it any time.",
+      ),
+    ).toBeInTheDocument();
+    expect(setAppraisers).toHaveBeenCalledWith("cy1", "e-Ola Test", [
+      { appraiserId: "id-hana", role: "LINE_MANAGER", weightBp: 10000 },
+    ]);
+    expect(screen.queryByText(/whole mark/)).toBeNull();
+  });
+
+  it("says what Fill in does without claiming a share of the mark", async () => {
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <AppraiserMapTab />
+      </ToastProvider>,
+    );
+    /* The tooltip mounts its panel when it is opened. */
+    await user.click(screen.getByRole("button", { name: "What Fill in does" }));
+    const panel = document.querySelector<HTMLElement>(
+      '[role="presentation"][aria-hidden="true"]',
+    );
+    const text = panel?.textContent ?? "";
+    expect(text).toContain("Gives each person nobody appraises");
+    expect(text).toContain("as their only appraiser");
+    expect(text).not.toMatch(/whole mark|of the mark/);
+    /* The rest of what it says is unchanged. */
+    expect(text).toContain("On a running period it also writes the forms");
   });
 
   it("describes the feature as deciding how much an appraiser's overall mark weighs, which is true at any weight", () => {

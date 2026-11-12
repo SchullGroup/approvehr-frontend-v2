@@ -245,7 +245,8 @@ export function AppraiserMapTab() {
     toast.push({
       title: `${people.find((one) => one.id === appraiserId)?.name ?? "They"} now appraises ${row.employeeName}`,
       tone: "success",
-      detail: "As their line manager, for the whole mark. Change it any time.",
+      detail:
+        "As their line manager, and the only appraiser. Change it any time.",
     });
     reload();
   };
@@ -351,7 +352,7 @@ export function AppraiserMapTab() {
               </Button>
               <InfoTooltip
                 label="What Fill in does"
-                text="Gives each person nobody appraises their line manager, for the whole mark. On a running period it also writes the forms for those managers to answer. Anybody already mapped is left as they are, and anybody it cannot find an appraiser for is named below."
+                text="Gives each person nobody appraises their line manager, as their only appraiser. On a running period it also writes the forms for those managers to answer. Anybody already mapped is left as they are, and anybody it cannot find an appraiser for is named below."
               />
             </span>
           }
