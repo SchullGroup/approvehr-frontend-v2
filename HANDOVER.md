@@ -12784,3 +12784,67 @@ one optional field each to `ApiReviewDetail` in `lib/api/performance.ts` (`overa
 keep both). Not built, on purpose: any change to how the part is scored (the scale is unchanged, so "Meets
 Expectations" is 50% of this part, as it is of every competency level), a way to see which appraisers have sent a mark
 on the period page, and the department head standing in as an appraiser, which is a different change.
+
+---
+
+# Writing your own scoring parts met the seventh part and the Records tab
+
+Joseph Chinedu's #642 replaces the six fixed weight rows on **Settings, Appraisal scoring** with a list of parts the
+company writes: a name, what it is **scored from** (one part per source), a weight and a description, each counting in
+proportion to the total. It was written before `dev` took three other changes to the same screen, so it conflicted
+in three files (`settings/performance/page.tsx`, `weights-form.tsx`, `lib/page-index.generated.ts`) and its `check` was
+red. Two changes that merge clean as text can still disagree, so what follows is what the merge decided, not only how
+the text was joined. The backend half is `GET/POST/PATCH/DELETE /performance/scoring-parts` (#290, already on `staging`).
+
+## What the merge decided
+
+- **The parts form is the page.** The PR's form is the base, and `dev`'s additions are laid back on it: the **Records**
+  tab (Stage 2's work-kept-with-a-rating card, `WorkRecordCard`, `SCORING_TABS` still `weights`, `marks`, `records`), the
+  **Names of marks** tab, and the overall-mark card.
+- **The overall-mark card is told about Manager appraisal from the parts, not from a fixed row.** `managerAppraisal` is
+  `unknown` until the parts have been read, `has` (with the part's own name) when `MANAGER_APPRAISAL` is among the
+  API's `sources`, and `none` when it is not. The card does not claim the seventh part exists before the API says so.
+- **The API's own Manager-appraisal sentence sits beside that part.** It comes from `GET /scoring-weights`
+  (`managerAppraisalNote`), which `GET /scoring-parts` does not send, so `PartsPanel` reads both and calls the weights
+  `reload` after every add, change and delete. Without that the sentence would keep describing the weight from before the
+  save. It is shown through `SavedWeightsNote` and nothing on this side words it.
+- **The parts list is a `LoadState`.** The PR's `check` failed `verify-load-rule` because the panel drew its own
+  failure and its own empty state. It is now one `<LoadState>` (with `hasData`), the two permission and API callouts stay
+  outside it, and the gate passes. Do not add to `scripts/load-rule-baseline.json`.
+- **Old tests.** `tests/weights-form-manager-appraisal.test.tsx` is rewritten for the parts form (22 tests, covering
+  loaded, loading, failed, reloading and failed-while-holding-an-old-answer reads). The one test in
+  `tests/period-weights-screens.test.tsx` that drove the old seven-row form is removed, which left a call to a component
+  it no longer imported.
+- **Docs.** Step 3 of `docs/walkthroughs/performance.md` is rewritten for the parts form, the generated page index was
+  re-derived with `npm run page-index`, and both inventories with `npm run docs`.
+
+## Verified
+
+`tsc --noEmit` exit 0. `npm run check` exit 0 with `APPROVEHR_BACKEND_DIR` pointing at a checkout of the backend's
+`staging`, so the cross-repo gates compared instead of printing `skip`. The tests that bear on the screen pass, and ten
+deliberate breaks (one exact replacement in one file, the test confirmed to fail, the file restored) were each caught.
+
+**In a browser**, against a scratch API built from `origin/staging` on a real Postgres and a `next dev` of the merged
+tree, signed in as the seeded administrator:
+
+- the parts list (four parts, total 100%), the two other tabs, no console error and no 4xx or 5xx;
+- **add** a Manager appraisal part at 20% (`POST` 201, then the weights and the parts read again): the API's sentence
+  appeared beside it ("weighted at 16.67%"), **edit** it to 10% (`PATCH` 200) and the sentence followed (9.09%),
+  **delete** it (`DELETE` 200) and the row went;
+- the parts read forced to a 500: "The scoring parts did not load", **Try again**, no list and no "nothing here" claim,
+  and the parts back after the retry;
+- 375px with a touch pointer: no sideways scroll on any of the three tabs or with the add dialog open, and its fields at
+  16px once it has finished opening (a read taken during the opening animation said 15px).
+
+Adding a 20% part to a set that already totals 100% shows **Total 120%**. That is the PR's design (each part counts in
+proportion to the total, there is no 100% rule any more) and is stated on the page, not a defect of the merge.
+
+**Not exercised:** the QA site, Safari or a real device, demo mode in a browser, the whole vitest suite in one run, a
+company that had its own saved weights before the parts existed (the scratch company was converted from the seeded
+defaults on first open and was not compared against anything else), and the Records tab with real rows.
+
+## Found, and not changed
+
+- `useScoringWeights().save` and `performanceApi.setScoringWeights` have no caller in any screen after this merge (the
+  settings page reads the weights and writes parts). `scale-form.tsx` mentions the function only in a comment. Removing
+  them is a separate cleanup; the period weights editor still reads `/scoring-weights`, so the read must stay.
