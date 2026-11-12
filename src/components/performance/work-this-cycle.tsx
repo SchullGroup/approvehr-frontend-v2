@@ -15,6 +15,7 @@ import { useWorkThisCycle } from "@/lib/store/completions";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { CompletedItem } from "./completed-item";
+import { useFlagging } from "./work-flags";
 
 /**
  * "Work this cycle", inside a review.
@@ -64,6 +65,19 @@ import { CompletedItem } from "./completed-item";
  *
  * It asks once the review is in hand and the reader is somebody the API will
  * answer, and again only when the review's own period changes.
+ *
+ * ## "This is wrong"
+ *
+ * Where the company has switched on "Work in review answers", the person the work is about can flag
+ * an item on the list as wrong, with a reason, and whoever reads the list sees the flag on the row
+ * and a count in the heading. A flag is a statement for the reader: it removes nothing from the list
+ * and moves no mark, and the panel says so.
+ *
+ * **A flag that was written is drawn whether or not the switch is still on**: turning it off stops
+ * anything new and does not hide what somebody said, and the person can still take one back. Raising
+ * or changing one needs the switch on. Nothing is drawn where the server said nothing about flags, and
+ * a panel with no flags is never read as "nothing was flagged" there. The state is shared with the
+ * record kept with a rating (`useWorkFlags`), so a flag raised in one panel is in the other at once.
  */
 export function WorkThisCycle({
   subjectId,
@@ -104,6 +118,13 @@ export function WorkThisCycle({
     periodEnd,
     enabled: active,
   });
+  const flagging = useFlagging({
+    cycleId,
+    subjectId,
+    subjectName,
+    own,
+    enabled: active,
+  });
 
   if (!active) return null;
   if (read.loading) {
@@ -127,6 +148,7 @@ export function WorkThisCycle({
   }
   const work = read.data;
   if (!work) return null;
+  const flagged = flagging.countIn(work.items.map((item) => item.id));
 
   const open = choice ?? startOpen ?? !phone;
   const who = own ? "You" : subjectName;
@@ -143,6 +165,7 @@ export function WorkThisCycle({
         work.summary.finished > 0 ? (
           <span className="text-body-sm font-normal text-muted">
             {count(work.summary.finished, "task")} finished
+            {flagged ? ` · ${flagged}` : ""}
           </span>
         ) : undefined
       }
@@ -165,6 +188,7 @@ export function WorkThisCycle({
           <Body
             work={work}
             timeZone={timeZone}
+            flagging={flagging}
             seeAll={
               own
                 ? "/performance/work-record"
@@ -172,6 +196,7 @@ export function WorkThisCycle({
             }
           />
         )}
+        {flagging.dialog}
       </div>
     </Disclosure>
   );
@@ -198,10 +223,12 @@ function Body({
   work,
   timeZone,
   seeAll,
+  flagging,
 }: {
   work: Work;
   timeZone: string;
   seeAll: string;
+  flagging: ReturnType<typeof useFlagging>;
 }) {
   const [all, setAll] = useState(false);
   const { summary } = work;
@@ -281,9 +308,15 @@ function Body({
         <h4 id="work-items" className="mb-2 text-body-sm font-medium text-ink">
           Finished tasks
         </h4>
+        <FlagNote flagging={flagging} />
         <ul className="divide-y divide-line">
           {rows.map((item) => (
-            <CompletedItem key={item.id} item={item} timeZone={timeZone} />
+            <CompletedItem
+              key={item.id}
+              item={item}
+              timeZone={timeZone}
+              extra={flagging.lineFor(item.id, item.key)}
+            />
           ))}
         </ul>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted">
@@ -309,6 +342,43 @@ function Body({
       </section>
 
       <LeftOut />
+    </>
+  );
+}
+
+/**
+ * What a flag is, said once above the list where flags can be raised or read, and a take-back that
+ * failed, in the server's words. Nothing where the server said nothing about flags.
+ *
+ * Said to the person while a flag can be raised; said to a reader while one can be raised or one is
+ * there; and, once the setting has been turned off, said to the person only while a flag they raised is
+ * still on the list, with what they can and cannot do about it.
+ */
+export function FlagNote({
+  flagging,
+}: {
+  flagging: ReturnType<typeof useFlagging>;
+}) {
+  const sentence = !flagging.known
+    ? null
+    : flagging.own
+      ? flagging.on
+        ? "If something on this list is not right, say so beside it. It tells whoever reads your work. It does not remove the item or change your mark."
+        : flagging.any
+          ? "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back. It does not remove the item or change your mark."
+          : null
+      : flagging.on || flagging.any
+        ? "A flag is the person's own word that an item is not right. It does not remove the item or change the mark."
+        : null;
+  if (sentence === null && !flagging.problem) return null;
+  return (
+    <>
+      {sentence && <p className="mb-2 text-meta text-muted">{sentence}</p>}
+      {flagging.problem && (
+        <p role="alert" className="mb-2 text-body-sm text-danger-text">
+          {flagging.problem}
+        </p>
+      )}
     </>
   );
 }

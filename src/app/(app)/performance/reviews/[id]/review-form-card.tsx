@@ -16,6 +16,7 @@ import {
   type ApiFormQuestion,
   type ApiReviewDetail,
 } from "@/lib/api/performance";
+import { pinsOf } from "@/lib/api/work-pins";
 import {
   CLOSING_NOTE_LABEL,
   MANAGER_REVIEW_LABEL,
@@ -179,6 +180,12 @@ export function ReviewFormCard({
                 question={question}
                 held={draftFrom(question)}
                 reviewId={review.id}
+                {...(review.kind === "SELF"
+                  ? {
+                      pins: pinsOf(question.pins),
+                      pinnedBy: review.mine ? "you" : review.subjectName,
+                    }
+                  : {})}
               />
             ))}
             {review.summary && (
@@ -252,7 +259,13 @@ export function ReviewFormCard({
             <li key={row.id} className="flex flex-col gap-2 py-4 first:pt-0">
               <p className="text-meta font-medium text-muted">{row.prompt}</p>
               <Pair
-                self={<Answer question={row.self} reviewId={selfReview.id} />}
+                self={
+                  <Answer
+                    question={row.self}
+                    reviewId={selfReview.id}
+                    pinnedBy={selfReview.mine ? "you" : selfReview.subjectName}
+                  />
+                }
                 manager={<Answer question={row.manager} reviewId={review.id} />}
               />
             </li>
@@ -336,9 +349,16 @@ function Pair({ self, manager }: { self: ReactNode; manager: ReactNode }) {
 function Answer({
   question,
   reviewId,
+  pinnedBy,
 }: {
   question: ApiFormQuestion | null;
   reviewId: string;
+  /**
+   * Set only for the person's own self-review column: its answers carry the work the person
+   * pinned, and this is whose choice that was. A manager's column passes none, so it never draws
+   * pins.
+   */
+  pinnedBy?: string;
 }) {
   if (question === null) {
     return <p className="text-body-sm text-muted">Not asked</p>;
@@ -348,6 +368,9 @@ function Answer({
       question={question}
       held={draftFrom(question)}
       reviewId={reviewId}
+      {...(pinnedBy !== undefined
+        ? { pins: pinsOf(question.pins), pinnedBy }
+        : {})}
     />
   );
 }
