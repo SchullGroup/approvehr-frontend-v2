@@ -289,7 +289,11 @@ export function ScoringWeightsForm({
       ) as Partial<Record<ScoreComponent, string>>;
       const saved =
         redescribed.length > 0
-          ? await save(payload, renamed.length > 0 ? labels : undefined, descriptions)
+          ? await save(
+              payload,
+              renamed.length > 0 ? labels : undefined,
+              descriptions,
+            )
           : renamed.length > 0
             ? await save(payload, labels)
             : await save(payload);
