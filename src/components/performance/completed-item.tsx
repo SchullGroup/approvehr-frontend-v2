@@ -69,6 +69,9 @@ export function CompletedItem({
     </span>,
     `Finished ${formatDateShort(item.doneAt, timeZone)}`,
     ...(item.onTime !== null ? [item.onTime ? "On time" : "Late"] : []),
+    /* Only when somebody else set it: work somebody asked for reads differently from work the
+       person set themselves, and the person's own is the ordinary case and says nothing. */
+    ...(item.setBy ? [`Set by ${item.setBy.name}`] : []),
   ];
   return (
     <li className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">

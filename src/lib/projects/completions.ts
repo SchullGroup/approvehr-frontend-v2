@@ -63,6 +63,13 @@ export type Completion = {
    * an objective above the KPI rather than to the KPI itself.
    */
   linkedAt?: ObjectiveLevel;
+  /**
+   * Who put the task on this person's plate, when that is somebody else: its
+   * creator, not a record of every hand-over after it. Absent when the person made
+   * it themselves (most of what anybody finishes) and when the server does not
+   * say, which are not told apart and are never worth a line.
+   */
+  setBy?: { id: string; name: string };
 };
 
 export type CompletionSummary = {
@@ -262,6 +269,10 @@ export function completionOf(
     dueDate: issue.dueDate,
     onTime: issue.dueDate ? doneDay <= issue.dueDate : null,
     objective: objectiveOf(issue, data.project, ctx.goals),
+    /* As the API says it: who made the task, only when that is somebody else. */
+    ...(issue.reporterId && issue.reporterId !== issue.assigneeId
+      ? { setBy: { id: issue.reporterId, name: ctx.nameOf(issue.reporterId) } }
+      : {}),
   };
 }
 

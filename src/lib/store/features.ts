@@ -94,6 +94,18 @@ type State = {
    */
   overallMark: boolean | null;
   /**
+   * How long the work behind a final rating is kept, in months. **Three states, and
+   * `null` is not "the server did not say"**: a number is the period the company
+   * chose; `null` is the company's own state, none chosen, which keeps nothing and is
+   * every company until it chooses; `undefined` is a server that has no such setting
+   * (one deploy behind) or demo mode, where no control is offered because a period
+   * kept in a browser would describe no record anywhere.
+   *
+   * Not in `flags`: it hides no screen, it is a choice about what is kept with a
+   * rating, and its card is in Appraisal scoring, under Records.
+   */
+  workEvidenceMonths: number | null | undefined;
+  /**
    * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
    * company cannot set it, so it must not turn up as a toggle. The sidebar
    * reads it through `NavFacts.earlyPay`.
@@ -220,6 +232,7 @@ const LOADING: State = {
   stepUpActions: [],
   probationMonths: PROBATION_MONTHS_FALLBACK,
   overallMark: null,
+  workEvidenceMonths: undefined,
   /* Hidden until the server answers: a row that appears late is better than
      one that vanishes under somebody's pointer. */
   earlyPay: false,
@@ -765,6 +778,10 @@ function fromApi(features: ApiFeatures): State {
     /* Absent from an API one deploy behind, and kept as null rather than read as
        off: that server has no such setting, so no switch is offered for it. */
     overallMark: features.overallMark ?? null,
+    /* Kept as the server sent it: a number, `null` (the company chose none) or
+       absent (a server one deploy behind, with no such setting). The three are
+       different, and `??` here would collapse the last two. */
+    workEvidenceMonths: features.workEvidenceRetentionMonths,
     /* An API one deploy behind does not send it, and that API has no switch
        to have turned anybody off. */
     earlyPay: features.earlyPay ?? true,
@@ -825,6 +842,8 @@ function fromDemo(demo: DemoState): State {
        switch gives above: a demo company with the mark "on" would read as asking
        for one while no form drawn here ever did. */
     overallMark: null,
+    /* No record is kept in a browser, so no period is chosen here either. */
+    workEvidenceMonths: undefined,
     /* Nobody switches a demo company off. */
     earlyPay: true,
     earnedWage: null,
@@ -981,7 +1000,11 @@ export function useFeatureSettings() {
   const state = useLoadedState();
   const { isConnected, can } = useSession();
   const [saving, setSaving] = useState<
-    FeatureKey | "headcountBand" | "overallMark" | null
+    | FeatureKey
+    | "headcountBand"
+    | "overallMark"
+    | "workEvidenceRetentionMonths"
+    | null
   >(null);
 
   const editable = !isConnected || can("MANAGE_SETTINGS");
@@ -989,7 +1012,11 @@ export function useFeatureSettings() {
   const save = useCallback(
     async (
       patch: FeaturePatch,
-      field: FeatureKey | "headcountBand" | "overallMark",
+      field:
+        | FeatureKey
+        | "headcountBand"
+        | "overallMark"
+        | "workEvidenceRetentionMonths",
     ): Promise<FeatureFlags & { headcountBand: HeadcountBand }> => {
       setSaving(field);
       try {
@@ -1088,6 +1115,18 @@ export function useFeatureSettings() {
      */
     setOverallMark: useCallback(
       (overallMark: boolean) => save({ overallMark }, "overallMark"),
+      [save],
+    ),
+    /** See `State.workEvidenceMonths`. */
+    workEvidenceMonths: state.workEvidenceMonths,
+    /**
+     * How long the work behind a final rating is kept, in months; `null` stops
+     * keeping it. It changes only ratings made final afterwards: a record already
+     * kept keeps the date it was given.
+     */
+    setWorkEvidenceMonths: useCallback(
+      (workEvidenceRetentionMonths: number | null) =>
+        save({ workEvidenceRetentionMonths }, "workEvidenceRetentionMonths"),
       [save],
     ),
   };

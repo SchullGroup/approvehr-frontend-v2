@@ -219,6 +219,25 @@ describe("what counts as finished work", () => {
     expect(completionOf(as({ doneAt: null }), data, ctx)).toBeNull();
   });
 
+  /* As the API says it: who made the task, only when that is somebody else. */
+  it("names who set a task only when somebody other than the person made it", () => {
+    const own = completionOf(
+      as({ reporterId: done.assigneeId, assigneeId: done.assigneeId }),
+      data,
+      ctx,
+    )!;
+    expect(own.setBy).toBeUndefined();
+    const given = completionOf(
+      as({ reporterId: "p-01", assigneeId: "p-03", assigneeIds: ["p-03"] }),
+      data,
+      ctx,
+    )!;
+    expect(given.setBy).toEqual({ id: "p-01", name: ctx.nameOf("p-01") });
+    expect(
+      completionOf(as({ reporterId: null }), data, ctx)!.setBy,
+    ).toBeUndefined();
+  });
+
   it("Effort never changes a figure", () => {
     const light = completionOf(as({ points: 1 }), data, ctx)!;
     const heavy = completionOf(as({ points: 13 }), data, ctx)!;
