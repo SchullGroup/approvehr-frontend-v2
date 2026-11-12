@@ -248,6 +248,132 @@ describe("the project", () => {
   });
 });
 
+describe("the header", () => {
+  it("names a board with cycles, with what that means", async () => {
+    render(<ProjectScreen id="pj-chk" />);
+    expect(screen.getByText("Board with cycles")).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "About board with cycles" }),
+    );
+    expect(
+      await screen.findByText(
+        "New tasks wait in Later until you add them to a cycle",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing about the board type on a simple board", () => {
+    const data = sampleData();
+    data.project = { ...data.project, type: "KANBAN" };
+    view = ready(data);
+    render(<ProjectScreen id="pj-chk" />);
+    expect(screen.queryByText("Board with cycles")).not.toBeInTheDocument();
+    expect(screen.queryByText("Simple board")).not.toBeInTheDocument();
+  });
+
+  it("starts New task in the running cycle, so it lands on the board", async () => {
+    render(<ProjectScreen id="pj-chk" />);
+    await userEvent.click(screen.getByRole("button", { name: /New task/ }));
+    expect(await screen.findByLabelText(/^Cycle/)).toHaveValue("sp-chk-3");
+  });
+
+  it("starts the c key's New task in the running cycle too", async () => {
+    render(<ProjectScreen id="pj-chk" />);
+    await userEvent.keyboard("c");
+    expect(await screen.findByLabelText(/^Cycle/)).toHaveValue("sp-chk-3");
+  });
+
+  it("starts New task in Later when no cycle is running", async () => {
+    const data = sampleData();
+    data.sprints = data.sprints.map((s) =>
+      s.state === "ACTIVE" ? { ...s, state: "CLOSED" as const } : s,
+    );
+    view = ready(data);
+    render(<ProjectScreen id="pj-chk" />);
+    await userEvent.click(screen.getByRole("button", { name: /New task/ }));
+    expect(await screen.findByLabelText(/^Cycle/)).toHaveValue("");
+  });
+});
+
+describe("the note on a project moved to a simple board", () => {
+  const switched = (daysAgo: number) => {
+    const data = sampleData();
+    data.project = {
+      ...data.project,
+      type: "KANBAN",
+      boardSwitchedAt: new Date(
+        Date.now() - daysAgo * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    };
+    return ready(data);
+  };
+  const NOTE =
+    "This project now uses a simple board. You can switch back in Settings.";
+
+  beforeEach(() => localStorage.clear());
+
+  it("says so for 30 days, until it is closed, and remembers the close", async () => {
+    view = switched(3);
+    const first = render(<ProjectScreen id="pj-chk" />);
+    expect(await screen.findByText(NOTE)).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Dismiss this note" }),
+    );
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    expect(
+      localStorage.getItem(
+        `projects.boardSwitchedNote.${view.data!.project.id}`,
+      ),
+    ).not.toBeNull();
+    first.unmount();
+    render(<ProjectScreen id="pj-chk" />);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Checkout Revamp" }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+  });
+
+  it("says nothing once 30 days have passed", async () => {
+    view = switched(31);
+    render(<ProjectScreen id="pj-chk" />);
+    await act(async () => {});
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+  });
+
+  it("says nothing on a project that was never switched", async () => {
+    render(<ProjectScreen id="pj-chk" />);
+    await act(async () => {});
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+  });
+
+  it("still shows, and closes for now, when storage cannot be used", async () => {
+    view = switched(1);
+    const get = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    const set = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    try {
+      render(<ProjectScreen id="pj-chk" />);
+      expect(await screen.findByText(NOTE)).toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Dismiss this note" }),
+      );
+      expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
+  });
+});
+
 describe("?issue= and the drawer", () => {
   it("opens the issue a link points at", async () => {
     search = new URLSearchParams("issue=CHK-14");

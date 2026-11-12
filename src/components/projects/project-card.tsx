@@ -4,11 +4,12 @@ import Link from "next/link";
 import { Badge } from "@/components/ui";
 import { ProgramDot } from "@/components/projects/program-parts";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
-import { PROJECT_TYPE_LABEL, type Project } from "@/lib/projects/types";
+import type { Project } from "@/lib/projects/types";
 
 /**
  * A project as a card: its key, name, what it is for, who leads it and how much
- * is open. Used by the Projects list and by every program screen, so a project
+ * is open. Not its board type: that is a setting, and on a card it only read as
+ * jargon. Used by the Projects list and by every program screen, so a project
  * looks the same wherever it is listed.
  *
  * `showProgram` adds the program it sits in as a small chip, for lists that mix
@@ -31,9 +32,6 @@ export function ProjectCard({
     >
       <span className="flex flex-wrap items-center gap-2">
         <ProjectKeyChip project={project} />
-        <Badge tone="neutral" size="sm">
-          {PROJECT_TYPE_LABEL[project.type]}
-        </Badge>
         {project.departmentName && (
           <Badge tone="neutral" size="sm">
             {project.departmentName}
