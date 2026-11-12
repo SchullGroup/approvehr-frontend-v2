@@ -10,6 +10,7 @@ import {
   laneGroups,
   resolveDrop,
   sprintStrip,
+  subtaskTallies,
 } from "@/lib/projects/board";
 import {
   DEPT_NONE,
@@ -18,6 +19,7 @@ import {
   UNASSIGNED,
   applyFilter,
   filterAssigneeIds,
+  filterContext,
   isFiltering,
   matchesFilter,
   statusFromParam,
@@ -203,21 +205,90 @@ describe("filters", () => {
     expect(toggleAssignee(on, "p-01").assigneeIds).toEqual([]);
   });
 
-  it("offers members first, then anyone still holding an issue, capped", () => {
+  it("offers members first, then anyone still holding an issue, with no cap", () => {
     const ids = filterAssigneeIds(["p-01"], [
       { assigneeId: "p-03" },
       { assigneeId: null },
     ] as Issue[]);
     expect(ids).toEqual(["p-01", "p-03"]);
+    /* The picker is searched by name, so a big team is offered in full. */
     const many = Array.from({ length: 20 }, (_, i) => `m${i}`);
-    expect(filterAssigneeIds(many, [])).toHaveLength(9);
+    expect(filterAssigneeIds(many, [])).toHaveLength(20);
+  });
+
+  it("finds a task by the name of somebody on it", () => {
+    const task = {
+      ...byKey(d, "CHK-14"),
+      assigneeId: "p-01",
+      assigneeIds: ["p-01"],
+    } as Issue;
+    const names: Record<string, string> = { "p-01": "Ngozi Okafor" };
+    const context = filterContext([task], (id) => names[id] ?? "");
+    const f = { ...EMPTY_FILTER, q: "ngozi" };
+    expect(matchesFilter(task, f, null, undefined, undefined, context)).toBe(
+      true,
+    );
+    /* Without names to go on, a name finds nothing. */
+    expect(matchesFilter(task, f, null)).toBe(false);
+  });
+
+  it("finds a parent by its subtask's title or key, and the subtask itself", () => {
+    const parent = byKey(d, "CHK-14");
+    const child = {
+      ...parent,
+      id: "sub-1",
+      key: "CHK-999",
+      title: "Write the reconciliation script",
+      type: "SUBTASK",
+      parentId: parent.id,
+      labels: [],
+    } as Issue;
+    const all = [parent, child];
+    const context = filterContext(all);
+    const hit = (q: string) =>
+      applyFilter(
+        all,
+        { ...EMPTY_FILTER, q },
+        null,
+        undefined,
+        undefined,
+        context,
+      ).map((i) => i.key);
+    expect(hit("reconciliation").sort()).toEqual(["CHK-14", "CHK-999"]);
+    expect(hit("chk-999").sort()).toEqual(["CHK-14", "CHK-999"]);
+    /* The parent's own words do not pull every subtask in. */
+    expect(hit(parent.title.toLowerCase())).toEqual(["CHK-14"]);
+  });
+
+  it("narrows to one of the project's own stages, not its whole category", () => {
+    const statuses = d.project.statuses;
+    const review = statuses.find((s) =>
+      s.name.toLowerCase().includes("review"),
+    );
+    const progress = statuses.find(
+      (s) => s.category === "IN_PROGRESS" && s.id !== review?.id,
+    );
+    expect(review && progress).toBeTruthy();
+    const inReview = { ...byKey(d, "CHK-14"), statusId: review!.id } as Issue;
+    const inProgress = {
+      ...byKey(d, "CHK-14"),
+      statusId: progress!.id,
+    } as Issue;
+    const f = { ...EMPTY_FILTER, statusIds: [review!.id] };
+    expect(isFiltering(f)).toBe(true);
+    expect(matchesFilter(inReview, f, null, statuses)).toBe(true);
+    expect(matchesFilter(inProgress, f, null, statuses)).toBe(false);
+    /* The category still takes both, as the `?status=` link asks. */
+    const cat = { ...EMPTY_FILTER, statusCategory: "IN_PROGRESS" as const };
+    expect(matchesFilter(inReview, cat, null, statuses)).toBe(true);
+    expect(matchesFilter(inProgress, cat, null, statuses)).toBe(true);
   });
 });
 
 describe("what the board shows", () => {
   const d = fixture();
 
-  it("shows the active sprint's issues on a Scrum board, sub-tasks included, never epics", () => {
+  it("shows the active sprint's issues on a Scrum board, never epics or sub-tasks", () => {
     const scope = boardScope({
       project: d.project,
       issues: d.issues,
@@ -230,9 +301,43 @@ describe("what the board shows", () => {
       true,
     );
     expect(scope.issues.some((i) => i.type === "EPIC")).toBe(false);
-    expect(scope.issues.some((i) => i.type === "SUBTASK")).toBe(true);
-    /* Seven issues in Sprint 3, plus their four sub-tasks. */
-    expect(scope.issues).toHaveLength(7 + 4);
+    /* Sub-tasks live inside their parent, not on cards of their own. */
+    expect(scope.issues.some((i) => i.type === "SUBTASK")).toBe(false);
+    expect(scope.issues).toHaveLength(7);
+  });
+
+  it("keeps sub-tasks off a Kanban board too", () => {
+    const kanban = { ...d.project, type: "KANBAN" as const };
+    const scope = boardScope({
+      project: kanban,
+      issues: d.issues.map((i) => ({ ...i, sprintId: null })),
+      sprints: [],
+      today: TODAY,
+      doneDayOf,
+    });
+    expect(scope.issues.length).toBeGreaterThan(0);
+    expect(scope.issues.some((i) => i.type === "SUBTASK")).toBe(false);
+    expect(scope.issues.some((i) => i.type === "EPIC")).toBe(false);
+  });
+
+  it("counts each parent's sub-tasks, and how many are done, across the whole project", () => {
+    const subs = d.issues.filter((i) => i.type === "SUBTASK");
+    expect(subs.length).toBeGreaterThan(0);
+    const parentId = subs[0]!.parentId!;
+    const mine = subs.filter((i) => i.parentId === parentId);
+    const doneId = d.project.statuses.find((s) => s.category === "DONE")!.id;
+    const todoId = d.project.statuses.find((s) => s.category === "TODO")!.id;
+    const issues = d.issues.map((i) =>
+      i.parentId !== parentId
+        ? i
+        : { ...i, statusId: i.id === mine[0]!.id ? doneId : todoId },
+    );
+    const tallies = subtaskTallies(d.project.statuses, issues);
+    expect(tallies.get(parentId)).toEqual({ done: 1, total: mine.length });
+    const childless = d.issues.find(
+      (i) => i.type !== "SUBTASK" && !subs.some((s) => s.parentId === i.id),
+    )!;
+    expect(tallies.has(childless.id)).toBe(false);
   });
 
   it("has nothing to show for a Scrum project with no active sprint", () => {

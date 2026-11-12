@@ -1,5 +1,6 @@
 "use client";
 
+import { leaveLabel } from "@/lib/leave-label";
 import { useMemo, useState } from "react";
 import {
   Button,
@@ -16,9 +17,11 @@ import { UploadBlockedError } from "@/lib/api/uploads";
 import { daysLabel, type LeaveRow, type LeaveTypeRow } from "@/lib/api/leave";
 import {
   fileProblem,
+  fileRoute,
   uploadLeaveFile,
   type FileRef,
 } from "@/lib/api/leave-files";
+import { LINKED_FILES_NOTE } from "@/lib/api/linked-upload";
 import {
   LeaveFilePicker,
   useStagedLeaveFiles,
@@ -41,6 +44,7 @@ import { usePublicHolidays } from "@/lib/store/holidays";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
+import { noticeLine } from "@/lib/leave-notice";
 import { todayIn } from "@/lib/time";
 
 type Draft = {
@@ -51,6 +55,10 @@ type Draft = {
   to: string;
   reason: string;
 };
+
+/** Said under the Reason field. The server's own sentence replaces it if the
+ *  server is the one to refuse. */
+const REASON_MISSING = "Say why you are asking for this leave.";
 
 const BLANK: Draft = {
   employeeId: "",
@@ -255,11 +263,30 @@ export function BookLeaveDialog({
   );
 
   const chosenType = availableTypes.find((type) => type.name === draft.type);
+  /** The type asks for a reason. Absent or false asks for none. */
+  const reasonRequired = chosenType?.reasonRequired === true;
+  /** What the type's notice setting says about these dates. Guidance only. */
+  const notice = chosenType
+    ? noticeLine({
+        typeName: chosenType.name,
+        minNoticeDays: chosenType.minNoticeDays,
+        from: draft.from,
+        today: todayIn(timeZone),
+        timeZone,
+      })
+    : null;
 
-  /* Files: offered only where the server can keep one, and required only where
-     the API says so for these dates. Neither is worked out here. */
-  const { limits, storage } = useLeaveFileLimits();
-  const canAttach = mutations.connected && storage === true && limits !== null;
+  /* Files: offered only where there is a way to keep one (the server's own
+     storage, or a link to a file uploaded elsewhere), and required only where
+     the API says so for these dates. Neither is worked out here.
+
+     `apiLimits` is what the server said and is what an upload is given;
+     `limits` is what the picker shows and checks with, which on the linked
+     route is narrower (see `fileRoute`). */
+  const { limits: apiLimits } = useLeaveFileLimits();
+  const route = useMemo(() => fileRoute(apiLimits), [apiLimits]);
+  const limits = route.limits;
+  const canAttach = mutations.connected && limits !== null;
   const staged = useStagedLeaveFiles(limits);
   const { rule } = useAttachmentRule(
     mutations.connected && chosenType?.id && draft.from && draft.to
@@ -332,8 +359,15 @@ export function BookLeaveDialog({
       remaining,
       days,
     );
+    /* Only `true` is a rule. An absent setting (an older server, the demo) is
+       not "optional by default" and is not a reason to hold the form either. */
+    if (reasonRequired && draft.reason.trim() === "") {
+      found.push({ field: "reason", message: REASON_MISSING });
+    }
     setErrors(found);
     setFileError(null);
+    /* Before anything is uploaded or sent: a request that is going to be
+       refused for a missing reason is not worth a file left in a bucket. */
     if (found.length > 0) return;
 
     const toSend = canAttach ? staged.sendable : [];
@@ -357,7 +391,7 @@ export function BookLeaveDialog({
         }
         staged.patch(item.id, { progress: 0, error: null });
         try {
-          const ref = await uploadLeaveFile(item.file, limits, {
+          const ref = await uploadLeaveFile(item.file, apiLimits, {
             employeeId: draft.employeeId,
             onProgress: (progress) => staged.patch(item.id, { progress }),
           });
@@ -425,6 +459,14 @@ export function BookLeaveDialog({
           failure.code.startsWith("storage_"))
       ) {
         setFileError(fileProblem(failure));
+        return;
+      }
+      /* A refusal the API attributes to the reason goes under the reason, in its
+         own words. */
+      const aboutReason =
+        failure instanceof ApiError ? failure.messageFor("reason") : undefined;
+      if (aboutReason) {
+        setErrors([{ field: "reason", message: aboutReason }]);
         return;
       }
       /* The API's own words. An overlap names the request it clashes with and
@@ -551,7 +593,12 @@ export function BookLeaveDialog({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="From" required error={errorFor("from")}>
+          <Field
+            label="From"
+            required
+            error={errorFor("from")}
+            help={notice?.text}
+          >
             <Input
               type="date"
               value={draft.from}
@@ -579,13 +626,23 @@ export function BookLeaveDialog({
           </Field>
         </div>
 
-        <Field optional label="Reason" help="Shown to the approver.">
+        {/* Required only where the type says so: `(optional)` is a claim, and
+            the type that asks for a reason must not be labelled with it. */}
+        <Field
+          required={reasonRequired}
+          optional={!reasonRequired}
+          label="Reason"
+          help="Shown to the approver."
+          error={errorFor("reason")}
+        >
           <Textarea
             rows={2}
             value={draft.reason}
             onChange={(e) => {
               const reason = e.target.value;
               setDraft((d) => ({ ...d, reason }));
+              /* Typing is the answer to the refusal under it. */
+              setErrors((now) => now.filter((e) => e.field !== "reason"));
             }}
           />
         </Field>
@@ -595,6 +652,7 @@ export function BookLeaveDialog({
             staged={pickerFiles}
             limits={limits}
             required={rule?.required === true}
+            note={route.kind === "linked" ? LINKED_FILES_NOTE : undefined}
             error={fileError}
             disabled={saving}
           />
@@ -606,7 +664,7 @@ export function BookLeaveDialog({
         {!mutations.connected && chosenType?.requiresEvidence && (
           <Callout
             tone="info"
-            title={`${chosenType.name} leave needs evidence`}
+            title={`${leaveLabel(chosenType.name)} needs evidence`}
           >
             Attach the note or certificate to their record after raising this.
             Files on a leave request need a live company.

@@ -156,6 +156,10 @@ export function toProject(raw: Raw): Project {
     programId: strOrNull(raw["programId"]),
     programName: strOrNull(raw["programName"]),
     programColor: strOrNull(raw["programColor"]),
+    archived: raw["archived"] === true,
+    archivedAt: strOrNull(raw["archivedAt"]),
+    programArchived: raw["programArchived"] === true,
+    boardSwitchedAt: strOrNull(raw["boardSwitchedAt"]),
     access:
       raw["access"] === "READ" ||
       raw["access"] === "WRITE" ||
@@ -720,6 +724,27 @@ export const projectsApi = {
         ...signalOf(signal),
       }),
     ).map(toProject),
+
+  /** Only the archived projects in `scope`, for the Archive. */
+  listArchived: async (scope: "mine" | "all" = "mine", signal?: AbortSignal) =>
+    list(
+      await request<Raw[]>("/projects", {
+        query: {
+          scope: scope === "all" ? "all" : undefined,
+          archived: "only",
+        },
+        ...signalOf(signal),
+      }),
+    ).map(toProject),
+
+  /** Archive, or bring back. Answers the project as it now is. */
+  setArchived: async (id: string, archived: boolean) =>
+    toProject(
+      await request<Raw>(
+        `/projects/${id}/${archived ? "archive" : "unarchive"}`,
+        { method: "POST" },
+      ),
+    ),
 
   create: async (input: NewProjectInput) =>
     toProject(

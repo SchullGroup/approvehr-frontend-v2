@@ -10359,12 +10359,14 @@ staff list has no emails, so the Assigned to box is a plain email box). Everywhe
 
 ## Found, and not changed
 
-- **The appraiser map counts people the period does not appraise.** In the walk, **Nobody appraising** read 2 while the new
-  Fill in line named one person. The other was the HR manager, who has a manager recorded and holds the HR manager role,
-  and the period had **Appraise the HR manager** off, so it never gave her a form. The map is deliberately a view over
-  people and not over the period (its `cycle` argument is absent on purpose, and the comment says so), so it lists and
-  counts her. The Fill in line comes from the server's `withoutManager`, which is about the period, so it is the one that
-  matches what will happen. Whether the tile should leave such people out is a backend and product call.
+- **The appraiser map counted people the period does not appraise, and the API now reads the period.** In the walk,
+  **Nobody appraising** read 2 while the new Fill in line named one person: the other was the HR manager, whom the
+  period was set not to appraise. It was the common case, not an edge: `appraiseOwner` and `appraiseHrManager` default to
+  off, so out of the box every period listed the Owner and the HR manager as blockers for people who would never get a form,
+  and a period scoped to some departments listed all the others. `appraiserMap` read the whole company because
+  `participantsFor` was never given the period. It reads the same population `activateCycle` and the register read now
+  (backend `fix/appraiser-map-period-scope-20261106`, note `docs/backend/appraiser-map-period-scope-handover.md`), keeping
+  anybody who has been given an appraiser there. No web change: the tiles show what the API sends.
 - **`out/removed-2026-10-28c/` held an agent's unfinished work for R1 to R5.** It had stopped without reporting. Its
   backend half was rebuilt on a fresh `staging` and its frontend half on a fresh `dev`, then reviewed and tested as new
   code, and the preselect defect above is why that was worth doing.
@@ -11470,11 +11472,12 @@ The walk scripts, the fixtures and the screenshots are in `out/leave-files-debug
 
 ## Found, and not changed
 
-- **`GET /leave/balances?employeeIds=` is a 404 on `staging` and on `main`.** The web calls it (`balancesForMany`, added in
-  `072c8a09`, whose message calls the route "new"); the API defines only `GET /leave/balances/:id`. `/people/leave` renders
-  without balances ("Annual leave used —") and the booking dialog never shows "N days left afterwards", with a 404 in the
-  console and no message. It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md` and still true. Either side can fix it
-  (the route, or a fallback to the single-id one); it is not about files.
+- **`GET /leave/balances?employeeIds=` was a 404 on `staging` and on `main`, and the route now exists.** The web called it
+  (`balancesForMany`, added in `072c8a09`) and the API defined only `GET /leave/balances/:id`, so `/people/leave` rendered
+  without balances ("Annual leave used —") and the booking dialog never showed "N days left afterwards", with a 404 in the
+  console and no message. It is item 5 of `docs/ui-audit/2026-10-track-7-audit.md`. Backend `fix/leave-balances-many-20261106`
+  adds it as the web documents it: `VIEW_SALARIES` outright, 1 to 200 ids, the same arithmetic as the single-id route, and `[]`
+  for an id that is not the company's. No web change was needed.
 - **The API does not route a request to anybody; the web form does.** `approverId` is whatever the client sends
   (`approverFor` in `book-leave.tsx`). A request raised any other way shows "Approver —" and reaches nobody's inbox. The
   person's manager can still open and decide it by its address (decided by standing, tested at the API), so the manager's
@@ -11613,6 +11616,600 @@ is and the API answers 404); iOS Safari or any real device; a **published** peri
 note, in a browser (the backend tests cover both and no walk did); demo mode in a browser (a test covers the refusal); a company
 with real data; the whole backend suite in one run.
 
+---
+
+# dev lost the new-version dialog to a revert that was never meant for it, and staging brought it back
+
+On 5 November the "Start a new version" dialog and part of the Projects work disappeared from `dev`, and a few minutes later
+from `test`, which is the QA site. Nothing was deleted on purpose.
+
+## What happened
+
+- `#578` promoted `preprod` into `main` (merged 13:40:50Z on 4 November) and was reverted on `main` by `#579` (13:45:09Z, commit
+  `3ad9940f`).
+- A **second** commit with the same message, `862bfb0f` "Revert "Preprod"", was made on top of `dev`'s tip of that day
+  (`5c2080fd`). It undoes the same promotion: 85 files and 4,480 deleted lines, among them `new-version-dialog.tsx`,
+  `new-version.ts` and their tests.
+- Joseph Chinedu's sub-task fix (`f01064f5`, `4ca2bff4`) was built on top of that commit, so merging `#580` into `dev` (16:50:34Z
+  on 5 November) carried the revert into `dev`, and `#581` (`dev` into `test`, 16:56:36Z) carried it into `test`. `preprod` and
+  `staging` never had it.
+
+## Why a plain merge of staging would not have fixed it
+
+Git treats a revert as a change somebody made on purpose. The files it deleted were not touched on `staging` after the common
+ancestor, so merging `staging` into `dev` leaves them deleted; the 36 conflicts were only the files `staging` had also changed.
+The way back from a revert is to revert the revert, or, as here, to take the tree of the side that never had it.
+
+## What was done
+
+A merge commit with `dev` and `staging` as its parents, and the tree of `staging` with Joseph's two commits applied to it, which
+are the only work `dev` had that `staging` lacked. Against `staging` it differs in five files (his board change); against `dev` in
+169. Putting his change on `staging`'s code needed two reconciliations:
+
+- `hiddenDoneCount` (added on `staging`) counted every finished task that was not an epic. After his change a sub-task has no
+  board card, so a finished one is not "hidden": it now uses the same `onBoard` rule that `boardScope` does.
+- Two of `staging`'s test expectations read one task more than the board now shows (In Progress is two cards, not three).
+
+## Still open, on `main`
+
+`main` still holds `#579`. `preprod` has everything `#578` promoted, so the next `preprod` into `main` merge will **not** bring
+those changes back: git already counts them as merged and reverted. Revert `3ad9940f` on `main` first, then promote, and read the
+diff of that promotion before merging it.
+
+**Rule.** A revert belongs on the branch that needs it. Do not start other work from a revert branch, because whatever merges that
+work merges the revert with it.
+
+## Verified, and what was not
+
+`tsc --noEmit` exit 0. ESLint and Prettier exit 0 on the five files the change touches. The 17 test files that import the changed
+source pass (429 tests), among them the board, the board view, the issue drawer, the backlog, the shell, Team tasks, the
+new-version dialog and the subsection tree. Not exercised: a browser, the whole vitest suite, and the QA site (it gets this
+through `dev` into `test`).
+
+---
+
+# A subsection can be answered in the person's own words, and it never counts
+
+The product owner, looking at the **Start a new version of Communication** dialog, whose **How the new version is answered**
+list offered only **Yes or no** and **Pick one from a list**: _"Please add ability to answer in their own word."_ A
+subsection (`Competency`) now has a fourth `answerKind`, `TEXT`: the answer is written, **read by people and never scored**.
+The word for it in a picker is **In their own words**, on a row it is **Written**, and the one sentence that says what it is
+(`WRITTEN_NEVER_COUNTS`, in `lib/performance/answer-kind.ts`) is _A written answer is read by people and never counts towards
+the mark._
+
+Branch `feat/answer-in-words-20261105` in both repositories: this one is a pull request into `dev`, and the API half is a
+pull request into `staging` of `approvehr-backend`. Neither was merged when this was written. The API half's own note is
+`docs/backend/answer-in-words-handover.md` there, and its wire shapes are what this is built against. **The backend goes
+first.** A server that predates it never sends `TEXT`, so nothing new is drawn against it; the pickers do offer **In their own
+words** (the web cannot tell), and it would be refused. That was not run.
+
+## What changed
+
+| Where | What |
+| ----- | ---- |
+| `lib/api/performance.ts` | `AnswerKind` gains `TEXT`. `textValue` on a skills row, on the rate body and its answer, and on a manager's `selfAnswer`, all optional: a server that sends none of them is read as it always was. |
+| `lib/performance/answer-kind.ts` | The fourth kind: **In their own words** in a picker, **Written** on a row, and `WRITTEN_NEVER_COUNTS`, the one sentence. `directCounts` says nothing for it. |
+| `lib/performance/question-limits.ts` | `WRITTEN_ANSWER_MAX_LENGTH` (4,000, the server's), the count from 3,500, `writtenAnswerProblem`, `writtenAnswerCounter`, `writtenAnswerIsOver`. The review form's own box (`TEXT_LIMIT`) reads the same constant. |
+| Record a level (`rating-dialog.tsx`) | A **Answer** box for a written skill: already filled with what is on record, a count, the one sentence under it, the period help that does not mention a mark, and the language check. Title unchanged. |
+| Skills (`skills.tsx`) | A written row shows the words in full with **Written**, folded to three lines with **Read all** when long, never a level, a score or a nought. **Answered** when the words did not arrive. The toast says **Answer recorded** for anything that is not a level. |
+| The review form (`review-parts.tsx`, `subsection-answer.ts`, `focus-question.tsx`) | A written subsection question is a box to write in, held and sent as `textValue` and never as a pick; blank is not an answer; read back in full with its paragraphs; a manager sees the person's own words in full on **Their own answer**. |
+| Questions dialog (`direct-answer-panel.tsx`, `subsection-ask.ts`, `question-filing.ts`, `period-dialogs.tsx`) | **In their own words** in **How it is answered** and **Answered by**; **Ask it on the review form** with lines that say where the words go; the filing sentence for a written subsection; a **Written directly** badge. |
+| Start a new version (`new-version.ts`, `new-version-dialog.tsx`) | The list gains **In their own words**. Choosing it adds a fourth line, the sentence above. A retired subsection that was written does not say its marks stay. |
+| `language-check.tsx`, `review-language.ts` | `caveat` on the component, and `ANSWER_CAVEAT` for words that are saved and not a review that is sent. |
+
+## Decisions not to undo
+
+1. **It is a kind, with its own sentence in one place.** Every screen that explains the kind reads `WRITTEN_NEVER_COUNTS`. Said
+   three different ways, it would be three different promises about a mark, and each of them a well-typed string.
+2. **A written subsection says nothing about its section's share of the mark.** `directCounts` is `null` for it, the filing
+   sentence says that nothing recorded on it counts and quotes no weight, and **Appraisal period** in Record a level says
+   nothing about a mark for it. The sentences for a level quote what the section is worth and warn when it is worth nothing;
+   for words both would be wrong in every state, because a written answer reaches no part of the mark.
+3. **Blank is not an answer, measured trimmed, in every place that decides.** `filled`, `answerBodyFor` (which sends nothing
+   for a blank box, so a saved answer is never blanked), `answerWords` and the dialog's own check. The server measures it the
+   same way. The too-long sentence is the server's, character for character (_Keep it to 4000 characters._); the blank one is
+   ours.
+4. **The words are shown in full, or with a way to read all of them.** The review read-back, the manager's line and the record
+   show them whole, with their paragraphs (`whitespace-pre-line break-words`). **That class is on the read-back of every kind,
+   so an ordinary written answer keeps its paragraphs now too.** The skills row folds past 240 characters or three lines, by
+   length and not by measuring the layout, which jsdom cannot do: at worst **Read all** is offered for words already in view.
+5. **Absent is not none, in three places.** An answered row whose words did not arrive says **Answered**, not **Written**; the
+   person's own answer on a manager's form draws nothing for `null`, absent, empty and spaces, never **No answer** and never a
+   nought; and a server that sends none of the fields is read exactly as before.
+6. **The language check reads a manager's written answer wherever it is written.** On the review form it already read every
+   question's text (`onRecord(question).text`), so a written subsection question was covered with no change, and it is now
+   pinned by a test. In Record a level it was **added**, live, never blocking, with its own caveat: the shared one says
+   _Nothing here stops you sending the review_, under a box in a dialog that has no review in it. A person's own self-review is
+   never read.
+7. **Record a level opens on what is on record**, found in the person's skills the way a pick is, so recording again corrects the
+   words. What was typed over it is kept until the person or the skill changes.
+8. **The period help in Record a level for words** says it files under the period and that writing again replaces it
+   (_Filed under that period. Each person has one answer per period, so writing it again replaces this one._), or, with no
+   period, _A snapshot of where they are now._ The server replaces a re-rate inside a period and keeps each reading outside one.
+9. **A retired written subsection does not claim marks stay** (`from` in `newVersionEffects` and `startedLine`): none was ever
+   made from its words, and "every mark made from them stays as it is" says some were.
+10. **The toast says _Answer recorded_ for any answer that is not a level**, yes or no and pick included. It said _Level
+    recorded_ for all of them.
+11. **The tab stays _How it is rated_.** It is the name of a place, shared by every kind, and renaming it for one is a change to
+    every screen that mentions it.
+
+## Found, and not changed
+
+- **The design called the wire field `kind`; the API's name is `subsection.answerKind`**, as it has been since subsection
+  questions, and its note says no alias was added. The web reads `answerKind`.
+- **The person's own skills list shows words their manager recorded, before the rating is final.** The API's note raises it: the
+  words are written as the person's rating when the manager **sends** the review, and the list is readable by the person, while
+  the manager review itself is hidden from them until it is final. A yes or no and a pick have the same exposure; words are more
+  sensitive. Seen in the walk: the manager's words were on the person's own skills list while the period was still open.
+  Withholding `textValue` until the mark is final is a decision for the owner, and `SkillRow` already draws a row that says
+  **Answered** and shows nothing.
+- **Record a level keeps its state after it closes.** `SkillsTab` renders it for good with `open` toggled, so after **Cancel**
+  (and after a save, which does not reset it either) it opens again on the same person, skill and words. Seen for words with a
+  throwaway test, and every other field is state in the same component. Not fixed: it matters more for words than for a level,
+  and the rule from the announcements entry above (a form per open, keyed) is the fix.
+- **No screen sets what a job role expects**, so nothing offers it a written subsection. The API refuses one; whichever screen is
+  built must offer only `RATING` subsections.
+- **A core written subsection appears in `expectedOf`** with `targetLevel: null` and a scale that means nothing, as a core yes or
+  no does. No screen draws it today (`jobRolesApi.expectedOf` has no caller).
+- **Words are counted in UTF-16 code units**, the server's way, so an emoji counts as two.
+
+## Verified
+
+**Frontend tests.** Thirteen new test files, 251 tests, one per surface: the helpers and the limits, the review form's value
+rules, the page-by-page flow, Record a level, the Skills row and the Skills screen, the panel, Start a new version, the tree, the
+Questions dialog, the filing sentence and the ask lines. Six existing files that list the kinds were updated to four. Run again
+on the final commit with every test file that imports a changed file: **176 files and 2,497 tests, all passing**.
+
+**Deliberate breaks.** Forty-seven (one exact replacement in one source file, refused unless the old text matched exactly once,
+the file restored with `git checkout` and the tree checked clean after each), among them: a written answer sent as a pick; a
+written answer sent as a level; a target sent with it; the level and target fields shown for it; **Written** missing from the
+badge; **In their own words** missing from every picker and from the new-version list; a blank answer accepted; one over 4,000
+accepted; the limit moved; a box of spaces counted as filled; a blank answer sent; the person's own answer drawn as _No answer_
+or as _0_; the preview cutting a long answer to two lines; the paragraphs flattened; a long answer on a skills row with no way
+to read it; a written row drawn with the level scale; a written row showing a level and a target (counted in gaps); the section's
+share of the mark promised for words, in the picker's line, the filing sentence, the ask lines and the period help; the new
+version saying marks stay for a written one; the language check not reading a manager's written answer, and reading a person's
+own. **Forty-five were caught on the first run. Two were not**, and both were tests that did not assert what their names said:
+the skills-row test checked for _Not assessed yet_ and never that the stale words were absent, and the self-review exemption test
+used words no rule flags (_I am quite disorganised_), so it passed with or without the exemption. Both were rewritten (stale
+words must not be drawn; _I took maternity leave in March_, which the check flags on a manager's form, is not flagged on a
+self-review, and a second test flags the very same words on a manager's), and both breaks are caught now. Three of them were
+made again afterwards, on a throwaway checkout, and each was caught with the tree clean after the restore: words sent as a pick
+(9 tests failed), the limit moved to 5,000 (12), and a written subsection promised a share of the mark again (4). The backend's
+side of the same exercise is in its own note.
+
+**The gates**, read from each command's own exit code, on the final commit: `tsc --noEmit` exit 0; ESLint on every changed file
+exit 0 and, over the whole repo inside `npm run check`, 0 errors and the **same 15 warnings that are already on `dev`**, none in
+a file this change touches; Prettier clean; **`npm run check` exit 0** with `APPROVEHR_BACKEND_DIR` pointing at the backend
+branch, so the four cross-repo gates (payroll, template, rating scale, signature wording) compared and did not print `skip`.
+`verify-review-language` gained three assertions (the new caveat says it does not block, admits its limits and does not talk of
+a review), 52 in all. `npm run docs -- --check --only frontend-components` says the components inventory is current; the pages
+inventory was not touched, because the route list did not change.
+
+**In a browser, against the real backend.** A scratch API built from the backend commit on a real Postgres, a production build of
+this branch with `NEXT_PUBLIC_DEMO=off`, and Chromium signed in for real as the administrator, a line manager and an employee,
+in one walk on a fresh period: **67 checks, all passing**, and no console error, page error or 5xx anywhere in it. The walk made
+a written subsection over the API and another in the Questions dialog, and asked the second of both people with **Ask it on the
+review form**; started the period and saw the written question on both forms; had the employee write on the page-by-page form
+and the manager answer beside the person's own words, read back in full; recorded words under **Record a level**, with the
+language check live and the save never blocked; compared a person's whole score, field by field, before and after written
+answers came in by both doors (17 fields, identical) and looked for a written subsection in the score register, the gap list and
+the heatmap (none); read the person's own skills list as the employee, with a long multi-paragraph answer folded and opened with
+**Read all**; opened
+**Start a new version** from a rated subsection and chose **In their own words**; and, on a 375px touch phone, the answer page
+and Record a level (no sideways scroll, the box and the dialog inside the screen, 16px text).
+
+**What was typed was then searched for.** The walk's three marker words were looked for in a dump of every table, in the API's
+log and in the web server's log. They are in `review_responses` and `competency_ratings` and nowhere else, in none of the logs,
+and not in any audit entry or notification (the audit entry for a written rating says `answerKind: TEXT` and carries no words;
+the notification says _A written answer, not scored._).
+
+## Not exercised
+
+The QA site; iOS Safari or any real device, or any browser but Chromium; demo mode in a browser (a production build has none, and
+the screens that need the API say so); a server that predates the API half (the pickers would offer **In their own words** and
+the server would refuse it, which was reasoned and not run); a real assistant key, so what a model is sent was seen in the
+backend's tests and not on a call; a company with real data (the walk's has ten people and a few periods); two appraisers
+sending a written answer at once; the migration against a database of production size; and the whole web suite in one run (the
+176 files above are the ones that bear on this) and the whole backend suite in one run (CI does that).
+
+---
+
+# A leave type decides whether it asks for a reason, and a file can go on a request with no bucket behind it
+
+Two requests in one change, and the second is the one to read twice.
+
+> _"When creating a leave type, I want the fields that determines if reason, attachment fields will be required for that leave
+> type or not. And the default will be yes (use a switch field), so this must reflect wherever it needs to."_
+>
+> _"I can't see where to upload files. For now, let's use `approvehr-platform-frontend/src/services/api/s3.service.ts` for upload,
+> we'll change it later."_
+
+The backend half is built (`approvehr-backend`, branch `feat/leave-switches-links-20261106`: `reasonRequired` on a leave type,
+`links` on the limits, a `fileUrl` ref beside `storageKey`, `attachment_link_refused`). **Merge it first.** Against a server that has
+none of it every new field is absent, no switch is drawn for the reason, and the picker stays dark exactly as it was. The one thing
+that is not symmetrical: the Add dialog always sends `reasonRequired`, so a server whose schema refuses an unknown key would refuse the
+dialog, which is another reason for the order. (The backend's create schema strips an unknown key rather than refusing it, so an older
+server would not refuse, it would silently ignore the switch.)
+
+## The two switches
+
+| Where | What |
+| ----- | ---- |
+| `/settings/leave`, **Add leave type** | Two switches, **Ask for a reason** and **Ask for a supporting file**, **both on**, each with a line of visible text saying what it does in either position. It always sends both answers explicitly (`reasonRequired` and an `attachmentPolicy` of `REQUIRED` or `OPTIONAL`) and never a number of days, which it says is set in the table afterwards. |
+| `/settings/leave`, the types table | The three-way **Supporting file** select is a switch, **Required**, with **After N days** while on, and a new **Reason** column with its own **Required** switch. The phone card has both as **Supporting file required** and **Reason required**. Connected only, as the file column always was. |
+| `/people/leave`, **Book leave** | **Reason** is required (the `Field` `required`, no "(optional)") when the chosen type says so, checked and trimmed **before anything is uploaded or sent**, and the trimmed text is what is sent. |
+
+### Decisions not to undo
+
+- **On is Required, off is Optional, and `NONE` is never written again.** The product never told "not asked for" from "optional":
+  a file may go on a request of any type and the booking picker is labelled optional under both. The third word described a difference
+  nobody could see. A type stored as `NONE` shows the switch off and becomes `OPTIONAL` the first time anybody touches it.
+- **An absent `reasonRequired` is `null`, not `false`, and a `null` row has no switch.** A switch over a value nobody sent would look
+  saved and change no booking. The table shows a dash with words for a screen reader; the booking form never holds the form on
+  anything but `true`; the demo has no such setting and the columns are absent there.
+- **A refusal about the reason goes under the reason only where the API attributes it** (`details[].field === "reason"`). The backend
+  does not: its "needs a reason" is a plain 422 (`unprocessable`) with the type's name in the sentence and no field, so it is shown
+  verbatim where every other refusal of the booking dialog is shown, under the dates. In practice the form's own check, on the trimmed
+  text and before anything is uploaded, answers first, so the server's sentence is reached only by a request the form did not make.
+- **The Add dialog is a new form on every open.** The screen keeps it mounted so it can animate out, and the old one kept the last name
+  and answers. `AddLeaveTypeDialog` hands `AddLeaveTypeForm` a new `key` when it opens, the `RoleEditor` pattern, and not when it closes.
+- **The file switch in the Add dialog follows availability, live.** The limits read can land after the dialog opens, so "no file can
+  be kept" is derived on every render (`askFile && !noFiles`) and never copied into state.
+- **A switch that cannot be turned on says why in text on its row**, not behind an icon. The header mark that said it before is gone.
+
+## Files through the old uploader: "linked files"
+
+`src/lib/api/linked-upload.ts` is a port of `s3.service.ts`, using `fetch` because this app does not carry axios. The same name
+cleaning, the same JSON body of one base64 string, `upload-file` for a PDF and `upload-image` for an image with `fileFormat`, the same
+two response fields (`responseObj.pdf_url`, `uploadResult.Location`), thirty seconds. Narrowed to PDF, JPEG and PNG: the three kinds
+the original routes and the leave API accepts.
+
+**A file sent this way is public to anybody who has its address.** The uploader has no login. That is the whole design, and four
+things follow from it:
+
+- **The address defaults to the old uploader and can be overridden or switched off.** `LINKED_UPLOAD_DEFAULT` is the address
+  `s3.service.ts` has built in, so the path is **on** with nothing set. `NEXT_PUBLIC_LINKED_UPLOAD_URL` overrides it; **blank, or
+  anything that is not an https address (`off`), is off**, and then `linkedUploadConfigured()` is false, no picker is drawn and nothing is
+  sent. `https` only, and `http://localhost` outside production. It was off until configured and no deployment ever configured it,
+  which is why no attachment area ever showed. See "Leave files go to the old uploader by default" below.
+- **The route is chosen in one place, and `storage` wins.** `fileRoute(limits)` returns `stored`, `linked` or `none`. A server that
+  can keep a file privately is never sent down the public route, whatever else is configured. `none` draws nothing.
+- **`LINKED_FILES_NOTE` is said beside the picker** in the booking form and the drawer, every time a file is going this way: _"For now
+  these files are kept where anyone with their address can open them. Do not attach anything you would not want shared."_ One
+  constant, so one edit changes it everywhere, or removes it.
+- **Nothing of this app leaves with the file.** No `Authorization` header, no cookies (`credentials: "omit"`), a third party's origin.
+  The CSP's `connect-src` names the uploader's origin only when the variable is set, by the same https-only rule as the storage
+  origins, so a build that does not use the path keeps the policy it had.
+
+### Smaller decisions
+
+- **Limits are per kind.** The original's defaults are 2 MB for a document and 3 MB for an image, and the API has its own; the limit
+  that applies is the smaller of the two for that kind and the sentence names it. `LeaveFileType` gained an optional `maxBytes`,
+  which only `fileRoute` sets, and `fileHint` says each limit against the kinds it applies to ("PDF up to 2 MB, JPEG and PNG up to 3
+  MB, up to 5 files.") and prints the old one-size sentence unchanged whenever every kind shares a size. The sizes are binary
+  megabytes, as the rest of this app prints them: the original's 2,000,000 would read "Keep files under 1.9 MB" for a file shown as
+  "1.9 MB".
+- **The kind comes from the browser's type, then the extension only where the browser said nothing useful.** A `.jpg` with no type is a
+  JPEG; a GIF called `.png` is refused, not sent under a name that says it is something it is not.
+- **`fetch` has no upload progress.** `onProgress` reports the read of the file, as `readAsAttachment` does, and the picker's bar full
+  while the request is out means "sent, waiting for the answer".
+- **Opening a linked file goes to its own address in the tab that was opened for it,** even if the API calls it a download: it has no
+  `Content-Disposition`, and sending this window to it would replace the page. `OpenedFile.expiresAt` is `string | null`.
+- **Removing a linked file says only the request's record goes.** _"The copy that was uploaded stays where it was stored."_ Nothing
+  here can delete it, and "deleted" would be a claim about a copy this app does not hold. The sentence is chosen when the dialog opens
+  and not while it closes, or it would flip on the way out.
+- **A refusal before anything is sent, a connection that did not finish and an answer with no usable address are three sentences,**
+  none with a status code or a file's name. An address that is not `https` or is over 500 characters is the third.
+- **`megabytes` moved to `lib/file-size.ts`** so the uploader and the leave module share one, and is re-exported from `leave-files.ts`.
+
+## Verified
+
+New and rewritten test files, all passing: `leave-type-supporting-file` (23: the table's two switches, desktop and phone, optimistic
+revert, availability, the absent setting, the demo), `leave-add-type-dialog` (17: both on, all four combinations sent explicitly,
+files unavailable and arriving late, a fresh form per open, every kind of refusal), `leave-book-with-files` (extended: a required
+reason, and the linked route end to end), `leave-request-files` (extended: linked files in the drawer), `leave-linked-files` (27:
+which route, what the picker may promise, what the leave API is told, opening a linked file), `linked-upload` (the port: routes,
+parameters, response fields, refusals before sending, the three failure sentences, no cookies),
+`leave-types-reason-api` and `csp-linked-upload-origin`. With every test that imports what changed, `vitest related` ran 93 files and
+1,256 tests, all passing. `tsc --noEmit` exit 0. ESLint and Prettier exit 0 on every file touched. `verify-no-banners`,
+`verify-typescale`, `verify-demo`, `verify-stores`, `verify-load-rule`, `verify-revalidate` and `verify-adr` exit 0.
+
+**Forty-eight deliberate breaks, each made in one source file and each caught** by a test written for it, the file restored byte for
+byte afterwards (the harness asserts it): the file switch writing `NONE`; a reason switch drawn over an absent setting; the file
+switch turnable on where nothing could meet it, and blocked on a type that already requires one; the reason switch never reaching the
+API; the Reason column in the demo; the Add dialog's reason starting off, sending `REQUIRED` whatever the availability, keeping one form
+across opens, saying every refusal under the name, leaving the reason to the API's default, sending a number of days, and copying
+availability once; an absent setting read as `false`, and as `true`; the reason check skipped, counting spaces, sending untrimmed,
+labelled optional, removed from the pre-send checks, and a refusal put under the dates; the linked note missing; the upload given the
+narrowed limits; links preferred over storage; the route on with no configured uploader; a linked file also asking for an upload link;
+one limit for every kind; kinds the uploader does not take offered; a linked file sent to this window; no sentence for a refused link;
+availability always true; the uploader called with cookies, an image with no `fileFormat`, a document read from the image field, the
+API's smaller limit ignored, an extension overriding a browser type, the path on with no address, an address that is not `https`
+accepted, a different folder, a file's name in a failure sentence; the policy accepting `http` in production, naming the origin in
+`img-src`, adding a wildcard when none is configured; a linked file's removal saying "deleted", the drawer offering to add only on the
+server's own storage, no public note in the drawer, and one size quoted for every kind. One of the list is mislabelled in the harness:
+"checked only after the files are uploaded" removes the reason check from the pre-send validation altogether rather than moving it, so
+it overlaps the one before it. The test that says a refused request leaves no file behind is what pins the order.
+
+**In a browser, against the real backend half.** A production build of this branch (`NEXT_PUBLIC_DEMO=off`) against a scratch API running
+the backend branch with `LINKED_FILE_HOSTS=files.example.test` and no bucket, signed in as the administrator, an employee and that
+employee's manager. The old uploader was **not** used: a local stand-in answered `upload-file` and `upload-image` the way
+`s3.service.ts` expects, over plain http and over self-signed https, and a script preloaded into the API process sent the API's own
+fetch of the returned address to that stand-in. The stand-in's log is the evidence that nothing else was asked: one `POST /upload-image`,
+with no `Authorization` header and no cookie. Seen on screen:
+
+- **The types table**: a **Reason** column and a **Required** supporting-file switch on every type, all off for types that existed
+  before the column. Switching Sick's reason on sent `{"reasonRequired":true}` alone. Switching its file requirement on wrote
+  `REQUIRED`, **After N days** appeared, and typing 2 saved `attachmentRequiredOverDays: 2`. No sideways scroll at 375px.
+- **Add leave type**: both switches on to begin with; the request carried `reasonRequired: true`, `attachmentPolicy: "REQUIRED"` and no
+  days; a second dialog opened blank and on again; with both switched off the request stored `false` and `OPTIONAL`.
+- **Booking** as the employee, on a type that asks for both: Reason shown as required; an empty reason, and spaces alone, refused on the
+  field with nothing sent; a reason and no file refused in words; a `.txt` refused with "You can attach PDF, JPEG and PNG." beside the
+  good file; the PNG uploaded to the stand-in, and the request sent once with
+  `{"fileUrl":"https://files.example.test/approvehr-leave/1-certificate.png","filename":"certificate.png","contentType":"image/png"}`
+  and no key. The API listed the file as `linked: true`. A one-day Sick request (under its 2-day threshold) went through with a reason
+  and no file, and was refused without a reason. A type with the reason off still says **optional**.
+- **The manager**: the request shows the reason and the file with **Open** only (no add, no remove); **Open** put the file's own address
+  into a new tab and did not navigate the page; **Approve** with a note stored the note.
+- **The employee** added a PDF to a request that was still open, then removed it: the confirmation said "The copy that was uploaded
+  stays where it was stored." and did not say "deleted".
+- No page error and no 5xx in any of it. The console's 404s were `GET /leave/balances?employeeIds=`, which the API did not have then
+  (it does now, see "Found, not changed" below), not this change.
+
+**Not exercised.** The real uploader: what it answers to a browser's preflight and to a JSON `POST` from this origin is unknown, and
+the stand-in was written to allow it. The real address was never used. A bucket on the API (`storage: true`, so the stored route);
+Safari and any real phone; demo mode in a browser (the columns are absent there by a test); an office or department head as the
+approver; and the whole vitest suite (`vitest related` and the gates were run, `npm run check` exit 0 with the backend branch beside it).
+
+**Found, not changed, and since fixed.** The web called `GET /leave/balances?employeeIds=` (`balancesForMany`) and `origin/staging` had only
+`GET /leave/balances/:id`, so on a real API `/people/leave` logged 404s and showed no balances; the route now exists (see the entry at the end of
+this file). And the drawer title of a type whose own name ends in "leave" read "Study leave leave", because it appended "leave" to every type;
+that is fixed too, in the web and in the API's stored titles ("A leave type named "Study leave" is not "Study leave leave"" below).
+
+## Deliberately not done
+
+- **Keeping the real uploader's address out of the source.** Reversed: it is `LINKED_UPLOAD_DEFAULT`, see below.
+- **A progress bar that measures the upload.** It would mean `XMLHttpRequest`, which is not the port that was asked for. See above.
+- **A walkthrough update.** There is no leave walkthrough in `docs/walkthroughs/`.
+- **Other places that attach a file** (task files, CVs, documents). They use the API's own signed upload and are untouched.
+- **A way to say who may see a linked file.** There is none: that is the cost of the route, and the picker says so.
+
+---
+
+# Renaming an appraisal period was built twice, and one dialog is left
+
+On 6 November a rename of an appraisal period reached `dev` twice in one day. Joseph Chinedu's #587
+(`performance/periods/[id]/rename-period.tsx`) merged at 12:20 UTC, while my own #589 was open with a different dialog
+(`rename-period-dialog.tsx`, plus a shared name helper). Same **Rename** button at the top of the period page, same call
+(`PATCH /cycles/:id` with `name`), same rule (any stage, for `MANAGE_SETTINGS`). Two dialogs for one act is the mistake the
+generated inventories exist to stop, so #589 was closed unmerged and only what it had that his lacked was kept.
+
+## What was kept
+
+- **`save` returns while a save is in flight.** The Save name button is off while the request runs, but Enter in the box
+  submits the form and does not read the button, so a second Enter sent the same name twice. `tests/rename-period-double-submit.test.tsx`
+  sends two submits and expects one request, and a refused save that can be tried again (the guard is not permanent).
+  Without the guard the first case fails with "called 2 times".
+- **A paragraph in `docs/walkthroughs/performance.md`** under the weights step, in the words the dialog actually shows
+  (**Rename**, **Period name**, **Save name**, the toast **Renamed to …**, the two length messages).
+
+## What was not kept
+
+- The shared name helper (`lib/performance/period-name.ts`). Joseph's dialog writes the API's 3 and 80 characters inline, and
+  `start-period.tsx` has its own copy, so the limits of `cycleName` are written in two places. Not changed here.
+- The sentence that a period which has started keeps its old name in notifications already sent. #589's dialog said it
+  (a notification's title is written when it is sent); Joseph's does not, and I did not re-check the API for this change.
+
+The row for `rename-period.tsx` was missing from `docs/components/frontend-v2.md` on `dev` and was added when the inventory
+was re-derived in the merge that carried #588.
+
+---
+
+# Leave settings that reached nothing, now said where they apply
+
+A pass over every setting on `/settings/leave` against whatever should read it. Most
+reach their screen (entitlement, accrual and carry-over into balances, "Who" into the
+booking form's type list, the supporting-file and reason switches into booking, the
+two-step approval flag into approvals, holidays into day counts). Five did not, and what
+was done about each differs, because "fix" is not always "add a control".
+
+The backend half is `approvehr-backend` branch `fix/leave-unreached-settings-20261106`
+(note: `docs/backend/leave-unreached-settings-handover.md` there). **Merge it first.**
+Against a server without it the carry-over line is simply absent, and nothing else here
+depends on it.
+
+## What was wrong, and what was done
+
+- **The two Approval rules switches did nothing connected.** "Allow approval into a
+  negative balance" and "Hold pending days against the remaining figure" are written to
+  `useCompanySettings` (browser storage) and read by nothing but the demo. The API has no
+  `LeavePolicy` to save them into (a comment in `leave/service.ts` names one that does not
+  exist): it never blocks an overdraw, it returns a warning, and no caller of
+  `balancesFor` ever passes `reservePendingDays: false`, so pending days are always held
+  back. A switch that looks saved and moves nothing is the green "Paid" over money nobody
+  moved, one setting along. Connected, the card now states what the server does, in two
+  plain blocks; offline the two stay switches because the demo store reads them.
+- **"Notice (days)" was stored, shown and never used.** The API only echoes it and the
+  booking form never looked. The From field now says what the type asks for, and when the
+  typed start falls short, that it can still be raised. It is guidance, not a gate: the
+  API accepts a short request and the screen must not refuse what the server allows.
+  `lib/leave-notice.ts` is the one place the sentence is written and is counted in the
+  company's zone through `todayIn` and `daysBetweenIn`, never the browser's.
+- **Carry-over was edited here and applied by a job nobody can see.** The sweep runs
+  every six hours on the server and writes a marker per company per year, and nothing said
+  whether it had. `GET /leave/rollover` reads that marker, `lib/store/leave-rollover.ts`
+  fetches it (connected only), and `lib/leave-rollover.ts` is the one place the sentence is
+  written, shown under the types table. Four states, each its own sentence: **not applied
+  yet**, **the first run, which carries nothing by design**, **applied on a date, with the
+  job's own figures**, and nothing when no type carries days or the status is unknown.
+  **No row is "not applied yet", never "carried 0 days"**: the job writes a marker even
+  when nothing could carry, so absence really does mean no pass, and reading it as zero
+  would claim a run that did not happen. After a run the line also says that changing the
+  maximum does not change what was already carried, which is the consequence somebody
+  editing the figure at that point needs and the job's idempotency guarantees.
+- **`isPaid` moves no pay, and no control was added for it.** A payroll run pays the
+  contractual figure whatever leave was taken (the backend's `payroll/assemble.ts`,
+  "Attendance does not decide pay"), so marking a type unpaid docks nothing. A switch
+  would look saved and change no payslip, which is the failure this file keeps recording.
+  The schema comment that claimed unpaid leave prorates was false and is corrected, and the
+  assistant, which was listing it as "whether it is paid leave", is now told it is a label
+  and that pay is not deducted because of it. **Docking pay for unpaid leave would be a
+  payroll feature**, with the timesheet and the payslip having to agree about the same day,
+  and nobody has asked for it. If it is wanted, that is where the control comes from.
+- **`requiresEvidence` refuses nothing and is superseded by the supporting-file switch.**
+  Nothing in the web edits it; offline it still drives the demo's "needs evidence" callout,
+  which is left alone because the demo reads it. The assistant was told "whether a document
+  has to be attached" and is now offered `attachmentPolicy`, its day threshold and
+  `reasonRequired`, which are what is enforced.
+
+## Verified
+
+Web: `tests/leave-notice.test.ts` (6), `leave-rollover-line` (9), `leave-rollover-status-screen`
+(5), `leave-rollover-hook` (2), four cases in `leave-book-with-files` and
+`leave-approval-rules-honest` (2). Deliberate breaks, each caught and restored: for the
+earlier two (the wiring dropped, the card still offering switches connected, a short request
+never flagged), and for carry-over (a missing run read as a run, no guard for a company with
+no carrying type, the baseline called a run, the date read in another zone, the screen never
+rendering it, and the hook asking while offline).
+
+Backend: `tests/leave-unreached-settings.test.ts` (11) with the existing carry-over and
+`ai2-query` files, 62 passing; six breaks caught (no permission gate, an absent marker read
+as a run, the baseline never flagged, another company's marker visible, `requiresEvidence`
+offered again, the `isPaid` description claiming pay).
+
+Not exercised in a browser: nothing was signed into for this pass, and the backend route has
+not run on a deployed server.
+
+# Leave files go to the old uploader by default
+
+The product owner's instruction was to upload the way `approvehr-platform-frontend`'s `s3.service.ts` does, "the same way". That file
+has the uploader's address built in. The port made it opt-in, to keep the address out of this repository, and the result was that a
+leave request could carry a file only where somebody had set an environment variable on **both** the API and the web build. Nobody had,
+so no deployment ever showed an attachment area, and it read as the feature being missing.
+
+## What it is now
+
+- **Web:** `LINKED_UPLOAD_DEFAULT` in `src/lib/api/linked-upload.ts`, the address `s3.service.ts` has, used when
+  `NEXT_PUBLIC_LINKED_UPLOAD_URL` is unset. `next.config.ts` cannot import that file, so it holds the same string and names the origin
+  in `connect-src` by the same rule; `tests/linked-upload-default.test.ts` fails if the two differ.
+- **API:** `LINKED_FILE_HOSTS` defaults to `generic-file-uploader-bucket.s3.amazonaws.com` (the host every stored link in the old database
+  spells). Backend branch `fix/leave-linked-default-20261106`, note `docs/backend/leave-linked-default-handover.md`.
+- **Unset is the old uploader; blank is off**, on both sides, and told apart on purpose: "I did not set it" and "I switched it off" must not
+  read the same. **They have to agree.** The picker is offered only when the API says `links: true` and this build has an address, so a web
+  with the default against an API that is off draws nothing, and the reverse draws nothing too.
+- **To switch it off:** `LINKED_FILE_HOSTS=` blank on the API and `NEXT_PUBLIC_LINKED_UPLOAD_URL=off` on the web build (a rebuild).
+- **The private route still wins.** Where the API has `S3_BUCKET` the web uses the signed upload and never the link.
+
+## What it costs, which is unchanged and now applies everywhere
+
+**A file sent this way is public to anybody who has its address**, does not expire, cannot be deleted by the API and cannot be tied to
+whose it is. Medical certificates are the common case. `LINKED_FILES_NOTE` says so beside the picker each time. The API still fetches and
+checks the file by its bytes before it records it. A leave type that **requires** a file can now be satisfied on a deployment with no bucket,
+where before the requirement could not be met and the request went through without one.
+
+## The tests never reach the real address
+
+`tests/setup.ts` pins `NEXT_PUBLIC_LINKED_UPLOAD_URL` blank for the whole suite (the backend's `tests/setup.ts` pins `LINKED_FILE_HOSTS` blank
+likewise), and a test fails if it stops. Tests that upload stub `fetch` and use an address of their own; the one that proves the default
+asserts the address a request **would** have been made to, against a mock. Nobody sent a request to it while building this.
+
+## Verified
+
+Web: `linked-upload` (updated), `linked-upload-default` (9) and `csp-linked-upload-origin`, 64 passing, plus 60 leave test files
+(1,398 tests). Seven deliberate breaks, each caught: unset read as off, blank read as the default, the policy ignoring the default, the policy's
+default differing from the module's, the policy naming the default when blank, the suite not pinned off (**this one survived at first**, so a
+test that the suite starts off was added), and `http` accepted in production. Backend: `leave-linked-default` (6), five breaks, and 405 leave
+and config tests passing.
+
+The real uploader was tried once, on 7 November, from the QA site's origin with a 70-byte PNG the owner said to send: the preflight answered
+200 with `access-control-allow-origin: *` and POST and Content-Type allowed, and the real POST came back 200 with no browser block. The
+address it returned is on the host the API's default allows. See "Linked files are stored under a name nobody else has" for what else that
+test showed.
+
+# Linked files are stored under a name nobody else has
+
+Found by that same test, and fixed on 7 November. The old uploader keeps a file under `<folder>/<fileName>` and nothing else, so **the same name
+twice is one object**: the second upload returned the same address and replaced the first file's content. Measured, not assumed. The port
+(like the original `s3.service.ts`) sent the cleaned name as it was, which for leave files meant two things:
+
+- **A second `medical_certificate.pdf`, from anybody, replaced the first person's file** under the address already recorded on their request.
+  The first person's manager then opened somebody else's certificate.
+- **The second attach was refused anyway.** The API keys a linked file by its address and a key can be attached once, so it answered "That file
+  is already attached." after the replacement had already happened. One person raising two requests with a file of the same name hits both.
+
+`uniqueFileName` in `src/lib/api/linked-upload.ts` is the fix: every upload goes out as `<cleaned name>-<32 hex digits>.<ext>`, the digits
+128 bits from `crypto.getRandomValues`. A few rules, each with a test:
+
+- **Random, never a counter, a clock or `Math.random`.** The address is the only protection a public file has, so one that can be counted up
+  to is not one. With no random source the file is **not sent** (a refusal, in words, with no file name in it) rather than sent under a name
+  that can be guessed.
+- **The token is in the name, not the folder.** A slash in `projectFolder` would give a cleaner last segment, but whether the uploader keeps a
+  slash there is a guess about a server nobody here can read, and the name is what was measured. It is the same character set the original
+  already sends (letters, digits, hyphen, underscore).
+- **The extension stays last, and a name with nothing before it is called `file`.** The part of a person's own name that goes into the address
+  is cut at 100 characters, so the token and folder cannot push an address past the 500 the leave API takes.
+- **`filename` is still the name the person chose.** Only what the uploader is told changed; every screen reads `filename`.
+
+## What this changes about deleting a file
+
+Nothing can delete one, and this makes that more visible, not less. Taking a file off a request, or replacing it (add the new one, remove the
+old one: there is no replace button), drops the request's record and **leaves the copy on the uploader**. The original platform's frontend
+has no delete call, the API says in its own source that it cannot delete one, and the confirmation says "The copy that was uploaded stays
+where it was stored." Before this change re-adding a file of the same name happened to overwrite the old copy, which looked like a replace
+and was the bug above. With unique names a replaced or removed file stays where it is, at an address only people who had it know.
+
+A real delete needs the API's own storage, where removing the file removes the object. That is the bucket plan and not something the web
+can do. Not done, on purpose: overwriting the old object with a blank one as a stand-in for deleting it. It would use the uploader's
+no-login overwrite on purpose, would not remove a version if the bucket keeps them, and the web does not hold an old file's address after
+the page it was uploaded on.
+
+Not repaired: files uploaded before this change. Two that shared a name already share an object, and the first is gone.
+
+## Verified
+
+`tests/linked-upload.test.ts` is 59 (11 of them new) and the six test files around it pass, 185 tests. Ten deliberate breaks, each caught: the old
+name sent again, the token from `Math.random`, a constant token, long names not cut, a fallback to `Math.random`, an 8-byte token, the
+extension dropped, an empty stem not named, the stored name returned as the person's name, and the token put before the name. `tsc`, ESLint
+and Prettier are clean. No request was sent to the real uploader: `fetch` is stubbed.
+
+Not exercised: the real uploader keeping the new name as it is. It should, because the characters are the ones the original sends and
+the earlier test showed it keeping a name verbatim, but nobody has sent one.
+
+# A leave type named "Study leave" is not "Study leave leave"
+
+Found on 6 November while listing what was known to be wrong: the drawer for a request read **"Study leave leave · Ada Eze"**. Leave
+types are named by the company, and the ones people write are "Study leave" and "Annual leave" as often as "Study" and "Annual". Eight
+places wrote `${type} leave`, in the drawer, three dialogs, the approvals inbox row, a demo notification and the evidence callout. One
+file, `leave-decided-copy.ts`, already had a private function that knew better, and nobody else used it.
+
+## What it is now
+
+`leaveLabel(type, casing?)` in `src/lib/leave-label.ts` is the one place the phrase is built: the name plus "leave" unless it already ends
+with that whole word (case-insensitive, trimmed). `"as-named"` keeps the company's capitals for a title ("Study leave, Ada");
+`"lower"` is for the middle of a sentence ("Your sick leave was withdrawn"). "Leave" alone is complete; "Leaves of absence" and "Leave
+without pay" are not. All eight sites use it, and the private function in `leave-decided-copy.ts` is now a one-line use of it.
+
+**`tests/leave-label.test.ts` reads the source for the pattern** (`${...leaveType|.type|chosenType|typeName...} leave`), so a ninth place
+that forgets is found by the suite and not by a person reading a drawer. The guard was checked to fail by putting three of the sites back.
+
+## The API writes the same string
+
+The titles of an approvals inbox row and of the notification that points at it are built **on the API** and stored, so fixing the web alone
+leaves them doubled in the inbox and the bell. Backend branch `fix/leave-type-label-20261106`: its own `leaveLabel`, used by the two writers,
+and a data-only migration that repairs the titles already stored. **The two halves are independent**; either can merge first, and each fixes
+what it words. Until the backend half is on a server, a type named "Study leave" still shows the doubled title in the inbox.
+
+## Verified
+
+`leave-label` (8) and 395 tests across the 30 leave, approvals and queue files. Six deliberate breaks, each caught: the helper always
+appending, the queue row reverted, the drawer title reverted, the evidence callout reverted, the demo notification reverted, and the
+lower-casing lost. `npm run check` exit 0.
+
+Not exercised in a browser: nothing was signed into for this pass.
+
+---
+
 # Wellness looks like a game now, and is held to the rules of something that is not
 
 The Wellness area (`src/app/(app)/wellness/`) was redesigned to feel engaging, from four reference
@@ -11674,3 +12271,580 @@ broken streak, a person with no consent. Both themes at 375, 768 and 1280, keybo
 
 Real devices and Safari; a screen reader; a company with more than 50 participants in one challenge; the
 phone app's device-synced steps; any user on a slow connection (the scenes are lazy but not preloaded).
+
+---
+
+# Settings has a search box, and it remembers what was searched
+
+A filter box at the top of `/settings` narrows the checklist rows, the settings pages and the billing card by what they are called and what they do. Frontend only; nothing on the API changed.
+
+## What it matches, and what it does not
+
+- **A typed word has to start a word** in the entry's title, description or keywords, and every word typed has to match. "pay" finds Payroll and Pay setup and not "display". `termsOf` is the sidebar Find box's own reader (`tokensOf`), so a word finds the same thing in both.
+- **Static text only.** A checklist row is matched on what it `affects`, never its `detail`, which is today's state ("Not set up") and would make "done" a search word.
+- **It finds the page, not the setting.** "Negative balance" will not open the leave rules: that needs an index of every setting on every screen, and an index nobody keeps current sends people to the wrong place.
+- **Keywords are only words the page actually holds** (`PAGE_WORDS`, `ROW_WORDS` in `settings/filter.ts`). Checklist rows are keyed by id and not by link, because the Payroll checks row links to two different places.
+- **Billing is a card, not a page**, and answers only where it is on this person's screen: `useBillingStatus` is the one rule (`MANAGE_SETTINGS` and a status), read by the card and by the filter, so "nothing matches" is never said over a card that is not there.
+- **A result leads with its module** (`PAGE_MODULE`, `ROW_MODULE`), then the title, then the first sentence of the description.
+- While a word is typed the checklist reveal is replaced by a plain list of the rows that match; the reveal returns when the box is cleared. The count is not said while the checklist is loading.
+
+## Recent searches
+
+Clicking into the empty box lists the last 8 (`lib/store/settings-search-history.ts`, key `approvehr.settings.search`). Remembered on Enter, or on leaving the box with something on screen; never on a keystroke and never for a search that found nothing. Words only, newest first, no repeats regardless of case, at least 2 characters. Per browser: it does not follow somebody to another device and clearing site data removes it, and the list says so ("Saved in this browser, not on your account"; the phrase "this browser only" is banned from a production bundle by `verify-demo`). The store keeps its state in module memory as well as storage, so a test that wants it empty clears it through the screen, as a person would.
+
+## Verified
+
+19 tests in `settings-filter`, `settings-screen-filter` and `settings-search-history`. Each rule was broken on purpose and a test failed: substring match, any-word match, an empty query matching nothing, billing shown without the permission, a count while loading, no remember on Enter, a search with no results remembered, short queries kept, and no cap. Two of those survived at first (the test for a search with no results never emptied the box, and the history leaked between tests) and were rewritten. Not walked in a browser, not tried on a phone.
+
+---
+
+# The header search reaches every page, and only the ones this person has
+
+`CommandPalette` (the header search) found people and roles, then only the sidebar's own pages. About half the product's pages are not sidebar doors (Leave policies, the hiring settings, the wellness pages, Add employee, How appraisals work), so searching "leave types" or a Performance page found nothing. It now reaches all of them.
+
+## Where the pages come from
+
+- **`src/lib/page-index.generated.ts`** is every signed-in page with a fixed address and a stated title, generated from each `page.tsx`'s own `metadata` by `npm run page-index` (`scripts/docs/page-index.ts`, the same reading the pages inventory uses). **Do not edit it.** `tests/page-index-current.test.ts` fails when it is stale, so a new page is searchable once it is committed with its regenerated index, and a page cannot be searchable without being in the pages inventory. Routes with a parameter (records) and the finishing steps in `EXCLUDED` are left out.
+- **`src/components/portal/page-search.ts`** (`searchPages`) joins two sources: the sidebar's own doors, found the way the sidebar's Find box finds them (`findDestinations`, ranked, with its synonyms), then every other indexed page matched on title, description, its module and its keywords (`PAGE_WORDS` for settings pages, `INDEX_WORDS` for the rest). At most 12.
+
+## The permission rule
+
+There is no second list of who may see what. A page that is not a sidebar door borrows its **owner's** permission: the longest sidebar address that is a path prefix of it, taken from the **whole** menu (`NAV`), and it is offered only if that owner is in this person's visible menu. The longest match is the point: `/people/leave` is its own door, so somebody who may not see Leave is not handed it through `/people`, which they may see. A page nothing owns is offered only if it is one of the account pages everybody has (`PERSONAL`: profile, documents, equipment, notifications). The Settings pages sit under the one `/settings` row, so they are offered only to somebody who has it.
+
+This decides what to **list**. Every page still enforces its own access when opened; a mistake here costs a title and not data. A page reachable by URL but hidden from the sidebar on purpose is not offered either.
+
+## Not searched
+
+Records inside the system (payslips, leave requests, tickets, objectives by name). Each type needs its own permission-narrowed search endpoint; people and roles are still narrowed by the API as before.
+
+Tested in `tests/command-palette-pages.test.tsx` (an employee's menu finds no loans, leave policies or hiring settings; a hidden sibling door is not handed over through a shorter owner; the account pages are offered to everybody) and `tests/page-index-current.test.ts`. Three rules were broken on purpose and each was caught: no owner check, the owner taken from the visible menu only, and the account pages not offered. Not walked in a browser.
+
+---
+
+# Work this cycle: open to its appraisers, honest about its limits, and gone without Projects
+
+Stage 1 of the Projects-in-Performance research (the Claude Doc "Project tracker inside the
+performance module: research", 11 November 2026: its options 1 and 2, and "switch the panel off when
+Projects is off"). It changes what an assigned appraiser, a company without Projects and anybody
+reading an empty list sees. **It changes no mark and files no weekly task.** The backend half is the
+branch of the same name in `approvehr-backend` (note: `docs/backend/work-evidence-handover.md`).
+Backend first; this half is safe against a server without it (below).
+
+## What the panel does now
+
+- **It is not there when Projects is off.** `WorkThisCycle` reads `useProjectsGate()`, "the one place
+  the gate is read", and draws nothing and asks for nothing when Projects is off and while the
+  company's switches are still on their way. Before, a company without Projects read "You finished no
+  tasks on the project boards in this period" under every review: a claim about work nobody tracks,
+  read as low output. The research inferred this from the code; this is the first time it is a test.
+- **An empty list says nothing was recorded.** "No finished tasks were recorded for you on the project
+  boards in this period." It was "You finished no tasks …", which reads as a verdict.
+- **A line under the list, and under an empty one, says what it cannot show:** "This is only what was
+  tracked in Projects. It does not show meetings, mentoring or anything done outside Projects, so a
+  short list is not a short record of work."
+- **Each task says who set it**, "Set by Pat Projects", when somebody other than the person made it,
+  in every list that uses `CompletedItem` (this panel, the manager's Completed view, the work under an
+  objective). It is the task's creator, not the last person to assign it. `Completion.setBy` is absent
+  for a person's own task and for a server that does not say; the two are not told apart because they
+  say the same thing, which is nothing.
+- **For an assigned appraiser, and for a person's own to-dos, the web needed nothing.** Those are the
+  server's: `cycleWork` now admits an assigned appraiser, and leaves out a to-do the person made for
+  themselves. The panel already drew nothing for the 404 an appraiser used to get.
+
+## Decisions worth not undoing
+
+1. **The line under the list is true against any server.** The first draft said "It leaves out their
+   own to-do list", which is the new server's rule and is false against one that has not deployed it.
+   Copy that describes a rule has to be true against the server that is deployed, not the one in a
+   branch. Which tasks the list leaves out shows row by row (**Personal**, **Set by**) and is in the
+   walkthrough; a test says the sentence names no to-do list.
+2. **Hidden, not refused.** Without Projects the panel is not offered, instead of drawing a callout:
+   there is nothing for the reader to do, and a company that never used Projects should not be told
+   about it under every review. The nav hides Projects from the same flag.
+3. **What the list leaves out is the API's rule, once.** `exceptOwnToDos` is in the backend's
+   `counted-work.ts`. A copy here would be a second definition of "finished work", which that module
+   exists to keep to one.
+
+## Not done
+
+- **Stages 2 to 4 of the research.** Freezing the evidence when a review is finalised needs a
+  retention rule the owner picks and counsel's agreement on what may be stored. Letting people pin work
+  to an answer needs an impact assessment, a legitimate-interest assessment and one pilot first. The two
+  optional assists wait for that pilot. Each has a gate in the research; none is started.
+- **The Work record, the manager's Completed view and the work under an objective still list a
+  person's own to-dos** (labelled **Personal**). Only the review's list leaves them out. A decision for
+  the owner, in the pull request.
+- **Three code comments** (`project-screen.tsx`, `project-context.tsx` and `lib/store/projects.ts`)
+  still describe the retired weekly-task bridge. Left alone so as not to touch files Projects work is
+  changing. The walkthrough's account of it (step 18) is corrected.
+- **`docs/components/backend-api.md` will be two exports short** (`isAppraiserOf`, `exceptOwnToDos`)
+  once the backend is on `staging`. Run `npm run docs` then. `docs/components/frontend-v2.md` was
+  already stale on `dev` for the Projects screens before this change; none of its rows is about these
+  files, and it is not regenerated here.
+
+## Verified
+
+Tests: the nine files that touch the change, 148 tests, pass (`work-this-cycle` 31 of them, with
+`completions-api`, `projects-completions`, `completions-demo-hooks`, `completions-store`,
+`review-work-panel`, `review-record-work` and the two copy guards `performance-link-copy` and
+`projects-friendly-words`). Eight deliberate breaks, each caught by a test written for it: the panel
+offered without Projects, the work asked for before the switches answered, no line about what it
+cannot show, the old "finished no tasks" sentence, no "Set by", "Set by" for the person's own task, a
+mapper that invents a setter, and a demo that names the person as having set their own task. The tree
+was clean after each.
+
+Gates: `tsc --noEmit` and ESLint exit 0 (16 warnings, none in a file this changes). Every step of
+`npm run check` after Format exits 0, run with `APPROVEHR_BACKEND_DIR` at the backend branch so the
+four cross-repo gates compared and did not skip (template 81 assertions, rating scale, payroll,
+signature wording). **The Format step fails on `dev` itself**, on four files from #623 (project-screen,
+issue-filter-bar, work-list and `tests/projects-access-matrix.test.tsx`); none is in this change, and
+the formatting fix is its own pull request (#627).
+
+**Not exercised:** a browser against a real API (an assigned appraiser's panel, "Set by" on real rows,
+and the panel gone with Projects off are covered by tests and by the backend's, not by a screenshot),
+demo mode in a browser, the whole vitest suite in one run, the QA site, iOS Safari or a real device.
+
+---
+
+# The work behind a final rating is kept with it, for a company that chose a period
+
+Stage 2 of the Projects-in-Performance research (the web half; the backend is
+`approvehr-backend` #284, whose own note is `docs/backend/work-evidence-frozen-handover.md`). Stage 1
+(#628) made the review show the finished-work list. That list is **live**: reopen, rename, relink or
+delete a task later and an old review shows something else, so a mark somebody disputes cannot be
+explained from what the appraiser saw. For a company that chooses a retention period, the list as it
+stood on the day the rating was made final is kept with it. This is where the period is chosen and
+where the record is read. **Nothing is kept for any company until it chooses, and no figure is
+suggested.** This branch is stacked on #628, and its base is that branch until #628 merges.
+
+## What it does
+
+| Where | What |
+| ----- | ---- |
+| Settings, **Appraisal scoring**, **Records** (`settings/performance/work-record-card.tsx`) | **Work kept with a final rating**: a box for whole months, 1 to 120, empty, with the placeholder "Keep nothing" and the sentence that none is suggested. **Set this period** asks first and says what it will and will not do. **Stop keeping records** is one press. `MANAGE_SETTINGS` to change it; everybody else reads it, with the reason. |
+| A manager's review whose rating is final (`components/performance/kept-work.tsx`, `WorkBehindTheMark`) | In the slot the live list had. By what the API says: **kept**, the record leads and the live list is one press away; **never kept**, one line saying so above the live list; **removed**, one line saying when it ended above the live list; anything else, the live list alone. |
+| The finalise confirmation (`finalise-dialog.tsx`, `sign-off-copy.ts`) | After "Make it final", one more line: "A record of the 4 tasks Chidi finished in this cycle is kept with it until 12 Nov 2027." Nothing when none was kept. |
+| `lib/api/kept-work.ts`, `lib/store/kept-work.ts`, `lib/store/features.ts` | The read, its keyed hook, and the setting (three states). |
+
+## Decisions worth not undoing
+
+1. **The setting has three states and the card keeps them apart.** A number is the period the
+   company chose; `null` is the company's own answer, none chosen, which keeps nothing and is every
+   company's start; `undefined` is a server that has no such setting, or no server. A control is
+   offered for the first two only, so reading an absent field as `null` would offer a control against
+   a server that cannot keep anything. Each of "still reading", "could not be read", "this server has
+   not been updated" and "no server" says its own thing.
+2. **No figure is suggested, anywhere.** How long personal data about somebody's work may be held is
+   the company's decision and its counsel's, and a default here would be the product making it. It is
+   the rule the hiring-retention screen already follows.
+3. **Setting asks first, stopping does not.** The question says what will happen (which tasks are
+   kept, that titles are not, that a dispute keeps a record a full period longer, that ratings already
+   final are not touched). Stopping keeps less and removes nothing, so it is one press, and says what
+   it leaves: "A record already kept stays until its own date."
+4. **The record leads, and the live list is behind "Show the list as it stands now".** Two lists on one
+   page saying different things about the same person is the failure. The record is what the
+   appraiser could read.
+5. **It asks only when it can be answered:** a manager's review, final, with dates, for a company with
+   Projects on. Otherwise the page is exactly Stage 1's.
+6. **A server that does not say makes no claim.** A 404, a 403, a server a deploy behind and a failed
+   request all draw the live list and nothing about a record. `null` is never read as "none was kept",
+   and a record that is not there is never an empty list.
+7. **No title anywhere, because none is kept.** A row is the task's key, which opens the task as it is
+   now, and the panel says so beside the list. A title can hold health or trade-union details, which
+   the NDPA names as sensitive.
+8. **The finalise confirmation never nags.** It speaks of a record only when one was kept, so a
+   company that has left the setting alone never reads about it. An empty record is said as what it is
+   ("no finished tasks were recorded for Femi in this cycle"), never as a count of nought, and one cut
+   at its limit says it holds the newest of more.
+9. **Dates are days in the company's zone.** A record kept late in the evening is not a day out.
+10. **A confirmation keeps its question while it leaves.** The confirm dialog stays on screen for a
+    moment as it closes and is drawn from the props it has then, so a title read from "what is being
+    asked" flipped to a default sentence over a dialog that was going away. Seen in a screenshot taken
+    just after the toast, not by any type or gate. The question and whether it is open are two pieces
+    of state, and a test holds it.
+
+## Not done
+
+- **Stage 3** (pinning work to an answer, suggesting colleagues) needs an impact assessment, a
+  legitimate-interest assessment and one pilot first, and it is the stage that puts people's names
+  beside each other's work. **Stage 4** (a milestone hint, a pre-filled weekly line) reopens the
+  decision of 6 November and needs "won't do" and acceptance states first. Neither is started.
+- **The Work record, the manager's Completed view and the work under an objective** still list the
+  live work, and a person's own to-dos in it, as in Stage 1.
+- **No "remove it now"** control: only the date removes a record (a decision in the backend's
+  pull request).
+- **`docs/components/backend-api.md` will be one route and four exports short** once the backend is on
+  `staging` (`GET /performance/reviews/:id/work-evidence`). Run `npm run docs -- --only backend-api`
+  then, as its own change.
+
+## Verified
+
+Tests: seven files, 108 tests, all passing: `kept-work-api` (16), `kept-work` (28), `kept-work-hook` (6),
+`work-record-card` (29), `work-evidence-retention-store` (7), `finalise-kept-work` (5) and `sign-off-copy`
+(17, extended). With every test that imports a file this change touches (`vitest related`), 219 files and
+3,258 tests, all passing.
+
+Thirty-one deliberate breaks, each made in the source and each caught by a test written for it, the tree
+checked clean after each: a rating that is not final, a self review, a cycle with no dates or Projects off
+asking for a record; nothing known read as "none kept", and a state the web does not know read as one; the
+removal date read as the day it was taken; the live list shown beside the record at once; a task with no
+due date called late; the dispute sentence always said; nothing said about titles; an empty record headed
+with a count of nought; a record that holds fewer not saying so; every task opening on its board; an item
+with no id kept; a setter with no name named; a period of 0 or 1,200 months accepted; a period set without
+asking; a period suggested; a control offered to a server that has not said; an absent setting read as none
+chosen; stopping that leaves the key out; and a finalise that says nothing of what was kept. **One got
+through** (a hook that kept showing a stale answer after it was switched off), which is why `kept-work-hook`
+has a "switched off after it has read" case now. The last, a confirmation title read from a nullable value,
+was found in a screenshot, and its test failed on the old code before the fix.
+
+Gates: `tsc --noEmit` and ESLint exit 0 (16 warnings, none from this change: the one in
+`store/features.ts` is an unused `ApiError` import at the top of the file, already on `dev`). Every step of
+`npm run check` exits 0, run with `APPROVEHR_BACKEND_DIR` at the backend branch so the cross-repo gates
+compared against it and did not skip (payroll 62 assertions, template 81, rating scale, signature wording).
+Both generated inventories are current (`npm run docs -- --check --only frontend-pages,frontend-components`).
+
+In a browser, against a scratch API (the backend branch, on a real Postgres) and a production build of this
+branch, signed in for real as the administrator, the line manager and the person the rating is about, with
+HR's dispute and the daily removal run from the API side: **18 of 18 steps**, and no console, page or server
+error apart from one 401 on `/auth/me` while a saved session's expired token was refreshed.
+
+- Before any period is chosen a rating made final keeps nothing, and the API says so.
+- The Records tab starts empty with no figure suggested, refuses 121 on the page, asks before 12 and saves
+  only when confirmed (the stored value read from the database), and has no sideways scroll at 375px with a
+  16px field.
+- A rating made final before a period was set says once that nothing was kept, above the live list. One not
+  yet final shows the live list alone.
+- Make it final names the record, "A record of the 4 tasks Chidi finished in this cycle is kept with it until
+  12 Nov 2027.", and the database holds one row of four.
+- The record leads with the counts and four tasks by key, none of five titles on the page (searched), "Set by
+  Adaeze Okonkwo", "2 of 3" by the due date, "Task titles are not kept", and the day it is removed. The key
+  opens `/projects/<id>?issue=PLT-1`.
+- A task reopened, one renamed and one deleted afterwards leave it as it was, and "Show the list as it stands
+  now" shows the live two.
+- On a phone it is closed and opens on a press, and the person reads the same record about themselves.
+- A formal dispute adds "so it is kept for a full period from then". With its date in the past the daily
+  removal moves a disputed record a full period on and removes nothing.
+- A quarter with no finished work is an empty record that says so, not "0 tasks finished". When its date
+  comes the removal clears the list, keeps the row, and the page says when it ended.
+- With Projects off nothing about the work is drawn, and it is all back when it is on.
+
+The pictures are in `out/work-evidence-walk-2026-11-12/shots/`, and they found the one defect above. A first
+sign-in opens the product's own tour, which covers the buttons until it is skipped, so a walk skips it as a
+person would, and a screenshot is of the visible screen only, so it has to be scrolled to the panel it is of.
+
+**Not exercised:** the QA site; iOS Safari or any real device, and any browser but Chromium; demo mode in a
+browser (the Records card says it needs the server, and nothing about a record is drawn); the daily scheduler
+on its own timer (the removal was run once, from a script); an assigned appraiser's or a department head's own
+view in a browser (the backend's tests cover who may read it); a record cut at its limit of 1,000 (a test, not
+a database of that size); a server a deploy behind, in a browser (tests only); and the whole vitest suite in
+one run (CI does not run vitest, and `vitest related` ran the 3,258 above).
+
+---
+
+# Only the topmost open layer handles Tab and Escape
+
+The independent review of the Stage 3 web work reported that in a dialog opened over a side panel, Tab did not
+reach the fields in it and one Escape closed both layers. The cause is not in that screen. It is in
+`hooks/use-focus-trap.ts`, which every `Modal` and `Drawer` calls, so it applies to any layer opened over another.
+
+## What was wrong
+
+Every open layer adds its own capture `keydown` listener to `document`, and nothing said which of them should act.
+With two open, both did:
+
+- **Tab.** The lower layer saw focus outside itself and pulled it in; the upper layer saw the same and pulled it
+  back. Both call `preventDefault`, so the browser never moved focus itself. Tab always ended on the upper layer's
+  first control and Shift+Tab on its last, and the fields between could not be reached from the keyboard.
+- **Escape.** Both called their `onClose`. `stopPropagation()` does not stop a second listener on the same node, so
+  one press closed the dialog and the layer under it, with whatever was typed into it.
+
+## What it is now
+
+A module-level stack of open layers. Each open mints its own `Symbol`, pushes it when the trap is set up and removes
+that exact one on cleanup, and the handler returns at once unless its layer is on top. The layer below hears nothing
+until the one above closes, and takes the keyboard back the moment it does. Initial focus, focus restore, the
+`data-escape-to-popup` rule and the counted scroll lock are unchanged.
+
+Two decisions worth keeping:
+
+- **Removal is by identity, never by popping.** Layers do not close in the order they opened: a parent clearing its
+  state closes both at once, and the lower one can be closed from outside while the upper stays. Popping would take
+  out the wrong one and leave the layer still open believing something sits above it, with its keyboard dead. It is
+  the reason the scroll lock is a count and not a memory per layer.
+- **Registration order is paint order, and that was measured.** In React 19.2.8 a child's effect runs before its
+  parent's and the portals go into `document.body` in the same order, so the layer registered last is the one painted
+  last, however the dialog is written relative to the panel. The test pins all three arrangements. If a React upgrade
+  changes either order that test fails, and the fallback is to place a layer by its position in the document when it
+  registers, not at the end of the stack.
+
+## Not handled
+
+- A layer closed and reopened inside its own 250 ms exit animation keeps its old place in the document, so it can
+  register above a layer that is painted over it. It takes the lower of two open layers being closed and reopened within
+  a quarter of a second while the upper one stays open.
+- When the lower layer closes from outside, its focus restore moves focus behind the open upper dialog, and the next Tab
+  pulls it back. That was already so.
+- `search-picker.tsx` is not a layer here: it does not call `useFocusTrap`. It only marks its input
+  `data-escape-to-popup`, which the topmost layer still honours.
+
+## Verified
+
+`tests/focus-trap-stacked-layers.test.tsx`, 33 tests, with the real `Drawer` and `Modal` and a real Tab through
+`user-event`. jsdom reports `offsetParent` as null for everything, so the test stubs it, or the trap would see nothing
+to focus. No test stubbed it before, so Tab trapping had no coverage at all. Against the old hook 17 fail (every stacked
+case); the other 16 (one layer alone, the scroll lock in six teardown orders, handing the keyboard back) pass either
+way. Eleven deliberate breaks of the new code were each caught. `tsc --noEmit` is clean and `vitest related` over the
+files that import the hook passed (300 files, 4,307 tests; run before one last assertion was added to the new file,
+which was then run alone). **Not exercised in a real browser.**
+
+---
+
+# The manager's overall mark can be scored, and a form that has to carry one says so
+
+The owner's words: _"we wanna be able to Set a weight for the manager appraisal too."_ The manager's overall
+mark (`Review.rating` on a manager review, only asked where `OrgFeatures.overallMark` is on) was returned as
+`appraiserMark` and **never scored**, on purpose: the same judgement already reaches the mark through the levels
+a manager records under Competency ratings (Core, Behavioural and Leadership), and counting one judgement twice
+is a choice a company should make deliberately. This is that choice. **Manager appraisal is a seventh part of the
+mark, weighted at 0% everywhere until somebody sets it**, so no mark, no running period and no company moves.
+
+This is the web half. The API half is `approvehr-backend` branch `feat/manager-appraisal-part-20261112` (pull request
+#288: the new `ScoreComponent`, the part's arithmetic, `managerAppraisalNote`, `overallMarkRequired`,
+`appraiser.markShareBp`, the refusal at Send, and, where a period weights the part, the two doors that keep a mark
+somebody was told from moving). **Merge the backend first.** Against a server that predates it every new field is absent
+and every screen below behaves as it did, with no row, no sentence and nothing sent for the part.
+
+## What changed
+
+| Where | What |
+| ----- | ---- |
+| Settings > Appraisal scoring > Weights | A seventh row, **Manager appraisal**, between Leadership and Self-assessment, editable like the others. The API's own sentence about what the weight does (`managerAppraisalNote`, the double count included) is drawn once, under the row. |
+| A period's own weights (`PeriodWeights`: the draft's **How the mark is made up**, and the assistant's first page) | The same seventh row, whole percents, and a line saying that where no appraiser has sent an overall mark the share is spread over the other parts. On the period's own page the API's sentence for **that period's** weights (`ApiCycle.managerAppraisalNote`) is drawn under the card, draft and started alike. |
+| The answer flow | On a manager's form in a period that weights the part (`overallMarkRequired`) the mark page is there whatever the company's switch says, is called **Your overall mark**, cannot be left blank, and the review does not go without one. With several appraisers the page says the strip's own sentence, because the part's share belongs to all of them. A review sent back for revision opens on the mark it already holds. |
+| The strip above a manager's form | Says what the overall mark is worth, from the period's share (`appraiser.markShareBp`). It no longer says the review counts for the mark. |
+| The record page and the history page | The sentence beside the appraisers' overall rating says whether it is in the score, read off the part. |
+| Settings > Names of marks, the overall-mark card | Says, in its header, under the switch and in the toast after pressing it, that a manager's form in a period that weights the part asks for a mark whatever the switch says, in the company's own name for the part. While the weights are not in, or could not be read, it says nothing about whether a form asks for a mark or whether the mark counts. |
+| How it works, the appraiser mapping, the feature line, the Settings search blurb | Every sentence that said the manager's mark is not counted, that an appraiser holds "the whole mark" or a share "of the mark", or that the weights must make 100% exactly, is true at every weight now. |
+
+## Sentences that said the wrong thing
+
+The first pass found four: "Your review counts for 100% of the mark" (the strip), "how much of the mark each one
+carries" (the mapping dialog), "Each appraiser gets a share of the mark" (the feature line) and "not counted in it"
+(the overall-mark switch card). The first three were never true of anything a manager wrote: the answers to the
+questions and the closing note never counted, and the overall mark did not either. They are the likely cause of the
+report that "the manager's appraisal carries no weight". `appraiserStripLine` in `lib/performance/score-wording.ts`
+is the one place the strip's sentence is written, and `tests/manager-appraisal-wording.test.ts` pins every state of it.
+
+An independent review of that first pass then found no wrong send and no wrong weight, and **five more false
+sentences and one block that was too strict**. All six are fixed after that review, each with a test:
+
+1. **The overall-mark card said forms do not ask for an overall mark** in its header and in its toast, where a
+   manager's form in a period that weights the part asks for one and needs one whatever the switch says. Only the
+   line under the switch had been corrected, so the card made two claims at once.
+2. **The mark page gave the whole part's share as this appraiser's own.** `markShareBp` is the part's share, not one
+   appraiser's. Two appraisers at 60/40 and the part at 30% said 30% where the strip on the same form said "60% of
+   what the appraisers say ... 30% of the mark".
+3. **The card said "not counted in it" whenever the weights were not in.** That is false on a server that has the
+   part, for as long as the read is in flight and for good if it fails.
+4. **Two strings in the appraiser map said "for the whole mark"**: the toast after choosing an appraiser and the
+   Fill in tooltip. That is true at no weight: at 0% the overall mark counts for nothing, and at 30% for 30%.
+5. **A review sent back for revision blocked the manager** until they picked again a mark the record already held.
+6. **Adjacent stale claims**: the Settings search blurb said the weights "must make 100% exactly" (false since weights
+   became proportional), a comment in the report screen counted "all six" parts, and the walkthrough said Save is
+   dead "only if every part is 0%".
+
+## Decisions not to undo
+
+- **A server that does not say makes no claim.** The part is a `LaterComponent` (`lib/api/performance.ts`): its row,
+  its weight and its score are absent from a server that predates it, and **absent is how this side tells that from a
+  server that has it at 0%.** A weights screen draws a row for it only when the server spoke of it, and what is sent
+  back leaves it out otherwise (`weightSetFromRows`, the one place that rule is written). Drawing a row the server
+  would drop is a control that looks saved and moves no mark; sending a 0 for it would write over a weight set on a
+  newer screen. The older tests (six keys in, six keys out) are the regression guard for this and pass with their
+  assertions unchanged (one type annotation in `period-weights-screens` was loosened from `Record<ScoreComponent, number>`
+  to `WeightSet`, which is the honest type for a set from an older server).
+- **"Counts" is read off the part, never assumed.** `scoredFrom` says the appraisers' overall mark is scored only
+  where a Manager appraisal part is present **and** carries a weight. Absent and weighted-at-nothing both keep the
+  words that were true of them ("For reference. It does not count towards the score."). A sentence saying it does
+  not count beside a part that says "counts for 30%" would be two claims on one screen.
+- **The strip says nothing about the levels a manager records.** The first draft said that they count. That is
+  false when Core, Behavioural and Leadership are all weighted at nothing, and nothing on a review screen knows
+  that. The weights page says what counts, in the API's words, once.
+- **A needed mark is a required question.** `overallMarkRequired` makes the page, hides **Leave it blank instead**,
+  swaps **Skip** for **Next**, and nudges (_"This one needs an answer before you can go on."_). **Send it** is not
+  disabled: pressing it walks the person to the mark page and says why, exactly as it does for an unanswered
+  required question, and the preview marks the row **Needs an answer**. Required implies asked (`asksOverallMark`):
+  a form the server will not take without a mark is never one with no page for it.
+- **Read once.** Like the company's switch, whether the mark is needed is read when the form opens. It is frozen on
+  the period, so it cannot move, but a form must not reshuffle under somebody if it ever does.
+- **The mark page's sentence for several appraisers is the strip's, not a second one.** `markPageWords` calls
+  `appraiserStripLine` when `appraiserCount > 1`, so the strip and the page cannot give two answers. With one
+  appraiser the part's share is theirs, because they hold the whole part. Where the server sent no share the page
+  gives no figure.
+- **A review sent back keeps its mark, and the form opens on it** (`startingMark`). The backend's `requestRevision`
+  clears when the review was sent, signed off, acknowledged and disputed, and leaves `rating` alone; `submitReview`
+  refuses a manager's review only when `(input.rating ?? row.rating)` is null, and says in a comment that a review
+  sent back keeps its old mark; `getReview` returns `rating`. (Read in the backend's source, not run.) So the form
+  seeds the mark from the record, **only where it asks for one**, with these rules: a mark this browser remembers
+  wins, a first-time form holds none and still needs one, a form that does not ask opens on none and sends none, and
+  **a mark the record holds can be replaced but not left blank**, so there is no **Leave it blank instead** for it
+  (that would empty the box and leave the record's mark standing under a preview that said there was none).
+- **The note is the API's, and it is about the saved set.** It reads _"Saved now, not yet changed:"_ whenever any
+  weight has been moved and not yet saved, because what it says about the double count depends on the weights beside
+  it. This side writes no sentence of its own about the double count.
+- **The period's own sentence is drawn, the wizard's is not.** `ApiCycle.managerAppraisalNote` is a sibling of `weights`
+  that the backend added beyond the contract. It is drawn under a period's card (`SavedWeightsNote`, shared with the
+  company form) and says it is about the saved weights once typed over. The new-period wizard draws none: no period
+  exists yet, and the company's sentence is about the company's weights, not the set being typed.
+- **The switch card has three states, and says nothing in the third.** The weights read can say the server sent a row
+  for the part (the card names the exception, in the company's own word), that it loaded with none (a server that
+  predates the part: the card says what it always did, which is true there), or that it is not in or failed (the card
+  says nothing about whether a form asks for a mark or whether the mark counts, because it does not know). Treating
+  the third as the second is what printed "is not counted in it" on a server that has the part. Every sentence the
+  card writes is in `lib/performance/overall-mark-wording.ts` (`ManagerAppraisalPart`), so the header, the line under
+  the switch and the toast cannot disagree.
+
+## Found, and not changed
+
+- `settings/performance/page.tsx`'s metadata description still says "The weights must make 100% exactly", and
+  `lib/page-index.generated.ts` carries a copy of it. That is false since weights became proportional. It is left
+  alone on this branch on purpose: the Stage 3 branch edits the first sentence of the same string, and a second edit
+  to it here would conflict; that branch corrects this sentence as well. The Settings search blurb (`settings/filter.ts`)
+  is fixed and tested here.
+- The walkthrough said the same at steps 3 and 4 and in demo step 1. They were corrected in passing, and steps 3, 4,
+  17 and 30 again in the second commit.
+- `evidenceCount` for the part is read as "overall marks counted". If the API counts something else, `evidenceLine`
+  (`Based on 2 overall marks`) is the one place to change.
+- `docs/components/landing-frontend.md` and `docs/components/backend-api.md` read as stale under `npm run docs --
+  --check`. They are read from `origin/main` and `origin/staging` of the sibling repositories, which have moved
+  (the committed snapshots are 24 September for the landing site and 30 October for the backend), and nothing here touches either. Left alone.
+
+## Verified
+
+**Tests.** First pass: 92 new cases in eight files. Review fixes: 39 cases added or rewritten in seven files
+(`manager-appraisal-wording` +7, `overall-mark-card` +10, `weights-form-manager-appraisal` +4,
+`manager-appraisal-form` +8, `manager-appraisal-copy` +2, `settings-filter` +2, and a new
+`manager-appraisal-stale-claims` with 6, which reads `src` for phrases that are false at every weight and the
+walkthrough for the Save rule). The ten files that bear on this (`manager-appraisal-copy`, `-form`, `-stale-claims`
+and `-wording`, `overall-mark-card`, `period-weights-manager-appraisal`, `period-weights-screens`,
+`score-panel-manager-appraisal`, `settings-filter`, `weights-form-manager-appraisal`) run **169 tests and all pass**, on
+the tip. Every case where the server sends none of the new fields reads as it did before.
+
+**Breaks.** First pass: forty-seven, each one exact replacement in one source file, the file restored with
+`git checkout --` and the tree checked clean after each. Forty-six were caught on the first run. One was not (the
+record page not being told whether the form asks for a mark); a case was added and it is caught now. Review fixes:
+**twenty-nine, all caught on the first run**, one for each way of undoing a fix: the card's header, line under the
+switch and toast each dropping the exception; the card not being told what the weights say, in each of its three
+places and from the weights form; the three states each read as another (weights not in as no row, no row as not
+known, and "not known" speaking as a server without the part in the header, the line and the toast); the mark page
+giving the part's share as the appraiser's, not being told who the appraiser is, wording its own sentence, and asking
+the strip for somebody else's line; the form ignoring the record's mark, the record beating the browser's, a form
+that does not ask opening on a mark, a first-time form opening on a mark nobody gave, the form not told what the
+record holds, a held mark that can be left blank, the page not told it is held; the two "for the whole mark" strings
+put back; the search blurb, the report comment and both walkthrough sentences put back.
+
+**Gates**, each exit code read from `$?`, on the tree before this entry was added: `npm run check` exit 0, run with
+`APPROVEHR_BACKEND_DIR` at the backend branch's tip (`0a289c9`), so the cross-repo gates printed `comparing with` that
+checkout (the rating scale in `scoring.ts` and the signature wording in `signatures/service.ts`) and did not skip.
+ESLint 0 errors and 16 warnings, all of them on `dev` already (the two in files this branch touches, `'Callout'` in
+`history-screen.tsx` and `'ApiError'` in `store/features.ts`, are unused imports that `dev` has at the same lines).
+`npm run verify-demo:build` exit 0 (a production build with `NEXT_PUBLIC_DEMO=off`, then the check against it): Demo source check: 1294 files, no ungated demo copy. Demo bundle check: 3184 built files, none carries demo copy. Fabrication check: 10 seed personas and 3 credential shape(s), none loose in src/ or the build.
+
+**In a browser, against the backend branch.** A scratch API on a real Postgres (the backend branch at `0a289c9`) and a
+production build of this branch's tip, signed in for real as the administrator, a line manager and an employee: **21
+steps, 298 checks, 0 failures**, the walk re-run on a fresh database after two mistakes in the walk's own expectations
+were corrected (a sentence for the owner, who has nobody above them, and the pattern for a 404 that is not this work's).
+It covered: the seven rows and their defaults; a weight saved and read back with the API's note; a period's own weights
+(save, reset to the company's, start it weighted); an employee's self-review with no mark page while the switch is
+off; a manager's form that asks for the mark with the switch off, and a Send that the real API refuses without one;
+the part reading "Nothing recorded, not counted" before anyone has sent and 75% after, with the composite worked by
+hand and one figure for the part and the appraisers' overall rating (on the score panel, the report, the Marks tab and
+the history page); the same period weighted at 0% (no mark page, a send without one accepted); two appraisers at 50/50
+(the strip; 100% after one sends a 5; 75% after the other sends a 3); the overall-mark switch turned on and off and the
+forms following it; a period frozen before the part existed (no row, no mark moved); HR sending a manager's form back
+(the mark it holds is what the form opens on); and, at 375px with touch, no sideways scroll, 16px fields and nothing
+under 14px in the new rows. No console error, page error or server error, apart from one refusal the walk causes on
+purpose and one 404 on `GET /performance/cycles/:id/review-flags/:employeeId` for a person with no flag row, which is
+`staging`'s behaviour and not from this work. The driver, the logs and 49 screenshots are in
+`out/manager-appraisal-walk-2026-11-12/` (not committed).
+
+## Not exercised
+
+The QA site; iOS Safari or any real device, or any browser but Chromium; demo mode in a browser (nothing here changes
+it); a published period in a browser; a company with real data; several appraisers sending at once; a server that
+predates the part, in a browser (tests cover the absent fields); and the whole vitest suite in one run (CI does not run
+vitest; `vitest related` over the 22 source files this branch changes, at a machine load of about 33, passed 3,280
+tests and failed 7 in four files that each pass alone).
+
+## Order, and what was left
+
+The backend goes first. **Whichever of this and the Stage 3 pull request merges second needs `dev` merged into its
+branch**: both append a HANDOVER entry, both change `weights-form.tsx` and the components inventory, and the two add
+one optional field each to `ApiReviewDetail` in `lib/api/performance.ts` (`overallMarkRequired` here, `workPins` there;
+keep both). Not built, on purpose: any change to how the part is scored (the scale is unchanged, so "Meets
+Expectations" is 50% of this part, as it is of every competency level), a way to see which appraisers have sent a mark
+on the period page, and the department head standing in as an appraiser, which is a different change.
+
+---
+
+# Writing your own scoring parts met the seventh part and the Records tab
+
+Joseph Chinedu's #642 replaces the six fixed weight rows on **Settings, Appraisal scoring** with a list of parts the
+company writes: a name, what it is **scored from** (one part per source), a weight and a description, each counting in
+proportion to the total. It was written before `dev` took three other changes to the same screen, so it conflicted
+in three files (`settings/performance/page.tsx`, `weights-form.tsx`, `lib/page-index.generated.ts`) and its `check` was
+red. Two changes that merge clean as text can still disagree, so what follows is what the merge decided, not only how
+the text was joined. The backend half is `GET/POST/PATCH/DELETE /performance/scoring-parts` (#290, already on `staging`).
+
+## What the merge decided
+
+- **The parts form is the page.** The PR's form is the base, and `dev`'s additions are laid back on it: the **Records**
+  tab (Stage 2's work-kept-with-a-rating card, `WorkRecordCard`, `SCORING_TABS` still `weights`, `marks`, `records`), the
+  **Names of marks** tab, and the overall-mark card.
+- **The overall-mark card is told about Manager appraisal from the parts, not from a fixed row.** `managerAppraisal` is
+  `unknown` until the parts have been read, `has` (with the part's own name) when `MANAGER_APPRAISAL` is among the
+  API's `sources`, and `none` when it is not. The card does not claim the seventh part exists before the API says so.
+- **The API's own Manager-appraisal sentence sits beside that part.** It comes from `GET /scoring-weights`
+  (`managerAppraisalNote`), which `GET /scoring-parts` does not send, so `PartsPanel` reads both and calls the weights
+  `reload` after every add, change and delete. Without that the sentence would keep describing the weight from before the
+  save. It is shown through `SavedWeightsNote` and nothing on this side words it.
+- **The parts list is a `LoadState`.** The PR's `check` failed `verify-load-rule` because the panel drew its own
+  failure and its own empty state. It is now one `<LoadState>` (with `hasData`), the two permission and API callouts stay
+  outside it, and the gate passes. Do not add to `scripts/load-rule-baseline.json`.
+- **Old tests.** `tests/weights-form-manager-appraisal.test.tsx` is rewritten for the parts form (22 tests, covering
+  loaded, loading, failed, reloading and failed-while-holding-an-old-answer reads). The one test in
+  `tests/period-weights-screens.test.tsx` that drove the old seven-row form is removed, which left a call to a component
+  it no longer imported.
+- **Docs.** Step 3 of `docs/walkthroughs/performance.md` is rewritten for the parts form, the generated page index was
+  re-derived with `npm run page-index`, and both inventories with `npm run docs`.
+
+## Verified
+
+`tsc --noEmit` exit 0. `npm run check` exit 0 with `APPROVEHR_BACKEND_DIR` pointing at a checkout of the backend's
+`staging`, so the cross-repo gates compared instead of printing `skip`. The tests that bear on the screen pass, and ten
+deliberate breaks (one exact replacement in one file, the test confirmed to fail, the file restored) were each caught.
+
+**In a browser**, against a scratch API built from `origin/staging` on a real Postgres and a `next dev` of the merged
+tree, signed in as the seeded administrator:
+
+- the parts list (four parts, total 100%), the two other tabs, no console error and no 4xx or 5xx;
+- **add** a Manager appraisal part at 20% (`POST` 201, then the weights and the parts read again): the API's sentence
+  appeared beside it ("weighted at 16.67%"), **edit** it to 10% (`PATCH` 200) and the sentence followed (9.09%),
+  **delete** it (`DELETE` 200) and the row went;
+- the parts read forced to a 500: "The scoring parts did not load", **Try again**, no list and no "nothing here" claim,
+  and the parts back after the retry;
+- 375px with a touch pointer: no sideways scroll on any of the three tabs or with the add dialog open, and its fields at
+  16px once it has finished opening (a read taken during the opening animation said 15px).
+
+Adding a 20% part to a set that already totals 100% shows **Total 120%**. That is the PR's design (each part counts in
+proportion to the total, there is no 100% rule any more) and is stated on the page, not a defect of the merge.
+
+**Not exercised:** the QA site, Safari or a real device, demo mode in a browser, the whole vitest suite in one run, a
+company that had its own saved weights before the parts existed (the scratch company was converted from the seeded
+defaults on first open and was not compared against anything else), and the Records tab with real rows.
+
+## Found, and not changed
+
+- `useScoringWeights().save` and `performanceApi.setScoringWeights` have no caller in any screen after this merge (the
+  settings page reads the weights and writes parts). `scale-form.tsx` mentions the function only in a comment. Removing
+  them is a separate cleanup; the period weights editor still reads `/scoring-weights`, so the read must stay.

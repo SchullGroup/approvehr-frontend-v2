@@ -216,16 +216,25 @@ describe("the workflow editor", () => {
 describe("details", () => {
   it("refuses to change the board type while a sprint is active, in words", async () => {
     const { actions } = renderSettings();
-    await userEvent.selectOptions(
-      screen.getByLabelText("Board type"),
-      "KANBAN",
-    );
+    await userEvent.click(screen.getByRole("radio", { name: "Simple board" }));
     expect(
       screen.getByText(
         "Complete the active cycle before changing the board type.",
       ),
     ).toBeInTheDocument();
     expect(actions.updateProject).not.toHaveBeenCalled();
+  });
+
+  it("names both board types, each with one line about what it means", () => {
+    renderSettings();
+    const group = screen.getByRole("group", { name: "Board type" });
+    expect(
+      within(group).getByRole("radio", { name: "Board with cycles" }),
+    ).toBeChecked();
+    expect(group).toHaveTextContent("Tasks go straight onto the board.");
+    expect(group).toHaveTextContent(
+      "Plan work in cycles. Tasks not in a cycle wait in Later.",
+    );
   });
 
   it("changes the colour", async () => {
@@ -328,5 +337,39 @@ describe("deleting the project", () => {
       screen.getByRole("button", { name: "Delete project" }),
     );
     expect(screen.getByLabelText(/Type CHK to confirm/)).toHaveValue("");
+  });
+});
+
+describe("archiving the project", () => {
+  it("is offered to the lead only", () => {
+    renderSettings({ canManage: false });
+    expect(
+      screen.queryByRole("button", { name: "Archive project" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("asks once, then archives", async () => {
+    const { actions } = renderSettings();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Archive project" }),
+    );
+    expect(actions.archiveProject).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Archive project" }),
+    );
+    expect(actions.archiveProject).toHaveBeenCalledWith(true);
+  });
+
+  it("restores an archived one without asking", async () => {
+    const data = sampleData();
+    const { actions } = renderSettings(
+      {},
+      { ...data, project: { ...data.project, archived: true } },
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Restore project" }),
+    );
+    expect(actions.archiveProject).toHaveBeenCalledWith(false);
   });
 });

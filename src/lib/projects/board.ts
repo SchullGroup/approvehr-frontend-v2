@@ -69,9 +69,10 @@ export type BoardScope = {
 /**
  * The issues on the board, before the filter.
  *
- * Scrum: everything in the active sprint (sub-tasks included, they have their own
- * cards), never epics. Kanban: every non-epic issue except finished ones older
- * than fourteen days. `doneDayOf` turns an instant into the company's day.
+ * Scrum: everything in the active sprint. Kanban: every issue except finished
+ * ones older than fourteen days. Neither shows epics or sub-tasks: a sub-task
+ * lives inside its parent (the parent's card counts them, the drawer lists them),
+ * not on a card of its own. `doneDayOf` turns an instant into the company's day.
  */
 export function boardScope(args: {
   project: Pick<Project, "type" | "statuses">;
@@ -85,7 +86,7 @@ export function boardScope(args: {
     return {
       sprint: null,
       issues: issues.filter((issue) => {
-        if (issue.type === "EPIC") return false;
+        if (!onBoard(issue)) return false;
         if (!isDone(project.statuses, issue)) return true;
         const day = issue.doneAt ? doneDayOf(issue.doneAt) : null;
         return !isStaleDone(issue, day, today);
@@ -97,14 +98,20 @@ export function boardScope(args: {
   return {
     sprint,
     issues: issues.filter(
-      (issue) => issue.sprintId === sprint.id && issue.type !== "EPIC",
+      (issue) => issue.sprintId === sprint.id && onBoard(issue),
     ),
   };
 }
 
+/** Epics and sub-tasks never get a card of their own. */
+const onBoard = (issue: Issue): boolean =>
+  issue.type !== "EPIC" && issue.type !== "SUBTASK";
+
 /**
  * How many finished tasks a Kanban board is hiding because they finished more
  * than `DONE_VISIBLE_DAYS` ago. Zero for a Scrum board, which shows its sprint.
+ * It counts what would otherwise have a card (`onBoard`): a finished sub-task
+ * never had one, so it is not "hidden".
  */
 export function hiddenDoneCount(args: {
   project: Pick<Project, "type" | "statuses">;
@@ -116,10 +123,33 @@ export function hiddenDoneCount(args: {
   if (project.type !== "KANBAN") return 0;
   return issues.filter(
     (issue) =>
-      issue.type !== "EPIC" &&
+      onBoard(issue) &&
       isDone(project.statuses, issue) &&
       isStaleDone(issue, issue.doneAt ? doneDayOf(issue.doneAt) : null, today),
   ).length;
+}
+
+/** How many of an issue's sub-tasks are finished, for the count on its card. */
+export type SubtaskTally = { done: number; total: number };
+
+/**
+ * Sub-task counts by parent id, over every issue in the project (not just what
+ * the board shows, so a filter never changes a parent's count). Parents without
+ * sub-tasks are absent.
+ */
+export function subtaskTallies(
+  statuses: readonly ProjectStatus[],
+  issues: readonly Issue[],
+): Map<string, SubtaskTally> {
+  const out = new Map<string, SubtaskTally>();
+  for (const issue of issues) {
+    if (issue.type !== "SUBTASK" || !issue.parentId) continue;
+    const tally = out.get(issue.parentId) ?? { done: 0, total: 0 };
+    tally.total += 1;
+    if (isDone(statuses, issue)) tally.done += 1;
+    out.set(issue.parentId, tally);
+  }
+  return out;
 }
 
 /** Issues in one column, in rank order. Unknown statuses fall into the first column. */

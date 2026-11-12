@@ -135,7 +135,7 @@ export const TAB_LABEL = {
   backlog: "Plan",
   roadmap: "Timeline",
   reports: "Progress",
-  issues: "Tasks",
+  issues: "List",
   settings: "Settings",
 } as const;
 
@@ -212,10 +212,43 @@ export const STAGE_FILTER_LABEL: Record<StatusCategory, string> = {
   DONE: "Done",
 };
 
+/**
+ * What the two board types are called. The stored values (`KANBAN`, `SCRUM`)
+ * stay; the words are what a person who has never used a tracker would say.
+ */
 export const PROJECT_TYPE_LABEL: Record<ProjectType, string> = {
-  SCRUM: "Scrum",
-  KANBAN: "Kanban",
+  KANBAN: "Simple board",
+  SCRUM: "Board with cycles",
 };
+
+/** One line under each board type, wherever the type is chosen. */
+export const PROJECT_TYPE_HELP: Record<ProjectType, string> = {
+  KANBAN: `${TASK.Many} go straight onto the board.`,
+  SCRUM: `Plan work in ${CYCLE.many}. ${TASK.Many} not in a ${CYCLE.one} wait in ${LATER}.`,
+};
+
+/** The tooltip beside "Board with cycles" in a project's header. */
+export const BOARD_WITH_CYCLES_TIP = `New ${TASK.many} wait in ${LATER} until you add them to a ${CYCLE.one}`;
+
+/**
+ * Shown in the header of a project that was switched to a simple board for its
+ * people (it was on cycles and had never had one), for 30 days or until dismissed.
+ */
+export const BOARD_SWITCHED_NOTE =
+  "This project now uses a simple board. You can switch back in Settings.";
+
+/* -------------------------------------------- where a new task went -- */
+
+/**
+ * The detail under "KEY created" when the new task is not among the ones the
+ * view on screen is showing. Out of the board's scope wins over a filter.
+ */
+export const CREATED_NOTE = {
+  later: `Added to ${LATER} on the Plan tab`,
+  inCycle: (cycle: string) => `Added to ${cycle} on the Plan tab`,
+  filtered: "Hidden by your filters",
+  cycleEnded: `The ${CYCLE.one} ended, so it went to ${LATER}`,
+} as const;
 
 /* ------------------------------------------------------------- actions -- */
 
@@ -269,13 +302,20 @@ export const PROJECT_DESCRIPTION = `A project's board, ${TASK.many}, ${CYCLE.man
 /** The line under Projects in Settings, Features. */
 export const PROJECTS_FEATURE_LINE = `Plan work as projects with ${TASK.many}, ${CYCLE.many} and a board, and let people track it together.`;
 
-/* ------------------------------------------------------- swimlanes -- */
+/* ------------------------------------------------------- group by -- */
 
-/** How the board can be cut into rows. The keys are the stored mode names. */
+/** The control that cuts the board into rows. Not a filter. */
+export const GROUP_BY = "Group by";
+
+/**
+ * How the board can be cut into rows. The keys are the stored mode names (the
+ * `?lanes=` values), which do not change. Each choice reads on its own, so the
+ * select says what it does without a label beside it.
+ */
 export const SWIMLANE_LABEL: Record<"none" | "assignee" | "epic", string> = {
-  none: "No swimlanes",
-  assignee: "Lanes by assignee",
-  epic: `Lanes by ${INITIATIVE.one}`,
+  none: "No grouping",
+  assignee: `${GROUP_BY} person`,
+  epic: `${GROUP_BY} ${INITIATIVE.one}`,
 };
 
 /* ------------------------------------------- programs, and the Master view -- */

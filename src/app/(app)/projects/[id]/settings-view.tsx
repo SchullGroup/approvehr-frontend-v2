@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Archive, ArchiveRestore } from "lucide-react";
 import {
   Badge,
   Button,
@@ -18,19 +19,14 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { DraftInput, DraftTextarea } from "@/components/projects/draft-fields";
+import { BoardTypeChoice } from "@/components/projects/board-type-choice";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { ProjectObjectiveField } from "@/components/projects/objective-link";
 import { PersonAvatar, PersonPicker } from "@/components/projects/person";
 import { useProject } from "@/components/projects/project-context";
 import { MANAGE_REASON } from "@/lib/projects/access";
 import { removalHolders, removalRefusal } from "@/lib/projects/members";
-import {
-  PROJECT_COLORS,
-  PROJECT_COLOR_NAMES,
-  PROJECT_TYPES,
-  PROJECT_TYPE_LABEL,
-  type ProjectType,
-} from "@/lib/projects/types";
+import { PROJECT_COLORS, PROJECT_COLOR_NAMES } from "@/lib/projects/types";
 import {
   CYCLE,
   LIMIT,
@@ -72,6 +68,7 @@ export function SettingsView() {
         </CardBody>
       </Card>
       <MembersCard editable={canManage} />
+      {canManage && <ArchiveCard />}
       {canManage && <DangerCard />}
     </div>
   );
@@ -243,57 +240,46 @@ function DetailsCard({ editable }: { editable: boolean }) {
         <ProgramField editable={editable} />
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Board type"
-            {...(typeNotice ? { error: typeNotice } : {})}
-            help={
-              typeNotice
-                ? undefined
-                : project.type === "SCRUM"
-                  ? `Work is planned into ${CYCLE.many} and the board shows the active one.`
-                  : `Work flows through the columns with no ${CYCLE.many}.`
-            }
-          >
-            <Select
-              value={project.type}
-              disabled={!editable}
-              onChange={(event) => {
-                const next = event.target.value as ProjectType;
-                const blocker = boardTypeChangeBlocker(
-                  project,
-                  next,
-                  issues,
-                  sprints,
-                );
-                if (blocker) {
-                  setTypeNotice(blocker);
-                  return;
-                }
-                setTypeNotice(null);
-                void patch({ type: next });
-              }}
-            >
-              {PROJECT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {PROJECT_TYPE_LABEL[type]}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <BoardTypeChoice
+            value={project.type}
+            disabled={!editable}
+            error={typeNotice}
+            onChange={(next) => {
+              if (next === project.type) return;
+              const blocker = boardTypeChangeBlocker(
+                project,
+                next,
+                issues,
+                sprints,
+              );
+              if (blocker) {
+                setTypeNotice(blocker);
+                return;
+              }
+              setTypeNotice(null);
+              void patch({ type: next });
+            }}
+          />
 
           <Field
             label="Department"
-            optional
+            required
             help="For finding the project. It does not change who is on it."
           >
             <Select
               value={project.departmentId ?? ""}
               disabled={!editable}
-              onChange={(event) =>
-                void patch({ departmentId: event.target.value || null })
-              }
+              onChange={(event) => {
+                /* A department can be changed, never cleared. */
+                if (event.target.value)
+                  void patch({ departmentId: event.target.value });
+              }}
             >
-              <option value="">None</option>
+              {!project.departmentId && (
+                <option value="" disabled>
+                  Choose a department
+                </option>
+              )}
               {live.map((department) => (
                 <option key={department.id} value={department.id}>
                   {department.name}
@@ -471,13 +457,109 @@ function MembersCard({ editable }: { editable: boolean }) {
   );
 }
 
+/* ----------------------------------------------------------------- archive -- */
+
+/**
+ * Archive or restore. Archiving is "stop showing this", never "take it away": the
+ * project and its tasks leave the lists for the Archive, and it takes no new tasks.
+ * Restoring is undoing that, so it asks nothing; archiving asks once.
+ */
+function ArchiveCard() {
+  const { project, actions } = useProject();
+  const toast = useToast();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const archived = project.archived === true;
+
+  async function toggle() {
+    setBusy(true);
+    const result = await actions.archiveProject(!archived);
+    setBusy(false);
+    setAsking(false);
+    if (result.ok) {
+      toast.push({
+        tone: "success",
+        title: archived
+          ? `${project.name} restored`
+          : `${project.name} archived`,
+      });
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={archived ? "Restore" : "Archive"}
+        description={
+          archived
+            ? `Restoring brings ${project.name} and its ${TASK.many} back into the lists and lets it take new ${TASK.many}.`
+            : `An archived project leaves the lists, and its ${TASK.many} move to the Archive. It keeps everything and takes no new ${TASK.many}. You can restore it.`
+        }
+      />
+      <CardBody>
+        <Button
+          variant={archived ? "secondary" : "danger"}
+          onClick={() => (archived ? void toggle() : setAsking(true))}
+          loading={busy && archived}
+        >
+          {archived ? (
+            <ArchiveRestore aria-hidden="true" className="size-4" />
+          ) : (
+            <Archive aria-hidden="true" className="size-4" />
+          )}
+          {archived ? "Restore project" : "Archive project"}
+        </Button>
+      </CardBody>
+      <ConfirmDialog
+        open={asking}
+        onClose={() => setAsking(false)}
+        onConfirm={() => void toggle()}
+        title={`Archive ${project.name}?`}
+        body={`It will leave the lists, and its ${TASK.many} will be under the Archive. Nothing is deleted, and you can restore it from here.`}
+        confirmLabel="Archive project"
+        loading={busy}
+      />
+    </Card>
+  );
+}
+
 /* ------------------------------------------------------------------ danger -- */
 
 function DangerCard() {
-  const { project, issues, sprints, actions } = useProject();
+  const { project, issues, sprints } = useProject();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Card className="border-danger-line">
+      <CardHeader
+        title="Delete this project"
+        description={`Removes ${project.name} with all ${countNoun(issues.length, "task")} and ${countNoun(sprints.length, "cycle")}. This cannot be undone.`}
+      />
+      <CardBody>
+        <Button variant="danger" onClick={() => setOpen(true)}>
+          Delete project
+        </Button>
+      </CardBody>
+      <DeleteProjectDialog open={open} onClose={() => setOpen(false)} />
+    </Card>
+  );
+}
+
+/**
+ * The typed-key confirmation for deleting a project. Shared by the Settings card
+ * and the project header's menu, so both ask the same question the same way.
+ * Reads the project from `useProject`, so it must sit inside `ProjectProvider`.
+ */
+export function DeleteProjectDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { project, actions } = useProject();
   const router = useRouter();
   const toast = useToast();
-  const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
@@ -498,62 +580,51 @@ function DangerCard() {
     setBusy(false);
     if (!result.ok) return;
     toast.push({ tone: "success", title: `${name} deleted` });
-    setOpen(false);
+    onClose();
     router.push("/projects");
   }
 
   return (
-    <Card className="border-danger-line">
-      <CardHeader
-        title="Delete this project"
-        description={`Removes ${project.name} with all ${countNoun(issues.length, "task")} and ${countNoun(sprints.length, "cycle")}. This cannot be undone.`}
-      />
-      <CardBody>
-        <Button variant="danger" onClick={() => setOpen(true)}>
-          Delete project
-        </Button>
-      </CardBody>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title={`Delete ${project.name}`}
-        size="sm"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              loading={busy}
-              disabled={!matches}
-              onClick={() => void remove()}
-            >
-              Delete forever
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <p className="text-body-sm leading-relaxed text-body">
-            Every {TASK.one}, comment and {CYCLE.one} in {project.name} goes
-            with it.
-          </p>
-          <Field label={`Type ${project.key} to confirm`}>
-            <Input
-              value={typed}
-              autoComplete="off"
-              onChange={(event) => setTyped(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void remove();
-                }
-              }}
-            />
-          </Field>
-        </div>
-      </Modal>
-    </Card>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Delete ${project.name}`}
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            loading={busy}
+            disabled={!matches}
+            onClick={() => void remove()}
+          >
+            Delete forever
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-body-sm leading-relaxed text-body">
+          Every {TASK.one}, comment and {CYCLE.one} in {project.name} goes with
+          it.
+        </p>
+        <Field label={`Type ${project.key} to confirm`}>
+          <Input
+            value={typed}
+            autoComplete="off"
+            onChange={(event) => setTyped(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void remove();
+              }
+            }}
+          />
+        </Field>
+      </div>
+    </Modal>
   );
 }

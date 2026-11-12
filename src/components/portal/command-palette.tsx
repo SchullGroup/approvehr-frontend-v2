@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ShieldCheck, User } from "lucide-react";
+import { FileText, Search, ShieldCheck, User } from "lucide-react";
+import { NAV, type NavGroup } from "./nav";
+import { searchPages } from "./page-search";
 import { cn } from "@/lib/cn";
 import { fullName } from "@/lib/types";
 import { Input, Modal, Spinner } from "@/components/ui";
@@ -50,8 +52,16 @@ type Result = {
  */
 export function CommandPalette({
   onClose,
+  nav,
   initialQuery = "",
 }: {
+  /**
+   * The sidebar this person has, already narrowed by their permissions, the
+   * company's modules and plan. Pages are searched only inside it, so a page
+   * their own sidebar hides can never be offered here: there is no second list
+   * of who may see what.
+   */
+  nav: readonly NavGroup[];
   onClose: () => void;
   /**
    * What the box opens holding. The sidebar's Find hands over what somebody
@@ -69,6 +79,18 @@ export function CommandPalette({
     debounced ? { q: debounced, pageSize: 6 } : { pageSize: 1 },
   );
   const roles = useRoles();
+
+  const pageResults: Result[] = useMemo(
+    () =>
+      searchPages(nav, NAV, debounced).map((hit) => ({
+        key: hit.key,
+        href: hit.href,
+        icon: <FileText aria-hidden="true" className="size-4" />,
+        label: hit.label,
+        sublabel: hit.sublabel,
+      })),
+    [nav, debounced],
+  );
 
   const peopleResults: Result[] = !debounced
     ? []
@@ -97,8 +119,11 @@ export function CommandPalette({
           sublabel: role.description || "No description yet",
         }));
 
-  const results = [...peopleResults, ...roleResults];
-  const loading = Boolean(debounced) && (directory.loading || roles.loading);
+  const results = [...pageResults, ...peopleResults, ...roleResults];
+  const loading =
+    Boolean(debounced) &&
+    pageResults.length === 0 &&
+    (directory.loading || roles.loading);
 
   /* A fresh query starts back at the top result rather than wherever the
      previous query's list happened to leave the highlight. Adjusted here,
@@ -147,8 +172,8 @@ export function CommandPalette({
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
           icon={<Search aria-hidden="true" />}
-          placeholder="Search people, roles…"
-          aria-label="Search people and roles"
+          placeholder="Search pages, people, roles…"
+          aria-label="Search pages, people and roles"
           role="combobox"
           aria-expanded={results.length > 0}
           aria-controls="command-palette-results"
@@ -157,7 +182,7 @@ export function CommandPalette({
 
         {!debounced ? (
           <p className="py-6 text-center text-body-sm text-muted">
-            Start typing a name, job title or role.
+            Start typing a page, a name, a job title or a role.
           </p>
         ) : loading ? (
           <div className="flex items-center justify-center gap-2 py-6 text-body-sm text-muted">
@@ -166,7 +191,7 @@ export function CommandPalette({
           </div>
         ) : results.length === 0 ? (
           <p className="py-6 text-center text-body-sm text-muted">
-            Nobody and no role matches &ldquo;{debounced}&rdquo;.
+            No page, person or role matches &ldquo;{debounced}&rdquo;.
           </p>
         ) : (
           <div
@@ -174,11 +199,20 @@ export function CommandPalette({
             role="listbox"
             className="flex flex-col gap-4"
           >
+            {pageResults.length > 0 && (
+              <ResultGroup
+                title="Pages"
+                results={pageResults}
+                offset={0}
+                activeIndex={activeIndex}
+                onPick={go}
+              />
+            )}
             {peopleResults.length > 0 && (
               <ResultGroup
                 title="People"
                 results={peopleResults}
-                offset={0}
+                offset={pageResults.length}
                 activeIndex={activeIndex}
                 onPick={go}
               />
@@ -187,7 +221,7 @@ export function CommandPalette({
               <ResultGroup
                 title="Roles"
                 results={roleResults}
-                offset={peopleResults.length}
+                offset={pageResults.length + peopleResults.length}
                 activeIndex={activeIndex}
                 onPick={go}
               />

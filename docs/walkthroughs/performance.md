@@ -106,7 +106,7 @@ opens is empty, and says so in a sentence.
 | **Competency ratings**  | `/performance/skills`       | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                        | Everyone                                                                                                   |
 | **Appraisal periods**   | `/performance/periods`      | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                  | HR / Owner                                                                                                 |
 | **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it, send it back, or refuse it.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
-| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and for what share of the mark.           | HR / Owner                                                                                                 |
+| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and how much each one's overall mark weighs. | HR / Owner                                                                                                 |
 
 A further item, **My work record** (`/performance/work-record`), sits beside these for a company that has
 Projects switched on, and for nobody else. It is open to everyone and shows only their own (step 33).
@@ -253,40 +253,100 @@ The first card on that same tab decides whether a form asks for one of those wor
 | **Click**      | **Ask for an overall mark at the end of an appraisal**                                                    |
 | **You'll see** | A toast saying it applies to the next form anybody opens, and that marks already given are not touched    |
 
-> 💡 **What it does and does not do.** A manager's overall mark is shown beside the score and is **not**
-> counted in it. Self-assessment (step 3) reads from the overall mark somebody gave themselves when
-> there is one, and from how they answered when there is not, so this switch does not decide whether
-> that part has anything to count. Switching this off never hides or changes a mark already given, and
-> a form that is already open keeps the pages it opened with.
+> 💡 **What it does and does not do.** The switch decides what a form offers, and the page is optional.
+> It does not decide whether a manager's overall mark counts towards the score: that happens only in a
+> period that weights **Manager appraisal** (step 3), and then a manager's form asks for the mark whatever
+> this switch says, and needs it. The card says so in its header, under the switch and in the toast after
+> you press it, in the company's own name for the part. Until the weights have loaded, or if they cannot be
+> read, it says nothing about whether a form asks for a mark or whether the mark counts, because it does not
+> know. Self-assessment (step 3) reads from the overall mark somebody gave themselves when there is one,
+> and from how they answered when there is not, so this switch does not decide whether that part has
+> anything to count. Switching this off never hides or changes a mark already given, and a form that is
+> already open keeps the pages it opened with.
 
 #### 3. Set what the mark is made of
 
-Six parts — objectives, weekly tasks, core competencies, behavioural competencies, leadership, and what
-somebody said about themselves. You choose the percentage each one carries. That last one is the overall
-mark somebody gave themselves when there is one (step 2), and otherwise **how they answered, about
-themselves, the rated subsections their manager answers too**: the mean of those answers on a
-self-review they have sent. An answer to a subsection asked of the person alone is not counted again here,
-because it is already their rating. **Weekly tasks** start at 0%, so a company that has never weighted them
-sees no change.
+A mark is made of **parts**, and the company writes its own list of them. A part has a **name** of the
+company's choosing, a **description** (optional), a **weight**, and the thing its mark is **scored
+from**: delivery against objectives, weekly tasks, core competencies, behavioural competencies,
+leadership, **manager appraisal**, or what somebody said about themselves. Each source backs one part at
+most, so a source another part already uses is not offered. Weights are proportional: each part counts as
+its weight over the total, and the share it comes to is shown on its row, so the total does not have to be
+100%. A company that signs up starts with no parts, and **an appraisal period cannot start until at least
+one part has a weight**.
+
+Saved parts are plain rows, not open boxes: the name, **Scored from** and the source's own name, the
+weight with the share of a mark it comes to (**Counts for nothing** at 0%), and the description. Nothing is
+a text box until you choose to add or edit.
+
+The self-assessment source is the overall mark somebody gave themselves when there is one (step 2), and
+otherwise **how they answered, about themselves, the rated subsections their manager answers too**: the
+mean of those answers on a self-review they have sent. An answer to a subsection asked of the person alone
+is not counted again here, because it is already their rating. Self-assessment counts only when a part is
+scored from it; the card under the list says what it does to a mark and says **Not counted** until then.
 
 |                |                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **The parts of a mark**                                                    |
-| **Who**        | HR / Owner                                                                                           |
-| **Click**      | Type a whole percentage into each **Weight** box until the running total reads 100%, then save       |
-| **You'll see** | Save stays dead until the total is exactly 100%, with a line telling you how much to add or take off |
+| **Where**      | `/settings/performance` → **Parts of a mark**                                                        |
+| **Who**        | HR / Owner (everybody else can read the parts)                                                       |
+| **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from**, a **Weight** in percent, and an optional **Description**, then **Add part** again. The pencil on a row edits it in the same form, and the bin deletes it after asking |
+| **You'll see** | A toast saying the part was added, saved or deleted and, for an add or a change, that **It applies to the next appraisal period you start.** **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. The **Total** badge turns red at 0%, because a set that is all zeros cannot make a mark |
+
+> 💡 **A change here does not move a period that has started.** When a period starts, its parts and
+> weights are copied onto it, so changing or deleting a part afterwards cannot move a mark that has already
+> been awarded. Deleting asks first (**Delete the part**) and says it stops counting from the next period
+> you start. These are the company's starting parts; a single period can change its own weights (step 4).
 
 > 💡 **What Weekly tasks counts.** When it carries a weight, the part is how the manager graded the tasks
 > people logged against the period's objectives (step 18): **Completed** counts in full, **Partly
 > completed** counts half, and **Not completed** and **Rejected** count nothing. Somebody with no graded
 > tasks is not marked down: their share is spread over the other parts. A mark with Weekly tasks weighted
-> at 0% does not list it at all. These are the company's starting weights; a single period can change them
-> (step 4).
+> at 0% does not list it at all. A single period can change the weights it starts with (step 4).
+
+> 💡 **What Manager appraisal counts.** When it carries a weight, the part is the overall mark each
+> appraiser gave, weighted by their share when a person has more than one appraiser (the **Who appraises whom** screen), and a
+> person's appraisers who have sent one are the only ones counted. It is the way for a company that does not
+> record competency levels to count its managers' judgement: without it those marks are built from objectives
+> alone. A mark with it weighted at 0% does not
+> list it at all. In a period that weights it, a manager's form asks for an overall mark whatever the switch in
+> step 2 says, and cannot be sent without one (step 17). Somebody whose appraisers have sent none is not marked
+> down: the part's share is spread over the other parts. The sentence under the part scored from it is the
+> API's own and says what the weight does to a mark, including that a manager's judgement then reaches the
+> score by two routes: the levels they record under Competency ratings, and this overall mark. It says so as
+> a note, never as a refusal. A company with no part scored from Manager appraisal has no such sentence, and
+> a manager's form then does not need an overall mark.
 
 > 💡 **Worth showing a stakeholder.** The self-assessment card underneath does the arithmetic out loud:
 > at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final mark
 > by 10%. That figure moves as you drag the weight, before you save, and it reads the same whether or
 > not forms ask for an overall mark. The API's own sentence above it says what the part is read from.
+
+The third tab on that page, **Records**, is not about scoring and moves no mark. It says how long **the
+finished work behind a final rating** is kept. The review shows what a person finished in the cycle
+beside the rating, and that list is read as it stands, so a task reopened or deleted later changes what
+an old review shows. For a company that sets a period here, the list as it stood on the day a rating was
+made final is kept with it, and removed when the period ends.
+
+|                |                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Work kept with a final rating**                                |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                       |
+| **Click**      | Type a whole number of **Months**, 1 to 120, then **Set this period**, then **Start keeping it**         |
+| **You'll see** | A toast saying it applies to ratings made final from now on, and the card now saying how long           |
+
+> ⚠️ **Nothing is kept until a company sets a period, and no figure is suggested.** The box starts empty,
+> and the card says how long is right is a decision for the company and its legal advice. It is the same
+> rule as how long rejected candidates are kept. **Stop keeping records** clears it, with one press and no
+> question, and a record already kept stays until its own date.
+
+> 💡 **What is kept, and what is not.** Which tasks the person finished in the cycle, when each was finished
+> and whether it met its due date, who set it when somebody else did, and whether it sat under an objective.
+> **Never task titles**, descriptions, comments, files, time spent or points: a title can hold health or
+> trade-union details. Nothing is kept while Projects is switched off, and a rating made final before a period
+> was set has nothing kept. A change of period affects only ratings made final afterwards, and a formal
+> dispute of a rating keeps its record a full period longer. The record is read by the people who can read the
+> review and the person's work: the person, their manager, an assigned appraiser and HR. On a server that has
+> not been updated, the card says so and offers nothing to change.
 
 ### Phase B — once per period: build it, and leave it as a draft
 
@@ -330,16 +390,37 @@ them on its own page.
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Where**      | `/performance/periods/{id}`, on a draft: the card **How the mark is made up**                                                                    |
 | **Who**        | HR / Owner                                                                                                                                       |
-| **Click**      | Type a whole number from 0 to 100 into each of the six parts, then **Save the weights**. **Use the company defaults** puts the company's back    |
-| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **These must add up to 100%.**   |
+| **Click**      | Type a whole number from 0 to 100 into each part, then **Save the weights**. **Use the company defaults** puts the company's back               |
+| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. |
 
 Two things about it. Whole numbers only: the company defaults in Settings take two decimal places, but here
-the rule is exactly 100%, and a field that took 33.33 would let three of them make 99.99. And an untouched
+a weight is a whole number from 0 to 100, and the parts count in proportion to their total. And an untouched
 card does nothing: the period keeps following the company's weights, and when it starts whatever the company
 holds at that moment is fixed onto it. From the moment it starts the card is read-only and reads **Fixed
 when this period started.** (a period from before this existed reads **This period follows the company's
 weights as they are today.**). The assistant's draft (step 5) shows the same card on its first page, under
-the description, and **Draft it** stays off while a total you typed is not 100%.
+the description, and **Draft it** stays off while a weight you typed is not a whole number from 0 to 100 or
+every part is at 0%. **Manager appraisal** has a row of its own between Leadership and Self-assessment, with a
+line under the card saying that where no appraiser has sent an overall mark for somebody, its share is spread
+over the other parts. On the period's own page the API adds one sentence under the card, in its own words, about
+what weighting Manager appraisal does to this period's marks, and it reads **Saved now, not yet changed:** once
+you have typed over the saved weights.
+
+**Changing the name afterwards.** A name typed wrongly can be fixed at any stage, a running or published
+period as well as a draft.
+
+|                |                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/performance/periods/{id}`, **Rename** in the buttons at the top                                                            |
+| **Who**        | HR / Owner (the same people who may change the period)                                                                       |
+| **Click**      | **Rename**, type the new name in **Period name**, then **Save name**. **Enter** saves too                                    |
+| **You'll see** | A toast, **Renamed to …**, and the heading changes. **Save name** stays off until the name is different from what it was    |
+
+The box starts on the period's current name every time it opens; a half-typed name is not kept when you
+cancel. The dialog says the new name shows on everybody's form, inbox and report. A name under 3 characters
+reads *Name it: people will see this in their inbox.* and one over 80 reads *Keep it to 80 characters: it is
+a heading.*, both before anything is sent. If another period already has the name, the field shows the API's
+own sentence with what you typed still in it. Pressing **Save name** or **Enter** twice sends one request.
 
 #### 5. _Optional_ — let the assistant draft it instead
 
@@ -383,11 +464,14 @@ The three settings on a question:
   22, **Record a level**), and the dialog says so under the two pickers. A question filed under
   nothing is still asked and answered. Choosing a section and leaving **Subsection** on _None_ files
   it under nothing, and the dialog warns you before you save. The **Subsection** list says beside a
-  subsection that a manager answers yes or no, or by picking, as _Teamwork, yes or no_ and _Customer
-  feedback, pick one_; one rated by a level is just its name. Such a subsection is not an ordinary
-  question, and it has a row in **All questions** only when this period asks it on the review form
-  (_Ask it on the review form_, under **By section**, below). Otherwise only the questions filed under it
-  do, with its name on them, and it is rated under **Record a level**.
+  subsection that a manager answers yes or no, by picking or in words, as _Teamwork, yes or no_,
+  _Customer feedback, pick one_ and _Communication, written_; one rated by a level is just its name.
+  Such a subsection is not an ordinary question, and it has a row in **All questions** only when this
+  period asks it on the review form (_Ask it on the review form_, under **By section**, below). Otherwise
+  only the questions filed under it do, with its name on them, and it is answered under **Record a level**.
+  Under a subsection answered in words the sentence is shorter and says one thing, because nothing
+  recorded on it reaches the mark, whatever its section is worth: _Answers to questions written here do
+  not count towards the mark. Nor does the written answer recorded on Communication._
 
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step. If that period asked a subsection on its review
@@ -416,9 +500,10 @@ Writing them, in either view:
   more, and there is no undo (hover it for that). The one thing the server refuses is a question somebody has
   already answered; nothing is deleted, and the reason is under that row in the server's own words (_2 answers
   already reference this question. Leave it, or mark it not required._). A press in the half second after the
-  bin is ignored, so a double tap cannot remove a question. On a row that says **Rated directly** the same
-  bin turns into **Remove**, which only stops asking that subsection on this period's form: the subsection
-  and anything already recorded on it stay (hover it for that).
+  bin is ignored, so a double tap cannot remove a question. On a row that says **Rated directly** (or
+  **Written directly**, for a subsection answered in words) the same bin turns into **Remove**, which only
+  stops asking that subsection on this period's form: the subsection and anything already recorded on it
+  stay (hover it for that).
 - A question can be up to 300 characters. The box counts from 250 (_260 of 300 characters_), and one over
   the limit is refused before it is sent. A pick-from-a-list question takes up to ten choices, and **Add a
   choice** is switched off at ten (_Ten is the most a question can have._).
@@ -439,8 +524,9 @@ and it drops a change you had half made to another question). It is there for so
 the framework too, because a question belongs to the period and not to the framework.
 
 Each row begins with **how that subsection is answered**, as a plain grey word: **Rated** (a level on a
-scale), **Yes or no** or **Pick one**, then its name. It is in front of the name so that two subsections that
-read alike can be told apart at a glance, and the words line up in a column so the names do too. The
+scale), **Yes or no**, **Pick one** or **Written** (in their own words), then its name. It is in front of
+the name so that two subsections that read alike can be told apart at a glance, and the words line up in a
+column so the names do too. The
 **Sections and subsections** dialog puts the same word in front of each name. A subsection that has ratings
 recorded on it also has a small grey lock directly after its name; hover it for _Fixed: 12 ratings are
 recorded, in any period._ It is a picture and not a button. The reason, and the way through it, are on **How
@@ -453,24 +539,33 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   whatever its kind. The count is on the tab.
 - **How it is rated** — how a manager records an answer on the subsection itself, under **Competency
   ratings** (step 22). **How it is answered** is **A level on a scale, 1 to 5**, **Yes or no** (yes scores
-  100%, no scores 0%) or **Pick one from a list**, where you write the choices and give each a score in
-  percent, then **Save choices**. A choice that anybody has picked keeps its score for good: its score box is
-  greyed and reads _Picked 1 time, so its score is fixed. Add a new choice to score it differently._ Its name
-  and its place in the list can still change. The kind is written the moment you pick it, until anybody
+  100%, no scores 0%), **Pick one from a list**, where you write the choices and give each a score in
+  percent, then **Save choices**, or **In their own words**, which has nothing more to set. A choice that
+  anybody has picked keeps its score for good: its score box is greyed and reads _Picked 1 time, so its
+  score is fixed. Add a new choice to score it differently._ Its name and its place in the list can still
+  change. The kind is written the moment you pick it, until anybody
   records an answer on the subsection, in any period. From then on it is fixed, because how a subsection is
   answered is the same in every period and changing it would make last period's answers mean something else.
   A line **above** the control says so, with the count: _Fixed: 12 ratings are recorded on this subsection, in
   any period, and how it is answered applies to every period._ The control is greyed, and **Start a new
   version** beside it is the way through (below). A yes or no and a pick have no target, so they are left out
-  of the gap list and the heatmap.
+  of the gap list and the heatmap. Words have no target and no score either, and the one line under the picker
+  says the larger thing: _A written answer is read by people and never counts towards the mark._ It has no
+  list of choices, and none of the lines that quote what its section is worth or warn that the section is
+  worth nothing, because a written answer reaches no part of the mark.
 
   **Start a new version** is there for somebody who can manage settings on a connected company, on a
   subsection that has ratings. It opens a dialog with **How the new version is answered**, which offers the
-  other two ways and chooses nothing for you, and three lines of what will happen: the old subsection keeps
-  its ratings and every mark made from them, is marked retired and leaves the list; the new one has the same
-  name and section and starts with no ratings; and periods that have not started use the new one (for a
-  pick-one version they stop asking it until its choices are in), while published periods keep the old one, so
-  their forms read as they did. **Start new version** is switched off until a way is chosen. It cannot go
+  three other ways (**A level on a scale, 1 to 5**, **Yes or no**, **Pick one from a list** and **In their own
+  words**, less the one the subsection has now) and chooses nothing for you, and three lines of what will
+  happen: the old subsection keeps its ratings and every mark made from them, is marked retired and leaves
+  the list; the new one has the same name and section and starts with no ratings; and periods that have not
+  started use the new one (for a pick-one version they stop asking it until its choices are in), while
+  published periods keep the old one, so their forms read as they did. Choosing **In their own words** adds a
+  fourth line, the sentence that says what is different about it: _A written answer is read by people and
+  never counts towards the mark._ When the subsection being retired was itself answered in words, the first
+  line says only that it keeps its ratings, and nothing of marks, because none was ever made from them.
+  **Start new version** is switched off until a way is chosen. It cannot go
   ahead while a period that is running asks the subsection on its review form: the API names the period, its
   sentence is shown in the dialog with your choice still made, and nothing has changed. When it works the new
   subsection opens, on **How it is rated** for a pick-one version (it needs its choices) and on
@@ -491,11 +586,14 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   review form_ or _…taken off the review form_, and, under the first two, _Asked of both. Find it under
   All questions._). The message only comes after the API has said yes, so a refusal shows its own sentence
   instead. One short line under the control says whose answer counts, for the choice you have made even
-  before you press the button: _Recorded when the manager sends their review._ for the manager, _Their own answer counts towards the mark._ for the employee, and _The
-  manager's answer counts. The employee's is shown beside it._ for both. Colleagues cannot be asked a
-  subsection. The API's refusals (the period has started, the subsection is switched off, somebody has
-  already answered it) are under the control in the server's own
-  words, and the control goes back to what the period holds. **Write the questions** is on a draft's
+  before you press the button: _Recorded when the manager sends their review._ for the manager, _Their own
+  answer counts towards the mark._ for the employee, and _The manager's answer counts. The employee's is
+  shown beside it._ for both. For a subsection answered in words the lines say where the words go and never
+  that they count: _Recorded when the manager sends their review._, _Recorded when they send their review._
+  and _The manager's words are recorded. The employee's are shown beside them._ It is held to no rule about
+  choices, so it can be asked as soon as it exists. Colleagues cannot be asked a subsection. The API's
+  refusals (the period has started, the subsection is switched off, somebody has already answered it) are
+  under the control in the server's own words, and the control goes back to what the period holds. **Write the questions** is on a draft's
   **Set it up, then start it** card and nowhere else, so you only meet a period that has already started
   if somebody starts it while this dialog is open: the control is then switched off, with no button,
   and says _H2 2026 Appraisal has started, so this can no longer change._ A pick-one subsection with fewer than two choices
@@ -503,8 +601,9 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   Until the period's questions have been read, or if reading them failed, the control is not drawn at all
   rather than saying **Not asked** about a form nobody has seen.
   What it puts on the form is a row in **All questions** and in the subsection's **Questions** tab: its
-  name, a **Rated directly** badge (not **Rating**), who is asked as **Manager**, **Employee** or **Both**,
-  **Must be answered**, and no pencil, because there is nothing on it to edit.
+  name, a **Rated directly** badge (not **Rating**; **Written directly** for a subsection answered in
+  words), who is asked as **Manager**, **Employee** or **Both**, **Must be answered**, and no pencil,
+  because there is nothing on it to edit.
 
 **Add a section** (a name and **Counts towards**: Core competencies, Behavioural competencies, Leadership, or
 _No part of the mark_) and, inside a section, **New subsection** with **Answered by** both stay open after
@@ -854,6 +953,27 @@ the module, so it is worth walking properly.
   the last question and the closing page, the **Preview** has an **Overall mark** row, and the
   confirmation says _"… and an overall mark of Meets Expectations"_. Either way the mark comes from
   the scores (step 22).
+- **A manager's form in a period that weights Manager appraisal (step 3) has to carry an overall mark.** The
+  page is there whatever the switch says. It is called **Your overall mark**. With one appraiser it says
+  _"Needed. It counts for 30% of the mark in this period."_ (the figure is the part's share). With several it
+  says the strip's own sentence after _"Needed."_ (_"Your overall mark counts for 60% of what the appraisers say,
+  alongside 1 other. What they say is 30% of the mark."_), because the part's share belongs to all of them and not
+  to this one, and the two pages must not give two answers. Where the server sent no share the line reads
+  _"Needed. This period counts it towards the score."_ and gives no figure. There is no **Leave it blank
+  instead** and the button reads **Next**, never **Skip**. Going on without one stays on the page with _"This one needs an
+  answer before you can go on."_ On the **Preview** the **Overall mark** row reads _Not given yet_ with a
+  **Needs an answer** badge and a line says _"The overall mark still needs an answer before this can go."_;
+  **Send it** walks you back to the page instead of sending. A self-review is never held to it.
+- **A review that was sent back keeps the mark it was given** (step 30). Where the form asks for a mark it opens
+  on that one, unless this browser remembers a newer pick, so the manager is not blocked until they pick, again, a
+  mark the record already holds. A mark the record holds can be replaced but not left blank, so **Leave it blank
+  instead** is not offered for it. A first-time form holds none and still needs one, and a form that does not ask
+  for a mark sends none.
+- **The strip at the top of a manager's form says what the overall mark is worth.** _"Your overall mark counts
+  for 30% of the mark."_ where the period weights Manager appraisal; with several appraisers _"Your overall mark
+  counts for 40% of what the appraisers say, alongside 2 others. What they say is 30% of the mark."_; and
+  _"Your overall mark does not count towards the score."_ where the period does not weight it and the form asks
+  for one. It used to say the review counted for the mark, which was never true of the review.
 - **The closing page is named for who is writing.** On the person's own form, and on peer feedback, it is
   **Anything to add?**. On a manager's form it is **Your recommendations** (_"Optional. What you recommend
   for them, and anything else you want to say, in your own words."_), and the **Preview** row and the line
@@ -865,9 +985,14 @@ the module, so it is worth walking properly.
   prompt is the subsection's name and it is drawn from the subsection, not from the company's scale: a
   level for each of its **own** levels (_1 of 7_ to _7 of 7_, or the company's five words where the
   subsection is also five levels), a **Yes** or **No**, or its **choices** by name, with no score on
-  screen. A level is picked with its number and a choice with its letter. When the review is sent the
-  answer becomes the person's rating of that subsection: if only the employee is asked it counts, and if
-  both are asked it is the manager's that counts and the employee's is only shown to the manager.
+  screen, or, for a subsection answered in words, **a box to write in**, like any written question. A
+  level is picked with its number and a choice with its letter. When the review is sent the answer
+  becomes the person's rating of that subsection: if only the employee is asked it counts, and if both
+  are asked it is the manager's that counts and the employee's is only shown to the manager. Words are
+  recorded the same way and never count, whoever is asked. A written one is held to the rules of a written
+  question: it is needed if the question is, a box of spaces is not an answer (_This one needs an answer
+  before you can go on._), it is saved as you go, and the **Preview** reads it back in full with its
+  paragraphs, under the subsection's name.
 - **The leadership question is only on a form about somebody who leads others** — people report to
   them, they lead a team, or they head a department. A form about somebody who leads nobody never
   carries it, whether they fill it in themselves or their manager or a colleague does, so an
@@ -886,10 +1011,12 @@ they did against an objective; their manager grades it. It is the evidence behin
 | **Click**      | Pick an objective, write what you did, log it. The manager sees it under _Waiting on a grade_ |
 | **You'll see** | Rows grouped by the day each task was _logged_ — not the week it covers                       |
 
-A weekly task filed for you by a finished project task carries a small **From project KEY-n** tag, in
-**Your weeks**, in an objective's task log and in the grading queue. The tag says where the work came
-from; the grade is still the manager's. It is a link only if you can open that project, and plain
-text if you cannot.
+A weekly task that the old project bridge filed for you, and a manager graded before it was retired on
+6 November 2026, still carries a small **From project KEY-n** tag, in **Your weeks**, in an objective's
+task log and in the grading queue. The tag says where the work came from; the grade is still the manager's.
+It is a link only if you can open that project, and plain text if you cannot. **Finishing a project task no
+longer files a weekly task**: finished project work is evidence to read (see **Work this cycle**), and
+nothing waits for a grade because of it.
 
 #### 19. Chase the people who have not sent theirs
 
@@ -940,9 +1067,9 @@ text if you cannot.
 
 > 💡 **What the person said of themselves, on a directly rated subsection.** Where a subsection is asked of
 > both, the manager's form shows a muted line beside the control, _Their own answer: Exceeds Expectations_
-> (or _6 of 7_, _Yes_, _No_, or the choice's name), once the person has sent their self-review. Until then
-> there is no line at all: not _No answer_, and never a nought. It is shown beside the manager's control and
-> never chosen for them.
+> (or _6 of 7_, _Yes_, _No_, the choice's name, or their own words in full, with their paragraphs), once the
+> person has sent their self-review. Until then there is no line at all: not _No answer_, and never a nought.
+> It is shown beside the manager's control and never chosen for them.
 
 > 💡 **The language check — worth demonstrating.** Press Send and the product reads what you wrote
 > first. It flags language describing a _person_ rather than their _work_, absolutes, comparisons to
@@ -951,7 +1078,8 @@ text if you cannot.
 >
 > Type _"Chidera is quite disorganised"_ into a manager review and watch it catch. Then type _"the
 > Lagos migration was difficult"_ and watch it correctly say nothing. This runs entirely inside the
-> product — no written appraisal comment is sent anywhere.
+> product — no written appraisal comment is sent anywhere. It reads a written subsection answer exactly as
+> it reads the closing note, and it never reads a person's own self-review.
 
 #### 22. Record competency levels
 
@@ -967,19 +1095,38 @@ built from their objectives alone.
 
 A line manager is offered the people who report to them, and somebody with **Edit records** is offered
 everybody but themselves. What the form then asks for follows how the skill is answered (step 6): a level and
-an optional target for a rated skill, **Answer** yes or no for a yes-or-no skill, and one of the skill's own
-choices for a pick-one skill (the choice, never its score). A pick-one skill opens on the choice the person
-already has, so correcting an answer is changing one choice; if that choice has since been taken off the list
-it says _Their current answer is “Meets”, which is no longer on the list. Pick one of the choices to replace
-it._ A pick-one skill with no choices yet says so and cannot be saved. On the **Your skills** list a yes, a no and a pick show as a plain label with no scale, and
-_Not assessed yet_ means nobody has answered it.
+an optional target for a rated skill, **Answer** yes or no for a yes-or-no skill, one of the skill's own
+choices for a pick-one skill (the choice, never its score), and a box to write in, **Answer**, for a skill
+answered in words. A pick-one skill opens on the choice the person already has, so correcting an answer is
+changing one choice; if that choice has since been taken off the list it says _Their current answer is
+“Meets”, which is no longer on the list. Pick one of the choices to replace it._ A pick-one skill with no
+choices yet says so and cannot be saved. On the **Your skills** list a yes, a no and a pick show as a plain
+label with no scale, and _Not assessed yet_ means nobody has answered it. Saving says _Level recorded_ for a
+level and _Answer recorded_ for any other answer.
+
+A skill answered in words asks for nothing but the words. **Answer** is a box for up to 4,000 characters, and
+it is already filled with what is on record for that person, so recording again corrects the words instead of
+starting from nothing (choose somebody else and it shows theirs). A box that is blank or only spaces is
+refused on the field (_Write the answer in words._), and so is one over the limit (_Keep it to 4000
+characters._, which is the server's own sentence). A count appears from 3,500 characters (_3,620 of 4,000
+characters_) and goes on counting past the limit, in red, because pasting more is allowed so that it can be
+shortened. There is no level and no target, and under the box one line says what it is: _A written answer is
+read by people and never counts towards the mark._ **Appraisal period** says nothing about a mark for it:
+with a period chosen, _Filed under that period. Each person has one answer per period, so writing it again
+replaces this one._, and with none, _A snapshot of where they are now._ **The language check runs here too.**
+Type _"Chidi is quite disorganised"_ and the phrase is quoted back under the box, with _Nothing here stops you
+saving it. It checks for four specific things and cannot tell whether what you wrote is fair. Only you can._
+It never stops the save. On the **Your skills** list a written answer shows its words in full, with
+**Written** beside it and no scale: a long one is folded to three lines with **Read all** under it, and
+**Show less** folds it again. An answered skill whose words did not arrive says _Answered_ and claims nothing
+about what it said.
 
 > 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
 
 A subsection the period asks on its review form is also recorded when the review is sent, as the same rating
-under the same period: the manager's send records the manager's answer, and an employee's send records theirs
-only where the employee alone is asked.
+under the same period (with the person's words in it, for a written one): the manager's send records the
+manager's answer, and an employee's send records theirs only where the employee alone is asked.
 
 #### 23. _Optional_ — ask colleagues for feedback
 
@@ -1091,6 +1238,13 @@ tells the person.
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
 > route is step 30.
 
+> 💡 **The confirmation says what was kept with it.** For a company that has set a period under
+> **Records** (step 3), after the rating is final the confirmation adds a line such as _"A record of the 7
+> tasks Femi finished in this cycle is kept with it until 1 Nov 2027."_ An empty record says so ("no finished
+> tasks were recorded for Femi in this cycle"), and a record cut at its limit says it holds the newest of more.
+> For a company that has not set a period it says nothing about a record, and neither does a server that has
+> not been updated.
+
 > 💡 **HR can add a recommendation as they make it final.** Somebody holding **Edit records** sees an
 > optional box in the confirmation, **Your recommendation (optional)**, with the line _"Femi will read it
 > with their rating."_ under it, on the page and not behind an icon. It is written in the same step that
@@ -1115,7 +1269,11 @@ somebody gave one. Where the self-review is not there the card is simply **Manag
 Above it, **What the mark is made of** lists each part with what it scored, what it counts for and what
 it is based on: _Based on 4 ratings_, _Based on 1 agreed objective_. A part left out says why in the API's
 own words. When parts were left out, one sentence above the list names them and says the others count for
-more than the company set (see _The mark_), and each part that moved says only what was set.
+more than the company set (see _The mark_), and each part that moved says only what was set. **Manager
+appraisal** is listed only where it carries a weight, and _Based on 2 overall marks_ is what it counted.
+Beside the score, **Appraisers' overall rating** says whether it is in the mark: _"It is what Manager
+appraisal is scored from."_ where the part carries a weight, and _"For reference. It does not count towards the
+score."_ where it does not.
 
 ### Phase F — the person answers: sign-off
 
@@ -1165,6 +1323,10 @@ else's review moves.
 > 💡 **It asks which review rather than guessing.** Self-appraisal and manager review are two
 > different documents by two different people. Reopening the wrong one would send the wrong person
 > back to work.
+
+> 💡 **A manager's review keeps the mark it was given.** Sending it back clears when it was sent, not the
+> rating, so the form opens on the mark it already holds (step 17) and Send is not held up for a mark that is
+> already there.
 
 ### Phase G — close it out: publish, then read what the period actually said
 
@@ -1255,7 +1417,28 @@ never as a score, in four more places:
   who finds the page by its address sees one plain line saying so.
 - **Work this cycle**, inside a self review and a manager review (on the record, and from **Your work** or
   the person's name at the top of the answering form): totals, by project and objective, how many were done by
-  the due date, how many are linked, and the list. It is collapsed on a phone, and it does not change the mark.
+  the due date, how many are linked, and the list, each task with **Set by** and a name when somebody else made
+  it (nothing when the person made it themselves). It is for the person, whoever leads them, HR, and the people
+  assigned to appraise them in that period, whether or not they are on the reporting line (a functional manager
+  or a project lead); anybody else gets nothing. A line under the list says it is only what was tracked in
+  Projects and does not show meetings, mentoring or anything done outside Projects: _a short list is not a
+  short record of work_. The list leaves out a to-do the person made for themselves on their own list; a task
+  somebody else put on their list is kept, shown with **Personal** and **Set by**. **A company that has not
+  switched Projects on does not see it at all.** A person with nothing recorded reads "No finished tasks were
+  recorded for you on the project boards in this period", which says nothing about the rest of their work. It
+  is collapsed on a phone, and it does not change the mark.
+- **Work when the rating was made final**, on a manager's review whose rating is final, for a company that
+  kept it (see **Records** in step 3). It leads, in place of the list above: the finished tasks as they stood on
+  the day the rating was made final, with the totals, each task as its key (a link that opens the task as it is
+  now), the day it was finished, on time or late, **Personal** and **Set by**, and **Under an objective**. **It
+  shows no task title**, and says so: _Task titles are not kept in this record. Open a task to read it as it is
+  now._ A line says when it is removed ("Kept until 1 Nov 2027, then removed."), with a sentence about the
+  dispute when the rating was disputed. A record cut at its limit says it holds the newest of more. The list as
+  it stands now is one press away (**Show the list as it stands now**) and is not asked for until then. When
+  nothing was kept the review says so once, above the list that is read as it stands now ("Nothing was kept of
+  this list when the rating was made final..."), and when the record has been removed it says when
+  ("...was removed on 1 Nov 2027, when its retention period ended"). Nothing of this appears before a rating
+  is final, on a self review, with Projects off, or on a server that has not been updated.
 - **Completed work**, under an objective or KPI (its detail, and the objectives to agree): the linked tasks,
   by person for a team objective; for a personal KPI also the owner's tasks linked to an objective above it,
   each marked with the level it was linked at.
@@ -1364,7 +1547,7 @@ on purpose — they are the arguments the module is built on.
 | **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
 | **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
 | **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21). |
-| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it. Self-assessment reads from the mark somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
+| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it, unless a period weights Manager appraisal: then managers are asked for one whatever the switch says. Self-assessment reads from the mark somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
 | **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---
@@ -1400,7 +1583,7 @@ seeded accounts to use.
 
 | #   | Do this                                                                                                                     | What to point at                                                                                                                   |
 | --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **HR** — `/settings/performance`. Show the five weights totalling 100%, then drag one so it does not.                       | Save goes dead and the product tells you how much to add. A mark that cannot fail to add up.                                       |
+| 1   | **HR** — `/settings/performance`. Show the parts of a mark and their weights, then change one.                              | Each part counts in proportion to the total, and the share it comes to is shown beside it. Manager appraisal starts at 0%.        |
 | 2   | **HR** — **Start an appraisal period**. Name it, set a due date, open _What to tell people_, type two sentences. Create it. | Nobody has been told anything yet. Say so.                                                                                         |
 | 3   | **HR** — **Write the questions**. Add one for the person and one for their manager.                                         | _Filed under_. And Start is dead until at least one question exists, and says why.                                                 |
 | 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
@@ -1422,7 +1605,13 @@ period's own weights), 6 (the questions and the subsections), 16 (the no-apprais
 (answering a review), 22 (recording a level) and 32 (the report), the twelfth surprise and demo step 8, which
 were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated
 subsection asked on the review form, and step 6 on 3 November 2026, for the lock, the answer type in front of a
-subsection's name and starting a new version). Every button label, field name and
+subsection's name and starting a new version, and steps 6, 17, 21 and 22 again on 6 November 2026, for a
+subsection answered in the person's own words, and the paragraph on finished project work in step 18 and the
+**Work this cycle** note in step 33 on 11 November 2026, for who may read it, what it leaves out and the retired
+bridge, and steps 3 and 28 and the **Work when the rating was made final** note in step 33 on 12 November 2026,
+for the work kept with a final rating, and steps 2, 3, 4 and 17, the reading of a mark and the twelfth
+surprise again on 12 November 2026, for the Manager appraisal part, and steps 3, 4, 17 and 30 once more on the
+same day, for when Save is dead, the mark page with several appraisers and a review sent back). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

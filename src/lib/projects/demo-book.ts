@@ -274,6 +274,26 @@ export function setStatuses(
   });
 }
 
+/** Archive or bring back, as the API does: nothing else about the project changes. */
+export function archiveProject(
+  book: DemoBook,
+  projectId: string,
+  archived: boolean,
+  now: string,
+): DemoBook {
+  const d = data(book, projectId);
+  if (Boolean(d.project.archived) === archived) return book;
+  return withProject(book, {
+    ...d,
+    project: {
+      ...d.project,
+      archived,
+      archivedAt: archived ? now : null,
+      updatedAt: now,
+    },
+  });
+}
+
 export function deleteProject(book: DemoBook, projectId: string): DemoBook {
   const d = data(book, projectId);
   const projects = { ...book.projects };
@@ -298,6 +318,11 @@ export function createIssue(
   ctx: Ctx,
 ): { book: DemoBook; issue: Issue } {
   const d = data(book, projectId);
+  if (d.project.archived) {
+    throw new ProjectRuleError(
+      `${d.project.name} is archived. Bring it back before adding tasks to it.`,
+    );
+  }
   if (!input.title.trim()) throw new ProjectRuleError("Add a summary first.");
   if (input.type === "SUBTASK") {
     const parent = d.issues.find((i) => i.id === input.parentId);

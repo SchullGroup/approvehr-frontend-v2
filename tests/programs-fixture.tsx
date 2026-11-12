@@ -6,6 +6,7 @@ import {
   programRollup,
   programsFor,
   visibleProjects,
+  workStagesOf,
   workPage,
   workRollup,
   type Scene,
@@ -148,6 +149,20 @@ export function programHooks(who: () => Who) {
     useProgramRollup: (id: string, enabled = true) =>
       loaded(enabled ? programRollup(scene, viewerOf(who()), id, NOW) : null),
     useWorkRollup: () => loaded(workRollup(scene, viewerOf(who()), NOW)),
+    useWorkStages: (target: { programId?: string; unassigned?: boolean }) =>
+      loaded(
+        workStagesOf(
+          visibleProjects(scene, viewerOf(who()))
+            .map((d) => d.project)
+            .filter((p) =>
+              target.programId
+                ? p.programId === target.programId
+                : target.unassigned
+                  ? !p.programId
+                  : true,
+            ),
+        ),
+      ),
     useProgramPeople: (id: string, enabled: boolean) =>
       loaded(enabled ? programPeople(scene, viewerOf(who()), id) : null),
     useProgramRollups: (ids: readonly string[]) => ({

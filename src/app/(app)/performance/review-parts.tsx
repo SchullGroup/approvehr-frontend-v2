@@ -6,7 +6,6 @@ import { Badge, Button, TextLink, useToast } from "@/components/ui";
 import {
   performanceApi,
   ratingWordsFrom,
-  weightLabel,
   type ApiAppraiserContext,
   type AnswerBody,
   type ApiFormQuestion,
@@ -19,6 +18,7 @@ import {
   isSubsectionQuestion,
   questionKind,
 } from "@/lib/performance/subsection-answer";
+import { appraiserStripLine } from "@/lib/performance/score-wording";
 import { shortDate } from "@/lib/today";
 import { useRatingScale } from "@/lib/store/performance";
 
@@ -327,32 +327,45 @@ export function PeriodFraming({
 /* -------------------------------------------------------------------------- */
 
 /**
- * What this author is to this subject, and how much of the mark it is.
+ * What this author is to this subject, and what their overall mark is worth.
  *
  * Only rendered when the API returned an assignment — `ApiReviewDetail.appraiser`
  * is **absent** on a self-review and on a manager form written before the
  * mapping existed. Absent means the question has no answer, so a role of "line
  * manager" or a weight of "0%" would be a claim rather than a blank.
  *
+ * ## It used to say the review counted for the mark, and that was not true
+ *
+ * "Your review counts for 100% of the mark." The answers to the questions and the
+ * closing note never counted, and the overall mark did not either unless a period
+ * weighted the Manager appraisal part. So the line now follows the period's share
+ * (`appraiser.markShareBp`) and says only what that share makes true
+ * (`appraiserStripLine`): it counts, for how much, or it does not. From a server
+ * that does not say it makes no claim about the mark at all.
+ *
  * ## It used to say the same thing three times
  *
  * "You are appraising Chidera Anusiobi-Uzor as their line manager, and yours is
  * the whole mark." The badge beside it already says *Line manager*. The header
  * above it already says *About Chidera Anusiobi-Uzor*. So two thirds of
- * that sentence was restating what was on screen, and the third — "yours is the
- * whole mark" — made a reader work out that it meant 100%.
+ * that sentence was restating what was on screen, and the third made a reader
+ * work out that it meant 100%.
  *
  * One fact belongs here and it is the share, said as a number.
  */
 export function AppraiserStrip({
   appraiser,
   mine,
+  asksMark = false,
 }: {
   appraiser: ApiAppraiserContext;
   /** Whether the reader wrote it. Only changes "Your" to "This". */
   mine: boolean;
+  /** Whether the form asks for an overall mark at all (`ApiReviewDetail.overallMark`). */
+  asksMark?: boolean;
 }) {
   const shared = appraiser.appraiserCount > 1;
+  const line = appraiserStripLine({ appraiser, mine, asksMark });
 
   return (
     <div className="rounded-md border border-line bg-canvas px-3.5 py-3">
@@ -360,13 +373,7 @@ export function AppraiserStrip({
         <Badge tone="accent" size="sm">
           {appraiser.roleLabel}
         </Badge>
-        <span>
-          {mine ? "Your review" : "This review"} counts for{" "}
-          {weightLabel(appraiser.weightBp)} of the mark
-          {shared
-            ? `, alongside ${String(appraiser.appraiserCount - 1)} ${appraiser.appraiserCount === 2 ? "other" : "others"}.`
-            : "."}
-        </span>
+        {line && <span>{line}</span>}
       </p>
       {appraiser.note && (
         <p className="mt-1.5 text-body-sm text-body">{appraiser.note}</p>
@@ -389,10 +396,18 @@ export function AppraiserStrip({
  * Absent for a form that is not a manager's, and absent until the person has
  * sent their self-review, and then nothing is drawn at all: not "No answer",
  * which would read as a gap somebody left, and never a nought.
+ *
+ * A written answer is shown in full, with its paragraphs, because it is the
+ * person's own words and a manager who can only read the start of them has not read
+ * what they were told.
  */
 export function SelfAnswerLine({ words }: { words: string | null }) {
   if (words === null) return null;
-  return <p className="text-meta text-muted">Their own answer: {words}</p>;
+  return (
+    <p className="whitespace-pre-line break-words text-meta text-muted">
+      Their own answer: {words}
+    </p>
+  );
 }
 
 /**
@@ -459,6 +474,7 @@ export function ReadAnswerBody({
         {
           ratingValue: held.rating ? Number(held.rating) : null,
           boolValue: held.bool ? held.bool === "yes" : null,
+          text: held.text,
           choiceOptionId: held.choice,
           /* The label the API saved with the pick, for the very choice it was
              saved with and no other: the record says what was chosen when it was
@@ -503,8 +519,11 @@ export function ReadAnswerBody({
       <p className="text-body-sm leading-relaxed text-ink">Nothing attached</p>
     );
   }
+  /* `whitespace-pre-line` keeps the paragraphs somebody wrote, and `break-words` a
+     long unbroken string (a link) from running out of its row. A level, a yes or no
+     and a pick are one short word and look as they did. */
   return (
-    <p className="text-body-sm leading-relaxed text-ink">
+    <p className="whitespace-pre-line break-words text-body-sm leading-relaxed text-ink">
       {answer ?? "Not answered"}
     </p>
   );

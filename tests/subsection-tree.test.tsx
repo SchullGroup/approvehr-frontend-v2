@@ -609,7 +609,7 @@ describe("adding a subsection", () => {
     );
   });
 
-  it("offers the three kinds, with the scale spelled out for a level", async () => {
+  it("offers the four kinds, with the scale spelled out for a level", async () => {
     render(<Harness />);
     await openCore();
     expect(
@@ -620,6 +620,7 @@ describe("adding a subsection", () => {
       "A level on a scale, 1 to 5",
       "Yes or no",
       "Pick one from a list",
+      "In their own words",
     ]);
   });
 

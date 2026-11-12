@@ -211,6 +211,8 @@ type WireType = {
   /** Optional because an API that predates files does not send them. */
   attachmentPolicy?: LeaveAttachmentPolicy;
   attachmentRequiredOverDays?: number | null;
+  /** Absent on an API that predates the setting: it makes no claim. */
+  reasonRequired?: boolean;
 };
 
 /**
@@ -372,6 +374,15 @@ export type LeaveTypeRow = {
   /** With `REQUIRED` only: "a supporting file after N days". Null is any
    *  length. "After" is strictly longer, so 2 means a three-day request. */
   attachmentRequiredOverDays: number | null;
+  /**
+   * Whether a request of this type has to say why.
+   *
+   * **Null is not false.** An API that predates the setting does not send it,
+   * and the demo has no such setting: both make no claim. A screen offers a
+   * switch only for a boolean (a switch over nothing would write into nothing),
+   * and the booking form never blocks on anything but `true`.
+   */
+  reasonRequired: boolean | null;
 };
 
 /**
@@ -394,6 +405,8 @@ export type NewLeaveType = {
   attachmentPolicy?: LeaveAttachmentPolicy;
   /** Only with `REQUIRED`: the API refuses a number under any other policy. */
   attachmentRequiredOverDays?: number | null;
+  /** Whether a request of this type has to say why. The API defaults it on. */
+  reasonRequired?: boolean;
 };
 
 /** Every field optional — `PATCH /leave/types/:id` accepts any subset. */
@@ -481,8 +494,19 @@ export type NewLeaveInput = {
    * the two are one write: if any file is refused, the request is not created.
    * Up to five.
    */
-  attachments?: { storageKey: string; filename: string; contentType: string }[];
+  attachments?: LeaveAttachmentRef[];
 };
+
+/**
+ * A file that is already somewhere, as a request or the record route takes it:
+ * **exactly one** of `storageKey` (stored through this API's own signed upload)
+ * or `fileUrl` (a link to a file uploaded elsewhere, which the server accepts
+ * only from a host it allows). Never both: the API refuses a ref that says two
+ * things about where the file is.
+ */
+export type LeaveAttachmentRef =
+  | { storageKey: string; filename: string; contentType: string }
+  | { fileUrl: string; filename: string; contentType: string };
 
 /* --------------------------------------------------------------- the mapping */
 
@@ -609,11 +633,43 @@ const toType = (wire: WireType): LeaveTypeRow => ({
   eligibleGender: wire.eligibleGender,
   attachmentPolicy: wire.attachmentPolicy ?? "NONE",
   attachmentRequiredOverDays: wire.attachmentRequiredOverDays ?? null,
+  /* A boolean or nothing. `?? true` or `?? false` would be a claim about a
+     server that said none. */
+  reasonRequired:
+    typeof wire.reasonRequired === "boolean" ? wire.reasonRequired : null,
 });
+
+/**
+ * Whether the carry-over job has done this leave year, as the API recorded it.
+ *
+ * `ranThisYear` is **null when nothing has been recorded**, which is "has not run
+ * yet" and not "carried zero days": the job writes a marker even when nothing
+ * could carry, so no row means no pass. A screen that reads null as zero would be
+ * claiming a run that did not happen.
+ */
+export type RolloverStatus = {
+  year: number;
+  ranThisYear: {
+    ranAt: string;
+    employeesProcessed: number;
+    daysCarried: number;
+    /** The company's first run, which carries nothing by design. */
+    baseline: boolean;
+    note: string | null;
+  } | null;
+  /** Live leave types that allow any carry-over. */
+  carryingTypes: number;
+};
 
 /* ------------------------------------------------------------------- the api */
 
 export const leaveApi = {
+  /** Whether this year's carry-over has been applied. Needs `MANAGE_SETTINGS`. */
+  rollover: async (signal?: AbortSignal): Promise<RolloverStatus> =>
+    request<RolloverStatus>("/leave/rollover", {
+      ...(signal ? { signal } : {}),
+    }),
+
   types: async (signal?: AbortSignal): Promise<LeaveTypeRow[]> =>
     (
       await request<WireType[]>("/leave/types", {

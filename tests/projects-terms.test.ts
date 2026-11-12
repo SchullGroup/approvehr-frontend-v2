@@ -138,8 +138,8 @@ describe("the words themselves", () => {
     }
   });
 
-  it("name the lanes by initiative, not epic", () => {
-    expect(SWIMLANE_LABEL.epic).toBe("Lanes by initiative");
+  it("name the grouping by initiative, not epic", () => {
+    expect(SWIMLANE_LABEL.epic).toBe("Group by initiative");
   });
 });
 
@@ -233,7 +233,7 @@ describe("the tabs", () => {
       backlog: "Plan",
       roadmap: "Timeline",
       reports: "Progress",
-      issues: "Tasks",
+      issues: "List",
       settings: "Settings",
     });
     expect(PROJECT_VIEWS.map((v) => [v.id, v.label])).toEqual(
@@ -245,7 +245,7 @@ describe("the tabs", () => {
     expect(viewById("backlog").label).toBe("Plan");
     expect(viewById("roadmap").label).toBe("Timeline");
     expect(viewById("reports").label).toBe("Progress");
-    expect(viewById("issues").label).toBe("Tasks");
+    expect(viewById("issues").label).toBe("List");
     expect(viewById("nonsense").id).toBe("board");
   });
 });

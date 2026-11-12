@@ -301,6 +301,8 @@ export type ApiKeyResultWritten = ApiKeyResult & {
  */
 export type SectionBody = {
   name?: string;
+  /** Blank or null clears it. */
+  description?: string | null;
   order?: number;
   component?: ScoreComponent | null;
 };
@@ -309,6 +311,11 @@ export type SectionBody = {
 export type ApiSection = {
   id: string;
   name: string;
+  /**
+   * What the section is for, in the company's own words. Null until written.
+   * Optional because an API from before the column was added does not send it.
+   */
+  description?: string | null;
   order: number;
   competencyCount: number;
   /**
@@ -340,10 +347,12 @@ export type ApiSection = {
  * somebody set by hand. Whatever the kind, an answer reduces to the same 0 to
  * 10,000 basis points on the API, so nothing about weights or bands changed.
  *
- * Text and file answers are deliberately not a kind: a score is never made up
- * from a paragraph (ADR 0003, an absent figure is never a zero).
+ * `TEXT` is a written answer, 1 to 4,000 characters, read by people and **never
+ * scored**: the API leaves it out of every average and every part of the mark
+ * (absent, never zero; ADR 0003), because a score is never made up from a
+ * paragraph. A file answer is deliberately not a kind.
  */
-export type AnswerKind = "RATING" | "BOOLEAN" | "CHOICE";
+export type AnswerKind = "RATING" | "BOOLEAN" | "CHOICE" | "TEXT";
 
 /** One pick on a `CHOICE` subsection, and what picking it is worth. */
 export type ApiChoiceOption = {
@@ -437,6 +446,12 @@ export type ApiCompetencyRow = {
   /** `BOOLEAN` only. `null` until somebody answers it. */
   boolValue?: boolean | null;
   /**
+   * `TEXT` only: the words, in full. `null` on any other kind and while
+   * unanswered. Optional because a server one deploy behind does not send it, and
+   * an absent value draws nothing: never "No answer", never a zero.
+   */
+  textValue?: string | null;
+  /**
    * `CHOICE` only: the id of the pick, which is what a form preselects by. Labels
    * are not unique and the pick may have been taken off the list since, so the
    * label below cannot stand in for it. `null` on any other kind and while
@@ -514,10 +529,12 @@ export type ApiRating = {
   employeeId: string;
   /** Absent from a server that predates answer kinds, which means `RATING`. */
   answerKind?: AnswerKind;
-  /** `RATING` only. A yes or no and a pick have no level. */
+  /** `RATING` only. A yes or no, a pick and a written answer have no level. */
   level: number | null;
   /** `BOOLEAN` only. */
   boolValue?: boolean | null;
+  /** `TEXT` only: the words. */
+  textValue?: string | null;
   /** `CHOICE` only. */
   choiceOptionId?: string | null;
   /** `CHOICE` only. */
@@ -570,6 +587,14 @@ export type ApiCycle = {
    * change. Absent from an API older than per-period weights, so optional.
    */
   weights?: CycleWeights;
+  /**
+   * What weighting the appraisers' overall mark does, in the API's own words, for
+   * **this period's** weights: a sibling of `weights`, so that the screen that sets
+   * a period's weights says what the weight does without writing a sentence of its
+   * own. Absent from a server that predates the part, and then nothing is said.
+   * See `ApiScoringWeights.managerAppraisalNote`, which is the company's.
+   */
+  managerAppraisalNote?: string;
   /** Empty means everybody — see `createCycle`'s own note. */
   departmentIds: string[];
   /** Null means no automatic reminder, which is the default. */
@@ -630,7 +655,7 @@ export type ApiCycleActivated = ApiCycle & {
    */
   withoutAgreedObjectives: string[];
   /** The weights this cycle is now frozen against, in basis points. */
-  scoringWeights: Record<ScoreComponent, number>;
+  scoringWeights: WeightSet;
 };
 
 export type ApiCyclePublished = ApiCycle & {
@@ -755,6 +780,12 @@ export type ApiSelfAnswer = {
   choiceOptionId: string | null;
   /** The label of the pick, for display. */
   choiceValue: string | null;
+  /**
+   * The person's own words, for a subsection that is answered in words. Optional
+   * because a server that predates written answers sends no such key, and an
+   * absent or blank one draws nothing.
+   */
+  textValue?: string | null;
   answeredAt: string | null;
 };
 
@@ -865,6 +896,18 @@ export type ApiReview = {
 export type ApiReviewFinalised = ApiReview & {
   finalised: true;
   subjectNotified: boolean;
+  /**
+   * What was kept with the rating: how many tasks, whether that is all of them, and when the
+   * record is removed. `null` when nothing was kept, which is every company until it chooses a
+   * period. Optional because an older server does not send it, and **absent says nothing**:
+   * the screen mentions a record only when this is there and not `null`.
+   */
+  workEvidence?: {
+    items: number;
+    total: number;
+    truncated: boolean;
+    retainUntil: string;
+  } | null;
 };
 
 export type ApiReviewAcknowledged = ApiReview & { acknowledged: true };
@@ -915,6 +958,16 @@ export type ApiReviewDetail = ApiReview & {
    * carries one still shows it.
    */
   overallMark?: boolean;
+  /**
+   * Whether the form **has to** end with an overall mark: true only on a manager's
+   * form in a period that weights the Manager appraisal part, because without one
+   * that appraiser's share of the mark would be silently left out and two people
+   * in one period could be scored on different mixes. Then `overallMark` is true
+   * too, whatever the company's own setting says. **Absent from a server that
+   * predates it, and absent means not required**, never required: the API still
+   * refuses a send without one where it is, in a sentence the form shows.
+   */
+  overallMarkRequired?: boolean;
   /**
    * Why Send would be refused right now, in the API's own sentence, or `null`
    * when it would not.
@@ -998,6 +1051,17 @@ export type ApiAppraiserContext = {
   note: string | null;
   /** How many appraisers this person has, so "30%" reads as a share of what. */
   appraiserCount: number;
+  /**
+   * The Manager appraisal part's share of the whole mark in this period, in basis
+   * points: what the overall marks of everybody who appraises this person are
+   * worth between them. **0 when the period does not weight it**, which is the
+   * ordinary case, and then the overall mark is for reference only.
+   *
+   * **Absent from a server that predates the part, and absent says nothing**:
+   * not 0, and so not "does not count". The strip makes no claim about the mark
+   * without it (`appraiserStripLine`).
+   */
+  markShareBp?: number;
 };
 
 export type ApiAppraiser = {
@@ -1195,19 +1259,25 @@ export type ApiAutoAssigned = {
  * leadership" are different statements and only one of them is true.
  */
 
-/** Mirrors `ScoreComponent`. Self-assessment ships weighted at zero. */
+/**
+ * Mirrors `ScoreComponent`. Self-assessment and Weekly tasks ship weighted at
+ * zero, and so does Manager appraisal.
+ */
 export type ScoreComponent =
   | "OBJECTIVES"
   | "TASKS"
   | "CORE_COMPETENCY"
   | "BEHAVIOURAL_COMPETENCY"
   | "LEADERSHIP"
+  | "MANAGER_APPRAISAL"
   | "SELF_ASSESSMENT";
 
 /**
  * The components in the order they are listed everywhere, which is the order
  * the API sends them: Weekly tasks sits straight after objectives, because both
- * are measured delivery.
+ * are measured delivery, and Manager appraisal sits before Self-assessment,
+ * because what the manager says comes before what the person says of
+ * themselves.
  */
 export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
   "OBJECTIVES",
@@ -1215,16 +1285,62 @@ export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
   "CORE_COMPETENCY",
   "BEHAVIOURAL_COMPETENCY",
   "LEADERSHIP",
+  "MANAGER_APPRAISAL",
   "SELF_ASSESSMENT",
 ];
 
 /**
+ * The parts a server may predate.
+ *
+ * A server that has never heard of one sends no row, no weight and no score for
+ * it, and **that is how this side tells it apart from a server that has**: an
+ * absent part is not a part at 0%. So a weights screen draws a row for one only
+ * when the server spoke of it, and what is sent back leaves it out when it did
+ * not. Offering a weight the server would silently drop is a control that looks
+ * saved and moves no mark, and writing a 0 over one set on a newer screen
+ * would be worse.
+ *
+ * Every other part has been there since weights were per period, and an absent
+ * one of those is read as 0, as it always was.
+ */
+export type LaterComponent = "MANAGER_APPRAISAL";
+
+export function isLaterComponent(
+  component: ScoreComponent,
+): component is LaterComponent {
+  return component === "MANAGER_APPRAISAL";
+}
+
+/**
  * A whole weight set, in basis points (10000 = 100%).
  *
- * All six keys, always. The API refuses a partial set on a period, because a
- * missing key is a weight nobody chose.
+ * Every part the server has always had, and a `LaterComponent` only when the
+ * server spoke of it. The API refuses a partial set on a period, because a
+ * missing key is a weight nobody chose; a part it has never heard of is the one
+ * thing that is not that.
  */
-export type WeightSet = Record<ScoreComponent, number>;
+export type WeightSet = Record<
+  Exclude<ScoreComponent, LaterComponent>,
+  number
+> &
+  Partial<Record<LaterComponent, number>>;
+
+/**
+ * A weight set from the rows a server sent: a part the server has always had is
+ * 0 when its row is missing, and a `LaterComponent` is left out unless the
+ * server sent it. The one place that rule is written.
+ */
+export function weightSetFromRows(
+  rows: readonly { component: ScoreComponent; weightBp: number }[],
+): WeightSet {
+  const set: Partial<Record<ScoreComponent, number>> = {};
+  for (const component of SCORE_COMPONENT_ORDER) {
+    const row = rows.find((one) => one.component === component);
+    if (row) set[component] = row.weightBp;
+    else if (!isLaterComponent(component)) set[component] = 0;
+  }
+  return set as WeightSet;
+}
 
 /**
  * Where a period's weights come from, as the API reports it.
@@ -1240,7 +1356,11 @@ export type CycleWeights = {
 
 /** Why a component did not enter the arithmetic. Null means it did. */
 export type ScoreExclusionReason =
-  "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER" | "NO_GRADED_TASKS";
+  | "NOT_WEIGHTED"
+  | "NO_DATA"
+  | "NOT_A_MANAGER"
+  | "NO_GRADED_TASKS"
+  | "NO_APPRAISER_MARK";
 
 /**
  * Where a score's weights came from. `"period"` is a draft previewing the set
@@ -1256,17 +1376,21 @@ export function weightsFromNote(from: WeightsFrom): string | null {
 }
 
 /**
- * The components a breakdown shows. Weekly tasks weighted at nothing is
- * dropped: every period set up before it became a component carries it at 0%,
- * and "Weekly tasks: weighted at 0%" on every mark says nothing. Every other
- * exclusion stays, in the API's words.
+ * The components a breakdown shows. Weekly tasks and Manager appraisal weighted
+ * at nothing are dropped: every period set up before either became a component
+ * carries it at 0%, and "Weekly tasks: weighted at 0%" on every mark says
+ * nothing. Every other exclusion stays, in the API's words.
  */
 export function visibleComponents<
   T extends Pick<ApiComponentScore, "component" | "excludedBecause">,
 >(components: T[]): T[] {
   return components.filter(
     (part) =>
-      !(part.component === "TASKS" && part.excludedBecause === "NOT_WEIGHTED"),
+      !(
+        (part.component === "TASKS" ||
+          part.component === "MANAGER_APPRAISAL") &&
+        part.excludedBecause === "NOT_WEIGHTED"
+      ),
   );
 }
 
@@ -1389,9 +1513,14 @@ export type ApiScoreRow = {
   };
   /**
    * The appraisers' own overall mark, weighted across them by `weightBp` over
-   * the weight that has actually come in. **Not a scored component** — it is the
-   * same judgement the competency ratings already express, and weighting one
-   * judgement twice is the defect in the incumbent's formula, not a feature.
+   * the weight that has actually come in.
+   *
+   * **Scored only where a period weights the Manager appraisal part**, and that
+   * part is this same figure: `components` says which. Otherwise it is for
+   * reference, because it is the same judgement the competency ratings already
+   * express and weighting one judgement twice is a choice a company has to make
+   * on purpose. Read whether it counts off the part (`scoredFrom`), never assume
+   * it.
    */
   appraiserMark: {
     ratingBp: number | null;
@@ -1450,7 +1579,21 @@ export type ApiEmployeeScore = ApiScoreRow & {
 export type ApiScoringWeights = {
   /** Whether the company chose these or is on the shipped defaults. */
   source: "saved" | "default";
-  rows: { component: ScoreComponent; label: string; weightBp: number }[];
+  rows: {
+    component: ScoreComponent;
+    /** The company's own name for the part, or the built-in one. */
+    label: string;
+    /** The built-in name. Absent from an API one deploy behind. */
+    defaultLabel?: string;
+    /** The company's description of the part, or the built-in one. Absent from an older API. */
+    description?: string;
+    /** The built-in description. Absent from an older API. */
+    defaultDescription?: string;
+    weightBp: number;
+    /** Its share of a mark: weight over total. Absent from an older API. */
+    shareBp?: number;
+  }[];
+  /** Weights are proportional, so this need not be 10000. */
   totalBp: number;
   /**
    * What turning self-assessment on does to somebody's official mark, in the
@@ -1458,12 +1601,65 @@ export type ApiScoringWeights = {
    * without reading a sentence about it, so the sentence travels with the data.
    */
   selfAssessmentNote: string;
+  /**
+   * What the Manager appraisal weight does to a mark, in the API's own words,
+   * including that the manager's judgement then reaches the score both through
+   * the levels they record under Competency ratings and through the overall
+   * mark. A note, never a refusal.
+   *
+   * It is about the **saved** weight. **Absent from a server that predates the
+   * part, and absent means there is nothing to say**: this side writes no
+   * sentence of its own about the double count. What tells this side that the
+   * server has the part is the row for it (`rows`), not this sentence.
+   */
+  managerAppraisalNote?: string;
 };
 
 export type ApiScoringWeightsSaved = ApiScoringWeights & {
   saved: true;
   /** Running cycles these weights will not touch, because theirs are frozen. */
   frozenCycles: string[];
+};
+
+/**
+ * One appraisal scoring part, as the company wrote it: its own name and
+ * description, a weight, and the source its mark is scored from. Each source
+ * backs one part at most.
+ */
+export type ApiScoringPart = {
+  id: string;
+  source: ScoreComponent;
+  /** The source's built-in name, for "Scored from". */
+  sourceLabel: string;
+  name: string;
+  /** Null when the company wrote none. */
+  description: string | null;
+  weightBp: number;
+  /** Its share of a whole mark: weight over the total. */
+  shareBp: number;
+};
+
+export type ApiScoringParts = {
+  parts: ApiScoringPart[];
+  /** Weights are proportional, so this need not be 10000. */
+  totalBp: number;
+  /** Every source a part can be scored from, and the part using it if any. */
+  sources: {
+    source: ScoreComponent;
+    label: string;
+    description: string;
+    usedBy: string | null;
+  }[];
+  /** What self-assessment does to a mark, in the API's own words. */
+  selfAssessmentNote: string;
+};
+
+export type ScoringPartInput = {
+  source: ScoreComponent;
+  name: string;
+  /** Empty or null means no description. */
+  description?: string | null;
+  weightBp: number;
 };
 
 /* ---------------------------------------------------- bands and the report */
@@ -2064,9 +2260,9 @@ export type GapListParams = {
 /**
  * One answer on one subsection.
  *
- * **Exactly one of `level`, `boolValue` and `choiceOptionId`, the one the
- * subsection's kind names.** The API refuses any other of the three by name, so
- * a form builds the body from the kind rather than sending all of them.
+ * **Exactly one of `level`, `boolValue`, `choiceOptionId` and `textValue`, the
+ * one the subsection's kind names.** The API refuses any other of the four by
+ * name, so a form builds the body from the kind rather than sending all of them.
  */
 export type RateBody = {
   employeeId: string;
@@ -2076,10 +2272,13 @@ export type RateBody = {
   boolValue?: boolean;
   /** `CHOICE` only: one of the subsection's own live choices. */
   choiceOptionId?: string;
+  /** `TEXT` only: 1 to 4,000 characters once trimmed. */
+  textValue?: string;
   /**
    * `RATING` only. Where the company wants them, so a gap is arithmetic rather
-   * than opinion. A yes or no and a pick have no target, because there is no
-   * honest distance between two answers that are not on a scale.
+   * than opinion. A yes or no, a pick and a written answer have no target,
+   * because there is no honest distance between two answers that are not on a
+   * scale.
    */
   target?: number;
   reviewCycleId?: string;
@@ -2662,6 +2861,8 @@ export const performanceApi = {
   updateCycle: (
     id: string,
     body: {
+      /** Refused (409) when another period already has it. 3–80 characters. */
+      name?: string;
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
@@ -2928,10 +3129,43 @@ export const performanceApi = {
    * why the incumbent needs a "Resolve Weights" button and this does not — there
    * is never an unbalanced state to resolve.
    */
-  setScoringWeights: (weights: WeightSet) =>
+  setScoringWeights: (
+    weights: WeightSet,
+    /** Renames parts. A part left out keeps its name; "" goes back to the built-in one. */
+    labels?: Partial<Record<ScoreComponent, string>>,
+    /** Same shape as `labels`: a part left out keeps its description; "" goes back to the built-in one. */
+    descriptions?: Partial<Record<ScoreComponent, string>>,
+  ) =>
     request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
       method: "PUT",
-      body: weights,
+      body: {
+        ...weights,
+        ...(labels === undefined ? {} : { labels }),
+        ...(descriptions === undefined ? {} : { descriptions }),
+      },
+    }),
+
+  /** The company's scoring parts. Open to everybody, like the weights. */
+  scoringParts: (signal?: AbortSignal) =>
+    request<ApiScoringParts>("/performance/scoring-parts", signalOf(signal)),
+
+  /** Add a part. A second part on a source already used is a 409. */
+  createScoringPart: (input: ScoringPartInput) =>
+    request<ApiScoringPart>("/performance/scoring-parts", {
+      method: "POST",
+      body: input,
+    }),
+
+  updateScoringPart: (id: string, patch: Partial<ScoringPartInput>) =>
+    request<ApiScoringPart>(`/performance/scoring-parts/${id}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+
+  /** Gone for good: its source counts for nothing until a part uses it again. */
+  deleteScoringPart: (id: string) =>
+    request<{ id: string; name: string }>(`/performance/scoring-parts/${id}`, {
+      method: "DELETE",
     }),
 
   /** Everybody's composite score in one cycle. `EDIT_RECORDS`, as an aggregate is. */
@@ -3233,8 +3467,8 @@ export const performanceApi = {
 
   /**
    * `scaleMax` is **still required whatever the kind**, and means nothing for a
-   * yes or no and a pick: send 5. An absent `answerKind` is `RATING`, which is
-   * what a body that never mentions it has always meant.
+   * yes or no, a pick and a written answer: send 5. An absent `answerKind` is
+   * `RATING`, which is what a body that never mentions it has always meant.
    */
   createCompetency: (body: {
     name: string;
@@ -3859,48 +4093,34 @@ export function changeLabel(bp: number): string {
 }
 
 /**
- * `formatBp` from `modules/performance/scoring.ts`, character for character.
- *
- * `percentOfBp` above puts a fractional percentage through `Number()`, so 33.30%
- * prints as `33.3%`. The server's own formatter keeps both decimals. That
- * difference does not matter on a table cell and matters completely in
- * `scoringWeightProblem`, whose entire job is to be the sentence the server would
- * have sent. Two copies exist because they are two different requirements, and
- * this one is the one that must not drift.
- */
-function serverPercentOfBp(bp: number): string {
-  const whole = bp / 100;
-  return `${Number.isInteger(whole) ? whole : whole.toFixed(2)}%`;
-}
-
-/**
  * What is wrong with a set of **scoring** weights, in the server's own words.
  *
- * Checked here **as well as** on the server, never instead of it. The API refuses
- * anything that does not total exactly 10000, which is why the settings form is
- * whole-set-at-once — a field-at-a-time form would be unsubmittable at every
- * intermediate state and the rule would end up being a suggestion. This is what
- * lets somebody see the refusal while they are still editing, and it is worded
- * identically to `assertWeightsWhole` so nobody meets a different sentence on
- * save.
+ * Checked here **as well as** on the server, never instead of it. Weights are
+ * proportional, so the total need not be 100%: 2, 1 and 1 are 50%, 25% and
+ * 25%. The one set the API refuses is every part at zero, which cannot make a
+ * mark, and this is worded identically to `assertWeightsUsable` so nobody meets
+ * a different sentence on save.
  *
- * Separate from `weightProblem`, which is the appraiser-weights version: the
- * two rules are the same arithmetic and the two refusals are different sentences,
- * and quietly showing one where the server sends the other is how a screen starts
- * lying about what the API said.
+ * Separate from `weightProblem`, which is the appraiser-weights version: that
+ * rule still needs exactly 100%, and quietly showing one where the server sends
+ * the other is how a screen starts lying about what the API said.
  */
 export function scoringWeightProblem(
   entries: readonly { weightBp: number }[],
 ): string | null {
   const total = entries.reduce((sum, entry) => sum + entry.weightBp, 0);
-  if (total === FULL_WEIGHT_BP) return null;
-  return (
-    `Those weights add up to ${serverPercentOfBp(total)}. They have to make ` +
-    `100% exactly, so a score can be explained. ` +
-    (total < FULL_WEIGHT_BP
-      ? `Add ${serverPercentOfBp(FULL_WEIGHT_BP - total)}.`
-      : `Take off ${serverPercentOfBp(total - FULL_WEIGHT_BP)}.`)
-  );
+  if (total > 0) return null;
+  return "Give at least one part a weight above 0%, or there is nothing to make a mark from.";
+}
+
+/**
+ * A part's share of a mark when every part has something recorded, in basis
+ * points: its weight over the total, since weights are proportional. Zero when
+ * the total is. The API sends the same figure as `shareBp` for the saved set;
+ * this is for a set still being typed.
+ */
+export function shareOfTotalBp(weightBp: number, totalBp: number): number {
+  return totalBp <= 0 ? 0 : Math.round((weightBp * FULL_WEIGHT_BP) / totalBp);
 }
 
 /**

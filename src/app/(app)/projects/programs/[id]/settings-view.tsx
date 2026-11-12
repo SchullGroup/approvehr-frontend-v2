@@ -83,9 +83,9 @@ function Details({ program }: { program: Program }) {
         ...(color.toLowerCase() !== program.color.toLowerCase()
           ? { color }
           : {}),
-        ...(departmentId !== (program.departmentId ?? "")
+        ...(departmentId && departmentId !== (program.departmentId ?? "")
           ? {
-              departmentId: departmentId || null,
+              departmentId,
               departmentName: department?.name ?? null,
             }
           : {}),
@@ -184,14 +184,18 @@ function Details({ program }: { program: Program }) {
             </Field>
             <Field
               label="Department"
-              optional
+              required
               help="A label for which department this belongs to. It gives nobody access by itself; use People & access to add its people."
             >
               <Select
                 value={departmentId}
                 onChange={(event) => setDepartmentId(event.target.value)}
               >
-                <option value="">None</option>
+                {!program.departmentId && (
+                  <option value="" disabled>
+                    Choose a department
+                  </option>
+                )}
                 {live.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}

@@ -19,10 +19,12 @@ describe("the word in front of the name", () => {
     expect(screen.getByText("Yes or no")).toBeInTheDocument();
     rerender(<KindTag kind="CHOICE" />);
     expect(screen.getByText("Pick one")).toBeInTheDocument();
+    rerender(<KindTag kind="TEXT" />);
+    expect(screen.getByText("Written")).toBeInTheDocument();
   });
 
-  it("has one width for all three, so the names after them start in one column", () => {
-    for (const kind of ["RATING", "BOOLEAN", "CHOICE"] as const) {
+  it("has one width for all four, so the names after them start in one column", () => {
+    for (const kind of ["RATING", "BOOLEAN", "CHOICE", "TEXT"] as const) {
       const { container, unmount } = render(<KindTag kind={kind} />);
       expect(container.firstElementChild).toHaveClass("min-w-[4.5rem]");
       unmount();

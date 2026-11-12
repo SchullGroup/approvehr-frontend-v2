@@ -829,7 +829,7 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
  *
  * A part the period weights at 0% is not here: the company is not appraising on
  * it, so a row saying it is "shown but not counted" is a row about nothing. The
- * weights, all six, are on the period page, and the link above changes them.
+ * weights are on the period page, and the link above changes them.
  */
 export function Parts({ report }: { report: ApiCycleReport }) {
   const parts = weightedParts(report.components);

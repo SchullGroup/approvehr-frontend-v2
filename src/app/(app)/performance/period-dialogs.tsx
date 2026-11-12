@@ -1637,9 +1637,13 @@ function QuestionSummary({
   /* A directly rated subsection the period puts on the form. Its prompt is the
      subsection's name, so the badge says it is rated directly (not "Rating",
      which would read as a rating question on the company's scale), who it is put
-     to is one of three words, and the filing badge would only repeat the prompt. */
+     to is one of three words, and the filing badge would only repeat the prompt.
+     One answered in words is not rated, so it says written: the question's own
+     kind is the subsection's, and `TEXT` is what a written subsection derives. */
   const direct = question.answersSubsection === true;
   const who = direct ? askedWho(question.askedOf) : null;
+  const directWords =
+    question.kind === "TEXT" ? "Written directly" : "Rated directly";
   return (
     /* A basis of its own, so on a phone the pencil and the bin drop under the
        question instead of squeezing it into a strip a few words wide. */
@@ -1649,7 +1653,7 @@ function QuestionSummary({
       </span>
       <span className="mt-1.5 flex flex-wrap items-center gap-2">
         <Badge tone="neutral" size="sm">
-          {direct ? "Rated directly" : KIND_LABEL[question.kind]}
+          {direct ? directWords : KIND_LABEL[question.kind]}
         </Badge>
         <Badge tone="neutral" size="sm">
           {who ??

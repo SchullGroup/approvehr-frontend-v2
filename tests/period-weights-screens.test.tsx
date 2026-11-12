@@ -4,12 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ApiCycle,
   ApiScoringWeights,
-  ScoreComponent,
+  WeightSet,
 } from "@/lib/api/performance";
 
 /**
- * The three places the weights are chosen: the new-period wizard, the draft
- * period's own settings, and the company defaults in Settings.
+ * The two places a period's weights are chosen: the new-period wizard and the
+ * draft period's own settings. The company's parts in Settings have their own
+ * file, `scoring-parts-settings.test.tsx`.
  *
  * Stores are mocked at the hook, so what is asserted is what each screen
  * *sends*, in basis points, and what it refuses before sending.
@@ -109,8 +110,6 @@ vi.mock("@/lib/store/performance", () => ({
   useKpiMutations: () => ({ createGoal: vi.fn(), addKeyResult: vi.fn() }),
 }));
 
-const { ScoringWeightsForm } =
-  await import("@/app/(app)/settings/performance/weights-form");
 const { DraftPeriodWizard } =
   await import("@/app/(app)/performance/periods/new/draft-wizard");
 const { PeriodWeightsSection } =
@@ -119,12 +118,13 @@ const { PeriodWeightsSection } =
 beforeEach(() => {
   vi.clearAllMocks();
   companySet = { weights: defaults, error: null };
-  save.mockResolvedValue({ ...defaults, saved: true, frozenCycles: [] });
   createCycle.mockResolvedValue({ id: "c-1" });
   updateCycle.mockResolvedValue({});
 });
 
-const BP: Record<ScoreComponent, number> = {
+/* The set a server from before Manager appraisal sends: six parts and no key for
+   the seventh. Every case here is the older-server case, and has to stay six. */
+const BP: WeightSet = {
   OBJECTIVES: 2500,
   TASKS: 1500,
   CORE_COMPETENCY: 2500,
@@ -145,39 +145,6 @@ const cycle = (over: Partial<ApiCycle> = {}): ApiCycle =>
     ...over,
   }) as unknown as ApiCycle;
 
-describe("Settings: the company defaults", () => {
-  it("shows the Weekly tasks row and says it starts new periods", () => {
-    render(<ScoringWeightsForm scale={null} />);
-    expect(screen.getByText("Weekly tasks")).toBeInTheDocument();
-    expect(
-      screen.getByText("This is the starting point for new appraisal periods."),
-    ).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Weight")).toHaveLength(6);
-  });
-
-  it("saves all six components", async () => {
-    const user = userEvent.setup();
-    render(<ScoringWeightsForm scale={null} />);
-    const fields = screen.getAllByLabelText("Weight");
-    await user.clear(fields[0]!);
-    await user.type(fields[0]!, "25");
-    await user.clear(fields[1]!);
-    await user.type(fields[1]!, "15");
-    await user.click(
-      screen.getByRole("button", { name: "Save the whole set" }),
-    );
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save).toHaveBeenCalledWith({
-      OBJECTIVES: 2500,
-      TASKS: 1500,
-      CORE_COMPETENCY: 2500,
-      BEHAVIOURAL_COMPETENCY: 2000,
-      LEADERSHIP: 1500,
-      SELF_ASSESSMENT: 0,
-    });
-  });
-});
-
 describe("the new-period wizard", () => {
   const toReview = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.type(
@@ -190,15 +157,21 @@ describe("the new-period wizard", () => {
     );
   };
 
-  it("pre-fills from the company defaults and blocks Draft it unless the total is 100", async () => {
+  it("pre-fills from the company defaults, and blocks Draft it only for a bad row", async () => {
     const user = userEvent.setup();
     render(<DraftPeriodWizard />);
     await toReview(user);
     const draftIt = screen.getByRole("button", { name: /Draft it/ });
     expect(draftIt).toBeEnabled();
+    /* A total other than 100% is fine: weights are proportional. */
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
-    expect(screen.getByText("These must add up to 100%.")).toBeInTheDocument();
+    expect(draftIt).toBeEnabled();
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "150");
+    expect(
+      screen.getByText("Each weight is a whole number from 0 to 100."),
+    ).toBeInTheDocument();
     expect(draftIt).toBeDisabled();
   });
 
@@ -295,11 +268,16 @@ describe("a period's own settings", () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it("keeps Save off until the total is 100", async () => {
+  it("allows a total other than 100, and keeps Save off for a bad row", async () => {
     const user = userEvent.setup();
     render(<PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />);
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "5");
+    expect(
+      screen.getByRole("button", { name: "Save the weights" }),
+    ).toBeEnabled();
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "2.5");
     expect(
       screen.getByRole("button", { name: "Save the weights" }),
     ).toBeDisabled();
@@ -430,5 +408,176 @@ describe("a period's own settings", () => {
     expect(
       screen.queryByText("How the mark is made up"),
     ).not.toBeInTheDocument();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The same three places, against a server that has Manager appraisal.
+ *
+ * Everything above is the older server's case: six parts, six keys sent, no row
+ * for the seventh. These are the other half. The part is drawn only where the
+ * server spoke of it, and what is sent carries it only then, so neither half can
+ * silently write a weight the other would drop.
+ */
+describe("with the Manager appraisal part", () => {
+  const withManager = (managerBp = 0): ApiScoringWeights => ({
+    ...defaults,
+    rows: [
+      ...defaults.rows.slice(0, 5),
+      {
+        component: "MANAGER_APPRAISAL",
+        label: "Manager appraisal",
+        weightBp: managerBp,
+      },
+      ...defaults.rows.slice(5),
+    ],
+  });
+  const SEVEN: WeightSet = { ...BP, MANAGER_APPRAISAL: 0 };
+
+  beforeEach(() => {
+    companySet = { weights: withManager(), error: null };
+  });
+
+  it("the wizard: pre-fills the row from the company defaults and sends it when the period is created", async () => {
+    const user = userEvent.setup();
+    render(<DraftPeriodWizard />);
+    await user.type(
+      screen.getByPlaceholderText("H1 2027 appraisal"),
+      "H1 2027",
+    );
+    await user.type(
+      screen.getByPlaceholderText(/Half-year review/),
+      "Half-year review for the whole company, delivery first.",
+    );
+    expect(screen.getByLabelText("Manager appraisal")).toHaveValue(0);
+    await user.clear(screen.getByLabelText("Delivery against objectives"));
+    await user.type(screen.getByLabelText("Delivery against objectives"), "25");
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "15");
+    await user.clear(screen.getByLabelText("Manager appraisal"));
+    await user.type(screen.getByLabelText("Manager appraisal"), "30");
+    await user.click(screen.getByRole("button", { name: /Draft it/ }));
+    for (const label of [/Next|Continue|Questions/i, /Next|Continue|Review/i]) {
+      await user.click(await screen.findByRole("button", { name: label }));
+    }
+    await user.click(
+      await screen.findByRole("button", { name: /^Create H1 2027/ }),
+    );
+    await waitFor(() => expect(createCycle).toHaveBeenCalledTimes(1));
+    expect(createCycle.mock.calls[0]![2]).toMatchObject({
+      weights: { ...BP, MANAGER_APPRAISAL: 3000 },
+    });
+  });
+
+  it("a draft period: PATCHes the seventh weight with the rest", async () => {
+    const user = userEvent.setup();
+    render(
+      <PeriodWeightsSection
+        period={cycle({ weights: { values: SEVEN, basis: "company" } })}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Manager appraisal")).toHaveValue(0);
+    await user.clear(screen.getByLabelText("Manager appraisal"));
+    await user.type(screen.getByLabelText("Manager appraisal"), "30");
+    await user.click(screen.getByRole("button", { name: "Save the weights" }));
+    await waitFor(() =>
+      expect(updateCycle).toHaveBeenCalledWith("c-9", {
+        weights: { ...SEVEN, MANAGER_APPRAISAL: 3000 },
+      }),
+    );
+  });
+
+  it("a draft period from a server that has no such part sends six keys and draws six rows", async () => {
+    const user = userEvent.setup();
+    companySet = { weights: defaults, error: null };
+    render(
+      <PeriodWeightsSection
+        period={cycle({ weights: { values: BP, basis: "company" } })}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.queryByLabelText("Manager appraisal")).toBeNull();
+    /* Different from what the period holds, or there is nothing to save. */
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "10");
+    await user.click(screen.getByRole("button", { name: "Save the weights" }));
+    await waitFor(() => expect(updateCycle).toHaveBeenCalledTimes(1));
+    const sent = updateCycle.mock.calls[0]![1] as { weights: object };
+    expect("MANAGER_APPRAISAL" in sent.weights).toBe(false);
+    expect(Object.keys(sent.weights)).toHaveLength(6);
+  });
+
+  it("a started period shows the seventh part's weight, read only", () => {
+    render(
+      <PeriodWeightsSection
+        period={cycle({
+          stage: "SELF",
+          weights: {
+            values: { ...SEVEN, MANAGER_APPRAISAL: 3000 },
+            basis: "frozen",
+          },
+        })}
+        onChanged={vi.fn()}
+      />,
+    );
+    const row = screen
+      .getByText("Manager appraisal")
+      .closest("[data-weight-row]") as HTMLElement;
+    expect(within(row).getByText("30%")).toBeInTheDocument();
+    expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
+  });
+  it("a draft period draws the API's sentence about its own weights, and says it is about the saved set once something is typed", async () => {
+    const user = userEvent.setup();
+    render(
+      <PeriodWeightsSection
+        period={cycle({
+          weights: { values: SEVEN, basis: "company" },
+          managerAppraisalNote: "THE PERIOD'S NOTE",
+        })}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByText("THE PERIOD'S NOTE")).toHaveLength(1);
+    expect(screen.queryByText(/Saved now, not yet changed/)).toBeNull();
+    await user.clear(screen.getByLabelText("Manager appraisal"));
+    await user.type(screen.getByLabelText("Manager appraisal"), "30");
+    expect(screen.getByText(/Saved now, not yet changed:/)).toBeInTheDocument();
+    expect(screen.getAllByText("THE PERIOD'S NOTE")).toHaveLength(1);
+  });
+
+  it("a started period draws it too, with nothing about saving", () => {
+    render(
+      <PeriodWeightsSection
+        period={cycle({
+          stage: "SELF",
+          weights: {
+            values: { ...SEVEN, MANAGER_APPRAISAL: 3000 },
+            basis: "frozen",
+          },
+          managerAppraisalNote: "THE PERIOD'S NOTE",
+        })}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("THE PERIOD'S NOTE")).toBeInTheDocument();
+    expect(screen.queryByText(/Saved now, not yet changed/)).toBeNull();
+  });
+
+  it("says nothing where the server sends no note", async () => {
+    const user = userEvent.setup();
+    render(
+      <PeriodWeightsSection
+        period={cycle({ weights: { values: SEVEN, basis: "company" } })}
+        onChanged={vi.fn()}
+      />,
+    );
+    await user.clear(screen.getByLabelText("Manager appraisal"));
+    await user.type(screen.getByLabelText("Manager appraisal"), "30");
+    /* Typed over, and still nothing to say it is about the saved set: there is
+       no sentence for it to be about. */
+    expect(screen.queryByText(/Saved now, not yet changed/)).toBeNull();
   });
 });

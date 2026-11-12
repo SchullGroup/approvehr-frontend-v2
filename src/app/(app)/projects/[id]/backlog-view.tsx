@@ -25,7 +25,11 @@ import {
   resolveChoice,
   type SprintSection,
 } from "@/lib/projects/backlog";
-import { applyFilter, isFiltering } from "@/lib/projects/filters";
+import {
+  applyFilter,
+  filterContext,
+  isFiltering,
+} from "@/lib/projects/filters";
 import { nextSprintDraft, startBlocker } from "@/lib/projects/sprints";
 import {
   COMPLETE_CYCLE,
@@ -82,6 +86,11 @@ export function BacklogView() {
   const toast = useToast();
   const scrum = project.type === "SCRUM";
 
+  /* The backlog never lists a subtask, so typing one's name finds its parent. */
+  const searchContext = useMemo(
+    () => filterContext(issues, people.nameOf),
+    [issues, people.nameOf],
+  );
   const layout = useMemo(
     () =>
       buildBacklog({
@@ -98,10 +107,11 @@ export function BacklogView() {
                 meId,
                 project.statuses,
                 project.memberDepartments,
+                searchContext,
               ).length > 0
           : () => true,
       }),
-    [project, issues, sprints, today, dayOf, filter, meId],
+    [project, issues, sprints, today, dayOf, filter, meId, searchContext],
   );
   const filtering = isFiltering(filter);
 

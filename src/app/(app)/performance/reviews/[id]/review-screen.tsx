@@ -33,6 +33,7 @@ import {
   type ApiReviewDetail,
 } from "@/lib/api/performance";
 import {
+  appraiserMarkHint,
   evidenceLine,
   leftOutLabels,
   leftOutNote,
@@ -50,7 +51,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraiserStrip } from "../../review-parts";
 import { WorkEvidence } from "@/components/performance/work-evidence";
-import { WorkThisCycle } from "@/components/performance/work-this-cycle";
+import { WorkBehindTheMark } from "@/components/performance/kept-work";
 import { FinaliseDialog } from "./finalise-dialog";
 import { ReviewFormCard } from "./review-form-card";
 import { SignOffDialog } from "./sign-off-dialog";
@@ -407,6 +408,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 <AppraiserStrip
                   appraiser={review.appraiser}
                   mine={review.mine}
+                  asksMark={review.overallMark === true}
                 />
               )}
             </CardBody>
@@ -528,14 +530,17 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {/* ------------------------------------------- finished on the project boards */}
           {/* Read-only evidence beside the answers, for the self review and the
               manager's. Peer feedback is an aggregate nobody signs, so it has none. */}
-          <WorkThisCycle
+          <WorkBehindTheMark
+            reviewId={review.id}
+            kind={review.kind}
+            final={review.finalised}
+            disputed={review.disputed}
             subjectId={review.subjectId}
             cycleId={review.cycleId}
             periodStart={review.periodStart}
             periodEnd={review.periodEnd}
             subjectName={review.subjectName}
             own={isSubject}
-            enabled={review.kind !== "PEER"}
           />
 
           {/* ------------------------------------------------------------- the form */}
@@ -582,7 +587,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             signOff.finalise(review.id, recommendation),
           );
           return outcome.ok
-            ? { subjectNotified: outcome.value.subjectNotified }
+            ? {
+                subjectNotified: outcome.value.subjectNotified,
+                kept: outcome.value.workEvidence ?? null,
+              }
             : null;
         }}
       />
@@ -604,9 +612,12 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
  * - **The weight it actually carried is shown beside the weight the company
  *   set**, because when a component drops out the rest are renormalised and a
  *   reader comparing 25% to a mark computed over 33% cannot check the sum.
- * - **The appraisers' own overall mark is shown apart from the score**, because
- *   it is not in it. Weighting the same judgement twice is the defect in the
- *   incumbent's formula, not a feature to copy.
+ * - **The appraisers' own overall mark is shown apart from the score, and the
+ *   sentence beside it says whether the score counts it.** It does only where a
+ *   period weights the Manager appraisal part, which is a company's choice to
+ *   count one judgement twice (once here, once in the levels recorded under
+ *   Competency ratings) and not a default. The sentence is read off the part
+ *   (`appraiserMarkHint`), never assumed.
  */
 function ScorePanel({
   score,
@@ -693,11 +704,7 @@ function ScorePanel({
                   scoreLabel(score.appraiserMark.ratingBp)
                 )
               }
-              hint={
-                score.appraiserMark.appraisers <= 1
-                  ? "For reference. It does not count towards the score."
-                  : `${weightLabel(score.appraiserMark.submittedWeightBp)} of the weight is in, across ${score.appraiserMark.appraisers} appraisers. For reference; it does not count towards the score.`
-              }
+              hint={appraiserMarkHint(score.appraiserMark, score.components)}
             />
           )}
           <Stat

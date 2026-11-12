@@ -129,6 +129,13 @@ export function Picker({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  /* The list is drawn inside whatever holds the picker, so in a dialog's scrolling
+     body it can open below the fold, hiding its last rows and any create action.
+     Bring it into view once, as it opens; stable, so typing does not scroll again.
+     jsdom has no scrollIntoView, hence the optional call. */
+  const revealList = useCallback((panel: HTMLDivElement | null) => {
+    panel?.scrollIntoView?.({ block: "nearest" });
+  }, []);
 
   const filtering = searchable ?? options.length > SEARCH_FROM;
 
@@ -297,6 +304,7 @@ export function Picker({
 
       {open && (
         <div
+          ref={revealList}
           className={cn(
             "absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-lg",
             "border border-line bg-surface shadow-lg",

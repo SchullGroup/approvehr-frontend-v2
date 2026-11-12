@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { projectsApi } from "@/lib/api/projects";
@@ -18,6 +24,7 @@ import {
   createSprintInBook,
   deleteIssueInBook,
   deleteProject as bookDeleteProject,
+  archiveProject as bookArchiveProject,
   deleteSprintInBook,
   editCommentInBook,
   patchIssueInBook,
@@ -63,7 +70,7 @@ import {
 import { useRevalidation } from "@/lib/revalidate";
 import { todayIn } from "@/lib/time";
 import { createPersistedState } from "./persisted";
-import { projectsChanged } from "./program-sync";
+import { onProjectsChanged, projectsChanged } from "./program-sync";
 import { useOrgTimezone, useSession } from "./session";
 
 /**
@@ -683,6 +690,27 @@ async function apiSaveWorkflow(
   }
 }
 
+async function apiArchiveProject(
+  owner: string,
+  projectId: string,
+  archived: boolean,
+): Promise<Result<Project>> {
+  claim(owner);
+  try {
+    const saved = await projectsApi.setArchived(projectId, archived);
+    const held = dataOf(projectId)?.project;
+    if (held) replaceProject(projectId, mergeProject(held, saved));
+    /* It leaves the lists, or comes back into them: read them again. */
+    for (const scope of ["mine", "all"] as const) {
+      if (cache.lists[scope]) void loadList(owner, scope);
+    }
+    projectsChanged();
+    return ok(held ? mergeProject(held, saved) : saved);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 async function apiDeleteProject(
   owner: string,
   projectId: string,
@@ -964,7 +992,11 @@ export function useProjectList(
   return useMemo(() => {
     if (!mode.connected) {
       const ready = book.anchor !== "";
-      const projects = Object.values(book.projects).map((d) => ({
+      /* Archived projects are under the Archive, as the API leaves them out. */
+      const live = Object.values(book.projects).filter(
+        (d) => !d.project.archived,
+      );
+      const projects = live.map((d) => ({
         ...d.project,
         /* The stored project holds its program's id; the card shows its name. */
         programName: d.project.programId
@@ -1000,6 +1032,89 @@ export function useProjectList(
       reload,
     };
   }, [mode.connected, book, state, owner, scope, canSee, reload]);
+}
+
+/**
+ * The archived projects the signed-in person can see, for the Archive. Every
+ * project in the company for somebody the API lets list them all, otherwise the
+ * ones they are on. Read again when the window comes back and after a project is
+ * archived or brought back.
+ */
+export function useArchivedProjects(enabled = true): {
+  status: ViewStatus;
+  error: unknown;
+  projects: Project[];
+  reload: () => void;
+} {
+  const mode = useMode();
+  const today = todayIn(mode.timeZone);
+  const book = useDemoBook(!mode.connected && !mode.sessionLoading, today);
+  const revalidation = useRevalidation();
+  const owner = mode.owner;
+  const [tick, setTick] = useState(0);
+  const [state, setState] = useState<{
+    owner: string;
+    status: ViewStatus;
+    error: unknown;
+    projects: Project[];
+  } | null>(null);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+
+  useEffect(() => onProjectsChanged(reload), [reload]);
+
+  useEffect(() => {
+    if (!owner || !enabled) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        let projects: Project[];
+        try {
+          projects = await projectsApi.listArchived("all", controller.signal);
+        } catch (error) {
+          /* Not somebody who may list the whole company: their own, then. */
+          if (!(error instanceof ApiError) || error.status !== 403) throw error;
+          projects = await projectsApi.listArchived("mine", controller.signal);
+        }
+        if (controller.signal.aborted) return;
+        setState({ owner, status: "ready", error: null, projects });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setState((prev) =>
+          prev && prev.owner === owner && prev.status === "ready"
+            ? prev
+            : { owner, status: "error", error, projects: [] },
+        );
+      }
+    })();
+    return () => controller.abort();
+  }, [owner, enabled, tick, revalidation]);
+
+  return useMemo(() => {
+    if (!mode.connected) {
+      const projects = Object.values(book.projects)
+        .filter((d) => d.project.archived)
+        .map((d) => ({
+          ...d.project,
+          programName: d.project.programId
+            ? (book.programs[d.project.programId]?.name ?? null)
+            : null,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return {
+        status: book.anchor !== "" ? ("ready" as const) : ("loading" as const),
+        error: null,
+        projects,
+        reload,
+      };
+    }
+    const held = state && state.owner === owner ? state : null;
+    return {
+      status: held?.status ?? ("loading" as const),
+      error: held?.error ?? null,
+      projects: held?.projects ?? [],
+      reload,
+    };
+  }, [mode.connected, book, state, owner, reload]);
 }
 
 /**
@@ -1226,6 +1341,11 @@ export type ProjectActions = {
     options?: Quiet,
   ) => Promise<Result<ProjectStatus[]>>;
   deleteProject: (options?: Quiet) => Promise<Result<void>>;
+  /** Archive, or bring back. The lists are read again either way. */
+  archiveProject: (
+    archived: boolean,
+    options?: Quiet,
+  ) => Promise<Result<Project>>;
   createSprint: (
     input: NewSprintInput,
     options?: Quiet,
@@ -1433,6 +1553,25 @@ export function useProjectActions(projectId: string): ProjectActions {
           options,
         );
       },
+
+      archiveProject: async (archived, options) =>
+        settle(
+          api
+            ? await apiArchiveProject(api, projectId, archived)
+            : demo((book, ctx) => {
+                const next = bookArchiveProject(
+                  book,
+                  projectId,
+                  archived,
+                  ctx.now,
+                );
+                return { book: next, value: next.projects[projectId]!.project };
+              }),
+          archived
+            ? "Could not archive the project"
+            : "Could not bring the project back",
+          options,
+        ),
 
       deleteProject: async (options) =>
         settle(

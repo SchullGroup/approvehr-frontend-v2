@@ -2,7 +2,7 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import { Info, Lock, RotateCcw } from "lucide-react";
+import { Info, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -10,106 +10,64 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   DescriptionList,
+  EmptyState,
   Field,
+  IconButton,
   Input,
-  Spinner,
+  LoadState,
+  Modal,
+  Select,
   Tabs,
+  Textarea,
   TextLink,
   useToast,
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
+import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
-  SCORE_COMPONENT_ORDER,
-  scoringWeightProblem,
   weightLabel,
-  type ApiScoringWeights,
+  type ApiScoringPart,
+  type ApiScoringParts,
   type ScoreComponent,
-  type WeightSet,
 } from "@/lib/api/performance";
+import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
 import { useCan } from "@/lib/permissions";
-import { useScoringWeights } from "@/lib/store/performance";
+import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
+import { WorkRecordCard } from "./work-record-card";
 
 const TAB_ITEMS: TabItem[] = [
-  { id: "weights", label: "Weights" },
+  { id: "weights", label: "Parts of a mark" },
   { id: "marks", label: "Names of marks" },
+  { id: "records", label: "Records" },
 ];
 
-/**
- * How much each part of an appraisal counts.
- *
- * ## Why this is one form and not five fields
- *
- * The API refuses any set that does not total exactly 10000 basis points, so a
- * field-at-a-time form would be unsubmittable at every intermediate state: move
- * objectives from 40% to 30% and the set is at 90% until the second field is
- * saved, and there is no second save. `PUT /performance/scoring-weights` takes
- * the **whole set** for that reason, and this screen is shaped by that endpoint
- * rather than in spite of it.
- *
- * That is also why there is no *Resolve weights* button here. The incumbent ships
- * one, and an `Avg Weight Used` column beside it, because their weights are
- * allowed to drift out of balance and then need patching after the fact — and a
- * mark assembled from weights that drifted is exactly the indefensible artefact
- * this module exists to beat. There is never an unbalanced state to resolve.
- *
- * ## The running total is the whole interface
- *
- * It is the first thing rendered and it refuses locally in the server's own
- * words, character for character (`scoringWeightProblem`). Checking here as well
- * as on the server, never instead of it: the server is where the rule is real,
- * and this exists so nobody meets the refusal by surprise after pressing Save.
- *
- * ## Integers, in basis points
- *
- * The draft holds the text somebody typed and every derived figure is an integer
- * number of basis points. Nothing here divides a weight, and nothing computes
- * anybody's score — the composite lives in the API, once, and a second
- * implementation on this side is how two screens end up disagreeing about the
- * same person. The one piece of arithmetic on this page is the self-assessment
- * sentence, and it is a multiplication over a hypothetical rather than anybody's
- * mark.
- */
+/** The source the appraisers' overall mark is scored from. */
+const MANAGER_SOURCE: ScoreComponent = "MANAGER_APPRAISAL";
 
 /**
- * One basis point, which is the smallest weight the API can hold.
+ * The parts an appraisal mark is made of, as a list the company writes.
  *
- * Not `1`: a whole-percent step would make 33.33% untypeable with the arrows,
- * and a three-way split has to be reachable or the rule that the set totals
- * exactly 100% becomes a rule that only round numbers can satisfy. `toBp`
- * rounds to the same resolution, so nothing a field can produce is a figure the
- * payload has to lose.
+ * Each part has the company's own name, a description, a weight and the source
+ * its mark is scored from. Saved parts show as plain rows with an edit and a
+ * delete icon; nothing is an open box until somebody chooses to edit. A company
+ * that signs up starts with no parts.
+ *
+ * Each source backs one part at most, so a source another part uses is not
+ * offered. Weights are proportional, as they always were: each part counts as
+ * its weight over the total, and the share is shown on the row. Nothing here
+ * computes anybody's mark; the API does that, once.
  */
+
+/** One basis point, the smallest weight the API holds, as a percent step. */
 const STEP = "0.01";
-
-/**
- * What each component is scored from. One line, in the words a manager uses.
- *
- * Deliberately **not** a second copy of the labels: `ApiScoringWeights.rows`
- * carries the label the API sends and this screen renders that. What is here is
- * the *provenance* of each figure, which the API has no field for and which is
- * the thing somebody deciding a weight actually needs to know.
- */
-const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
-  OBJECTIVES:
-    "Progress on the objectives agreed for the cycle. Draft and unapproved ones are not read.",
-  TASKS:
-    "How the weekly tasks graded against this period's objectives were rated. Starts at 0%.",
-  CORE_COMPETENCY: "Ratings against competencies filed under Core competency.",
-  BEHAVIOURAL_COMPETENCY:
-    "Ratings against competencies filed under Behavioural competency.",
-  LEADERSHIP:
-    "Ratings under Leadership, and only for people who lead others: somebody reports to them, they lead a team, or they head a department.",
-  SELF_ASSESSMENT:
-    "How somebody rated themselves: their overall mark if they gave one, otherwise their own answers to the rated subsections their manager answers too.",
-};
 
 /** Percent text to integer basis points. Never a float in the payload. */
 function toBp(text: string): number {
@@ -118,25 +76,29 @@ function toBp(text: string): number {
   return Math.max(0, Math.min(FULL_WEIGHT_BP, Math.round(value * 100)));
 }
 
-/** Basis points back to the text a field shows. */
-function toText(bp: number): string {
-  return String(bp / 100);
-}
-
-function invalid(text: string): boolean {
+function weightProblem(text: string): string | null {
   const value = Number(text);
-  return (
-    text.trim() === "" || !Number.isFinite(value) || value < 0 || value > 100
-  );
+  if (text.trim() === "" || !Number.isFinite(value)) return "Enter a weight.";
+  if (value < 0 || value > 100) return "A number between 0 and 100.";
+  return null;
 }
 
-type Draft = Record<ScoreComponent, string>;
+type Draft = {
+  /** The part being edited, or null for a new one. */
+  id: string | null;
+  name: string;
+  source: ScoreComponent | "";
+  weight: string;
+  description: string;
+};
 
-const draftFrom = (weights: ApiScoringWeights): Draft =>
-  weights.rows.reduce<Draft>(
-    (out, row) => ({ ...out, [row.component]: toText(row.weightBp) }),
-    {} as Draft,
-  );
+const draftOf = (part: ApiScoringPart): Draft => ({
+  id: part.id,
+  name: part.name,
+  source: part.source,
+  weight: String(part.weightBp / 100),
+  description: part.description ?? "",
+});
 
 export function ScoringWeightsForm({
   scale,
@@ -147,86 +109,136 @@ export function ScoringWeightsForm({
   initialTab?: ScoringTabId;
 }) {
   const [tab, changeTab] = useUrlTab<ScoringTabId>(initialTab, SCORING_TABS);
-  const canManage = useCan("MANAGE_SETTINGS");
-  const { weights, loading, error, source, editable, refusal, save, reload } =
-    useScoringWeights();
-  const toast = useToast();
+  const scoring = useScoringParts();
 
-  /* Keyed by the set it was started from, so weights arriving or changing
-     underneath replace the draft instead of being edited blind. No setState in
-     an effect, and no stale form after a save. Same shape as
-     `/settings/overtime`. */
-  const [edited, setEdited] = useState<{
-    from: ApiScoringWeights;
-    value: Draft;
-  } | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const draft: Draft | null =
-    weights === null
-      ? null
-      : edited && edited.from === weights
-        ? edited.value
-        : draftFrom(weights);
-
-  const set = (component: ScoreComponent, text: string) => {
-    if (weights === null || draft === null) return;
-    setEdited({ from: weights, value: { ...draft, [component]: text } });
-  };
-
-  const rows = weights?.rows ?? [];
-  const entries = rows.map((row) => ({
-    ...row,
-    text: draft?.[row.component] ?? "0",
-    weightBp: toBp(draft?.[row.component] ?? "0"),
-  }));
-  const totalBp = entries.reduce((sum, row) => sum + row.weightBp, 0);
-  const problem = scoringWeightProblem(entries);
-  const anyInvalid = entries.some((row) => invalid(row.text));
-  const dirty = entries.some(
-    (row) =>
-      row.weightBp !==
-      (weights?.rows.find((saved) => saved.component === row.component)
-        ?.weightBp ?? 0),
+  /* What this side knows about the Manager appraisal source, for the overall-mark
+     card: a server that lists it as a source has the part, whether or not the
+     company has written a part from it yet; one that does not list it predates it;
+     and with the parts not in (loading, or failed) nothing is known, so nothing
+     is said about whether a manager's form asks for a mark. Treating "not in yet"
+     as "no part" printed "is not counted in it" on a server that has it. The
+     company's own name for the part is what the card uses when there is one. */
+  const managerSource = scoring.parts?.sources.find(
+    (source) => source.source === MANAGER_SOURCE,
   );
+  const managerPart = scoring.parts?.parts.find(
+    (part) => part.source === MANAGER_SOURCE,
+  );
+  const managerAppraisal: ManagerAppraisalPart =
+    scoring.parts === null
+      ? { state: "unknown" }
+      : managerSource
+        ? { state: "has", label: managerPart?.name ?? managerSource.label }
+        : { state: "none" };
 
-  /* The gap a self-rating can move, expressed once. A person who rates
-     themselves 5 out of 5 instead of 3 out of 5 moves that component by half its
-     range — 5000 of 10000 basis points — so the effect on the final mark is half
-     the component's weight. Integer arithmetic on a hypothetical, not a score. */
-  const selfBp = entries.find((row) => row.component === "SELF_ASSESSMENT");
-  const selfSwingBp = Math.round((selfBp?.weightBp ?? 0) / 2);
-  const savedSelfBp =
-    weights?.rows.find((row) => row.component === "SELF_ASSESSMENT")
-      ?.weightBp ?? 0;
+  return (
+    <>
+      <PageHeader
+        title="Appraisal scoring"
+        breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        meta={
+          sourceNote(scoring.source === "api") && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(scoring.source === "api")}
+            </Badge>
+          )
+        }
+      />
+
+      <PageBody className="flex flex-col gap-6">
+        <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
+          <div hidden={tab !== "weights"} className="flex flex-col gap-6">
+            <PartsPanel scoring={scoring} />
+          </div>
+          <div hidden={tab !== "marks"} className="flex flex-col gap-6">
+            {/* First, because it decides whether the names below are ever
+                offered on a form. */}
+            <OverallMarkCard
+              connected={scoring.source === "api"}
+              onChanged={scoring.reload}
+              managerAppraisal={managerAppraisal}
+            />
+            {scale}
+          </div>
+          <div hidden={tab !== "records"} className="flex flex-col gap-6">
+            <WorkRecordCard connected={scoring.source === "api"} />
+          </div>
+        </Tabs>
+      </PageBody>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function PartsPanel({
+  scoring,
+}: {
+  scoring: ReturnType<typeof useScoringParts>;
+}) {
+  const {
+    parts: view,
+    loading,
+    error,
+    editable,
+    refusal,
+    add,
+    update,
+    remove,
+    reload,
+  } = scoring;
+  const canManage = useCan("MANAGE_SETTINGS");
+  const manage = canManage && editable;
+  const toast = useToast();
+  /* Read for one thing: the API's sentence about what weighting the Manager
+     appraisal part does, which the parts read does not carry. It is about the
+     saved set, so it is read again after every write below. Nothing here writes
+     a sentence about it. */
+  const { weights, reload: reloadWeights } = useScoringWeights();
+
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<ApiScoringPart | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  /* Nothing is known until the parts have answered, and a failed read is not an
+     empty list: both are `LoadState`'s to say, below, so a count, "No parts yet"
+     and the Add button are never drawn under a failure or before an answer. */
+  const free = view?.sources.filter((source) => source.usedBy === null) ?? [];
+  const selfPart = view?.parts.find(
+    (part) => part.source === "SELF_ASSESSMENT",
+  );
+  const selfShareBp = selfPart?.shareBp ?? 0;
 
   const onSave = async () => {
-    if (draft === null) return;
+    if (!draft || draft.source === "") return;
     setSaving(true);
+    const body = {
+      name: draft.name.trim(),
+      source: draft.source,
+      weightBp: toBp(draft.weight),
+      description:
+        draft.description.trim() === "" ? null : draft.description.trim(),
+    };
     try {
-      /* All six, always: Weekly tasks is sent even when the API's rows did
-         not carry it, so a save can never leave the set one key short. */
-      const payload = SCORE_COMPONENT_ORDER.reduce<WeightSet>(
-        (out, component) => ({
-          ...out,
-          [component]:
-            entries.find((row) => row.component === component)?.weightBp ?? 0,
-        }),
-        {} as WeightSet,
-      );
-      const saved = await save(payload);
-      setEdited(null);
-      toast.push({
-        tone: "success",
-        title: "Weights saved",
-        /* The API names the running cycles this cannot reach. Naming them beats
-           the general rule: "periods keep their own weights" has to be taken on
-           trust, and "H2 2026 appraisal keeps its own" can be checked. */
-        detail:
-          saved.frozenCycles.length === 0
-            ? "This applies to the next appraisal period you start."
-            : `${saved.frozenCycles.join(", ")} ${saved.frozenCycles.length === 1 ? "keeps the weights it" : "keep the weights they"} started with, so no mark already awarded moves. This applies to the next appraisal period you start.`,
-      });
+      if (draft.id === null) {
+        await add(body);
+        reloadWeights();
+        toast.push({
+          tone: "success",
+          title: `${body.name} added`,
+          detail: "It applies to the next appraisal period you start.",
+        });
+      } else {
+        await update(draft.id, body);
+        reloadWeights();
+        toast.push({
+          tone: "success",
+          title: `${body.name} saved`,
+          detail: "It applies to the next appraisal period you start.",
+        });
+      }
+      setDraft(null);
     } catch (caught) {
       toast.push({
         tone: "danger",
@@ -241,251 +253,377 @@ export function ScoringWeightsForm({
     }
   };
 
+  const onDelete = async () => {
+    if (!deleting) return;
+    setRemoving(true);
+    try {
+      await remove(deleting.id);
+      reloadWeights();
+      toast.push({
+        tone: "success",
+        title: `${deleting.name} deleted`,
+        detail: "It no longer counts towards a mark.",
+      });
+      setDeleting(null);
+    } catch (caught) {
+      toast.push({
+        tone: "danger",
+        title: "That did not delete",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const newPart = () =>
+    setDraft({
+      id: null,
+      name: "",
+      source: free[0]?.source ?? "",
+      weight: "",
+      description: "",
+    });
+
   return (
     <>
-      <PageHeader
-        title="Appraisal scoring"
-        breadcrumb={[{ href: "/settings", label: "Settings" }]}
-        meta={
+      {!editable && (
+        <Callout tone="warning" title="Changing these needs the API">
+          <p>{refusal}</p>
+        </Callout>
+      )}
+      {editable && !canManage && (
+        <Callout tone="info" title="Changing these needs settings permission">
+          <p>
+            How much each part counts decides pay, so it sits behind the same
+            permission as the rest of company configuration. You can read them.
+          </p>
+        </Callout>
+      )}
+
+      <LoadState
+        loading={loading}
+        error={error}
+        hasData={view !== null}
+        subject="the scoring parts"
+        onRetry={reload}
+        skeleton="list"
+      >
+        {view && (
           <>
-            {sourceNote(source === "api") && (
-              <Badge tone="warning" size="sm" dot>
-                {sourceNote(source === "api")}
-              </Badge>
-            )}
-            {weights && (
-              <Badge
-                tone={weights.source === "saved" ? "accent" : "neutral"}
-                size="sm"
-              >
-                {weights.source === "saved"
-                  ? "Set by your company"
-                  : "Our recommended set"}
-              </Badge>
-            )}
-          </>
-        }
-      />
-
-      <PageBody className="flex flex-col gap-6">
-        {/* Two tabs because they are two halves of one question: how a mark is
-            assembled, and what the result is called. Both stay mounted and the
-            other is hidden, so a half-typed weight survives a look at the names
-            and the other way round. */}
-        <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
-          <div hidden={tab !== "weights"} className="flex flex-col gap-6">
-            <LoadFailure subject="the scoring weights" error={error} />
-
-            {loading ? (
-              <span className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Reading the weights
-              </span>
-            ) : draft === null ? (
-              <Callout tone="warning" title="No weights to show">
-                The scoring weights could not be read, so nothing is rendered
-                here rather than a set that might not be yours.
-              </Callout>
-            ) : (
-              <>
-                <Callout tone="info" title="What these weights do">
-                  <p>
-                    A mark is the weighted average of the parts below. They have
-                    to make 100% exactly, checked when they are saved, so there
-                    is never an unbalanced set to patch up afterwards.
-                  </p>
-                  <p className="mt-2">
-                    A part with{" "}
-                    <strong>nothing recorded against it is left out</strong> and
-                    the rest are spread over the whole mark. Somebody who
-                    manages nobody is not rated on leadership, and they are not
-                    scored nought for it either: those are different claims
-                    about a person.
-                  </p>
-                </Callout>
-
-                {!editable && (
-                  <Callout tone="warning" title="Saving needs the API">
-                    <p>{refusal}</p>
-                  </Callout>
-                )}
-                {editable && !canManage && (
-                  <Callout
-                    tone="info"
-                    title="Changing these needs settings permission"
-                  >
-                    <p>
-                      How much each part counts decides pay, so it sits behind
-                      the same permission as the rest of company configuration.
-                      You can read the set: a scale you are measured against and
-                      not allowed to read would be an odd thing to ship.
-                    </p>
-                  </Callout>
-                )}
-
-                <Card>
-                  <CardHeader
-                    title="The parts of a mark"
-                    description="Percentages. They must total 100% exactly."
-                    action={<Total totalBp={totalBp} />}
-                  />
-                  <CardBody className="flex flex-col gap-5">
-                    <p className="text-meta text-muted">
-                      This is the starting point for new appraisal periods.
-                    </p>
-                    {entries.map((row) => (
-                      <div
-                        key={row.component}
-                        className="grid gap-3 sm:grid-cols-[1fr_9rem] sm:items-start"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-body-sm font-medium text-ink">
-                            {row.label}
-                          </p>
-                          <p className="mt-0.5 text-meta text-muted">
-                            {COMPONENT_SOURCE[row.component]}
-                          </p>
-                        </div>
-                        {canManage && editable ? (
-                          <Field
-                            label="Weight"
-                            {...(invalid(row.text)
-                              ? { error: "A number between 0 and 100." }
-                              : {})}
-                          >
-                            <Input
-                              type="number"
-                              min={0}
-                              max={100}
-                              step={STEP}
-                              suffix="%"
-                              value={row.text}
-                              onChange={(event) => {
-                                /* Read the value before any updater runs: React
-                               nulls `currentTarget` once the event finishes
-                               dispatching, and this crashed the payroll
-                               settings form once. */
-                                const next = event.target.value;
-                                set(row.component, next);
-                              }}
-                            />
-                          </Field>
-                        ) : (
-                          <p className="tabular text-body-sm font-medium text-ink sm:pt-1.5 sm:text-right">
-                            {weightLabel(row.weightBp)}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </CardBody>
-                </Card>
-
-                <SelfAssessment
-                  note={weights?.selfAssessmentNote ?? ""}
-                  weightBp={selfBp?.weightBp ?? 0}
-                  savedWeightBp={savedSelfBp}
-                  swingBp={selfSwingBp}
-                />
-
-                <Card>
-                  <CardHeader
-                    title="A change here does not move a period that has started"
-                    description="The same rule payroll uses for its settings snapshot."
-                  />
-                  <CardBody className="flex flex-col gap-3 text-body-sm text-body">
-                    <p>
-                      When a period starts, the weights are copied onto it.
-                      Changing them afterwards cannot move a mark that has
-                      already been awarded: a rating from this quarter has to
-                      keep explaining itself against the weights that produced
-                      it, years later.
-                    </p>
-                    <p className="flex items-start gap-2 text-body-sm text-body">
-                      <Lock
-                        aria-hidden="true"
-                        className="mt-0.5 size-4 shrink-0 text-faint"
-                      />
-                      {/* One element, not loose text and a link. The paragraph is a
-                      flex row so the lock sits beside the words, and a flex row
-                      turns every direct child into its own column: the sentence
-                      used to render as three blocks side by side, with the link
-                      alone in the middle one. */}
-                      <span className="min-w-0">
-                        A period screen says whether its weights are frozen, and{" "}
-                        <TextLink href="/performance">
-                          the appraisals tab
-                        </TextLink>{" "}
-                        is where appraisal periods are started.
-                      </span>
-                    </p>
-                  </CardBody>
-                </Card>
-
-                {canManage && editable && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
-                    <div className="min-w-0">
-                      {problem ? (
-                        <p className="text-body-sm text-warning-text">
-                          {problem}
-                        </p>
-                      ) : dirty ? (
-                        <p className="text-body-sm text-muted">
-                          These make 100%. Saving replaces the whole set.
-                        </p>
-                      ) : (
-                        <p className="text-body-sm text-muted">
-                          Nothing changed. This is the set a new period starts
-                          with.
-                        </p>
-                      )}
-                    </div>
-                    {/* No `shrink-0`: it held this group at its full width, so on a
-                    320px phone the two buttons ran 23px out of the card instead
-                    of the second one wrapping under the first. */}
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="secondary"
-                        disabled={!dirty || saving}
-                        onClick={() => setEdited(null)}
-                      >
-                        <RotateCcw aria-hidden="true" className="size-4" />
-                        Discard
-                      </Button>
+            <Card>
+              <CardHeader
+                title="The parts of a mark"
+                description="A mark is the weighted average of these parts. Each counts in proportion to the total."
+                action={
+                  <span className="flex flex-wrap items-center gap-3">
+                    <Total totalBp={view.totalBp} />
+                    {manage && (
                       <Button
                         variant="accent"
-                        loading={saving}
-                        disabled={problem !== null || anyInvalid || !dirty}
-                        onClick={() => void onSave()}
+                        size="sm"
+                        disabled={free.length === 0}
+                        title={
+                          free.length === 0
+                            ? "Every source already has a part. Edit or delete one first."
+                            : undefined
+                        }
+                        onClick={newPart}
                       >
-                        Save the whole set
+                        <Plus aria-hidden="true" className="size-4" />
+                        Add part
                       </Button>
-                    </div>
+                    )}
+                  </span>
+                }
+              />
+              <CardBody className="flex flex-col gap-0 p-0">
+                {view.parts.length === 0 ? (
+                  <div className="p-6">
+                    <EmptyState
+                      title="No parts yet"
+                      description="Add the parts your appraisals are marked on: a name, what it is scored from, its weight and a description. An appraisal period cannot start until at least one part has a weight."
+                      {...(manage
+                        ? {
+                            action: (
+                              <Button variant="accent" onClick={newPart}>
+                                <Plus aria-hidden="true" className="size-4" />
+                                Add the first part
+                              </Button>
+                            ),
+                          }
+                        : {})}
+                    />
                   </div>
+                ) : (
+                  <ul className="divide-y divide-line">
+                    {view.parts.map((part) => (
+                      <li
+                        key={part.id}
+                        data-part={part.source}
+                        className="flex flex-wrap items-start gap-x-4 gap-y-2 px-5 py-4"
+                      >
+                        <div className="min-w-0 flex-1 basis-64">
+                          <p className="text-body-sm font-medium text-ink">
+                            {part.name}
+                          </p>
+                          <p className="text-meta text-muted">
+                            Scored from {part.sourceLabel}
+                          </p>
+                          {part.description && (
+                            <p className="mt-1 text-body-sm text-body">
+                              {part.description}
+                            </p>
+                          )}
+                          {/* The API's own sentence about what weighting this part does,
+                        beside the weight that causes it: that a manager's judgement
+                        then reaches the score both through the levels they record
+                        and through this overall mark. It is about the saved set,
+                        which is what this row shows, so it never says "moved". */}
+                          {part.source === MANAGER_SOURCE &&
+                            weights?.managerAppraisalNote && (
+                              <div className="mt-2">
+                                <SavedWeightsNote
+                                  note={weights.managerAppraisalNote}
+                                  moved={false}
+                                />
+                              </div>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="tabular text-body-sm font-medium text-ink">
+                              {weightLabel(part.weightBp)}
+                            </p>
+                            <p className="tabular text-meta text-muted">
+                              {part.weightBp === 0
+                                ? "Counts for nothing"
+                                : `${weightLabel(part.shareBp)} of a mark`}
+                            </p>
+                          </div>
+                          {manage && (
+                            <span className="flex gap-1">
+                              <IconButton
+                                label={`Edit ${part.name}`}
+                                size="sm"
+                                className="size-11 sm:size-8"
+                                onClick={() => setDraft(draftOf(part))}
+                              >
+                                <Pencil aria-hidden="true" className="size-4" />
+                              </IconButton>
+                              <IconButton
+                                label={`Delete ${part.name}`}
+                                size="sm"
+                                className="size-11 sm:size-8"
+                                onClick={() => setDeleting(part)}
+                              >
+                                <Trash2 aria-hidden="true" className="size-4" />
+                              </IconButton>
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </>
-            )}
-          </div>
-          <div hidden={tab !== "marks"} className="flex flex-col gap-6">
-            {/* First, because it decides whether the names below are ever
-                offered on a form. */}
-            <OverallMarkCard connected={source === "api"} onChanged={reload} />
-            {scale}
-          </div>
-        </Tabs>
-      </PageBody>
+              </CardBody>
+            </Card>
+
+            <SelfAssessment
+              note={view.selfAssessmentNote}
+              weightBp={selfShareBp}
+              swingBp={Math.round(selfShareBp / 2)}
+            />
+
+            <Card>
+              <CardHeader
+                title="A change here does not move a period that has started"
+                description="The same rule payroll uses for its settings snapshot."
+              />
+              <CardBody className="flex flex-col gap-3 text-body-sm text-body">
+                <p>
+                  When a period starts, its parts and weights are copied onto
+                  it. Changing or deleting a part afterwards cannot move a mark
+                  that has already been awarded.
+                </p>
+                <p className="flex items-start gap-2 text-body-sm text-body">
+                  <Lock
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0 text-faint"
+                  />
+                  <span className="min-w-0">
+                    A period screen says whether its weights are frozen, and{" "}
+                    <TextLink href="/performance">the appraisals tab</TextLink>{" "}
+                    is where appraisal periods are started.
+                  </span>
+                </p>
+              </CardBody>
+            </Card>
+          </>
+        )}
+      </LoadState>
+
+      {draft && view && (
+        <PartModal
+          draft={draft}
+          view={view}
+          saving={saving}
+          onChange={setDraft}
+          onClose={() => setDraft(null)}
+          onSave={() => void onSave()}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        loading={removing}
+        tone="danger"
+        title={`Delete ${deleting?.name ?? "this part"}?`}
+        confirmLabel="Delete the part"
+        body={
+          <p>
+            It stops counting towards marks from the next appraisal period you
+            start. Periods already running keep the parts they started with.
+          </p>
+        }
+        onConfirm={() => void onDelete()}
+      />
     </>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-/** The running total, and the only place the local refusal shows a figure. */
+function PartModal({
+  draft,
+  view,
+  saving,
+  onChange,
+  onClose,
+  onSave,
+}: {
+  draft: Draft;
+  view: ApiScoringParts;
+  saving: boolean;
+  onChange: (next: Draft) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  /* A source is offered when it is free, or when it is this part's own. */
+  const offered = view.sources.filter(
+    (source) => source.usedBy === null || source.usedBy === draft.id,
+  );
+  const chosen = view.sources.find((source) => source.source === draft.source);
+  const nameProblem = draft.name.trim() === "" ? "Give the part a name." : null;
+  const weightError = weightProblem(draft.weight);
+  const ready =
+    nameProblem === null && weightError === null && draft.source !== "";
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={draft.id === null ? "Add a part" : "Edit the part"}
+      description="It applies to the next appraisal period you start."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            disabled={!ready}
+            onClick={onSave}
+          >
+            {draft.id === null ? "Add part" : "Save"}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field
+          label="Name"
+          {...(draft.name !== "" && nameProblem ? { error: nameProblem } : {})}
+        >
+          <Input
+            value={draft.name}
+            maxLength={60}
+            placeholder="Delivery against objectives"
+            onChange={(event) =>
+              onChange({ ...draft, name: event.target.value })
+            }
+          />
+        </Field>
+        <Field
+          label="Scored from"
+          help={chosen?.description || "Where this part's mark comes from."}
+        >
+          <Select
+            value={draft.source}
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                source: event.target.value as ScoreComponent,
+              })
+            }
+          >
+            {offered.map((source) => (
+              <option key={source.source} value={source.source}>
+                {source.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field
+          label="Weight"
+          {...(draft.weight !== "" && weightError
+            ? { error: weightError }
+            : {})}
+        >
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step={STEP}
+            suffix="%"
+            value={draft.weight}
+            placeholder="25"
+            onChange={(event) =>
+              onChange({ ...draft, weight: event.target.value })
+            }
+          />
+        </Field>
+        <Field
+          label="Description"
+          help="Optional. Shown under the part's name."
+        >
+          <Textarea
+            rows={3}
+            maxLength={300}
+            value={draft.description}
+            onChange={(event) =>
+              onChange({ ...draft, description: event.target.value })
+            }
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** The running total. Weights are proportional, so only zero is a problem. */
 function Total({ totalBp }: { totalBp: number }) {
-  const whole = totalBp === FULL_WEIGHT_BP;
   return (
     <span className="flex items-center gap-2">
       <span className="text-meta text-muted">Total</span>
-      <Badge tone={whole ? "success" : "danger"} size="md" dot>
+      <Badge tone={totalBp > 0 ? "neutral" : "danger"} size="md" dot>
         {weightLabel(totalBp)}
       </Badge>
     </span>
@@ -493,94 +631,53 @@ function Total({ totalBp }: { totalBp: number }) {
 }
 
 /**
- * What turning self-assessment on does to a mark, stated on the screen.
- *
- * `PERFORMANCE.md` §4.3 is explicit that this reasoning belongs here rather than
- * in a document nobody administering the product will read. The incumbent's
- * shipped formula gives an employee's own rating 20% of their official score, so
- * two people who delivered identically get different marks according to how
- * generously they rated themselves — and "your score is lower because you were
- * more modest about yourself" is not an answer anybody can defend.
- *
- * The figure is live, because the argument is much less persuasive in the
- * abstract than as "10 percentage points of somebody's mark".
- *
- * ## The draft and the saved value are labelled apart
- *
- * They have to be. `selfAssessmentNote` is the API's sentence about what is
- * **saved**; the badge and the warning are about the **draft**. Rendering both
- * unlabelled put "Counting for 20%" directly above "Self-assessment is weighted
- * at 0%… it does not change the score" — two mutually exclusive claims on one
- * screen, which is precisely the defect `PERFORMANCE.md` §1.1 catalogues on the
- * incumbent's own weights page ("Weights are properly configured" above "No
- * Active Review Cycle", with the save button live). Caught in a browser, not by
- * a type.
+ * What counting self-assessment does to a mark, stated on the screen. An
+ * employee's own rating in their official mark rewards confidence over
+ * delivery, so the cost is said where the decision is made.
  */
 function SelfAssessment({
   note,
   weightBp,
-  savedWeightBp,
   swingBp,
 }: {
   note: string;
   weightBp: number;
-  savedWeightBp: number;
   swingBp: number;
 }) {
   const on = weightBp > 0;
-  const changed = weightBp !== savedWeightBp;
-
   return (
     <Card>
       <CardHeader
         title="Self-assessment"
-        description="Whether it counts is the decision on this screen."
+        description="Whether it counts is decided by adding a part scored from it."
         action={
           <Badge tone={on ? "warning" : "neutral"} size="sm" dot>
-            {on
-              ? `${changed ? "Would count for" : "Counting for"} ${weightLabel(weightBp)}`
-              : changed
-                ? "Would not count"
-                : "Not counted"}
+            {on ? `Counting for ${weightLabel(weightBp)}` : "Not counted"}
           </Badge>
         }
       />
       <CardBody className="flex flex-col gap-3">
-        {/* The API's own sentence about the **saved** value, said to be that
-            whenever the draft has moved away from it. */}
         <p className="flex items-start gap-2 text-body-sm text-body">
           <Info
             aria-hidden="true"
             className="mt-0.5 size-4 shrink-0 text-faint"
           />
-          <span>
-            {changed && (
-              <span className="font-medium text-ink">
-                Saved now, not yet changed:{" "}
-              </span>
-            )}
-            {note}
-          </span>
+          <span>{note}</span>
         </p>
-
         {on ? (
           <p className="text-body-sm text-muted">
-            {changed ? "If you save this: at" : "At"} {weightLabel(weightBp)},
-            somebody who rates themselves 5 out of 5 rather than 3 out of 5
-            moves their own final mark by {weightLabel(swingBp)}, more if any
-            other part has nothing recorded against it, because the remaining
-            weights are spread over the whole mark. Two people who delivered
-            identically will not get the same mark.
+            At {weightLabel(weightBp)}, somebody who rates themselves 5 out of 5
+            rather than 3 out of 5 moves their own final mark by{" "}
+            {weightLabel(swingBp)}. Two people who delivered identically will
+            not get the same mark.
           </p>
         ) : (
           <p className="text-body-sm text-body">
-            Set this above 0% and an employee&apos;s own opinion of themselves
-            becomes part of the mark used to decide confirmation, promotion and
-            bonus. It rewards confidence over delivery, and it cannot be
-            explained to the person who rated themselves honestly.
+            Add a part scored from self-assessment and an employee&apos;s own
+            opinion of themselves becomes part of the mark used to decide
+            confirmation, promotion and bonus.
           </p>
         )}
-
         <DescriptionList
           columns={2}
           items={[

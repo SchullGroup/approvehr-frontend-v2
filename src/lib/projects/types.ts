@@ -178,6 +178,21 @@ export type Project = {
    */
   access?: "READ" | "WRITE" | "MANAGE" | null;
   canWrite?: boolean | null;
+  /**
+   * Archived: out of the lists, taking no new tasks, with everything kept. Its lead,
+   * its program's lead or HR can bring it back. Absent means live.
+   */
+  archived?: boolean;
+  archivedAt?: string | null;
+  /** The program it sits in is archived, which hides its tasks the same way. */
+  programArchived?: boolean;
+  /**
+   * When this project was moved from cycles to a simple board for its people
+   * (it was on cycles and had never had one). Null or absent for every other
+   * project, and cleared when it is switched back to cycles. The header says so
+   * for 30 days.
+   */
+  boardSwitchedAt?: string | null;
 };
 
 export type Sprint = {

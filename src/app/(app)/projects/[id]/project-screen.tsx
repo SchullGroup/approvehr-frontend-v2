@@ -2,18 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FolderKanban, Plus } from "lucide-react";
+import {
+  ArchiveRestore,
+  FolderKanban,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
   Callout,
   EmptyState,
   LinkTabs,
+  RowActions,
   Skeleton,
   useToast,
   LoadState,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { BoardSwitchedNote } from "@/components/projects/board-switched-note";
 import { CreateIssueDialog } from "@/components/projects/create-issue-dialog";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { FILTER_INPUT_ID } from "@/components/projects/issue-filter-bar";
@@ -24,6 +33,7 @@ import {
   type ProjectContextValue,
 } from "@/components/projects/project-context";
 import { accessFor, accessOfProject } from "@/lib/projects/access";
+import { activeSprint } from "@/lib/projects/board";
 import { isModuleOff } from "@/lib/api/projects";
 import {
   EMPTY_FILTER,
@@ -37,6 +47,8 @@ import {
   type ProjectData,
 } from "@/lib/projects/types";
 import {
+  BOARD_WITH_CYCLES_TIP,
+  CYCLE,
   NEW_TASK,
   readOnlyProject,
   TASK,
@@ -53,6 +65,7 @@ import {
 } from "@/lib/store/project-session";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { dayIn, todayIn } from "@/lib/time";
+import { DeleteProjectDialog } from "./settings-view";
 import { DEFAULT_VIEW, PROJECT_VIEWS, viewById } from "./views";
 
 /**
@@ -172,7 +185,8 @@ function ProjectShell({
   const [seenStatus, setSeenStatus] = useState(statusParam);
   if (statusParam !== seenStatus) {
     setSeenStatus(statusParam);
-    if (statusParam) setFilter((f) => ({ ...f, statusCategory: statusParam }));
+    if (statusParam)
+      setFilter((f) => ({ ...f, statusCategory: statusParam, statusIds: [] }));
   }
   const [create, setCreate] = useState<{
     open: boolean;
@@ -193,6 +207,19 @@ function ProjectShell({
     );
   const canWork = access === "WRITE" || access === "MANAGE";
   const canManage = access === "MANAGE";
+  /* An archived project keeps its tasks open to work on, and takes no new ones. */
+  const archived = project.archived === true;
+  const canAdd = canWork && !archived;
+  const [restoring, setRestoring] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  async function restore() {
+    setRestoring(true);
+    const result = await actions.archiveProject(false);
+    setRestoring(false);
+    if (result.ok) {
+      toast.push({ tone: "success", title: `${project.name} restored` });
+    }
+  }
   const meId = actor.employeeId;
 
   /* The program's row in the sidebar lights while this project is open. */
@@ -331,10 +358,20 @@ function ProjectShell({
 
   const openCreate = useCallback(
     (defaults: Partial<NewIssueInput> = {}) => {
-      if (!canWork) return;
+      if (!canAdd) return;
       setCreate({ open: true, defaults });
     },
-    [canWork],
+    [canAdd],
+  );
+
+  /* The header's New task (and its key, c) on a project with cycles starts in
+     the running cycle, so a task made from the board lands on the board rather
+     than in Later. With no cycle running there is nothing to start it in. */
+  const running = project.type === "SCRUM" ? activeSprint(sprints) : null;
+  const runningId = running?.id ?? null;
+  const headerDefaults = useMemo<Partial<NewIssueInput>>(
+    () => (runningId ? { sprintId: runningId } : {}),
+    [runningId],
   );
 
   useEffect(() => {
@@ -350,9 +387,9 @@ function ProjectShell({
       if (typing) return;
       /* With a dialog or the drawer open the page behind is not the target. */
       if (document.querySelector('[role="dialog"]')) return;
-      if (event.key === "c" && canWork) {
+      if (event.key === "c" && canAdd) {
         event.preventDefault();
-        setCreate({ open: true, defaults: {} });
+        setCreate({ open: true, defaults: headerDefaults });
       } else if (event.key === "/") {
         const field = document.getElementById(FILTER_INPUT_ID);
         if (field) {
@@ -363,7 +400,7 @@ function ProjectShell({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [canWork]);
+  }, [canAdd, headerDefaults]);
 
   /* ------------------------------------------------------------ the context -- */
 
@@ -388,6 +425,7 @@ function ProjectShell({
       setFilter,
       openIssue,
       openCreate,
+      view: view.id,
     }),
     [
       project,
@@ -408,6 +446,7 @@ function ProjectShell({
       filter,
       openIssue,
       openCreate,
+      view.id,
     ],
   );
 
@@ -442,9 +481,24 @@ function ProjectShell({
         meta={
           <>
             <ProjectKeyChip project={project} />
-            <Badge tone="neutral" size="sm">
-              {PROJECT_TYPE_LABEL[project.type]}
-            </Badge>
+            {/* A simple board is the plain case and says nothing. Cycles change
+                where a new task goes, so that one is named, with why. */}
+            {project.type === "SCRUM" && (
+              <span className="inline-flex items-center gap-1">
+                <Badge tone="neutral" size="sm">
+                  {PROJECT_TYPE_LABEL.SCRUM}
+                </Badge>
+                <InfoTooltip
+                  text={BOARD_WITH_CYCLES_TIP}
+                  label={`About ${PROJECT_TYPE_LABEL.SCRUM.toLowerCase()}`}
+                />
+              </span>
+            )}
+            {archived && (
+              <Badge tone="neutral" size="sm">
+                Archived
+              </Badge>
+            )}
             {project.departmentName && (
               <Badge tone="neutral" size="sm">
                 {project.departmentName}
@@ -453,13 +507,45 @@ function ProjectShell({
           </>
         }
         {...(project.description ? { description: project.description } : {})}
-        {...(canWork
+        {...(canAdd || canManage
           ? {
               action: (
-                <Button variant="primary" onClick={() => openCreate()}>
-                  <Plus aria-hidden="true" className="size-4" />
-                  {NEW_TASK}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Edit and delete were only on the Settings tab, which
+                      nobody found from the board. The menu is beside the one
+                      button people come for, and only for those who manage it. */}
+                  {canManage && (
+                    <RowActions
+                      label={`More actions for ${project.name}`}
+                      items={[
+                        {
+                          label: "Edit project",
+                          icon: (
+                            <Pencil aria-hidden="true" className="size-4" />
+                          ),
+                          href: hrefFor("settings"),
+                        },
+                        {
+                          label: "Delete project",
+                          icon: (
+                            <Trash2 aria-hidden="true" className="size-4" />
+                          ),
+                          tone: "danger",
+                          onSelect: () => setDeleting(true),
+                        },
+                      ]}
+                    />
+                  )}
+                  {canAdd && (
+                    <Button
+                      variant="primary"
+                      onClick={() => openCreate(headerDefaults)}
+                    >
+                      <Plus aria-hidden="true" className="size-4" />
+                      {NEW_TASK}
+                    </Button>
+                  )}
+                </div>
               ),
             }
           : {})}
@@ -476,11 +562,36 @@ function ProjectShell({
         }
       />
       <PageBody className="space-y-5">
+        {archived && (
+          <div
+            role="note"
+            className="flex flex-col gap-3 rounded-lg border border-line bg-sunken px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p className="text-body-sm text-body">
+              This project is archived. It keeps its {TASK.many}, people and{" "}
+              {CYCLE.many}, and is listed under the Archive. It takes no new{" "}
+              {TASK.many} until it is restored.
+            </p>
+            {canManage && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={restoring}
+                onClick={() => void restore()}
+                className="shrink-0"
+              >
+                <ArchiveRestore aria-hidden="true" className="size-4" />
+                Restore project
+              </Button>
+            )}
+          </div>
+        )}
         {access === "READ" && (
           <p className="text-body-sm text-muted" role="note">
             {readOnlyProject(programName)}
           </p>
         )}
+        <BoardSwitchedNote project={project} />
         {capped && (
           <Callout
             tone="warning"
@@ -494,6 +605,12 @@ function ProjectShell({
       </PageBody>
 
       <IssueDrawer issue={open} onClose={closeIssue} />
+      {canManage && (
+        <DeleteProjectDialog
+          open={deleting}
+          onClose={() => setDeleting(false)}
+        />
+      )}
       <CreateIssueDialog
         open={create.open}
         onClose={() => setCreate((c) => ({ ...c, open: false }))}

@@ -437,6 +437,7 @@ const KEYWORDS: Record<string, string[]> = {
   "projects/Overview": ["master", "everything", "all work", "company"],
   "projects/My tasks": ["assigned", "to do", "issues", "my work"],
   "projects/Team tasks": ["team", "reports", "their work"],
+  "projects/Archive": ["archived", "old tasks", "finished", "restore"],
   "projects/All programs": ["programs", "departments", "teams", "spaces"],
   "projects/Unassigned": ["no program", "loose", "without a program"],
   "wellness/Wellness": [

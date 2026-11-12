@@ -10,6 +10,7 @@ import {
   Field,
   FilterBar,
   LoadState,
+  Picker,
   Select,
   Skeleton,
 } from "@/components/ui";
@@ -17,8 +18,14 @@ import { LoadMore } from "@/components/portal/load-more";
 import { StatusPill } from "@/components/projects/glyphs";
 import { ApiError } from "@/lib/api/client";
 import { dueLabel } from "@/lib/projects/due";
-import type { WorkQuery, WorkRow } from "@/lib/projects/programs";
+import {
+  ARCHIVE_REASONS,
+  ARCHIVE_REASON_LABEL,
+  type WorkQuery,
+  type WorkRow,
+} from "@/lib/projects/programs";
 import { LIST_CAPPED, TASK } from "@/lib/projects/terms";
+import { STATUS_FILTER_LABEL } from "@/lib/projects/filters";
 import {
   DUE_CHOICES,
   filterCount,
@@ -32,12 +39,16 @@ import {
   STATUS_CATEGORIES,
   type StatusCategory,
 } from "@/lib/projects/types";
-import { useProgramList, useWorkList } from "@/lib/store/programs";
-import { useProjectList } from "@/lib/store/projects";
+import {
+  useProgramList,
+  useWorkList,
+  useWorkStages,
+} from "@/lib/store/programs";
+import { useArchivedProjects, useProjectList } from "@/lib/store/projects";
 import { useProgramProjects } from "@/lib/store/programs";
 import { usePeople } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDateShort, todayIn } from "@/lib/time";
 
 /**
  * A page of tasks across projects, with the filters that narrow it.
@@ -70,17 +81,33 @@ export function taskHref(row: Pick<WorkRow, "projectId" | "key">): string {
 export function WorkTasks({
   scope = {},
   showProgram,
+  archive = false,
 }: {
   scope?: WorkScope;
   /** A column naming the program, and a filter for it: the Master view's. */
   showProgram: boolean;
+  /**
+   * The Archive's tasks rather than the live ones: in an archived project or
+   * program, or finished more than 14 days ago. "Why" replaces "Due", as a filter
+   * and as the last column, and the program and project filters offer the archived
+   * ones too.
+   */
+  archive?: boolean;
 }) {
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
   const people = usePeople();
-  const programs = useProgramList();
-  const query = queryFromParams(params, scope);
+  const programs = useProgramList(archive);
+  const asked = queryFromParams(params, scope);
+  const query: WorkQuery = { ...asked };
+  if (archive) {
+    /* "Due" is not one of the Archive's filters; "Why" is only the Archive's. */
+    delete query.bucket;
+    query.archive = true;
+  } else {
+    delete query.reason;
+  }
   const list = useWorkList(query);
 
   const setParam = (name: WorkParam, value: string | null) => {
@@ -97,7 +124,26 @@ export function WorkTasks({
 
   const narrowed = filterCount(params) > 0;
   const programId = scope.programId ?? params.get("program") ?? "";
-  const projectChoices = useProjectChoices(scope, programId);
+  const projectChoices = useProjectChoices(scope, programId, archive);
+  const stages = useWorkStages(
+    scope.unassigned ? { unassigned: true } : programId ? { programId } : {},
+  );
+  const stageValue = query.stage?.[0]
+    ? `name:${query.stage[0]}`
+    : query.category?.[0]
+      ? `cat:${query.category[0]}`
+      : "";
+  /* A stage by name and a category are one control: choosing one clears the other. */
+  const setStage = (value: string) => {
+    let next = withParam(params, "stage", null);
+    next = withParam(next, "stageName", null);
+    if (value.startsWith("name:"))
+      next = withParam(next, "stageName", value.slice(5));
+    else if (value.startsWith("cat:"))
+      next = withParam(next, "stage", value.slice(4));
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
   const programName = (id: string) =>
     programs.data?.programs.find((p) => p.id === id)?.name ?? "That program";
   const projectName = (id: string) =>
@@ -140,6 +186,24 @@ export function WorkTasks({
             label: "Stage",
             value: CATEGORY_LABEL[query.category[0]],
             onClear: () => setParam("stage", null),
+          },
+        ]
+      : []),
+    ...(query.stage?.[0]
+      ? [
+          {
+            label: "Stage",
+            value: query.stage[0],
+            onClear: () => setParam("stageName", null),
+          },
+        ]
+      : []),
+    ...(query.reason
+      ? [
+          {
+            label: "Why",
+            value: ARCHIVE_REASON_LABEL[query.reason],
+            onClear: () => setParam("why", null),
           },
         ]
       : []),
@@ -197,46 +261,79 @@ export function WorkTasks({
           </Select>
         </Field>
         <Field label="Person">
-          <Select
+          <Picker
+            searchable
             value={params.get("assignee") ?? ""}
-            onChange={(event) => setParam("assignee", event.target.value)}
-          >
-            <option value="">Anyone</option>
-            <option value="none">Nobody</option>
-            {[...people.people]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </Select>
+            onChange={(id) => setParam("assignee", id)}
+            options={[
+              { value: "", label: "Anyone" },
+              { value: "none", label: "Nobody" },
+              ...[...people.people]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  ...(p.jobTitle ? { hint: p.jobTitle } : {}),
+                })),
+            ]}
+          />
         </Field>
         <Field label="Stage">
           <Select
-            value={query.category?.[0] ?? ""}
-            onChange={(event) => setParam("stage", event.target.value)}
+            value={stageValue}
+            onChange={(event) => setStage(event.target.value)}
           >
             <option value="">Any stage</option>
-            {STATUS_CATEGORIES.map((category: StatusCategory) => (
-              <option key={category} value={category}>
-                {CATEGORY_LABEL[category]}
+            {/* The projects' own stages, as named in their settings. */}
+            {(stages.data ?? []).map((stage) => (
+              <option key={stage.name} value={`name:${stage.name}`}>
+                {stage.name}
               </option>
             ))}
+            {query.stage?.[0] &&
+              !(stages.data ?? []).some(
+                (s) => s.name.toLowerCase() === query.stage![0]!.toLowerCase(),
+              ) && <option value={stageValue}>{query.stage[0]}</option>}
+            {/* No "any not started / in progress / done" choices. A link that
+                arrives with a group still shows what it applied. */}
+            {query.category?.[0] &&
+              STATUS_CATEGORIES.includes(
+                query.category[0] as StatusCategory,
+              ) && (
+                <option value={`cat:${query.category[0]}`}>
+                  {`Any ${STATUS_FILTER_LABEL[query.category[0] as StatusCategory].toLowerCase()}`}
+                </option>
+              )}
           </Select>
         </Field>
-        <Field label="Due">
-          <Select
-            value={query.bucket ?? ""}
-            onChange={(event) => setParam("bucket", event.target.value)}
-          >
-            {DUE_CHOICES.map((choice) => (
-              <option key={choice.value} value={choice.value}>
-                {choice.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {archive ? (
+          <Field label="Why">
+            <Select
+              value={query.reason ?? ""}
+              onChange={(event) => setParam("why", event.target.value)}
+            >
+              <option value="">Any reason</option>
+              {ARCHIVE_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {ARCHIVE_REASON_LABEL[reason]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : (
+          <Field label="Due">
+            <Select
+              value={query.bucket ?? ""}
+              onChange={(event) => setParam("bucket", event.target.value)}
+            >
+              {DUE_CHOICES.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </FilterBar>
 
       <Results
@@ -244,6 +341,7 @@ export function WorkTasks({
         showProgram={showProgram}
         narrowed={narrowed}
         onClear={clearAll}
+        archive={archive}
       />
     </div>
   );
@@ -253,6 +351,7 @@ export function WorkTasks({
 function useProjectChoices(
   scope: WorkScope,
   chosenProgram: string,
+  archive = false,
 ): { id: string; name: string }[] {
   const target = scope.unassigned
     ? ({ unassigned: true } as const)
@@ -260,10 +359,21 @@ function useProjectChoices(
   const scoped = Boolean(scope.programId || scope.unassigned || chosenProgram);
   const inProgram = useProgramProjects(target, false, scoped);
   const everything = useProjectList("all");
-  if (scoped) {
-    return (inProgram.data ?? []).map((p) => ({ id: p.id, name: p.name }));
-  }
-  return everything.projects
+  /* The Archive offers the archived projects too, which no live list holds. */
+  const archived = useArchivedProjects(archive);
+  const extra = archive
+    ? archived.projects.filter((p) =>
+        scope.unassigned
+          ? !p.programId
+          : scoped
+            ? p.programId === (scope.programId ?? chosenProgram)
+            : true,
+      )
+    : [];
+  const live = scoped ? (inProgram.data ?? []) : everything.projects;
+  const seen = new Set<string>();
+  return [...live, ...extra]
+    .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
     .map((p) => ({ id: p.id, name: p.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -273,11 +383,13 @@ function Results({
   showProgram,
   narrowed,
   onClear,
+  archive,
 }: {
   list: ReturnType<typeof useWorkList>;
   showProgram: boolean;
   narrowed: boolean;
   onClear: () => void;
+  archive: boolean;
 }) {
   const timeZone = useOrgTimezone();
   const today = todayIn(timeZone);
@@ -304,12 +416,16 @@ function Results({
           title={
             narrowed
               ? `No ${TASK.many} match these filters`
-              : `No ${TASK.many} yet`
+              : archive
+                ? `Nothing archived yet`
+                : `No ${TASK.many} yet`
           }
           description={
             narrowed
               ? "Try another person or stage, or clear the filters to see everything you can open."
-              : `${TASK.Many} you can open will be listed here.`
+              : archive
+                ? `${TASK.Many} in an archived project or program, and ${TASK.many} finished more than 14 days ago, are listed here.`
+                : `${TASK.Many} you can open will be listed here.`
           }
           {...(narrowed
             ? {
@@ -337,7 +453,7 @@ function Results({
               {showProgram && <span role="columnheader">Program</span>}
               <span role="columnheader">Stage</span>
               <span role="columnheader">Assignees</span>
-              <span role="columnheader">Due</span>
+              <span role="columnheader">{archive ? "Why" : "Due"}</span>
             </div>
             <ul className="divide-y divide-line">
               {list.rows.map((row) => (
@@ -401,28 +517,38 @@ function Results({
                         ? row.assignees[0]!.name
                         : `${row.assignees[0]!.name} and ${row.assignees.length - 1} more`}
                   </span>
-                  <span role="cell" className="tabular text-body-sm">
-                    {row.dueDate ? (
-                      <span
-                        className={
-                          row.overdue ? "text-warning-text" : "text-muted"
-                        }
-                      >
-                        {dueLabel(
-                          { dueDate: row.dueDate, dueTime: row.dueTime },
-                          today,
-                          "card",
-                        )}
-                        {row.overdue && (
-                          <Badge tone="neutral" size="sm" className="ml-1.5">
-                            Overdue
-                          </Badge>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-faint">No date</span>
-                    )}
-                  </span>
+                  {archive ? (
+                    <span role="cell" className="text-body-sm text-muted">
+                      {row.archivedBecause === "done" && row.doneAt
+                        ? `Finished ${formatDateShort(row.doneAt, timeZone)}`
+                        : row.archivedBecause
+                          ? ARCHIVE_REASON_LABEL[row.archivedBecause]
+                          : ""}
+                    </span>
+                  ) : (
+                    <span role="cell" className="tabular text-body-sm">
+                      {row.dueDate ? (
+                        <span
+                          className={
+                            row.overdue ? "text-warning-text" : "text-muted"
+                          }
+                        >
+                          {dueLabel(
+                            { dueDate: row.dueDate, dueTime: row.dueTime },
+                            today,
+                            "card",
+                          )}
+                          {row.overdue && (
+                            <Badge tone="neutral" size="sm" className="ml-1.5">
+                              Overdue
+                            </Badge>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-faint">No date</span>
+                      )}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

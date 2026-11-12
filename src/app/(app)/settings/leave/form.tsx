@@ -12,7 +12,6 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  AttentionMark,
   Badge,
   Button,
   Callout,
@@ -49,14 +48,18 @@ import {
   leaveApi,
   type LeaveAccrualWire,
   type LeaveAttachmentPolicy,
+  type NewLeaveType,
 } from "@/lib/api/leave";
+import { filesAvailable } from "@/lib/api/leave-files";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { usePermissions } from "@/lib/permissions";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { useCompanySettings } from "@/lib/store/company";
 import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
+import { carryOverLine } from "@/lib/leave-rollover";
 import { useLeaveFileLimits } from "@/lib/store/leave-files";
+import { useLeaveRollover } from "@/lib/store/leave-rollover";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
 import { todayIn } from "@/lib/time";
@@ -104,6 +107,9 @@ type TypeRow = {
   attachmentPolicy: LeaveAttachmentPolicy;
   /** With `REQUIRED` only. Null is a request of any length. */
   attachmentRequiredOverDays: number | null;
+  /** Whether a request of this type must say why. Null is "not known" (an API
+   *  that predates the setting, and the demo), and is shown with no switch. */
+  reasonRequired: boolean | null;
   /** Null is everyone. See `EligibleGender` in `lib/api/leave.ts`. */
   eligibleGender: "female" | "male" | "other" | null;
 };
@@ -147,58 +153,71 @@ function EligibilitySelect({
 }
 
 /**
+ * What a switch says when a server has nowhere to keep a file. Visible text, on
+ * the row it applies to, not behind an icon: it is why a control is greyed.
+ */
+const FILES_UNAVAILABLE =
+  "This server cannot store files yet, so a file cannot be required.";
+
+/**
  * Whether a type asks for a supporting file, and from how many days.
+ *
+ * A switch, not a choice of three: **on is Required, off is Optional.** The
+ * product never treated "not asked for" and "optional" differently (a file may
+ * go on a request of any type, and the form's picker is labelled optional in
+ * both), so the third word described a difference nobody could see. A type that
+ * is stored as `NONE` shows the switch off, and is written as `OPTIONAL` the
+ * first time anybody touches it.
  *
  * **"After N days" is strictly longer.** Required after 2 means a one- or
  * two-day request needs nothing and a three-day one needs a file, which is "a
  * sick note after two days" as people say it. Empty is a request of any length.
  *
- * Required cannot be chosen on a server with no file storage, because nobody
- * could meet it, and the API refuses it too. A type that is already Required
- * keeps showing as Required: hiding a rule that is set would be a worse claim
- * than showing one that cannot currently be met. `storage === null` is
- * unknown, which is not off: the API answers if somebody gets that far.
+ * Required cannot be switched on where nothing could meet it (no storage of the
+ * server's own and no link route), because nobody could satisfy it, and the API
+ * refuses it too. A type that is already Required keeps showing on, and can be
+ * switched off: hiding a rule that is set would be a worse claim than showing
+ * one that cannot currently be met. `available === null` is unknown, which is
+ * not off: the API answers if somebody gets that far.
  *
- * One copy for the desktop cell and the mobile card so the options and the
+ * One copy for the desktop cell and the mobile card so the switch and the
  * number cannot drift between them.
  */
-function SupportingFileSelect({
+function SupportingFileSwitch({
   type,
-  storage,
+  available,
+  label,
   onChange,
-  className,
 }: {
   type: TypeRow;
-  storage: boolean | null;
+  available: boolean | null;
+  /** "Required" under a column headed Supporting file; in words on a phone. */
+  label: string;
   onChange: (
     patch: Partial<
       Pick<TypeRow, "attachmentPolicy" | "attachmentRequiredOverDays">
     >,
   ) => void;
-  className?: string;
 }) {
   const required = type.attachmentPolicy === "REQUIRED";
-  /* Its own id: inside a mobile `Field` the select takes the field's, and the
-     number beside it would otherwise inherit the same one. */
+  const blocked = available === false && !required;
+  /* Its own id: inside a mobile card the switch takes its own, and the number
+     beside it would otherwise inherit the same one. */
   const daysId = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <Select
-        className={className}
-        value={type.attachmentPolicy}
-        aria-label={`${type.name} supporting file`}
+      <Switch
+        label={label}
+        aria-label={`${type.name} supporting file required`}
+        description={blocked ? FILES_UNAVAILABLE : undefined}
+        checked={required}
+        disabled={blocked}
         onChange={(e) =>
           onChange({
-            attachmentPolicy: e.target.value as LeaveAttachmentPolicy,
+            attachmentPolicy: e.target.checked ? "REQUIRED" : "OPTIONAL",
           })
         }
-      >
-        <option value="NONE">Not asked for</option>
-        <option value="OPTIONAL">Optional</option>
-        <option value="REQUIRED" disabled={storage === false && !required}>
-          Required
-        </option>
-      </Select>
+      />
       {required && (
         <label className="flex items-center gap-1.5 whitespace-nowrap text-meta text-muted">
           After
@@ -228,6 +247,35 @@ function SupportingFileSelect({
         </label>
       )}
     </div>
+  );
+}
+
+/**
+ * Whether a request of this type has to say why.
+ *
+ * Drawn **only** where the server sent the setting. A switch over an absent
+ * value would write into nothing: it would look saved and change no booking,
+ * which is the green "Paid" over money nobody moved, one screen along. An
+ * absent setting is "not known", not "optional", so the row has no control
+ * rather than a control showing a default nobody chose.
+ */
+function ReasonSwitch({
+  type,
+  label,
+  onChange,
+}: {
+  type: TypeRow;
+  label: string;
+  onChange: (reasonRequired: boolean) => void;
+}) {
+  if (type.reasonRequired === null) return null;
+  return (
+    <Switch
+      label={label}
+      aria-label={`${type.name} reason required`}
+      checked={type.reasonRequired}
+      onChange={(e) => onChange(e.target.checked)}
+    />
   );
 }
 
@@ -320,10 +368,14 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   const { isConnected } = useSession();
   const timeZone = useOrgTimezone();
   const toast = useToast();
-  /* Whether this server can keep a file at all, which decides whether a type
-     can be made to require one. Unknown (not loaded, or the read failed) is not
-     "no": only an answer of false disables the choice. */
-  const { storage } = useLeaveFileLimits();
+  /* Whether a file can be attached here at all (the server's own storage, or a
+     link route this build is set up for), which decides whether a type can be
+     made to require one. Unknown (not loaded, or the read failed) is not "no":
+     only an answer of false disables the switch. */
+  const { limits: fileLimits } = useLeaveFileLimits();
+  const rollover = useLeaveRollover();
+  const carryOver = rollover ? carryOverLine(rollover, timeZone) : null;
+  const available = filesAvailable(fileLimits);
 
   /**
    * Whether the last edit has landed.
@@ -414,6 +466,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
               minNoticeDays: row.minNoticeDays,
               attachmentPolicy: row.attachmentPolicy,
               attachmentRequiredOverDays: row.attachmentRequiredOverDays,
+              reasonRequired: row.reasonRequired,
               eligibleGender: row.eligibleGender,
             })),
             error: null,
@@ -443,6 +496,8 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     /* A file goes to storage through the API, which the demo has not got. */
     attachmentPolicy: "NONE",
     attachmentRequiredOverDays: null,
+    /* Nor a reason setting: no claim, so no switch. */
+    reasonRequired: null,
     eligibleGender: type.eligibleGender ?? null,
   }));
 
@@ -454,14 +509,16 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     patch: Partial<Omit<TypeRow, "id" | "name">>,
   ) {
     if (!isConnected) {
-      /* The demo keeps no supporting-file setting. */
+      /* The demo keeps no supporting-file or reason setting. */
       const {
         attachmentPolicy: _policy,
         attachmentRequiredOverDays: _days,
+        reasonRequired: _reason,
         ...local
       } = patch;
       void _policy;
       void _days;
+      void _reason;
       updateLeaveType(row.name, local);
       /* Demo mode saves too — locally — so the indicator says so rather than
          staying silent, which would read as nothing having happened. */
@@ -510,6 +567,11 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
         ...(patch.attachmentRequiredOverDays !== undefined
           ? { attachmentRequiredOverDays: patch.attachmentRequiredOverDays }
           : {}),
+        /* A boolean only. The switch is drawn only for one, so this is never
+           null, and `null` is not a thing the API takes. */
+        ...(typeof patch.reasonRequired === "boolean"
+          ? { reasonRequired: patch.reasonRequired }
+          : {}),
         /* `!== undefined`, not truthy: `null` is a real, meaningful value
            here — it is what clears the restriction back to "everyone" — and
            this is the only shape that can say so rather than leaving it
@@ -539,7 +601,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     }
   }
 
-  async function createType(input: { name: string; entitledDays: number }) {
+  async function createType(input: NewLeaveType) {
     await leaveApi.createType(input);
     setTick((t) => t + 1);
   }
@@ -724,19 +786,8 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                             <TH>Accrual</TH>
                             <TH align="right">Carry over</TH>
                             <TH align="right">Notice (days)</TH>
-                            {isConnected && (
-                              <TH>
-                                <span className="inline-flex items-center gap-1.5">
-                                  Supporting file
-                                  {storage === false && (
-                                    <AttentionMark
-                                      tone="info"
-                                      text="This server cannot store files yet, so a supporting file cannot be required. It can still be switched off or left optional."
-                                    />
-                                  )}
-                                </span>
-                              </TH>
-                            )}
+                            {isConnected && <TH>Reason</TH>}
+                            {isConnected && <TH>Supporting file</TH>}
                             <TH>Who</TH>
                             {isConnected && (
                               <TH align="right">
@@ -824,10 +875,33 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                 </TD>
                                 {isConnected && (
                                   <TD>
-                                    <SupportingFileSelect
-                                      className="min-w-32"
+                                    {type.reasonRequired === null ? (
+                                      <span className="text-muted">
+                                        &mdash;
+                                        <span className="sr-only">
+                                          {type.name}: this server does not say
+                                          whether a reason is required
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <ReasonSwitch
+                                        type={type}
+                                        label="Required"
+                                        onChange={(reasonRequired) =>
+                                          void editType(type, {
+                                            reasonRequired,
+                                          })
+                                        }
+                                      />
+                                    )}
+                                  </TD>
+                                )}
+                                {isConnected && (
+                                  <TD>
+                                    <SupportingFileSwitch
                                       type={type}
-                                      storage={storage}
+                                      available={available}
+                                      label="Required"
                                       onChange={(patch) =>
                                         void editType(type, patch)
                                       }
@@ -984,23 +1058,23 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                 </Field>
 
                                 {isConnected && (
-                                  <Field
-                                    label="Supporting file"
-                                    help={
-                                      storage === false
-                                        ? "This server cannot store files yet, so a file cannot be required."
-                                        : "A file can go on any request. This is whether one is asked for."
-                                    }
-                                  >
-                                    <SupportingFileSelect
-                                      className="h-11"
+                                  <div className="flex flex-col gap-3">
+                                    <ReasonSwitch
                                       type={type}
-                                      storage={storage}
+                                      label="Reason required"
+                                      onChange={(reasonRequired) =>
+                                        void editType(type, { reasonRequired })
+                                      }
+                                    />
+                                    <SupportingFileSwitch
+                                      type={type}
+                                      available={available}
+                                      label="Supporting file required"
                                       onChange={(patch) =>
                                         void editType(type, patch)
                                       }
                                     />
-                                  </Field>
+                                  </div>
                                 )}
 
                                 {isConnected && (
@@ -1056,6 +1130,9 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                           See them on Leave
                         </TextLink>
                       </p>
+                      {carryOver && (
+                        <p className="mt-1 text-meta text-muted">{carryOver}</p>
+                      )}
                     </CardBody>
                   )}
                 </Card>
@@ -1183,47 +1260,86 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                 <Card>
                   <CardHeader title="Approval rules" level={3} />
                   <CardBody className="flex flex-col gap-5">
-                    <Field
-                      label="Allow approval into a negative balance"
-                      help="Off means an approver cannot push someone past their entitlement. On means they can, and payroll treats the excess as unpaid."
-                    >
-                      <Switch
-                        checked={policy.allowNegativeBalance}
-                        label={
-                          policy.allowNegativeBalance ? "Allowed" : "Blocked"
-                        }
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          updateLeave({ allowNegativeBalance: checked });
-                          toast.push({
-                            title: checked
-                              ? "Negative balances allowed"
-                              : "Negative balances blocked",
-                            tone: checked ? "info" : "success",
-                            detail: checked
-                              ? "Approvers can now exceed an entitlement. The excess is unpaid."
-                              : "Approvers can no longer exceed an entitlement.",
-                          });
-                        }}
-                      />
-                    </Field>
+                    {isConnected ? (
+                      /* Connected, these two are not company settings: the API
+                         has no policy to save them into, and decides both the
+                         same way for everybody. A switch here would look saved
+                         and move nothing, so each is a statement of what the
+                         server does. They are switches only offline, where the
+                         demo store reads them. */
+                      <>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-body-sm font-medium text-ink">
+                            Going over an entitlement
+                          </span>
+                          <span className="text-body-sm text-muted">
+                            Never blocks. A request over a person&rsquo;s
+                            entitlement is raised with a warning and the
+                            approver decides. Maternity and paternity are
+                            statutory and are never measured against an annual
+                            allowance.
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-body-sm font-medium text-ink">
+                            Pending days
+                          </span>
+                          <span className="text-body-sm text-muted">
+                            Always held back. The remaining figure already takes
+                            off requests nobody has decided yet, so the same
+                            days cannot be approved twice.
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Field
+                          label="Allow approval into a negative balance"
+                          help="Off means an approver cannot push someone past their entitlement. On means they can, and payroll treats the excess as unpaid."
+                        >
+                          <Switch
+                            checked={policy.allowNegativeBalance}
+                            label={
+                              policy.allowNegativeBalance
+                                ? "Allowed"
+                                : "Blocked"
+                            }
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              updateLeave({ allowNegativeBalance: checked });
+                              toast.push({
+                                title: checked
+                                  ? "Negative balances allowed"
+                                  : "Negative balances blocked",
+                                tone: checked ? "info" : "success",
+                                detail: checked
+                                  ? "Approvers can now exceed an entitlement. The excess is unpaid."
+                                  : "Approvers can no longer exceed an entitlement.",
+                              });
+                            }}
+                          />
+                        </Field>
 
-                    <Field
-                      label="Hold pending days against the remaining figure"
-                      help="On means an approver sees a balance that already accounts for requests they have not decided yet. Off means they can approve the same days twice."
-                    >
-                      <Switch
-                        checked={policy.reservePendingDays}
-                        label={
-                          policy.reservePendingDays
-                            ? "Held back"
-                            : "Not held back"
-                        }
-                        onChange={(e) =>
-                          updateLeave({ reservePendingDays: e.target.checked })
-                        }
-                      />
-                    </Field>
+                        <Field
+                          label="Hold pending days against the remaining figure"
+                          help="On means an approver sees a balance that already accounts for requests they have not decided yet. Off means they can approve the same days twice."
+                        >
+                          <Switch
+                            checked={policy.reservePendingDays}
+                            label={
+                              policy.reservePendingDays
+                                ? "Held back"
+                                : "Not held back"
+                            }
+                            onChange={(e) =>
+                              updateLeave({
+                                reservePendingDays: e.target.checked,
+                              })
+                            }
+                          />
+                        </Field>
+                      </>
+                    )}
                   </CardBody>
                 </Card>
               </div>
@@ -1287,6 +1403,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
 
       <AddLeaveTypeDialog
         open={adding}
+        filesAvailable={available}
         onClose={() => setAdding(false)}
         onSave={async (input) => {
           await createType(input);
@@ -1302,19 +1419,77 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   );
 }
 
-function AddLeaveTypeDialog({
+/**
+ * Where a refusal from the server is said, so that it sits under what it is
+ * about and a typed name is never blamed for a setting.
+ */
+type AddError = { where: "name" | "reason" | "file" | "form"; message: string };
+
+/**
+ * Add a leave type of the company's own.
+ *
+ * **Two switches, both on.** A reason and a supporting file are what a company
+ * asks of somebody who wants this leave, so a new type asks for both until
+ * somebody says otherwise, and each says in a line what it does in either
+ * position. The dialog always sends both answers explicitly (`reasonRequired`
+ * and an `attachmentPolicy` of `REQUIRED` or `OPTIONAL`), never leaving them to
+ * the API's defaults: what was on screen is what is stored.
+ *
+ * It starts the file switch **off and disabled, with the reason beside it**,
+ * where nothing could meet a required file (see `filesAvailable`). A switch that
+ * could be turned on and would be refused by the server is a form that fails at
+ * the end. "Not known yet" is not "no": the file read can land after the dialog
+ * opens, and the answer is read live rather than copied into state, so the
+ * switch follows it.
+ *
+ * ## A new form every time
+ *
+ * The screen keeps this mounted so the dialog can animate out, and `Modal`
+ * unmounts only what is inside it, so state held here outlives a close: the next
+ * open used to come up with the last name typed and the last answers given.
+ * `AddLeaveTypeForm` is the form, and this wrapper hands it a new `key` each
+ * time the dialog opens. It does not change on close, so what is on screen does
+ * not change while it animates out. The rule `RoleEditor` follows.
+ */
+function AddLeaveTypeDialog(props: {
+  open: boolean;
+  /** Whether a file could be attached at all. Null is not known. */
+  filesAvailable: boolean | null;
+  onClose: () => void;
+  onSave: (input: NewLeaveType) => Promise<void>;
+}) {
+  const [seen, setSeen] = useState({ open: props.open, session: 0 });
+  if (props.open !== seen.open) {
+    setSeen({
+      open: props.open,
+      session: props.open ? seen.session + 1 : seen.session,
+    });
+  }
+  return <AddLeaveTypeForm key={seen.session} {...props} />;
+}
+
+function AddLeaveTypeForm({
   open,
+  filesAvailable: available,
   onClose,
   onSave,
 }: {
   open: boolean;
+  filesAvailable: boolean | null;
   onClose: () => void;
-  onSave: (input: { name: string; entitledDays: number }) => Promise<void>;
+  onSave: (input: NewLeaveType) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [entitledDays, setEntitledDays] = useState(5);
+  const [askReason, setAskReason] = useState(true);
+  const [askFile, setAskFile] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AddError | null>(null);
+
+  /* Derived, never copied into state: the answer about files can arrive after
+     the dialog is open, and a copy taken before it would keep saying on. */
+  const noFiles = available === false;
+  const fileOn = askFile && !noFiles;
 
   const trimmed = name.trim();
   const canSave = trimmed.length >= 2 && entitledDays >= 0 && !busy;
@@ -1323,13 +1498,33 @@ function AddLeaveTypeDialog({
     setBusy(true);
     setError(null);
     try {
-      await onSave({ name: trimmed, entitledDays });
+      await onSave({
+        name: trimmed,
+        entitledDays,
+        reasonRequired: askReason,
+        attachmentPolicy: fileOn ? "REQUIRED" : "OPTIONAL",
+      });
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "That did not save. Try again.",
-      );
+      if (!(caught instanceof ApiError)) {
+        setError({ where: "form", message: "That did not save. Try again." });
+      } else {
+        /* The API's own sentence, under what it is about where it says so. A
+           duplicate name is a conflict and belongs under the name. */
+        const reason = caught.messageFor("reasonRequired");
+        const file = caught.messageFor("attachmentPolicy");
+        const named = caught.messageFor("name");
+        setError(
+          file
+            ? { where: "file", message: file }
+            : reason
+              ? { where: "reason", message: reason }
+              : named
+                ? { where: "name", message: named }
+                : caught.status === 409
+                  ? { where: "name", message: caught.message }
+                  : { where: "form", message: caught.message },
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -1359,7 +1554,11 @@ function AddLeaveTypeDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Name" required error={error ?? undefined}>
+        <Field
+          label="Name"
+          required
+          error={error?.where === "name" ? error.message : undefined}
+        >
           <Input
             value={name}
             autoFocus
@@ -1383,8 +1582,56 @@ function AddLeaveTypeDialog({
             }}
           />
         </Field>
+
+        <div className="flex flex-col gap-1.5">
+          <Switch
+            label="Ask for a reason"
+            description={
+              askReason
+                ? "People must say why when they ask for this leave."
+                : "People can ask for this leave without saying why."
+            }
+            checked={askReason}
+            onChange={(e) => setAskReason(e.target.checked)}
+          />
+          {error?.where === "reason" && <FormRefusal text={error.message} />}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Switch
+            label="Ask for a supporting file"
+            description={
+              noFiles
+                ? FILES_UNAVAILABLE
+                : fileOn
+                  ? "People must attach a file (a medical certificate, say) to ask for this leave."
+                  : "People can ask for this leave without attaching a file."
+            }
+            checked={fileOn}
+            disabled={noFiles}
+            onChange={(e) => setAskFile(e.target.checked)}
+          />
+          {fileOn && (
+            <p className="text-meta text-muted">
+              To ask for one only after a number of days, set that in the table
+              once the type is added.
+            </p>
+          )}
+          {error?.where === "file" && <FormRefusal text={error.message} />}
+        </div>
+
+        {error?.where === "form" && <FormRefusal text={error.message} />}
       </div>
     </Modal>
+  );
+}
+
+/** A refusal in plain red words under what it is about. Not a box. */
+function FormRefusal({ text }: { text: string }) {
+  return (
+    <p role="alert" className="text-body-sm text-danger-text">
+      {text}
+    </p>
   );
 }
 

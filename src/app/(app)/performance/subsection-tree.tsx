@@ -42,10 +42,11 @@ import { KindTag, LockMark } from "./subsection-title";
  * ## Why it lives in the Questions dialog
  *
  * The person writing a period's questions is also deciding, subsection by
- * subsection, how each one is rated: a level, a yes or no or a pick, which a
- * manager records on the subsection under Competency ratings. The questions are
- * what the form asks; that rating is what the mark is made from. Making them
- * leave for another screen to say so, and come back, was the complaint. So a
+ * subsection, how each one is answered: a level, a yes or no, a pick or a written
+ * answer, which a manager records on the subsection under Competency ratings. The
+ * questions are what the form asks; that rating is what the mark is made from (a
+ * written answer is the exception, and never counts). Making them leave for
+ * another screen to say so, and come back, was the complaint. So a
  * subsection has two tabs, Questions and How it is rated, and the dialog has this
  * as its second view.
  *
@@ -141,10 +142,11 @@ export function subsectionNameProblem(name: string): string | null {
 /**
  * What a new subsection is made from.
  *
- * `scaleMax` is required whatever the kind and means nothing for a yes or no and
- * a pick: 5 is the company scale. An absent `answerKind` is a level, which is what
- * a body that never mentions it has always meant, so it is left out rather than
- * sent as `RATING`, and a server that predates kinds never hears the word.
+ * `scaleMax` is required whatever the kind and means nothing for a yes or no, a
+ * pick and a written answer: 5 is the company scale. An absent `answerKind` is a
+ * level, which is what a body that never mentions it has always meant, so it is
+ * left out rather than sent as `RATING`, and a server that predates kinds never
+ * hears the word.
  */
 export function newSubsectionBody(input: {
   name: string;

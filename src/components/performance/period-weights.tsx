@@ -3,11 +3,13 @@
 import { RotateCcw } from "lucide-react";
 import { Badge, Button, Field, Input } from "@/components/ui";
 import {
-  FULL_WEIGHT_BP,
   SCORE_COMPONENT_ORDER,
+  isLaterComponent,
   weightLabel,
+  weightSetFromRows,
   type ApiScoringWeights,
   type CycleWeights,
+  type LaterComponent,
   type ScoreComponent,
   type WeightSet,
 } from "@/lib/api/performance";
@@ -19,20 +21,43 @@ import {
  *
  * The company defaults in Settings take two decimal places, because a three-way
  * split of a company's own is a thing somebody types once. A period's weights
- * are chosen by whoever is setting the period up, in a hurry, and the rule is
- * "exactly 100%". A field that accepts 33.33 lets three of them make 99.99 and
- * a refusal nobody can connect to a row. So here a weight is a whole number
- * from 0 to 100, and what is sent is that number times 100.
+ * are chosen by whoever is setting the period up, in a hurry, so here a weight
+ * is a whole number from 0 to 100, and what is sent is that number times 100.
+ *
+ * ## Proportional
+ *
+ * The weights need not make 100%: each part counts in proportion to the total.
+ * The only set refused is every part at zero, which cannot make a mark.
  *
  * ## The value is what was typed
  *
  * `WeightText` holds text, so a half-typed field is not rewritten under the
  * person. Every figure derived from it is an integer number of basis points,
  * and nothing in here computes anybody's mark: the composite lives in the API.
+ *
+ * ## A part the server has not heard of has no row
+ *
+ * Manager appraisal is a `LaterComponent`: a server that predates it sends no
+ * weight for it, so the text holds no key for it and there is no row, no total
+ * and no rule about it. Drawing one would offer a weight the server drops, and
+ * sending a 0 for it would write over one set somewhere newer.
  */
 
-/** What is in each field, as typed. */
-export type WeightText = Record<ScoreComponent, string>;
+/** What is in each field, as typed. A later part is only there if the server spoke of it. */
+export type WeightText = Record<
+  Exclude<ScoreComponent, LaterComponent>,
+  string
+> &
+  Partial<Record<LaterComponent, string>>;
+
+/** The parts this text holds: every part there has always been, and a later one only when it is present. */
+const partsOf = (
+  held: Partial<Record<ScoreComponent, unknown>>,
+): ScoreComponent[] =>
+  SCORE_COMPONENT_ORDER.filter(
+    (component) =>
+      !isLaterComponent(component) || held[component] !== undefined,
+  );
 
 /** Used only when no company defaults have arrived to supply the words. */
 const FALLBACK_LABELS: Record<ScoreComponent, string> = {
@@ -41,15 +66,17 @@ const FALLBACK_LABELS: Record<ScoreComponent, string> = {
   CORE_COMPETENCY: "Core competencies",
   BEHAVIOURAL_COMPETENCY: "Behavioural competencies",
   LEADERSHIP: "Leadership",
+  MANAGER_APPRAISAL: "Manager appraisal",
   SELF_ASSESSMENT: "Self-assessment",
 };
 
-const RULE = "These must add up to 100%.";
+const ROW_RULE = "Each weight is a whole number from 0 to 100.";
+const ZERO_RULE = "Give at least one part a weight above 0%.";
 
 /** Basis points to the text a field shows. 2500 becomes "25". */
 export function weightsToText(weights: WeightSet): WeightText {
   return Object.fromEntries(
-    SCORE_COMPONENT_ORDER.map((component) => [
+    partsOf(weights).map((component) => [
       component,
       String((weights[component] ?? 0) / 100),
     ]),
@@ -59,7 +86,7 @@ export function weightsToText(weights: WeightSet): WeightText {
 /** The typed set in basis points. Only meaningful once `periodWeightsProblem` is null. */
 export function weightsFromText(text: WeightText): WeightSet {
   return Object.fromEntries(
-    SCORE_COMPONENT_ORDER.map((component) => [
+    partsOf(text).map((component) => [
       component,
       Math.round(Number(text[component]) * 100),
     ]),
@@ -72,24 +99,21 @@ function wholePercent(text: string): boolean {
 }
 
 /**
- * What stops this set being saved, or null.
- *
- * One sentence for both reasons — a bad row and a wrong total — because the
- * person's next step is the same: look at the rows.
+ * What stops this set being saved, or null: a row that is not a whole number
+ * from 0 to 100, or every part at zero. Any other total is fine, because the
+ * weights are proportional.
  */
 export function periodWeightsProblem(text: WeightText): string | null {
-  if (!SCORE_COMPONENT_ORDER.every((c) => wholePercent(text[c] ?? ""))) {
-    return RULE;
+  const parts = partsOf(text);
+  if (!parts.every((c) => wholePercent(text[c] ?? ""))) {
+    return ROW_RULE;
   }
-  const total = SCORE_COMPONENT_ORDER.reduce(
-    (sum, c) => sum + Number(text[c]),
-    0,
-  );
-  return total === 100 ? null : RULE;
+  const total = parts.reduce((sum, c) => sum + Number(text[c]), 0);
+  return total > 0 ? null : ZERO_RULE;
 }
 
 function totalBp(text: WeightText): number {
-  return SCORE_COMPONENT_ORDER.reduce((sum, c) => {
+  return partsOf(text).reduce((sum, c) => {
     const n = Number(text[c]);
     return sum + (Number.isFinite(n) ? Math.round(n * 100) : 0);
   }, 0);
@@ -124,6 +148,7 @@ export function PeriodWeights({
     companyDefaults?.rows.find((row) => row.component === component)?.label ??
     FALLBACK_LABELS[component];
 
+  const parts = partsOf(value);
   const total = totalBp(value);
   const problem = readOnly ? null : periodWeightsProblem(value);
 
@@ -133,17 +158,9 @@ export function PeriodWeights({
       return;
     }
     if (companyDefaults === null) return;
-    onChange(
-      weightsToText(
-        Object.fromEntries(
-          SCORE_COMPONENT_ORDER.map((c) => [
-            c,
-            companyDefaults.rows.find((row) => row.component === c)?.weightBp ??
-              0,
-          ]),
-        ) as WeightSet,
-      ),
-    );
+    /* A part the company's read does not carry is left out, not set to 0: the
+       period's own text keeps the rows its server spoke of. */
+    onChange(weightsToText(weightSetFromRows(companyDefaults.rows)));
   };
 
   return (
@@ -155,11 +172,7 @@ export function PeriodWeights({
         <span className="flex items-center gap-2">
           <span className="text-meta text-muted">Total</span>
           <span data-testid="weights-total">
-            <Badge
-              tone={total === FULL_WEIGHT_BP ? "success" : "danger"}
-              size="md"
-              dot
-            >
+            <Badge tone={total > 0 ? "neutral" : "danger"} size="md" dot>
               {weightLabel(total)}
             </Badge>
           </span>
@@ -167,7 +180,7 @@ export function PeriodWeights({
       </div>
 
       <div className="flex flex-col gap-3">
-        {SCORE_COMPONENT_ORDER.map((component) => {
+        {parts.map((component) => {
           const text = value[component] ?? "";
           const bad = !readOnly && !wholePercent(text);
           return (
@@ -225,9 +238,21 @@ export function PeriodWeights({
       )}
 
       <p className="text-meta text-muted">
+        Each part counts in proportion to the total, so the weights do not have
+        to make 100%.
+      </p>
+
+      <p className="text-meta text-muted">
         If someone has no graded weekly tasks against this period&apos;s
         objectives, the Weekly tasks share is spread over the other parts.
       </p>
+
+      {parts.includes("MANAGER_APPRAISAL") && (
+        <p className="text-meta text-muted">
+          If no appraiser has sent an overall mark for someone, the{" "}
+          {labelOf("MANAGER_APPRAISAL")} share is spread over the other parts.
+        </p>
+      )}
 
       {readOnly ? (
         basis === "frozen" ? (

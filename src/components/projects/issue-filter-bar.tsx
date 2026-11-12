@@ -2,7 +2,7 @@
 
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Button, Select } from "@/components/ui";
+import { Button, Picker, Select } from "@/components/ui";
 import {
   DEPT_NONE,
   DEPT_UNASSIGNED,
@@ -14,11 +14,7 @@ import {
   toggleAssignee,
 } from "@/lib/projects/filters";
 import { FILTER_TYPES, STAGE, TYPE_LABEL } from "@/lib/projects/terms";
-import {
-  STATUS_CATEGORIES,
-  type IssueType,
-  type StatusCategory,
-} from "@/lib/projects/types";
+import { type IssueType, type StatusCategory } from "@/lib/projects/types";
 import { PersonAvatar } from "./person";
 import { useProject } from "./project-context";
 
@@ -36,6 +32,31 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
   const { project, issues, people, meId, filter, setFilter } = useProject();
   const ids = filterAssigneeIds(project.memberIds, issues);
   const active = isFiltering(filter);
+  /* Everybody on the project or on a task, by name, so a large team is found by
+     typing rather than by guessing initials. Those already chosen are chips. */
+  const peopleChoices = [
+    ...ids
+      .filter((id) => !filter.assigneeIds.includes(id))
+      .map((id) => {
+        const jobTitle = people.byId.get(id)?.jobTitle ?? "";
+        return {
+          value: id,
+          label: people.nameOf(id),
+          ...(jobTitle ? { hint: jobTitle } : {}),
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    ...(filter.assigneeIds.includes(UNASSIGNED)
+      ? []
+      : [{ value: UNASSIGNED, label: "Unassigned", hint: "Nobody on it yet" }]),
+  ];
+  const stages = [...project.statuses].sort((a, b) => a.position - b.position);
+  const stageValue =
+    filter.statusIds.length === 1
+      ? `id:${filter.statusIds[0]!}`
+      : filter.statusCategory
+        ? `cat:${filter.statusCategory}`
+        : "";
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -50,7 +71,7 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
           value={filter.q}
           onChange={(event) => setFilter({ ...filter, q: event.target.value })}
           placeholder="Search tasks"
-          aria-label="Search tasks by key, title or label"
+          aria-label="Search tasks by key, title, label, person or subtask"
           autoComplete="off"
           className={cn(
             "h-10 w-full rounded-md border border-field-line bg-surface pl-9 pr-9 text-body-sm pointer-coarse:text-body-md text-ink placeholder:text-muted",
@@ -69,40 +90,50 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
       <div
         role="group"
         aria-label="Filter by assignee"
-        className="flex flex-wrap items-center gap-1"
+        className="flex w-full flex-wrap items-center gap-2 sm:w-auto"
       >
-        {ids.map((id) => {
-          const on = filter.assigneeIds.includes(id);
-          return (
+        <div className="w-full sm:w-56">
+          <Picker
+            aria-label="Filter by person"
+            searchable
+            value=""
+            placeholder={
+              filter.assigneeIds.length > 0
+                ? "Add another person"
+                : "Filter by person"
+            }
+            onChange={(id) => {
+              if (id && !filter.assigneeIds.includes(id))
+                setFilter(toggleAssignee(filter, id));
+            }}
+            options={peopleChoices}
+          />
+        </div>
+        {filter.assigneeIds.map((id) => (
+          <span
+            key={id}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-accent-line bg-accent-soft pl-1 pr-1.5 text-body-sm text-accent-text"
+          >
+            <PersonAvatar
+              people={people}
+              id={id === UNASSIGNED ? null : id}
+              size="sm"
+            />
+            <span className="max-w-40 truncate">
+              {id === UNASSIGNED ? "Unassigned" : people.nameOf(id)}
+            </span>
             <button
-              key={id}
               type="button"
-              aria-pressed={on}
-              title={people.nameOf(id)}
+              aria-label={`Stop filtering by ${
+                id === UNASSIGNED ? "Unassigned" : people.nameOf(id)
+              }`}
               onClick={() => setFilter(toggleAssignee(filter, id))}
-              className={cn(
-                "rounded-full p-0.5 ring-2 transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
-                on ? "ring-accent" : "ring-transparent hover:ring-line-strong",
-              )}
+              className="grid size-6 place-items-center rounded-full hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
             >
-              <PersonAvatar people={people} id={id} size="sm" />
+              <X aria-hidden="true" className="size-3.5" />
             </button>
-          );
-        })}
-        <button
-          type="button"
-          aria-pressed={filter.assigneeIds.includes(UNASSIGNED)}
-          title="Unassigned"
-          onClick={() => setFilter(toggleAssignee(filter, UNASSIGNED))}
-          className={cn(
-            "rounded-full p-0.5 ring-2 transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
-            filter.assigneeIds.includes(UNASSIGNED)
-              ? "ring-accent"
-              : "ring-transparent hover:ring-line-strong",
-          )}
-        >
-          <PersonAvatar people={people} id={null} size="sm" />
-        </button>
+          </span>
+        ))}
       </div>
 
       {meId && (
@@ -142,20 +173,33 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
       <div className="w-[calc(50%-0.5rem)] sm:w-40">
         <Select
           aria-label={STAGE.One}
-          value={filter.statusCategory}
-          onChange={(event) =>
+          value={stageValue}
+          onChange={(event) => {
+            const raw = event.target.value;
+            const kind = raw.slice(0, raw.indexOf(":"));
+            const rest = raw.slice(raw.indexOf(":") + 1);
             setFilter({
               ...filter,
-              statusCategory: event.target.value as StatusCategory | "",
-            })
-          }
+              statusIds: kind === "id" ? [rest] : [],
+              statusCategory: kind === "cat" ? (rest as StatusCategory) : "",
+            });
+          }}
         >
           <option value="">Any {STAGE.one}</option>
-          {STATUS_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {STATUS_FILTER_LABEL[category]}
+          {/* This project's own stages, as named in its settings. */}
+          {stages.map((status) => (
+            <option key={status.id} value={`id:${status.id}`}>
+              {status.name}
             </option>
           ))}
+          {/* No "any not started / in progress / done" choices: the stages
+              above are what people pick from. A link that arrives with a group
+              (`?status=`) still shows what it applied, so the box is never blank. */}
+          {filter.statusCategory && (
+            <option value={`cat:${filter.statusCategory}`}>
+              {`Any ${STATUS_FILTER_LABEL[filter.statusCategory].toLowerCase()}`}
+            </option>
+          )}
         </Select>
       </div>
 
@@ -169,7 +213,7 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
               setFilter({ ...filter, department: event.target.value })
             }
           >
-            <option value="">Any department</option>
+            <option value="">All departments</option>
             {departmentChoices(
               project.memberDepartments,
               project.departmentNames,
