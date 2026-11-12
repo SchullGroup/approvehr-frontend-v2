@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
@@ -203,5 +203,106 @@ describe("where the new task went", () => {
     renderDialog({ view: undefined });
     await create();
     expect(lastToast()).toEqual({ tone: "success", title: "CHK-99 created" });
+  });
+});
+
+describe("the short form", () => {
+  beforeEach(() => localStorage.clear());
+
+  const moreButton = () => screen.getByRole("button", { name: /More options/ });
+
+  it("puts the title first and focuses it, with assignee and due date beside it", async () => {
+    renderDialog();
+    const fields = screen
+      .getAllByRole("textbox")
+      .filter((el) => !el.closest("[hidden]"));
+    expect(fields[0]).toBe(screen.getByLabelText(/^Title/));
+    await waitFor(() => expect(screen.getByLabelText(/^Title/)).toHaveFocus());
+    expect(screen.getByRole("group", { name: /Assignee/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Assign to me" })).toBeVisible();
+    expect(screen.getByLabelText(/^Due date/)).toBeVisible();
+  });
+
+  it("keeps the rest under More options, closed the first time", () => {
+    renderDialog();
+    expect(moreButton()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByLabelText("Priority")).not.toBeVisible();
+    expect(screen.getByLabelText(/^Description/)).not.toBeVisible();
+    expect(screen.getByLabelText(/^Effort/)).not.toBeVisible();
+  });
+
+  it("shows the cycle beside the due date on a project with cycles", () => {
+    renderDialog({}, { sprintId: ACTIVE });
+    expect(screen.getByLabelText(/^Cycle/)).toBeVisible();
+    expect(screen.getByLabelText(/^Cycle/)).toHaveValue(ACTIVE);
+  });
+
+  it("has no cycle at all on a simple board", () => {
+    const data = sampleData();
+    data.project = { ...data.project, type: "KANBAN" };
+    renderDialog({}, {}, data);
+    expect(screen.queryByLabelText(/^Cycle/)).not.toBeInTheDocument();
+  });
+
+  it("remembers that it was left open, for the next task", async () => {
+    renderDialog();
+    await userEvent.click(moreButton());
+    expect(localStorage.getItem("projects.moreOptions")).toBe("open");
+    /* The same browser, the dialog opened again. */
+    cleanup();
+    renderDialog();
+    await waitFor(() =>
+      expect(moreButton()).toHaveAttribute("aria-expanded", "true"),
+    );
+    expect(screen.getByLabelText("Priority")).toBeVisible();
+  });
+
+  it("stays closed, and still opens, when storage cannot be used", async () => {
+    const get = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    const set = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    try {
+      renderDialog();
+      expect(moreButton()).toHaveAttribute("aria-expanded", "false");
+      await userEvent.click(moreButton());
+      expect(moreButton()).toHaveAttribute("aria-expanded", "true");
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
+  });
+
+  it("says in one line what under it is not at its default", async () => {
+    renderDialog();
+    expect(moreButton()).not.toHaveTextContent("Priority");
+    await userEvent.click(moreButton());
+    await userEvent.selectOptions(screen.getByLabelText("Priority"), "HIGH");
+    await userEvent.type(screen.getByLabelText(/^Effort/), "3");
+    await userEvent.click(moreButton());
+    expect(moreButton()).toHaveTextContent("Priority: High · Effort: 3");
+  });
+
+  it("opens itself when the API refuses a field inside it, and shows why there", async () => {
+    const { createIssue } = renderDialog();
+    createIssue.mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: false,
+        message: "Check the form.",
+        error: new ApiError(422, "validation", "Check the form.", [
+          { field: "points", message: "Effort must be a whole number." },
+        ]),
+      }),
+    );
+    await create();
+    expect(moreButton()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Effort must be a whole number.")).toBeVisible();
+    expect(localStorage.getItem("projects.moreOptions")).toBeNull();
   });
 });

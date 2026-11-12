@@ -46,6 +46,10 @@ const visible = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/** The add row starts folded into one button. */
+const openAdd = async () =>
+  userEvent.click(await screen.findByRole("button", { name: "Link a task" }));
+
 function renderLinks(
   overrides: Partial<ProjectContextValue> = {},
   onChanged?: () => void,
@@ -207,6 +211,7 @@ describe("keeping the list and history in step", () => {
     api.addLink.mockResolvedValue(visible());
     const onChanged = vi.fn();
     renderLinks({}, onChanged);
+    await openAdd();
     await userEvent.type(
       await screen.findByLabelText("Find a task"),
       "payslip",
@@ -236,6 +241,7 @@ describe("adding a link", () => {
       },
     ]);
     renderLinks();
+    await openAdd();
     await userEvent.type(await screen.findByLabelText("Find a task"), "task");
     expect(
       await screen.findByRole("button", { name: /PAY-120/ }),
@@ -244,6 +250,7 @@ describe("adding a link", () => {
   });
 
   async function pick(typeLabel: string) {
+    await openAdd();
     await userEvent.selectOptions(
       await screen.findByLabelText("Link type"),
       typeLabel,
@@ -256,6 +263,7 @@ describe("adding a link", () => {
 
   it("offers the five types in order, without the software-team ones", async () => {
     renderLinks();
+    await openAdd();
     const select = await screen.findByLabelText("Link type");
     expect(
       within(select)
@@ -365,5 +373,42 @@ describe("history rows for links", () => {
     expect(
       describeActivity(row({ hidden: true }, "unlinked"), lookup).verb,
     ).toBe("removed a link: blocked by a task you can't open");
+  });
+});
+
+describe("folded into one button", () => {
+  it("is only a Link a task button while nothing is linked", async () => {
+    renderLinks();
+    expect(
+      await screen.findByRole("button", { name: "Link a task" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Linked tasks")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Find a task")).not.toBeInTheDocument();
+  });
+
+  it("lists what is linked, with the picker still behind the button", async () => {
+    api.links.mockResolvedValue([visible()]);
+    renderLinks();
+    expect(await screen.findByText("PAY-120")).toBeInTheDocument();
+    expect(screen.getByText("Linked tasks")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Find a task")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Link a task" })).toBeVisible();
+  });
+
+  it("folds back on Cancel", async () => {
+    renderLinks();
+    await openAdd();
+    expect(screen.getByLabelText("Find a task")).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByLabelText("Find a task")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Link a task" })).toBeVisible();
+  });
+
+  it("shows only the words to somebody who cannot link", async () => {
+    renderLinks({ canWork: false });
+    expect(await screen.findByText("None")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Link a task" }),
+    ).not.toBeInTheDocument();
   });
 });

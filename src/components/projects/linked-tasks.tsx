@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button, IconButton, Input, Select } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -87,6 +87,8 @@ export function LinkedTasks({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  /* The add row starts folded into one button: most tasks are never linked. */
+  const [adding, setAdding] = useState(false);
   const searchSeq = useRef(0);
 
   useEffect(() => {
@@ -161,6 +163,29 @@ export function LinkedTasks({
   }
 
   const rows = links ?? [];
+
+  const linkButton = (
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={() => setAdding(true)}
+      className="-ml-2"
+    >
+      <Plus aria-hidden="true" className="size-4" />
+      Link a task
+    </Button>
+  );
+
+  /* Nothing linked yet (or not known yet): the button is the whole section. */
+  if (
+    canWork &&
+    !adding &&
+    !loadError &&
+    !removeError &&
+    (links === null || links.length === 0)
+  ) {
+    return <div>{linkButton}</div>;
+  }
 
   return (
     <section aria-labelledby={`${base}-links`}>
@@ -251,7 +276,8 @@ export function LinkedTasks({
             </li>
           );
         })}
-        {canWork && (
+        {canWork && !adding && <li className="px-3 py-1.5">{linkButton}</li>}
+        {canWork && adding && (
           <li className="space-y-2 bg-canvas px-3 py-2">
             <div className="flex flex-wrap gap-2">
               <Select
@@ -289,6 +315,7 @@ export function LinkedTasks({
                     onChange={(event) => search(event.target.value)}
                     placeholder="Find a task by key or title"
                     aria-label="Find a task"
+                    autoFocus
                     autoComplete="off"
                   />
                 </div>
@@ -338,15 +365,29 @@ export function LinkedTasks({
               >
                 Link
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setAdding(false);
+                  setPicked(null);
+                  setQuery("");
+                  setHits([]);
+                  setNote("");
+                  setAddError(null);
+                }}
+              >
+                Cancel
+              </Button>
             </div>
-            {(addError ?? removeError) && (
-              <p role="alert" className="text-body-sm text-danger-text">
-                {addError ?? removeError}
-              </p>
-            )}
           </li>
         )}
       </ul>
+      {(addError ?? removeError) && (
+        <p role="alert" className="mt-2 text-body-sm text-danger-text">
+          {addError ?? removeError}
+        </p>
+      )}
     </section>
   );
 }

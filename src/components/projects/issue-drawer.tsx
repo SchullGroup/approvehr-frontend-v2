@@ -2,10 +2,11 @@
 
 import { DueTimeInput } from "@/components/projects/due-time-input";
 import { useId, useMemo, useState } from "react";
-import { Link2, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import {
   Button,
   Checkbox,
+  Disclosure,
   Drawer,
   IconButton,
   Input,
@@ -57,7 +58,7 @@ import { useProjectActor } from "@/lib/store/project-session";
 import { useSession } from "@/lib/store/session";
 import { formatDateTimeShort } from "@/lib/time";
 import { CommentItem } from "./comment-item";
-import { DraftHeading, DraftInput, DraftTextarea } from "./draft-fields";
+import { DraftInput, DraftTextarea } from "./draft-fields";
 import { LinkedTasks } from "./linked-tasks";
 import { IssueKey, StatusPill, TypeIcon } from "./glyphs";
 import { MentionComposer } from "./mention-composer";
@@ -67,6 +68,7 @@ import { SectionTabs } from "./section-tabs";
 import { closeTopPopup } from "./popups";
 import { useProject } from "./project-context";
 import { TaskFiles } from "./task-files";
+import { TaskHeading } from "./task-heading";
 import { Watchers } from "./watchers";
 import { AssigneeList, AssigneeMenu, AssigneeStack } from "./assignees";
 import { SubtaskComposer } from "./subtask-composer";
@@ -79,11 +81,15 @@ const NO_WATCHERS: Watcher[] = [];
 /**
  * One issue, in a panel beside the board.
  *
- * Everything the design's drawer has: an editable summary and description,
- * sub-tasks (or an epic's stories) with progress and a quick-add row, comments
- * with @mentions, the history, and every field — status, assignee, type,
- * priority, points, sprint, epic, labels, dates — plus delete with a count of
- * what goes with it.
+ * The panel's title is the task's name, edited in place (`TaskHeading`), under
+ * its key as a chip that copies a link. Then the description, subtasks (or an
+ * initiative's tasks) with progress and a quick-add row, linked tasks (folded
+ * into one button until used), comments with @mentions and the history.
+ *
+ * The right column always shows what people come to change: stage, assignees,
+ * due date, priority, and the cycle on a project with cycles. Everything else
+ * (type, effort, initiative, labels, time, objective, reporter, dates) is under
+ * "More details". On a phone the column comes first, right under the title.
  *
  * ## It stays mounted
  *
@@ -119,7 +125,10 @@ export function IssueDrawer({
            away a half-made choice along with the drawer. */
         if (!closeTopPopup()) onClose();
       }}
-      title={shown ? shown.key : "Task"}
+      title={shown ? shown.title : "Task"}
+      {...(shown
+        ? { header: <TaskHeading key={shown.id} issue={shown} /> }
+        : {})}
       size="xl"
       className="sm:max-w-4xl"
     >
@@ -277,20 +286,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     if (result.ok) toast.push({ tone: "success", title: `${label} deleted` });
   }
 
-  async function copyLink() {
-    const url = `${window.location.origin}${window.location.pathname}?issue=${issue.key}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.push({ tone: "success", title: `Link to ${issue.key} copied` });
-    } catch {
-      toast.push({
-        tone: "info",
-        title: "Could not copy the link",
-        detail: "It is in the address bar.",
-      });
-    }
-  }
-
   /* Files and watchers. Only the API keeps them, so the demo has neither. The
      issue's read says who may attach to the task itself and choose its
      watchers (`canAttachToTask`, `canManageWatchers`); everybody who can open
@@ -362,15 +357,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             {TYPE_LABEL[issue.type]}
           </span>
         </nav>
-        {!personal && (
-          <IconButton
-            label="Copy link to this task"
-            size="sm"
-            onClick={copyLink}
-          >
-            <Link2 className="size-4" />
-          </IconButton>
-        )}
         {canWork && (
           <IconButton
             label="Delete this task"
@@ -409,15 +395,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           </Button>
         </div>
       )}
-
-      <DraftHeading
-        value={issue.title}
-        aria-label="Summary"
-        disabled={!canEditDetails}
-        clean={(draft) => (draft.trim() ? draft.trim() : null)}
-        onCommit={(title) => save({ title })}
-        buttons
-      />
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="order-last min-w-0 space-y-6 md:order-first">
@@ -774,51 +751,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 </Button>
               </div>
             )}
-          <IssueObjectiveLink
-            issue={
-              thread.canLinkObjective === undefined
-                ? issue
-                : { ...issue, canLinkObjective: thread.canLinkObjective }
-            }
-          />
-
-          {!personal && (
-            <Row label="Reporter">
-              <PersonName people={people} id={issue.reporterId} />
-            </Row>
-          )}
-
-          <Row
-            label="Type"
-            htmlFor={
-              isEpic || isSubtask || personal || !canWork
-                ? undefined
-                : `${base}-type`
-            }
-          >
-            {/* A personal task is never an initiative: there is no timeline to put one on. */}
-            {isEpic || isSubtask || personal || !canWork ? (
-              <span className="text-body-sm text-ink">
-                {TYPE_LABEL[issue.type]}
-              </span>
-            ) : (
-              <Select
-                id={`${base}-type`}
-                value={displayType(issue.type)}
-                onChange={(event) =>
-                  save({ type: event.target.value as Issue["type"] })
-                }
-                className="h-9"
-              >
-                {WORK_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {TYPE_LABEL[type]}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Row>
-
           <Row
             label="Priority"
             htmlFor={canWork ? `${base}-priority` : undefined}
@@ -843,34 +775,29 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             )}
           </Row>
 
-          {!isEpic && (
-            <Row
-              label={EFFORT.One}
-              htmlFor={canWork ? `${base}-points` : undefined}
-            >
-              {canWork ? (
-                <DraftInput
-                  id={`${base}-points`}
-                  type="number"
-                  min={0}
-                  step={1}
-                  inputMode="numeric"
-                  placeholder="None"
-                  value={issue.points === null ? "" : String(issue.points)}
-                  clean={(draft) => {
-                    if (draft.trim() === "") return "";
-                    const points = parsePoints(draft);
-                    return points === null ? null : String(points);
-                  }}
-                  onCommit={(next) => save({ points: parsePoints(next) })}
-                  className="h-9"
-                />
-              ) : (
-                <Value>{issue.points === null ? null : issue.points}</Value>
-              )}
-            </Row>
-          )}
-
+          <Row label="Due" htmlFor={canEditDetails ? `${base}-due` : undefined}>
+            {canEditDetails ? (
+              <Input
+                id={`${base}-due`}
+                type="date"
+                value={issue.dueDate ?? ""}
+                onChange={(event) =>
+                  save({ dueDate: event.target.value || null })
+                }
+                className="h-9"
+              />
+            ) : (
+              <Value>
+                {issue.dueDate
+                  ? dueLabel(
+                      { dueDate: issue.dueDate, dueTime: issue.dueTime },
+                      today,
+                      "card",
+                    )
+                  : null}
+              </Value>
+            )}
+          </Row>
           {project.type === "SCRUM" && !isEpic && !isSubtask && (
             <Row
               label={CYCLE.One}
@@ -903,129 +830,195 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </Row>
           )}
 
-          {!personal && !isEpic && !isSubtask && (
+          <Disclosure
+            title="More details"
+            keepMounted
+            region={false}
+            level={3}
+            dense
+            className="bg-surface"
+            panelClassName="space-y-3.5"
+          >
             <Row
-              label={INITIATIVE.One}
-              htmlFor={canWork ? `${base}-epic` : undefined}
+              label="Type"
+              htmlFor={
+                isEpic || isSubtask || personal || !canWork
+                  ? undefined
+                  : `${base}-type`
+              }
             >
-              {canWork ? (
+              {/* A personal task is never an initiative: there is no timeline to put one on. */}
+              {isEpic || isSubtask || personal || !canWork ? (
+                <span className="text-body-sm text-ink">
+                  {TYPE_LABEL[issue.type]}
+                </span>
+              ) : (
                 <Select
-                  id={`${base}-epic`}
-                  value={issue.epicId ?? ""}
+                  id={`${base}-type`}
+                  value={displayType(issue.type)}
                   onChange={(event) =>
-                    save({ epicId: event.target.value || null })
+                    save({ type: event.target.value as Issue["type"] })
                   }
                   className="h-9"
                 >
-                  <option value="">None</option>
-                  {epics.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.key} {e.title}
+                  {WORK_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {TYPE_LABEL[type]}
                     </option>
                   ))}
                 </Select>
-              ) : (
-                <Value>{epic ? `${epic.key} ${epic.title}` : null}</Value>
               )}
             </Row>
-          )}
 
-          <Row label="Labels" htmlFor={canWork ? `${base}-labels` : undefined}>
-            {canWork ? (
-              <DraftInput
-                id={`${base}-labels`}
-                placeholder="Comma separated"
-                value={issue.labels.join(", ")}
-                clean={(draft) => parseLabels(draft).join(", ")}
-                onCommit={(next) => save({ labels: parseLabels(next) })}
-                className="h-9"
-              />
-            ) : (
-              <Value>{issue.labels.join(", ")}</Value>
+            {!isEpic && (
+              <Row
+                label={EFFORT.One}
+                htmlFor={canWork ? `${base}-points` : undefined}
+              >
+                {canWork ? (
+                  <DraftInput
+                    id={`${base}-points`}
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder="None"
+                    value={issue.points === null ? "" : String(issue.points)}
+                    clean={(draft) => {
+                      if (draft.trim() === "") return "";
+                      const points = parsePoints(draft);
+                      return points === null ? null : String(points);
+                    }}
+                    onCommit={(next) => save({ points: parsePoints(next) })}
+                    className="h-9"
+                  />
+                ) : (
+                  <Value>{issue.points === null ? null : issue.points}</Value>
+                )}
+              </Row>
             )}
-          </Row>
 
-          {isEpic && (
-            <Row label="Start" htmlFor={canWork ? `${base}-start` : undefined}>
+            {!personal && !isEpic && !isSubtask && (
+              <Row
+                label={INITIATIVE.One}
+                htmlFor={canWork ? `${base}-epic` : undefined}
+              >
+                {canWork ? (
+                  <Select
+                    id={`${base}-epic`}
+                    value={issue.epicId ?? ""}
+                    onChange={(event) =>
+                      save({ epicId: event.target.value || null })
+                    }
+                    className="h-9"
+                  >
+                    <option value="">None</option>
+                    {epics.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.key} {e.title}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Value>{epic ? `${epic.key} ${epic.title}` : null}</Value>
+                )}
+              </Row>
+            )}
+
+            <Row
+              label="Labels"
+              htmlFor={canWork ? `${base}-labels` : undefined}
+            >
               {canWork ? (
-                <Input
-                  id={`${base}-start`}
-                  type="date"
-                  value={issue.startDate ?? ""}
-                  onChange={(event) =>
-                    save({ startDate: event.target.value || null })
-                  }
+                <DraftInput
+                  id={`${base}-labels`}
+                  placeholder="Comma separated"
+                  value={issue.labels.join(", ")}
+                  clean={(draft) => parseLabels(draft).join(", ")}
+                  onCommit={(next) => save({ labels: parseLabels(next) })}
                   className="h-9"
                 />
               ) : (
-                <Value>
-                  {issue.startDate
-                    ? dueLabel({ dueDate: issue.startDate }, today, "card")
-                    : null}
-                </Value>
+                <Value>{issue.labels.join(", ")}</Value>
               )}
             </Row>
-          )}
-          <Row label="Due" htmlFor={canEditDetails ? `${base}-due` : undefined}>
-            {canEditDetails ? (
-              <Input
-                id={`${base}-due`}
-                type="date"
-                value={issue.dueDate ?? ""}
-                onChange={(event) =>
-                  save({ dueDate: event.target.value || null })
-                }
-                className="h-9"
-              />
-            ) : (
-              <Value>
-                {issue.dueDate
-                  ? dueLabel(
-                      { dueDate: issue.dueDate, dueTime: issue.dueTime },
-                      today,
-                      "card",
-                    )
-                  : null}
-              </Value>
-            )}
-          </Row>
-          {canEditDetails && (
-            <Row label="Time" htmlFor={`${base}-due-time`}>
-              <DueTimeInput
-                id={`${base}-due-time`}
-                date={issue.dueDate}
-                value={issue.dueTime}
-                onChange={(next) => save({ dueTime: next })}
-              />
-            </Row>
-          )}
 
-          <dl
-            className={cn(
-              "space-y-1 border-t border-line pt-3 text-meta text-muted",
+            {isEpic && (
+              <Row
+                label="Start"
+                htmlFor={canWork ? `${base}-start` : undefined}
+              >
+                {canWork ? (
+                  <Input
+                    id={`${base}-start`}
+                    type="date"
+                    value={issue.startDate ?? ""}
+                    onChange={(event) =>
+                      save({ startDate: event.target.value || null })
+                    }
+                    className="h-9"
+                  />
+                ) : (
+                  <Value>
+                    {issue.startDate
+                      ? dueLabel({ dueDate: issue.startDate }, today, "card")
+                      : null}
+                  </Value>
+                )}
+              </Row>
             )}
-          >
-            <div className="flex justify-between gap-3">
-              <dt>Created</dt>
-              <dd className="tabular text-right">
-                {formatDateTimeShort(issue.createdAt, timeZone)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt>Updated</dt>
-              <dd className="tabular text-right">
-                {formatDateTimeShort(issue.updatedAt, timeZone)}
-              </dd>
-            </div>
-            {issue.doneAt && (
+            {canEditDetails && (
+              <Row label="Time" htmlFor={`${base}-due-time`}>
+                <DueTimeInput
+                  id={`${base}-due-time`}
+                  date={issue.dueDate}
+                  value={issue.dueTime}
+                  onChange={(next) => save({ dueTime: next })}
+                />
+              </Row>
+            )}
+
+            <IssueObjectiveLink
+              issue={
+                thread.canLinkObjective === undefined
+                  ? issue
+                  : { ...issue, canLinkObjective: thread.canLinkObjective }
+              }
+            />
+
+            {!personal && (
+              <Row label="Reporter">
+                <PersonName people={people} id={issue.reporterId} />
+              </Row>
+            )}
+
+            <dl
+              className={cn(
+                "space-y-1 border-t border-line pt-3 text-meta text-muted",
+              )}
+            >
               <div className="flex justify-between gap-3">
-                <dt>Done</dt>
+                <dt>Created</dt>
                 <dd className="tabular text-right">
-                  {formatDateTimeShort(issue.doneAt, timeZone)}
+                  {formatDateTimeShort(issue.createdAt, timeZone)}
                 </dd>
               </div>
-            )}
-          </dl>
+              <div className="flex justify-between gap-3">
+                <dt>Updated</dt>
+                <dd className="tabular text-right">
+                  {formatDateTimeShort(issue.updatedAt, timeZone)}
+                </dd>
+              </div>
+              {issue.doneAt && (
+                <div className="flex justify-between gap-3">
+                  <dt>Done</dt>
+                  <dd className="tabular text-right">
+                    {formatDateTimeShort(issue.doneAt, timeZone)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </Disclosure>
         </aside>
       </div>
     </div>

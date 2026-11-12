@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `513bf244` (2026-11-12) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `682e15d7` (2026-11-12) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -17,7 +17,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       37 |         91 |       6 |        12 |
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       45 |         44 |       1 |        18 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       22 |         49 |       0 |         6 |
-| [Module components — `src/components/*`](#module-components--srccomponents)                        |      153 |        226 |      10 |        42 |
+| [Module components — `src/components/*`](#module-components--srccomponents)                        |      155 |        228 |      11 |        42 |
 | [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       71 |          0 |       0 |       258 |
 | [Data hooks — `src/lib/store`](#data-hooks--srclibstore)                                           |       97 |          0 |     368 |        96 |
 | [Seed data — `src/lib/mock`](#seed-data--srclibmock)                                               |       10 |          0 |       0 |        21 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        13 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       46 |         51 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1285** |   **1070** | **453** |  **1615** |
+| **Total**                                                                                          | **1287** |   **1072** | **454** |  **1615** |
 
 ---
 
@@ -302,6 +302,7 @@ Shared pieces owned by one module but used from more than one screen.
 | `src/components/projects/linked-tasks.tsx`                 | `LinkedTasks`                                                                                                                           | —                                 | —                                                               | 1 const           |
 | `src/components/projects/mention-composer.tsx`             | `MentionComposer`                                                                                                                       | —                                 | —                                                               | —                 |
 | `src/components/projects/module-off.tsx`                   | `ProjectsOff`                                                                                                                           | —                                 | —                                                               | —                 |
+| `src/components/projects/more-options.tsx`                 | `MoreOptions`                                                                                                                           | `useMoreOptions`                  | —                                                               | 1 const           |
 | `src/components/projects/my-tasks-board.tsx`               | `MyTasksBoard`                                                                                                                          | —                                 | —                                                               | —                 |
 | `src/components/projects/objective-link.tsx`               | `IssueObjectiveLink`, `ObjectiveLinkControl`, `ProjectObjectiveField`                                                                   | `useMayLinkIssue`                 | —                                                               | —                 |
 | `src/components/projects/objective-picker.tsx`             | `ObjectivePicker`, `MeasurePicker`                                                                                                      | —                                 | —                                                               | —                 |
@@ -321,6 +322,7 @@ Shared pieces owned by one module but used from more than one screen.
 | `src/components/projects/sprint-dialogs.tsx`               | `SprintFormDialog`, `CompleteSprintDialog`, `DeleteSprintDialog`                                                                        | —                                 | —                                                               | —                 |
 | `src/components/projects/subtask-composer.tsx`             | `SubtaskComposer`                                                                                                                       | —                                 | —                                                               | —                 |
 | `src/components/projects/task-files.tsx`                   | `AttachButton`, `StagedList`, `AttachmentList`, `TaskFiles`                                                                             | `useStagedFiles`, `useDropTarget` | `attachStaged`                                                  | 2 types           |
+| `src/components/projects/task-heading.tsx`                 | `TaskHeading`                                                                                                                           | —                                 | —                                                               | —                 |
 | `src/components/projects/use-query-param.ts`               | —                                                                                                                                       | `useQueryParam`                   | —                                                               | —                 |
 | `src/components/projects/watchers.tsx`                     | `Watchers`                                                                                                                              | —                                 | —                                                               | —                 |
 | `src/components/projects/work-list.tsx`                    | `WorkTasks`                                                                                                                             | —                                 | `taskHref`                                                      | 1 type            |

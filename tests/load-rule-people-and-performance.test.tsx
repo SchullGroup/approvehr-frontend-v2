@@ -117,7 +117,7 @@ vi.mock("@/lib/store/project-session", async (importActual) => ({
   ...(await importActual<typeof import("@/lib/store/project-session")>()),
   useProjectsGate: () => ({ enabled: true, loading: false }),
   useProjectActor: () => ({ employeeId: "e1", editRecords: true }),
-  usePeople: () => ({ byId: () => null, all: [] }),
+  usePeople: () => ({ byId: () => null, all: [], people: [] }),
 }));
 vi.mock("@/lib/store/projects", async (importActual) => ({
   ...(await importActual<typeof import("@/lib/store/projects")>()),

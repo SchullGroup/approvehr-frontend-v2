@@ -163,22 +163,19 @@ describe.each([
 ])("a personal task opened %s", (_name, Screen) => {
   it("shows the title that was saved, not the one it opened with", async () => {
     render(<Screen />);
-    edit(
-      await screen.findByLabelText("Summary"),
-      "Book the dentist for Tuesday",
-    );
+    edit(await screen.findByLabelText("Title"), "Book the dentist for Tuesday");
     await waitFor(() => expect(api.updateIssue).toHaveBeenCalledTimes(1));
     expect(api.updateIssue).toHaveBeenCalledWith("t-1", {
       title: "Book the dentist for Tuesday",
     });
     await waitFor(() =>
-      expect(screen.getByLabelText("Summary")).toHaveValue(
+      expect(screen.getByLabelText("Title")).toHaveValue(
         "Book the dentist for Tuesday",
       ),
     );
     /* Give a late re-render the chance to put the old one back. */
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.getByLabelText("Summary")).toHaveValue(
+    expect(screen.getByLabelText("Title")).toHaveValue(
       "Book the dentist for Tuesday",
     );
   });
@@ -200,7 +197,7 @@ describe.each([
 
   it("keeps showing each of two saves in a row", async () => {
     render(<Screen />);
-    edit(await screen.findByLabelText("Summary"), "First title");
+    edit(await screen.findByLabelText("Title"), "First title");
     await waitFor(() => expect(api.updateIssue).toHaveBeenCalledTimes(1));
     const description = screen.getByPlaceholderText(
       "Add context, acceptance criteria, links",
@@ -208,7 +205,7 @@ describe.each([
     edit(description, "Ask about Thursday.");
     await waitFor(() => expect(api.updateIssue).toHaveBeenCalledTimes(2));
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.getByLabelText("Summary")).toHaveValue("First title");
+    expect(screen.getByLabelText("Title")).toHaveValue("First title");
     expect(description).toHaveValue("Ask about Thursday.");
   });
 });
