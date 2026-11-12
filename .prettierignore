@@ -25,3 +25,4 @@ pnpm-lock.yaml
 # into them. This has twice made a gate report errors in files nobody here
 # wrote — once in ESLint, once in the API repo's own `format:check`.
 .claude
+src/lib/page-index.generated.ts
