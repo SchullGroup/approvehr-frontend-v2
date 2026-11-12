@@ -4281,6 +4281,7 @@ export function useScoringWeights(): {
   save: (
     weights: WeightSet,
     labels?: Partial<Record<ScoreComponent, string>>,
+    descriptions?: Partial<Record<ScoreComponent, string>>,
   ) => Promise<ApiScoringWeightsSaved>;
   reload: () => void;
 } {
@@ -4314,9 +4315,14 @@ export function useScoringWeights(): {
       async (
         weights: WeightSet,
         labels?: Partial<Record<ScoreComponent, string>>,
+        descriptions?: Partial<Record<ScoreComponent, string>>,
       ) => {
         if (!isConnected) offline(WEIGHTS_SAVE_OFFLINE);
-        const saved = await performanceApi.setScoringWeights(weights, labels);
+        const saved = await performanceApi.setScoringWeights(
+          weights,
+          labels,
+          descriptions,
+        );
         reload();
         return saved;
       },
