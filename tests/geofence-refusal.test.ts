@@ -23,7 +23,9 @@ describe("geofenceRefusal", () => {
   it.each(["outside", "unproven", "position_required", "assigned_location"])(
     "recognises %s and hands back its summary",
     (reason) => {
-      expect(geofenceRefusal(refusal(reason))?.summary).toBe(`summary for ${reason}`);
+      expect(geofenceRefusal(refusal(reason))?.summary).toBe(
+        `summary for ${reason}`,
+      );
     },
   );
 
