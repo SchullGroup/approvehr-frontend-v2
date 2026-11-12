@@ -634,7 +634,7 @@ export type ApiClockResult = {
 /**
  * A clock-in the API turned down on location grounds.
  *
- * Three reasons, and they are three different situations rather than three
+ * Four reasons, and they are four different situations rather than four
  * wordings of one:
  *
  * - `outside` — the device's whole accuracy circle is beyond the radius. They
@@ -644,6 +644,9 @@ export type ApiClockResult = {
  *   it. The API refuses rather than guessing, and says so.
  * - `position_required` — the location has an enforced fence and no position
  *   came with the request.
+ * - `assigned_location` — their own office has an enforced fence and they
+ *   picked a remote-allowed or unfenced location instead. `locationName` is
+ *   their own office, and `distanceMetres`/`accuracyMetres` are null.
  *
  * `summary` is the API's own one-line phrasing of the fact — "You are 340m from
  * Lagos HQ". Show it as the heading and `ApiError.message` underneath, which
@@ -652,7 +655,7 @@ export type ApiClockResult = {
  * the whole reason `summary` is on the wire is so this side formats nothing.
  */
 export type GeofenceRefusal = {
-  reason: "outside" | "unproven" | "position_required";
+  reason: "outside" | "unproven" | "position_required" | "assigned_location";
   summary: string;
   locationName: string;
   radiusMetres: number;
@@ -660,7 +663,12 @@ export type GeofenceRefusal = {
   accuracyMetres: number | null;
 };
 
-const GEOFENCE_REASONS = ["outside", "unproven", "position_required"] as const;
+const GEOFENCE_REASONS = [
+  "outside",
+  "unproven",
+  "position_required",
+  "assigned_location",
+] as const;
 
 /**
  * The geofence facts on an error, or null when it is some other refusal.

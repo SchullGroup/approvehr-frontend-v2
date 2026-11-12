@@ -202,6 +202,13 @@ export type FeaturePatch = {
    * for the reason `ApiFeatures.overallMark` gives.
    */
   overallMark?: boolean;
+  /**
+   * How long the work behind a final rating is kept, in months, 1 to 120; **`null`
+   * stops keeping it**, and leaving the key out leaves the setting alone. A
+   * period is the company's to choose and nothing here picks one. It changes only
+   * ratings made final afterwards. Its card is in Appraisal scoring, under Records.
+   */
+  workEvidenceRetentionMonths?: number | null;
 } & {
   [K in FeatureKey]?: boolean;
 } & { headcountBand?: HeadcountBand };
@@ -252,6 +259,16 @@ export type ApiFeatures = {
    * cannot be offered, which is a different thing from a company that chose no.
    */
   overallMark?: boolean;
+  /**
+   * How long the work behind a final rating is kept, in months, or **`null` when
+   * the company has not chosen a period, which keeps nothing** and is every
+   * company until it does. The product picks no figure.
+   *
+   * Optional because an API one deploy behind does not send it, and **absent is
+   * not `null`**: absent means this server has no such setting, so no control is
+   * offered; `null` is a company's own state, "keep nothing".
+   */
+  workEvidenceRetentionMonths?: number | null;
   /**
    * The weekly text message digest. Off by default.
    *

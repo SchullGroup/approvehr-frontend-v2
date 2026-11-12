@@ -1,6 +1,12 @@
 "use client";
 
 import { Card, CardBody, CardHeader, Switch, useToast } from "@/components/ui";
+import {
+  overallMarkHeader,
+  overallMarkSavedTitle,
+  overallMarkSwitchNote,
+  type ManagerAppraisalPart,
+} from "@/lib/performance/overall-mark-wording";
 import { useFeatureSettings } from "@/lib/store/features";
 
 /**
@@ -24,14 +30,28 @@ import { useFeatureSettings } from "@/lib/store/features";
  *
  * ## What it says about Self-assessment: nothing
  *
- * A manager's overall mark is shown beside the score and is **not counted in
- * it**. Self-assessment is read from the mark somebody gave themselves when
- * there is one, and from how they answered when there is not, so the switch does
- * not decide whether that part has something to count. This card used to warn
- * that a weighted Self-assessment had "nothing to count" while the switch was
- * off, which stopped being true when the part began to read the answers, and a
+ * Self-assessment is read from the mark somebody gave themselves when there is
+ * one, and from how they answered when there is not, so the switch does not
+ * decide whether that part has something to count. This card used to warn that a
+ * weighted Self-assessment had "nothing to count" while the switch was off,
+ * which stopped being true when the part began to read the answers, and a
  * warning about something that no longer happens is worse than none. What the
  * part is read from is the weights tab's to say, once, in the API's words.
+ *
+ * ## What it says about the manager's mark: only what is true at every weight
+ *
+ * A manager's overall mark used to be shown beside the score and never counted,
+ * and this card said so. It counts where a period weights the Manager appraisal
+ * part, and then a manager's form asks for it **whatever this switch says**, and
+ * needs it. So where the server has that part the card says, in the header, in
+ * the line under the switch and in the toast, that the switch is about what a form
+ * offers and names the exception, and says nothing about whether the mark counts:
+ * that is the weights tab's, in the API's words. A server that predates the part
+ * has no such exception, and the card says what it always did. **Where the weights
+ * are not in yet, or could not be read, nothing is known** and the card says
+ * nothing about whether a form asks or whether the mark counts
+ * (`ManagerAppraisalPart`, and `lib/performance/overall-mark-wording.ts` for every
+ * sentence).
  *
  * ## Three states that are not "off"
  *
@@ -43,11 +63,21 @@ import { useFeatureSettings } from "@/lib/store/features";
 export function OverallMarkCard({
   connected,
   onChanged,
+  managerAppraisal = { state: "none" },
 }: {
   /** False offline: there is no server holding a company's setting. */
   connected: boolean;
   /** Called after a save, so the weights page re-reads what the API says. */
   onChanged: () => void;
+  /**
+   * What the weights read says about the Manager appraisal part: it has a row
+   * (under the company's own name), it loaded with none (a server that predates
+   * the part), or it is not in or could not be read. Only a server that has the
+   * part has a period that can ask managers for a mark whatever this switch says,
+   * so only then is that said; and where nothing is known nothing is claimed.
+   * Absent is `none`, which is what the card said before the part existed.
+   */
+  managerAppraisal?: ManagerAppraisalPart;
 }) {
   const features = useFeatureSettings();
   const toast = useToast();
@@ -61,9 +91,7 @@ export function OverallMarkCard({
       await features.setOverallMark(next);
       toast.push({
         tone: "success",
-        title: next
-          ? "Appraisal forms will end with an overall mark"
-          : "Appraisal forms will not ask for an overall mark",
+        title: overallMarkSavedTitle(next, managerAppraisal),
         detail:
           "It applies to the next form anybody opens. Marks already given are not touched.",
       });
@@ -82,13 +110,7 @@ export function OverallMarkCard({
       <CardHeader
         title="Overall mark on appraisals"
         level={3}
-        description={
-          on === true
-            ? "Each form ends with a page asking for one overall mark."
-            : on === false
-              ? "Forms do not ask for an overall mark. The answers stand on their own."
-              : "Whether each form ends with a page asking for one overall mark."
-        }
+        description={overallMarkHeader(on, managerAppraisal)}
       />
       <CardBody className="flex flex-col gap-4">
         {reading ? (
@@ -97,7 +119,7 @@ export function OverallMarkCard({
           <>
             <Switch
               label="Ask for an overall mark at the end of an appraisal"
-              description="The person picks one of the names below after the questions. It is optional. A manager's overall mark is shown beside the score and is not counted in it."
+              description={overallMarkSwitchNote(managerAppraisal)}
               checked={on}
               disabled={!features.editable || features.saving === "overallMark"}
               onChange={(event) => void set(event.target.checked)}
