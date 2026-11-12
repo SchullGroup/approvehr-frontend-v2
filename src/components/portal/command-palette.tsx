@@ -2,17 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ShieldCheck, User } from "lucide-react";
-import {
-  PAGE_MODULE,
-  PAGE_WORDS,
-  SETTINGS_PAGES,
-  firstSentence,
-  matches,
-  termsOf,
-} from "@/app/(app)/settings/filter";
-import type { NavGroup } from "./nav";
-import { buildSidebar, findDestinations } from "./sidebar-model";
+import { FileText, Search, ShieldCheck, User } from "lucide-react";
+import { NAV, type NavGroup } from "./nav";
+import { searchPages } from "./page-search";
 import { cn } from "@/lib/cn";
 import { fullName } from "@/lib/types";
 import { Input, Modal, Spinner } from "@/components/ui";
@@ -88,41 +80,17 @@ export function CommandPalette({
   );
   const roles = useRoles();
 
-  const pageResults: Result[] = useMemo(() => {
-    if (!debounced) return [];
-    const found: Result[] = findDestinations(buildSidebar(nav), debounced)
-      .slice(0, 6)
-      .map(({ item, groupLabel }) => ({
-        key: `page-${item.href}`,
-        href: item.href,
-        icon: <span className="[&>svg]:size-4">{item.icon}</span>,
-        label: item.label,
-        sublabel: groupLabel ?? "Page",
-      }));
-    /* The settings pages sit behind one sidebar row, so they are offered only
-       to somebody who has that row. */
-    const hasSettings = nav.some((group) =>
-      group.items.some((item) => item.href === "/settings"),
-    );
-    if (hasSettings) {
-      const terms = termsOf(debounced);
-      for (const page of SETTINGS_PAGES) {
-        if (page.href === "/people") continue;
-        if (found.length >= 8) break;
-        if (found.some((r) => r.href === page.href)) continue;
-        if (!matches(terms, { ...page, words: PAGE_WORDS[page.href] }))
-          continue;
-        found.push({
-          key: `page-${page.href}`,
-          href: page.href,
-          icon: <ShieldCheck aria-hidden="true" className="size-4" />,
-          label: page.title,
-          sublabel: `${PAGE_MODULE[page.href] ?? "Settings"}: ${firstSentence(page.description)}`,
-        });
-      }
-    }
-    return found;
-  }, [nav, debounced]);
+  const pageResults: Result[] = useMemo(
+    () =>
+      searchPages(nav, NAV, debounced).map((hit) => ({
+        key: hit.key,
+        href: hit.href,
+        icon: <FileText aria-hidden="true" className="size-4" />,
+        label: hit.label,
+        sublabel: hit.sublabel,
+      })),
+    [nav, debounced],
+  );
 
   const peopleResults: Result[] = !debounced
     ? []
