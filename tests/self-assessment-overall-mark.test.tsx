@@ -80,6 +80,9 @@ vi.mock("@/lib/store/features", async (original) => ({
   ...(await original<typeof import("@/lib/store/features")>()),
   useFeatureSettings: () => ({
     overallMark,
+    /* The Records tab's cards are mounted, hidden, with the others: the server does not say. */
+    workInAnswers: null,
+    flags: { projects: true },
     editable: true,
     loading: false,
     saving: null,

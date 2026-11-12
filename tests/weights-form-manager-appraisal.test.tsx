@@ -98,6 +98,9 @@ vi.mock("@/lib/store/features", async (original) => ({
     saving: null,
     error: null,
     setOverallMark: vi.fn(),
+    /* The Records tab's cards are mounted, hidden, with the others: the server does not say. */
+    workInAnswers: null,
+    flags: { projects: true },
   }),
 }));
 
