@@ -1491,6 +1491,10 @@ export type ApiScoringWeights = {
     label: string;
     /** The built-in name. Absent from an API one deploy behind. */
     defaultLabel?: string;
+    /** The company's description of the part, or the built-in one. Absent from an older API. */
+    description?: string;
+    /** The built-in description. Absent from an older API. */
+    defaultDescription?: string;
     weightBp: number;
     /** Its share of a mark: weight over total. Absent from an older API. */
     shareBp?: number;
@@ -2982,10 +2986,16 @@ export const performanceApi = {
     weights: WeightSet,
     /** Renames parts. A part left out keeps its name; "" goes back to the built-in one. */
     labels?: Partial<Record<ScoreComponent, string>>,
+    /** Same shape as `labels`: a part left out keeps its description; "" goes back to the built-in one. */
+    descriptions?: Partial<Record<ScoreComponent, string>>,
   ) =>
     request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
       method: "PUT",
-      body: labels === undefined ? weights : { ...weights, labels },
+      body: {
+        ...weights,
+        ...(labels === undefined ? {} : { labels }),
+        ...(descriptions === undefined ? {} : { descriptions }),
+      },
     }),
 
   /** Everybody's composite score in one cycle. `EDIT_RECORDS`, as an aggregate is. */

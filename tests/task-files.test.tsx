@@ -577,7 +577,7 @@ describe("files while creating a task", () => {
 
   it("creates the task, then uploads and records each file on it", async () => {
     const { actions, onClose } = renderCreate();
-    await userEvent.type(screen.getByLabelText(/Summary/), "Refund flow");
+    await userEvent.type(screen.getByLabelText(/^Title/), "Refund flow");
     await userEvent.upload(
       screen.getByLabelText("Attach files", { selector: "input" }),
       [file("a.pdf", "application/pdf"), file("b.png", "image/png")],
@@ -609,7 +609,7 @@ describe("files while creating a task", () => {
       },
     );
     const { actions, onClose } = renderCreate();
-    await userEvent.type(screen.getByLabelText(/Summary/), "Refund flow");
+    await userEvent.type(screen.getByLabelText(/^Title/), "Refund flow");
     await userEvent.upload(
       screen.getByLabelText("Attach files", { selector: "input" }),
       [file("a.pdf", "application/pdf"), file("b.png", "image/png")],

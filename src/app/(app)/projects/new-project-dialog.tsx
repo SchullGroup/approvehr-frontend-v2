@@ -12,11 +12,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
-import {
-  PROJECT_TYPES,
-  PROJECT_TYPE_LABEL,
-  type ProjectType,
-} from "@/lib/projects/types";
+import type { ProjectType } from "@/lib/projects/types";
 import { keyProblem, normaliseKey, suggestKey } from "@/lib/projects/keys";
 import { useDepartments } from "@/lib/store/departments";
 import { useCreateProject } from "@/lib/store/projects";
@@ -26,9 +22,10 @@ import {
   type Person,
 } from "@/lib/store/project-session";
 import { ApiError } from "@/lib/api/client";
+import { BoardTypeChoice } from "@/components/projects/board-type-choice";
 import { DepartmentField } from "@/components/projects/department-field";
 import { PersonPicker } from "@/components/projects/person";
-import { CYCLE, PROGRAM } from "@/lib/projects/terms";
+import { PROGRAM } from "@/lib/projects/terms";
 import { useProgramList } from "@/lib/store/programs";
 
 type Draft = {
@@ -52,7 +49,9 @@ const BLANK: Draft = {
   name: "",
   key: "",
   keyTouched: false,
-  type: "SCRUM",
+  /* A simple board, so the first task shows on the board the moment it is
+     made. On cycles it waited in Later, and a new project looked broken. */
+  type: "KANBAN",
   departmentId: "",
   seedDepartment: true,
   description: "",
@@ -256,55 +255,34 @@ export function NewProjectDialog({
           />
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Key"
-            required
-            help="2 to 6 letters or digits. It starts every task number, like MOB-12, and cannot change later."
-            {...(keyError ? { error: keyError } : {})}
-          >
-            <Input
-              value={draft.key}
-              maxLength={6}
-              placeholder="MOB"
-              autoComplete="off"
-              spellCheck={false}
-              className="uppercase"
-              onChange={(event) => {
-                setDraft((d) => ({
-                  ...d,
-                  key: normaliseKey(event.target.value),
-                  keyTouched: true,
-                }));
-                if (keyError) setKeyError(undefined);
-              }}
-            />
-          </Field>
-          <Field
-            label="Board type"
-            help={
-              draft.type === "SCRUM"
-                ? `Plan work into ${CYCLE.many}.`
-                : "Work flows through the columns."
-            }
-          >
-            <Select
-              value={draft.type}
-              onChange={(event) =>
-                setDraft((d) => ({
-                  ...d,
-                  type: event.target.value as ProjectType,
-                }))
-              }
-            >
-              {PROJECT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {PROJECT_TYPE_LABEL[type]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+        <Field
+          label="Key"
+          required
+          help="2 to 6 letters or digits. It starts every task number, like MOB-12, and cannot change later."
+          {...(keyError ? { error: keyError } : {})}
+        >
+          <Input
+            value={draft.key}
+            maxLength={6}
+            placeholder="MOB"
+            autoComplete="off"
+            spellCheck={false}
+            className="uppercase"
+            onChange={(event) => {
+              setDraft((d) => ({
+                ...d,
+                key: normaliseKey(event.target.value),
+                keyTouched: true,
+              }));
+              if (keyError) setKeyError(undefined);
+            }}
+          />
+        </Field>
+
+        <BoardTypeChoice
+          value={draft.type}
+          onChange={(type) => setDraft((d) => ({ ...d, type }))}
+        />
 
         {programs.length > 0 && (
           <Field
