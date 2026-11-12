@@ -6,14 +6,18 @@ import { ToastProvider } from "@/components/ui";
 /**
  * The Records tab of Appraisal scoring.
  *
- * Two company decisions about the performance module live on it, and neither reaches a mark: how long
- * the work behind a final rating is kept, and whether people may use their own finished work in their
- * review answers. What is proved here is only that the second is on the tab, under the first, and that
- * it is the page's own tab and not the weights or the names: the cards themselves are held by their own
- * files' tests.
+ * Three company decisions about the performance module live on it, and none reaches a mark: how long
+ * the work behind a final rating is kept, whether people may use their own finished work in their
+ * review answers, and whether the two assists are offered (the linked tasks beside Confirm and the
+ * weekly-line suggestions). What is proved here is only that each is on the tab, in that order, and
+ * that they are the page's own tab and not the weights or the names: the cards themselves are held by
+ * their own files' tests.
  */
 
 const setWorkInAnswers = vi.fn<(next: boolean) => Promise<object>>(
+  async () => ({}),
+);
+const setWorkAssists = vi.fn<(next: boolean) => Promise<object>>(
   async () => ({}),
 );
 
@@ -52,6 +56,7 @@ vi.mock("@/lib/store/features", async (original) => ({
     overallMark: false,
     workEvidenceMonths: null,
     workInAnswers: false,
+    workAssists: false,
     flags: { projects: true },
     editable: true,
     loading: false,
@@ -60,6 +65,7 @@ vi.mock("@/lib/store/features", async (original) => ({
     setOverallMark: vi.fn(),
     setWorkEvidenceMonths: vi.fn(),
     setWorkInAnswers,
+    setWorkAssists,
   }),
 }));
 
@@ -93,12 +99,51 @@ describe("the Records tab", () => {
     ).not.toBeChecked();
   });
 
-  it("puts the new switch under the retention setting, never above it", () => {
+  it("holds the two assists' switch as well", () => {
+    mount();
+    const tab = within(records());
+    expect(
+      tab.getByText("Work behind a milestone, and weekly lines"),
+    ).toBeInTheDocument();
+    expect(
+      tab.getByRole("switch", {
+        name: /Offer the linked tasks beside Confirm/,
+      }),
+    ).not.toBeChecked();
+  });
+
+  it("puts the switches in order: how long work is kept, then work in answers, then the assists", () => {
     mount();
     const text = records().textContent ?? "";
-    expect(text.indexOf("Work kept with a final rating")).toBeLessThan(
-      text.indexOf("Work in review answers"),
+    const kept = text.indexOf("Work kept with a final rating");
+    const answers = text.indexOf("Work in review answers");
+    const assists = text.indexOf("Work behind a milestone, and weekly lines");
+    expect(kept).toBeGreaterThanOrEqual(0);
+    expect(kept).toBeLessThan(answers);
+    expect(answers).toBeLessThan(assists);
+  });
+
+  it("keeps the assists' switch off the weights and the names too", () => {
+    mount();
+    const all = screen.getAllByRole("switch", {
+      hidden: true,
+      name: /Offer the linked tasks beside Confirm/,
+    });
+    expect(all).toHaveLength(1);
+    expect(records()).toContainElement(all[0] as HTMLElement);
+  });
+
+  it("asks before the assists are switched on, as the card does", async () => {
+    mount();
+    await userEvent.click(
+      within(records()).getByRole("switch", {
+        name: /Offer the linked tasks beside Confirm/,
+      }),
     );
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "Offer the linked tasks and the weekly-line suggestions?",
+    );
+    expect(setWorkAssists).not.toHaveBeenCalled();
   });
 
   it("is not on the weights or the names", async () => {

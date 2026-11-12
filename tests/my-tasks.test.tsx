@@ -997,3 +997,112 @@ describe("the board", () => {
     expect(screen.getByRole("region", { name: "Overdue" })).toBeInTheDocument();
   });
 });
+
+describe("a task closed as won't do", () => {
+  const WONT_DO = {
+    at: "2026-10-20T09:00:00.000Z",
+    byId: "p-01",
+    byName: "Ada Okafor",
+    reason: "The customer changed their mind",
+  };
+  const finished = (title: string, over: Partial<PersonalTask> = {}) =>
+    task({
+      title,
+      statusCategory: "DONE",
+      doneAt: "2026-10-20T10:00:00.000Z",
+      ...over,
+    });
+
+  it("is said to be one beside its title, and is not counted as finished in the Done group", async () => {
+    answer(
+      [task({ title: "Send the contract" })],
+      [
+        finished("File the report"),
+        finished("Drop the survey", { wontDo: WONT_DO }),
+      ],
+    );
+    render(<MyTasksScreen />);
+    const toggle = await screen.findByRole("button", {
+      name: /Done \(last 14 days\)/,
+    });
+    /* One finished and one that was not: never a bare 2, which reads as work done. */
+    expect(toggle).toHaveTextContent("1 finished, 1 won't do");
+    await userEvent.click(toggle);
+    const row = screen.getByText("Drop the survey").closest("li")!;
+    expect(within(row).getByText("Won't do")).toBeInTheDocument();
+    const other = screen.getByText("File the report").closest("li")!;
+    expect(within(other).queryByText("Won't do")).toBeNull();
+  });
+
+  it("leaves the count a plain number when nothing in the group was closed as won't do", async () => {
+    answer([], [finished("File the report"), finished("Send the invoice")]);
+    render(<MyTasksScreen />);
+    const toggle = await screen.findByRole("button", {
+      name: /Done \(last 14 days\)/,
+    });
+    expect(toggle).toHaveTextContent("2");
+    expect(toggle).not.toHaveTextContent(/won't do/);
+  });
+
+  it("is counted the same way in the Done view", async () => {
+    answer(
+      [],
+      [
+        finished("File the report"),
+        finished("Drop the survey", { wontDo: WONT_DO }),
+      ],
+    );
+    render(<MyTasksScreen />);
+    await userEvent.click(await screen.findByRole("radio", { name: "Done" }));
+    const group = await screen.findByRole("region", {
+      name: "Done (last 14 days)",
+    });
+    expect(within(group).getByRole("heading", { level: 2 })).toHaveTextContent(
+      "(1 finished, 1 won't do)",
+    );
+    expect(within(group).getByText("Won't do")).toBeInTheDocument();
+  });
+
+  it("says the day it was closed in the company's zone, as the drawer does: a mark at 00:30 in Lagos is that day, not the one before", async () => {
+    answer([]);
+    mineArchive.mockResolvedValue({
+      rows: [
+        finished("Drop the survey", {
+          /* 23:30 UTC on the 9th is 00:30 on the 10th in Lagos. */
+          wontDo: { ...WONT_DO, at: "2026-11-09T23:30:00.000Z" },
+        }),
+      ],
+      total: 1,
+      hasMore: false,
+    });
+    render(<MyTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("radio", { name: "Archive" }),
+    );
+    const dropped = (await screen.findByText("Drop the survey")).closest("li")!;
+    expect(
+      within(dropped).getByText("Won't do 10 Nov 2026"),
+    ).toBeInTheDocument();
+  });
+
+  it("is not called completed in the Archive: it says it was closed as won't do, with the day", async () => {
+    answer([]);
+    mineArchive.mockResolvedValue({
+      rows: [
+        finished("Drop the survey", { wontDo: WONT_DO }),
+        finished("File the report"),
+      ],
+      total: 2,
+      hasMore: false,
+    });
+    render(<MyTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("radio", { name: "Archive" }),
+    );
+    const dropped = (await screen.findByText("Drop the survey")).closest("li")!;
+    expect(within(dropped).getByText(/^Won't do \d/)).toBeInTheDocument();
+    expect(within(dropped).getByText("Won't do")).toBeInTheDocument();
+    const done = screen.getByText("File the report").closest("li")!;
+    expect(within(done).queryByText(/Won't do/)).toBeNull();
+  });
+});
