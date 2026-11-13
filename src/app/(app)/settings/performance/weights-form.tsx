@@ -31,6 +31,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
+  overFullWeightNote,
   weightLabel,
   type ApiScoringPart,
   type ApiScoringParts,
@@ -341,6 +342,16 @@ function PartsPanel({
                 }
               />
               <CardBody className="flex flex-col gap-0 p-0">
+                {/* Said on the page, not behind an icon: it changes how every
+                    figure below it is to be read. A warning, not a refusal. */}
+                {overFullWeightNote(view.totalBp) && (
+                  <p
+                    role="status"
+                    className="border-b border-line px-5 py-3 text-body-sm text-warning-text"
+                  >
+                    {overFullWeightNote(view.totalBp)}
+                  </p>
+                )}
                 {view.parts.length === 0 ? (
                   <div className="p-6">
                     <EmptyState
@@ -520,6 +531,17 @@ function PartModal({
   const chosen = view.sources.find((source) => source.source === draft.source);
   const nameProblem = draft.name.trim() === "" ? "Give the part a name." : null;
   const weightError = weightProblem(draft.weight);
+  /* What the parts would add up to with this one as typed: the others as saved
+     (this part's own saved weight is left out when it is being changed). Said
+     while the number is still in the box, where it can be changed, and never a
+     reason to keep Save shut. */
+  const totalWithThis =
+    weightError === null
+      ? view.parts
+          .filter((part) => part.id !== draft.id)
+          .reduce((sum, part) => sum + part.weightBp, 0) + toBp(draft.weight)
+      : 0;
+  const overNote = overFullWeightNote(totalWithThis);
   const ready =
     nameProblem === null && weightError === null && draft.source !== "";
 
@@ -598,6 +620,11 @@ function PartModal({
             }
           />
         </Field>
+        {overNote && (
+          <p role="status" className="-mt-2 text-body-sm text-warning-text">
+            {overNote}
+          </p>
+        )}
         <Field
           label="Description"
           help="Optional. Shown under the part's name."
