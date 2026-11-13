@@ -5,6 +5,7 @@ import { Badge, Button, Field, Input } from "@/components/ui";
 import {
   SCORE_COMPONENT_ORDER,
   isLaterComponent,
+  overFullWeightNote,
   weightLabel,
   weightSetFromRows,
   type ApiScoringWeights,
@@ -151,6 +152,13 @@ export function PeriodWeights({
   const parts = partsOf(value);
   const total = totalBp(value);
   const problem = readOnly ? null : periodWeightsProblem(value);
+  /* Said only for a set that can be read: a row that is not a whole number has
+     no figure to add up. Where the set is fixed (the period has started) it
+     says what is so and gives no advice nobody could follow. */
+  const overNote =
+    problem === null
+      ? overFullWeightNote(total, { canChange: !readOnly })
+      : null;
 
   const reset = () => {
     if (onUseDefaults) {
@@ -234,6 +242,12 @@ export function PeriodWeights({
       {problem && (
         <p role="status" className="text-body-sm text-warning-text">
           {problem}
+        </p>
+      )}
+
+      {overNote && (
+        <p role="status" className="text-body-sm text-warning-text">
+          {overNote}
         </p>
       )}
 
