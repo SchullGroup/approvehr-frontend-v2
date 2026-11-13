@@ -12848,3 +12848,67 @@ defaults on first open and was not compared against anything else), and the Reco
 - `useScoringWeights().save` and `performanceApi.setScoringWeights` have no caller in any screen after this merge (the
   settings page reads the weights and writes parts). `scale-form.tsx` mentions the function only in a comment. Removing
   them is a separate cleanup; the period weights editor still reads `/scoring-weights`, so the read must stay.
+
+---
+
+# Weights that add up to more than 100% say so, and still save
+
+A tester on the QA site opened **Settings, Appraisal scoring** and saw a **Total of 110%** with nothing to say it meant
+anything. The ask was "the system should bring an error or warning message if it exceeds 100%". It is a **warning and not a
+block**, and the reason is the design that arrived with #642 (and #597 before it): weights are proportional, each part counts
+for its weight over the total, and the API accepts 110%. What goes wrong at 110% is the **reading**: a person who typed 45
+sees 45% and takes it for 45% of the mark, while the mark counts it for 45/110. So the total is the one place that can say so.
+A hard block would reverse that design and need a backend change as well, which was not asked for.
+
+## What it says, and where
+
+`overFullWeightNote(totalBp, { canChange })` in `lib/api/performance.ts` is the one sentence: _"These add up to 110%, which is
+more than 100%. Each part counts for its share of 110%, not for the weight typed. To make the weights read as shares of 100%,
+take off 10%."_ It is `null` at exactly 100% and below it (a set that falls short misleads nobody), for a total that is not a
+number, and the advice sentence is left off when `canChange` is false.
+
+| Where | When it speaks |
+| ----- | -------------- |
+| The company's parts card (`PartsPanel`), above the list | The saved parts add up to more than 100%. |
+| The **Add part** and **Edit the part** dialog (`PartModal`), under **Weight** | The others as saved plus this weight as typed come to more than 100%. The part being edited counts for what is typed and **never for its saved weight as well** (a part saved at 60 beside one at 40 reads 100%, not 160%). Nothing while the weight is blank, out of range or not a number: the field's own refusal is what is on screen. **Save stays open.** |
+| A period's own weights (`PeriodWeights`: the draft's card and the assistant's first page) | The typed set adds up to more than 100%, and no row is refused. **Save the weights stays open.** On a period that has started the same sentence is shown **without the advice** nobody could follow. |
+
+It is plain amber words on the page (`text-warning-text`, `role="status"`), never behind an icon and never a tinted box,
+because it changes how every figure under it is to be read. The Total badge beside it is unchanged.
+
+## Not done, on purpose
+
+- **No block.** See above. If the company wants 100% enforced, that is a decision to reverse the proportional design, a
+  backend refusal in `scoring-parts` and `cycles`, and a conversation about companies that already hold more than 100%.
+- **`periodWeightsProblem` does not carry it.** That function decides whether Save is open; the warning lives beside it so it
+  cannot shut anything by accident (a test types 150 and 110 and asserts Save stays open).
+
+## Verified
+
+`tests/scoring-over-full-weight.test.tsx`, 18 tests: the sentence at 100%, 9,999, 10,001 and 11,000 basis points and for
+`NaN`; the parts card at 110, 100 and 90; the dialog adding 20 to 90, Save open, nothing for an unusable weight, the edited
+part not counted twice; the period editor at 100, over, back under, with a row that is not a whole number, read-only over
+and read-only at 100. **Eleven deliberate breaks, all caught** (one exact replacement in one source file, the tree
+restored with `git checkout` and checked clean): speaking at exactly 100%, a threshold 100 basis points high, advice given
+on a set that cannot change, the card's note removed, the edited part's own weight counted twice, the dialog's note
+removed, Save shut by the warning, a note over an unusable weight, the period note removed, advice on a fixed period, and a
+note over a row that is not a whole number.
+
+In a browser against a production build of this branch and a scratch API on a real Postgres (backend `staging` plus the
+stage 0 branch), as the administrator: **32 of 33 checks**, the one miss being the walk and not the product. Seen: the card
+quiet at exactly 100%; **Add part** at 10% showing the sentence in the dialog with 110% and "take off 10%", Add part open,
+`POST` 201, and the card showing it above the list; the edit dialog reading 110% unchanged (not 150%), nothing at 30, 120% at
+50, and the field's own refusal at 150; the card quiet again after the extra part was deleted; a draft period at 110%
+warned, **Save the weights** open, `PATCH` 200 with the six weights, still warned after a reload; a started period reading
+the sentence with no advice; at 375px with touch no sideways scroll on the page or with the dialog open, the dialog inside
+the screen and the sentence visible. No console error and no 4xx or 5xx (the only events were cancelled route prefetches).
+
+**The one miss, and a trap for the next walk:** the weight field read 15px on touch. It is 16px: read straight after
+opening the dialog it is 16px both with and without the warning on screen. A **full-page screenshot in Playwright's touch
+emulation drops `(pointer: coarse)`** (measured: true before it, false after), so every size read after one is the desktop
+size. Read computed sizes first, screenshot later. Also: a period page's rows are named by the company's own part names once the
+defaults arrive ("Delivery"), and by the built-in names for the moment before, so a locator written against the built-in name
+fills a field that is renamed under it.
+
+**Not exercised:** the QA site, Safari or a real device, demo mode in a browser (the parts screens need the API), a company
+with a Manager appraisal part in the set, and the assistant's first page.
