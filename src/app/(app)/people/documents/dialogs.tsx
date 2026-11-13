@@ -599,7 +599,8 @@ type RemindProps = {
  * first time. Nothing to compose, nothing to paste anywhere.
  *
  * The copy-paste text still exists, but only for the one case that is still
- * real: `notifiedEmployee: false` means the person has no sign-in, which is a
+ * real: `notifiedEmployee: false` means nobody could be told (the person has no
+ * sign-in, or the company switched the notice off), which is a
  * fact about their account rather than a missing feature, and it is the same
  * state `createRequest` can return. Showing it as the default for everybody
  * would misdescribe the other 90% of reminders, which now genuinely send.
@@ -686,7 +687,7 @@ function RemindForm({
           : state.phase === "sent"
             ? `Sent to ${firstName}'s ApproveHR notifications.`
             : state.phase === "no-account"
-              ? `${firstName} has no sign-in yet, so nothing could be sent there. Copy this into WhatsApp or email instead.`
+              ? `Nothing reached ${firstName}'s ApproveHR notifications, and ${firstName} may not have a sign-in yet. Copy this into WhatsApp or email instead.`
               : state.phase === "failed"
                 ? state.message
                 : undefined

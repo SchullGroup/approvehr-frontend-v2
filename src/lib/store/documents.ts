@@ -142,10 +142,13 @@ export function chaseMessage(request: {
  * telling somebody on screen:
  *
  * - **`true`** (and asked): they were told, and where to find it.
- * - **`false`** (and asked): they have no sign-in, so nobody was told. That is
- *   a fact about their account, not a failure of the add: the document is on the
- *   file, and HR is left to tell them some other way. It is a warning because
- *   somebody would otherwise assume the person knows.
+ * - **`false`** (and asked): nobody was told. The API gives two causes and does
+ *   not say which: the person has no sign-in, or the company has switched the
+ *   notice off. So the sentence says "nobody was told" and only hedges the first,
+ *   because naming one cause would be wrong whenever it was the other. It is not
+ *   a failure of the add: the document is on the file, and HR is left to tell
+ *   them some other way. It is a warning because somebody would otherwise assume
+ *   the person knows.
  * - **absent**, with the tick on: an older server dropped a field it did not know
  *   and answered with the document alone. Whether they were told is **not
  *   known**, so nothing is said about it. Reading absent as `false` would warn
@@ -186,8 +189,8 @@ export function addedNotice({
     tone: "warning",
     detail:
       who === "They"
-        ? "They have no sign-in yet, so nobody was told."
-        : `${who} has no sign-in yet, so nobody was told.`,
+        ? "Nobody was told. They may not have a sign-in yet."
+        : `Nobody was told. ${who} may not have a sign-in yet.`,
   };
 }
 

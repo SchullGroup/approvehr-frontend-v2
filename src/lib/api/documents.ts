@@ -137,9 +137,11 @@ export type ApiDocumentRequest = {
 /**
  * `POST /requests` answers with the request plus whether the person was told.
  *
- * `notifiedEmployee: false` means the staff record has no sign-in, so nobody
- * received anything — HR would otherwise sit waiting on somebody who was never
- * asked. The register says so on screen rather than swallowing it.
+ * `notifiedEmployee: false` means nobody received anything — HR would otherwise
+ * sit waiting on somebody who was never asked. There are two causes and the API
+ * does not tell them apart: the staff record has no sign-in, or the company has
+ * switched the notice off. The register says "nobody was told" on screen rather
+ * than swallowing it, and does not name one cause.
  */
 export type ApiCreatedRequest = ApiDocumentRequest & {
   notifiedEmployee: boolean;
@@ -150,7 +152,8 @@ export type ApiCreatedRequest = ApiDocumentRequest & {
  * `notifyEmployee` was asked for and honoured**, whether the person was told.
  *
  * - `true`: a notification went to them.
- * - `false`: the staff record has no sign-in, so nobody was told.
+ * - `false`: nobody was told, because the staff record has no sign-in or the
+ *   company switched the notice off. The two are not told apart.
  * - **absent**: it was not asked for, or the server is older than the field and
  *   dropped it unread. Absent is "no claim", never "not told": a screen that
  *   read it as `false` would warn about a person who may well have been told,
@@ -338,9 +341,10 @@ export const documentsApi = {
 
   /**
    * Nudge them again, through the same inbox `createRequest` used the first
-   * time. `notifiedEmployee` is `false` for the same reason it can be on
-   * `createRequest` — a staff record with no sign-in has no inbox — and the
-   * caller shows the copy-paste fallback exactly then, never as the default.
+   * time. `notifiedEmployee` is `false` for the same two reasons it can be on
+   * `createRequest` — a staff record with no sign-in has no inbox, or the
+   * company switched the notice off — and the caller shows the copy-paste
+   * fallback exactly then, never as the default.
    */
   remind(id: string): Promise<{ notifiedEmployee: boolean }> {
     return request<{ notifiedEmployee: boolean }>(

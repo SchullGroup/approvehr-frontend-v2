@@ -753,6 +753,6 @@ describe("Remind", () => {
     expect(onRemind).toHaveBeenLastCalledWith("req-1");
 
     release({ notifiedEmployee: false });
-    expect(await screen.findByText(/has no sign-in yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing reached Ada/)).toBeInTheDocument();
   });
 });

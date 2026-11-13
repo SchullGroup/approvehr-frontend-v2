@@ -12893,8 +12893,10 @@ the last entry, and HR had no way to say whether the person is told when a docum
 6. **`notifyEmployee` is sent as `true` or not at all.** Never `false`: two spellings of "do not tell" are
    one more thing for the API to disagree about.
 7. **What the toast says follows `notifiedEmployee` and nothing else** (`addedNotice`):
-   `true` says they were told and where to find it; `false` says they have no sign-in so nobody was told, as
-   a warning, because HR would otherwise assume they know; **absent, with the tick on, says nothing about
+   `true` says they were told and where to find it; `false` says nobody was told and that the person *may*
+   not have a sign-in, as a warning, because HR would otherwise assume they know (the API gives two causes,
+   no sign-in or the company's notice switched off, and does not say which, so the screen names neither as
+   fact; the same goes for the Remind dialog and the Ask toast); **absent, with the tick on, says nothing about
    telling**, because an older server drops a field it does not know and answers with the document alone,
    and either sentence would then be a claim about a notification nobody can vouch for; tick off is as it
    was, and an answer that carries `true` anyway is not read.

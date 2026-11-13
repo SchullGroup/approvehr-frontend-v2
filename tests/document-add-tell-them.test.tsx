@@ -93,13 +93,13 @@ describe("what is said after a document is added", () => {
     });
   });
 
-  it("says plainly that nobody was told when they have no sign-in, as a warning", () => {
+  it("says plainly that nobody was told, without naming a cause, as a warning", () => {
     expect(
       addedNotice({ asked: true, notifiedEmployee: false, employeeName: ada }),
     ).toEqual({
       title: "Added to the file",
       tone: "warning",
-      detail: "Ada has no sign-in yet, so nobody was told.",
+      detail: "Nobody was told. Ada may not have a sign-in yet.",
     });
   });
 
@@ -134,7 +134,7 @@ describe("what is said after a document is added", () => {
     expect(
       addedNotice({ asked: true, notifiedEmployee: false, employeeName: " " })
         .detail,
-    ).toBe("They have no sign-in yet, so nobody was told.");
+    ).toBe("Nobody was told. They may not have a sign-in yet.");
   });
 });
 
@@ -332,14 +332,16 @@ describe("what the drawer says after adding with the tick on", () => {
     });
   });
 
-  it("says nobody was told when the API says they have no sign-in", async () => {
+  it("says nobody was told when the API says false, and names no cause", async () => {
     const user = userEvent.setup();
     state.add.mockResolvedValue({ id: "doc-9", notifiedEmployee: false });
     drawer();
     await addTicked(user);
 
     expect(
-      await screen.findByText("Ada has no sign-in yet, so nobody was told."),
+      await screen.findByText(
+        "Nobody was told. Ada may not have a sign-in yet.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/was told, and can open/)).toBeNull();
   });
