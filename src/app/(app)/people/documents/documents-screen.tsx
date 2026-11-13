@@ -62,10 +62,12 @@ import { EmployeeFileDrawer } from "./employee-file";
  *
  * ## The chase button
  *
- * There is no remind endpoint. Creating a request notifies the person once;
- * asking again has no route, so nothing here claims to send one — Remind writes
- * the message and hands it over. See `chaseMessage` in
- * `lib/store/documents.ts` for the seam.
+ * Remind sends a real notification, through the same inbox that asking used the
+ * first time (`POST /documents/requests/:id/remind`), and the dialog says who
+ * it reached. Only when nobody could be told (no sign-in, so no inbox, or the
+ * company switched the notice off) does it fall back to a message to copy: see
+ * `chaseMessage` in
+ * `lib/store/documents.ts`.
  */
 type DocumentsTab = "received" | "waiting" | "files";
 
@@ -470,10 +472,10 @@ export function DocumentsScreen() {
             /* Honest, and actionable: HR would otherwise wait on somebody who
                was never told. */
             toast.push({
-              title: `${firstNameOf(created.employeeName)} has no login yet`,
+              title: `${firstNameOf(created.employeeName)} was not told`,
               tone: "warning",
               detail:
-                "Nothing was sent. Use Remind to get the message to them.",
+                "They may not have a sign-in yet. Use Remind to get the message to them.",
             });
           }
         }}

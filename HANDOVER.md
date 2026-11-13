@@ -12848,3 +12848,113 @@ defaults on first open and was not compared against anything else), and the Reco
 - `useScoringWeights().save` and `performanceApi.setScoringWeights` have no caller in any screen after this merge (the
   settings page reads the weights and writes parts). `scale-form.tsx` mentions the function only in a comment. Removing
   them is a separate cleanup; the period weights editor still reads `/scoring-weights`, so the read must stay.
+
+---
+
+# The document and signature dialogs start blank each time, and Add a document can tell the person
+
+Stage 0 of the query feature (the web half; the backend half is `fix/query-stage0-20261113` in
+`approvehr-backend`). A query record is going to be filed against somebody's record and will carry a document
+or a signature, so two things it would otherwise inherit were fixed first: the dialogs that take a file kept
+the last entry, and HR had no way to say whether the person is told when a document lands on their file.
+
+## What changed
+
+| Where | What |
+| ----- | ---- |
+| `lib/use-open-session.ts` (new) | `useOpenSession(open, identity?)`: a number that goes up when a dialog opens, to be the `key` of the form below it. The same wrapper `RoleEditor` and the notice form write by hand, once. |
+| `people/documents/dialogs.tsx` | `AskForDocumentModal`, `AttachDocumentModal`, `AddDocumentModal`, `WaiveModal` and `RemindModal` are each a wrapper that holds a session and renders their form (`...Form`), keyed by it. |
+| `people/signatures/send-dialog.tsx` | `SendDialog` is a wrapper over `SendForm` in the same way. The people search that feeds its picker moved down with the fields. |
+| `AddDocumentModal` | A **Tell them** checkbox, unticked, with one visible line of what it does. Offered only where the caller passes `canNotify`. |
+| `people/documents/employee-file.tsx` | Decides `canNotify` (API connected, `EDIT_RECORDS`, not your own file) and toasts by `addedNotice`. |
+| `lib/api/documents.ts`, `lib/store/documents.ts` | `AddDocumentBody.notifyEmployee`, `ApiAddedDocument` (`notifiedEmployee?`), and `addedNotice`, the one place the toast's wording is decided. |
+
+## Decisions not to undo
+
+1. **A session starts when the dialog opens, and at no other time** (see the header of `use-open-session.ts`).
+   Not when it closes (what is on screen must not change while it animates away), and not when the same
+   record is handed over again as a new object (a list that reloads on window focus must not wipe a
+   half-typed field). A *different* record arriving while it is open does start one, for the two dialogs
+   that answer for a record (`AttachDocumentModal`, `WaiveModal`), by the record's id.
+2. **Cancel discards what was typed**, as every other dialog here does. A half-typed document is not kept
+   for later; there is no draft for it and none was asked for.
+3. **`RemindModal` sends every time it is opened.** It used to send once per request id: the dialog stayed
+   mounted, its effect depended on the id alone, so opening it again for the same person kept last time's
+   "Sent to Ada" and sent nothing. A claim of a notification that was not sent. A dialog that opens is now a
+   reminder that goes, which is what its own header says it is. In development React's double effect
+   still fires it twice on mount, as before.
+4. **`WaiveModal` is in this because its reason is stored.** A reason typed for one request must never be
+   on the button for the next. It was not in the list of dialogs the tracker named; it is the same file
+   and the same defect.
+5. **The tick is offered by the caller, and the dialog checks it again before sending.** `canNotify` is
+   false unless all three hold: the API is connected (no API, no notification, so there is nothing to
+   offer), the reader holds `EDIT_RECORDS` (the API honours it for nobody else), and it is somebody else's
+   file. `MyDocuments` never passes it, so adding to your own file can neither show the tick nor send it.
+6. **`notifyEmployee` is sent as `true` or not at all.** Never `false`: two spellings of "do not tell" are
+   one more thing for the API to disagree about.
+7. **What the toast says follows `notifiedEmployee` and nothing else** (`addedNotice`):
+   `true` says they were told and where to find it; `false` says nobody was told and that the person *may*
+   not have a sign-in, as a warning, because HR would otherwise assume they know (the API gives two causes,
+   no sign-in or the company's notice switched off, and does not say which, so the screen names neither as
+   fact; the same goes for the Remind dialog and the Ask toast); **absent, with the tick on, says nothing about
+   telling**, because an older server drops a field it does not know and answers with the document alone,
+   and either sentence would then be a claim about a notification nobody can vouch for; tick off is as it
+   was, and an answer that carries `true` anyway is not read.
+8. **`AttachDocumentModal` follows what is on the file now.** Its mode and chosen document are derived
+   from the file as it stands, not only seeded: the file reloads under an open dialog (window focus), and a
+   document archived or attached elsewhere meanwhile stayed selected with a live button. Found because a
+   refresh now keeps what is typed, which it always should have.
+
+## Found, and not changed
+
+- **Header comments that said the opposite** were corrected in `lib/api/documents.ts`, `dialogs.tsx`
+  and `documents-screen.tsx`: documents are held in the database and go up with the record
+  (`contentBase64`), no bucket is involved, and Remind sends a notification. `chaseMessage`'s own
+  `TODO(remind)` in `lib/store/documents.ts` still says the route does not exist; it does. Left, to keep
+  this change to what was asked.
+- **`DeclineButton` and `SignDialog`** on `/people/signatures` were looked at for the same defect and are
+  not affected: the first is per signature row and keeps its reason for that row only; the second is
+  mounted per document and keyed by its id.
+- **Closing a dialog while its request is in flight** and opening it again inside that time: the first
+  request's success still runs its caller's close, which would close the new session. The Cancel button is
+  not disabled while busy. Narrow, and not new.
+- **The people search in Send for signature** now asks for the directory when the dialog opens as well as
+  when the screen loads: the hook moved down with the form. One extra request per open.
+- The `file.editable &&` in `canNotify` is not pinned by a test of its own: the same flag already hides the
+  "Add a document" button, so no test can reach the dialog without it. It is there so the tick does not
+  depend on that button's gate staying put.
+
+## Verified
+
+Tests: four new files, **50 tests**, all passing: `use-open-session` (9), `document-dialogs-per-open` (19),
+`signature-send-dialog-per-open` (4), `document-add-tell-them` (18). For each dialog: open, fill, choose a file,
+close, reopen and everything is empty; a refresh of the same record under a half-typed field keeps the field; and
+the harm itself, the second document / request / PDF not being made out of the first one's file. For the tick: all
+four outcomes of the toast, the tick absent without `EDIT_RECORDS` and on your own file, `notifyEmployee: true`
+in the body only when ticked and no key at all otherwise, and the tick unticked after a reopen. `vitest related`
+over the seven changed source files ran 7 files and 73 tests, all passing.
+
+Deliberate breaks, 28, each one exact replacement in one source file, restored with `git checkout` and the tree
+checked clean after each: 24 were caught by the tests written for them on the first run (the six `key`s removed, the
+hook never starting / always starting / ignoring the record / reading a cleared record as a change, the
+documentId derivation, the tick ignored / sent as `false` / drawn without being offered / ticked by default / its line
+removed, the drawer offering it without `EDIT_RECORDS` or on your own file, the toast claiming "told" whatever
+came back, `asked` ignored in the toast, and three wrong readings of `addedNotice`). Two were **not** caught first time and each earned a test:
+`WaiveModal` not starting again for a different request (the reason typed for one request would have been on the
+button for the next), and `AttachDocumentModal` staying on "Already on file" after the file emptied under it. Two
+cannot be caught and are equivalent: `file.editable` in `canNotify` (the same flag hides the Add button), and a
+`!== false` test after the guard that already returns for an absent answer.
+
+Gates: `tsc --noEmit` exit 0, ESLint and Prettier clean on every changed file, `npm run check` exit **0** with
+`APPROVEHR_BACKEND_DIR` at the backend's `staging` (`6881605`) so the cross-repo gates compared and did not skip
+(16 lint warnings, the same 16 that are on `dev`; none in a changed file). `npm run docs -- --only
+frontend-pages,frontend-components` re-derived both inventories (the components one gains `use-open-session.ts` and
+the `NewDocument` type).
+
+## Not exercised
+
+A browser against a real API: the dialogs were rendered under jsdom with the real `Modal`, `FileField` and
+`SearchPicker`, the store and API mocked. The wire shape of the answer (`notifiedEmployee` only when asked and
+honoured) is the contract given for the backend half and has not been read against a running server; against one
+that predates it the field is absent and the toast says nothing about telling. Not run: `npm run
+verify-demo:build`, the whole vitest suite in one run (CI does not run vitest), iOS Safari or any real device.

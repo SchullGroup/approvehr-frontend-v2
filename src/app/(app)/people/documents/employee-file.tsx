@@ -21,9 +21,10 @@ import {
   signaturesApi,
   type ApiSignature,
 } from "@/lib/api/signatures";
-import { useEmployeeFile } from "@/lib/store/documents";
+import { useCan } from "@/lib/permissions";
+import { addedNotice, useEmployeeFile } from "@/lib/store/documents";
 import { useSignatures } from "@/lib/store/signatures";
-import { useOrgTimezone } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
 import { TONE, overdueBy } from "../signatures/signatures-screen";
 import {
@@ -75,6 +76,20 @@ export function EmployeeFileDrawer({
   const [includeArchived, setIncludeArchived] = useState(false);
   const file = useEmployeeFile(employeeId, includeArchived);
   const toast = useToast();
+
+  /* Whether "Tell them" is offered when a document is added. All three have to
+     hold, and each is a different reason it would not work: with no API there
+     is no notification to send, the API refuses it to anybody without
+     `EDIT_RECORDS`, and adding to your own file is not telling somebody else
+     something. Absent rather than disabled, because a tick that cannot work
+     only raises the question of why. */
+  const canEditRecords = useCan("EDIT_RECORDS");
+  const { employeeId: myEmployeeId } = useSession();
+  const canNotify =
+    file.editable &&
+    canEditRecords &&
+    employeeId !== null &&
+    employeeId !== myEmployeeId;
 
   /* See the header: the whole company's list when connected with
      EDIT_RECORDS, which this drawer already requires — filtered here rather
@@ -286,11 +301,20 @@ export function EmployeeFileDrawer({
         open={adding && file.file !== null}
         whose={`${file.file?.employeeName.split(" ")[0] ?? name}’s`}
         onClose={() => setAdding(false)}
+        canNotify={canNotify}
         onAdd={async (body) => {
-          await file.add(body);
+          const added = await file.add(body);
           setAdding(false);
           onChanged();
-          toast.push({ title: "Added to the file", tone: "success" });
+          /* What is said about telling them follows the API's answer and
+             nothing else; see `addedNotice`. */
+          toast.push(
+            addedNotice({
+              asked: body.notifyEmployee === true,
+              notifiedEmployee: added.notifiedEmployee,
+              employeeName: file.file?.employeeName,
+            }),
+          );
         }}
       />
 

@@ -11,19 +11,16 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * that lists five documents and hides the missing work permit is the file that
  * fails the one inspection it exists for.
  *
- * ## There is no file. There is a reference.
+ * ## The file goes up with the record, and is kept in the database
  *
- * Nothing in the stack uploads, stores or serves a file yet. Every field is
- * `storageKey` and never `url`, and the API refuses a key that looks like a
- * link — so no interface here can offer a download it cannot serve. The two
- * routes that will change that are named in a TODO at the top of the API's
- * `src/modules/documents/router.ts`:
- *
- *     POST /api/v1/documents/upload-url   (presigned PUT)
- *     GET  /api/v1/documents/:id/file     (presigned GET, gated and audited)
- *
- * Until they exist the attach control is a field that takes a reference, which
- * beats a drop zone that loses somebody's certificate.
+ * A document holds its own bytes (`EmployeeDocument.content`, in Postgres). The
+ * form reads the chosen file in the browser and sends it as `contentBase64` in
+ * the same request that creates the record, so there is no window in which a
+ * personnel file lists a certificate with nothing behind it. No bucket is
+ * involved. `storageKey` is still on the row and on `AddDocumentBody` for a
+ * document that was recorded against an object-storage key, and it is `null`
+ * for every document held in the database: read `hasFile`, not `storageKey`, to
+ * know whether there is something to open.
  *
  * ## Two surprises worth knowing before you use this
  *
@@ -140,12 +137,30 @@ export type ApiDocumentRequest = {
 /**
  * `POST /requests` answers with the request plus whether the person was told.
  *
- * `notifiedEmployee: false` means the staff record has no sign-in, so nobody
- * received anything — HR would otherwise sit waiting on somebody who was never
- * asked. The register says so on screen rather than swallowing it.
+ * `notifiedEmployee: false` means nobody received anything — HR would otherwise
+ * sit waiting on somebody who was never asked. There are two causes and the API
+ * does not tell them apart: the staff record has no sign-in, or the company has
+ * switched the notice off. The register says "nobody was told" on screen rather
+ * than swallowing it, and does not name one cause.
  */
 export type ApiCreatedRequest = ApiDocumentRequest & {
   notifiedEmployee: boolean;
+};
+
+/**
+ * `POST /employees/:id` answers with the document, and, **only when
+ * `notifyEmployee` was asked for and honoured**, whether the person was told.
+ *
+ * - `true`: a notification went to them.
+ * - `false`: nobody was told, because the staff record has no sign-in or the
+ *   company switched the notice off. The two are not told apart.
+ * - **absent**: it was not asked for, or the server is older than the field and
+ *   dropped it unread. Absent is "no claim", never "not told": a screen that
+ *   read it as `false` would warn about a person who may well have been told,
+ *   and one that read it as `true` would say so about one who was not.
+ */
+export type ApiAddedDocument = ApiDocument & {
+  notifiedEmployee?: boolean;
 };
 
 /** `GET /employees/:id` — one person's file, both halves. */
@@ -246,6 +261,14 @@ export type AddDocumentBody = {
   name: string;
   category?: DocumentCategory;
   mimeType?: string;
+  /**
+   * Also tell the person: a notification that a document was added to their
+   * file. Sent as `true` or **not at all**: an absent key is "do not tell", and
+   * a `false` would be a second way to say it for the API to disagree about.
+   * Only somebody adding to **another** person's file may ask; the API honours
+   * it for nobody else and says so in the answer (`ApiAddedDocument`).
+   */
+  notifyEmployee?: boolean;
 } & (
   | { contentBase64: string; storageKey?: never; sizeBytes?: never }
   | { storageKey: string; contentBase64?: never; sizeBytes?: number }
@@ -318,9 +341,10 @@ export const documentsApi = {
 
   /**
    * Nudge them again, through the same inbox `createRequest` used the first
-   * time. `notifiedEmployee` is `false` for the same reason it can be on
-   * `createRequest` — a staff record with no sign-in has no inbox — and the
-   * caller shows the copy-paste fallback exactly then, never as the default.
+   * time. `notifiedEmployee` is `false` for the same two reasons it can be on
+   * `createRequest` — a staff record with no sign-in has no inbox, or the
+   * company switched the notice off — and the caller shows the copy-paste
+   * fallback exactly then, never as the default.
    */
   remind(id: string): Promise<{ notifiedEmployee: boolean }> {
     return request<{ notifiedEmployee: boolean }>(
@@ -340,8 +364,8 @@ export const documentsApi = {
     });
   },
 
-  add(employeeId: string, body: AddDocumentBody): Promise<ApiDocument> {
-    return request<ApiDocument>(`/documents/employees/${employeeId}`, {
+  add(employeeId: string, body: AddDocumentBody): Promise<ApiAddedDocument> {
+    return request<ApiAddedDocument>(`/documents/employees/${employeeId}`, {
       method: "POST",
       body,
     });
