@@ -4158,6 +4158,38 @@ export function weightProblem(entries: { weightBp: number }[]): string | null {
 }
 
 /**
+ * What to say beside a set of proportional weights that add up to more than
+ * 100%, or null when they do not.
+ *
+ * A warning and not a refusal. The company's parts and a period's own weights
+ * are proportional: each part counts for its weight over the total, so 110% is
+ * a legitimate set and the API takes it. What goes wrong is the reading. A
+ * person who typed 45 and sees 45% on the row takes it for 45% of the mark,
+ * and the mark counts it for 45/110, so the total is the only place the
+ * difference can be said. It is said beside the total and beside the field that
+ * moves it, in one place, so the two cannot describe it differently.
+ *
+ * **Not said for exactly 100%, or for less.** Under 100% nothing is
+ * misleading: every part still counts for at least its weight's worth of the
+ * whole, and "weights that do not add up to 100%" is a question for the
+ * company, not an alarm.
+ *
+ * `canChange` is false for a set that is fixed (a period that has started): the
+ * advice to take some off would be an instruction nobody can follow.
+ */
+export function overFullWeightNote(
+  totalBp: number,
+  { canChange = true }: { canChange?: boolean } = {},
+): string | null {
+  if (!Number.isFinite(totalBp) || totalBp <= FULL_WEIGHT_BP) return null;
+  const total = weightLabel(totalBp);
+  const said = `These add up to ${total}, which is more than 100%. Each part counts for its share of ${total}, not for the weight typed.`;
+  return canChange
+    ? `${said} To make the weights read as shares of 100%, take off ${weightLabel(totalBp - FULL_WEIGHT_BP)}.`
+    : said;
+}
+
+/**
  * The roles, in the order the picker offers them, with a label and one line.
  *
  * **A second copy of labels the API also sends, and deliberately narrow.** The
