@@ -12848,3 +12848,26 @@ defaults on first open and was not compared against anything else), and the Reco
 - `useScoringWeights().save` and `performanceApi.setScoringWeights` have no caller in any screen after this merge (the
   settings page reads the weights and writes parts). `scale-form.tsx` mentions the function only in a comment. Removing
   them is a separate cleanup; the period weights editor still reads `/scoring-weights`, so the read must stay.
+
+# Open Peeps figures (14 Nov 2026)
+
+People drawn from **Open Peeps** (Pablo Stanley, CC0): the same figures, with the same names, as the mobile app
+(`approvehr-mobile`, `src/ui/art`, `docs/illustrations.md` there). Kene asked for them on the web "too" after
+reviewing them on mobile.
+
+- `src/components/ui/illustration.tsx`, `<Illustration name height />`: a lazy, decorative `<img>` of
+  `public/illustrations/peeps/<name>.svg` (seven files, 72 KB), `alt=""`, `aria-hidden`. Drawn as it is: white
+  fill, black line, never recoloured, straight on the page; in the dark theme it gets the light `well-sticker`
+  tile the Wellness scenes use, because black line work cannot be read on a dark surface.
+- `scripts/import-peeps.ts` regenerates the files and `src/lib/peeps.ts` (each figure's shape) from the official
+  "Flat Assets" zip. svgo keeps the `xmlns` (an SVG without it does not draw in `<img>`), and the view box is
+  cropped to the drawing's measured bounds (`INK`): the pack's artboards have blank margins.
+- It goes in two existing slots: `EmptyState` `art` and the new `SuccessMoment` `art` (replaces the check;
+  ignored when `compact`).
+- **Where**: empty states, the good-news kind only: approvals "Nothing waiting on you", surveys "Nothing to
+  answer", notifications "Nothing needs you" and "All read" (not "Nothing here yet"). Success: early pay sent,
+  setup finished, password changed, email confirmed.
+- **Where not**: a card in a grid (tried on mobile, read as clutter), an error, a missing permission, "No matches",
+  a record that is not there, a "sent, now wait" or part-done outcome, toasts. No fade or gradient on any of them.
+- Shown on `/design-system`. Decorative and still: nothing for reduced motion to switch off.
+

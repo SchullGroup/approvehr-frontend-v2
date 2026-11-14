@@ -32,6 +32,7 @@ export type { Currency } from "./money";
 
 export { ProgressMeter, ScoreRing, FactorBars } from "./progress";
 export { SuccessMark, SuccessMoment } from "./success";
+export { Illustration } from "./illustration";
 
 export { Modal, Drawer, DrawerSection, ConfirmDialog } from "./modal";
 export { RowActions } from "./row-actions";

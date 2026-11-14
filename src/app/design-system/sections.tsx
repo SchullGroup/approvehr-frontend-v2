@@ -33,6 +33,7 @@ import {
   Drawer,
   DrawerSection,
   EmptyState,
+  Illustration,
   Field,
   FieldSet,
   FunnelChart,
@@ -575,6 +576,37 @@ export function FeedbackDemo() {
             />
           </Card>
         </div>
+      </Row>
+
+      <Row label="People: empty state and success">
+        <div className="grid w-full gap-4 sm:grid-cols-2">
+          <Card>
+            <EmptyState
+              compact
+              art={<Illustration name="hand-on-hip" height={112} />}
+              title="Nothing waiting on you"
+              description="New requests show up here."
+            />
+          </Card>
+          <Card>
+            <CardBody className="py-8">
+              <SuccessMoment
+                align="center"
+                headingLevel={3}
+                art={<Illustration name="welcome" height={112} />}
+                title="You are set up"
+                lead="Payroll, payslips and leave are on for everybody."
+              />
+            </CardBody>
+          </Card>
+        </div>
+        <p className="mt-3 max-w-prose text-body-sm text-muted">
+          Open Peeps figures (CC0), drawn as they are and never recoloured, on
+          the page itself; in the dark theme they get the light Wellness
+          sticker. For the good-news empty state and the plainly finished flow
+          only: never in a card in a grid, on an error, a missing permission or
+          a part-done outcome.
+        </p>
       </Row>
 
       <Row label="Progress">

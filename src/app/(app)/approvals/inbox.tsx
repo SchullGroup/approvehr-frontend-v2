@@ -40,6 +40,7 @@ import {
   useToast,
   type BadgeTone,
   Select,
+  Illustration,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
 import { ApiError } from "@/lib/api/client";
@@ -399,7 +400,7 @@ export function ApprovalInbox() {
             {queue.items.length === 0 ? (
               <Card>
                 <EmptyState
-                  icon={<Check aria-hidden="true" />}
+                  art={<Illustration name="hand-on-hip" />}
                   title="Nothing waiting on you"
                   description="New requests show up here."
                 />
