@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { Button } from "./button";
 import { Callout } from "./card";
 import { Skeleton } from "./feedback";
+import { NoConnectionCard } from "./no-connection";
 
 /**
  * One rule for a screen that waits on something, and what it may say meanwhile.
@@ -286,6 +287,18 @@ export function LoadFailure({
 }) {
   if (!error) return null;
   const safe = safeLine(error);
+  /* A read that never got an answer is the connection, not a fault in the thing being read, so it is drawn
+     as the calm blue card rather than a red one. The sentences are the same ones the callout would carry. */
+  if (kindOf(error) === "offline") {
+    return (
+      <NoConnectionCard onRetry={onRetry}>
+        <p>{titleFor(error, subject)}.</p>
+        <p>{adviceFor(error, subject, missingMeans)}</p>
+        {safe && <p>{safe}</p>}
+        {children ? <div className="mt-1">{children}</div> : null}
+      </NoConnectionCard>
+    );
+  }
   return (
     <Callout tone="danger" title={titleFor(error, subject)}>
       <p>{adviceFor(error, subject, missingMeans)}</p>

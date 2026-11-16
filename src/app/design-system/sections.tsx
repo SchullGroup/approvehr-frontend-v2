@@ -34,6 +34,7 @@ import {
   DrawerSection,
   EmptyState,
   Illustration,
+  NoConnectionCard,
   Field,
   FieldSet,
   FunnelChart,
@@ -606,6 +607,26 @@ export function FeedbackDemo() {
           sticker. For the good-news empty state and the plainly finished flow
           only: never in a card in a grid, on an error, a missing permission or
           a part-done outcome.
+        </p>
+      </Row>
+
+      <Row label="No connection">
+        <div className="grid w-full gap-4 sm:grid-cols-2">
+          <NoConnectionCard onRetry={() => undefined}>
+            <p>The payslips did not load.</p>
+            <p>
+              The app cannot reach the server. Check your internet connection,
+              then try again.
+            </p>
+            <p>Nothing has been changed or lost.</p>
+          </NoConnectionCard>
+        </div>
+        <p className="mt-3 max-w-prose text-body-sm text-muted">
+          What a read that never got an answer looks like: calm blue, a drawn
+          symbol and never a person, and the same sentences the red failure box
+          carries for any other fault. The full-page version is
+          <code> /offline</code>, which the service worker serves with no
+          stylesheet, so it carries its own.
         </p>
       </Row>
 
