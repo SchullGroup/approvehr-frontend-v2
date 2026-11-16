@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `44a53eba` (2026-11-14) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `74951644` (2026-11-16) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -14,7 +14,7 @@ component, and so does a symbol exported through an `export { … }` list.
 
 | Group                                                                                              |    Files | Components |   Hooks | Functions |
 | -------------------------------------------------------------------------------------------------- | -------: | ---------: | ------: | --------: |
-| [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       38 |         92 |       6 |        12 |
+| [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       40 |         95 |       6 |        12 |
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       45 |         44 |       1 |        18 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       22 |         49 |       0 |         6 |
 | [Module components — `src/components/*`](#module-components--srccomponents)                        |      155 |        230 |      10 |        43 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       46 |         51 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1293** |   **1076** | **455** |  **1631** |
+| **Total**                                                                                          | **1295** |   **1079** | **455** |  **1631** |
 
 ---
 
@@ -62,6 +62,7 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 | `src/components/ui/field.tsx`                | `InfoTooltip`, `Field`, `FieldRow`, `FieldSet`                                                 | `useFieldContext`, `useFieldControl` | —                                                                                             | 1 type             |
 | `src/components/ui/file-field.tsx`           | `FileField`                                                                                    | —                                    | —                                                                                             | —                  |
 | `src/components/ui/filter-bar.tsx`           | `FilterBar`                                                                                    | —                                    | —                                                                                             | 1 type             |
+| `src/components/ui/hero-backdrop.tsx`        | `HeroBackdrop`                                                                                 | —                                    | —                                                                                             | 1 const            |
 | `src/components/ui/illustration.tsx`         | `Illustration`                                                                                 | —                                    | —                                                                                             | —                  |
 | `src/components/ui/in-dialog.ts`             | —                                                                                              | —                                    | —                                                                                             | 1 const            |
 | `src/components/ui/input.tsx`                | `Input`, `Textarea`, `Select`                                                                  | —                                    | —                                                                                             | 2 types            |
@@ -72,6 +73,7 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 | `src/components/ui/money-format.ts`          | —                                                                                              | —                                    | `formatMoney`                                                                                 | 1 const · 1 type   |
 | `src/components/ui/money-privacy-toggle.tsx` | `MoneyPrivacyToggle`                                                                           | —                                    | —                                                                                             | —                  |
 | `src/components/ui/money.tsx`                | `Money`, `MoneyHidden`                                                                         | —                                    | —                                                                                             | —                  |
+| `src/components/ui/no-connection.tsx`        | `ConnectionGlyph`, `NoConnectionCard`                                                          | —                                    | —                                                                                             | —                  |
 | `src/components/ui/pagination.tsx`           | `Pagination`                                                                                   | —                                    | —                                                                                             | —                  |
 | `src/components/ui/picker.tsx`               | `Picker`                                                                                       | —                                    | —                                                                                             | 2 types            |
 | `src/components/ui/progress.tsx`             | `ProgressMeter`, `ScoreRing`, `FactorBars`                                                     | —                                    | —                                                                                             | —                  |
