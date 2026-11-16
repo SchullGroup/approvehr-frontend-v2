@@ -75,6 +75,10 @@ describe("NoConnectionCard", () => {
     );
     expect(screen.getByRole("alert")).toBeTruthy();
     expect(screen.getByText("No connection")).toBeTruthy();
+    // White on the blue, set on the heading itself: the base styles would otherwise make it the dark ink colour.
+    expect(
+      screen.getByRole("heading", { name: "No connection" }).className,
+    ).toContain("text-white");
     expect(screen.getByText("The app cannot reach the server.")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledTimes(1);

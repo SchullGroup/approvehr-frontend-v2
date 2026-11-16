@@ -50,7 +50,8 @@ export function NoConnectionCard({
       <HeroBackdrop />
       <div className="relative flex flex-col items-center gap-3 px-6 py-8 text-center">
         <ConnectionGlyph />
-        <h3 className="text-h4 font-semibold">{title}</h3>
+        {/* Its own colour: the app's base styles give every heading the ink colour, which would be dark on the blue. */}
+        <h3 className="text-h4 font-semibold text-white">{title}</h3>
         <div className="flex max-w-sm flex-col gap-1 text-body-sm leading-relaxed text-white/90">
           {children}
         </div>
