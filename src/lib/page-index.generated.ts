@@ -509,7 +509,17 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "How much each part of an appraisal counts towards somebody's mark, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. Each part counts in proportion to the total, and the weights and the names are frozen onto an appraisal period when it starts."
+    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
+  },
+  {
+    "href": "/settings/performance",
+    "title": "Appraisal scoring",
+    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
+  },
+  {
+    "href": "/settings/performance",
+    "title": "Appraisal scoring",
+    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
   },
   {
     "href": "/settings/policies",

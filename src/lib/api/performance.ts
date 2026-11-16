@@ -1638,6 +1638,47 @@ export type ApiScoringWeightsSaved = ApiScoringWeights & {
   frozenCycles: string[];
 };
 
+/**
+ * One appraisal scoring part, as the company wrote it: its own name and
+ * description, a weight, and the source its mark is scored from. Each source
+ * backs one part at most.
+ */
+export type ApiScoringPart = {
+  id: string;
+  source: ScoreComponent;
+  /** The source's built-in name, for "Scored from". */
+  sourceLabel: string;
+  name: string;
+  /** Null when the company wrote none. */
+  description: string | null;
+  weightBp: number;
+  /** Its share of a whole mark: weight over the total. */
+  shareBp: number;
+};
+
+export type ApiScoringParts = {
+  parts: ApiScoringPart[];
+  /** Weights are proportional, so this need not be 10000. */
+  totalBp: number;
+  /** Every source a part can be scored from, and the part using it if any. */
+  sources: {
+    source: ScoreComponent;
+    label: string;
+    description: string;
+    usedBy: string | null;
+  }[];
+  /** What self-assessment does to a mark, in the API's own words. */
+  selfAssessmentNote: string;
+};
+
+export type ScoringPartInput = {
+  source: ScoreComponent;
+  name: string;
+  /** Empty or null means no description. */
+  description?: string | null;
+  weightBp: number;
+};
+
 /* ---------------------------------------------------- bands and the report */
 
 /**
@@ -3121,6 +3162,29 @@ export const performanceApi = {
       },
     }),
 
+  /** The company's scoring parts. Open to everybody, like the weights. */
+  scoringParts: (signal?: AbortSignal) =>
+    request<ApiScoringParts>("/performance/scoring-parts", signalOf(signal)),
+
+  /** Add a part. A second part on a source already used is a 409. */
+  createScoringPart: (input: ScoringPartInput) =>
+    request<ApiScoringPart>("/performance/scoring-parts", {
+      method: "POST",
+      body: input,
+    }),
+
+  updateScoringPart: (id: string, patch: Partial<ScoringPartInput>) =>
+    request<ApiScoringPart>(`/performance/scoring-parts/${id}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+
+  /** Gone for good: its source counts for nothing until a part uses it again. */
+  deleteScoringPart: (id: string) =>
+    request<{ id: string; name: string }>(`/performance/scoring-parts/${id}`, {
+      method: "DELETE",
+    }),
+
   /** Everybody's composite score in one cycle. `EDIT_RECORDS`, as an aggregate is. */
   cycleScores: (
     cycleId: string,
@@ -4108,6 +4172,38 @@ export function weightProblem(entries: { weightBp: number }[]): string | null {
   return total < FULL_WEIGHT_BP
     ? `These add up to ${weightLabel(total)}. Add ${weightLabel(FULL_WEIGHT_BP - total)}.`
     : `These add up to ${weightLabel(total)}. Take off ${weightLabel(total - FULL_WEIGHT_BP)}.`;
+}
+
+/**
+ * What to say beside a set of proportional weights that add up to more than
+ * 100%, or null when they do not.
+ *
+ * A warning and not a refusal. The company's parts and a period's own weights
+ * are proportional: each part counts for its weight over the total, so 110% is
+ * a legitimate set and the API takes it. What goes wrong is the reading. A
+ * person who typed 45 and sees 45% on the row takes it for 45% of the mark,
+ * and the mark counts it for 45/110, so the total is the only place the
+ * difference can be said. It is said beside the total and beside the field that
+ * moves it, in one place, so the two cannot describe it differently.
+ *
+ * **Not said for exactly 100%, or for less.** Under 100% nothing is
+ * misleading: every part still counts for at least its weight's worth of the
+ * whole, and "weights that do not add up to 100%" is a question for the
+ * company, not an alarm.
+ *
+ * `canChange` is false for a set that is fixed (a period that has started): the
+ * advice to take some off would be an instruction nobody can follow.
+ */
+export function overFullWeightNote(
+  totalBp: number,
+  { canChange = true }: { canChange?: boolean } = {},
+): string | null {
+  if (!Number.isFinite(totalBp) || totalBp <= FULL_WEIGHT_BP) return null;
+  const total = weightLabel(totalBp);
+  const said = `These add up to ${total}, which is more than 100%. Each part counts for its share of ${total}, not for the weight typed.`;
+  return canChange
+    ? `${said} To make the weights read as shares of 100%, take off ${weightLabel(totalBp - FULL_WEIGHT_BP)}.`
+    : said;
 }
 
 /**

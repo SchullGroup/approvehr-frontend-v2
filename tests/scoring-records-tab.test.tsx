@@ -39,6 +39,20 @@ const weights = {
 };
 vi.mock("@/lib/store/performance", async (original) => ({
   ...(await original<typeof import("@/lib/store/performance")>()),
+  /* The form reads whether it is connected from the parts, so they are mocked too: an empty
+     company is enough, since this file is about the Records tab and not the parts. */
+  useScoringParts: () => ({
+    parts: { parts: [], totalBp: 0, sources: [], selfAssessmentNote: "" },
+    loading: false,
+    error: null,
+    source: "api",
+    editable: true,
+    refusal: "",
+    add: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+    reload: vi.fn(),
+  }),
   useScoringWeights: () => ({
     weights,
     loading: false,
