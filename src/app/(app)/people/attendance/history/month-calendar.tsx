@@ -151,13 +151,15 @@ function cellClaim(day: ApiAttendanceDay): {
     return { ...none, filler: "Rest", label: `${date}, rest day${expected}` };
   }
 
-  /* The honest gap. Not "0 in, 10 out": nothing here said anybody was out, so an
-     em dash rather than a nought — and "no attendance recorded" in the label,
-     which is the sentence the whole screen turns on. */
+  /* The honest gap. Not "0 in, 10 out": nothing here said anybody was out, so
+     the cell is left blank rather than carrying a nought, and the label says
+     "no attendance recorded", which is the sentence the whole screen turns on.
+     It had an em dash under the date; that was removed on request, and a blank
+     claims nothing either. */
   if (day.absent === null) {
     return {
       ...none,
-      filler: "—",
+      filler: "",
       label: `${date}, no attendance recorded${expected}`,
     };
   }
@@ -288,15 +290,16 @@ export function MonthCalendar({
                 <span
                   className={cn(
                     "tabular flex size-6 items-center justify-center rounded-full text-body-sm",
-                    /* Filled against dashed, exactly as the leave calendar draws
-                       it: a gazetted holiday is solid, one awaiting proclamation
-                       is an outline. The tint is the second cue, never the cue. */
+                    /* Solid outline against dashed: a gazetted holiday has a solid
+                       ring, one awaiting proclamation a dashed one. Today is the
+                       blue disc, so a holiday is not blue here. The tint is the
+                       second cue, never the cue. */
                     holiday?.confirmed
-                      ? "bg-accent font-semibold text-white"
+                      ? "border border-warning-text font-semibold text-warning-text"
                       : holiday
                         ? "border border-dashed border-warning-text font-semibold text-warning-text"
                         : isToday
-                          ? "bg-fill-strong font-semibold text-white"
+                          ? "bg-accent font-semibold text-white"
                           : day.future
                             ? "text-faint"
                             : "font-medium text-ink",
@@ -348,8 +351,7 @@ export function MonthCalendar({
  * The legend.
  *
  * Exported separately so the card can put it below the grid without the grid
- * needing to know it exists. Every marker on it is one somebody will meet, and
- * the dash is on it because "—" is the only cell whose meaning is not guessable.
+ * needing to know it exists. Every marker on it is one somebody will meet.
  */
 export function CalendarLegend({
   awaitingProclamation,
@@ -362,7 +364,7 @@ export function CalendarLegend({
       <span className="flex items-center gap-2 text-meta text-body">
         <span
           aria-hidden="true"
-          className="inline-flex size-5 items-center justify-center rounded-full bg-fill-strong text-meta font-semibold text-white"
+          className="inline-flex size-5 items-center justify-center rounded-full bg-accent text-meta font-semibold text-white"
         >
           1
         </span>
@@ -371,7 +373,7 @@ export function CalendarLegend({
       <span className="flex items-center gap-2 text-meta text-body">
         <span
           aria-hidden="true"
-          className="inline-flex size-5 items-center justify-center rounded-full bg-accent text-meta font-semibold text-white"
+          className="inline-flex size-5 items-center justify-center rounded-full border border-warning-text text-meta font-semibold text-warning-text"
         >
           1
         </span>
@@ -388,12 +390,6 @@ export function CalendarLegend({
           Awaiting proclamation: still a working day here
         </span>
       )}
-      <span className="flex items-center gap-2 text-meta text-body">
-        <span aria-hidden="true" className="text-meta text-faint">
-          —
-        </span>
-        No attendance recorded
-      </span>
     </div>
   );
 }
