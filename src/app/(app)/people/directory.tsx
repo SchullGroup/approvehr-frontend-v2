@@ -76,7 +76,6 @@ import {
 import { MissingDetailsDialog } from "@/components/people/missing-details-dialog";
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
-import { DirectoryFieldSettings } from "./directory-settings";
 import { useDismiss } from "@/hooks/use-dismiss";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
@@ -405,8 +404,6 @@ export function Directory({
           </Badge>
         )}
       </div>
-
-      <DirectoryFieldSettings />
 
       {/* ---- Where people stand ----------------------------------------
           `byStatus` has been on every directory response since the endpoint
