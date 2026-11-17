@@ -115,6 +115,11 @@ type DayTimerProps = {
   date: string;
   policy: ApiAttendancePolicy | null;
   className?: string;
+  /**
+   * Drawn for the blue hero card: the elapsed time large and white, the rest in
+   * soft white. Same figures from the same anchor, only the dress changes.
+   */
+  onAccent?: boolean;
 };
 
 export function DayTimer(props: DayTimerProps) {
@@ -135,6 +140,7 @@ function RunningTimer({
   serverTime,
   policy,
   className,
+  onAccent = false,
 }: DayTimerProps) {
   /* Thirty seconds, not one. The readout is in minutes, so a per-second timer
      would re-render sixty times to change the display twice — and this sits on
@@ -168,8 +174,16 @@ function RunningTimer({
   if (nowMinutes >= 1440) {
     return (
       <div className={cn("flex items-center gap-1.5", className)}>
-        <Timer aria-hidden="true" className="size-4 text-muted" />
-        <span className="text-body-sm text-muted">
+        <Timer
+          aria-hidden="true"
+          className={cn("size-4", onAccent ? "text-white" : "text-muted")}
+        />
+        <span
+          className={cn(
+            "text-body-sm",
+            onAccent ? "text-white/90" : "text-muted",
+          )}
+        >
           Out of date: a new day has started.
         </span>
       </div>
@@ -200,6 +214,39 @@ function RunningTimer({
   const fullDayAt = fullDay === null ? null : clock(started + fullDay);
   const reachedFullDay = fullDay !== null && elapsed >= fullDay;
   const remaining = fullDay === null ? null : Math.max(0, fullDay - elapsed);
+
+  if (onAccent) {
+    return (
+      <div className={cn("flex flex-col gap-1.5", className)}>
+        {/* `aria-live="polite"` for the same reason as below: it changes twice
+            an hour and must not interrupt. */}
+        <span
+          aria-live="polite"
+          className="tabular text-[3.5rem] leading-none font-semibold text-white"
+        >
+          {spell(elapsed)}
+        </span>
+        <span className="text-body-sm text-white/90">
+          on the clock
+          {fullDayAt !== null && (
+            <>
+              {" "}
+              &middot;{" "}
+              {reachedFullDay
+                ? `a full day was ${fullDayAt}`
+                : `a full day at ${fullDayAt}`}
+              {!reachedFullDay && remaining !== null && remaining > 0 && (
+                <> &middot; {spell(remaining)} to go</>
+              )}
+              {reachedFullDay && elapsed > (fullDay ?? 0) && (
+                <> &middot; {spell(elapsed - (fullDay ?? 0))} over</>
+              )}
+            </>
+          )}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div

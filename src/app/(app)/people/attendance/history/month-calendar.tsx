@@ -289,7 +289,7 @@ export function MonthCalendar({
               >
                 <span
                   className={cn(
-                    "tabular flex size-6 items-center justify-center rounded-full text-body-sm",
+                    "tabular flex size-8 items-center justify-center rounded-full text-body-sm",
                     /* Solid outline against dashed: a gazetted holiday has a solid
                        ring, one awaiting proclamation a dashed one. Today is the
                        blue disc, so a holiday is not blue here. The tint is the
@@ -364,7 +364,7 @@ export function CalendarLegend({
       <span className="flex items-center gap-2 text-meta text-body">
         <span
           aria-hidden="true"
-          className="inline-flex size-5 items-center justify-center rounded-full bg-accent text-meta font-semibold text-white"
+          className="inline-flex size-6 items-center justify-center rounded-full bg-accent text-meta font-semibold text-white"
         >
           1
         </span>
@@ -373,7 +373,7 @@ export function CalendarLegend({
       <span className="flex items-center gap-2 text-meta text-body">
         <span
           aria-hidden="true"
-          className="inline-flex size-5 items-center justify-center rounded-full border border-warning-text text-meta font-semibold text-warning-text"
+          className="inline-flex size-6 items-center justify-center rounded-full border border-warning-text text-meta font-semibold text-warning-text"
         >
           1
         </span>
@@ -383,7 +383,7 @@ export function CalendarLegend({
         <span className="flex items-center gap-2 text-meta text-body">
           <span
             aria-hidden="true"
-            className="inline-flex size-5 items-center justify-center rounded-full border border-dashed border-warning-text text-meta font-semibold text-warning-text"
+            className="inline-flex size-6 items-center justify-center rounded-full border border-dashed border-warning-text text-meta font-semibold text-warning-text"
           >
             1
           </span>
