@@ -4,7 +4,6 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
-  CalendarDays,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -16,7 +15,6 @@ import {
   Megaphone,
   Pin,
   Users,
-  Wallet,
 } from "lucide-react";
 import {
   Badge,
@@ -25,7 +23,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Disclosure,
   EmptyState,
   IconButton,
   LoadState,
@@ -163,7 +160,6 @@ function TodayBody({ today }: { today: MeToday }) {
   const announcements = sectionData(sections.announcements);
   const policies = sectionData(sections.policies);
   const pay = sectionData(sections.pay);
-  const leave = sectionData(sections.leave);
   const advance = sectionData(sections.advance);
   const tasks = sectionData(sections.tasks);
   const oneOnOne = sectionData(sections.oneOnOne);
@@ -424,29 +420,6 @@ function TodayBody({ today }: { today: MeToday }) {
       />,
     );
   }
-  if (pay?.latestPayslip) {
-    const slip = pay.latestPayslip;
-    glance.push(
-      <TodayRow
-        key="payslip"
-        icon={<Wallet />}
-        title={`${periodLabel(slip.period)} payslip`}
-        titleHref={`/payroll/payslips/${slip.id}`}
-        detail={
-          slip.paid
-            ? `Paid ${shortDate(slip.payDate)}`
-            : "Approved, not yet paid"
-        }
-        trailing={
-          <MaskedAmount
-            kobo={slip.netKobo}
-            shown={revealed}
-            onToggle={() => setRevealed((was) => !was)}
-          />
-        }
-      />,
-    );
-  }
   if (sectionFailed(sections.pay)) {
     glance.push(
       <ErrorRow
@@ -454,54 +427,6 @@ function TodayBody({ today }: { today: MeToday }) {
         label="Pay"
         busy={retrying === "pay"}
         onRetry={() => void retry("pay")}
-      />,
-    );
-  }
-
-  if (leave && leave.balances.length > 0) {
-    const rows = leave.balances.map((balance) => (
-      <TodayRow
-        key={balance.leaveTypeId}
-        icon={<CalendarDays />}
-        title={balance.leaveType}
-        detail={balance.pending > 0 ? `${balance.pending} pending` : undefined}
-        trailing={
-          <span className="tabular text-body-sm font-medium text-ink">
-            {balance.remaining}
-            <span className="font-normal text-muted">
-              {" "}
-              of {balance.entitled} left
-            </span>
-          </span>
-        }
-      />
-    ));
-    /* A click to reveal one row is a click for nothing, so the rest go behind
-       one only when there are at least two of them. */
-    const shown = rows.length > LEAVE_SHOWN + 1 ? LEAVE_SHOWN : rows.length;
-    glance.push(...rows.slice(0, shown));
-    if (rows.length > shown) {
-      glance.push(
-        <li key="leave-more" className="py-2">
-          <Disclosure
-            dense
-            level={4}
-            title="More leave types"
-            meta={<Badge size="sm">{rows.length - shown}</Badge>}
-          >
-            <ul className="divide-y divide-line">{rows.slice(shown)}</ul>
-          </Disclosure>
-        </li>,
-      );
-    }
-  }
-  if (sectionFailed(sections.leave)) {
-    glance.push(
-      <ErrorRow
-        key="leave-error"
-        label="Leave"
-        busy={retrying === "leave"}
-        onRetry={() => void retry("leave")}
       />,
     );
   }
@@ -720,9 +645,6 @@ function TodayBody({ today }: { today: MeToday }) {
 }
 
 /* ------------------------------------------------------------------- pieces */
-
-/** How many leave types show before the rest go behind a click (when that hides two or more). */
-const LEAVE_SHOWN = 3;
 
 const PAYDAY_STATE = {
   planned: "Planned",

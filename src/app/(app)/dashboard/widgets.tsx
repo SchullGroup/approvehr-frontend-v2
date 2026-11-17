@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Inbox,
   Hourglass,
-  FileChartColumn,
   TrendingDown,
   Users,
   Wallet,
@@ -46,7 +45,6 @@ import {
 } from "@/lib/api/insights";
 import { cn } from "@/lib/cn";
 import { useCan } from "@/lib/permissions";
-import { useCompanyHeadline } from "@/lib/store/company-report";
 import { formatDate } from "@/lib/time";
 
 /**
@@ -212,44 +210,6 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
         </ul>
       </CardBody>
     </Card>
-  );
-};
-
-/**
- * The one sentence the company report opens on, for somebody who runs the
- * company, with a link to the report.
- *
- * Fetched on its own after first paint (`useCompanyHeadline`) rather than
- * carried by `/insights/dashboard`: the sentence is worked out by the same rules
- * as the report, which is dear, and the dashboard is the screen people open
- * most. It draws **nothing** when there is nothing to say, when the read fails,
- * or when the API sends a rule this build does not know (see
- * `printableCompanyHeadline`). A card saying nothing stands out is furniture, and
- * a card saying a read failed is worse on the owner's first screen than no card.
- * It must leave no child nodes at all, or the grid's `empty:hidden` stops closing
- * the row.
- */
-const WorkforceHeadline: WidgetComponent = () => {
-  const headline = useCompanyHeadline(useCan("EDIT_RECORDS"));
-  if (!headline) return null;
-
-  return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-      <span className="inline-flex items-center gap-2">
-        <FileChartColumn
-          aria-hidden="true"
-          className="size-4 shrink-0 text-accent-text"
-        />
-        <span className="font-medium text-ink">{headline.sentence}</span>
-      </span>
-      <Link
-        href="/reports/company"
-        className="inline-flex w-fit items-center gap-1 text-meta text-accent-text hover:underline"
-      >
-        Open the company report
-        <ArrowRight aria-hidden="true" className="size-3" />
-      </Link>
-    </p>
   );
 };
 
@@ -811,7 +771,7 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
   );
 };
 
-const MyClock: WidgetComponent = () => <MyClockCard />;
+const MyClock: WidgetComponent = () => <MyClockCard hero />;
 
 /* Both read their own request, so neither takes the dashboard's payload. See
    `TodayPanel` and `AppUseCard`: each draws nothing when it has nothing to say. */
@@ -839,7 +799,6 @@ const Noticeboard: WidgetComponent = ({ dashboard }) => (
  */
 export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "needs-you": NeedsYou,
-  "workforce-headline": WorkforceHeadline,
   today: Today,
   "my-queue": MyQueue,
   "stat-headcount": StatHeadcount,

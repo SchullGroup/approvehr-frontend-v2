@@ -2,21 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { LoadFailure, LoadState } from "@/components/ui";
-import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
 import { cn } from "@/lib/cn";
 import {
   COLLABORATOR_HOME,
   useIsCollaborator,
 } from "@/lib/hiring/access/collaborator";
-import { useCan, usePermissions } from "@/lib/permissions";
+import { usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
-import { useSetupChecklist } from "@/lib/store/setup-checklist";
-import { checklistRows } from "../settings/checklist";
 import { CompleteDetailsPrompt } from "./complete-details";
 import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
@@ -185,8 +181,6 @@ export function DashboardScreen() {
       />
 
       <PageBody>
-        {/* What is still not set up, where somebody actually is. Absent once
-            everything is done. */}
         <SetupPrompt />
         <CompleteDetailsPrompt />
 
@@ -317,75 +311,22 @@ export function dashboardSections(
 }
 
 /**
- * What is still outstanding in setting the company up.
+ * The first-visit walk-through, and nothing else.
  *
- * Renders nothing when the checklist is complete, when it has not answered
- * yet, or for somebody who could not act on it anyway — a prompt to finish
- * setting up the company shown to an employee who cannot open Settings is a
- * dead end with a link on it.
- *
- * The count and the wording come from the same `checklistRows` the settings
- * hub renders, so the dashboard cannot say "3 things left" while the hub says
- * four.
+ * There used to be a line above the widgets counting what was still to set up,
+ * with a link to the next step and "Walk me through it". It was removed on
+ * request: it sat on the dashboard for as long as anything was outstanding. The
+ * setup list still lives at `/settings`. The guide keeps its own
+ * once-per-browser offer, and renders nothing when there is nothing to walk
+ * through or the reader cannot act on it.
  */
 function SetupPrompt() {
-  const canManage = useCan("MANAGE_SETTINGS");
-  const { facts, loading } = useSetupChecklist();
-  /* Held here rather than inside the guide, because this callout owns the
-     button that reopens it and the guide owns the once-per-browser offer. Two
-     components, one piece of open/closed state, and it lives with the one that
-     renders on every load. */
   const [guiding, setGuiding] = useState(false);
-
-  /* Mounted before the permission and completeness checks below, because the
-     guide answers both for itself — and because a hook cannot be skipped. It
-     renders nothing when there is nothing to walk through. */
-  const guide = (
+  return (
     <SetupGuide
       open={guiding}
       onOpen={() => setGuiding(true)}
       onClose={() => setGuiding(false)}
     />
-  );
-
-  if (!canManage || loading || !facts) return guide;
-
-  /* `optional` and `unknown` are left out of the denominator for the reason
-     the checklist's own header gives: a row that cannot be incomplete would
-     make the count a number that never falls to zero, and a count that never
-     completes stops being read. */
-  const rows = checklistRows(facts).filter(
-    (row) => row.status !== "optional" && row.status !== "unknown",
-  );
-  const outstanding = rows.filter((row) => row.status !== "done");
-  if (outstanding.length === 0) return guide;
-
-  const first = outstanding[0]!;
-  return (
-    <>
-      <NoticeLine tone="accent" className="mb-4">
-        {/* Names the next one rather than only counting. A number alone is a
-            nag; a number and the next step is a thing somebody can finish. */}
-        <span>
-          {outstanding.length} of {rows.length} still to set up. Next:{" "}
-          {first.title.toLowerCase()}.
-        </span>
-        <Link href={first.href} className={NOTICE_LINK}>
-          {first.linkLabel}
-        </Link>
-        {/* The way back to the walk. The guide offers itself once per browser;
-            without this, somebody who dismissed it — or who arrived after a
-            colleague dismissed it on a shared machine — has no way to ask for
-            it again. */}
-        <button
-          type="button"
-          className={NOTICE_LINK}
-          onClick={() => setGuiding(true)}
-        >
-          Walk me through it
-        </button>
-      </NoticeLine>
-      {guide}
-    </>
   );
 }

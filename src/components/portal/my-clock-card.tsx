@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Clock, LogIn, LogOut, Undo2 } from "lucide-react";
 import {
@@ -30,7 +30,8 @@ import {
   useWorkLocations,
 } from "@/lib/store/attendance";
 import { useCan } from "@/lib/permissions";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatTime } from "@/lib/time";
 import { shortDate } from "@/lib/today";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
 import { RequestCorrectionDialog } from "@/app/(app)/people/attendance/my-attendance-history";
@@ -50,7 +51,15 @@ import { RequestCorrectionDialog } from "@/app/(app)/people/attendance/my-attend
  */
 export function MyClockCard({
   showFailure = true,
+  hero = false,
 }: {
+  /**
+   * The staff home screen's treatment: a blue band across the top with a
+   * greeting and the time, so the first thing an employee sees is the clock and
+   * the button under it. Off elsewhere: the attendance page already has its own
+   * heading.
+   */
+  hero?: boolean;
   /**
    * Whether a failed read is explained on this card. A screen that already
    * renders the same failure beside it — the attendance page's own roster —
@@ -239,7 +248,8 @@ export function MyClockCard({
   }
 
   return (
-    <Card>
+    <Card className={hero ? "overflow-hidden" : undefined}>
+      {hero && <ClockHeroBand />}
       {/* Three zones — who you are, when you are expected, what you press —
           laid out as a column that becomes a row at `lg`.
 
@@ -405,6 +415,7 @@ export function MyClockCard({
               {!myRow?.clockIn ? (
                 <Button
                   variant="approve"
+                  size={hero ? "lg" : undefined}
                   disabled={busy}
                   onClick={() =>
                     void run(
@@ -424,6 +435,7 @@ export function MyClockCard({
               ) : !myRow.clockOut ? (
                 <Button
                   variant="secondary"
+                  size={hero ? "lg" : undefined}
                   disabled={busy}
                   onClick={() =>
                     void run(
@@ -570,6 +582,49 @@ function EarlierOpenNotice({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- hero band */
+
+const tickEverySecond = (onChange: () => void) => {
+  const id = window.setInterval(onChange, 1000);
+  return () => window.clearInterval(id);
+};
+
+/** A whole-second timestamp, or null on the server so the first paint matches. */
+function useNowSecond(): number | null {
+  return useSyncExternalStore(
+    tickEverySecond,
+    () => Math.floor(Date.now() / 1000), // reads-the-clock: a display tick for the hero band, never a calendar day
+    () => null,
+  );
+}
+
+/**
+ * The time, large, across the top of the staff home.
+ *
+ * The page header above it already carries the greeting and the date, so this
+ * says neither: the one thing this adds is the clock. White on the accent fill,
+ * which is a verified pair (10.1:1). The time is the organisation's, not the
+ * browser's, because "09:02" on a phone set to another zone is the kind of
+ * wrong that makes somebody think they are late.
+ */
+function ClockHeroBand() {
+  const timeZone = useOrgTimezone();
+  const second = useNowSecond();
+  const now = second === null ? null : new Date(second * 1000);
+
+  return (
+    <div className="flex items-center justify-between gap-x-6 bg-accent px-6 py-5 text-white">
+      <p className="text-body-sm font-medium">Time now</p>
+      <p
+        className="text-[2.5rem] leading-none font-semibold tabular-nums"
+        aria-label="Current time"
+      >
+        {now === null ? "--:--" : formatTime(now, timeZone)}
+      </p>
     </div>
   );
 }
