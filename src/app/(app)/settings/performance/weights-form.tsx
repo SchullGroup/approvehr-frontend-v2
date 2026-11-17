@@ -41,6 +41,8 @@ import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wordin
 import { useCan } from "@/lib/permissions";
 import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
+import { WorkAssistsCard } from "./work-assists-card";
+import { WorkInAnswersCard } from "./work-in-answers-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
 import { WorkRecordCard } from "./work-record-card";
 
@@ -163,6 +165,8 @@ export function ScoringWeightsForm({
           </div>
           <div hidden={tab !== "records"} className="flex flex-col gap-6">
             <WorkRecordCard connected={scoring.source === "api"} />
+            <WorkInAnswersCard connected={scoring.source === "api"} />
+            <WorkAssistsCard connected={scoring.source === "api"} />
           </div>
         </Tabs>
       </PageBody>

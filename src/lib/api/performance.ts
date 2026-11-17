@@ -4,6 +4,7 @@ import type { IssueObjective } from "@/lib/projects/types";
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import { downloadBlob, fetchBinary } from "@/lib/api/download";
 import type { ApiSuggestOutcome } from "@/lib/api/ai";
+import type { ApiPin } from "@/lib/api/work-pins";
 
 /**
  * KPIs, appraisals and skills — `/api/v1/performance`.
@@ -940,6 +941,14 @@ export type ApiFormQuestion = {
   /** Sent with `answersSubsection: true`, and what the form is drawn from. */
   subsection?: ApiSubsectionOnForm;
   /**
+   * The finished work the person pinned to this answer, on a **self-review** only: their own
+   * choice, with a note of their own, read by whoever may read the review. Absent on every other
+   * form and from a server that predates pins, and absent means there is nothing to show, never
+   * "they pinned nothing". Read it through `pinsOf` in `lib/api/work-pins.ts`, which keeps only
+   * what is a pin and no title.
+   */
+  pins?: ApiPin[];
+  /**
    * The subject's own answer, on their manager's form only. `null` and absent
    * are the same thing: nothing to show.
    */
@@ -968,6 +977,14 @@ export type ApiReviewDetail = ApiReview & {
    * refuses a send without one where it is, in a sentence the form shows.
    */
   overallMarkRequired?: boolean;
+  /**
+   * Whether this company lets people pin their own finished project work to an answer: its
+   * "Work in review answers" setting (and Projects) in Appraisal scoring, sent with the form so
+   * the page needs no second request. **Absent from a server that predates it, and absent means
+   * off**, never on: a form must not offer something the company has not chosen. Pins that were
+   * already written are drawn whatever this says.
+   */
+  workPins?: boolean;
   /**
    * Why Send would be refused right now, in the API's own sentence, or `null`
    * when it would not.

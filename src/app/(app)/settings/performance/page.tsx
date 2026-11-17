@@ -7,7 +7,7 @@ import { ScoringWeightsForm } from "./weights-form";
 export const metadata: Metadata = {
   title: "Appraisal scoring",
   description:
-    "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, and how long the work behind a final rating is kept. The parts and the names are frozen onto an appraisal period when it starts.",
+    "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts.",
 };
 
 /**
@@ -21,10 +21,11 @@ export const metadata: Metadata = {
  * because the names are what that page offers. It is not frozen onto a period the way the weights
  * and the names are: it is read when a form opens.
  *
- * The third tab, Records, says how long the finished work behind a final rating is kept. It is
- * not about scoring and nothing in it reaches a mark. It is here because it is a company's
- * decision about the performance module, made once, and a tab on this page is where somebody
- * looking at the appraisal settings would look. See `work-record-card.tsx`.
+ * The third tab, Records, says how long the finished work behind a final rating is kept, and
+ * whether people may use their own finished work in their review answers. Neither is about scoring
+ * and nothing in either reaches a mark. They are here because they are a company's decisions about
+ * the performance module, made once, and a tab on this page is where somebody looking at the
+ * appraisal settings would look. See `work-record-card.tsx` and `work-in-answers-card.tsx`.
  *
  * `ScoringWeightsForm` owns the page header, because it owns the breadcrumb and the demo badge,
  * and the three are its tabs: it is handed the scale form to show on the second.

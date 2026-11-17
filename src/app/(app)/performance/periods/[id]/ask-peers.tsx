@@ -12,7 +12,14 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { performanceApi } from "@/lib/api/performance";
+import {
+  orderBySharedProjects,
+  sharedLabel,
+} from "@/lib/performance/work-in-answers";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useFeatureSettings } from "@/lib/store/features";
+import { useSharedProjects } from "@/lib/store/shared-projects";
+import { useHeldWhileOpen } from "@/lib/use-held-while-open";
 
 /**
  * Asking colleagues to review somebody — the 360 half of an appraisal.
@@ -38,6 +45,20 @@ import { useEmployeeDirectory } from "@/lib/store/employees-api";
  * The API `skipDuplicates` on the reviews it writes, so asking the same
  * colleague again is a no-op rather than a second form in their queue. That
  * is what makes it safe to reopen this and add one more name later.
+ *
+ * ## Colleagues who shared a project come first
+ *
+ * Where the company has switched on "Work in review answers", the people who were
+ * members of a project with the subject are listed first and each says how many they
+ * shared. It orders the list and nothing else: nobody is chosen, nobody is left out,
+ * and a person is still picked by ticking them. It asks only when the dialog is open,
+ * and **where the server says nothing** (the setting is off, this reader is not one
+ * it answers, the request failed) the list is exactly what it was, with no claim that
+ * anybody shared nothing.
+ *
+ * The order is held the moment somebody reaches into the list, and let go when the dialog
+ * closes: an answer that lands while a person is about to tick a name must not move the
+ * names. It then applies the next time the dialog is opened.
  */
 export function AskPeersDialog({
   open,
@@ -56,6 +77,9 @@ export function AskPeersDialog({
 }) {
   const toast = useToast();
   const { employees, loading } = useEmployeeDirectory({ pageSize: 200 });
+  const { workInAnswers } = useFeatureSettings();
+  const shared = useSharedProjects(subjectId, open && workInAnswers === true);
+  const colleagues = useHeldWhileOpen(shared.colleagues, open);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -66,7 +90,7 @@ export function AskPeersDialog({
      nothing. */
   const candidates = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return employees
+    const listed = employees
       .filter((person) => person.id !== subjectId)
       .filter(
         (person) =>
@@ -75,7 +99,10 @@ export function AskPeersDialog({
             .toLowerCase()
             .includes(term),
       );
-  }, [employees, subjectId, query]);
+    /* Those who shared a project first, when the server said who; otherwise the list as it came. */
+    return orderBySharedProjects(listed, colleagues.shown);
+  }, [employees, subjectId, query, colleagues.shown]);
+  const anyShared = candidates.some((one) => one.shared > 0);
 
   const toggle = (id: string) =>
     setPicked((current) => {
@@ -153,6 +180,12 @@ export function AskPeersDialog({
           towards the mark only if they are an appraiser with a share of it;
           otherwise they are read as feedback beside it.
         </p>
+        {anyShared && (
+          <p className="text-body-sm text-muted">
+            People who shared a project with {subjectName} are listed first. You
+            still choose who to ask.
+          </p>
+        )}
 
         <div className="relative">
           <Search
@@ -179,18 +212,30 @@ export function AskPeersDialog({
               : "There is nobody else on the payroll to ask."}
           </p>
         ) : (
-          <ul className="flex max-h-[22rem] flex-col divide-y divide-line overflow-y-auto rounded-md border border-line">
-            {candidates.map((person) => (
-              <li key={person.id} className="px-3 py-2.5">
-                <Checkbox
-                  label={`${person.firstName} ${person.lastName}`}
-                  {...(person.jobTitle ? { description: person.jobTitle } : {})}
-                  checked={picked.has(person.id)}
-                  disabled={busy}
-                  onChange={() => toggle(person.id)}
-                />
-              </li>
-            ))}
+          <ul
+            className="flex max-h-[22rem] flex-col divide-y divide-line overflow-y-auto rounded-md border border-line"
+            onPointerDownCapture={colleagues.hold}
+            onKeyDownCapture={colleagues.hold}
+          >
+            {candidates.map(({ person, shared: count }) => {
+              const detail = [
+                person.jobTitle,
+                ...(count > 0 ? [sharedLabel(count)] : []),
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <li key={person.id} className="px-3 py-2.5">
+                  <Checkbox
+                    label={`${person.firstName} ${person.lastName}`}
+                    {...(detail ? { description: detail } : {})}
+                    checked={picked.has(person.id)}
+                    disabled={busy}
+                    onChange={() => toggle(person.id)}
+                  />
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
