@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Callout,
   Checkbox,
+  Disclosure,
   Field,
   Input,
   Modal,
@@ -15,6 +16,16 @@ import {
   GEOFENCE_EXPLANATION,
   type ApiWorkLocation,
 } from "@/lib/api/attendance";
+import { GeofencePicker } from "@/components/geofence-picker/geofence-picker";
+import {
+  distanceMetres,
+  fenceMoved,
+  fieldsFromPin,
+  pointFromFields,
+  radiusFromField,
+  readout,
+  type Point,
+} from "@/components/geofence-picker/sync";
 
 /**
  * Adding or editing one work location.
@@ -28,15 +39,22 @@ import {
  * decides nothing, and a fence that silently never matches turns clock-ins down
  * with no visible cause.
  *
- * ## Why there is no map, and what stands in for one
+ * ## The fence is drawn on a map, and the numbers are still there
  *
- * A map needs a tile provider, which is a credential nobody has wired, and the
- * seam pattern in this codebase is explicit that a capability we cannot perform
- * is declared rather than faked. What actually makes coordinates usable without
- * one is a sentence saying what a radius *does* — see `GEOFENCE_EXPLANATION`,
- * which is written once in `lib/api/attendance.ts` so this form and the table
- * cannot come to describe it differently — plus a hint about where the numbers
- * come from, because "latitude" is not a thing an office manager has to hand.
+ * An office manager does not have a latitude to hand; they have an address and a
+ * front door. So the fence is set on a map (`GeofencePicker`): search the
+ * address, use where you are standing, or click, then drag the pin to the
+ * entrance and watch the circle the radius draws. The map is free — OpenStreetMap
+ * tiles and an address search the API makes on our behalf through Photon — and
+ * both are best-effort public services, so the typed latitude and longitude stay
+ * under "Enter coordinates by hand", synced both ways with the pin. If the map or
+ * the search fails, those fields open on their own and the form still saves.
+ *
+ * ## The typed fields stay the truth
+ *
+ * The map writes the three strings below and reads the pin back from them (see
+ * `geofence-picker/sync.ts`). There is one copy of each value, so the map and
+ * the numbers cannot disagree.
  *
  * ## One `onSave`, and the whole location in it
  *
@@ -54,10 +72,21 @@ import {
  * latitude — the equator — so parsing on every keystroke would turn a cleared
  * field into a fence off the coast of Ghana. The strings are parsed once, on
  * save, and a blank one is `undefined` rather than zero.
+ *
+ * ## The Address field belongs to the person
+ *
+ * A place the search picked, or the map's nearest address, may fill the Address
+ * field — but only while it is empty, checked when the answer arrives rather than
+ * when it was asked for, so a slow answer never overwrites what somebody typed in
+ * the meantime. If the pin then moves more than 100 m from where that address
+ * came from, the form says the two may no longer match instead of rewriting it.
  */
 
 /** Digits, one optional sign, one optional decimal point. Nothing else. */
 const NUMERIC = /^-?\d*\.?\d*$/;
+
+/** How far the pin may move from a filled-in address before we say so. */
+const ADDRESS_DRIFT_METRES = 100;
 
 type Draft = {
   name: string;
@@ -89,6 +118,24 @@ const toDraft = (location?: ApiWorkLocation): Draft => ({
       : String(location.radiusMetres),
 });
 
+/** The fence on record, if the location has a whole one. */
+function savedFence(
+  location?: ApiWorkLocation,
+): (Point & { radiusMetres: number }) | null {
+  if (
+    location?.latitude == null ||
+    location.longitude == null ||
+    location.radiusMetres == null
+  ) {
+    return null;
+  }
+  return {
+    latitude: location.latitude,
+    longitude: location.longitude,
+    radiusMetres: location.radiusMetres,
+  };
+}
+
 /** Every field the form owns, with `null` for absent. Not a create, not a patch. */
 export type LocationDraft = {
   name: string;
@@ -112,8 +159,48 @@ export function LocationForm({
   onSave: (draft: LocationDraft) => Promise<void>;
 }) {
   const editing = location !== undefined;
+  const saved = savedFence(location);
   const [draft, setDraft] = useState<Draft>(() => toDraft(location));
   const [busy, setBusy] = useState(false);
+
+  /* The latest draft, for answers that arrive after a render has moved on. */
+  const latest = useRef(draft);
+  useEffect(() => {
+    latest.current = draft;
+  });
+
+  /* Hand entry starts open when there are numbers to show; it opens itself when
+     the map cannot load, so nobody is left without a way to set the pin. */
+  const [handOpen, setHandOpen] = useState(saved !== null);
+  const [mapFailed, setMapFailed] = useState(false);
+  const [flyRequest, setFlyRequest] = useState(0);
+
+  /* Where a filled-in address came from, while it is still the one we filled. */
+  const [addressFrom, setAddressFrom] = useState<{
+    label: string;
+    at: Point;
+    origin: "search" | "reverse";
+  } | null>(null);
+
+  /* A fresh form every time the dialog opens.
+   *
+   * The screen keeps this component mounted while the dialog is closed, so the
+   * Modal can play its exit animation (commit 0420bf84). That made the edit form's
+   * state belong to the *first* render — no location — so every Edit opened blank
+   * and a second Add opened with the first one's leftovers. So the draft is reset
+   * here, during render, whenever the dialog opens or opens on a different location
+   * (React's "adjust state while rendering" pattern: no effect, no blank frame). */
+  const opening = open ? (location?.id ?? "new") : null;
+  const [openedFor, setOpenedFor] = useState<string | null>(null);
+  if (opening !== openedFor) {
+    setOpenedFor(opening);
+    if (opening !== null) {
+      setDraft(toDraft(location));
+      setHandOpen(saved !== null);
+      setMapFailed(false);
+      setAddressFrom(null);
+    }
+  }
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((prior) => ({ ...prior, [key]: value }));
@@ -124,6 +211,8 @@ export function LocationForm({
     draft.longitude.trim() === "" ? null : Number(draft.longitude);
   const radius =
     draft.radiusMetres.trim() === "" ? null : Number(draft.radiusMetres);
+
+  const pin = pointFromFields(draft.latitude, draft.longitude);
 
   /* Each bound is the API's, so a refusal is caught here rather than after a
      round trip. Ranges rather than a shape check: -91 is a well-formed number
@@ -157,6 +246,45 @@ export function LocationForm({
     !longitudeError &&
     !radiusError;
 
+  /* ---------------------------------------------------------- map events */
+
+  /* Every way the pin moves (search, click, drag, location, undo) writes the
+     same three fields; how it moved only matters to the picker. */
+  function placePin(point: Point) {
+    setDraft((prior) => ({
+      ...prior,
+      ...fieldsFromPin(point, prior.radiusMetres),
+    }));
+  }
+
+  function suggestAddress(
+    label: string,
+    origin: "search" | "reverse",
+    at: Point,
+  ) {
+    /* Checked against the draft as it is now, not as it was when the search or
+       the reverse lookup was asked for: a person who typed an address while the
+       answer was on its way keeps what they typed. */
+    if (latest.current.addressLine.trim() !== "") return;
+    set("addressLine", label);
+    setAddressFrom({ label, at, origin });
+  }
+
+  const addressDrifted =
+    addressFrom !== null &&
+    pin !== null &&
+    draft.addressLine === addressFrom.label &&
+    distanceMetres(addressFrom.at, pin) > ADDRESS_DRIFT_METRES;
+
+  const moved = draft.fenced && fenceMoved(saved, pin);
+  const removing = editing && saved !== null && !draft.fenced;
+
+  const finishTyping = () => {
+    if (pointFromFields(latest.current.latitude, latest.current.longitude)) {
+      setFlyRequest((n) => n + 1);
+    }
+  };
+
   async function save() {
     setBusy(true);
     try {
@@ -182,7 +310,7 @@ export function LocationForm({
     <Modal
       open={open}
       onClose={onClose}
-      size="md"
+      size={draft.fenced ? "lg" : "md"}
       title={editing ? `Edit ${location.name}` : "Add a work location"}
       description={
         editing
@@ -222,20 +350,34 @@ export function LocationForm({
           />
         </Field>
 
-        <Field
-          optional
-          label="Address"
-          help="For the record, not for the fence."
-        >
-          <Input
-            value={draft.addressLine}
-            placeholder="12 Allen Avenue, Ikeja, Lagos"
-            onChange={(e) => {
-              const value = e.target.value;
-              set("addressLine", value);
-            }}
-          />
-        </Field>
+        <div className="flex flex-col gap-1.5">
+          <Field
+            optional
+            label="Address"
+            help="For the record, not for the fence."
+          >
+            <Input
+              value={draft.addressLine}
+              placeholder="12 Allen Avenue, Ikeja, Lagos"
+              onChange={(e) => {
+                const value = e.target.value;
+                set("addressLine", value);
+                setAddressFrom(null);
+              }}
+            />
+          </Field>
+          {addressFrom !== null &&
+            draft.addressLine === addressFrom.label &&
+            (addressDrifted ? (
+              <p className="text-caption text-warning-text">
+                Address may not match the pin.
+              </p>
+            ) : (
+              <p className="text-caption text-muted">
+                Filled from the map. Edit if needed.
+              </p>
+            ))}
+        </div>
 
         <Checkbox
           label="Staff may clock in from anywhere"
@@ -262,61 +404,101 @@ export function LocationForm({
             }}
           />
 
+          {removing && (
+            <Callout
+              tone="warning"
+              title="Saving removes this location's fence"
+            >
+              Staff here will be able to clock in from anywhere until a fence is
+              set again.
+            </Callout>
+          )}
+
           {draft.fenced && (
             <>
-              <p className="text-body-sm text-muted">
-                Stand at the entrance, open any maps app, and read the two
-                numbers off the pin, latitude first. Six decimal places is about
-                a metre; four is about ten.
-              </p>
+              {mapFailed && (
+                <Callout tone="warning" title="Map couldn't load">
+                  Enter the coordinates below. They save exactly as a pin on the
+                  map would.
+                </Callout>
+              )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Latitude" required error={latitudeError}>
-                  <Input
-                    inputMode="decimal"
-                    value={draft.latitude}
-                    placeholder="6.601838"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (NUMERIC.test(value)) set("latitude", value);
-                    }}
-                  />
-                </Field>
-                <Field label="Longitude" required error={longitudeError}>
-                  <Input
-                    inputMode="decimal"
-                    value={draft.longitude}
-                    placeholder="3.350890"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (NUMERIC.test(value)) set("longitude", value);
-                    }}
-                  />
-                </Field>
-              </div>
+              <GeofencePicker
+                key={openedFor ?? "closed"}
+                pin={pin}
+                radiusText={draft.radiusMetres}
+                radiusError={radiusError}
+                onRadiusText={(text) => set("radiusMetres", text)}
+                saved={saved}
+                addressQuery={draft.addressLine}
+                wantsAddress={draft.addressLine.trim() === ""}
+                flyRequest={flyRequest}
+                onPin={placePin}
+                onAddressSuggestion={suggestAddress}
+                onMapFailed={() => {
+                  setMapFailed(true);
+                  setHandOpen(true);
+                }}
+                onMapRecovered={() => setMapFailed(false)}
+              />
 
-              <Field
-                label="Radius, in metres"
-                required
-                error={radiusError}
-                help="150 covers a building and its car park. 1,000 covers a small industrial estate."
+              <Disclosure
+                dense
+                title="Enter coordinates by hand"
+                meta={
+                  <span className="text-body-sm tabular-nums text-muted">
+                    {readout(pin, radiusFromField(draft.radiusMetres))}
+                  </span>
+                }
+                open={handOpen}
+                onToggle={() => setHandOpen((open) => !open)}
               >
-                <Input
-                  inputMode="numeric"
-                  value={draft.radiusMetres}
-                  placeholder="150"
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (NUMERIC.test(value)) set("radiusMetres", value);
-                  }}
-                />
-              </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Latitude" required error={latitudeError}>
+                    <Input
+                      inputMode="decimal"
+                      value={draft.latitude}
+                      placeholder="6.601838"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (NUMERIC.test(value)) set("latitude", value);
+                      }}
+                      onBlur={finishTyping}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") finishTyping();
+                      }}
+                    />
+                  </Field>
+                  <Field label="Longitude" required error={longitudeError}>
+                    <Input
+                      inputMode="decimal"
+                      value={draft.longitude}
+                      placeholder="3.350890"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (NUMERIC.test(value)) set("longitude", value);
+                      }}
+                      onBlur={finishTyping}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") finishTyping();
+                      }}
+                    />
+                  </Field>
+                </div>
+              </Disclosure>
 
               {partial && (
                 <Callout tone="warning" title="The fence is not finished">
-                  {GEOFENCE_ALL_OR_NOTHING} Fill all three in, or switch the
-                  check off: a fence with a piece missing decides nothing and
-                  would turn clock-ins down with no visible cause.
+                  {pin === null
+                    ? "Place the pin on the map or enter the coordinates."
+                    : `${GEOFENCE_ALL_OR_NOTHING} Choose a radius, or switch the check off: a fence with a piece missing decides nothing and would turn clock-ins down with no visible cause.`}
+                </Callout>
+              )}
+
+              {moved && !partial && (
+                <Callout tone="warning" title="The fence has moved">
+                  Staff outside the new circle won&rsquo;t be able to clock in
+                  once you save.
                 </Callout>
               )}
 

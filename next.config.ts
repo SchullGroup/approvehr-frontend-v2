@@ -222,6 +222,47 @@ const linkedUploadOrigin = (() => {
   }
 })();
 
+/**
+ * Where the geofence picker's map tiles come from, for `img-src`.
+ *
+ * The picker (`src/components/geofence-picker/region.ts`) draws raster tiles from
+ * `NEXT_PUBLIC_MAP_TILE_URL`, defaulting to OpenStreetMap's own. A tile URL is a
+ * template (`https://{s}.tile.example/{z}/{x}/{y}.png`), not a URL, so the
+ * placeholders are filled before parsing; a `{s}` subdomain becomes a wildcard on
+ * that one host, because Leaflet spreads requests across `a.`, `b.` and `c.`.
+ * Same rules as the origins above: `https:` only (and `http://localhost` in a
+ * development build), the origin and nothing wider, and a malformed value is
+ * dropped rather than trusted. Only `img-src`: tiles are images, and the address
+ * search goes through the API, which `connect-src` already names.
+ */
+/* The same string as `MAP_TILE_DEFAULT` in `src/components/geofence-picker/region.ts`,
+   which this file cannot import. `tests/geofence-map-tiles.test.ts` fails if the
+   two ever differ. */
+const MAP_TILE_DEFAULT = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+const mapTileOrigin = (() => {
+  const raw =
+    process.env["NEXT_PUBLIC_MAP_TILE_URL"]?.trim() || MAP_TILE_DEFAULT;
+  const subdomains = raw.includes("{s}");
+  const filled = raw
+    .replace("{s}", "a")
+    .replace(/\{z\}|\{x\}|\{y\}/g, "0")
+    .replace("{r}", "");
+  try {
+    const url = new URL(filled);
+    const local =
+      process.env.NODE_ENV !== "production" &&
+      url.protocol === "http:" &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+    if (url.protocol !== "https:" && !local) return "";
+    if (!subdomains) return url.origin;
+    const host = url.host.replace(/^a\./, "*.");
+    return `${url.protocol}//${host}`;
+  } catch {
+    return "";
+  }
+})();
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -250,7 +291,7 @@ const CSP = [
      served by the API (`/careers/public/{org}/logo`). */
   `img-src 'self' data: blob:${apiOrigin ? ` ${apiOrigin}` : ""}${uploadOrigins
     .map((origin) => ` ${origin}`)
-    .join("")}`,
+    .join("")}${mapTileOrigin ? ` ${mapTileOrigin}` : ""}`,
   `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}${
     errorReportOrigin ? ` ${errorReportOrigin}` : ""
   }${uploadOrigins.map((origin) => ` ${origin}`).join("")}${
