@@ -13,6 +13,7 @@ import type {
 } from "@/lib/api/performance";
 import { useDevelopmentSuggestions } from "@/lib/store/ai";
 import { useRatingScale, useReviewMutations } from "@/lib/store/performance";
+import { useReviewPins } from "@/lib/store/work-pins";
 import {
   answerBodyFor,
   draftFrom,
@@ -20,6 +21,7 @@ import {
   type Draft,
 } from "@/app/(app)/performance/review-parts";
 import { SelfEvidence } from "@/app/(app)/performance/self-evidence";
+import type { Pinning } from "@/components/performance/answer-pins";
 import { WorkThisCycle } from "@/components/performance/work-this-cycle";
 import {
   clearLocalDraft,
@@ -100,6 +102,17 @@ import {
  * keystroke: Enter and Ctrl/⌘ Enter go *to* the preview page, and only a press
  * on the Send button goes past it. Key repeat is ignored everywhere, because a
  * held key walked straight through that page and sent.
+ *
+ * ## Work pinned to an answer
+ *
+ * Where the company has switched on "Work in review answers" (`review.workPins`),
+ * a person's own self-review lets them add finished project work under any
+ * question. A pin hangs off the question and not off the answer's text, so it is
+ * saved to the server as it is added rather than with the answer, and closing the
+ * page after pinning loses nothing. The form owns the pins (`useReviewPins`) so
+ * the question page can draw them and the preview can read them back, and it
+ * leaves its keys alone while the picker is open on top of it: a letter typed to
+ * choose a task must not pick an answer on the page behind.
  */
 
 type Step =
@@ -176,6 +189,9 @@ export function FocusForm({
   /** The findings the person has been shown, as a signature — see `languageSeen`. */
   const [seenFindings, setSeenFindings] = useState<string | null>(null);
   const [workOpen, setWorkOpen] = useState(false);
+  /** The picker for work to pin is open on top of the page: the form's keys are not for it. */
+  const [pinOpen, setPinOpen] = useState(false);
+  const pins = useReviewPins(review);
 
   /** What the server holds for each question, as signatures. */
   const savedSig = useRef<Record<string, string>>({});
@@ -343,6 +359,35 @@ export function FocusForm({
 
   const current: Step = steps[index] ?? { kind: "intro" };
 
+  /**
+   * What the question page needs to draw and change this question's pins, or `null` when there is
+   * nothing to draw and nothing that could ever be: no pins, nothing to add (the setting is off) and
+   * nothing to take off (the review is not the person's own unsent self-review).
+   *
+   * Where the person can take pins off, the section stays mounted even with none and nothing to add:
+   * it draws nothing then, but it is the place focus lands when the last pin is taken off with the
+   * setting off. Unmounting it the moment the last pin went left focus on the page, where this form's
+   * keys act (a letter picks an answer, Enter goes on).
+   */
+  const pinningFor = (question: ApiFormQuestion): Pinning | null => {
+    const held = pins.pinsFor(question.id);
+    if (held.length === 0 && !pins.canAdd && !pins.canRemove) return null;
+    return {
+      pins: held,
+      canAdd: pins.canAdd,
+      canRemove: pins.canRemove,
+      work: {
+        subjectId: review.subjectId,
+        cycleId: review.cycleId,
+        periodStart: review.periodStart,
+        periodEnd: review.periodEnd,
+      },
+      prompt: question.prompt,
+      onPin: (issueId, note) => pins.pin(question.id, issueId, note),
+      onUnpin: (pinId) => pins.unpin(question.id, pinId),
+    };
+  };
+
   const go = (to: number, snapshot: Record<string, Draft> = draft) => {
     const target = Math.min(Math.max(to, 0), steps.length - 1);
     setDirection(target >= index ? "forward" : "back");
@@ -453,8 +498,13 @@ export function FocusForm({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.repeat) return;
+      /* The picker for work to pin, and the drawer of finished work (with the
+         flag dialog that opens on it), have the keyboard while they are open:
+         every key, because Ctrl/⌘ Enter goes on even from inside a box, and
+         pressing it to send a reason would move the form on behind both. Escape
+         is theirs too — they close on it — and must not close the form as well. */
+      if (pinOpen || workOpen) return;
       if (event.key === "Escape") {
-        if (workOpen) return;
         event.preventDefault();
         void close();
         return;
@@ -473,7 +523,7 @@ export function FocusForm({
         tag === "SELECT" ||
         (tag === "INPUT" && (target as HTMLInputElement).type !== "radio") ||
         Boolean(target?.isContentEditable);
-      if (typing || workOpen) return;
+      if (typing) return;
 
       const options =
         current.kind === "question"
@@ -676,6 +726,8 @@ export function FocusForm({
                 saved(current.question),
               )}
               nudged={nudged}
+              pinning={pinningFor(current.question)}
+              onPinDialogChange={setPinOpen}
               onChange={(next) => patch(current.question, next)}
               onPick={(optionValue) => pick(current.question, optionValue)}
               onBusyChange={setReading}
@@ -706,6 +758,7 @@ export function FocusForm({
               review={review}
               scale={scale}
               onRecord={onRecord}
+              pinsFor={pins.pinsFor}
               withMark={withMark}
               markRequired={markRequired}
               mark={mark}

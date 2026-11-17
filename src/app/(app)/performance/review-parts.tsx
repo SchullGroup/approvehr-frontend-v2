@@ -11,6 +11,8 @@ import {
   type ApiFormQuestion,
 } from "@/lib/api/performance";
 import type { InlineFile } from "@/lib/api/uploads";
+import type { ApiPin } from "@/lib/api/work-pins";
+import { PinsRead } from "@/components/performance/pins-read";
 import { cn } from "@/lib/cn";
 import {
   answerWords,
@@ -420,10 +422,15 @@ export function ReadAnswer({
   question,
   held,
   reviewId,
+  pins,
+  pinnedBy,
 }: {
   question: ApiFormQuestion;
   held: Draft;
   reviewId?: string;
+  /** The finished work the person pinned to this answer. See `ReadAnswerBody`. */
+  pins?: readonly ApiPin[];
+  pinnedBy?: string | null;
 }) {
   return (
     <div>
@@ -433,6 +440,8 @@ export function ReadAnswer({
           question={question}
           held={held}
           {...(reviewId ? { reviewId } : {})}
+          {...(pins ? { pins } : {})}
+          {...(pinnedBy !== undefined ? { pinnedBy } : {})}
         />
       </div>
     </div>
@@ -451,6 +460,8 @@ export function ReadAnswerBody({
   question,
   held,
   reviewId,
+  pins,
+  pinnedBy,
 }: {
   question: ApiFormQuestion;
   held: Draft;
@@ -460,6 +471,14 @@ export function ReadAnswerBody({
    * without it renders its filename and no download rather than crashing.
    */
   reviewId?: string;
+  /**
+   * The finished work the person pinned to this answer, read beside it. Passed by the screens that
+   * read a **self-review** and by nobody else, so an answer on a manager's form never carries pins.
+   * Nothing is drawn for none, and a title is never part of a pin.
+   */
+  pins?: readonly ApiPin[];
+  /** Whose choice the pins were: "you", a name, or `null` when not known. See `PinsRead`. */
+  pinnedBy?: string | null;
 }) {
   const { scale, editable } = useRatingScale();
   const attached = question.answer?.attachment ?? null;
@@ -507,24 +526,38 @@ export function ReadAnswerBody({
               null
             : (held.text ?? null);
 
+  const pinned = pins ? (
+    <PinsRead pins={pins} {...(pinnedBy !== undefined ? { pinnedBy } : {})} />
+  ) : null;
+
   if (question.kind === "FILE") {
-    return attached ? (
-      <AttachedEvidence
-        reviewId={reviewId ?? ""}
-        questionId={question.id}
-        attachment={attached}
-        canOpen={editable && Boolean(reviewId)}
-      />
-    ) : (
-      <p className="text-body-sm leading-relaxed text-ink">Nothing attached</p>
+    return (
+      <>
+        {attached ? (
+          <AttachedEvidence
+            reviewId={reviewId ?? ""}
+            questionId={question.id}
+            attachment={attached}
+            canOpen={editable && Boolean(reviewId)}
+          />
+        ) : (
+          <p className="text-body-sm leading-relaxed text-ink">
+            Nothing attached
+          </p>
+        )}
+        {pinned}
+      </>
     );
   }
   /* `whitespace-pre-line` keeps the paragraphs somebody wrote, and `break-words` a
      long unbroken string (a link) from running out of its row. A level, a yes or no
      and a pick are one short word and look as they did. */
   return (
-    <p className="whitespace-pre-line break-words text-body-sm leading-relaxed text-ink">
-      {answer ?? "Not answered"}
-    </p>
+    <>
+      <p className="whitespace-pre-line break-words text-body-sm leading-relaxed text-ink">
+        {answer ?? "Not answered"}
+      </p>
+      {pinned}
+    </>
   );
 }

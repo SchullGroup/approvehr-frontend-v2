@@ -24,6 +24,7 @@ import {
   TypeIcon,
 } from "@/components/projects/glyphs";
 import { BulkLinkDialog } from "@/components/projects/bulk-link-dialog";
+import { FinishTag } from "@/components/projects/finish-tag";
 import { IssueFilterBar } from "@/components/projects/issue-filter-bar";
 import { useMayLinkIssue } from "@/components/projects/objective-link";
 import { BULK_LINK_LIMIT } from "@/lib/projects/bulk-link";
@@ -290,7 +291,16 @@ export function IssuesView() {
                   </button>
                 </TD>
                 <TD>
-                  <StatusPill status={status} />
+                  {/* A task closed as won't do sits in its Done column and was not finished, so
+                      the stage alone would read it as work somebody did. The same words as on
+                      the card, the backlog and the Master list. */}
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <StatusPill status={status} />
+                    <FinishTag
+                      wontDo={issue.wontDo}
+                      accepted={issue.accepted}
+                    />
+                  </span>
                 </TD>
                 <TD>
                   <PersonName

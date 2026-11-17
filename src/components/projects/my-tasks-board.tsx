@@ -10,11 +10,13 @@ import {
   useFlip,
   type Settle,
 } from "@/components/projects/board-motion";
+import { FinishTag } from "@/components/projects/finish-tag";
 import { IssueKey } from "@/components/projects/glyphs";
 import { projectsApi, type PersonalTask } from "@/lib/api/projects";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/cn";
 import { dueLabel, isPastDue, nowHHMMIn } from "@/lib/projects/due";
+import { finishedMeta } from "@/lib/projects/finish-marks";
 import { assigneeSummary, rowTarget } from "@/lib/projects/my-tasks";
 import {
   BOARD_COLUMNS,
@@ -294,11 +296,11 @@ export function MyTasksBoard({
             >
               <div
                 className={cn(
-                  "relative flex items-center gap-2 rounded-lg border border-t-[3px] border-line bg-sunken px-3 py-2.5",
+                  "relative flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-t-[3px] border-line bg-sunken px-3 py-2.5",
                   CATEGORY_RULE[category],
                 )}
               >
-                <h2 className="min-w-0 flex-1 truncate text-body-sm font-semibold text-ink">
+                <h2 className="min-w-0 flex-auto truncate text-body-sm font-semibold text-ink">
                   {label}
                   {category === "DONE" && (
                     <span className="font-normal text-muted">
@@ -307,8 +309,10 @@ export function MyTasksBoard({
                     </span>
                   )}
                 </h2>
-                <span className="tabular text-body-sm text-muted">
-                  {items.length}
+                <span className="tabular ml-auto text-body-sm text-muted">
+                  {/* Cards in Done include a task closed as won't do, which nobody finished: said as
+                      two numbers, never one that reads as work done. */}
+                  {category === "DONE" ? finishedMeta(items) : items.length}
                 </span>
               </div>
               <ul
@@ -440,6 +444,7 @@ function TaskCard({
 
             <div className="flex flex-wrap items-center gap-1.5">
               <IssueKey issueKey={task.key} done={done} />
+              <FinishTag wontDo={task.wontDo} accepted={task.accepted} />
               <Badge tone="neutral" size="sm">
                 {where}
               </Badge>

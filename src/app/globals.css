@@ -1437,3 +1437,17 @@
 .assistant-orb--arrive {
   animation: ahr-orb-arrive 1.1s var(--ease-out-soft) both;
 }
+
+/* The geofence picker's map (src/components/geofence-picker/map.tsx).
+   OpenStreetMap's tiles are drawn for daylight; inside a dark dialog they glare.
+   Dimmed rather than swapped for a dark tile provider, which would be a second
+   free service to depend on. Only the tiles: the pin and circle keep their colour. */
+:root[data-theme="dark"] .geofence-map .leaflet-tile-pane {
+  filter: brightness(0.8) contrast(1.1);
+}
+
+/* The attribution is required and always visible; at Leaflet's default size it
+   crowds a 280 px map on a phone. */
+.geofence-map .leaflet-control-attribution {
+  font-size: 11px;
+}

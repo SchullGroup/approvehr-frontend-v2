@@ -71,7 +71,8 @@ describe("the API's origin in img-src", () => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
     vi.stubEnv("NEXT_PUBLIC_UPLOAD_ORIGINS", "");
     expect(await directive("img-src")).toBe(
-      "img-src 'self' data: blob: https://api.example.test",
+      /* The map picker's tile host follows; see tests/geofence-map-tiles.test.ts. */
+      "img-src 'self' data: blob: https://api.example.test https://tile.openstreetmap.org",
     );
   });
 });
@@ -84,7 +85,7 @@ describe("the storage origin in img-src", () => {
       "https://bucket.s3.us-east-1.amazonaws.com",
     );
     expect(await directive("img-src")).toBe(
-      "img-src 'self' data: blob: https://api.example.test https://bucket.s3.us-east-1.amazonaws.com",
+      "img-src 'self' data: blob: https://api.example.test https://bucket.s3.us-east-1.amazonaws.com https://tile.openstreetmap.org",
     );
   });
 });
