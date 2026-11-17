@@ -119,15 +119,12 @@ function weeksOf(month: string): (string | null)[][] {
  * takes the day rather than three numbers.
  */
 function cellClaim(day: ApiAttendanceDay): {
-  /** Stacked, one per line. Two short lines fit a calendar column; one long one does not. */
-  counts: { text: string; tone: "in" | "out" }[];
-  /** The word in place of counts, when there are none to make. */
+  /** The one word a cell may carry under its date ("Rest", "Holiday"), or none. */
   filler: string;
   /** The full sentence, for the button's accessible name. */
   label: string;
 } {
   const date = `${Number(day.date.slice(8, 10))} ${MONTHS[Number(day.date.slice(5, 7)) - 1]}`;
-  const none = { counts: [] as { text: string; tone: "in" | "out" }[] };
 
   /* The dashed disc is a shape, and a shape is not a sentence. An ungazetted
      date is a working day here while payroll is already costing it, so the one
@@ -138,17 +135,16 @@ function cellClaim(day: ApiAttendanceDay): {
       : "";
 
   if (day.future) {
-    return { ...none, filler: "", label: `${date}, still to come${expected}` };
+    return { filler: "", label: `${date}, still to come${expected}` };
   }
   if (day.kind === "HOLIDAY") {
     return {
-      ...none,
       filler: "Holiday",
       label: `${date}, public holiday${day.holiday ? `, ${day.holiday.name}` : ""}`,
     };
   }
   if (day.kind === "REST_DAY") {
-    return { ...none, filler: "Rest", label: `${date}, rest day${expected}` };
+    return { filler: "Rest", label: `${date}, rest day${expected}` };
   }
 
   /* The honest gap. Not "0 in, 10 out": nothing here said anybody was out, so
@@ -158,7 +154,6 @@ function cellClaim(day: ApiAttendanceDay): {
      claims nothing either. */
   if (day.absent === null) {
     return {
-      ...none,
       filler: "",
       label: `${date}, no attendance recorded${expected}`,
     };
@@ -169,13 +164,10 @@ function cellClaim(day: ApiAttendanceDay): {
   if (day.absent > 0) spoken.push(`${day.absent} not accounted for`);
   if (day.onLeave > 0) spoken.push(`${day.onLeave} on approved leave`);
 
+  /* The counts ("9 in", "1 out") are not drawn: a month of them was noise, and the
+     day's own panel below the calendar gives the people. They are still said to a
+     screen reader, in the label. */
   return {
-    counts: [
-      { text: `${inCount} in`, tone: "in" },
-      ...(day.absent > 0
-        ? [{ text: `${day.absent} out`, tone: "out" as const }]
-        : []),
-    ],
     filler: "",
     label: `${date}, ${spoken.join(", ")}, of ${day.people} on the payroll${expected}`,
   };
@@ -253,10 +245,10 @@ export function MonthCalendar({
 
             const day = byDate.get(date);
             if (loading || !day) {
-              return <Skeleton key={date} className="h-20 rounded-md" />;
+              return <Skeleton key={date} className="h-16 rounded-md" />;
             }
 
-            const { counts, filler, label } = cellClaim(day);
+            const { filler, label } = cellClaim(day);
             const isToday = date === today;
             const isSelected = date === selected;
             const holiday = day.holiday;
@@ -270,7 +262,7 @@ export function MonthCalendar({
                 disabled={day.future}
                 onClick={() => onSelect(date)}
                 className={cn(
-                  "flex h-20 flex-col items-center justify-center gap-0.5 rounded-md border px-1 text-center",
+                  "flex h-16 flex-col items-center justify-center gap-0.5 rounded-md border px-1 text-center",
                   "transition-colors duration-150",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
                   /* `future` decides first and alone. A dimmed cell that still
@@ -308,36 +300,17 @@ export function MonthCalendar({
                   {Number(date.slice(8, 10))}
                 </span>
 
-                {/* Never a zero. A blank or a dash claims nothing; "0 out"
-                    claims everybody was accounted for, which on a day nothing
-                    was recorded on is a sentence nobody has the records for.
-                    `aria-hidden` because the button's own label already says all
-                    of this as a sentence. */}
-                <span
-                  aria-hidden="true"
-                  className="flex flex-col leading-tight"
-                >
-                  {counts.length > 0 ? (
-                    counts.map((line) => (
-                      <span
-                        key={line.tone}
-                        className={cn(
-                          "text-meta whitespace-nowrap",
-                          /* Everybody not in is the usual state of a day, and a
-                             column of red down the month read as alarm. Fainter
-                             than the count of people who are in. */
-                          line.tone === "out" ? "text-faint" : "text-muted",
-                        )}
-                      >
-                        {line.text}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-meta whitespace-nowrap text-faint">
-                      {filler}
-                    </span>
-                  )}
-                </span>
+                {/* The word a cell may carry ("Rest", "Holiday"), and nothing
+                    for a day with attendance: the counts were removed. `aria-hidden`
+                    because the button's own label already says all of this. */}
+                {filler !== "" && (
+                  <span
+                    aria-hidden="true"
+                    className="text-meta whitespace-nowrap text-faint"
+                  >
+                    {filler}
+                  </span>
+                )}
               </button>
             );
           })}
