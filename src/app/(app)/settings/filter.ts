@@ -91,6 +91,7 @@ export const PAGE_WORDS: Readonly<Record<string, readonly string[]>> = {
     "turn on",
   ],
   "/settings/job-roles": ["job titles", "positions", "competencies"],
+  "/settings/queries": ["letters", "reply", "written"],
   "/settings/required-details": [
     "profile",
     "next of kin",
@@ -221,6 +222,7 @@ export const BILLING: Searchable = {
 export const PAGE_MODULE: Readonly<Record<string, string>> = {
   "/settings/features": "Company",
   "/settings/job-roles": "People",
+  "/settings/queries": "People",
   "/settings/required-details": "People",
   "/settings/announcements": "Communication",
   "/settings/security": "Security",
@@ -278,6 +280,12 @@ export const SETTINGS_PAGES: readonly {
     title: "Job roles",
     description:
       "What jobs this company has, what each one involves, and what people on it are judged against. Job titles stay free text until you add some.",
+  },
+  {
+    href: "/settings/queries",
+    title: "Queries",
+    description:
+      "Whether queries are switched on, the usual time to reply, and whether the person who issued a query may decide it when nobody else can.",
   },
   {
     href: "/settings/required-details",
