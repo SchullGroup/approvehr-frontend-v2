@@ -135,6 +135,7 @@ const STATUS: Record<
 const ICONS: Record<string, React.ReactNode> = {
   "/settings/features": <ToggleRight aria-hidden="true" />,
   "/settings/job-roles": <BriefcaseBusiness aria-hidden="true" />,
+  "/settings/queries": <MessageSquare aria-hidden="true" />,
   "/settings/required-details": <ClipboardCheck aria-hidden="true" />,
   "/settings/announcements": <Megaphone aria-hidden="true" />,
   "/settings/security": <ShieldCheck aria-hidden="true" />,

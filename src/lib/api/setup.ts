@@ -145,6 +145,11 @@ export const WORKFLOW_FEATURE_KEYS = [
      company switching it on is changing nothing for anybody until an employee
      opts in, which is the sentence that screen leads with. */
   "smsDigest",
+  /* Queries: the employer's written letter to one person and their one written reply. Off for
+     every company, and not rendered on `/settings/features` because its switch asks first and
+     says what it does: it is on `/settings/queries`, beside the rules around it. The server
+     refuses every query route while it is off and deletes nothing when it is turned off. */
+  "queries",
 ] as const;
 
 /** The acts a company can put a code in front of. Mirrors `StepUpAction`. */
@@ -315,6 +320,14 @@ export type ApiFeatures = {
    * that was never asked is a company without it.
    */
   smsDigest?: boolean;
+  /**
+   * Queries. Off by default.
+   *
+   * Optional because an API one deploy behind does not send it, and **absent is not off**: a
+   * server that has no such switch is one on which `/settings/queries` cannot offer one. The
+   * store reads whether the server said (`queriesSaid`) apart from the flag.
+   */
+  queries?: boolean;
   /** The default length, in months. Only read when tracking is on. */
   probationMonths: number;
   /**
