@@ -1363,12 +1363,18 @@ export function weightSetFromRows(
  * Where a period's weights come from, as the API reports it.
  *
  * - `period`: somebody set them on this draft period.
- * - `company`: a draft with none of its own, so it follows the company defaults.
+ * - `company`: a draft with none of its own, so it follows the weights in Settings.
  * - `frozen`: the period has started and these are the ones it was fixed with.
  */
 export type CycleWeights = {
   values: WeightSet;
   basis: "period" | "company" | "frozen";
+  /**
+   * The parts this period is made up of: the company's parts from Settings
+   * while it is a draft, the parts that carried a weight once it started. A
+   * screen lists these and no others. Absent from an older API.
+   */
+  parts?: ScoreComponent[];
 };
 
 /** Why a component did not enter the arithmetic. Null means it did. */
@@ -1609,6 +1615,12 @@ export type ApiScoringWeights = {
     weightBp: number;
     /** Its share of a mark: weight over total. Absent from an older API. */
     shareBp?: number;
+    /**
+     * Whether the company has a part scored from this source. False for a
+     * source it has no part for, which no screen lists or offers. Absent from
+     * an older API, where every row is a part.
+     */
+    isPart?: boolean;
   }[];
   /** Weights are proportional, so this need not be 10000. */
   totalBp: number;
@@ -2862,7 +2874,7 @@ export const performanceApi = {
      */
     appraiseOwner?: boolean;
     appraiseHrManager?: boolean;
-    /** The whole set, in basis points. Omitted means the company defaults. */
+    /** The whole set, in basis points. Omitted means the weights in Settings. */
     weights?: WeightSet;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
@@ -2884,7 +2896,7 @@ export const performanceApi = {
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
       /**
-       * The whole set, or `null` to go back to the company defaults. Refused
+       * The whole set, or `null` to go back to the weights in Settings. Refused
        * (409) once the period has started: the weights are fixed by then.
        */
       weights?: WeightSet | null;

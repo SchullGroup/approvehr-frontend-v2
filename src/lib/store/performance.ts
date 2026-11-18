@@ -3283,7 +3283,7 @@ export function useCycleMutations() {
           periodEnd?: string | null;
           instructions?: string | null;
           guideUrl?: string | null;
-          /** The whole set, or `null` for the company defaults. */
+          /** The whole set, or `null` for the weights in Settings. */
           weights?: WeightSet | null;
         },
       ) => {

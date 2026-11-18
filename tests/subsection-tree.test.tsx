@@ -29,6 +29,34 @@ let setChoiceOptions: Mock<(...args: unknown[]) => Promise<unknown>>;
 let newCompetencyVersion: Mock<(...args: unknown[]) => Promise<unknown>>;
 
 vi.mock("@/lib/store/performance", () => ({
+  /* Settings holds the three rated parts, so each can be chosen. */
+  useScoringWeights: () => ({
+    weights: {
+      source: "saved",
+      rows: [
+        {
+          component: "CORE_COMPETENCY",
+          label: "Core competencies",
+          weightBp: 3000,
+          isPart: true,
+        },
+        {
+          component: "BEHAVIOURAL_COMPETENCY",
+          label: "Behavioural competencies",
+          weightBp: 2000,
+          isPart: true,
+        },
+        {
+          component: "LEADERSHIP",
+          label: "Leadership",
+          weightBp: 1000,
+          isPart: true,
+        },
+      ],
+      totalBp: 6000,
+    },
+    loading: false,
+  }),
   useFrameworkActions: () => ({
     editable: true,
     createSection: (...args: unknown[]) => createSection(...args),
