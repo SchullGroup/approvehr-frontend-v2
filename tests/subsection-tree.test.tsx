@@ -27,8 +27,38 @@ let createCompetency: Mock<(...args: unknown[]) => Promise<unknown>>;
 let updateCompetency: Mock<(...args: unknown[]) => Promise<unknown>>;
 let setChoiceOptions: Mock<(...args: unknown[]) => Promise<unknown>>;
 let newCompetencyVersion: Mock<(...args: unknown[]) => Promise<unknown>>;
+let deleteSection: Mock<(...args: unknown[]) => Promise<unknown>>;
+let archiveCompetency: Mock<(...args: unknown[]) => Promise<unknown>>;
 
 vi.mock("@/lib/store/performance", () => ({
+  /* Settings holds the three rated parts, so each can be chosen. */
+  useScoringWeights: () => ({
+    weights: {
+      source: "saved",
+      rows: [
+        {
+          component: "CORE_COMPETENCY",
+          label: "Core competencies",
+          weightBp: 3000,
+          isPart: true,
+        },
+        {
+          component: "BEHAVIOURAL_COMPETENCY",
+          label: "Behavioural competencies",
+          weightBp: 2000,
+          isPart: true,
+        },
+        {
+          component: "LEADERSHIP",
+          label: "Leadership",
+          weightBp: 1000,
+          isPart: true,
+        },
+      ],
+      totalBp: 6000,
+    },
+    loading: false,
+  }),
   useFrameworkActions: () => ({
     editable: true,
     createSection: (...args: unknown[]) => createSection(...args),
@@ -36,6 +66,8 @@ vi.mock("@/lib/store/performance", () => ({
     updateCompetency: (...args: unknown[]) => updateCompetency(...args),
     setChoiceOptions: (...args: unknown[]) => setChoiceOptions(...args),
     newCompetencyVersion: (...args: unknown[]) => newCompetencyVersion(...args),
+    deleteSection: (...args: unknown[]) => deleteSection(...args),
+    archiveCompetency: (...args: unknown[]) => archiveCompetency(...args),
   }),
   /* `CountsTowards` lives in the sections dialog, which imports these. */
   useFramework: () => ({ competencies: [], groups: [], loading: false }),
@@ -147,6 +179,8 @@ beforeEach(() => {
   updateCompetency = vi.fn().mockResolvedValue({});
   setChoiceOptions = vi.fn().mockResolvedValue({});
   newCompetencyVersion = vi.fn().mockResolvedValue({});
+  deleteSection = vi.fn().mockResolvedValue({ deleted: true });
+  archiveCompetency = vi.fn().mockResolvedValue({ note: "Archived" });
 });
 
 describe("reading the framework", () => {
@@ -1126,5 +1160,37 @@ describe("starting a new version of a fixed subsection", () => {
     expect(onChanged).not.toHaveBeenCalled();
     expect(onQuestionsMoved).not.toHaveBeenCalled();
     expect(rowOf(/Teamwork/)).toHaveTextContent("Fixed: 12 ratings");
+  });
+});
+
+describe("removing a section", () => {
+  it("removes it and archives the subsections under it, after asking", async () => {
+    const onChanged = vi.fn();
+    render(<Harness onChanged={onChanged} />);
+    await open(/Core competency/);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Core competency" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("3 subsections");
+    expect(deleteSection).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Remove the section" }),
+    );
+    await waitFor(() => expect(deleteSection).toHaveBeenCalledWith("s-core"));
+    expect(archiveCompetency.mock.calls.map((call) => call[0]).sort()).toEqual([
+      "c-feedback",
+      "c-punct",
+      "c-safety",
+    ]);
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("is not offered to somebody who cannot change the framework", async () => {
+    render(<Harness editable={false} />);
+    await open(/Core competency/);
+    expect(
+      screen.queryByRole("button", { name: "Remove Core competency" }),
+    ).not.toBeInTheDocument();
   });
 });

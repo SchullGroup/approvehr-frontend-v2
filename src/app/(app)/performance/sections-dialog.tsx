@@ -34,6 +34,7 @@ import { answerKindOf } from "@/lib/performance/answer-kind";
 import {
   useFramework,
   useFrameworkActions,
+  useScoringWeights,
   useSections,
 } from "@/lib/store/performance";
 import { actionMessage } from "@/lib/use-action";
@@ -898,17 +899,19 @@ function Subsections({
 /**
  * Which part of the mark a section's ratings feed.
  *
- * Only the three parts that are made out of ratings are offered. Delivery
+ * Only the company's own parts, from Settings under Appraisal scoring, by the
+ * names it gave them, and of those only the ones made out of ratings. Delivery
  * against objectives is worked out from the objectives themselves and the
  * self-assessment from the person's own form, so a rating filed under a
  * section could not reach either, and offering them would be a choice that
- * changes nothing. The weight of each part is set in Scoring settings; a
- * section that feeds the same part as another is averaged in with it.
+ * changes nothing. A source the company has no part for is not offered: a
+ * section filed under it would count for nothing. A section that feeds the
+ * same part as another is averaged in with it.
  */
-const RATED_PARTS: { value: ScoreComponent; label: string }[] = [
-  { value: "CORE_COMPETENCY", label: "Core competencies" },
-  { value: "BEHAVIOURAL_COMPETENCY", label: "Behavioural competencies" },
-  { value: "LEADERSHIP", label: "Leadership (managers only)" },
+const RATED_SOURCES: readonly ScoreComponent[] = [
+  "CORE_COMPETENCY",
+  "BEHAVIOURAL_COMPETENCY",
+  "LEADERSHIP",
 ];
 
 export function CountsTowards({
@@ -922,11 +925,17 @@ export function CountsTowards({
   label: string;
   onChange: (value: ScoreComponent | "") => void;
 }) {
-  const known = RATED_PARTS.some((part) => part.value === value);
+  const { weights: settings } = useScoringWeights();
+  const offered = (settings?.rows ?? [])
+    .filter(
+      (row) => row.isPart !== false && RATED_SOURCES.includes(row.component),
+    )
+    .map((row) => ({ value: row.component, label: row.label }));
+  const known = offered.some((part) => part.value === value);
   return (
     <Field
       label="Counts towards"
-      help="The part of the mark this section's ratings feed. The weight of each part is in Scoring settings. Two sections that feed the same part are averaged together."
+      help="The part of the mark this section's ratings feed, from your parts in Settings, under Appraisal scoring. Two sections that feed the same part are averaged together."
     >
       <Select
         value={value}
@@ -939,14 +948,16 @@ export function CountsTowards({
         <option value="">
           No part of the mark (ratings are only recorded)
         </option>
-        {RATED_PARTS.map((part) => (
+        {offered.map((part) => (
           <option key={part.value} value={part.value}>
             {part.label}
           </option>
         ))}
         {value !== "" && !known && (
           <option value={value}>
-            Set to a part that ratings do not feed. Choose another.
+            {settings === null
+              ? "Loading your scoring parts…"
+              : "Not one of your scoring parts, so it counts for nothing. Choose another."}
           </option>
         )}
       </Select>

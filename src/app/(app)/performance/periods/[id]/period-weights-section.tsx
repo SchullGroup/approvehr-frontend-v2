@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, Card, CardBody, useToast } from "@/components/ui";
 import {
   PeriodWeights,
+  companyPartsOf,
   periodWeightsProblem,
   weightsFromText,
   weightsToText,
@@ -52,6 +53,7 @@ export function PeriodWeightsSection({
             value={weightsToText(weights.values)}
             onChange={() => undefined}
             companyDefaults={companyDefaults}
+            parts={weights.parts}
           />
           {period.managerAppraisalNote && (
             <SavedWeightsNote
@@ -99,7 +101,10 @@ function DraftWeights({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const problem = periodWeightsProblem(value);
+  const problem = periodWeightsProblem(
+    value,
+    weights.parts ?? companyPartsOf(companyDefaults),
+  );
   const dirty = JSON.stringify(value) !== JSON.stringify(stored);
 
   const run = async (
@@ -132,15 +137,16 @@ function DraftWeights({
       <p className="text-meta text-muted">
         {weights.basis === "period"
           ? "Set for this period."
-          : "Using the company defaults."}
+          : "Following the weights in Settings, under Appraisal scoring."}
       </p>
       <PeriodWeights
         value={value}
         onChange={setValue}
         companyDefaults={companyDefaults}
+        parts={weights.parts}
         disabled={saving}
         onUseDefaults={() =>
-          void run({ weights: null }, "Using the company defaults")
+          void run({ weights: null }, "Following the weights in Settings")
         }
       />
       {period.managerAppraisalNote && (
