@@ -42,10 +42,13 @@ export function CopyButton({
   value,
   label = "Copy",
   className,
+  onDark = false,
 }: {
   value: string;
   label?: string;
   className?: string;
+  /** A frosted white button, for the blue gradient card (`HeroBackdrop`), where the grey one would vanish. */
+  onDark?: boolean;
 }) {
   const [result, setResult] = useState<"idle" | "copied" | "failed">("idle");
 
@@ -64,17 +67,35 @@ export function CopyButton({
     }
   };
 
+  const icon =
+    result === "copied" ? (
+      <Check aria-hidden="true" className="size-4" />
+    ) : (
+      <Copy aria-hidden="true" className="size-4" />
+    );
+  const text = result === "copied" ? "Copied" : label;
+
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <Button variant="secondary" size="sm" onClick={() => void copy()}>
-        {result === "copied" ? (
-          <Check aria-hidden="true" className="size-4" />
-        ) : (
-          <Copy aria-hidden="true" className="size-4" />
-        )}
-        {result === "copied" ? "Copied" : label}
-      </Button>
-      <span aria-live="polite" className="text-meta text-danger-text">
+      {onDark ? (
+        <button
+          type="button"
+          onClick={() => void copy()}
+          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-white/15 px-3 text-body-sm font-medium whitespace-nowrap text-white transition-colors hover:bg-white/25 active:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          {icon}
+          {text}
+        </button>
+      ) : (
+        <Button variant="secondary" size="sm" onClick={() => void copy()}>
+          {icon}
+          {text}
+        </Button>
+      )}
+      <span
+        aria-live="polite"
+        className={cn("text-meta", onDark ? "text-white" : "text-danger-text")}
+      >
         {result === "failed" ? "Select the text and copy it by hand." : ""}
       </span>
     </span>

@@ -25,6 +25,7 @@ export function Money({
    * a figure somebody thought was hidden.
    */
   alwaysShow = false,
+  onDark = false,
 }: {
   /**
    * The figure, or **null** where there is not one.
@@ -52,9 +53,14 @@ export function Money({
    */
   absent?: string;
   className?: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "hero";
   /** Exempt this figure from the hide-figures preference. See above. */
   alwaysShow?: boolean;
+  /**
+   * Drawn in white, for a figure sitting on the blue gradient (`HeroBackdrop`). The ink colour is set on the
+   * inner span, so a parent's `text-white` cannot reach it; this is the one way to ask.
+   */
+  onDark?: boolean;
 }) {
   /*
    * The size lands on the inner span, not the outer one `className` reaches —
@@ -68,7 +74,11 @@ export function Money({
     md: "text-body-sm",
     lg: "text-h4",
     xl: "text-h3",
+    /** The one figure a page is about, on a gradient card. Smaller on a phone so a seven-digit balance fits. */
+    hero: "text-h2 sm:text-[2.5rem] sm:leading-none",
   } as const;
+  const strong = onDark ? "text-white" : "text-ink";
+  const soft = onDark ? "text-white/80" : "text-muted";
 
   /* Before either early return: a hook cannot sit behind one. */
   const hidden = useMoneyHidden() && !alwaysShow;
@@ -77,7 +87,7 @@ export function Money({
   if (amount === null) {
     return (
       <span className={cn("inline-flex flex-col", className)}>
-        <span className={cn("text-muted", sizes[size])}>{absent}</span>
+        <span className={cn(soft, sizes[size])}>{absent}</span>
       </span>
     );
   }
@@ -95,7 +105,7 @@ export function Money({
       <span className={cn("inline-flex flex-col", className)}>
         <span
           aria-label="Hidden"
-          className={cn("tabular font-medium text-muted", sizes[size])}
+          className={cn("tabular font-medium", soft, sizes[size])}
         >
           {"\u2022".repeat(6)}
         </span>
@@ -105,12 +115,12 @@ export function Money({
 
   return (
     <span className={cn("inline-flex flex-col", className)}>
-      <span className={cn("tabular font-medium text-ink", sizes[size])}>
+      <span className={cn("tabular font-medium", strong, sizes[size])}>
         {formatMoney(amount, currency, { compact, decimals })}
-        {per && <span className="font-normal text-muted"> per {per}</span>}
+        {per && <span className={cn("font-normal", soft)}> per {per}</span>}
       </span>
       {ngnRate !== undefined && currency === "USD" && (
-        <span className="tabular text-meta text-muted">
+        <span className={cn("tabular text-meta", soft)}>
           {formatMoney(amount * ngnRate, "NGN", { compact: true })} at locked
           rate
         </span>
