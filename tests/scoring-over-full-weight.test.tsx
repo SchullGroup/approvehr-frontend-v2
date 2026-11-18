@@ -352,7 +352,7 @@ describe("a period's own weights", () => {
     /* A warning only: nothing in the editor is shut by it. */
     expect(objectives).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: /Use the company defaults/ }),
+      screen.getByRole("button", { name: /Use the weights in Settings/ }),
     ).toBeEnabled();
   });
 

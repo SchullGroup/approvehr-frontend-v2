@@ -37,6 +37,7 @@ import {
 } from "@/lib/store/performance";
 import {
   PeriodWeights,
+  companyPartsOf,
   periodWeightsProblem,
   weightsFromText,
   weightsToText,
@@ -269,7 +270,7 @@ export function DraftPeriodWizard() {
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
 
-  /* What was typed over the company defaults, or null while it is untouched.
+  /* What was typed over the weights in Settings, or null while it is untouched.
      Derived rather than seeded, for the reason `GoalEdit` gives: the defaults
      arrive after the first render and nothing should have to decide when to
      copy them in. */
@@ -279,10 +280,12 @@ export function DraftPeriodWizard() {
     : null;
   const weightText = weightEdit ?? defaultText;
   /* Only a set somebody typed here is held to the whole-percent rule. Left
-     alone, the period follows the company defaults, which Settings lets carry
+     alone, the period follows the weights in Settings, which there can carry
      two decimals — 33.33 there is not a mistake to block a draft on. */
   const weightsProblem =
-    weightEdit === null ? null : periodWeightsProblem(weightEdit);
+    weightEdit === null
+      ? null
+      : periodWeightsProblem(weightEdit, companyPartsOf(companyWeights));
   const weightsMissing = companyWeights === null && !companyWeightsLoading;
 
   /* The edits, over the draft. Nothing seeds these — see `GoalEdit`. */
@@ -462,7 +465,7 @@ export function DraftPeriodWizard() {
         name.trim(),
         dueDate === "" ? undefined : dueDate,
         /* Sent only when they were edited here. Untouched, the period has
-           none of its own and follows the company defaults until it starts,
+           none of its own and follows the weights in Settings until it starts,
            when whatever the company holds then is fixed onto it. */
         weightEdit === null ? {} : { weights: weightsFromText(weightEdit) },
       );

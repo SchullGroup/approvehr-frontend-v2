@@ -1,12 +1,13 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { weightLabel } from "@/lib/api/performance";
 import {
   Badge,
   Button,
+  ConfirmDialog,
   Disclosure,
   Field,
   Input,
@@ -451,7 +452,20 @@ export function SubsectionTree({
                     listOf(items)
                   )}
                   {editable && (
-                    <AddSubsection sectionId={section.id} onAdded={onChanged} />
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <AddSubsection
+                        sectionId={section.id}
+                        onAdded={onChanged}
+                      />
+                      <RemoveSection
+                        section={section}
+                        subsections={items}
+                        onRemoved={() => {
+                          if (openId === section.id) setOpenId(null);
+                          onChanged();
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
               </Disclosure>
@@ -529,6 +543,92 @@ function SectionMeta({
             : `${weightLabel(section.weightBp)} of the mark`}
         </Badge>
       )}
+    </>
+  );
+}
+
+/**
+ * Removing a section, and the subsections under it, from here.
+ *
+ * Asked for from the field: a company that did not want the starter sections
+ * could add sections in this view but not remove them, and had to find the
+ * Sections tab. The subsections go too, archived rather than deleted: a
+ * section's heading is the company's to drop, but a rating already given
+ * against a subsection is a record (`archiveCompetency` keeps it). Left
+ * behind unarchived they would only reappear under "Not filed under a
+ * section", which is not what anybody removing a section means.
+ */
+function RemoveSection({
+  section,
+  subsections,
+  onRemoved,
+}: {
+  section: SectionOption;
+  subsections: readonly ApiCompetency[];
+  onRemoved: () => void;
+}) {
+  const { deleteSection, archiveCompetency } = useFrameworkActions();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      for (const one of subsections) await archiveCompetency(one.id);
+      await deleteSection(section.id);
+      setConfirming(false);
+      onRemoved();
+    } catch (caught) {
+      setError(actionMessage(caught, "the removal"));
+      /* Some subsections may be archived already; show what is left. */
+      onRemoved();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const count = subsections.length;
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label={`Remove ${section.name}`}
+        onClick={() => setConfirming(true)}
+      >
+        <Trash2 aria-hidden="true" className="size-3.5" />
+        Remove this section
+      </Button>
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onConfirm={() => void remove()}
+        title={`Remove ${section.name}?`}
+        confirmLabel="Remove the section"
+        loading={busy}
+        body={
+          <>
+            <p>
+              {count === 0
+                ? "It has no subsections, so only the heading goes."
+                : `Its ${count === 1 ? "1 subsection goes" : `${String(count)} subsections go`} with it.`}
+            </p>
+            {count > 0 && (
+              <p>
+                They are archived, not deleted: ratings already given against
+                them are kept.
+              </p>
+            )}
+            {error && (
+              <p role="alert" className="text-danger-text">
+                {error}
+              </p>
+            )}
+          </>
+        }
+      />
     </>
   );
 }
