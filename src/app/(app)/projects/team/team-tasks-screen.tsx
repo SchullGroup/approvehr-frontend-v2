@@ -78,7 +78,14 @@ export function TeamTasksScreen() {
   if (gate.loading) {
     return (
       <>
-        <PageHeader title="Team tasks" />
+        <PageHeader
+          title="Team tasks"
+          {...(scope.everyone
+            ? {}
+            : {
+                description: "Everyone you manage or whose department you run.",
+              })}
+        />
         <PageBody>
           <Skeleton className="h-40" aria-label="Loading team tasks" />
         </PageBody>
@@ -128,11 +135,11 @@ function Team() {
       <>
         <PageHeader
           title="Team tasks"
-          description={
-            scope.everyone
-              ? "Everybody's finished work, by person."
-              : "Everyone you manage or whose department you run."
-          }
+          {...(scope.everyone
+            ? {}
+            : {
+                description: "Everyone you manage or whose department you run.",
+              })}
         />
         <PageBody className="space-y-4">
           {switcher}
