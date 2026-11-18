@@ -13469,3 +13469,148 @@ A browser against a real API: the dialogs were rendered under jsdom with the rea
 honoured) is the contract given for the backend half and has not been read against a running server; against one
 that predates it the field is absent and the toast says nothing about telling. Not run: `npm run
 verify-demo:build`, the whole vitest suite in one run (CI does not run vitest), iOS Safari or any real device.
+
+---
+
+# Queries have their screens, and a letter says nothing until it is opened
+
+Stage 2 of the Query feature: the web half of the Stage 1 backend (`approvehr-backend`
+`feat/query-stage1-20261116`, whose own note is `docs/backend/queries-stage1-handover.md`). A query is the
+employer's written request that one named person explain something by a stated time, and the person's
+one written reply. It is its own record beside Conduct and apart from the help desk. **Merge the backend
+first.** Against a server that predates it the company switch reads as "this server has not been updated",
+no query request is made for the sidebar, and nothing else changes.
+
+## What was built
+
+| Where | What |
+| ----- | ---- |
+| `/people/queries` | The register for the people who write or decide queries: tabs for Draft, Waiting for a reply, No reply in time, Replied, Closed and Withdrawn, a search, Show archived, and `?subject=` (where a person's record links). **Issue a query** opens a two-field dialog (a person, a subject line) that makes a draft and opens its page. |
+| `/people/queries/[id]` | One route for every reader, narrowed by the API: the status and receipt, the letter, the one reply, the outcome, the actions (extend, withdraw, archive, print) and the timeline. A draft is edited and issued here and nowhere else. |
+| Printed letter | `LetterDocument`: the page's own typed fields with the company's logo, name and address, drawn only on paper (`print:block`) while everything else is `print:hidden`. Made by the browser, in the payslip's way, never by the server. |
+| `/settings/queries` | The company switch (off for every company; turning it on asks first) and the three rules: usual reply time, warning time, and whether the issuer may decide when nobody else can. Works while the switch is off. |
+| `/profile` | "Letters from HR": a reference, where it stands and the reply-by time, with a link. Never a subject line. Outside the tabs, like the missing-details list. |
+| `/people/[id]` | For the people who work queries, one link ("See the queries about them"), with no number. |
+| Roles, sidebar, search | `ISSUE_QUERIES` and `DECIDE_QUERIES` in the permission mirrors and the role matrix; the sidebar row "Queries" (`anyPermission`, behind the `queries` flag); the page index and the Settings filter. |
+
+## Decisions not to undo
+
+1. **One page, one route, narrowed by the API.** The person, the issuer, the decider and HR open the same
+   `/people/queries/[id]`. This side draws what it is handed and offers only what `can` says. A server that
+   sends no `can` offers nothing (`toDetail`), and `reply`, `outcome` and every date are `null` until they
+   exist: a missing reply is never an empty one.
+2. **The letter is written in one place.** The register's dialog makes a draft from the two things the API
+   needs (a person and a subject line), and the draft's page holds every other field, the files and Issue.
+   Two copies of the form would drift on a limit. The editor reads the draft once and again only from a
+   save's own answer, so the page's re-read on window focus never wipes what is being typed.
+3. **Nothing about a letter leaves the letter.** The tab title is "Letter", the person's heading is "A letter
+   from HR", every toast says an act was done (a reference at most, never a subject), and the profile entry
+   shows a reference and a state. The server writes the notification ("A letter from HR is waiting for you")
+   and the walk read it on the wire.
+4. **A reply is one box, and the sentence is on the page before the button.** "Once sent, a reply cannot be
+   changed. Read it through first." is text beside Send and again in the confirmation, not behind an icon.
+   After sending the box is gone and the words are read back. There is no call on this side that edits a
+   reply, and the server answers a second send and an edit with 409 (seen on the wire).
+5. **Silence is not a finding.** "No reply by 14 Nov 2026, 5:00 pm." is the server's own sentence
+   (`replyStateLabel`), shown as it came; "No reply in time" is a plain label and never an accusation, and
+   no word in this module says refused, ignored, failed or overdue (a test scans every constant). A late reply
+   is shown as the API labels it.
+6. **The issuer is not offered the outcome form unless the server says so.** `can.decide` is the server's, the
+   maker/checker rule included. Where the person holds the permission, issued the query and the form is
+   absent, the rule is **stated as text** (so the missing form is not a mystery) and the server's own refusal
+   is what arrives if the count changes between the page and the press. This side never counts who else could.
+7. **Receipt is not agreement.** "I received this query" is a button, and the sentence beside it says it is
+   not agreeing and that nothing waits on it. Opening is recorded by the server on the person's first read.
+8. **Files are a click, never a link.** The bytes need the bearer token and every open is audited by the
+   server *before* it serves anything, so a file is fetched inside the click handler and handed to the browser
+   as a download: never on render, never prefetched. A file's name is drawn in the file list and nowhere else.
+9. **Typed text is not turned into links.** A letter about somebody's conduct is not a place for a clickable
+   address, and what was written is what is on the record, with its line breaks.
+10. **No demo, and nothing is kept between screens.** Every hook asks the API and every write refuses without
+    one, in the sentence the other API-only screens use. Reads go through `useFetched`, not a shared resource:
+    a shared resource keeps its answer for the life of the tab and across sign-ins, and a letter about
+    somebody's conduct should not outlive the screen that showed it. A write's own answer is held for the
+    length of one screen (`publish`) and dropped the moment a newer read lands.
+11. **No numbers to compare.** The register has no count on a tab, the record's link has none, and the
+    profile's "waiting" figure is the person's own and the server's. A count is a figure somebody can rank
+    or work back to a person.
+12. **`queries` is a workflow flag, not a module on `/settings/features`,** for the reason `smsDigest` is:
+    its switch asks first and ends with the two things nobody should skip (tell staff, and have counsel review
+    the letter wording and the privacy line before it is used with real staff). `queriesSaid` is separate from
+    the flag: a server that did not send the flag is not a company that chose "off", and gets no switch.
+13. **The web reads `EDIT_RECORDS` as holding both query permissions, because the server does.** The access
+    token and `GET /permissions/users/:id/permissions` carry a role's own permissions and not the server's
+    `LEGACY_EXPANSION`, so a first walk found an HR manager told she could not open the register while the
+    server answered her `GET /queries` with 200. `withLegacyExpansion` in `lib/permissions.ts` mirrors the
+    expansion for these two only, applied once in `usePermissions`, so the sidebar and every `useCan` agree.
+    The cost of a gap is a missing button, never an offered one the server would refuse.
+14. **The print view is the letter as it was served.** It says nothing of a reply or an outcome, prints the
+    employee number so it cannot be mistaken for another person, and shows the reply-by time in the company's
+    zone. The browser's own header and footer are the browser's to draw and can be turned off in the dialog.
+
+## Found, and not changed
+
+- **The server's legacy expansion is longer than the two permissions mirrored here.** `LEGACY_EXPANSION` also
+  gives `EDIT_RECORDS` holders the equipment, repair, shifts, rota, department-edit and department-exit
+  permissions, and the web does not mirror those. `useCan("MANAGE_ROTA")` in the shifts screens is therefore
+  false for an HR manager whom the server treats as holding it. Reasoned from the code and the walk's
+  permissions payload, not run against the shifts screens. Widening what the browser offers for them is a
+  change to those screens.
+- **Today.** `GET /me/today?sections=queries` returns a tenth section (the person's own letters waiting). The
+  web's Today does not draw it, so the profile entry and the notification are the person's ways in.
+- **Who pushed what.** The two merge commits made in this branch to bring in stage 0 (`308a1d3b`,
+  `225d0e05`) reached `fix/query-stage0-20261113` and went into `dev` with #647 at 11:23Z. They are the same
+  commits, so this branch builds on `dev` cleanly; nothing was force-pushed.
+- **`Badge` ignores its tone** on this branch (plain muted text), so the "neutral, never danger" for "No reply
+  in time" is true by construction. The test checks the class it is given.
+- **`docs/components/backend-api.md` is owed.** It is generated from `origin/staging`, so `npm run docs --
+  --only backend-api` follows the backend merge.
+
+## Verified
+
+`npm run check` exit 0 with `APPROVEHR_BACKEND_DIR` at the backend worktree, so the four cross-repo gates
+compared and did not print `skip`. `verify-demo` against a production build with `NEXT_PUBLIC_DEMO=off`: 3,396
+built files, none carries demo copy. Nine new test files, **132 tests**, all passing: `queries-api` (the wire
+layer and the words), `queries-draft` (what is sent), `queries-register-screen`, `queries-query-screen`,
+`queries-settings-screen`, `queries-entries`, `queries-start-dialog`, `queries-wiring` (permissions, the flag
+and the sidebar row) and `permissions-legacy-expansion`.
+
+**Deliberate breaks, eighteen, each one exact replacement in one source file, the file restored with `git
+checkout` and the tree checked clean after each; seventeen caught the first time and one caught after the
+test was strengthened:** the profile entry showing the subject line; the reply box drawn whatever `can` says;
+the outcome form drawn for anybody who holds the permission; a missing `can` offering a button; the "cannot be
+changed" sentence removed from the form; "No reply in time" turned into an accusation; the same label given a
+danger class (the first version of the test could not see it, because `Badge` ignores its tone, and it checks
+the class now); the record link printing a number; the switch confirmation losing its staff-and-counsel
+sentence; the toast carrying the subject line; the printed letter drawn for the person; a switch offered
+where the server did not say; the sidebar row not behind the flag; yourself offered as the person; a diff
+that sends fields that did not change; the reply-by time sent in the browser's zone; receipt described as
+required; and the warning outcome claiming to issue a warning.
+
+**In a browser, against the real backend**: a scratch API (the Stage 1 backend source on a real Postgres, a
+new database) and a production build of this branch with `NEXT_PUBLIC_DEMO=off`, signed in for real as the
+administrator, the HR manager and an employee: **38 of 38 checks**, screenshots in
+`out/query-stage2-walk-2026-11-18/`. The switch was off for a company that had not chosen and no row was in the
+sidebar; turning it on showed the confirmation ending with the tell-staff-and-counsel sentence; the HR manager
+started a draft, was refused an incomplete issue in the server's own words (naming four things missing at
+once), filled it, saved, confirmed and issued, and the toast said `Q-2026-001 issued`; the employee's in-app
+notification was "A letter from HR is waiting for you" and linked to the letter; the profile showed the letter
+with no subject; the employee opened it ("A letter from HR"), confirmed receipt, saved a draft reply, sent it
+after a confirmation, and the box was replaced by the words; the server refused a second send and an edit
+(409, 409) and the sent reply was unchanged; the issuer read the reply, was not offered the outcome form and
+was told the rule; the print view showed the letter (logo-less company, name, reference, person, question,
+reply-by time) and not the application, and said nothing of the reply; the administrator recorded one outcome
+with reasons (ten characters refused first) and the person read it; at 375px with touch there was no sideways
+scroll on the letter or the register and a text field was 16px. The walk provokes one 422 on purpose (issuing
+an incomplete letter) and no other console error or 5xx appeared.
+
+## Not exercised
+
+The QA site, which cannot have this until the backend is on `staging`; iOS Safari or any real device;
+Safari's print dialog (the print view was checked with the browser's print media emulation, not a printed
+page); demo mode in a browser (a production build has none, and the refusal is covered by tests); a person
+with no sign-in replying on paper, extending a reply-by time, withdrawing and archiving in a browser (the
+screens are covered by tests and the routes by the backend's); a letter with attached files (the file
+list, upload and the download click are covered by tests, and the real file routes were not pressed); a
+company with many queries (the register pages at 50); a line manager, a colleague or an auditor getting the
+404 (the backend's).
