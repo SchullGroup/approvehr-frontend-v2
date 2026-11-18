@@ -7,7 +7,6 @@ import {
   Field,
   Input,
   Modal,
-  Select,
   Textarea,
   formatMoney,
   useToast,
@@ -27,6 +26,7 @@ import {
 } from "@/lib/loans/payment-split";
 import { addMonths, monthLabel, priceLoan } from "@/lib/loans/schedule";
 import { useLoanActions, useLoanToday } from "@/lib/store/loans";
+import { StartMonthSelect, useStartMonths } from "./start-months";
 
 /**
  * The dialogs behind the four decisions that need more than one click.
@@ -204,9 +204,15 @@ export function RescheduleLoanModal({
   const today = useLoanToday();
   const toast = useToast();
   const { failure, clear, capture } = useFailure();
-  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("0");
+  const [startsIn, setStartsIn] = useState("0");
   const [saving, setSaving] = useState(false);
   const startPeriod = addMonths(today, Number(startsIn));
+  const startMonths = useStartMonths({
+    today,
+    employeeId: loan.employeeId,
+    scope: "all",
+    excludeLoanId: loan.id,
+  });
 
   async function submit() {
     setSaving(true);
@@ -258,17 +264,15 @@ export function RescheduleLoanModal({
         <Field
           label="First deduction"
           error={failure?.messageFor("startPeriod")}
+          {...(startMonths.endsLabel
+            ? { help: `Their other loan finishes ${startMonths.endsLabel}.` }
+            : {})}
         >
-          <Select
+          <StartMonthSelect
             value={startsIn}
-            onChange={(event) =>
-              setStartsIn(event.target.value as "0" | "1" | "2")
-            }
-          >
-            <option value="0">{monthLabel(addMonths(today, 0))}</option>
-            <option value="1">{monthLabel(addMonths(today, 1))}</option>
-            <option value="2">{monthLabel(addMonths(today, 2))}</option>
-          </Select>
+            onChange={setStartsIn}
+            months={startMonths}
+          />
         </Field>
       </div>
     </Modal>
@@ -304,12 +308,18 @@ export function CounterOfferModal({
   /* Seeded from what was applied for, because a counter-offer is an edit to it. */
   const [amount, setAmount] = useState(String(naira(loan.principalKobo)));
   const [term, setTerm] = useState(String(loan.termMonths));
-  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("0");
+  const [startsIn, setStartsIn] = useState("0");
   const [saving, setSaving] = useState(false);
 
   const principal = Number(amount.replace(/[^0-9.]/g, ""));
   const months = Number(term.replace(/[^0-9]/g, ""));
   const startPeriod = addMonths(today, Number(startsIn));
+  const startMonths = useStartMonths({
+    today,
+    employeeId: loan.employeeId,
+    scope: "all",
+    excludeLoanId: loan.id,
+  });
   const priced =
     principal > 0 && months > 0
       ? priceLoan({
@@ -389,18 +399,17 @@ export function CounterOfferModal({
         <Field
           label="First deduction"
           error={failure?.messageFor("startPeriod")}
-          help="This month comes off the payroll being worked the next time it is calculated."
+          help={
+            startMonths.endsLabel
+              ? `Their current loan finishes ${startMonths.endsLabel}.`
+              : "This month comes off the payroll being worked the next time it is calculated."
+          }
         >
-          <Select
+          <StartMonthSelect
             value={startsIn}
-            onChange={(event) =>
-              setStartsIn(event.target.value as "0" | "1" | "2")
-            }
-          >
-            <option value="0">{monthLabel(addMonths(today, 0))}</option>
-            <option value="1">{monthLabel(addMonths(today, 1))}</option>
-            <option value="2">{monthLabel(addMonths(today, 2))}</option>
-          </Select>
+            onChange={setStartsIn}
+            months={startMonths}
+          />
         </Field>
 
         {priced && (
