@@ -198,7 +198,7 @@ describe("the rows", () => {
       .find((node) => node.tagName === "SPAN");
     expect(label).toBeDefined();
     /* Never the danger colour: a missing reply is a fact about a clock. */
-    expect(label?.className ?? "").not.toMatch(/danger/);
+    expect(label?.className ?? "").not.toMatch(/danger|warning/);
     const text = (document.body.textContent ?? "").toLowerCase();
     for (const word of ["refus", "ignored", "failed to reply", "overdue"]) {
       expect(text).not.toContain(word);
