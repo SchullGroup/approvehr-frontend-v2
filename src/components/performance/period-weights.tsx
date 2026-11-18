@@ -20,7 +20,7 @@ import {
  *
  * ## Whole percents, on purpose
  *
- * The company defaults in Settings take two decimal places, because a three-way
+ * The weights in Settings take two decimal places, because a three-way
  * split of a company's own is a thing somebody types once. A period's weights
  * are chosen by whoever is setting the period up, in a hurry, so here a weight
  * is a whole number from 0 to 100, and what is sent is that number times 100.
@@ -35,6 +35,13 @@ import {
  * `WeightText` holds text, so a half-typed field is not rewritten under the
  * person. Every figure derived from it is an integer number of basis points,
  * and nothing in here computes anybody's mark: the composite lives in the API.
+ *
+ * ## Only the company's parts have a row
+ *
+ * The rows are the parts the company wrote in Settings, under Appraisal
+ * scoring, by their names there, and no others (`companyPartsOf`). A source the
+ * company has no part for is still in the text, at the 0 the server holds for
+ * it, so the whole set is sent, but it is not drawn, added up or checked.
  *
  * ## A part the server has not heard of has no row
  *
@@ -60,16 +67,32 @@ const partsOf = (
       !isLaterComponent(component) || held[component] !== undefined,
   );
 
-/** Used only when no company defaults have arrived to supply the words. */
-const FALLBACK_LABELS: Record<ScoreComponent, string> = {
-  OBJECTIVES: "Delivery against objectives",
-  TASKS: "Weekly tasks",
-  CORE_COMPETENCY: "Core competencies",
-  BEHAVIOURAL_COMPETENCY: "Behavioural competencies",
-  LEADERSHIP: "Leadership",
-  MANAGER_APPRAISAL: "Manager appraisal",
-  SELF_ASSESSMENT: "Self-assessment",
+/**
+ * The sources the company has a part for, from the Settings read. Every source
+ * from an API that predates parts of the company's own (no `isPart`), and null
+ * while the read has not arrived.
+ */
+export function companyPartsOf(
+  settings: ApiScoringWeights | null,
+): ScoreComponent[] | null {
+  if (settings === null) return null;
+  return settings.rows
+    .filter((row) => row.isPart !== false)
+    .map((row) => row.component);
+}
+
+/** Until Settings has been read, a source is named by itself: "Core competency". */
+const sourceWords = (component: ScoreComponent): string => {
+  const words = component.toLowerCase().replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 };
+
+/** The rows drawn: the parts held in the text, narrowed to `parts` when known. */
+const shownOf = (
+  text: Partial<Record<ScoreComponent, unknown>>,
+  parts: readonly ScoreComponent[] | null | undefined,
+): ScoreComponent[] =>
+  partsOf(text).filter((component) => !parts || parts.includes(component));
 
 const ROW_RULE = "Each weight is a whole number from 0 to 100.";
 const ZERO_RULE = "Give at least one part a weight above 0%.";
@@ -104,8 +127,11 @@ function wholePercent(text: string): boolean {
  * from 0 to 100, or every part at zero. Any other total is fine, because the
  * weights are proportional.
  */
-export function periodWeightsProblem(text: WeightText): string | null {
-  const parts = partsOf(text);
+export function periodWeightsProblem(
+  text: WeightText,
+  only?: readonly ScoreComponent[] | null,
+): string | null {
+  const parts = shownOf(text, only);
   if (!parts.every((c) => wholePercent(text[c] ?? ""))) {
     return ROW_RULE;
   }
@@ -113,8 +139,11 @@ export function periodWeightsProblem(text: WeightText): string | null {
   return total > 0 ? null : ZERO_RULE;
 }
 
-function totalBp(text: WeightText): number {
-  return partsOf(text).reduce((sum, c) => {
+function totalBp(
+  text: WeightText,
+  only: readonly ScoreComponent[] | null,
+): number {
+  return shownOf(text, only).reduce((sum, c) => {
     const n = Number(text[c]);
     return sum + (Number.isFinite(n) ? Math.round(n * 100) : 0);
   }, 0);
@@ -128,13 +157,19 @@ export function PeriodWeights({
   onUseDefaults,
   disabled = false,
   basis,
+  parts: givenParts,
 }: {
   value: WeightText;
   onChange: (next: WeightText) => void;
   /** The period has started: the same rows, no fields. */
   readOnly?: boolean;
-  /** Supplies the words, and what "Use the company defaults" goes back to. */
+  /** Supplies the names, which parts there are, and what the reset goes back to. */
   companyDefaults: ApiScoringWeights | null;
+  /**
+   * The parts to list, when the period says (`CycleWeights.parts`). Otherwise
+   * the company's parts from Settings.
+   */
+  parts?: readonly ScoreComponent[] | undefined;
   /** Overrides the reset, for a caller that has to tell the server. */
   onUseDefaults?: () => void;
   disabled?: boolean;
@@ -147,11 +182,12 @@ export function PeriodWeights({
 }) {
   const labelOf = (component: ScoreComponent) =>
     companyDefaults?.rows.find((row) => row.component === component)?.label ??
-    FALLBACK_LABELS[component];
+    sourceWords(component);
 
-  const parts = partsOf(value);
-  const total = totalBp(value);
-  const problem = readOnly ? null : periodWeightsProblem(value);
+  const only = givenParts ?? companyPartsOf(companyDefaults);
+  const parts = shownOf(value, only);
+  const total = totalBp(value, only);
+  const problem = readOnly ? null : periodWeightsProblem(value, only);
   /* Said only for a set that can be read: a row that is not a whole number has
      no figure to add up. Where the set is fixed (the period has started) it
      says what is so and gives no advice nobody could follow. */
@@ -186,6 +222,13 @@ export function PeriodWeights({
           </span>
         </span>
       </div>
+
+      {parts.length === 0 && (
+        <p role="status" className="text-body-sm text-warning-text">
+          There are no scoring parts yet. Add them in Settings, under Appraisal
+          scoring, and they appear here.
+        </p>
+      )}
 
       <div className="flex flex-col gap-3">
         {parts.map((component) => {
@@ -256,10 +299,13 @@ export function PeriodWeights({
         to make 100%.
       </p>
 
-      <p className="text-meta text-muted">
-        If someone has no graded weekly tasks against this period&apos;s
-        objectives, the Weekly tasks share is spread over the other parts.
-      </p>
+      {parts.includes("TASKS") && (
+        <p className="text-meta text-muted">
+          If someone has no graded weekly tasks against this period&apos;s
+          objectives, the {labelOf("TASKS")} share is spread over the other
+          parts.
+        </p>
+      )}
 
       {parts.includes("MANAGER_APPRAISAL") && (
         <p className="text-meta text-muted">
@@ -275,7 +321,7 @@ export function PeriodWeights({
           </p>
         ) : basis === "company" ? (
           <p className="text-meta text-muted">
-            This period follows the company&apos;s weights as they are today.
+            This period follows the weights in Settings as they are today.
           </p>
         ) : null
       ) : (
@@ -287,7 +333,7 @@ export function PeriodWeights({
             onClick={reset}
           >
             <RotateCcw aria-hidden="true" className="size-3.5" />
-            Use the company defaults
+            Use the weights in Settings
           </Button>
         </div>
       )}
