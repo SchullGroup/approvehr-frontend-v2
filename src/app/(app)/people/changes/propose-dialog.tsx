@@ -208,11 +208,6 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
-        {/* The rule, said once, above the fields it applies to. */}
-        <Callout tone="info" title="Fill in only what changes">
-          A transfer that leaves the pay box empty does not touch their pay.
-        </Callout>
-
         <Field
           label="New job title"
           {...(person ? { help: `Currently ${person.jobTitle}.` } : {})}
