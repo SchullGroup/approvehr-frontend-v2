@@ -13360,6 +13360,8 @@ fills a field that is renamed under it.
 **Not exercised:** the QA site, Safari or a real device, demo mode in a browser (the parts screens need the API), a company
 with a Manager appraisal part in the set, and the assistant's first page.
 
+---
+
 # The document and signature dialogs start blank each time, and Add a document can tell the person
 
 Stage 0 of the query feature (the web half; the backend half is `fix/query-stage0-20261113` in
