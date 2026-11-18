@@ -1041,17 +1041,6 @@ export function NewEmployeeForm() {
                  record they just created. "Add another" is the way back. */
               onStepSelect={busy || finished ? undefined : stepper.goTo}
             />
-
-            {!finished && (
-              /* The legend, once, near the top. Not repeated per field — the
-                 asterisk is the reminder and this is the explanation. */
-              <p className="border-t border-line pt-4 text-meta text-muted">
-                Fields marked{" "}
-                <span className="font-semibold text-danger-text">*</span> are
-                required. Everything else can follow later, and the record saves
-                without it.
-              </p>
-            )}
           </CardBody>
         </Card>
 
@@ -1097,10 +1086,7 @@ export function NewEmployeeForm() {
           >
             {stepId === "who" && (
               <Card>
-                <CardHeader
-                  title="Who they are"
-                  description="Their name is the only thing needed here. The rest helps them get their payslip."
-                />
+                <CardHeader title="Who they are" />
                 <CardBody className="grid gap-5 sm:grid-cols-2">
                   <Field
                     label="First name"

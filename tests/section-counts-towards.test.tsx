@@ -23,11 +23,31 @@ const section = (over: Partial<ApiSection>): ApiSection => ({
   ...over,
 });
 
+/* What Settings holds: two parts the company named itself, and Leadership,
+   which it has no part for. */
+const scoringRow = (component: string, label: string, isPart: boolean) => ({
+  component,
+  label,
+  weightBp: isPart ? 5000 : 0,
+  isPart,
+});
+const SETTINGS = [
+  scoringRow("OBJECTIVES", "Delivery against objectives", false),
+  scoringRow("CORE_COMPETENCY", "A", true),
+  scoringRow("BEHAVIOURAL_COMPETENCY", "Our values", true),
+  scoringRow("LEADERSHIP", "Leadership", false),
+];
+let scoringRows = SETTINGS;
+
 let sections: ApiSection[];
 let createSection: Mock<(...args: unknown[]) => Promise<unknown>>;
 let updateSection: Mock<(...args: unknown[]) => Promise<unknown>>;
 
 vi.mock("@/lib/store/performance", () => ({
+  useScoringWeights: () => ({
+    weights: { source: "saved", rows: scoringRows, totalBp: 10000 },
+    loading: false,
+  }),
   useSections: () => ({ sections, loading: false, reload: vi.fn() }),
   useFramework: () => ({ competencies: [], loading: false, reload: vi.fn() }),
   useFrameworkActions: () => ({
@@ -53,6 +73,7 @@ const show = () =>
   );
 
 beforeEach(() => {
+  scoringRows = SETTINGS;
   sections = [section({})];
   createSection = vi.fn().mockResolvedValue({});
   updateSection = vi.fn().mockResolvedValue({});
@@ -96,19 +117,19 @@ describe("what a section counts towards", () => {
     await userEvent.type(screen.getByLabelText("New section"), "Our values");
     await userEvent.selectOptions(
       screen.getByLabelText("What the new section counts towards"),
-      "LEADERSHIP",
+      "CORE_COMPETENCY",
     );
     await userEvent.click(screen.getByRole("button", { name: "Add it" }));
     await waitFor(() =>
       expect(createSection).toHaveBeenCalledWith({
         name: "Our values",
         order: 1,
-        component: "LEADERSHIP",
+        component: "CORE_COMPETENCY",
       }),
     );
   });
 
-  it("only offers the parts of the mark that ratings can feed", async () => {
+  it("offers only the company's own parts that ratings can feed, by their names in Settings", async () => {
     show();
     await userEvent.click(
       screen.getByRole("button", { name: /Company values/ }),
@@ -119,9 +140,37 @@ describe("what a section counts towards", () => {
       .map((option) => option.textContent);
     expect(labels).toEqual([
       "No part of the mark (ratings are only recorded)",
-      "Core competencies",
-      "Behavioural competencies",
-      "Leadership (managers only)",
+      "A",
+      "Our values",
     ]);
+  });
+
+  it("says so when a section feeds a source the company has no part for", async () => {
+    sections = [section({ component: "LEADERSHIP", weightBp: null })];
+    show();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Company values/ }),
+    );
+    const select = screen.getByLabelText("What Company values counts towards");
+    expect(select).toHaveValue("LEADERSHIP");
+    expect(
+      within(select).getByRole("option", {
+        name: /not one of your scoring parts/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers only 'no part' when Settings has no rated parts", async () => {
+    scoringRows = scoringRows.map((row) => ({ ...row, isPart: false }));
+    show();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Company values/ }),
+    );
+    const select = screen.getByLabelText("What Company values counts towards");
+    expect(
+      within(select)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["No part of the mark (ratings are only recorded)"]);
   });
 });

@@ -209,6 +209,25 @@ export type FeaturePatch = {
    * ratings made final afterwards. Its card is in Appraisal scoring, under Records.
    */
   workEvidenceRetentionMonths?: number | null;
+  /**
+   * Whether people may use their own finished project work in their review answers: pin it to
+   * an answer with a note, flag an item of theirs as wrong, and see the colleagues who shared a
+   * project listed first when feedback is asked for. **Off for every company**, and turning it
+   * off keeps everything already written. A boolean that is deliberately not a member of
+   * `FEATURE_KEYS`: it hides no screen, and its switch is in Appraisal scoring, under Records.
+   * The store carries it as `workInAnswers: boolean | null` for the reason
+   * `ApiFeatures.workInAnswers` gives.
+   */
+  workInAnswers?: boolean;
+  /**
+   * Whether the two assists are offered: closing a finished task as won't do or accepting it, the
+   * linked-work hint beside Confirm on a done-or-not measure, and the weekly-line pre-fill. **Off for
+   * every company**, and turning it off deletes nothing, because the assists store nothing and the
+   * two marks on a task are recordings that stay. A boolean that is deliberately not a member of
+   * `FEATURE_KEYS`, for the reason `workInAnswers` is not: it hides no screen, and its switch is in
+   * Appraisal scoring, under Records. The store carries it as `workAssists: boolean | null`.
+   */
+  workAssists?: boolean;
 } & {
   [K in FeatureKey]?: boolean;
 } & { headcountBand?: HeadcountBand };
@@ -269,6 +288,26 @@ export type ApiFeatures = {
    * offered; `null` is a company's own state, "keep nothing".
    */
   workEvidenceRetentionMonths?: number | null;
+  /**
+   * Whether people may use their own finished project work in their review answers (pins, flags
+   * and shared-project suggestions). Off by default, and the switch lives in Appraisal scoring,
+   * under Records. It only does anything while Projects is on.
+   *
+   * Optional because an API one deploy behind does not send it, and **absent is not off**: a
+   * server that has no such setting is a server on which the switch cannot be offered, which is a
+   * different thing from a company that chose no.
+   */
+  workInAnswers?: boolean;
+  /**
+   * Whether the two assists are offered (won't do and acceptance on a finished task, the milestone
+   * hint, the weekly-line pre-fill). Off by default, and the switch lives in Appraisal scoring,
+   * under Records. It only does anything while Projects is on.
+   *
+   * Optional because an API one deploy behind does not send it, and **absent is not off**, for the
+   * reason `workInAnswers` gives: a server with no such setting is one on which the switch cannot
+   * be offered, which is a different thing from a company that chose no.
+   */
+  workAssists?: boolean;
   /**
    * The weekly text message digest. Off by default.
    *
