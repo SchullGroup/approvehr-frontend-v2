@@ -152,6 +152,45 @@ export function toPermissionSet(keys: readonly string[]): PermissionSet {
   return known;
 }
 
+/**
+ * What the server resolves from an old broad permission, mirrored for the ones this build needs.
+ *
+ * `EDIT_RECORDS` is held by every HR manager, and on the day a query module shipped the server
+ * granted `ISSUE_QUERIES` and `DECIDE_QUERIES` to every holder of it (`LEGACY_EXPANSION` in the
+ * API's `permissions/service.ts`, read with `holds()`), so no role had to be edited. **Neither the
+ * access token nor `GET /permissions/users/:id/permissions` carries the expansion**: both list the
+ * role's own permissions, so a screen asking `useCan("ISSUE_QUERIES")` for an HR manager would say
+ * no while the server said yes, and the Queries row would not be in their sidebar.
+ *
+ * Only the two query permissions are mirrored. The server's table is longer (equipment, shifts and
+ * the rota, department edit and exit), and the screens for those read the broad permission or have
+ * their own answer; widening what the browser offers for them is a change to those screens, not
+ * to this one. A permission added to the server's table for queries must be added here too: the
+ * cost of a gap is a button missing, never a button the server would refuse, because the guards
+ * run on the server whatever this set says.
+ */
+const LEGACY_EXPANSION: Partial<
+  Record<PermissionKey, readonly PermissionKey[]>
+> = {
+  EDIT_RECORDS: ["ISSUE_QUERIES", "DECIDE_QUERIES"],
+};
+
+/**
+ * The set plus what its members imply. The same set (same identity) when nothing is added, so a
+ * memo that depends on it does not run again for nothing.
+ */
+export function withLegacyExpansion(set: PermissionSet): PermissionSet {
+  let widened: Set<PermissionKey> | null = null;
+  for (const held of set) {
+    for (const implied of LEGACY_EXPANSION[held] ?? []) {
+      if (set.has(implied)) continue;
+      widened ??= new Set(set);
+      widened.add(implied);
+    }
+  }
+  return widened ?? set;
+}
+
 /* ------------------------------------------------------------ the snapshot */
 
 /**
@@ -270,8 +309,9 @@ export function usePermissions(): Access {
 
   const permissions = useMemo<PermissionSet>(() => {
     if (isLoading || !isSignedIn) return NO_PERMISSIONS;
-    if (!isConnected) return previewSet ?? ALL_PERMISSIONS;
-    return fromApi ?? claimed;
+    if (!isConnected)
+      return previewSet ? withLegacyExpansion(previewSet) : ALL_PERMISSIONS;
+    return withLegacyExpansion(fromApi ?? claimed);
   }, [isLoading, isSignedIn, isConnected, previewSet, fromApi, claimed]);
 
   /* Kept in step so `can()` can answer outside render. An idempotent cache
