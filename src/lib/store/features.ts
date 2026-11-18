@@ -127,6 +127,12 @@ type State = {
    */
   workAssists: boolean | null;
   /**
+   * Whether the server said anything about the queries switch. **Absent is not off**: an API one
+   * deploy behind, or demo mode, has no such setting, so `/settings/queries` offers no switch for
+   * it. `flags.queries` is what the sidebar reads and is false in both cases.
+   */
+  queriesSaid: boolean;
+  /**
    * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
    * company cannot set it, so it must not turn up as a toggle. The sidebar
    * reads it through `NavFacts.earlyPay`.
@@ -226,6 +232,8 @@ const BASE_FLAGS: FeatureFlags = {
   /* Off, matching the schema. A company that has not switched the text digest on
      is texting nobody, and nobody has been asked. */
   smsDigest: false,
+  /* Off, matching the schema: nobody finds queries in a sidebar they have not asked for. */
+  queries: false,
   twoFactor: false,
   /* Off, matching the schema. Nothing is recorded about anybody opening the app
      until a company turns this on, and the app does not even send the event
@@ -256,6 +264,7 @@ const LOADING: State = {
   workEvidenceMonths: undefined,
   workInAnswers: null,
   workAssists: null,
+  queriesSaid: false,
   /* Hidden until the server answers: a row that appears late is better than
      one that vanishes under somebody's pointer. */
   earlyPay: false,
@@ -393,6 +402,11 @@ export const FEATURE_COPY: Record<
   smsDigest: {
     label: "Weekly text message",
     line: "A weekly text of counts and a link, for the people who opt in.",
+  },
+  /* Rendered on `/settings/queries`, where turning it on asks first. */
+  queries: {
+    label: "Queries",
+    line: "Write to one person asking them to explain something by a stated time, and keep their one written reply and the outcome on the same record. A query changes no pay, no status and no exit.",
   },
 };
 
@@ -843,7 +857,12 @@ function fromApi(features: ApiFeatures): State {
       /* Optional on the wire, and a company that was never asked is a company
          without it. */
       smsDigest: features.smsDigest ?? false,
+      /* Optional on the wire, and a company that was never asked is a company without it. */
+      queries: features.queries ?? false,
     },
+    /* Whether the server said. Absent is not off: that server has no such switch, so none is
+       offered for it. */
+    queriesSaid: features.queries !== undefined,
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
     totalSteps: features.totalSteps,
@@ -880,6 +899,8 @@ function fromDemo(demo: DemoState): State {
     /* Nothing is closed as won't do, accepted, hinted or pre-filled in a browser: those need the
        server, and a switch for them would describe no record anywhere. */
     workAssists: null,
+    /* No letters are kept in a browser, so no switch is offered for them. */
+    queriesSaid: false,
     /* Nobody switches a demo company off. */
     earlyPay: true,
     earnedWage: null,
@@ -1088,6 +1109,7 @@ export function useFeatureSettings() {
           probationTracking: features.probationTracking,
           appOpenTracking: features.appOpenTracking ?? false,
           smsDigest: features.smsDigest ?? false,
+          queries: features.queries ?? false,
           headcountBand: features.headcountBand,
         };
       } finally {
@@ -1191,6 +1213,8 @@ export function useFeatureSettings() {
       (workAssists: boolean) => save({ workAssists }, "workAssists"),
       [save],
     ),
+    /** See `State.queriesSaid`. */
+    queriesSaid: state.queriesSaid,
   };
 }
 

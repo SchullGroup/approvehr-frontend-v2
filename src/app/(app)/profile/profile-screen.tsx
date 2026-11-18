@@ -49,6 +49,7 @@ import { MyLoans } from "@/app/(app)/payroll/loans";
 import { MyRota } from "@/app/(app)/people/shifts";
 import { MyAssets } from "@/app/(app)/people/assets";
 import { Resign } from "@/app/(app)/people/offboarding";
+import { LettersFromHr } from "@/app/(app)/people/queries/entries";
 import { ConductPanel } from "@/app/(app)/people/[id]/conduct";
 import { EmploymentHistoryPanel } from "@/app/(app)/people/[id]/employment-history";
 import { TYPE_LABELS, enumKey } from "@/app/(app)/people/[id]/record";
@@ -288,6 +289,11 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
             onFixBank={employee.bankAccount ? undefined : () => change("pay")}
           />
         )}
+
+        {/* A letter waiting for a reply is something that needs the person, so it is outside the
+            tabs, like the missing details above. Renders nothing unless the company runs
+            queries and one has been issued to this person, and never shows a subject line. */}
+        <LettersFromHr />
 
         <Tabs items={TAB_ITEMS} value={tab} onChange={change}>
           {tab === "details" && (
