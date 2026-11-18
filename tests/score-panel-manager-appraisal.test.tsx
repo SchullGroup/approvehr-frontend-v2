@@ -46,6 +46,16 @@ vi.mock("@/components/performance/work-evidence", () => ({
 vi.mock("@/components/performance/work-record", () => ({
   WorkRecordPanel: () => null,
 }));
+/* The review card reads the person's flags through their own hook. Flags are not what this file is
+   about, so the server never says they are on; tests/work-flags-panels.test.tsx covers them. */
+vi.mock("@/lib/store/work-flags", () => ({
+  useWorkFlags: () => ({
+    on: false,
+    flags: null,
+    flag: vi.fn(),
+    unflag: vi.fn(),
+  }),
+}));
 vi.mock("@/lib/store/performance", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/store/performance")>()),
   useReview: () => ({

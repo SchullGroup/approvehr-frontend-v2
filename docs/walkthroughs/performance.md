@@ -290,7 +290,7 @@ scored from it; the card under the list says what it does to a mark and says **N
 | **Where**      | `/settings/performance` → **Parts of a mark**                                                        |
 | **Who**        | HR / Owner (everybody else can read the parts)                                                       |
 | **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from**, a **Weight** in percent, and an optional **Description**, then **Add part** again. The pencil on a row edits it in the same form, and the bin deletes it after asking |
-| **You'll see** | A toast saying the part was added, saved or deleted and, for an add or a change, that **It applies to the next appraisal period you start.** **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. The **Total** badge turns red at 0%, because a set that is all zeros cannot make a mark |
+| **You'll see** | A toast saying the part was added, saved or deleted and, for an add or a change, that **It applies to the next appraisal period you start.** **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. The **Total** badge turns red at 0%, because a set that is all zeros cannot make a mark. When the parts add up to more than 100% the card says so in plain words above the list (**These add up to 110%, which is more than 100%. Each part counts for its share of 110%, not for the weight typed. To make the weights read as shares of 100%, take off 10%.**), and the same sentence shows under the **Weight** box while a number is being typed that takes the total over. It is a warning: nothing is shut by it, and 110% is saved if that is what the company means |
 
 > 💡 **A change here does not move a period that has started.** When a period starts, its parts and
 > weights are copied onto it, so changing or deleting a part afterwards cannot move a mark that has already
@@ -348,6 +348,64 @@ made final is kept with it, and removed when the period ends.
 > review and the person's work: the person, their manager, an assigned appraiser and HR. On a server that has
 > not been updated, the card says so and offers nothing to change.
 
+Under it, the same tab holds **Work in review answers**: whether people may use their own finished project
+work in what they write about it. **It is off for every company**, it moves no mark, and it only does
+anything while Projects is switched on.
+
+|                |                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Work in review answers**                                               |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                               |
+| **Click**      | The switch **Let people use their own project work in their review answers**, then **Switch it on**              |
+| **You'll see** | A toast, _People can now use their own work in their review answers_, and the card describing what people can do |
+
+> ⚠️ **Turning it on asks first, and says what it does.** The question, _Let people use their own work in
+> their review answers?_, lists it. A person writing their self-review can attach finished tasks from their own
+> list to an answer, each with a note of their own, and **the task's title is not saved with it**. The people
+> who read the review see them beside the answer, and the full list of finished work stays one press away for
+> them. A person can flag an item on their list as wrong, which does not remove it or change a mark. When
+> feedback is asked for, or an appraiser is chosen, the colleagues who shared a project with the person are
+> listed first, and nobody is chosen for anybody. It only works while Projects is switched on. It ends with a
+> plain reminder: _Before you switch it on, tell your staff, and check with whoever looks after data protection
+> at your company whether an assessment should be filed first. This page does not do that for you._ **Turning
+> it off is one press, with no question,** and keeps everything already written (the toast says so: _People can
+> no longer add work to their review answers_). A pin already added is still read and can still be taken off, and
+> a flag already raised stays on the list and in the count and can still be taken back; only a new pin or a new
+> or changed flag stops.
+
+> 💡 **What it never does.** Change a mark, a score, a band or a rank; save a task title with an attached task;
+> remove anything from the finished-work list; choose anybody for anybody; or offer anything while Projects is
+> switched off. What a person attaches is read by the people who can read the review, and a flag by the people
+> who can read that person's work: the person, their manager, an assigned appraiser and HR. Where Projects is
+> off the card says so, with a link to **Features**, and the switch is still there. On a server that has not
+> been updated the card says so and offers no switch.
+
+Under that, the third card on the tab, **Work behind a milestone, and weekly lines**, is the switch for two
+small helpers. **It is off for every company**, it moves no mark, and it only does anything while Projects is
+switched on.
+
+|                |                                                                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Work behind a milestone, and weekly lines**                                            |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                                               |
+| **Click**      | The switch **Offer the linked tasks beside Confirm, and finished tasks for weekly lines**, then **Switch it on**                 |
+| **You'll see** | A toast, _The two assists are now offered_, and the card describing what they offer                                              |
+
+> ⚠️ **Turning it on asks first, and says what it does.** The question, _Offer the linked tasks and the
+> weekly-line suggestions?_, lists it: beside **Confirm** on a done-or-not measure, the tasks linked to that
+> measure are listed with where each stands (step 11), and a person writing a weekly line can add the tasks
+> they finished that week as text, then edit it (step 18). Nothing is filed, submitted, graded or scored; the
+> list never says a measure is done and never recommends confirming it; a task's title is shown only to the
+> person whose task it is, in the weekly line, and is not saved by this. It only works while Projects is
+> switched on. **Turning it off is one press, with no question,** and deletes nothing (the toast says so:
+> _Nothing is deleted. Tasks closed as won't do and accepted tasks stay as recorded._).
+
+> 💡 **Won't do and acceptance are not behind this switch.** Closing a finished task as **won't do**, and a
+> leader **accepting** one, are recordings available to whoever the server says may make them, whatever this
+> says, and they change nothing until a person makes one. Neither feeds a mark. Where Projects is off the card
+> says so, with a link to **Features**, and the switch is still there. On a server that has not been updated the
+> card says so and offers no switch.
+
 ### Phase B — once per period: build it, and leave it as a draft
 
 A draft period is invisible to everybody except the person building it. Nobody has a form and nobody
@@ -391,7 +449,7 @@ them on its own page.
 | **Where**      | `/performance/periods/{id}`, on a draft: the card **How the mark is made up**                                                                    |
 | **Who**        | HR / Owner                                                                                                                                       |
 | **Click**      | Type a whole number from 0 to 100 into each part, then **Save the weights**. **Use the company defaults** puts the company's back               |
-| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. |
+| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. Over 100% the card says **These add up to 110%, which is more than 100%...** and how much to take off, and still saves; on a period that has started the same sentence is shown without the advice. |
 
 Two things about it. Whole numbers only: the company defaults in Settings take two decimal places, but here
 a weight is a whole number from 0 to 100, and the parts count in proportion to their total. And an untouched
@@ -754,6 +812,19 @@ back** undoes it. A company or department objective has no owner, so confirming 
 permission. It still works once the objective is agreed, because progress is the half that does not
 freeze.
 
+**The tasks linked to the measure, beside Confirm.** Where the company has switched on **Work behind a
+milestone, and weekly lines** (step 3), whoever sees **Confirm it is done** on a measure that is not confirmed
+also sees **Tasks linked to this measure** with a count, closed until it is opened. It lists each linked task by
+its key (a link that opens the task) and where it stands: **Open**, **Finished 9 Nov 2026**, **Closed as won't do**,
+and, where a leader accepted it, _accepted by Ada Eze on 11 Nov 2026_. A task the reader cannot open is one plain
+line, **A task you cannot open**, with nothing else about it, and those lines come last, after the tasks that can
+be opened, so where one sits says nothing about it. When nothing is linked it says **No task is
+linked to this measure.** When there are more than the page lists it says **Showing 50 of 63.** **It lists and
+never decides:** it does not say the measure is done, how many are left or that anything is ready, and it does
+not recommend confirming. Which tasks count towards a measure is set on the task (**Link to an objective**).
+It is not shown once the measure is confirmed, to the person whose objective it is, or to a reader who may not
+confirm, and nothing is asked for in those cases or while the setting is off.
+
 > ⚠️ **Until it is confirmed a milestone counts as not done**, at 0% in the average, from the day it is
 > made. That is deliberate: a milestone nobody confirmed by the end of the period was not met, and
 > leaving it out of the average would let a miss disappear. The message after you add one says so:
@@ -998,6 +1069,33 @@ the module, so it is worth walking properly.
   carries it, whether they fill it in themselves or their manager or a colleague does, so an
   ordinary employee who sees no leadership question is seeing it work. An answer that was already
   recorded stays on record.
+- **Add work, where the company has switched it on** (step 3). Under each question of the person's own
+  self-review there is **Add work**, which opens **Add work to this answer**: the person's finished work in
+  the period, one task at a time, each with its key, its title, the project, the day it was finished, on time
+  or late, and **Set by** when somebody else made it. The title is shown to help them choose and is **not saved
+  with the pin**, which the dialog says. They pick a task, write an optional note of up to 280 characters
+  (**Why this one? (optional)**), and press **Add to this answer**; **Done** closes it. **If a task is picked,
+  or a note typed, and it has not been added, Done (and the cross, Escape and clicking outside) asks first**:
+  _You picked PLT-12 and have not added it._, with **Keep editing**, **Discard** and **Add it and close**, and
+  nothing is thrown away until one of them is pressed. The keyboard focus goes to **Keep editing** when the
+  question appears (and back to **Done** if that is chosen), so the next key is not lost on the page behind.
+  The tasks are one named group for a screen reader (_Which task to add to this answer_). Up to five go on each
+  answer._, then _1 of 5 added._, and at five _5 of 5 added. Unpin one to add another._), and a task cannot
+  go on the same answer twice. Each is saved as it is added and not with the answer, so closing the page loses
+  nothing, and a refusal comes back in the server's own sentence, in the dialog, with the pick and the note
+  still there (if the review itself has gone it says so: _That review is not there any more, so nothing was
+  changed._); while a request is out nothing closes the dialog, so a refusal is always seen. **Add work** is
+  offered only where the period has a start and an end date, because the list is the work done between them:
+  a period with no dates says nothing about the person's work and offers nothing to choose from. The pins sit
+  under the question as **Work you added to this answer**, each with an **Unpin** until the review is sent, and
+  the **Preview** reads them back under the answer as **Work pinned to this answer**. After a pin is taken off,
+  or the dialog closes, the keyboard focus is on **Add work**, or on the list when that is off, or on the empty
+  place the list leaves when the last pin goes and nothing can be added, so the next key goes where the person
+  is and not to the page behind. While the picker is open the form's own keys are off (a letter does not pick an
+  answer behind it), and they come back when it closes, including when the company turns the setting off under
+  it: the picker goes with its button and does not return by itself. A pin can still be taken off after the
+  company turns the setting off, and nothing new is offered. A pin the server no longer holds (taken off in another window) leaves the list, and
+  one that was already gone when **Unpin** was pressed is simply removed. It does not change the mark.
 
 #### 18. _Optional_ — log what you did each week
 
@@ -1017,6 +1115,23 @@ task log and in the grading queue. The tag says where the work came from; the gr
 It is a link only if you can open that project, and plain text if you cannot. **Finishing a project task no
 longer files a weekly task**: finished project work is evidence to read (see **Work this cycle**), and
 nothing waits for a grade because of it.
+
+**Starting a weekly line from finished work.** On an agreed objective's own card, **Log a task** opens a box for
+the line. Where the company has switched on **Work behind a milestone, and weekly lines** (step 3), under the
+box there is **Add from my finished work** with a count, closed until it is opened: the tasks the person
+finished that week (Monday to Sunday) under that objective, each as the text _KEY title_ with the day it was
+finished. **Add** puts that text in the box (on a new line if something is already there, never replacing it),
+and a line already in the box reads **Added**. **A weekly line is 300 characters at most.** The box counts
+(**260 of 300 characters**) from 250 on and keeps counting past 300, where it says **Keep it short enough to read
+in a list.** and **Save it** is off; it never cuts what is pasted. A finished task that would take the box past
+300 is not added: its row says **Would take the line past 300 characters.** and, once, under the list, **A weekly
+line is 300 characters at most. Save this one, then log the next on its own.** Two or three ordinary titles fill
+a line, so a week's tasks are usually logged one line at a time. If the server refuses a line, the sentence it
+wrote about the line is the one shown. Adding is all it does: **nothing is logged, filed or graded** until
+the person has read it, changed it and pressed **Save it**, and a manager grades what the person sent. It shows
+only the owner's own tasks, says **Showing 50 of 63.** when the week has more than it lists, and draws nothing
+at all when the helpers are off, the week has nothing finished under that objective, or the server does not
+answer.
 
 #### 19. Chase the people who have not sent theirs
 
@@ -1136,6 +1251,20 @@ manager's answer, and an employee's send records theirs only where the employee 
 | **Who**        | HR / Owner                                                                               |
 | **Click**      | Search names, tick who to ask, send. Each of them gets a form waiting in the app         |
 | **You'll see** | Answers appear on the person's own Overview under _Peer feedback_, with no name attached |
+
+Where the company has switched on **Work in review answers** (step 3), the people who shared a project with
+the person are listed first, each saying how many (_Shared 3 projects_, _Shared 1 project_), under the line
+_People who shared a project with Femi Balogun are listed first. You still choose who to ask._ The same
+ordering is on `/performance/appraisers`: once somebody opens a row's list of people it puts **Shared a
+project** before **Everybody else**, and so does the **Appraiser** list in the dialog that shares the mark
+between several. **A list that is open is never rearranged.** What it shows is fixed at the moment somebody
+reaches into it (focus, a press, a key), and an answer that arrives after is applied the next time it is
+opened, so a name never moves under the pointer. Resting the pointer on a row's list for a moment asks early,
+so the answer is usually there by the time the list is opened, and a pointer that only crosses the table asks
+for nothing. It is a count of the projects both people belong to, with no project named and nothing about any
+task. It only orders the list. Nobody is chosen for the person, and where the server says nothing (the
+setting is off, or the reader is one it does not answer) the list is as it was and nothing claims that
+anybody shared no projects.
 
 ### Phase E — calibration: compare across the company, then make the marks final
 
@@ -1265,6 +1394,14 @@ A question only one of them was asked reads **Not asked**, which is not the same
 Under the questions, **Closing note and recommendations** puts the manager's recommendations beside
 anything the person added, and **Overall mark** appears as a row only where the company asks for one or
 somebody gave one. Where the self-review is not there the card is simply **Manager review**.
+
+Where the person pinned finished work to an answer (step 17), it is read under their answer in the **Self
+review** column: _Work pinned to this answer_ (or _2 pieces of work pinned to this answer_), each pin the task's
+key, which opens the task as it is now **where the server says the reader may open it** (where it says they
+may not, or says nothing, the key is plain text and everything else is read as usual), the day it was finished, on time or late, **Set by**, the person's own
+note and a line such as _Pinned by Femi Balogun on 5 Nov 2026_ (_Pinned by you_ to the person themselves). It
+is the person's own selection and shows no title, and the full list of finished work is still one press away
+under **Work this cycle**. The manager's column never carries pins, and an answer with none says nothing.
 
 Above it, **What the mark is made of** lists each part with what it scored, what it counts for and what
 it is based on: _Based on 4 ratings_, _Based on 1 agreed objective_. A part left out says why in the API's
@@ -1407,7 +1544,13 @@ with nothing in it reads "Nothing finished on the board in this week." Where som
 person's record it says "You can't open this person's work record."
 
 **Finished project work elsewhere in Performance.** The same finished tasks appear, as evidence to read and
-never as a score, in four more places:
+never as a score, in four more places. **A task somebody closed as _won't do_ is in a Done column and is not
+finished work:** it is left out of every list below and of the _done this week_ counts on Team tasks and the
+Master view; on a board it stays in its column with
+**Won't do** beside it, and in **My tasks** the **Done** group, in the list and in the Board layout's Done
+column, counts the finished ones and says how many were closed as won't do (_1 finished, 1 won't do_). A task
+dragged out of the Done column on the board stops saying **Won't do** or **Accepted** at once, as the server clears
+both when it is reopened.
 
 - **Team tasks, Completed** (`/projects/team?view=completed`): for somebody who leads people, what they
   finished over a **Week**, **Month** or **Quarter**, a person at a time, with the project, the day and on
@@ -1426,7 +1569,22 @@ never as a score, in four more places:
   somebody else put on their list is kept, shown with **Personal** and **Set by**. **A company that has not
   switched Projects on does not see it at all.** A person with nothing recorded reads "No finished tasks were
   recorded for you on the project boards in this period", which says nothing about the rest of their work. It
-  is collapsed on a phone, and it does not change the mark.
+  is collapsed on a phone, and it does not change the mark. Where the company has switched on **Work in review
+  answers** (step 3), the person the work is about can say **This is wrong** beside an item, with a reason of 3
+  to 280 characters (**What is wrong with it?**) and **Flag it**, and can **Change** it or **Take it back**.
+  Whoever reads the list sees _Flagged by Chidi Nwosu on 6 Nov 2026: …_ on the row and a count in the heading
+  (_3 tasks finished · 1 flagged as wrong_), and no control. **A flag that was raised stays on the list, and in
+  the count, when the company later switches the setting off**: the person still has **Take it back**, nobody
+  can raise or change one, and the panel says so (_Raising or changing a flag is not available at the
+  moment. A flag you raised stays on the list, and you can still take it back…_). A flag does not remove the
+  item or change the mark, and the panel says so. The dialog cannot be closed while a request is out, and a
+  refusal is shown in it with the reason still typed; after a flag is raised, changed or taken back the
+  keyboard focus is on that row's own control, and both panels (this list and the record kept with a rating)
+  show the same flags without reloading. A flag the server says is already gone when **Take it back** is
+  pressed (taken back in another window) simply leaves the list, with nothing said. While **Your work** is open
+  on the answering form the form's own keys are off, **Ctrl or ⌘ Enter** included (it goes on even from a text
+  box), so a reason typed in the flag dialog on the drawer does not move the form on behind it; Escape closes the
+  drawer and not the form.
 - **Work when the rating was made final**, on a manager's review whose rating is final, for a company that
   kept it (see **Records** in step 3). It leads, in place of the list above: the finished tasks as they stood on
   the day the rating was made final, with the totals, each task as its key (a link that opens the task as it is
@@ -1438,7 +1596,8 @@ never as a score, in four more places:
   nothing was kept the review says so once, above the list that is read as it stands now ("Nothing was kept of
   this list when the rating was made final..."), and when the record has been removed it says when
   ("...was removed on 1 Nov 2027, when its retention period ended"). Nothing of this appears before a rating
-  is final, on a self review, with Projects off, or on a server that has not been updated.
+  is final, on a self review, with Projects off, or on a server that has not been updated. A flag raised on one
+  of its rows (see **Work this cycle**) is shown on that row the same way.
 - **Completed work**, under an objective or KPI (its detail, and the objectives to agree): the linked tasks,
   by person for a team objective; for a personal KPI also the owner's tasks linked to an objective above it,
   each marked with the level it was linked at.
@@ -1611,7 +1770,10 @@ subsection answered in the person's own words, and the paragraph on finished pro
 bridge, and steps 3 and 28 and the **Work when the rating was made final** note in step 33 on 12 November 2026,
 for the work kept with a final rating, and steps 2, 3, 4 and 17, the reading of a mark and the twelfth
 surprise again on 12 November 2026, for the Manager appraisal part, and steps 3, 4, 17 and 30 once more on the
-same day, for when Save is dead, the mark page with several appraisers and a review sent back). Every button label, field name and
+same day, for when Save is dead, the mark page with several appraisers and a review sent back, and steps 3, 17 and 23,
+the notes in step 33 and the reading of the two reviews on 12 November 2026, for work in review answers, and steps 3, 11,
+18 and 33 on 12 November 2026, for the linked tasks beside Confirm, the weekly-line suggestions and tasks closed as
+won't do). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

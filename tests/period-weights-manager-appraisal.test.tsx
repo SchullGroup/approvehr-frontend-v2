@@ -203,7 +203,7 @@ describe("the editor", () => {
     await userEvent.type(field, "40");
     expect(field).toHaveValue(40);
     await userEvent.click(
-      screen.getByRole("button", { name: "Use the company defaults" }),
+      screen.getByRole("button", { name: "Use the weights in Settings" }),
     );
     expect(
       screen.getByRole("spinbutton", { name: "Manager appraisal" }),
@@ -213,7 +213,7 @@ describe("the editor", () => {
   it("does not bring the row back on a reset against a server that has no part", async () => {
     render(<Harness start={weightsToText(SIX)} company={defaults(false)} />);
     await userEvent.click(
-      screen.getByRole("button", { name: "Use the company defaults" }),
+      screen.getByRole("button", { name: "Use the weights in Settings" }),
     );
     expect(rowLabels()).toHaveLength(6);
   });

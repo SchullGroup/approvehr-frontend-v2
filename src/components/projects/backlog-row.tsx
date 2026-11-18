@@ -16,6 +16,7 @@ import {
 } from "./glyphs";
 import { assigneesOf } from "@/lib/projects/assignees";
 import { AssigneeStack } from "./assignees";
+import { FinishTag } from "./finish-tag";
 
 /**
  * One issue in a backlog list.
@@ -114,6 +115,7 @@ export function BacklogRow({
             that gives way (it truncates) so the avatar and the menu stay on screen. */}
         <div className="flex min-w-0 max-w-full items-center gap-2 sm:ml-auto">
           {epic && <EpicChip title={epic.title} className="min-w-0 shrink" />}
+          <FinishTag wontDo={issue.wontDo} accepted={issue.accepted} />
           <StatusPill status={status} />
           <span className="flex min-w-7 justify-center">
             {issue.points !== null && <PointsPill points={issue.points} />}

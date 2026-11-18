@@ -4,6 +4,7 @@ import type { IssueObjective } from "@/lib/projects/types";
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import { downloadBlob, fetchBinary } from "@/lib/api/download";
 import type { ApiSuggestOutcome } from "@/lib/api/ai";
+import type { ApiPin } from "@/lib/api/work-pins";
 
 /**
  * KPIs, appraisals and skills — `/api/v1/performance`.
@@ -940,6 +941,14 @@ export type ApiFormQuestion = {
   /** Sent with `answersSubsection: true`, and what the form is drawn from. */
   subsection?: ApiSubsectionOnForm;
   /**
+   * The finished work the person pinned to this answer, on a **self-review** only: their own
+   * choice, with a note of their own, read by whoever may read the review. Absent on every other
+   * form and from a server that predates pins, and absent means there is nothing to show, never
+   * "they pinned nothing". Read it through `pinsOf` in `lib/api/work-pins.ts`, which keeps only
+   * what is a pin and no title.
+   */
+  pins?: ApiPin[];
+  /**
    * The subject's own answer, on their manager's form only. `null` and absent
    * are the same thing: nothing to show.
    */
@@ -968,6 +977,14 @@ export type ApiReviewDetail = ApiReview & {
    * refuses a send without one where it is, in a sentence the form shows.
    */
   overallMarkRequired?: boolean;
+  /**
+   * Whether this company lets people pin their own finished project work to an answer: its
+   * "Work in review answers" setting (and Projects) in Appraisal scoring, sent with the form so
+   * the page needs no second request. **Absent from a server that predates it, and absent means
+   * off**, never on: a form must not offer something the company has not chosen. Pins that were
+   * already written are drawn whatever this says.
+   */
+  workPins?: boolean;
   /**
    * Why Send would be refused right now, in the API's own sentence, or `null`
    * when it would not.
@@ -1346,12 +1363,18 @@ export function weightSetFromRows(
  * Where a period's weights come from, as the API reports it.
  *
  * - `period`: somebody set them on this draft period.
- * - `company`: a draft with none of its own, so it follows the company defaults.
+ * - `company`: a draft with none of its own, so it follows the weights in Settings.
  * - `frozen`: the period has started and these are the ones it was fixed with.
  */
 export type CycleWeights = {
   values: WeightSet;
   basis: "period" | "company" | "frozen";
+  /**
+   * The parts this period is made up of: the company's parts from Settings
+   * while it is a draft, the parts that carried a weight once it started. A
+   * screen lists these and no others. Absent from an older API.
+   */
+  parts?: ScoreComponent[];
 };
 
 /** Why a component did not enter the arithmetic. Null means it did. */
@@ -1592,6 +1615,12 @@ export type ApiScoringWeights = {
     weightBp: number;
     /** Its share of a mark: weight over total. Absent from an older API. */
     shareBp?: number;
+    /**
+     * Whether the company has a part scored from this source. False for a
+     * source it has no part for, which no screen lists or offers. Absent from
+     * an older API, where every row is a part.
+     */
+    isPart?: boolean;
   }[];
   /** Weights are proportional, so this need not be 10000. */
   totalBp: number;
@@ -2845,7 +2874,7 @@ export const performanceApi = {
      */
     appraiseOwner?: boolean;
     appraiseHrManager?: boolean;
-    /** The whole set, in basis points. Omitted means the company defaults. */
+    /** The whole set, in basis points. Omitted means the weights in Settings. */
     weights?: WeightSet;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
@@ -2867,7 +2896,7 @@ export const performanceApi = {
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
       /**
-       * The whole set, or `null` to go back to the company defaults. Refused
+       * The whole set, or `null` to go back to the weights in Settings. Refused
        * (409) once the period has started: the weights are fixed by then.
        */
       weights?: WeightSet | null;
@@ -4155,6 +4184,38 @@ export function weightProblem(entries: { weightBp: number }[]): string | null {
   return total < FULL_WEIGHT_BP
     ? `These add up to ${weightLabel(total)}. Add ${weightLabel(FULL_WEIGHT_BP - total)}.`
     : `These add up to ${weightLabel(total)}. Take off ${weightLabel(total - FULL_WEIGHT_BP)}.`;
+}
+
+/**
+ * What to say beside a set of proportional weights that add up to more than
+ * 100%, or null when they do not.
+ *
+ * A warning and not a refusal. The company's parts and a period's own weights
+ * are proportional: each part counts for its weight over the total, so 110% is
+ * a legitimate set and the API takes it. What goes wrong is the reading. A
+ * person who typed 45 and sees 45% on the row takes it for 45% of the mark,
+ * and the mark counts it for 45/110, so the total is the only place the
+ * difference can be said. It is said beside the total and beside the field that
+ * moves it, in one place, so the two cannot describe it differently.
+ *
+ * **Not said for exactly 100%, or for less.** Under 100% nothing is
+ * misleading: every part still counts for at least its weight's worth of the
+ * whole, and "weights that do not add up to 100%" is a question for the
+ * company, not an alarm.
+ *
+ * `canChange` is false for a set that is fixed (a period that has started): the
+ * advice to take some off would be an instruction nobody can follow.
+ */
+export function overFullWeightNote(
+  totalBp: number,
+  { canChange = true }: { canChange?: boolean } = {},
+): string | null {
+  if (!Number.isFinite(totalBp) || totalBp <= FULL_WEIGHT_BP) return null;
+  const total = weightLabel(totalBp);
+  const said = `These add up to ${total}, which is more than 100%. Each part counts for its share of ${total}, not for the weight typed.`;
+  return canChange
+    ? `${said} To make the weights read as shares of 100%, take off ${weightLabel(totalBp - FULL_WEIGHT_BP)}.`
+    : said;
 }
 
 /**

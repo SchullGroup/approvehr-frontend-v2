@@ -509,7 +509,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, and how long the work behind a final rating is kept. The parts and the names are frozen onto an appraisal period when it starts."
+    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
   },
   {
     "href": "/settings/policies",
@@ -530,6 +530,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "href": "/settings/security",
     "title": "Sign-in security",
     "description": "Two-factor sign-in, the actions that need a code, and your recovery codes."
+  },
+  {
+    "href": "/settings/setup",
+    "title": "Setting up your company",
+    "description": "What is still to set up, and what each step changes in the product."
   },
   {
     "href": "/settings/sms",
