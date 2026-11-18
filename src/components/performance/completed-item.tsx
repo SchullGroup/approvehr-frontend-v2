@@ -51,12 +51,18 @@ export function CompletedItem({
   timeZone,
   selection,
   showPerson = false,
+  extra,
 }: {
   item: Completion;
   timeZone: string;
   selection?: ItemSelection;
   /** Name who finished it, for a list that is not already under their name. */
   showPerson?: boolean;
+  /**
+   * Something the screen has to say about this row beyond the task itself: today, the person's
+   * flag that it is wrong. Drawn last, under the facts; nothing for none.
+   */
+  extra?: React.ReactNode;
 }) {
   const link = linkLine(item);
   const where = isPersonalSource({ key: item.key, projectId: item.projectId })
@@ -110,6 +116,7 @@ export function CompletedItem({
           ))}
         </p>
         {link && <p className="text-meta text-muted">{link}</p>}
+        {extra}
       </div>
     </li>
   );

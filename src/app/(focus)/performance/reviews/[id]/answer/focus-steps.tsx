@@ -4,12 +4,15 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
+import { AnswerPins, type Pinning } from "@/components/performance/answer-pins";
+import { PinsRead } from "@/components/performance/pins-read";
 import { LanguageCheck } from "@/components/performance/language-check";
 import {
   SuggestButton,
   SuggestionPanel,
 } from "@/components/performance/suggestions";
 import type { useDevelopmentSuggestions } from "@/lib/store/ai";
+import type { ApiPin } from "@/lib/api/work-pins";
 import {
   dayLabel,
   ratingWordsFrom,
@@ -212,6 +215,8 @@ export function QuestionStep({
   editable,
   savedStays,
   nudged,
+  pinning = null,
+  onPinDialogChange,
   onChange,
   onPick,
   onBusyChange,
@@ -226,6 +231,14 @@ export function QuestionStep({
   savedStays: boolean;
   /** They tried to go on without answering a required question. */
   nudged: boolean;
+  /**
+   * The finished work pinned to this answer and what can be done to it, or nothing to draw. Only
+   * on a person's own self-review, and only where the company has switched the setting on or a
+   * pin was already written.
+   */
+  pinning?: Pinning | null;
+  /** The picker for work to pin opened or closed, so the form can leave its keys alone. */
+  onPinDialogChange?: (open: boolean) => void;
   onChange: (next: Draft) => void;
   onPick: (value: string) => void;
   onBusyChange: (busy: boolean) => void;
@@ -292,6 +305,14 @@ export function QuestionStep({
               This one needs an answer before you can go on.
             </p>
           )}
+        {pinning && (
+          <AnswerPins
+            pinning={pinning}
+            {...(onPinDialogChange
+              ? { onDialogOpenChange: onPinDialogChange }
+              : {})}
+          />
+        )}
       </div>
     </Frame>
   );
@@ -430,6 +451,7 @@ export function CheckStep({
   review,
   scale,
   onRecord,
+  pinsFor,
   withMark,
   markRequired = false,
   mark,
@@ -444,6 +466,11 @@ export function CheckStep({
   scale: ApiRatingScale;
   /** What will be on the record for a question — see `onRecordOf`. */
   onRecord: (question: ApiFormQuestion) => Draft;
+  /**
+   * The work pinned to a question in this visit and before it, for the row to read back. Left out,
+   * no row says anything about pins, which is every form that is not a self-review with some.
+   */
+  pinsFor?: (questionId: string) => ApiPin[];
   /** Whether the company asks for an overall mark, so whether it has a row here. */
   withMark: boolean;
   /** This period needs one, so a missing mark is something to answer, like a required question. */
@@ -502,6 +529,8 @@ export function CheckStep({
                 ) : (
                   <ReadAnswer question={question} held={onRecord(question)} />
                 )}
+                {/* Plain text, no links: this row is itself a button. */}
+                {pinsFor && <PinsRead pins={pinsFor(question.id)} linkless />}
                 {missing && (
                   <span className="mt-1.5 block">
                     <Badge tone="danger" size="sm">

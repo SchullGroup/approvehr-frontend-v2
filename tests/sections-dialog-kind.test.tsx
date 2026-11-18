@@ -14,6 +14,7 @@ let sections: ApiSection[];
 let competencies: ApiCompetency[];
 
 vi.mock("@/lib/store/performance", () => ({
+  useScoringWeights: () => ({ weights: null, loading: true }),
   useSections: () => ({ sections, loading: false, reload: vi.fn() }),
   useFramework: () => ({
     competencies,

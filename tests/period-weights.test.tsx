@@ -196,14 +196,14 @@ describe("<PeriodWeights />", () => {
     ).toBeInTheDocument();
   });
 
-  it("'Use the company defaults' resets the rows", async () => {
+  it("'Use the weights in Settings' resets the rows", async () => {
     const user = userEvent.setup();
     const seen = vi.fn();
     render(<Harness onValue={seen} />);
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "20");
     await user.click(
-      screen.getByRole("button", { name: "Use the company defaults" }),
+      screen.getByRole("button", { name: "Use the weights in Settings" }),
     );
     expect(screen.getByLabelText("Weekly tasks")).toHaveValue(0);
     expect(screen.getByLabelText("Delivery against objectives")).toHaveValue(
@@ -215,7 +215,7 @@ describe("<PeriodWeights />", () => {
     render(<Harness readOnly basis="frozen" />);
     expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
     expect(
-      screen.queryByRole("button", { name: "Use the company defaults" }),
+      screen.queryByRole("button", { name: "Use the weights in Settings" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByText("Fixed when this period started."),
@@ -237,8 +237,72 @@ describe("<PeriodWeights />", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        "This period follows the company's weights as they are today.",
+        "This period follows the weights in Settings as they are today.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("a company that wrote its own parts in Settings", () => {
+  /* The field report: one part, "A", scored from Core competencies at 50%. */
+  const own: ApiScoringWeights = {
+    source: "saved",
+    rows: defaults.rows.map((row) =>
+      row.component === "CORE_COMPETENCY"
+        ? { ...row, label: "A", weightBp: 5000, isPart: true }
+        : { ...row, weightBp: 0, isPart: false },
+    ),
+    totalBp: 5000,
+    selfAssessmentNote: "",
+  };
+  const text = weightsToText({
+    OBJECTIVES: 0,
+    TASKS: 0,
+    CORE_COMPETENCY: 5000,
+    BEHAVIOURAL_COMPETENCY: 0,
+    LEADERSHIP: 0,
+    SELF_ASSESSMENT: 0,
+  } as Record<ScoreComponent, number>);
+
+  it("lists only its parts, by its own names", () => {
+    render(
+      <PeriodWeights value={text} onChange={() => {}} companyDefaults={own} />,
+    );
+    expect(screen.getByLabelText("A")).toHaveValue(50);
+    for (const builtIn of [
+      "Delivery against objectives",
+      "Weekly tasks",
+      "Behavioural competencies",
+      "Leadership",
+      "Self-assessment",
+    ]) {
+      expect(screen.queryByText(builtIn)).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/weekly tasks share/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("weights-total")).toHaveTextContent("50%");
+  });
+
+  it("follows the parts the period names, over the company's", () => {
+    render(
+      <PeriodWeights
+        readOnly
+        basis="frozen"
+        value={text}
+        onChange={() => {}}
+        companyDefaults={own}
+        parts={["CORE_COMPETENCY"]}
+      />,
+    );
+    expect(screen.getAllByText("A").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Weekly tasks")).not.toBeInTheDocument();
+  });
+
+  it("checks only its parts: a zero on a source it has no part for is fine", () => {
+    expect(periodWeightsProblem(text, ["CORE_COMPETENCY"])).toBeNull();
+    expect(
+      periodWeightsProblem({ ...text, CORE_COMPETENCY: "0" }, [
+        "CORE_COMPETENCY",
+      ]),
+    ).toMatch(/at least one part/i);
   });
 });

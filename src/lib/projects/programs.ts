@@ -244,6 +244,12 @@ export type WorkRow = {
   dueTime: string | null;
   overdue: boolean;
   doneAt: string | null;
+  /**
+   * Closed as won't do: in a Done column and not finished work. True only when the API said so, so a
+   * server that predates it reads as a task that was finished, which is what it was then. The row
+   * carries no detail (who, when, why): that is on the task itself.
+   */
+  wontDo?: boolean;
   createdAt: string;
   updatedAt: string;
   /** Only from the Archive: why the task is there. */

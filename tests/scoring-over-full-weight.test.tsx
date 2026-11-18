@@ -128,11 +128,18 @@ vi.mock("@/lib/store/features", async (original) => ({
   ...(await original<typeof import("@/lib/store/features")>()),
   useFeatureSettings: () => ({
     overallMark: false,
+    workEvidenceMonths: null,
+    workInAnswers: false,
+    workAssists: false,
+    flags: { projects: true },
     editable: true,
     loading: false,
     saving: null,
     error: null,
     setOverallMark: vi.fn(),
+    setWorkEvidenceMonths: vi.fn(),
+    setWorkInAnswers: vi.fn(),
+    setWorkAssists: vi.fn(),
   }),
 }));
 
@@ -345,7 +352,7 @@ describe("a period's own weights", () => {
     /* A warning only: nothing in the editor is shut by it. */
     expect(objectives).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: /Use the company defaults/ }),
+      screen.getByRole("button", { name: /Use the weights in Settings/ }),
     ).toBeEnabled();
   });
 

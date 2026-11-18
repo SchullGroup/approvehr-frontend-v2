@@ -209,6 +209,34 @@ export type Sprint = {
   createdAt: string;
 };
 
+/**
+ * A finished task somebody closed as "won't do": it sits in a Done column and is not work anybody
+ * finished. `reason` is the person's own words, 3 to 280 characters, which the server keeps with the
+ * task and nowhere else. It feeds no number.
+ *
+ * `reason` is **null where the API did not send one**, and it does not send one on a leader's reduced
+ * read of a task on a board they are not on: free text is withheld there, so the mark says who closed
+ * it and when and nothing implies what the reason was.
+ */
+export type WontDoMark = {
+  /** When it was closed (ISO). */
+  at: string;
+  byId: string;
+  byName: string;
+  reason: string | null;
+};
+
+/**
+ * A leader saying they have seen a finished task and it stands. Never by the person it is credited to
+ * or anybody on the task. It gates nothing and feeds no number.
+ */
+export type AcceptedMark = {
+  /** When it was accepted (ISO). */
+  at: string;
+  byId: string;
+  byName: string;
+};
+
 export type Issue = {
   id: string;
   projectId: string;
@@ -263,6 +291,13 @@ export type Issue = {
    * from what it knows (the assignee, the lead, the assignee's manager, HR).
    */
   canLinkObjective?: boolean | null;
+  /**
+   * Closed as won't do, or null. Absent from a server that predates it, which reads as no mark: an
+   * absent field makes no claim, and the demo never has one (it has no server to record it).
+   */
+  wontDo?: WontDoMark | null;
+  /** Accepted by a leader, or null. Absent reads as no acceptance, as `wontDo` does. */
+  accepted?: AcceptedMark | null;
   commentCount: number;
   createdAt: string;
   updatedAt: string;
@@ -377,6 +412,13 @@ export type IssueThread = {
   /** What the API says the reader may do; absent in the demo. */
   canManageWatchers?: boolean;
   canAttachToTask?: boolean;
+  /**
+   * Whether the reader may close this finished task as won't do, or take that back, and whether they
+   * may accept it, or take their acceptance back, as the API says it on the task's own read. Absent
+   * in the demo and where the API did not say, which is read as "may not".
+   */
+  canMarkWontDo?: boolean;
+  canAccept?: boolean;
 };
 
 /** Everything the project screen needs about one project. */

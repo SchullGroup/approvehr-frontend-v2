@@ -38,6 +38,34 @@ let createSection: Mock<(...args: unknown[]) => Promise<unknown>>;
 const NO_GROUPS: never[] = [];
 
 vi.mock("@/lib/store/performance", () => ({
+  /* Settings holds the three rated parts, so each can be chosen. */
+  useScoringWeights: () => ({
+    weights: {
+      source: "saved",
+      rows: [
+        {
+          component: "CORE_COMPETENCY",
+          label: "Core competencies",
+          weightBp: 3000,
+          isPart: true,
+        },
+        {
+          component: "BEHAVIOURAL_COMPETENCY",
+          label: "Behavioural competencies",
+          weightBp: 2000,
+          isPart: true,
+        },
+        {
+          component: "LEADERSHIP",
+          label: "Leadership",
+          weightBp: 1000,
+          isPart: true,
+        },
+      ],
+      totalBp: 6000,
+    },
+    loading: false,
+  }),
   useCycleQuestions: () => ({
     questions,
     loading: false,
@@ -145,7 +173,7 @@ const viewSwitch = (label: "All questions" | "By section") =>
 const openSubsection = async (name: string) => {
   await viewSwitch("By section");
   await userEvent.click(
-    screen.getByRole("button", { name: /Core competency/ }),
+    screen.getByRole("button", { name: /^Core competency/ }),
   );
   await userEvent.click(
     screen.getByRole("button", { name: new RegExp(name), expanded: false }),
@@ -203,7 +231,7 @@ describe("the two views", () => {
     await viewSwitch("By section");
 
     expect(
-      screen.getByRole("button", { name: /Core competency/ }),
+      screen.getByRole("button", { name: /^Core competency/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Culture/ })).toBeInTheDocument();
     expect(screen.queryByLabelText("Section")).not.toBeInTheDocument();
@@ -236,7 +264,7 @@ describe("the two views", () => {
     mount();
     await viewSwitch("By section");
     await userEvent.click(
-      screen.getByRole("button", { name: /Core competency/ }),
+      screen.getByRole("button", { name: /^Core competency/ }),
     );
 
     expect(toggleOf("Diligence")).toHaveTextContent("2 questions");
@@ -475,7 +503,7 @@ describe("while the framework is read again", () => {
     const { again } = mount();
     await viewSwitch("By section");
     await userEvent.click(
-      screen.getByRole("button", { name: /Core competency/ }),
+      screen.getByRole("button", { name: /^Core competency/ }),
     );
     await userEvent.type(screen.getByLabelText("New subsection"), "Half typed");
 
@@ -486,7 +514,7 @@ describe("while the framework is read again", () => {
 
     expect(screen.queryByText("Loading the sections")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Core competency/ }),
+      screen.getByRole("button", { name: /^Core competency/ }),
     ).toBeInTheDocument();
     expect(toggleOf("Diligence")).toBeInTheDocument();
     expect(

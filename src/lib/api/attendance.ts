@@ -881,6 +881,32 @@ function toTimesheetRow(wire: WireTimesheetRow): ApiTimesheetRow {
 
 /* -------------------------------------------------------------------- calls */
 
+/**
+ * One place the address search found: a line a person recognises and the point
+ * the map pin goes to. `latitude` first, as people say it; the API has already
+ * turned GeoJSON's longitude-first order round.
+ */
+export type ApiPlace = { label: string; latitude: number; longitude: number };
+
+/**
+ * Why an address search could not answer, as one sentence for under the search
+ * box. Every case ends the same way on purpose: the map and the typed coordinates
+ * still work, so the admin is never stuck.
+ *
+ * Read from the status alone. 404 is an API from before the search existed (the
+ * frontend can deploy first) and reads the same as one that is down.
+ */
+export function geocodeFailure(error: unknown): string {
+  const status = error instanceof ApiError ? error.status : 0;
+  if (status === 503) {
+    return "Address search is turned off. Click the map or enter the coordinates below.";
+  }
+  if (status === 429) {
+    return "Search is busy. Try again in a minute, or enter the coordinates below.";
+  }
+  return "Address search isn't working right now. Click the map or enter the coordinates below.";
+}
+
 export const attendanceApi = {
   policy: (signal?: AbortSignal) =>
     request<ApiAttendancePolicy>("/attendance/policy", {
@@ -893,6 +919,27 @@ export const attendanceApi = {
       method: "PATCH",
       body,
     }),
+
+  /**
+   * Address search for the geofence map picker. `MANAGE_SETTINGS`. Up to five
+   * places; `q` is 2 to 200 characters. The API calls Photon on our behalf (see
+   * `modules/attendance/geocode.ts` there for why the browser does not).
+   */
+  geocodeSearch: (q: string, signal?: AbortSignal) =>
+    request<{ results: ApiPlace[] }>("/attendance/geocode/search", {
+      query: { q },
+      ...(signal ? { signal } : {}),
+    }).then((body) => body.results),
+
+  /** A map point to its nearest address, for an Address field still empty. */
+  geocodeReverse: (
+    point: { latitude: number; longitude: number },
+    signal?: AbortSignal,
+  ) =>
+    request<{ results: ApiPlace[] }>("/attendance/geocode/reverse", {
+      query: { lat: point.latitude, lng: point.longitude },
+      ...(signal ? { signal } : {}),
+    }).then((body) => body.results[0] ?? null),
 
   /**
    * Every location, with its fence.

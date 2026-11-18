@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Network, Plus, Settings2, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -48,7 +48,12 @@ import {
   type ApiAppraiserMapRow,
   type AppraiserRole,
 } from "@/lib/api/performance";
+import { SharedProjectOptions } from "@/components/performance/shared-project-options";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useFeatureSettings } from "@/lib/store/features";
+import type { SharedColleague } from "@/lib/api/shared-projects";
+import { useSharedProjects } from "@/lib/store/shared-projects";
+import { useHeldWhileOpen } from "@/lib/use-held-while-open";
 import {
   useAppraiserMap,
   useAppraiserMutations,
@@ -129,6 +134,9 @@ export function AppraiserMapTab() {
      dialog fetches its own copy because it is also opened from the period
      screen, where this tab is not mounted. */
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  /* Whether the people who shared a project with somebody are listed first in their row's list.
+     Read once here for the whole table; each row asks the server only when somebody opens it. */
+  const { workInAnswers } = useFeatureSettings();
   const people = useMemo(
     () =>
       employees.map((person) => ({
@@ -473,6 +481,7 @@ export function AppraiserMapTab() {
                     key={row.employeeId}
                     row={row}
                     people={people}
+                    suggest={workInAnswers === true}
                     onEdit={() => setEditing(row)}
                     onQuickAssign={(appraiserId) =>
                       quickAssign(row, appraiserId)
@@ -501,6 +510,13 @@ export function AppraiserMapTab() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * How long the pointer rests on a row's list before it is asked about. Long enough that sweeping down a
+ * column of two hundred rows asks for none of them, short enough that the answer is usually there by
+ * the time somebody has reached for the list.
+ */
+const SUGGEST_DWELL_MS = 250;
 
 /**
  * One person, their appraisers, and what is wrong.
@@ -540,16 +556,39 @@ export function AppraiserMapTab() {
 function PersonTableRow({
   row,
   people,
+  suggest,
   onEdit,
   onQuickAssign,
 }: {
   row: ApiAppraiserMapRow;
   people: { id: string; name: string; jobTitle: string }[];
+  /** The company lists the people who shared a project with this person first. */
+  suggest: boolean;
   onEdit: () => void;
   onQuickAssign: (appraiserId: string) => Promise<void>;
 }) {
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  /* Asked for the first time somebody reaches for this row's list (focus, a press, a key) or rests the
+     pointer on it, not for every row of a table of two hundred when it is drawn, and not for every row
+     a pointer crosses on its way down the column. */
+  const [touched, setTouched] = useState(false);
+  const dwell = useRef<number | null>(null);
+  const stopDwelling = () => {
+    if (dwell.current !== null) window.clearTimeout(dwell.current);
+    dwell.current = null;
+  };
+  useEffect(() => stopDwelling, []);
+  const shared = useSharedProjects(row.employeeId, suggest && touched);
+  /* The list somebody has opened is never rearranged under them: what arrives while it is open is
+     applied the next time. See `useHeldWhileOpen`. */
+  const colleagues = useHeldWhileOpen(shared.colleagues);
+  const reach = (press: boolean) => {
+    stopDwelling();
+    setTouched(true);
+    if (press) colleagues.press();
+    else colleagues.hold();
+  };
   const several = row.appraisers.length > 1;
   const current = row.appraisers[0] ?? null;
   const options = people.filter((person) => person.id !== row.employeeId);
@@ -574,13 +613,28 @@ function PersonTableRow({
               .join(", ")}
           </span>
         ) : (
-          <div className="w-64 max-w-full">
+          <div
+            className="w-64 max-w-full"
+            onPointerEnter={() => {
+              if (touched || dwell.current !== null) return;
+              dwell.current = window.setTimeout(() => {
+                dwell.current = null;
+                setTouched(true);
+              }, SUGGEST_DWELL_MS);
+            }}
+            onPointerLeave={stopDwelling}
+          >
             <Select
               aria-label={`Appraiser for ${row.employeeName}`}
               disabled={saving}
               value={current?.appraiserId ?? ""}
+              onFocus={() => reach(false)}
+              onMouseDown={() => reach(true)}
+              onKeyDown={() => reach(false)}
+              onBlur={colleagues.release}
               onChange={(event) => {
                 const appraiserId = event.target.value;
+                colleagues.release();
                 if (!appraiserId || appraiserId === current?.appraiserId)
                   return;
                 setSaving(true);
@@ -606,11 +660,11 @@ function PersonTableRow({
                   {current.appraiserName}
                 </option>
               )}
-              {options.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
+              <SharedProjectOptions
+                people={options}
+                colleagues={colleagues.shown}
+                text={(person) => person.name}
+              />
             </Select>
             {failed !== null && (
               <p className="mt-1 text-meta text-danger-text">{failed}</p>
@@ -678,6 +732,9 @@ export function AppraisersDialog({
 }) {
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const { setAppraisers } = useAppraiserMutations();
+  /* The people who shared a project with the person, listed first, where the company asked for it. */
+  const { workInAnswers } = useFeatureSettings();
+  const shared = useSharedProjects(row.employeeId, workInAnswers === true);
 
   const [rows, setRows] = useState<DraftRow[]>(() =>
     row.appraisers.length > 0
@@ -892,20 +949,12 @@ export function AppraisersDialog({
             >
               <div className="grid gap-3 sm:grid-cols-[2fr_1.4fr_5.5rem]">
                 <Field label="Appraiser" required>
-                  <Select
+                  <AppraiserSelect
                     value={draft.appraiserId}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setRow(index, { appraiserId: value });
-                    }}
-                  >
-                    <option value="">Choose somebody</option>
-                    {candidates.map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.name} — {person.jobTitle}
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={(value) => setRow(index, { appraiserId: value })}
+                    candidates={candidates}
+                    colleagues={shared.colleagues}
+                  />
                 </Field>
 
                 <Field label="As their" help={APPRAISER_ROLE_HELP[draft.role]}>
@@ -983,5 +1032,44 @@ export function AppraisersDialog({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * One appraiser's list in the dialog that shares the mark. The answer about who shared a project
+ * arrives when the dialog opens and can land while somebody already has this list open, so it is held
+ * while it is open: see `useHeldWhileOpen`.
+ */
+function AppraiserSelect({
+  value,
+  onChange,
+  candidates,
+  colleagues,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  candidates: { id: string; name: string; jobTitle: string }[];
+  colleagues: SharedColleague[] | null;
+}) {
+  const held = useHeldWhileOpen(colleagues);
+  return (
+    <Select
+      value={value}
+      onFocus={held.hold}
+      onMouseDown={held.press}
+      onKeyDown={held.hold}
+      onBlur={held.release}
+      onChange={(event) => {
+        held.release();
+        onChange(event.target.value);
+      }}
+    >
+      <option value="">Choose somebody</option>
+      <SharedProjectOptions
+        people={candidates}
+        colleagues={held.shown}
+        text={(person) => `${person.name} — ${person.jobTitle}`}
+      />
+    </Select>
   );
 }

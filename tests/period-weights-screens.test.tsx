@@ -283,7 +283,7 @@ describe("a period's own settings", () => {
     ).toBeDisabled();
   });
 
-  it("'Use the company defaults' sends weights: null", async () => {
+  it("'Use the weights in Settings' sends weights: null", async () => {
     const user = userEvent.setup();
     render(
       <PeriodWeightsSection
@@ -292,7 +292,7 @@ describe("a period's own settings", () => {
       />,
     );
     await user.click(
-      screen.getByRole("button", { name: "Use the company defaults" }),
+      screen.getByRole("button", { name: "Use the weights in Settings" }),
     );
     await waitFor(() =>
       expect(updateCycle).toHaveBeenCalledWith("c-9", { weights: null }),
@@ -305,7 +305,7 @@ describe("a period's own settings", () => {
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
     await user.click(
-      screen.getByRole("button", { name: "Use the company defaults" }),
+      screen.getByRole("button", { name: "Use the weights in Settings" }),
     );
     await waitFor(() => expect(updateCycle).toHaveBeenCalled());
     await waitFor(() =>
@@ -320,7 +320,11 @@ describe("a period's own settings", () => {
     const { unmount } = render(
       <PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />,
     );
-    expect(screen.getByText("Using the company defaults.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Following the weights in Settings, under Appraisal scoring.",
+      ),
+    ).toBeInTheDocument();
     unmount();
     render(
       <PeriodWeightsSection
@@ -392,7 +396,7 @@ describe("a period's own settings", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        "This period follows the company's weights as they are today.",
+        "This period follows the weights in Settings as they are today.",
       ),
     ).toBeInTheDocument();
   });
