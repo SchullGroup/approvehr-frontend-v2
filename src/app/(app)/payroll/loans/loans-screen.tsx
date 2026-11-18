@@ -531,20 +531,25 @@ export function LoansScreen() {
               />
 
               {/* The shared control, replacing a hand-rolled Showing-x–y-of-z and
-                two default-variant buttons. */}
-              <Pagination
-                className="rounded-lg border border-line border-t bg-surface"
-                page={list.page}
-                pageSize={list.pageSize}
-                total={list.total}
-                onPageChange={setPage}
-                onPageSizeChange={(size) => {
-                  setPageSize(size);
-                  setPage(1);
-                }}
-                noun={["loan", "loans"]}
-                loading={list.loading}
-              />
+                two default-variant buttons. Only when there is another page
+                to go to: on one page it was a full-width bar that said "21
+                loans" and nothing else, under a table whose rows can be
+                counted. */}
+              {list.total > list.pageSize && (
+                <Pagination
+                  className="rounded-lg border border-line border-t bg-surface"
+                  page={list.page}
+                  pageSize={list.pageSize}
+                  total={list.total}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                  noun={["loan", "loans"]}
+                  loading={list.loading}
+                />
+              )}
             </>
           )}
         </LoadState>
