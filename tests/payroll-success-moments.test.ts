@@ -5,7 +5,10 @@ import {
   stillUnpaid,
   type ApprovedRunFacts,
 } from "@/app/(app)/payroll/runs/new/approved-moment";
-import { recordedPaymentCopy } from "@/components/payroll/payment-recorded";
+import {
+  RECORDED_MOVES_NO_MONEY,
+  recordedPaymentCopy,
+} from "@/components/payroll/payment-recorded";
 import type { RecordedPayment } from "@/components/payroll/record-paid-dialog";
 
 /**
@@ -107,7 +110,10 @@ describe("recordedPaymentCopy", () => {
     const copy = recordedPaymentCopy(recorded);
     expect(copy.title).toBe("PAY-7 is recorded as paid by your bank");
     expect(copy.lead).toBe("₦18,420,000.00 to 42 people, paid on 29 May 2026.");
-    expect(copy.details).toEqual(["The wallet has come down by that amount."]);
+    /* Recording writes a ledger line and closes the run. It does not touch the
+       wallet, so the line says nothing moved rather than that the wallet did. */
+    expect(copy.details).toEqual([RECORDED_MOVES_NO_MONEY]);
+    expect(copy.details.join(" ")).not.toMatch(/wallet/i);
   });
 
   it("says today when no date was typed, and keeps the bank's reference", () => {

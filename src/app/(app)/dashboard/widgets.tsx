@@ -35,7 +35,7 @@ import { AppUseCard } from "./app-use-card";
 import { TodayPanel } from "./today-panel";
 import { QuickActions } from "./quick-actions";
 import { AppraisalsCard } from "./appraisals-card";
-import { formatKobo } from "@/lib/api/payroll";
+import { formatKobo, periodLabel } from "@/lib/api/payroll";
 import {
   employmentTypeLabel,
   naira,
@@ -126,6 +126,9 @@ function ChartLoading({ title }: { title: string }) {
 const NeedsYou: WidgetComponent = ({ dashboard }) => {
   const { headcount, approvals, exits, onboarding, payroll } = dashboard;
   const canAddEmployee = useCan("EDIT_RECORDS");
+  /* Saying that the money went out is `APPROVE_PAYROLL`, the same permission
+     that approved the run, so the row is for the people who can act on it. */
+  const canApprovePayroll = useCan("APPROVE_PAYROLL");
   if (!headcount || !approvals) return null;
 
   /* Absent means no permission; zero means nothing held up. Both draw nothing,
@@ -133,6 +136,19 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
   const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
   const onboardingHeldUp = onboarding ? onboarding.withMandatoryOutstanding : 0;
   const nobodyOnPayroll = headcount.active === 0;
+  /* `APPROVED` is already "nobody has confirmed this was paid": a run only
+     reaches `PAID` through a completed payment batch, which is what recording a
+     bank payment completes. It is true of a company paying from the wallet as
+     much as one paying from its own bank (a wallet run is debited at approval
+     and stays `APPROVED` until its batch completes), so the row is worded for
+     both and does not need to know which this is. It reads the dashboard's own
+     block, which is this month's payroll only: an older run left unpaid is on
+     the payroll home, not here. */
+  const awaitingPayment =
+    canApprovePayroll &&
+    payroll !== null &&
+    payroll !== undefined &&
+    payroll.status === "APPROVED";
 
   const anything =
     approvals.waiting > 0 ||
@@ -140,6 +156,7 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
     exitsHeldUp > 0 ||
     onboardingHeldUp > 0 ||
     (payroll !== null && payroll !== undefined && payroll.blockers > 0) ||
+    awaitingPayment ||
     (nobodyOnPayroll && canAddEmployee);
 
   /* "Needs you" promises every line on it is one click from being dealt with.
@@ -205,6 +222,13 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
               detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
               action="Open payroll"
               urgent
+            />
+          )}
+          {awaitingPayment && (
+            <Row
+              href={`/payroll/runs/new?period=${payroll.period}&step=approve`}
+              label={`${periodLabel(payroll.period)} payroll is approved, waiting for payment to go out`}
+              action="Open the payment"
             />
           )}
         </ul>
