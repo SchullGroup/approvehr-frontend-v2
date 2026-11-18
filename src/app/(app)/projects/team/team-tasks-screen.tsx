@@ -78,14 +78,7 @@ export function TeamTasksScreen() {
   if (gate.loading) {
     return (
       <>
-        <PageHeader
-          title="Team tasks"
-          {...(scope.everyone
-            ? {}
-            : {
-                description: "Everyone you manage or whose department you run.",
-              })}
-        />
+        <PageHeader title="Team tasks" />
         <PageBody>
           <Skeleton className="h-40" aria-label="Loading team tasks" />
         </PageBody>
