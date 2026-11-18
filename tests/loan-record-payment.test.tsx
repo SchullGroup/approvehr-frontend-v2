@@ -1,5 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { ToastProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiLoanDetail, ApiRepayment } from "@/lib/api/loans";
@@ -109,11 +117,13 @@ const loanWith = (schedule: ApiRepayment[]): ApiLoanDetail =>
     schedule,
     progress: {
       instalmentsTotal: schedule.length,
-      instalmentsSettled: 0,
-      scheduledKobo: 5_000_000,
-      paidKobo: 0,
+      instalmentsSettled: schedule.filter(
+        (r) => r.status === "PAID" || r.status === "WAIVED",
+      ).length,
+      scheduledKobo: schedule.reduce((t, r) => t + r.amountKobo, 0),
+      paidKobo: schedule.reduce((t, r) => t + r.paidAmountKobo, 0),
       waivedKobo: 0,
-      remainingKobo: 5_000_000,
+      remainingKobo: schedule.reduce((t, r) => t + r.remainingKobo, 0),
       nextDueDate: "2026-10-01",
       nextDueKobo: 1_666_666,
     },
@@ -269,7 +279,91 @@ describe("the record-a-payment dialog", () => {
 });
 
 describe("a part-paid instalment on the loan screen", () => {
-  it("says money paid outside payroll is part of what is owing, not a short month", () => {
+  /* The table moves a shortfall onto the month payroll will take it with, so
+     which month it is matters. Only the clock is held: React keeps its own. */
+  const onDay = (day: string) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(`${day}T09:00:00Z`));
+  };
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** October's payroll could only take ₦10,000 of ₦16,666.66. */
+  const shortOctober = () =>
+    loanWith([
+      row({
+        sequence: 1,
+        status: "PARTIAL",
+        paidAmountKobo: 1_000_000,
+        remainingKobo: 666_666,
+        paidAt: "2026-10-25T09:00:00.000Z",
+        payslipId: "slip-1",
+      }),
+      row({ sequence: 2 }),
+      row({ sequence: 3 }),
+    ]);
+
+  it("moves a short month's remainder into the next month's amount", () => {
+    onDay("2026-11-18");
+    loanOnScreen.current = shortOctober();
+    render(<LoanDetailScreen id="loan-3" />);
+
+    /* The desktop table and the phone list both render, so each fact is twice. */
+    expect(screen.getAllByText("₦23,333.32")).toHaveLength(2);
+    expect(screen.getAllByText("incl. ₦6,666.66 from Oct")).toHaveLength(2);
+    /* October is settled at what was taken. */
+    expect(screen.getAllByText("₦10,000.00").length).toBeGreaterThanOrEqual(2);
+    /* December is untouched. */
+    expect(screen.getAllByText("₦16,666.68")).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: /₦6,666\.66 short\./ }),
+    ).toHaveLength(2);
+  });
+
+  it("no longer spells it out in a sentence", () => {
+    onDay("2026-11-18");
+    loanOnScreen.current = shortOctober();
+    render(<LoanDetailScreen id="loan-3" />);
+
+    expect(screen.queryByText(/could not carry the rest/)).toBeNull();
+    expect(screen.queryByText(/carries to the next payroll/)).toBeNull();
+    expect(screen.queryByText(/came out in/)).toBeNull();
+    expect(screen.queryByText(/was paid outside payroll/)).toBeNull();
+    expect(screen.queryByText(/is still owing/)).toBeNull();
+  });
+
+  it("keeps the schedule's total: the folded amounts still add up to the loan", () => {
+    onDay("2026-11-18");
+    loanOnScreen.current = shortOctober();
+    render(<LoanDetailScreen id="loan-3" />);
+
+    /* The Amount column is the second cell of each body row. */
+    const amountCells = Array.from(
+      screen.getByRole("table").querySelectorAll("tbody tr"),
+    ).map((tr) => tr.querySelectorAll("td")[1]?.textContent ?? "");
+    const kobo = amountCells.map((text) => {
+      const figure = /₦([\d,]+\.\d\d)/.exec(text)?.[1];
+      return figure ? Math.round(Number(figure.replaceAll(",", "")) * 100) : 0;
+    });
+    expect(amountCells).toHaveLength(3);
+    expect(kobo.reduce((t, n) => t + n, 0)).toBe(5_000_000);
+  });
+
+  it("leaves a part-paid instalment in the current month as it is stored", () => {
+    // Paid by hand before this month's payroll ran: its remainder comes off this month's pay.
+    onDay("2026-10-20");
+    loanOnScreen.current = shortOctober();
+    render(<LoanDetailScreen id="loan-3" />);
+
+    expect(screen.queryByText(/^incl\./)).toBeNull();
+    expect(screen.queryByText("₦23,333.32")).toBeNull();
+    expect(screen.getAllByText("₦6,666.66 left to pay")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /short\./ })).toBeNull();
+  });
+
+  it("says a part-paid instalment paid outside payroll has a remainder, in four words", () => {
+    onDay("2026-11-18");
     loanOnScreen.current = loanWith([
       row({
         sequence: 1,
@@ -289,19 +383,21 @@ describe("a part-paid instalment on the loan screen", () => {
     ]);
     render(<LoanDetailScreen id="loan-3" />);
 
-    expect(
-      screen.getAllByText(/was paid outside payroll\. The remaining/).length,
-    ).toBeGreaterThan(0);
-    expect(screen.queryByText(/could not carry the rest/)).toBeNull();
+    expect(screen.getAllByText("paid outside payroll").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText("₦13,333.32 left to pay")).toHaveLength(2);
+    expect(screen.queryByText(/The remaining/)).toBeNull();
   });
 
-  it("keeps the carry wording for a short payroll month", () => {
+  it("carries a month nothing was taken in, and says so on that month's row", () => {
+    onDay("2026-12-04");
     loanOnScreen.current = loanWith([
       row({
         sequence: 1,
-        status: "PARTIAL",
-        paidAmountKobo: 1_000_000,
-        remainingKobo: 666_666,
+        status: "PAID",
+        paidAmountKobo: 1_666_666,
+        remainingKobo: 0,
         paidAt: "2026-10-25T09:00:00.000Z",
         payslipId: "slip-1",
       }),
@@ -310,11 +406,27 @@ describe("a part-paid instalment on the loan screen", () => {
     ]);
     render(<LoanDetailScreen id="loan-3" />);
 
+    expect(screen.getAllByText("Moved to Dec")).toHaveLength(2);
+    /* Only December still reads "Not yet due": November is not that. */
+    expect(screen.getAllByText("Not yet due")).toHaveLength(2);
+    /* The table's row and the phone list's, and the card's "Left to pay". */
+    expect(screen.getAllByText("₦33,333.34")).toHaveLength(3);
+    expect(screen.getAllByText("incl. ₦16,666.66 from Nov")).toHaveLength(2);
+  });
+
+  it("keeps the row actions on the part-paid instalment, on both layouts", () => {
+    onDay("2026-11-18");
+    loanOnScreen.current = shortOctober();
+    render(<LoanDetailScreen id="loan-3" />);
+
     expect(
-      screen.getAllByText(/could not carry the rest/).length,
-    ).toBeGreaterThan(0);
+      screen.getByRole("button", { name: "More actions for instalment 1" }),
+    ).toBeVisible();
     expect(
-      screen.queryByText(/was paid outside payroll\. The remaining/),
-    ).toBeNull();
+      screen.getAllByRole("button", { name: "Record a payment" }),
+    ).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: "Write off" })).toHaveLength(
+      3,
+    );
   });
 });
