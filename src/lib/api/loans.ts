@@ -31,11 +31,13 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * One row shape means the approval queue is the list with a filter on it, which
  * is what the screen renders it as.
  *
- * ## `q` is accepted and ignored
+ * ## `q` is sent, and may be ignored
  *
- * The list takes the shared `listQuery`, so `q` validates — but the service does
- * not search on it. Do not add a search box wired to it expecting server-side
- * matching; filter what is loaded, or add the search to the service first.
+ * The list takes the shared `listQuery`, so `q` validates. Until the service
+ * searches on it (employee name and number, being added to the API) it is
+ * accepted and ignored, so nothing here may rely on it narrowing the answer: the
+ * screen filters what it has loaded itself, and sends `q` only as well, for a
+ * book too big to load in one request. Sending it early is harmless.
  */
 
 /* ------------------------------------------------------------------- shapes */
@@ -170,6 +172,8 @@ export type LoanListParams = {
   order?: "asc" | "desc";
   status?: LoanStatus;
   employeeId?: string;
+  /** Employee name or staff number, words in any order. See the note at the top. */
+  q?: string;
 };
 
 /**
@@ -230,6 +234,7 @@ const listQuery = (params: LoanListParams) => ({
   order: params.order,
   status: params.status,
   employeeId: params.employeeId,
+  q: params.q,
 });
 
 export const loansApi = {
