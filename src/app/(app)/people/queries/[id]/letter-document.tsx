@@ -113,7 +113,7 @@ export function LetterDocument({ detail }: { detail: ApiQueryDetail }) {
         )}
       </section>
 
-      <footer className="border-t border-black pt-3 text-xs">
+      <footer className="border-t border-black pt-3 text-meta">
         {served.how && (
           <p>
             Served: {SERVED_HOW_LABEL[served.how]}
