@@ -29,6 +29,7 @@ import {
   monthStart,
   priceLoan,
 } from "@/lib/loans/schedule";
+import { allocatePayment } from "@/lib/loans/payment-split";
 import { employeeById } from "@/lib/mock/people";
 import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
@@ -1026,33 +1027,57 @@ export function useLoanActions(): LoanActions {
             `That loan is ${loan.status.toLowerCase()}, so there is nothing to pay against it.`,
           );
         }
-        const row = loan.schedule.find((r) => r.sequence === sequence);
-        if (!row)
-          throw unprocessable("That instalment is not on this schedule.");
-        if (row.status === "WAIVED") {
-          throw conflict("That instalment has been written off.");
+        /* The same split the API makes: this instalment first, then the next
+           ones in order. See `lib/loans/payment-split.ts`. */
+        const split = allocatePayment(
+          loan.schedule.map((r) => ({
+            sequence: r.sequence,
+            dueKobo: r.amountKobo,
+            paidKobo: r.paidAmountKobo,
+            status: r.status,
+          })),
+          sequence,
+          body.amountKobo,
+        );
+        if (!split.ok) {
+          const { kind, message } = split.refusal;
+          if (kind === "NO_INSTALMENT") {
+            throw unprocessable("That instalment is not on this schedule.");
+          }
+          if (kind === "WRITTEN_OFF") {
+            throw conflict("That instalment has been written off.");
+          }
+          if (kind === "ALREADY_PAID") throw conflict(message);
+          throw unprocessable(message);
         }
 
-        const paidAmountKobo = Math.min(
-          row.amountKobo,
-          row.paidAmountKobo + body.amountKobo,
-        );
-        const updated: ApiRepayment = {
-          ...row,
-          paidAmountKobo,
-          remainingKobo: Math.max(0, row.amountKobo - paidAmountKobo),
-          status: paidAmountKobo >= row.amountKobo ? "PAID" : "PARTIAL",
-          paidAt: body.paidAt
-            ? new Date(body.paidAt).toISOString()
-            : new Date().toISOString(),
-          /* Outside payroll, so no payslip took it. */
-          payslipId: null,
-          note: body.note ?? row.note,
-        };
-
-        const schedule = loan.schedule.map((r) =>
-          r.sequence === sequence ? updated : r,
-        );
+        const now = body.paidAt
+          ? new Date(body.paidAt).toISOString()
+          : new Date().toISOString();
+        const shares = new Map(split.shares.map((s) => [s.sequence, s]));
+        const schedule = loan.schedule.map((r): ApiRepayment => {
+          const share = shares.get(r.sequence);
+          if (!share) return r;
+          const spilled = r.sequence !== sequence;
+          return {
+            ...r,
+            paidAmountKobo: share.paidKobo,
+            remainingKobo: Math.max(0, r.amountKobo - share.paidKobo),
+            status: share.status,
+            paidAt: now,
+            /* `payslipId` is left as it was, as the API leaves it: a payment
+               recorded by hand takes no payslip, and one payroll already took
+               part of keeps its own. */
+            note: spilled
+              ? [
+                  r.note,
+                  `Part of a payment recorded against instalment ${sequence}`,
+                ]
+                  .filter(Boolean)
+                  .join("\n")
+              : (body.note ?? r.note),
+          };
+        });
         const settled = schedule.every(
           (r) => r.status === "PAID" || r.status === "WAIVED",
         );

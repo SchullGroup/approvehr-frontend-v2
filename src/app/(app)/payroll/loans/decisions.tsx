@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Button,
   Callout,
@@ -20,6 +20,11 @@ import {
   type ApiLoanDetail,
   type ApiRepayment,
 } from "@/lib/api/loans";
+import {
+  allocatePayment,
+  describeSplit,
+  sharesList,
+} from "@/lib/loans/payment-split";
 import { addMonths, monthLabel, priceLoan } from "@/lib/loans/schedule";
 import { useLoanActions, useLoanToday } from "@/lib/store/loans";
 
@@ -429,6 +434,15 @@ export function CounterOfferModal({
  * Prefilled with what the instalment still owes, because that is what somebody
  * paying it off hands over nine times in ten. Bookkeeping rather than a
  * decision, which is why the API asks for `EDIT_RECORDS` and not approval.
+ *
+ * ## More than the instalment is fine
+ *
+ * Anything over what is owing on this instalment comes off the next ones in
+ * order, and the loan finishes sooner. The dialog says where it will go as the
+ * amount is typed and refuses more than the loan still owes from here on. Both
+ * come from `allocatePayment`, a port of the API's, run over the schedule already
+ * on screen: the server still decides, and its refusal still shows if it
+ * disagrees.
  */
 export function PayInstalmentModal({
   loan,
@@ -453,8 +467,37 @@ export function PayInstalmentModal({
   const value = Number(amount.replace(/[^0-9.]/g, ""));
   const valid = value > 0;
 
+  const rows = useMemo(
+    () =>
+      loan.schedule.map((row) => ({
+        sequence: row.sequence,
+        dueKobo: row.amountKobo,
+        paidKobo: row.paidAmountKobo,
+        status: row.status,
+      })),
+    [loan.schedule],
+  );
+  /* What the loan still owes from this instalment on, read off the schedule on
+     screen. The most that can be recorded here. */
+  const maxKobo = useMemo(
+    () => allocatePayment(rows, repayment.sequence, 1).maxKobo,
+    [rows, repayment.sequence],
+  );
+  const spills = maxKobo > repayment.remainingKobo;
+
+  const split = valid
+    ? allocatePayment(rows, repayment.sequence, kobo(value))
+    : null;
+  /* Only the over-the-whole-balance case is the screen's to refuse. Anything
+     else the API refuses is shown as the API worded it. */
+  const tooMuch =
+    split && !split.ok && split.refusal.kind === "TOO_MUCH"
+      ? split.refusal.message
+      : null;
+  const where = split?.ok ? describeSplit(split.shares, money) : null;
+
   async function submit() {
-    if (!valid) return;
+    if (!valid || tooMuch) return;
     setSaving(true);
     clear();
     try {
@@ -465,7 +508,10 @@ export function PayInstalmentModal({
       toast.push({
         title: `${money(kobo(value))} recorded`,
         tone: "success",
-        detail: `Instalment ${repayment.sequence} of ${loan.termMonths}.`,
+        detail:
+          split?.ok && split.shares.length > 1
+            ? `Instalments ${sharesList(split.shares)} of ${loan.termMonths}.`
+            : `Instalment ${repayment.sequence} of ${loan.termMonths}.`,
       });
       onDone?.();
       onClose();
@@ -482,7 +528,9 @@ export function PayInstalmentModal({
       onClose={onClose}
       size="sm"
       title={`Record a payment for instalment ${repayment.sequence}`}
-      description={`${money(repayment.remainingKobo)} still owing on this one.`}
+      description={`${money(repayment.remainingKobo)} still owing on this one.${
+        spills ? " Anything more comes off the next months." : ""
+      }`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -491,7 +539,7 @@ export function PayInstalmentModal({
           <Button
             variant="accent"
             loading={saving}
-            disabled={!valid}
+            disabled={!valid || tooMuch !== null}
             onClick={() => void submit()}
           >
             Record it
@@ -508,8 +556,12 @@ export function PayInstalmentModal({
         <Field
           label="How much came in?"
           required
-          error={failure?.messageFor("amountKobo")}
-          help="Less than the full instalment is fine: the rest stays owing."
+          error={failure?.messageFor("amountKobo") ?? tooMuch ?? undefined}
+          help={
+            spills
+              ? `Less than the full instalment is fine: the rest stays owing. The most you can record is ${money(maxKobo)}.`
+              : "Less than the full instalment is fine: the rest stays owing."
+          }
         >
           <Input
             value={amount}
@@ -517,6 +569,11 @@ export function PayInstalmentModal({
             onChange={(event) => setAmount(event.target.value)}
           />
         </Field>
+        {where && (
+          <p role="status" className="-mt-2 text-body-sm text-body">
+            {where}.
+          </p>
+        )}
         <Field label="Note" help="How it came in, if it matters later.">
           <Input
             value={note}

@@ -114,6 +114,41 @@ const ROW_TONE: Record<
   WAIVED: "info",
 };
 
+/**
+ * What a part-paid instalment says about itself.
+ *
+ * Two different ways to be part paid, and the old sentence only knew one. Payroll
+ * that could not take the whole instalment leaves it carrying into the next run.
+ * Money recorded outside payroll that did not clear it (or that was spilled onto
+ * it from an earlier instalment, which can be a month that has not come yet) was
+ * never "taken in" a month, so it says what was paid and that the rest is still
+ * owing. A payslip on the row is what tells them apart, the same signal the
+ * "paid outside payroll" label above already uses.
+ */
+function PartPaid({ row }: { row: ApiRepayment }) {
+  const remaining = (
+    <strong className="font-semibold text-ink">
+      {money(row.remainingKobo)}
+    </strong>
+  );
+  if (!row.payslipId) {
+    return (
+      <>
+        {money(row.paidAmountKobo)} of {money(row.amountKobo)} was paid outside
+        payroll. The remaining {remaining} is still owing and comes off payroll.
+      </>
+    );
+  }
+  return (
+    <>
+      {money(row.paidAmountKobo)} of {money(row.amountKobo)} came out in{" "}
+      {monthLabel(row.dueDate)}. That month&rsquo;s pay could not carry the
+      rest. The remaining {remaining} carries to the next payroll and is taken
+      before that month&rsquo;s own instalment.
+    </>
+  );
+}
+
 export function LoanDetailScreen({ id }: { id: string }) {
   const { loan, loading, error } = useLoan(id);
   const { can } = usePermissions();
@@ -559,15 +594,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                               colSpan={columns}
                               className="text-body-sm text-body"
                             >
-                              {money(row.paidAmountKobo)} of{" "}
-                              {money(row.amountKobo)} came out in{" "}
-                              {monthLabel(row.dueDate)}. That month&rsquo;s pay
-                              could not carry the rest. The remaining{" "}
-                              <strong className="font-semibold text-ink">
-                                {money(row.remainingKobo)}
-                              </strong>{" "}
-                              carries to the next payroll and is taken before
-                              that month&rsquo;s own instalment.
+                              <PartPaid row={row} />
                             </TD>
                           </TR>
                         )}
@@ -640,15 +667,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
                     {row.status === "PARTIAL" && (
                       <p className="rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-body">
-                        {money(row.paidAmountKobo)} of {money(row.amountKobo)}{" "}
-                        came out in {monthLabel(row.dueDate)}. That
-                        month&rsquo;s pay could not carry the rest. The
-                        remaining{" "}
-                        <strong className="font-semibold text-ink">
-                          {money(row.remainingKobo)}
-                        </strong>{" "}
-                        carries to the next payroll and is taken before that
-                        month&rsquo;s own instalment.
+                        <PartPaid row={row} />
                       </p>
                     )}
                     {row.status === "WAIVED" && (
