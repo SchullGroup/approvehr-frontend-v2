@@ -128,8 +128,8 @@ describe("for HR", () => {
     expect(screen.queryByRole("radio", { name: "Completed" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "Overdue" })).toBeNull();
     expect(
-      screen.getByText("Everybody's finished work, by person."),
-    ).toBeInTheDocument();
+      screen.queryByText("Everybody's finished work, by person."),
+    ).toBeNull();
   });
 
   it("who lead nobody, never reach the empty open work, even by an old address", async () => {

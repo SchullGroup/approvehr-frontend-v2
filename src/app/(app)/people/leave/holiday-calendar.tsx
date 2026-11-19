@@ -5,17 +5,13 @@ import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
-  Callout,
   Disclosure,
   IconButton,
   Spinner,
   TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import {
-  UNCONFIRMED_HOLIDAY_EFFECT,
-  type PublicHolidayRow,
-} from "@/lib/api/leave";
+import { type PublicHolidayRow } from "@/lib/api/leave";
 import { usePublicHolidays } from "@/lib/store/holidays";
 import { shortDate } from "@/lib/today";
 
@@ -264,17 +260,6 @@ export function HolidayCalendarCard({
         error={calendar.error}
         onRetry={calendar.reload}
       />
-
-      {/* Outside the disclosure. The count, with the consequence attached: both
-          halves are true and the second is the one nobody expects. */}
-      {awaiting !== null && awaiting > 0 && (
-        <Callout
-          tone="warning"
-          title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} not gazetted yet`}
-        >
-          {`${UNCONFIRMED_HOLIDAY_EFFECT.acts} ${UNCONFIRMED_HOLIDAY_EFFECT.waits}`}
-        </Callout>
-      )}
 
       <Disclosure
         className="bg-surface"

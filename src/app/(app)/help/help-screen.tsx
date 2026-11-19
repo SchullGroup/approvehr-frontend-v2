@@ -249,7 +249,6 @@ function QueueView() {
         <Card>
           <CardHeader
             title="Queue"
-            description="Soonest promise first. Requests with no target set sit at the bottom."
             action={
               <SegmentedControl
                 label="Which requests"
