@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Callout,
+  Checkbox,
   Card,
   CardBody,
   CardHeader,
@@ -31,10 +32,12 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
+  kindOfBuiltIn,
   overFullWeightNote,
   weightLabel,
   type ApiScoringPart,
   type ApiScoringParts,
+  type PartKind,
   type ScoreComponent,
 } from "@/lib/api/performance";
 import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
@@ -58,16 +61,71 @@ const MANAGER_SOURCE: ScoreComponent = "MANAGER_APPRAISAL";
 /**
  * The parts an appraisal mark is made of, as a list the company writes.
  *
- * Each part has the company's own name, a description, a weight and the source
- * its mark is scored from. Saved parts show as plain rows with an edit and a
- * delete icon; nothing is an open box until somebody chooses to edit. A company
- * that signs up starts with no parts.
+ * Each part has the company's own name, a description, a weight and what its
+ * mark is made from. Saved parts show as plain rows with an edit and a delete
+ * icon; nothing is an open box until somebody chooses to edit. A company that
+ * signs up starts with no parts.
  *
- * Each source backs one part at most, so a source another part uses is not
- * offered. Weights are proportional, as they always were: each part counts as
- * its weight over the total, and the share is shown on the row. Nothing here
- * computes anybody's mark; the API does that, once.
+ * A part made from its own questions can be added as many times as the
+ * company likes: each is filled by the sections filed under it, and can be
+ * kept to people who lead others. The four automatic kinds (objectives, weekly
+ * tasks, the appraisers' overall mark, self-assessment) are one part each, so
+ * one another part has is not offered. Weights are proportional, as they
+ * always were: each part counts as its weight over the total, and the share is
+ * shown on the row. Nothing here computes anybody's mark; the API does that,
+ * once.
  */
+
+type KindOption = NonNullable<ApiScoringParts["kinds"]>[number];
+
+/**
+ * What a part can be made from. From the API when it says (`kinds`); for one
+ * that predates parts of a company's own, worked out from its built-in sources.
+ */
+function kindsOf(view: ApiScoringParts): KindOption[] {
+  if (view.kinds) return view.kinds;
+  const by = (source: ScoreComponent) =>
+    view.sources.find((one) => one.source === source);
+  const automatic = (
+    ["OBJECTIVES", "TASKS", "MANAGER_APPRAISAL", "SELF_ASSESSMENT"] as const
+  ).flatMap((kind) => {
+    const source = by(kind);
+    return source
+      ? [
+          {
+            kind,
+            label: source.label,
+            description: source.description,
+            usedBy: source.usedBy,
+          },
+        ]
+      : [];
+  });
+  return [
+    {
+      kind: "QUESTIONS",
+      label: "Its own questions",
+      description:
+        "The manager's ratings on the questions in the sections you file under this part, averaged.",
+      usedBy: null,
+    },
+    ...automatic,
+  ];
+}
+
+/** What a saved part is made from. */
+const kindOfPart = (part: ApiScoringPart): PartKind | null =>
+  part.kind ?? kindOfBuiltIn(part.source);
+
+/** "Scored from …" under a part's name. */
+function scoredFromWords(part: ApiScoringPart): string {
+  if (kindOfPart(part) !== "QUESTIONS")
+    return `Scored from ${part.sourceLabel}`;
+  const leaders = part.leadersOnly ?? part.source === "LEADERSHIP";
+  return `Scored from the questions filed under it${
+    leaders ? ", for people who lead others only" : ""
+  }`;
+}
 
 /** One basis point, the smallest weight the API holds, as a percent step. */
 const STEP = "0.01";
@@ -90,7 +148,9 @@ type Draft = {
   /** The part being edited, or null for a new one. */
   id: string | null;
   name: string;
-  source: ScoreComponent | "";
+  kind: PartKind | "";
+  /** Only for a part made from questions. */
+  leadersOnly: boolean;
   weight: string;
   description: string;
 };
@@ -98,7 +158,8 @@ type Draft = {
 const draftOf = (part: ApiScoringPart): Draft => ({
   id: part.id,
   name: part.name,
-  source: part.source,
+  kind: kindOfPart(part) ?? "",
+  leadersOnly: part.leadersOnly ?? part.source === "LEADERSHIP",
   weight: String(part.weightBp / 100),
   description: part.description ?? "",
 });
@@ -209,18 +270,18 @@ function PartsPanel({
   /* Nothing is known until the parts have answered, and a failed read is not an
      empty list: both are `LoadState`'s to say, below, so a count, "No parts yet"
      and the Add button are never drawn under a failure or before an answer. */
-  const free = view?.sources.filter((source) => source.usedBy === null) ?? [];
   const selfPart = view?.parts.find(
     (part) => part.source === "SELF_ASSESSMENT",
   );
   const selfShareBp = selfPart?.shareBp ?? 0;
 
   const onSave = async () => {
-    if (!draft || draft.source === "") return;
+    if (!draft || draft.kind === "") return;
     setSaving(true);
     const body = {
       name: draft.name.trim(),
-      source: draft.source,
+      kind: draft.kind,
+      ...(draft.kind === "QUESTIONS" ? { leadersOnly: draft.leadersOnly } : {}),
       weightBp: toBp(draft.weight),
       description:
         draft.description.trim() === "" ? null : draft.description.trim(),
@@ -288,7 +349,8 @@ function PartsPanel({
     setDraft({
       id: null,
       name: "",
-      source: free[0]?.source ?? "",
+      kind: "QUESTIONS",
+      leadersOnly: false,
       weight: "",
       description: "",
     });
@@ -327,17 +389,7 @@ function PartsPanel({
                   <span className="flex flex-wrap items-center gap-3">
                     <Total totalBp={view.totalBp} />
                     {manage && (
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        disabled={free.length === 0}
-                        title={
-                          free.length === 0
-                            ? "Every source already has a part. Edit or delete one first."
-                            : undefined
-                        }
-                        onClick={newPart}
-                      >
+                      <Button variant="accent" size="sm" onClick={newPart}>
                         <Plus aria-hidden="true" className="size-4" />
                         Add part
                       </Button>
@@ -386,7 +438,7 @@ function PartsPanel({
                             {part.name}
                           </p>
                           <p className="text-meta text-muted">
-                            Scored from {part.sourceLabel}
+                            {scoredFromWords(part)}
                           </p>
                           {part.description && (
                             <p className="mt-1 text-body-sm text-body">
@@ -528,11 +580,16 @@ function PartModal({
   onClose: () => void;
   onSave: () => void;
 }) {
-  /* A source is offered when it is free, or when it is this part's own. */
-  const offered = view.sources.filter(
-    (source) => source.usedBy === null || source.usedBy === draft.id,
+  /* Its own questions always; an automatic kind when it is free, or this
+     part's own. */
+  const kinds = kindsOf(view);
+  const offered = kinds.filter(
+    (kind) =>
+      kind.kind === "QUESTIONS" ||
+      kind.usedBy === null ||
+      kind.usedBy === draft.id,
   );
-  const chosen = view.sources.find((source) => source.source === draft.source);
+  const chosen = kinds.find((kind) => kind.kind === draft.kind);
   const nameProblem = draft.name.trim() === "" ? "Give the part a name." : null;
   const weightError = weightProblem(draft.weight);
   /* What the parts would add up to with this one as typed: the others as saved
@@ -547,7 +604,7 @@ function PartModal({
       : 0;
   const overNote = overFullWeightNote(totalWithThis);
   const ready =
-    nameProblem === null && weightError === null && draft.source !== "";
+    nameProblem === null && weightError === null && draft.kind !== "";
 
   return (
     <Modal
@@ -590,21 +647,38 @@ function PartModal({
           help={chosen?.description || "Where this part's mark comes from."}
         >
           <Select
-            value={draft.source}
+            value={draft.kind}
             onChange={(event) =>
               onChange({
                 ...draft,
-                source: event.target.value as ScoreComponent,
+                kind: event.target.value as PartKind,
               })
             }
           >
-            {offered.map((source) => (
-              <option key={source.source} value={source.source}>
-                {source.label}
+            {offered.map((kind) => (
+              <option key={kind.kind} value={kind.kind}>
+                {kind.label}
               </option>
             ))}
           </Select>
         </Field>
+        {draft.kind === "QUESTIONS" && (
+          <>
+            <p className="-mt-2 text-meta text-muted">
+              Make as many of these as you need. Then, in an appraisal
+              period&apos;s questions, file sections under this part, and the
+              manager&apos;s ratings on them make up its mark.
+            </p>
+            <Checkbox
+              label="Only for people who lead others"
+              description="Somebody reports to them, they lead a team, or they head a department. Everybody else is not asked these questions and is not marked on this part."
+              checked={draft.leadersOnly}
+              onChange={(event) =>
+                onChange({ ...draft, leadersOnly: event.target.checked })
+              }
+            />
+          </>
+        )}
         <Field
           label="Weight"
           {...(draft.weight !== "" && weightError

@@ -4357,7 +4357,7 @@ const DEMO_PARTS: ApiScoringParts = (() => {
     })),
     totalBp,
     sources: DEMO_WEIGHTS.rows.map((row) => ({
-      source: row.component,
+      source: row.component as ScoreComponent,
       label: row.label,
       description: "",
       usedBy: row.weightBp > 0 ? row.component : null,

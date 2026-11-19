@@ -189,3 +189,32 @@ describe("what a section counts towards", () => {
     ]);
   });
 });
+
+describe("a part the company made from its own questions", () => {
+  it("is offered by its name and sent by its key", async () => {
+    scoringRows = [
+      ...SETTINGS,
+      {
+        component: "part_care",
+        kind: "QUESTIONS",
+        label: "Customer care",
+        weightBp: 5000,
+        isPart: true,
+      } as (typeof SETTINGS)[number],
+    ];
+    show();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Company values/ }),
+    );
+    const select = screen.getByLabelText("What Company values counts towards");
+    expect(
+      within(select).getByRole("option", { name: "Customer care" }),
+    ).toBeEnabled();
+    await userEvent.selectOptions(select, "part_care");
+    await waitFor(() =>
+      expect(updateSection).toHaveBeenCalledWith("s1", {
+        component: "part_care",
+      }),
+    );
+  });
+});

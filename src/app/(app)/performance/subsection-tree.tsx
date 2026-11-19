@@ -21,7 +21,7 @@ import type {
   AnswerKind,
   ApiCompetency,
   ApiSection,
-  ScoreComponent,
+  PartKey,
 } from "@/lib/api/performance";
 import {
   ANSWER_KINDS,
@@ -654,7 +654,7 @@ function AddSection({
   const { createSection } = useFrameworkActions();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [component, setComponent] = useState<ScoreComponent | "">("");
+  const [component, setComponent] = useState<PartKey | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);

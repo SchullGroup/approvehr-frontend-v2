@@ -227,7 +227,7 @@ describe("the add and edit dialog", () => {
     await user.type(within(dialog).getByLabelText("Name"), "Customer focus");
     await user.selectOptions(
       within(dialog).getByLabelText("Scored from"),
-      "CORE_COMPETENCY",
+      "QUESTIONS",
     );
     await user.type(within(dialog).getByLabelText("Weight"), "20");
     expect(within(dialog).getByText(OVER)).toBeInTheDocument();

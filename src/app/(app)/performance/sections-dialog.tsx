@@ -24,11 +24,16 @@ import {
   Spinner,
   Textarea,
 } from "@/components/ui";
-import { weightLabel } from "@/lib/api/performance";
+import {
+  kindOfBuiltIn,
+  takesSections,
+  weightLabel,
+} from "@/lib/api/performance";
 import type {
   ApiCompetency,
   ApiSection,
-  ScoreComponent,
+  PartKey,
+  PartKind,
 } from "@/lib/api/performance";
 import { answerKindOf } from "@/lib/performance/answer-kind";
 import {
@@ -75,7 +80,7 @@ import { KindTag } from "./subsection-title";
  *
  * ## Three things it refuses to render as a number
  *
- * - A section outside `ScoreComponent` reads **"Not weighted"**, never 0%. Its
+ * - A section filed under no part reads **"Not weighted"**, never 0%. Its
  *   ratings are recorded and excluded from the mark, which is a different fact
  *   from a section somebody weighted at nothing.
  * - Archiving names how many ratings it kept, in the API's own sentence. A
@@ -115,9 +120,9 @@ export function SectionsDialog({
 
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
-  const [newSectionComponent, setNewSectionComponent] = useState<
-    ScoreComponent | ""
-  >("");
+  const [newSectionComponent, setNewSectionComponent] = useState<PartKey | "">(
+    "",
+  );
   const [addingSubTo, setAddingSubTo] = useState<string | null>(null);
   const [newSubName, setNewSubName] = useState("");
   const [renamingSub, setRenamingSub] = useState<string | null>(null);
@@ -232,10 +237,7 @@ export function SectionsDialog({
     );
   };
 
-  const setComponent = async (
-    section: ApiSection,
-    component: ScoreComponent | "",
-  ) => {
+  const setComponent = async (section: ApiSection, component: PartKey | "") => {
     await run("what it counts towards", () =>
       actions.updateSection(section.id, { component: component || null }),
     );
@@ -396,7 +398,7 @@ export function SectionsDialog({
                       meta={
                         <span className="flex flex-wrap items-center gap-2">
                           {/* Null is "not weighted", never 0%. A section
-                              outside ScoreComponent has its ratings recorded
+                              under no part has its ratings recorded
                               and excluded; 0% would read as a weight somebody
                               chose. */}
                           <Badge
@@ -689,7 +691,7 @@ export function SectionsDialog({
                 </Button>
               ))}
 
-            {/* A new section is outside `ScoreComponent`, so it is recorded
+            {/* A new section is under no part until one is chosen, so it is recorded
                 and not scored until somebody maps it. Said here rather than
                 discovered when a mark comes out lower than expected. */}
             {editable && (
@@ -901,26 +903,21 @@ function Subsections({
  *
  * Every one of the company's own parts is listed, from Settings under
  * Appraisal scoring, by the names it gave them, so the list matches Settings.
- * The competency and leadership parts are made of the manager's ratings on
- * the sections filed under them. A Self-assessment part is made of the
- * person's own answers to the sections filed under it, which is how a company
- * writes its self-appraisal questions. The others are shown greyed out with
- * what they are scored from instead: Weekly tasks come from graded tasks,
- * Delivery against objectives from the objectives themselves and Manager
- * appraisal from the appraisers' overall mark, so a rating filed under a
- * section could not reach any of them. A source the company has no part for
- * is not listed: a section filed under it would count for nothing. A section
- * that feeds the same part as another is averaged in with it.
+ * A part made from its own questions is the manager's ratings on the sections
+ * filed under it, and a company makes as many as it likes. A Self-assessment
+ * part is made of the person's own answers to the sections filed under it,
+ * which is how a company writes its self-appraisal questions. The others are
+ * shown greyed out with what they are scored from instead: Weekly tasks come
+ * from graded tasks, Delivery against objectives from the objectives
+ * themselves and Manager appraisal from the appraisers' overall mark, so a
+ * rating filed under a section could not reach any of them. A part the
+ * company does not have is not listed: a section filed under it would count
+ * for nothing. A section that feeds the same part as another is averaged in
+ * with it.
  */
-const SECTION_SOURCES: readonly ScoreComponent[] = [
-  "CORE_COMPETENCY",
-  "BEHAVIOURAL_COMPETENCY",
-  "LEADERSHIP",
-  "SELF_ASSESSMENT",
-];
 
 /** What a part a section cannot feed is scored from, for its greyed-out option. */
-const SCORED_FROM: Partial<Record<ScoreComponent, string>> = {
+const SCORED_FROM: Partial<Record<PartKind, string>> = {
   OBJECTIVES: "scored from objectives",
   TASKS: "scored from graded weekly tasks",
   MANAGER_APPRAISAL: "scored from the appraisers' overall mark",
@@ -932,22 +929,24 @@ export function CountsTowards({
   label,
   onChange,
 }: {
-  value: ScoreComponent | "";
+  value: PartKey | "";
   disabled: boolean;
   label: string;
-  onChange: (value: ScoreComponent | "") => void;
+  onChange: (value: PartKey | "") => void;
 }) {
   const { weights: settings } = useScoringWeights();
   const offered = (settings?.rows ?? [])
     .filter((row) => row.isPart !== false)
     .map((row) => {
-      const rated = SECTION_SOURCES.includes(row.component);
+      /* An API that predates kinds does not say: the built-in key does. */
+      const kind = row.kind ?? kindOfBuiltIn(row.component);
+      const rated = takesSections(kind);
       return {
         value: row.component,
         rated,
         label: rated
           ? row.label
-          : `${row.label} (${SCORED_FROM[row.component] ?? "not scored from ratings"}, not from a section)`,
+          : `${row.label} (${(kind && SCORED_FROM[kind]) ?? "not scored from ratings"}, not from a section)`,
       };
     });
   const known = offered.some((part) => part.value === value);
@@ -960,9 +959,7 @@ export function CountsTowards({
         value={value}
         disabled={disabled}
         aria-label={label}
-        onChange={(event) =>
-          onChange(event.target.value as ScoreComponent | "")
-        }
+        onChange={(event) => onChange(event.target.value)}
       >
         <option value="">
           No part of the mark (ratings are only recorded)

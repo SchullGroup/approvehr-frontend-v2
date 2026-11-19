@@ -54,6 +54,7 @@ export function PeriodWeightsSection({
             onChange={() => undefined}
             companyDefaults={companyDefaults}
             parts={weights.parts}
+            details={weights.details}
           />
           {period.managerAppraisalNote && (
             <SavedWeightsNote
@@ -144,6 +145,7 @@ function DraftWeights({
         onChange={setValue}
         companyDefaults={companyDefaults}
         parts={weights.parts}
+        details={weights.details}
         disabled={saving}
         onUseDefaults={() =>
           void run({ weights: null }, "Following the weights in Settings")
