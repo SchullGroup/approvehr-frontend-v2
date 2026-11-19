@@ -40,8 +40,10 @@ import {
   naira,
   paidPeopleLabel,
   periodLabel,
+  type PayrollRun,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
+import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import {
   countBySeverity,
   usePayrollRun,
@@ -137,6 +139,17 @@ export function PayrollScreen() {
   }, [runs]);
   const current = runs[0] ?? null;
   const detail = usePayrollRun(current?.id ?? null);
+  /* Which way this company pays decides what "still to go out" asks of it. The
+     settings are read with the default (the wallet) until they land, so a bank
+     company's strip can change its wording once; the runs it sits under load at
+     the same moment, which keeps that to a blink at most. */
+  const { settings: paySettings, loading: paySettingsLoading } =
+    usePayrollSettings();
+  const bankFile = !paySettingsLoading && !paySettings.payout.wallet;
+  /* Every approved run, not just the newest. `runs` is newest first, and PAID is
+     only reachable through a completed payment batch, so APPROVED is exactly
+     "nothing records that this was paid". */
+  const unpaid = runs.filter((run) => run.status === "APPROVED");
 
   /* `TODAY` is pinned to the demo dataset's day, not a question about a real
      company's calendar — same reasoning `periodStanding` in the run wizard
@@ -301,35 +314,20 @@ export function PayrollScreen() {
                   waiting — because until `PayrollRunStatus.PAID` could be
                   reached, there was no fact to render.
 
-                  Withheld once the run is paid, rather than turned green: a
-                  finished thing does not need a card, and the description on
-                  the header above already says so. */}
-              {current.status === "APPROVED" && (
-                /* The amount, not a repeat of the header above it. The header
-                   states the fact (approved, nobody paid) and this is the thing
-                   that makes it urgent. A line with the one button, and the
-                   rest of the sentence behind the mark: two cards saying the
-                   same thing is one of them wasted.
+                  Every approved run that nobody has recorded as paid, not only
+                  the newest. The strip used to read `runs[0]`, so a month
+                  prepared after an unpaid one hid it, and an unpaid run was
+                  one more thing nobody was told about.
 
-                   `paidPeopleLabel`, never `headcountLabel`. The latter returns
-                   "9 of 10 \u2014 1 excluded", which inside a sentence reads as
-                   though the money were being split with somebody who is not
-                   being paid. The exclusion has its own line on the card above. */
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm text-muted">
-                  <span className="font-medium text-ink">
-                    {formatKobo(current.netKobo)} still to go out
-                  </span>
-                  <AttentionMark
-                    text={`Approved for ${paidPeopleLabel(current)} and not yet paid. Pay them from the wallet, or take the bank file to your bank.`}
-                  />
-                  <ButtonLink
-                    href={`/payroll/runs/new?period=${current.period}&step=approve`}
-                    size="sm"
-                    variant="accent"
-                  >
-                    Pay them
-                  </ButtonLink>
-                </div>
+                  Withheld once a run is paid, rather than turned green: a
+                  finished thing does not need a card, and the header above
+                  already says so. */}
+              {unpaid.length > 0 && (
+                <UnpaidRuns
+                  runs={unpaid}
+                  currentId={current.id}
+                  bankFile={bankFile}
+                />
               )}
 
               <TotalsPanel run={current} />
@@ -513,5 +511,117 @@ export function PayrollScreen() {
         )}
       </PageBody>
     </>
+  );
+}
+
+/** How many older runs get a line each before the rest are only counted. */
+const OLDER_UNPAID_SHOWN = 3;
+
+/**
+ * The approved runs nobody has recorded as paid.
+ *
+ * The newest is the strip this page has always had: the amount, one mark for
+ * the rest of the sentence, and the one button. Every older one is a compact
+ * line with the same button, named by its month because nothing above it says
+ * which month it is.
+ *
+ * ## Why only three older ones get a line
+ *
+ * A run reached Paid only once somebody could record it, so a company that has
+ * used the product for a year can hold a dozen old Approved runs whose money
+ * left long ago. Twelve lines of "still to go out" above this month's payroll
+ * would be a louder claim than anything here can back up. Three are shown and
+ * the rest are counted, and all of them are in "Every run" below with their
+ * status.
+ *
+ * ## What it says for a company that pays from its own bank
+ *
+ * "Still to go out" is a claim about money, and for that company nothing here
+ * can see the bank. What is known is that the run is approved and that nobody
+ * has recorded the bank paying it, so that is what the line says, and the button
+ * opens the step where the file is downloaded and the payment recorded.
+ */
+function UnpaidRuns({
+  runs,
+  currentId,
+  bankFile,
+}: {
+  runs: PayrollRun[];
+  currentId: string;
+  bankFile: boolean;
+}) {
+  const [newest, ...older] = runs;
+  if (!newest) return null;
+  const shown = older.slice(0, OLDER_UNPAID_SHOWN);
+  const hidden = older.length - shown.length;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <UnpaidLine
+        run={newest}
+        named={newest.id !== currentId}
+        bankFile={bankFile}
+        primary
+      />
+      {shown.map((run) => (
+        <UnpaidLine key={run.id} run={run} named bankFile={bankFile} />
+      ))}
+      {hidden > 0 && (
+        <p className="text-body-sm text-muted">
+          {hidden === 1
+            ? "One more approved run has no record that it was paid. It is listed under Every run."
+            : `${String(hidden)} more approved runs have no record that they were paid. They are listed under Every run.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function UnpaidLine({
+  run,
+  named,
+  bankFile,
+  primary = false,
+}: {
+  run: PayrollRun;
+  /** Said when the header above is about some other month. */
+  named: boolean;
+  bankFile: boolean;
+  primary?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm text-muted">
+      {/* `paidPeopleLabel`, never `headcountLabel`. The latter returns
+          "9 of 10 \u2014 1 excluded", which inside a sentence reads as though the
+          money were being split with somebody who is not being paid. The
+          exclusion has its own line on the card above. */}
+      <span className="font-medium text-ink">
+        {named && (
+          <>
+            {periodLabel(run.period)}
+            {run.label ? ` (${run.label})` : ""}
+            {": "}
+          </>
+        )}
+        {formatKobo(run.netKobo)}{" "}
+        {bankFile ? "approved, not recorded as paid" : "still to go out"}
+      </span>
+      {primary && (
+        <AttentionMark
+          text={
+            bankFile
+              ? `Approved for ${paidPeopleLabel(run)}. Download the bank file for your bank, and once it has paid, record that here so the run is closed and everyone shows as paid.`
+              : `Approved for ${paidPeopleLabel(run)} and not yet paid. Pay them from the wallet, or take the bank file to your bank.`
+          }
+        />
+      )}
+      <ButtonLink
+        href={`/payroll/runs/new?period=${run.period}&step=approve`}
+        size="sm"
+        variant={primary ? "accent" : "secondary"}
+      >
+        {bankFile ? "Open the payment" : "Pay them"}
+      </ButtonLink>
+    </div>
   );
 }

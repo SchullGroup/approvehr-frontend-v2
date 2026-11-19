@@ -29,6 +29,8 @@ import {
   monthStart,
   priceLoan,
 } from "@/lib/loans/schedule";
+import { matchesLoanSearch } from "@/lib/loans/group";
+import { allocatePayment } from "@/lib/loans/payment-split";
 import { employeeById } from "@/lib/mock/people";
 import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
@@ -172,6 +174,8 @@ type SeedLoan = {
  *   principled.
  * - One is **settled** and one is **declined with a reason**, so those states
  *   have something real behind them.
+ * - Musa has **two**: the settled one and a newer one being repaid. The staff
+ *   loans list shows one row per person, and this is the person it groups.
  */
 const SEED: SeedLoan[] = DEMO_ENABLED
   ? [
@@ -239,6 +243,25 @@ const SEED: SeedLoan[] = DEMO_ENABLED
           "Four months would take ₦500,000 a month, which is more than half your take-home. Reapply over twelve months and we can look at it again.",
         decidedById: "p-02",
         decidedAt: "2026-08-07T09:10:00.000Z",
+      },
+      /* Musa's second loan, taken after the generator one (`loan-0004`) was
+         repaid. One person with a finished loan and one being repaid is how the
+         real book looks, and without it nothing in the demo groups: every other
+         loan here belongs to somebody different. */
+      {
+        id: "loan-0006",
+        employeeId: "p-07",
+        principal: 240_000,
+        termMonths: 6,
+        interestRate: 0,
+        status: "ACTIVE",
+        reason: "A laptop for evening classes.",
+        createdAt: "2026-06-22T09:48:00.000Z",
+        startPeriod: "2026-07-01",
+        /* July recovered in full; August's run has not closed. */
+        paid: [40_000],
+        decidedById: "p-02",
+        decidedAt: "2026-06-24T11:30:00.000Z",
       },
     ]
   : [];
@@ -346,7 +369,9 @@ type DemoState = { book: StoredLoan[] | null };
 const demo = createPersistedState<DemoState>({
   key: "approvehr.loans.store",
   empty: { book: null },
-  version: 1,
+  /* 2: the seed gained `loan-0006`. A browser that has already written its own
+     book would otherwise keep showing the five-loan one for ever. */
+  version: 2,
 });
 
 function useDemoBook(): StoredLoan[] {
@@ -413,6 +438,23 @@ export type LoanListParamsWithScope = LoanListParams & {
    * a list it was not allowed to ask for.
    */
   scope?: LoanScope;
+  /**
+   * Keep the rows already on screen while a new `q` is answered.
+   *
+   * Without it, connected, every key change returns `loans: []` and
+   * `loading: true`, which a screen reads as "nothing yet" and collapses to a
+   * skeleton. Fine for a tab switch; not for typing in a search box, where the
+   * list should stay put until the next answer replaces it.
+   *
+   * Applies only when `q` is the **only** thing that changed, and only when the
+   * new search is the old one typed further (or the first one). Rows that are
+   * answers to a *narrower* question than the one being asked — a search
+   * emptied or backspaced — would show part of the book as the whole of it.
+   * A different tab, a different page or a write elsewhere (an approval) still
+   * shows nothing until the new answer lands, so a row that has just been
+   * approved is never shown with its Approve button still on it.
+   */
+  keepPrevious?: boolean;
 };
 
 export type LoanListState = {
@@ -450,6 +492,8 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
     employeeId,
     sort,
     order,
+    q,
+    keepPrevious = false,
   } = params;
 
   const query = useMemo<LoanListParams>(
@@ -460,8 +504,9 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
       ...(employeeId ? { employeeId } : {}),
       ...(sort ? { sort } : {}),
       ...(order ? { order } : {}),
+      ...(q ? { q } : {}),
     }),
-    [page, pageSize, status, employeeId, sort, order],
+    [page, pageSize, status, employeeId, sort, order, q],
   );
 
   /**
@@ -475,6 +520,12 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
     () => JSON.stringify({ scope, query, rev }),
     [scope, query, rev],
   );
+  /* The same question with the search left out. An answer to this one is a fair
+     thing to keep showing while the search is being asked. */
+  const baseKey = useMemo(
+    () => JSON.stringify({ scope, query: { ...query, q: undefined }, rev }),
+    [scope, query, rev],
+  );
 
   /* The answer, tagged with the request it answers. Loading is then *derived*
      from whether the tag matches what is being asked for now, so nothing has to
@@ -482,6 +533,9 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
      render, and which the demo path would do on every keystroke of a filter. */
   const [fetched, setFetched] = useState<{
     key: string;
+    baseKey: string;
+    /** The search this answers, if it was sent one. */
+    q: string | null;
     loans: ApiLoan[];
     total: number;
     error: ApiError | null;
@@ -507,6 +561,8 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
         if (!cancelled) {
           setFetched({
             key,
+            baseKey,
+            q: q ?? null,
             loans: result.data,
             total: result.meta.total,
             error: null,
@@ -518,6 +574,8 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
         if (!cancelled) {
           setFetched({
             key,
+            baseKey,
+            q: q ?? null,
             loans: [],
             total: 0,
             error: error instanceof ApiError ? error : null,
@@ -532,7 +590,7 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, scope, query, key, revalidation]);
+  }, [isConnected, scope, query, key, baseKey, q, revalidation]);
 
   if (!isConnected) {
     const mineId = scope === "mine" ? (employeeId ?? actingId) : employeeId;
@@ -540,6 +598,10 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
     if (scope === "pending") rows = rows.filter((l) => l.status === "PENDING");
     if (status) rows = rows.filter((l) => l.status === status);
     if (mineId) rows = rows.filter((l) => l.employeeId === mineId);
+    /* What the API's `q` will do once it searches: name or staff number, every
+       word, any order. The screen does not send it for a book this small, but
+       a caller that does gets the same answer in both modes. */
+    if (q) rows = rows.filter((l) => matchesLoanSearch(l, q));
 
     /* The queue is oldest first, whatever is asked for — whoever waited longest
        goes first, and the API's `/pending` forces the same. Everything else
@@ -570,12 +632,26 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
   }
 
   const matched = fetched !== null && fetched.key === key;
+  /* The previous answer to the same question minus the search, kept on screen
+     (and still reported as loading) until this one lands, provided it answers
+     a question at least as broad as this one: no search before, or the same
+     words with more typed after them. A failed answer is not worth keeping. */
+  const held =
+    !matched &&
+    keepPrevious &&
+    fetched !== null &&
+    fetched.baseKey === baseKey &&
+    fetched.error === null &&
+    (fetched.q === null || (q !== undefined && q.startsWith(fetched.q)))
+      ? fetched
+      : null;
+  const shown = matched ? fetched : held;
   return {
-    loans: matched ? fetched.loans : [],
-    total: matched ? fetched.total : 0,
+    loans: shown ? shown.loans : [],
+    total: shown ? shown.total : 0,
     page,
     pageSize,
-    totalPages: matched ? Math.max(1, Math.ceil(fetched.total / pageSize)) : 1,
+    totalPages: shown ? Math.max(1, Math.ceil(shown.total / pageSize)) : 1,
     loading: !matched,
     error: matched ? fetched.error : null,
     live: true,
@@ -1026,33 +1102,57 @@ export function useLoanActions(): LoanActions {
             `That loan is ${loan.status.toLowerCase()}, so there is nothing to pay against it.`,
           );
         }
-        const row = loan.schedule.find((r) => r.sequence === sequence);
-        if (!row)
-          throw unprocessable("That instalment is not on this schedule.");
-        if (row.status === "WAIVED") {
-          throw conflict("That instalment has been written off.");
+        /* The same split the API makes: this instalment first, then the next
+           ones in order. See `lib/loans/payment-split.ts`. */
+        const split = allocatePayment(
+          loan.schedule.map((r) => ({
+            sequence: r.sequence,
+            dueKobo: r.amountKobo,
+            paidKobo: r.paidAmountKobo,
+            status: r.status,
+          })),
+          sequence,
+          body.amountKobo,
+        );
+        if (!split.ok) {
+          const { kind, message } = split.refusal;
+          if (kind === "NO_INSTALMENT") {
+            throw unprocessable("That instalment is not on this schedule.");
+          }
+          if (kind === "WRITTEN_OFF") {
+            throw conflict("That instalment has been written off.");
+          }
+          if (kind === "ALREADY_PAID") throw conflict(message);
+          throw unprocessable(message);
         }
 
-        const paidAmountKobo = Math.min(
-          row.amountKobo,
-          row.paidAmountKobo + body.amountKobo,
-        );
-        const updated: ApiRepayment = {
-          ...row,
-          paidAmountKobo,
-          remainingKobo: Math.max(0, row.amountKobo - paidAmountKobo),
-          status: paidAmountKobo >= row.amountKobo ? "PAID" : "PARTIAL",
-          paidAt: body.paidAt
-            ? new Date(body.paidAt).toISOString()
-            : new Date().toISOString(),
-          /* Outside payroll, so no payslip took it. */
-          payslipId: null,
-          note: body.note ?? row.note,
-        };
-
-        const schedule = loan.schedule.map((r) =>
-          r.sequence === sequence ? updated : r,
-        );
+        const now = body.paidAt
+          ? new Date(body.paidAt).toISOString()
+          : new Date().toISOString();
+        const shares = new Map(split.shares.map((s) => [s.sequence, s]));
+        const schedule = loan.schedule.map((r): ApiRepayment => {
+          const share = shares.get(r.sequence);
+          if (!share) return r;
+          const spilled = r.sequence !== sequence;
+          return {
+            ...r,
+            paidAmountKobo: share.paidKobo,
+            remainingKobo: Math.max(0, r.amountKobo - share.paidKobo),
+            status: share.status,
+            paidAt: now,
+            /* `payslipId` is left as it was, as the API leaves it: a payment
+               recorded by hand takes no payslip, and one payroll already took
+               part of keeps its own. */
+            note: spilled
+              ? [
+                  r.note,
+                  `Part of a payment recorded against instalment ${sequence}`,
+                ]
+                  .filter(Boolean)
+                  .join("\n")
+              : (body.note ?? r.note),
+          };
+        });
         const settled = schedule.every(
           (r) => r.status === "PAID" || r.status === "WAIVED",
         );

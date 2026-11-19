@@ -50,10 +50,18 @@ vi.mock("@/lib/store/session", async (original) => ({
 const apply = vi.fn();
 const approve = vi.fn();
 const loanOnScreen = vi.hoisted(() => ({ current: null as unknown }));
+/** The loans the person is already repaying, as the Loans list would hand them back. */
+const activeLoans = vi.hoisted(() => ({ current: [] as unknown[] }));
 
 vi.mock("@/lib/store/loans", async (original) => ({
   ...(await original<typeof import("@/lib/store/loans")>()),
   useLoanActions: () => ({ apply, approve }),
+  useLoans: () => ({
+    loans: activeLoans.current,
+    total: activeLoans.current.length,
+    loading: false,
+    error: null,
+  }),
   useLoan: () => ({
     loan: loanOnScreen.current,
     loading: false,
@@ -128,6 +136,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  activeLoans.current = [];
   apply.mockReset();
   approve.mockReset();
   session.isConnected = true;
@@ -204,7 +213,7 @@ describe("useLoanToday", () => {
 });
 
 describe("applying for a loan", () => {
-  it("connected, offers this month and the next two, and defaults to this month", async () => {
+  it("connected, offers this month and the six after it, and defaults to this month", async () => {
     apply.mockResolvedValue(pending());
     renderApply();
     const select = openStartMonths();
@@ -213,6 +222,10 @@ describe("applying for a loan", () => {
       "October 2026 (this month’s payroll)",
       "November 2026",
       "December 2026",
+      "January 2027",
+      "February 2027",
+      "March 2027",
+      "April 2027",
     ]);
     expect(select.value).toBe("0");
 
@@ -253,6 +266,10 @@ describe("applying for a loan", () => {
       "August 2026 (this month’s payroll)",
       "September 2026",
       "October 2026",
+      "November 2026",
+      "December 2026",
+      "January 2027",
+      "February 2027",
     ]);
     expect(select.value).toBe("0");
 
@@ -283,6 +300,10 @@ describe("approving different terms", () => {
       "October 2026",
       "November 2026",
       "December 2026",
+      "January 2027",
+      "February 2027",
+      "March 2027",
+      "April 2027",
     ]);
     expect(select.value).toBe("0");
 
@@ -299,8 +320,102 @@ describe("approving different terms", () => {
     session.isConnected = false;
     renderCounter();
     expect(labelsOf(screen.getByRole("combobox") as HTMLSelectElement)).toEqual(
-      ["August 2026", "September 2026", "October 2026"],
+      [
+        "August 2026",
+        "September 2026",
+        "October 2026",
+        "November 2026",
+        "December 2026",
+        "January 2027",
+        "February 2027",
+      ],
     );
+  });
+});
+
+const repaying = (over: Partial<ApiLoanDetail> = {}) =>
+  pending({
+    id: "loan-1",
+    employeeId: "e1",
+    status: "ACTIVE",
+    startPeriod: "2026-09-01",
+    termMonths: 6,
+    ...over,
+  });
+
+describe("when the person is already repaying a loan", () => {
+  it("marks the month it finishes, so the next one can be started after it", () => {
+    activeLoans.current = [repaying()];
+    renderApply();
+
+    expect(labelsOf(openStartMonths())).toEqual([
+      "October 2026 (this month’s payroll)",
+      "November 2026",
+      "December 2026",
+      "January 2027",
+      "February 2027 (current loan ends)",
+      "March 2027",
+      "April 2027",
+    ]);
+    expect(
+      screen.getByText("Their current loan finishes February 2027."),
+    ).toBeVisible();
+  });
+
+  it("runs the list on to the month after the loan finishes when that is further out", () => {
+    activeLoans.current = [
+      repaying({ startPeriod: "2026-10-01", termMonths: 12 }),
+    ];
+    renderApply();
+
+    const labels = labelsOf(openStartMonths());
+    expect(labels).toContain("September 2027 (current loan ends)");
+    expect(labels.at(-1)).toBe("October 2027");
+  });
+
+  it("goes by the loan that finishes last when there are two", () => {
+    activeLoans.current = [
+      repaying({ id: "loan-1", termMonths: 4 }),
+      repaying({ id: "loan-2", startPeriod: "2026-10-01", termMonths: 5 }),
+    ];
+    renderApply();
+
+    expect(
+      screen.getByText("Their current loan finishes February 2027."),
+    ).toBeVisible();
+  });
+
+  it("ignores a loan nobody has agreed a start for, and one that has already finished", () => {
+    activeLoans.current = [
+      repaying({ id: "loan-1", status: "PENDING", startPeriod: null }),
+      repaying({ id: "loan-2", startPeriod: "2026-01-01", termMonths: 3 }),
+    ];
+    renderApply();
+
+    expect(
+      labelsOf(openStartMonths()).some((label) =>
+        label.includes("current loan"),
+      ),
+    ).toBe(false);
+    expect(screen.queryByText(/current loan finishes/)).toBeNull();
+  });
+
+  it("does not count the loan being decided as the person's other loan", () => {
+    // The only loan the list returns is the one on screen, so there is no other loan to mark.
+    activeLoans.current = [repaying({ id: "loan-9" })];
+    render(
+      <CounterOfferModal
+        loan={pending()}
+        onClose={() => {}}
+        onDone={() => {}}
+      />,
+    );
+
+    expect(
+      labelsOf(screen.getByRole("combobox") as HTMLSelectElement).some(
+        (label) => label.includes("current loan"),
+      ),
+    ).toBe(false);
   });
 });
 

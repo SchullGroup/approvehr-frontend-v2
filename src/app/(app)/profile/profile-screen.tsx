@@ -61,6 +61,7 @@ import {
 } from "@/lib/types";
 import { self } from "@/lib/api/self";
 import { PROFILE_TABS, isProfileTab, type ProfileTab } from "./tabs";
+import { HealthCoverCard } from "./health-cover-card";
 import { MyDetails } from "./my-details";
 import { TextMessagesCard } from "./text-messages-card";
 
@@ -327,6 +328,10 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
             <div className="flex flex-col gap-6">
               <div className="grid gap-6 lg:grid-cols-2">
                 <PayCard grossMonthly={employee.grossMonthly} />
+                {/* Renders nothing offline, and nothing on an API that predates
+                    it. Everybody on staff may read their own: the API takes the
+                    employee from the session. */}
+                <HealthCoverCard />
               </div>
               {/* Same replacement as the Details tab, and this is the half that
                   matters: `BankPanel` wrote an account number straight to the

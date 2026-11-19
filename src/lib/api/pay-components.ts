@@ -160,6 +160,12 @@ export type ApiPayComponent = {
   preTax: boolean;
   defaultAmountKobo: number | null;
   defaultRate: number | null;
+  /**
+   * Who it is paid to — the HMO or insurer on the HMO premium. Optional, and
+   * absent from an API that predates it; both read as "Not on file". Payroll
+   * never reads it.
+   */
+  provider?: string | null;
   sortOrder: number;
   /** False means "stop charging it from the next run", rows intact. */
   active: boolean;
@@ -414,6 +420,8 @@ export type CreatePayComponentBody = {
   basis?: PayComponentBasis;
   defaultAmountKobo?: number;
   defaultRate?: number;
+  /** Who it is paid to. Optional; the pay-setup form only offers it on the HMO premium. */
+  provider?: string;
   sortOrder?: number;
   active?: boolean;
   applyMode?: PayComponentApplyMode;
@@ -430,6 +438,8 @@ export type UpdatePayComponentBody = {
   basis?: PayComponentBasis;
   defaultAmountKobo?: number | null;
   defaultRate?: number | null;
+  /** `null` takes the provider off; absent leaves it alone. */
+  provider?: string | null;
   sortOrder?: number;
   active?: boolean;
   applyMode?: PayComponentApplyMode;
@@ -574,6 +584,8 @@ export type PreviewParams = {
 export type ApiComponentPeople = {
   componentId: string;
   name: string;
+  /** Who it is paid to. Only ever set on the HMO premium; null elsewhere. */
+  provider?: string | null;
   /** Charged to every active employee, with no list. */
   everyone: boolean;
   people: {
@@ -582,6 +594,12 @@ export type ApiComponentPeople = {
     employeeNo: string;
     department: string | null;
     on: boolean;
+    /**
+     * Their member ID, on the HMO premium's list **only**. The key is absent on
+     * every other component's list, which is different from null: "this list does
+     * not carry IDs" is not "nobody has one".
+     */
+    memberNumber?: string | null;
   }[];
 };
 

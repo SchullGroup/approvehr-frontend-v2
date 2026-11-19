@@ -73,6 +73,7 @@ export const actionLabel = (action: string): string =>
  * this is presentation, and the list is short and local.
  */
 const ACRONYMS: Record<string, string> = {
+  hmo: "HMO",
   nhf: "NHF",
   tin: "TIN",
   pin: "PIN",

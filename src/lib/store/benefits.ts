@@ -8,6 +8,7 @@ import {
   type ApiBenefitEnrolment,
   type ApiBenefitNotices,
   type ApiBenefitPlan,
+  type ApiMyHealthCover,
   type PlanBody,
 } from "@/lib/api/benefits";
 import { useRevalidation } from "@/lib/revalidate";
@@ -127,6 +128,25 @@ export function useBenefitNotices(): Read<ApiBenefitNotices> {
     [],
   );
   return useRead("notices", isConnected, load);
+}
+
+/**
+ * The signed-in person's own HMO: who it is with, their member ID, and what it
+ * costs them.
+ *
+ * **Open to everybody**, unlike every other read in this file — the API takes the
+ * employee from the session, so it can only ever answer about the caller. Offline
+ * it is `available: false` and the screen shows nothing at all, for the same
+ * reason the rest of benefits has no demo: an invented provider and an invented
+ * member ID are exactly what somebody would copy into an HMO's portal.
+ */
+export function useMyHealthCover(): Read<ApiMyHealthCover> {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => benefitsApi.mine(signal),
+    [],
+  );
+  return useRead("mine", isConnected, load);
 }
 
 /** `VIEW_SALARIES`, asked by the screen. */

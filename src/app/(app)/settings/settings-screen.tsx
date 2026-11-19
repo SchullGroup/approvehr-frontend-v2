@@ -13,9 +13,9 @@ import {
   Search,
   ShieldCheck,
   Check,
-  CircleDashed,
   FileText,
   Gauge,
+  ListChecks,
   BriefcaseBusiness,
   ClipboardCheck,
   Megaphone,
@@ -23,34 +23,18 @@ import {
   Sparkles,
   SunMoon,
   Timer,
-  TriangleAlert,
   Users,
   Plug,
   /* Webhook — with the Webhooks card below, commented out for now. */
   ToggleRight,
 } from "lucide-react";
-import {
-  Badge,
-  ButtonLink,
-  Callout,
-  Disclosure,
-  Input,
-  LinkCard,
-  ProgressMeter,
-  Spinner,
-  TextLink,
-  type BadgeTone,
-} from "@/components/ui";
+import { Callout, Input, LinkCard, ProgressMeter } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useSettingsSearchHistory } from "@/lib/store/settings-search-history";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
 import { BillingCard, useBillingStatus } from "./billing-card";
-import {
-  checklistProgress,
-  checklistRows,
-  type ChecklistRow,
-  type RowStatus,
-} from "./checklist";
+import { Row } from "./setup-row";
+import { checklistProgress, checklistRows } from "./checklist";
 import {
   BILLING,
   PAGE_MODULE,
@@ -93,37 +77,6 @@ import {
  * worse than a row that does not exist, because it looks like their fault.
  */
 
-const STATUS: Record<
-  RowStatus,
-  { label: string; tone: BadgeTone; icon: React.ReactNode }
-> = {
-  done: {
-    label: "Done",
-    tone: "success",
-    icon: <Check aria-hidden="true" className="size-4" />,
-  },
-  attention: {
-    label: "Needs attention",
-    tone: "warning",
-    icon: <TriangleAlert aria-hidden="true" className="size-4" />,
-  },
-  todo: {
-    label: "Not set up",
-    tone: "danger",
-    icon: <CircleDashed aria-hidden="true" className="size-4" />,
-  },
-  optional: {
-    label: "Your choice",
-    tone: "neutral",
-    icon: <CircleDashed aria-hidden="true" className="size-4" />,
-  },
-  unknown: {
-    label: "Not known offline",
-    tone: "neutral",
-    icon: <CircleDashed aria-hidden="true" className="size-4" />,
-  },
-};
-
 /**
  * The things that are not setup.
  *
@@ -163,61 +116,54 @@ const ONGOING = SETTINGS_PAGES.map((page) => ({
   icon: ICONS[page.href],
 }));
 
-function Row({ row, module }: { row: ChecklistRow; module?: string }) {
-  const status = STATUS[row.status];
+/**
+ * The setup checklist, as one small link beside the search box.
+ *
+ * It used to be a full-width card above everything else, open while anything
+ * was outstanding, and it pushed the page the owner came for below the fold.
+ * The count and the bar stay, because they are what makes the link worth
+ * pressing; the rows moved to their own page (`/settings/setup`), which is
+ * where "what is still to set up" gets answered in full.
+ *
+ * Drawn only once the checklist has answered: a bar beside a number nobody has
+ * worked out yet would be a figure with nothing under it.
+ */
+function SetupLink({
+  loading,
+  progress,
+  complete,
+}: {
+  loading: boolean;
+  progress: ReturnType<typeof checklistProgress>;
+  complete: boolean;
+}) {
+  if (loading || progress.total === 0) return null;
   return (
-    <li className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:gap-5">
-      <span
-        aria-hidden="true"
-        className={
-          row.status === "done"
-            ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-success-soft text-success-text"
-            : row.status === "attention"
-              ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text"
-              : row.status === "todo"
-                ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text"
-                : "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-canvas text-faint"
-        }
-      >
-        {status.icon}
-      </span>
-
-      <span className="min-w-0 flex-1">
-        {module && (
-          <span className="block text-meta font-semibold text-muted">
-            {module}
-          </span>
-        )}
-        <span className="flex flex-wrap items-center gap-2">
-          <h3 className="text-body-sm font-semibold text-ink">{row.title}</h3>
-          <Badge tone={status.tone} size="sm">
-            {status.label}
-          </Badge>
+    <Link
+      href="/settings/setup"
+      className="inline-flex min-h-10 items-center gap-3 rounded-md border border-line bg-surface px-3 py-1.5 hover:border-line-strong"
+    >
+      {complete ? (
+        <Check aria-hidden="true" className="size-4 text-success-text" />
+      ) : (
+        <ListChecks aria-hidden="true" className="size-4 text-muted" />
+      )}
+      <span className="flex flex-col gap-1">
+        <span className="text-meta font-semibold text-ink">
+          {complete
+            ? "Company set up"
+            : `Setting up: ${progress.done} of ${progress.total} done`}
         </span>
-        <p className="mt-1 text-body-sm text-body">{row.detail}</p>
-        <p className="mt-1 text-meta text-muted">{row.affects}</p>
-      </span>
-
-      <span className="flex shrink-0 flex-wrap items-center gap-2">
-        {row.also && (
-          <ButtonLink href={row.also.href} variant="ghost" size="sm">
-            {row.also.label}
-          </ButtonLink>
-        )}
-        <ButtonLink
-          href={row.href}
-          variant={
-            row.status === "done" || row.status === "optional"
-              ? "secondary"
-              : "accent"
-          }
+        <ProgressMeter
+          value={progress.done}
+          max={progress.total}
+          tone={complete ? "success" : "accent"}
           size="sm"
-        >
-          {row.linkLabel}
-          <ArrowRight aria-hidden="true" className="size-3.5" />
-        </ButtonLink>
+          showValue={false}
+        />
       </span>
-    </li>
+      <ArrowRight aria-hidden="true" className="size-3.5 text-muted" />
+    </Link>
   );
 }
 
@@ -272,61 +218,68 @@ export function SettingsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         <div role="search" className="flex flex-col gap-2">
-          <div className="w-full max-w-md">
-            <Input
-              type="search"
-              value={query}
-              placeholder="Search settings: leave, pension, overtime"
-              aria-label="Search settings"
-              icon={<Search aria-hidden="true" />}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setFocused(true)}
-              onBlur={() => {
-                setFocused(false);
-                if (matchCount > 0) history.add(query);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") history.add(query);
-              }}
-            />
-            {/* Offered when the box is clicked into and still empty. A press
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="w-full max-w-md">
+              <Input
+                type="search"
+                value={query}
+                placeholder="Search settings: leave, pension, overtime"
+                aria-label="Search settings"
+                icon={<Search aria-hidden="true" />}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setFocused(true)}
+                onBlur={() => {
+                  setFocused(false);
+                  if (matchCount > 0) history.add(query);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") history.add(query);
+                }}
+              />
+              {/* Offered when the box is clicked into and still empty. A press
                 on the list must not take focus from the box, or the list would
                 close before the press landed. */}
-            {focused && !filtering && history.recent.length > 0 && (
-              <div
-                className="mt-2 rounded-md border border-line bg-surface p-2"
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                <div className="flex items-center justify-between px-2 pb-1">
-                  <span className="text-meta font-semibold text-muted">
-                    Recent searches
-                  </span>
-                  <button
-                    type="button"
-                    onClick={history.clear}
-                    className="text-meta text-muted underline hover:text-ink"
-                  >
-                    Clear history
-                  </button>
+              {focused && !filtering && history.recent.length > 0 && (
+                <div
+                  className="mt-2 rounded-md border border-line bg-surface p-2"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <div className="flex items-center justify-between px-2 pb-1">
+                    <span className="text-meta font-semibold text-muted">
+                      Recent searches
+                    </span>
+                    <button
+                      type="button"
+                      onClick={history.clear}
+                      className="text-meta text-muted underline hover:text-ink"
+                    >
+                      Clear history
+                    </button>
+                  </div>
+                  <ul>
+                    {history.recent.map((item) => (
+                      <li key={item}>
+                        <button
+                          type="button"
+                          onClick={() => setQuery(item)}
+                          className="w-full rounded px-2 py-1.5 text-left text-body-sm text-ink hover:bg-canvas"
+                        >
+                          {item}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="px-2 pt-1 text-meta text-muted">
+                    Saved in this browser, not on your account.
+                  </p>
                 </div>
-                <ul>
-                  {history.recent.map((item) => (
-                    <li key={item}>
-                      <button
-                        type="button"
-                        onClick={() => setQuery(item)}
-                        className="w-full rounded px-2 py-1.5 text-left text-body-sm text-ink hover:bg-canvas"
-                      >
-                        {item}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <p className="px-2 pt-1 text-meta text-muted">
-                  Saved in this browser, not on your account.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
+            <SetupLink
+              loading={loading}
+              progress={progress}
+              complete={complete}
+            />
           </div>
           {/* Said only once the checklist has been read: while it loads, its
               rows are not there to match, and a count taken now would be a
@@ -371,136 +324,23 @@ export function SettingsScreen() {
           </Callout>
         )}
 
-        {/**
-         * Open while anything is outstanding; collapsed once it is done.
-         *
-         * It was always collapsed, on the argument that a company reaching for
-         * one card should not scroll past six checklist rows every time, and
-         * that the outstanding items show on the closed line anyway so there is
-         * nothing to open just to *learn* something needs doing.
-         *
-         * The second half is where it failed. The closed line reads
-         * "Outstanding: Company profile, Work locations…" — and those are
-         * **prose, not links**. Somebody who has just read that a company
-         * profile is outstanding has nowhere to click, and the nine cards
-         * below are the ongoing surfaces, none of which is the company
-         * profile. The product owner asked three times where to upload a
-         * company logo; it is on `/settings/company`, behind this chevron,
-         * and every time the answer was "expand a thing you had no reason to
-         * think was hiding a route".
-         *
-         * So the first half of the argument is kept and the second is
-         * answered: a **finished** company still gets the collapsed line it
-         * was written for, and an unfinished one gets the rows it needs to
-         * act on. Same rule as everywhere else in this product — closed for a
-         * year of dates or an audit trail, open for something waiting on the
-         * reader.
-         */}
-        {/* While a word is typed the checklist is not a closed reveal that
-            might hold a match: the rows that match are listed, so the answer is
-            on screen and not behind a chevron. The reveal comes back when the
-            box is cleared. */}
-        {filtering ? (
-          shownRows.length > 0 && (
-            <section aria-labelledby="setup-matches">
-              <h2
-                id="setup-matches"
-                className="mb-4 text-meta font-semibold text-muted"
-              >
-                Setting up your company
-              </h2>
-              <ul className="divide-y divide-line rounded-md border border-line">
-                {shownRows.map((row) => (
-                  <Row key={row.id} row={row} module={ROW_MODULE[row.id]} />
-                ))}
-              </ul>
-            </section>
-          )
-        ) : (
-          <Disclosure
-            /**
-             * The key is what makes `defaultOpen` work here.
-             *
-             * `Disclosure` reads `defaultOpen` once, into `useState` — which is
-             * the right contract for an uncontrolled component and means a later
-             * change to the prop does nothing. `loading` is true on the first
-             * render, so without this the checklist would mount closed and stay
-             * closed however many items turned out to be outstanding.
-             *
-             * Remounting once, when the answer arrives, gives the right default
-             * and leaves it a normal uncontrolled disclosure afterwards — the
-             * reader can still close it, and it stays closed. Controlling `open`
-             * instead would take that away.
-             */
-            key={loading ? "loading" : complete ? "done" : "outstanding"}
-            title="Setting up your company"
-            defaultOpen={!loading && !complete}
-            level={2}
-            meta={
-              !loading && progress.total > 0 ? (
-                <span className="flex min-w-32 flex-col items-end gap-1.5">
-                  <span className="text-meta font-semibold text-muted">
-                    {progress.done} of {progress.total} done
-                  </span>
-                  <ProgressMeter
-                    value={progress.done}
-                    max={progress.total}
-                    tone={complete ? "success" : "accent"}
-                    size="sm"
-                    showValue={false}
-                  />
-                </span>
-              ) : undefined
-            }
-            hint={
-              loading ? (
-                "Reading what is set up."
-              ) : complete ? (
-                /* The collapsed line is the only thing a finished company
-                     reads — the rows below it are behind a closed reveal. So
-                     anything still worth doing has to be said here or it is
-                     said nowhere, which is exactly how the logo upload stayed
-                     invisible: present on `/settings/company`, below a form
-                     with thirty-seven states in it, and mentioned by nothing.
-
-                     Saying it was still not enough. It was a **sentence**, and
-                     the reader had nowhere to click — asked three separate
-                     times where to upload a company logo, having read this
-                     exact line. Naming a gap without a route to it is half a
-                     job, and the missing half is the one that costs the time. */
-                facts && !facts.company.logo ? (
-                  <>
-                    Everything a payroll needs is in place. No logo yet: it goes
-                    on every payslip and on the emails the platform sends.{" "}
-                    <TextLink href="/settings/company">Add one</TextLink>.
-                  </>
-                ) : (
-                  "Everything a payroll needs is in place."
-                )
-              ) : progress.outstanding.length > 0 ? (
-                `Outstanding: ${progress.outstanding.map((row) => row.title).join(", ")}.`
-              ) : (
-                "Seven things decide how the product behaves."
-              )
-            }
-          >
-            {loading ? (
-              <div className="flex justify-center py-10">
-                <Spinner />
-              </div>
-            ) : facts === null ? (
-              <p className="text-body-sm text-body">
-                Nothing to show. The checklist reads one endpoint and it did not
-                answer; every page below is unaffected.
-              </p>
-            ) : (
-              <ul className="divide-y divide-line rounded-md border border-line">
-                {rows.map((row) => (
-                  <Row key={row.id} row={row} />
-                ))}
-              </ul>
-            )}
-          </Disclosure>
+        {/* The checklist itself lives on `/settings/setup`. While a word is
+            typed the rows that match are listed here instead, so the answer is
+            on screen and not one click away. */}
+        {filtering && shownRows.length > 0 && (
+          <section aria-labelledby="setup-matches">
+            <h2
+              id="setup-matches"
+              className="mb-4 text-meta font-semibold text-muted"
+            >
+              Setting up your company
+            </h2>
+            <ul className="divide-y divide-line rounded-md border border-line">
+              {shownRows.map((row) => (
+                <Row key={row.id} row={row} module={ROW_MODULE[row.id]} />
+              ))}
+            </ul>
+          </section>
         )}
 
         {DEMO_ENABLED &&
