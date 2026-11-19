@@ -24,6 +24,7 @@ import {
   Tabs,
   type TabItem,
   LoadState,
+  Illustration,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
 import { DecidedCard } from "@/components/payroll/decided-card";
@@ -648,6 +649,7 @@ function AskDialog({
           /* Under the dialog's own `h2`, not beside it. */
           headingLevel={3}
           align="center"
+          art={<Illustration name="on-phone" height={128} />}
           /* The button that was just pressed has left with the footer, so
              focus goes to what replaced it. */
           focusHeading

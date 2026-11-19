@@ -1061,9 +1061,17 @@ type Draft = {
   pensionable: boolean;
   preTax: boolean;
   applyMode: PayComponentApplyMode;
+  /** Who it is paid to. Only the HMO premium shows the box; blank means none. */
+  provider: string;
   /** When it falls due. Allowances only; a deduction never reads it. */
   schedule: ScheduleDraft;
 };
+
+/**
+ * The system HMO premium, by its code. The code and not the name: a company may
+ * rename the label, and the code is what payslips and imports reference.
+ */
+const HMO_CODE = "HMO";
 
 const BASIS_OPTIONS: { value: PayComponentBasis; label: string }[] = [
   { value: "FIXED", label: "A fixed amount" },
@@ -1088,6 +1096,7 @@ function draftFor(component: ApiPayComponent | null): Draft {
     pensionable: component?.pensionable ?? false,
     preTax: component?.preTax ?? false,
     applyMode: component?.applyMode ?? "OPTIONAL",
+    provider: component?.provider ?? "",
     schedule: draftFromSchedule(component?.schedule),
   };
 }
@@ -1129,6 +1138,9 @@ function ComponentDialog({
   const [component, setComponent] = useState(componentProp);
   if (open && componentProp !== component) setComponent(componentProp);
   const editing = component !== null;
+  /* Only the HMO premium has a provider to give. Every other component is paid
+     to nobody in particular, so a box for it would be a question with no answer. */
+  const isHmo = editing && component?.code === HMO_CODE;
 
   const [draft, setDraft] = useState(() => draftFor(componentProp));
   const [saving, setSaving] = useState(false);
@@ -1197,6 +1209,13 @@ function ComponentDialog({
           defaultAmountKobo: fixed ? amountKobo : null,
           defaultRate: fixed ? null : rate,
           applyMode: draft.applyMode,
+          /* `null` takes it off: an emptied box means the company no longer says. */
+          ...(isHmo
+            ? {
+                provider:
+                  draft.provider.trim() === "" ? null : draft.provider.trim(),
+              }
+            : {}),
           ...(kind === "ALLOWANCE"
             ? { taxable: draft.taxable, pensionable: draft.pensionable }
             : { preTax: draft.preTax }),
@@ -1295,6 +1314,24 @@ function ComponentDialog({
             }}
           />
         </Field>
+
+        {isHmo && (
+          <Field
+            optional
+            label="HMO provider"
+            help="Who the HMO is with. Staff see it next to their member ID."
+          >
+            <Input
+              value={draft.provider}
+              maxLength={120}
+              placeholder="Name of the HMO"
+              onChange={(e) => {
+                const value = e.target.value;
+                set("provider", value);
+              }}
+            />
+          </Field>
+        )}
 
         <div className="flex flex-col gap-2">
           <p className="text-body-sm font-medium text-ink">

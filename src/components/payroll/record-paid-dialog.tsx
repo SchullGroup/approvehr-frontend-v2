@@ -73,10 +73,8 @@ export function RecordPaidDialog({
   onRecorded,
 }: {
   /**
-   * Defaults to `true` for the one caller (`runs/new/pay-panel.tsx`) that
-   * still mounts this conditionally and does not pass `open` — this keeps
-   * that caller working exactly as it does today until it is updated the
-   * same way `release-panel.tsx` was.
+   * Defaults to `true` for a caller that mounts this conditionally and passes
+   * no `open`. Both screens that use it today pass one.
    */
   open?: boolean;
   batchId: string;
@@ -156,10 +154,12 @@ export function RecordPaidDialog({
 
         {/* Said before the click, in the words that make it safe. This writes
             a line in the ledger; it does not move a naira, and nobody reading
-            this screen afterwards should be able to think it did. */}
+            this screen afterwards should be able to think it did. It also says
+            nothing about the wallet: it used to promise that the balance would
+            "catch up", and recording never touches the wallet. */}
         <Callout tone="info" title="This moves no money">
-          It records what your bank has already done, so the wallet balance
-          catches up with the account. Nothing is sent to anybody.
+          It writes down what your bank has already done, so this payment shows
+          as paid. Nothing is sent to anybody.
         </Callout>
 
         <Field

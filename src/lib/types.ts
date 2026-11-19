@@ -135,6 +135,13 @@ export type Employee = {
   tin: string | null;
   nhfNumber: string | null;
   /**
+   * The member ID on their HMO card. **Optional in both senses**: the API only
+   * sends it when the company has one for them, and nothing — payroll, the
+   * readiness list, the missing-details counts — asks for it. Null or absent
+   * both read as "Not on file".
+   */
+  hmoNumber?: string | null;
+  /**
    * Where they live, on one line, and their NIN.
    *
    * `addressLine` is not `location` (the office they clock in at) and not

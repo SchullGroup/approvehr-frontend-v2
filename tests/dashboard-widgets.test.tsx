@@ -218,11 +218,19 @@ describe("the catalogue and the components agree", () => {
 
   it("does not put the owner's own leave balance on their dashboard", () => {
     /* The product owner's own words: "The owner does not need to see leave
-       left." Every other tier keeps it — an HR manager is also somebody with
-       days to book — and the owner can add it from the drawer. */
+       left." An HR manager is also somebody with days to book, so the admin
+       tiers keep it, and the owner can add it from the drawer. */
     expect(widgetById("my-leave")?.defaultFor).not.toContain("owner");
-    expect(widgetById("my-leave")?.defaultFor).toContain("staff");
     expect(widgetById("my-leave")?.defaultFor).toContain("admin");
+  });
+
+  it("keeps the staff home to the day: no leave types, no last payslip", () => {
+    /* Asked for on 2026-11-17: the staff home leads with the clock. Both cards
+       are still in the drawer for somebody who wants them. */
+    expect(widgetById("my-leave")?.defaultFor).not.toContain("staff");
+    expect(widgetById("my-pay")?.defaultFor).not.toContain("staff");
+    expect(widgetById("my-clock")?.defaultFor).toContain("staff");
+    expect(widgetById("my-clock")?.leadFor).toContain("staff");
   });
 
   it("gives the owner appraisals as a card rather than a header button", () => {

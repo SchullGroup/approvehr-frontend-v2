@@ -487,45 +487,15 @@ describe("a section that does not apply draws nothing", () => {
 /* -------------------------------------------------------------------- money */
 
 describe("pay is covered until asked for", () => {
-  it("masks the payslip figure by default, with a mask that does not give the size away", async () => {
+  it("draws no payslip row at all, though the API sends one", async () => {
+    /* Removed from the staff home on request: the last payslip is on the
+       payslips screen, and the home is for the day. The API still sends it. */
     const user = userEvent.setup();
     mountWith();
     await user.click(await glanceTab());
-    expect(screen.getByText("September 2026 payslip")).toBeInTheDocument();
-    expect(screen.getByLabelText("Hidden")).toHaveTextContent("••••••");
-    expect(document.body.textContent).not.toMatch(/₦/);
+    expect(screen.queryByText("September 2026 payslip")).toBeNull();
+    expect(screen.queryByText(/payslip/i)).toBeNull();
     expect(document.body.textContent).not.toMatch(/412,500/);
-  });
-
-  it("shows the figure on a tap, and covers it again on the next", async () => {
-    const user = userEvent.setup();
-    mountWith();
-    await user.click(await glanceTab());
-    await user.click(screen.getByRole("button", { name: "Show amounts" }));
-    expect(document.body.textContent).toMatch(/₦412,500\.00/);
-    await user.click(screen.getByRole("button", { name: "Hide amounts" }));
-    expect(document.body.textContent).not.toMatch(/₦/);
-  });
-
-  it("says when it was paid, or that it is approved and not paid", async () => {
-    const user = userEvent.setup();
-    const sections = everything();
-    sections.pay = {
-      status: "ok",
-      data: {
-        nextPayday: null,
-        latestPayslip: {
-          id: "slip-2",
-          period: "2026-10",
-          payDate: "2026-10-28",
-          netKobo: 1,
-          paid: false,
-        },
-      },
-    };
-    mountWith(sections);
-    await user.click(await glanceTab());
-    expect(screen.getByText("Approved, not yet paid")).toBeInTheDocument();
   });
 
   it("shows a pay-early figure only when they could draw one, covered, with the estimate beside it", async () => {
@@ -596,60 +566,36 @@ describe("At a glance", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Tomorrow, weekly")).toBeInTheDocument();
     expect(screen.getByText("Next payday, 28 Oct")).toBeInTheDocument();
-    expect(screen.getByText("13")).toBeInTheDocument();
   });
 
-  it("shows four leave types in full: a click to reveal one row is a click for nothing", async () => {
+  it("draws no leave types, though the API sends them", async () => {
+    /* Removed from the staff home on request. Leave balances are on the leave
+       screen; this panel is what is true today. */
     const user = userEvent.setup();
-    const types = ["Annual", "Sick", "Study", "Casual"];
     mountWith({
       leave: {
         status: "ok",
         data: {
           year: 2026,
-          balances: types.map((leaveType, index) => ({
-            leaveTypeId: `l${index}`,
-            leaveType,
-            entitled: 10,
-            taken: 1,
-            pending: 0,
-            remaining: 9,
-          })),
+          balances: ["Annual", "Sick", "Study", "Casual"].map(
+            (leaveType, index) => ({
+              leaveTypeId: `l${index}`,
+              leaveType,
+              entitled: 10,
+              taken: 1,
+              pending: 0,
+              remaining: 9,
+            }),
+          ),
         },
       },
     });
     await user.click(await glanceTab());
-    expect(screen.getByText("Casual")).toBeInTheDocument();
+    expect(screen.queryByText("Casual")).toBeNull();
+    expect(screen.queryByText("Annual")).toBeNull();
     expect(
       screen.queryByRole("button", { name: /More leave types/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("puts leave types past the third behind a click when that hides two or more", async () => {
-    const user = userEvent.setup();
-    const types = ["Annual", "Sick", "Study", "Casual", "Compassionate"];
-    mountWith({
-      leave: {
-        status: "ok",
-        data: {
-          year: 2026,
-          balances: types.map((leaveType, index) => ({
-            leaveTypeId: `l${index}`,
-            leaveType,
-            entitled: 10,
-            taken: 1,
-            pending: 0,
-            remaining: 9,
-          })),
-        },
-      },
-    });
-    await user.click(await glanceTab());
-    expect(screen.getByText("Study")).toBeInTheDocument();
-    expect(screen.queryByText("Casual")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /More leave types/ }));
-    expect(screen.getByText("Casual")).toBeInTheDocument();
-    expect(screen.getByText("Compassionate")).toBeInTheDocument();
+    ).toBeNull();
   });
 });
 
@@ -694,7 +640,6 @@ describe("a section that failed", () => {
     expect(screen.getByText("Pay could not load.")).toBeInTheDocument();
     /* The rest of the tab is intact. */
     expect(screen.getByText(/One-to-one with Chidi/)).toBeInTheDocument();
-    expect(screen.getByText("Annual leave")).toBeInTheDocument();
     /* The server's own words are not printed, and no internals leak. */
     expect(screen.queryByText(/could not be read just now/)).toBeNull();
 
@@ -720,7 +665,6 @@ describe("a section that failed", () => {
     expect(await screen.findByText("Next payday, 28 Oct")).toBeInTheDocument();
     expect(screen.queryByText("Pay could not load.")).not.toBeInTheDocument();
     /* And did not disturb what was already there. */
-    expect(screen.getByText("Annual leave")).toBeInTheDocument();
   });
 
   it("is never counted as nothing: a failed notices section has no count and no 'nothing to do'", async () => {

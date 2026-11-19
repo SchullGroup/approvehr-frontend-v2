@@ -100,6 +100,7 @@ export function SuccessMoment({
   headingLevel = 2,
   align = "start",
   markSize = "md",
+  art,
   focusHeading = false,
   compact = false,
   className,
@@ -115,6 +116,12 @@ export function SuccessMoment({
   headingLevel?: 1 | 2 | 3;
   align?: "start" | "center";
   markSize?: MarkSize;
+  /**
+   * A person from the Open Peeps set (`<Illustration name="…" />`) in place of the check, for the few moments
+   * that are plainly good and complete. Not for "sent, now wait" or part-done news. Ignored when `compact`:
+   * a row in a list keeps its small check.
+   */
+  art?: ReactNode;
   /**
    * Move focus to the heading when this appears.
    *
@@ -232,7 +239,7 @@ export function SuccessMoment({
         className,
       )}
     >
-      <SuccessMark size={markSize} />
+      {art ?? <SuccessMark size={markSize} />}
       {text}
     </div>
   );
