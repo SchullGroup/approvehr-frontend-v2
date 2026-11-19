@@ -33,6 +33,7 @@ const scoringRow = (component: string, label: string, isPart: boolean) => ({
 });
 const SETTINGS = [
   scoringRow("OBJECTIVES", "Delivery against objectives", false),
+  scoringRow("TASKS", "C", true),
   scoringRow("CORE_COMPETENCY", "A", true),
   scoringRow("BEHAVIOURAL_COMPETENCY", "Our values", true),
   scoringRow("LEADERSHIP", "Leadership", false),
@@ -129,7 +130,7 @@ describe("what a section counts towards", () => {
     );
   });
 
-  it("offers only the company's own parts that ratings can feed, by their names in Settings", async () => {
+  it("lists every one of the company's parts by its name in Settings, and greys out the ones ratings cannot feed", async () => {
     show();
     await userEvent.click(
       screen.getByRole("button", { name: /Company values/ }),
@@ -140,9 +141,12 @@ describe("what a section counts towards", () => {
       .map((option) => option.textContent);
     expect(labels).toEqual([
       "No part of the mark (ratings are only recorded)",
+      "C (scored from graded weekly tasks, not from a section)",
       "A",
       "Our values",
     ]);
+    expect(within(select).getByRole("option", { name: /^C / })).toBeDisabled();
+    expect(within(select).getByRole("option", { name: "A" })).toBeEnabled();
   });
 
   it("says so when a section feeds a source the company has no part for", async () => {
@@ -161,7 +165,10 @@ describe("what a section counts towards", () => {
   });
 
   it("offers only 'no part' when Settings has no rated parts", async () => {
-    scoringRows = scoringRows.map((row) => ({ ...row, isPart: false }));
+    scoringRows = scoringRows.map((row) => ({
+      ...row,
+      isPart: row.component === "TASKS",
+    }));
     show();
     await userEvent.click(
       screen.getByRole("button", { name: /Company values/ }),
@@ -171,6 +178,9 @@ describe("what a section counts towards", () => {
       within(select)
         .getAllByRole("option")
         .map((option) => option.textContent),
-    ).toEqual(["No part of the mark (ratings are only recorded)"]);
+    ).toEqual([
+      "No part of the mark (ratings are only recorded)",
+      "C (scored from graded weekly tasks, not from a section)",
+    ]);
   });
 });
