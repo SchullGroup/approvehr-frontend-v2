@@ -15,6 +15,7 @@ import {
   Skeleton,
   SuccessMoment,
   useToast,
+  Illustration,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { invitesApi } from "@/lib/api/invites";
@@ -1231,6 +1232,7 @@ function Done({
       <SuccessMoment
         headingLevel={1}
         markSize="lg"
+        art={<Illustration name="welcome" height={160} />}
         focusHeading
         title={returning ? "You are set up" : "That is it: you are set up"}
         /* "You also have:" introduces the list. With nothing switched on there

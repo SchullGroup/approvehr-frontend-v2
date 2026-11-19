@@ -176,18 +176,6 @@ export const WIDGETS: readonly WidgetSpec[] = [
     defaultFor: RUNS_THE_COMPANY,
   },
   {
-    id: "workforce-headline",
-    title: "Company report headline",
-    blurb:
-      "The one thing the company report says needs doing first, in a sentence, with a link to the report.",
-    group: "attention",
-    span: "full",
-    slot: "banner",
-    source: "dashboard",
-    permission: "EDIT_RECORDS",
-    defaultFor: RUNS_THE_COMPANY,
-  },
-  {
     /* Everybody, and in the first row for every tier: it is the one card that is
        about the person and not about the company, and the one that answers "what
        is true for me today" before they have to go and look. For staff it sits
@@ -269,7 +257,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "dashboard",
     anyPermission: SEES_COMPANY,
     feature: "attendance",
-    defaultFor: ["admin", "custom"],
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     /* Only where the company has turned the measure on, and only for whoever holds
@@ -363,7 +351,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "quarter",
     source: "reports",
     anyPermission: SEES_COMPANY,
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "stat-tenure",
@@ -373,7 +361,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "quarter",
     source: "reports",
     anyPermission: SEES_COMPANY,
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "chart-headcount-by-department",
@@ -440,7 +428,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     group: "you",
     span: "quarter",
     source: "dashboard",
-    defaultFor: EVERYONE,
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     /* Off for the owner by default, and that is the whole of the difference —
@@ -454,7 +442,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
        was the tallest thing in the row and set the row's height. */
     span: "half",
     source: "dashboard",
-    defaultFor: ["admin", "custom", "staff"],
+    defaultFor: ["admin", "custom"],
   },
   {
     id: "my-clock",

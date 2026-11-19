@@ -13296,6 +13296,47 @@ defaults on first open and was not compared against anything else), and the Reco
   settings page reads the weights and writes parts). `scale-form.tsx` mentions the function only in a comment. Removing
   them is a separate cleanup; the period weights editor still reads `/scoring-weights`, so the read must stay.
 
+# Open Peeps figures (14 Nov 2026)
+
+People drawn from **Open Peeps** (Pablo Stanley, CC0): the same figures, with the same names, as the mobile app
+(`approvehr-mobile`, `src/ui/art`, `docs/illustrations.md` there). Kene asked for them on the web "too" after
+reviewing them on mobile.
+
+- `src/components/ui/illustration.tsx`, `<Illustration name height />`: a lazy, decorative `<img>` of
+  `public/illustrations/peeps/<name>.svg` (seven files, 72 KB), `alt=""`, `aria-hidden`. Drawn as it is: white
+  fill, black line, never recoloured, straight on the page; in the dark theme it gets the light `well-sticker`
+  tile the Wellness scenes use, because black line work cannot be read on a dark surface.
+- `scripts/import-peeps.ts` regenerates the files and `src/lib/peeps.ts` (each figure's shape) from the official
+  "Flat Assets" zip. svgo keeps the `xmlns` (an SVG without it does not draw in `<img>`), and the view box is
+  cropped to the drawing's measured bounds (`INK`): the pack's artboards have blank margins.
+- It goes in two existing slots: `EmptyState` `art` and the new `SuccessMoment` `art` (replaces the check;
+  ignored when `compact`).
+- **Where**: empty states, the good-news kind only: approvals "Nothing waiting on you", surveys "Nothing to
+  answer", notifications "Nothing needs you" and "All read" (not "Nothing here yet"). Success: early pay sent,
+  setup finished, password changed, email confirmed.
+- **Where not**: a card in a grid (tried on mobile, read as clutter), an error, a missing permission, "No matches",
+  a record that is not there, a "sent, now wait" or part-done outcome, toasts. No fade or gradient on any of them.
+- Shown on `/design-system`. Decorative and still: nothing for reduced motion to switch off.
+
+# No connection screens (16 Nov 2026)
+
+Kene asked for nicely designed "no internet" screens on web and mobile. Same look on both: the blue gradient with soft
+circles (`HeroBackdrop`), a crossed-out Wi-Fi symbol in a white-ringed disc, calm words. A drawn symbol and never a
+person: a failure gets no figure.
+
+- **`/offline`** (`src/app/offline/page.tsx`) is the page `public/sw.js` serves when a navigation fails. It is redesigned
+  and **self-contained on purpose**: the worker caches this one HTML document and nothing else, so the app's stylesheet
+  may be missing offline. Its own `<style>` (plain CSS, nothing under the 14px floor), inline SVG, system-font fallback
+  inside the `var()` (an undefined variable with no fallback voids the whole `font-family`), dark theme through
+  `data-theme`, and a rule that hides the layout's skip link, whose own class lives in the missing stylesheet. Try again
+  stays a plain `<a>`, not a React control. A four-line inline script reopens `/dashboard` when the browser fires
+  `online` (once per change, cannot loop). The copy keeps every promise it can keep: nothing cached, nothing half-saved.
+- **`NoConnectionCard`** (`components/ui/no-connection.tsx`): `LoadFailure` draws a read that never got an answer
+  (`kindOf` = `offline`) as this blue card instead of the red callout, with the same three sentences and the retry. Every
+  other failure keeps the red box. The sign-in "service is not answering" state (`auth-gate.tsx`) carries the same blue mark.
+- Shown on `/design-system`. `tests/no-connection.test.tsx` pins the page's promises (no button, no external file, the 14px
+  floor, the `online` listener), the card and the `LoadFailure` split.
+
 ---
 
 # Weights that add up to more than 100% say so, and still save

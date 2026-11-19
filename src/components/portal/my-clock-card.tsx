@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Clock, LogIn, LogOut, Undo2 } from "lucide-react";
 import {
@@ -16,7 +16,9 @@ import {
   loadPhase,
   useToast,
   ButtonLink,
+  HeroBackdrop,
 } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
@@ -30,8 +32,10 @@ import {
   useWorkLocations,
 } from "@/lib/store/attendance";
 import { useCan } from "@/lib/permissions";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatTime } from "@/lib/time";
 import { shortDate } from "@/lib/today";
+import { HERO_BLUE } from "@/components/ui/hero-backdrop";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
 import { RequestCorrectionDialog } from "@/app/(app)/people/attendance/my-attendance-history";
 
@@ -50,7 +54,15 @@ import { RequestCorrectionDialog } from "@/app/(app)/people/attendance/my-attend
  */
 export function MyClockCard({
   showFailure = true,
+  hero = false,
 }: {
+  /**
+   * The staff home screen's treatment: the whole card is the blue gradient the
+   * mobile app's clock card uses (`HeroBackdrop`), with the time large and a
+   * white button. Off elsewhere: the attendance page already has its own
+   * heading.
+   */
+  hero?: boolean;
   /**
    * Whether a failed read is explained on this card. A screen that already
    * renders the same failure beside it — the attendance page's own roster —
@@ -235,6 +247,193 @@ export function MyClockCard({
           )}
         </CardBody>
       </Card>
+    );
+  }
+
+  if (hero) {
+    const clockedIn = Boolean(myRow?.clockIn);
+    const running = clockedIn && !myRow?.clockOut;
+    const selfService = !policy || policy.selfServiceClockIn;
+    /* White on the gradient, with the label above it in the same white: the
+       button the page is for. Its disabled state fades rather than greys, so it
+       still reads as the same button. */
+    const heroButton =
+      "inline-flex h-12 cursor-pointer items-center justify-center gap-2.5 rounded-md bg-white px-6 font-medium whitespace-nowrap shadow-sm transition-colors hover:bg-white/90 active:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60";
+
+    return (
+      <div
+        className="relative overflow-hidden rounded-xl text-white shadow-sm"
+        style={{ backgroundColor: HERO_BLUE.from }}
+      >
+        <HeroBackdrop />
+        <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            {phase === "loading" ? (
+              <div aria-hidden="true" className="flex flex-col gap-3">
+                <div className="h-4 w-40 rounded bg-white/20" />
+                <div className="h-14 w-56 rounded bg-white/20" />
+              </div>
+            ) : phase === "ready" ? (
+              running ? (
+                <>
+                  <p className="mb-2 text-body-sm text-white/90">
+                    Clocked in at {myRow?.clockIn}
+                  </p>
+                  <DayTimer
+                    onAccent
+                    clockIn={myRow?.clockIn ?? ""}
+                    serverTime={roster.time}
+                    date={roster.date}
+                    policy={policy}
+                  />
+                </>
+              ) : clockedIn ? (
+                <>
+                  <p className="mb-2 text-body-sm text-white/90">
+                    In at {myRow?.clockIn}, out at {myRow?.clockOut}
+                  </p>
+                  <p className="text-[2.5rem] leading-none font-semibold">
+                    Day complete
+                  </p>
+                </>
+              ) : nothingToClock && myRow ? (
+                <>
+                  <p className="mb-2 text-body-sm text-white/90">
+                    {STATUS_LABEL[myRow.status]} today
+                  </p>
+                  <p className="text-[2.5rem] leading-none font-semibold">
+                    Nothing to clock
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mb-2 text-body-sm text-white/90">
+                    You have not clocked in today
+                  </p>
+                  <LiveTime />
+                  {policy && (
+                    <p className="mt-3 text-body-sm whitespace-nowrap text-white/90">
+                      Expected {policy.shiftStart}&ndash;{policy.shiftEnd}
+                      {policy.graceMinutes > 0 &&
+                        ` · ${policy.graceMinutes} min grace`}
+                    </p>
+                  )}
+                </>
+              )
+            ) : null}
+
+            {/* An earlier day still open, in a white box: the warning colour
+                is chosen for a light ground and would not read on the blue. */}
+            {roster.earlierOpen && (
+              <div className="mt-3 rounded-md bg-surface px-3 py-2">
+                <EarlierOpenNotice earlier={roster.earlierOpen} />
+              </div>
+            )}
+          </div>
+
+          {phase === "ready" &&
+            !nothingToClock &&
+            (selfService ? (
+              <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:items-end">
+                {!clockedIn && locations.locations.length > 0 && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-body-sm text-white/90">Where</span>
+                    <Select
+                      value={locationId}
+                      onChange={(e) => setPicked(e.target.value)}
+                    >
+                      {locations.locations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </Select>
+                    {selected?.geofenceEnforced && (
+                      <span className="max-w-xs text-meta text-white/90">
+                        {session.isConnected || !DEMO_ENABLED
+                          ? `${selected.name} accepts clock-ins on site only, so your browser will ask for your location.`
+                          : `${selected.name} has a geofence, and demo mode does not apply it: nothing here asks where you are.`}
+                      </span>
+                    )}
+                  </label>
+                )}
+                {!clockedIn ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={cn(heroButton, "text-[#1c2872]")}
+                    onClick={() =>
+                      void run(
+                        () => clockIn(selected),
+                        (time) => `Clocked in at ${time}`,
+                        (result) =>
+                          `${result.workLocation?.name ?? selected?.name ?? "Recorded"}. Have a good day.`,
+                      )
+                    }
+                  >
+                    <LogIn aria-hidden="true" className="size-4" />
+                    Clock in
+                  </button>
+                ) : running ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={cn(heroButton, "text-[#1c2872]")}
+                    onClick={() =>
+                      void run(
+                        () => clockOut(),
+                        (time) => `Clocked out at ${time}`,
+                        () => "Your hours for today are on the timesheet.",
+                      )
+                    }
+                  >
+                    <LogOut aria-hidden="true" className="size-4" />
+                    Clock out
+                  </button>
+                ) : (
+                  /* Offered always, as on the plain card: the window is the
+                     server's rule, and a second copy of it here would drift. */
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="inline-flex cursor-pointer items-center gap-1.5 text-body-sm font-medium text-white underline underline-offset-4 disabled:opacity-60"
+                    onClick={() =>
+                      void run(
+                        () =>
+                          undoClockOut().then((result) => ({
+                            employeeId: result.employeeId,
+                            date: result.date,
+                            time: result.clockIn ?? "",
+                          })),
+                        () => "Clock-out reversed",
+                        () => "You are on the clock again.",
+                      )
+                    }
+                  >
+                    <Undo2 aria-hidden="true" className="size-3.5" />
+                    Undo clock-out
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-body-sm text-white/90">
+                Your HR team records attendance for everybody.
+              </p>
+            ))}
+        </div>
+
+        {phase === "failed" && showFailure && (
+          <div className="relative px-6 pb-6">
+            <div className="rounded-md bg-surface p-3 text-ink">
+              <LoadFailure
+                subject="today's clock"
+                error={roster.error}
+                onRetry={roster.reload}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -571,5 +770,41 @@ function EarlierOpenNotice({
         />
       )}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------- live time */
+
+const tickEverySecond = (onChange: () => void) => {
+  const id = window.setInterval(onChange, 1000);
+  return () => window.clearInterval(id);
+};
+
+/** A whole-second timestamp, or null on the server so the first paint matches. */
+function useNowSecond(): number | null {
+  return useSyncExternalStore(
+    tickEverySecond,
+    () => Math.floor(Date.now() / 1000), // reads-the-clock: a display tick for the hero band, never a calendar day
+    () => null,
+  );
+}
+
+/**
+ * The time now, large, in the organisation's zone.
+ *
+ * The organisation's, not the browser's: "09:02" on a phone set to another zone
+ * is the kind of wrong that makes somebody think they are late.
+ */
+function LiveTime() {
+  const timeZone = useOrgTimezone();
+  const second = useNowSecond();
+  const now = second === null ? null : new Date(second * 1000);
+  return (
+    <p
+      className="text-[3.5rem] leading-none font-semibold tabular-nums"
+      aria-label="Current time"
+    >
+      {now === null ? "--:--" : formatTime(now, timeZone)}
+    </p>
   );
 }

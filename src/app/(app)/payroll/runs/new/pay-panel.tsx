@@ -23,16 +23,19 @@ import { formatKobo, paidPeopleLabel } from "@/lib/api/payroll";
 import type { PayrollRunDetail } from "@/lib/api/payroll";
 import { availableFigure } from "@/lib/api/payments";
 import type { PaymentDiscrepancy } from "@/lib/api/payments";
-import { usePaymentActions } from "@/lib/store/payments";
+import { useCan } from "@/lib/permissions";
+import { usePaymentActions, usePaymentsSummary } from "@/lib/store/payments";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import {
   RecordPaidDialog,
   type RecordedPayment,
 } from "@/components/payroll/record-paid-dialog";
-import { PaymentRecordedMoment } from "@/components/payroll/payment-recorded";
+import {
+  PaymentRecordedMoment,
+  RECORDED_MOVES_NO_MONEY,
+} from "@/components/payroll/payment-recorded";
 import { DEMO_NO_BATCH_REASON } from "@/lib/store/payroll";
 import { downloadCsv } from "@/lib/csv";
-import { CopyButton } from "@/app/(app)/settings/webhooks";
 
 /**
  * Where the product actually stands on moving money, said before the click.
@@ -117,8 +120,12 @@ export function PayPanel({
      nothing else: no wallet button, no explanation of a wallet it does not use. */
   const { settings: paySettings } = usePayrollSettings();
   const walletPayout = paySettings.payout.wallet;
+  /* Saying that money left the company is a finance act, so it is the approver's
+     permission and not the preparer's: the same gate the API puts on
+     `mark-paid`, and the same one `release-panel.tsx` reads as `canApprove`. */
+  const canRecord = useCan("APPROVE_PAYROLL");
 
-  const [busy, setBusy] = useState<"pay" | "file" | null>(null);
+  const [busy, setBusy] = useState<"pay" | "file" | "record" | null>(null);
   const [recording, setRecording] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
   const [problems, setProblems] = useState<readonly PaymentDiscrepancy[]>([]);
@@ -217,86 +224,49 @@ export function PayPanel({
     }
   }
 
+  /**
+   * Open the "your bank paid this" form, with the batch in a state the API will
+   * take it in.
+   *
+   * `mark-paid` accepts an approved batch and nothing else, and this panel only
+   * approves one when somebody presses Download (or Pay). A company that took
+   * its file from the bank payment schedule card below never pressed either, so
+   * its batch is still waiting for approval and the form would open on a
+   * refusal. The approval here is the same one `file()` makes and for the same
+   * reason: it carries no decision the run did not already carry, and the person
+   * who may record a payment is the person who may approve its batch.
+   */
+  async function startRecording() {
+    if (!batch) return;
+    if (batch.status === "APPROVED") {
+      setRecording(true);
+      return;
+    }
+    setBusy("record");
+    try {
+      if (await ready(batch.id)) setRecording(true);
+    } catch (error) {
+      setRefused(
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong. Nothing was recorded.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /* A run approved before this existed, or one whose batch could not be built —
      a company with no bank account on file is the ordinary cause. Offering to
      build one is the whole fix, and it is the same call approval makes. */
   if (!batch) {
     return (
-      <Card>
-        <CardHeader
-          title="Approved. Nobody has been paid yet."
-          description="This payroll is settled and its figures are frozen. Its payment has not been prepared."
-        />
-        <CardBody className="flex flex-col gap-4">
-          {/* The reason, and never a cause this cannot know.
-              -----------------------------------------------------------
-              `problem` is the API's own sentence and arrives with the
-              approval — but it lives in the wizard's state, so a later load of
-              the same run has none. The offline branch is derived rather than
-              remembered for exactly that: on a reload the generic fallback
-              would have claimed "no bank account was on file", which is false
-              here and is the sort of confident wrong cause that sends somebody
-              to fix a setting that was never the problem. */}
-          <p className="text-body-sm text-body">
-            {problem ??
-              (actions.live
-                ? "A payment is normally prepared the moment a payroll is " +
-                  "approved. This one has none, most often because no bank " +
-                  "account was on file to pay it from at the time."
-                : DEMO_NO_BATCH_REASON)}
-          </p>
-          {refused && (
-            <Callout tone="danger" title="That did not work">
-              {refused}
-            </Callout>
-          )}
-          {/* Offered only where it could work.
-              -----------------------------------------------------------
-              `createBatch` refuses outright with no API — it draws on a real
-              bank account, and one assembled in browser storage is a payment
-              instruction that can never reach a bank. A button whose only
-              possible outcome is a refusal is a control that teaches somebody
-              the product is broken, so offline there is no button and the
-              sentence above is the whole answer. */}
-          {actions.live && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="accent"
-                size="sm"
-                loading={busy === "pay"}
-                onClick={() => {
-                  setBusy("pay");
-                  setRefused(null);
-                  void actions
-                    .createBatch(run.id)
-                    .then(() => {
-                      onChanged();
-                    })
-                    .catch((error: unknown) => {
-                      setRefused(
-                        error instanceof ApiError
-                          ? error.message
-                          : "The payment could not be prepared.",
-                      );
-                    })
-                    .finally(() => {
-                      setBusy(null);
-                    });
-                }}
-              >
-                Prepare the payment
-              </Button>
-              <ButtonLink
-                variant="ghost"
-                size="sm"
-                href="/settings/bank-accounts"
-              >
-                Bank accounts
-              </ButtonLink>
-            </div>
-          )}
-        </CardBody>
-      </Card>
+      <NoPaymentYet
+        run={run}
+        problem={problem ?? null}
+        walletPayout={walletPayout}
+        onChanged={onChanged}
+      />
     );
   }
 
@@ -338,7 +308,9 @@ export function PayPanel({
             ? "This payment has been sent."
             : recorded
               ? undefined
-              : "Two ways out, and both are one press."
+              : walletPayout
+                ? "Two ways out, and both are one press."
+                : "Two steps: send the file to your bank, then tell us when it has paid."
         }
         action={<Badge tone="neutral">{batch.reference}</Badge>}
       />
@@ -353,8 +325,13 @@ export function PayPanel({
             Recorded as paid by your bank: {formatKobo(run.netKobo)} to{" "}
             {paidPeopleLabel(run)}, against{" "}
             <span className="font-medium text-ink">{batch.reference}</span>.{" "}
+            {/* Neither sentence says the wallet moved when this was recorded,
+                because it did not. Recording writes the payment into the
+                ledger and closes the run; the wallet came down at approval for
+                a company that pays from it, and was never touched for one that
+                pays from its own account. */}
             {walletPayout
-              ? "The wallet has come down by that amount."
+              ? RECORDED_MOVES_NO_MONEY
               : "Paid from your bank account, not the wallet."}
           </p>
         ) : settled ? (
@@ -420,37 +397,86 @@ export function PayPanel({
               <p className="text-meta text-muted">{WALLET_PAYOUT_STATE}</p>
             )}
 
-            {/* The other half of the bank-file path, and the reason the wallet
-                can ever come down.
+            {/* The other half of the bank-file path.
                 ---------------------------------------------------------
                 Downloading a file is not paying anybody — the money leaves
                 when the bank moves it, which happens outside this product and
                 which nothing here can observe. So somebody has to say so, and
                 this is where they say it: on the run they just took the file
                 from, rather than on a screen they would have to know exists.
+                Until they do the run stays Approved, however long ago the bank
+                paid.
 
-                Below the two actions and visually quieter than both, because
-                it is a statement about the past. A control that looked like a
-                third way to pay would be the button this must never become. */}
-            <div className="flex flex-col gap-2 border-t border-line pt-3">
-              <p className="text-meta text-muted">
-                Sent the file to your bank and watched it go through?
-              </p>
-              <div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy !== null}
-                  onClick={() => {
-                    setRecording(true);
-                  }}
-                >
-                  <CheckCircle2 aria-hidden="true" className="size-4" />
-                  Record that your bank paid this
-                </Button>
+                Two shapes, because the two companies are in different places.
+
+                A company that pays from its own bank has no other way to be
+                paid, so this is the second of two steps and is written as one:
+                a heading, a sentence, and a button at full size. It is a
+                secondary button and not the accent one, because nothing here
+                can tell that the file was actually taken to the bank — the
+                batch is Approved once the file *can* be downloaded, which is
+                not the same fact, and the one thing this must never become is
+                the button that makes a payroll look paid. The accent stays on
+                Download until somebody has a reason to press the other.
+
+                A company that pays from the wallet keeps the old quiet
+                question under its two actions: for it the file is the
+                exception, and a control that looked like a third way to pay
+                would be the wrong thing to hand everybody. */}
+            {walletPayout ? (
+              canRecord && (
+                <div className="flex flex-col gap-2 border-t border-line pt-3">
+                  <p className="text-meta text-muted">
+                    Sent the file to your bank and watched it go through?
+                  </p>
+                  <div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      loading={busy === "record"}
+                      disabled={busy !== null}
+                      onClick={() => void startRecording()}
+                    >
+                      {busy !== "record" && (
+                        <CheckCircle2 aria-hidden="true" className="size-4" />
+                      )}
+                      Record that your bank paid this
+                    </Button>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col gap-2 border-t border-line pt-4">
+                <h3 className="text-body-sm font-semibold text-ink">
+                  Tell us when the bank has paid
+                </h3>
+                <p className="text-body-sm text-body">
+                  Once your bank has paid, record it here so the run is closed
+                  and everyone shows as paid.
+                </p>
+                {canRecord ? (
+                  <div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={busy === "record"}
+                      disabled={busy !== null}
+                      onClick={() => void startRecording()}
+                    >
+                      {busy !== "record" && (
+                        <CheckCircle2 aria-hidden="true" className="size-4" />
+                      )}
+                      Record that your bank paid this
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-body-sm text-muted">
+                    Your payroll approver can record this.
+                  </p>
+                )}
               </div>
-            </div>
+            )}
           </>
         )}
       </CardBody>
@@ -470,6 +496,152 @@ export function PayPanel({
           onChanged();
         }}
       />
+    </Card>
+  );
+}
+
+/**
+ * An approved run with no payment behind it.
+ *
+ * Its own component rather than a branch of `PayPanel`, for one reason: the only
+ * thing worth asking the API here is whether the company has an account to pay
+ * from, and a hook cannot be called inside a branch. Kept apart, the request is
+ * made by the screens that need it and not by every pay card on every run.
+ *
+ * ## Why the account is checked and not assumed
+ *
+ * `problem` is the API's sentence and lives in the wizard's state, so a later
+ * visit to the same run has none. The old fallback therefore said "most often
+ * because no bank account was on file", which is a guess. For a company that
+ * pays by bank file it is also the whole path: with no payment there is no file
+ * to download and nothing to record, so the run can never reach Paid. That is
+ * worth saying plainly, but only when it is known, so it is said when the
+ * payments summary reports no primary account and not otherwise. A company that
+ * has one gets the generic sentence, and an unanswered request gets it too.
+ */
+function NoPaymentYet({
+  run,
+  problem,
+  walletPayout,
+  onChanged,
+}: {
+  run: PayrollRunDetail;
+  problem: string | null;
+  walletPayout: boolean;
+  onChanged: () => void;
+}) {
+  const actions = usePaymentActions();
+  const { summary } = usePaymentsSummary();
+  /* Where an account is added. `MANAGE_SETTINGS` on the API, which is not what
+     an approver holds, so a link they cannot use is replaced by who can. */
+  const canManageSettings = useCan("MANAGE_SETTINGS");
+  const [preparing, setPreparing] = useState(false);
+  const [refused, setRefused] = useState<string | null>(null);
+
+  const noAccount =
+    !walletPayout && summary !== null && summary.primaryAccount === null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Approved. Nobody has been paid yet."
+        description="This payroll is settled and its figures are frozen. Its payment has not been prepared."
+      />
+      <CardBody className="flex flex-col gap-4">
+        {/* The reason, and never a cause this cannot know.
+            -----------------------------------------------------------
+            `problem` is the API's own sentence and arrives with the
+            approval — but it lives in the wizard's state, so a later load of
+            the same run has none. The offline branch is derived rather than
+            remembered for exactly that: on a reload the generic fallback
+            would have claimed "no bank account was on file", which is false
+            here and is the sort of confident wrong cause that sends somebody
+            to fix a setting that was never the problem. */}
+        <p className="text-body-sm text-body">
+          {noAccount
+            ? "No bank account is set up for salaries to be paid from. Add it " +
+              "first, then prepare the payment, download the bank file and " +
+              "tell us when your bank has paid."
+            : (problem ??
+              (actions.live
+                ? "A payment is normally prepared the moment a payroll is " +
+                  "approved. This one has none, most often because no bank " +
+                  "account was on file to pay it from at the time."
+                : DEMO_NO_BATCH_REASON))}
+        </p>
+        {noAccount && !canManageSettings && (
+          <p className="text-body-sm text-muted">
+            Ask somebody who manages settings to add it.
+          </p>
+        )}
+        {refused && (
+          <Callout tone="danger" title="That did not work">
+            {refused}
+          </Callout>
+        )}
+        {/* Offered only where it could work.
+            -----------------------------------------------------------
+            `createBatch` refuses outright with no API — it draws on a real
+            bank account, and one assembled in browser storage is a payment
+            instruction that can never reach a bank. A button whose only
+            possible outcome is a refusal is a control that teaches somebody
+            the product is broken, so offline there is no button and the
+            sentence above is the whole answer. Adding an account works
+            offline, so that link does not wait for the API. */}
+        {((noAccount && canManageSettings) || actions.live) && (
+          <div className="flex flex-wrap gap-2">
+            {noAccount && canManageSettings && (
+              <ButtonLink
+                variant="accent"
+                size="sm"
+                href={`/settings/bank-accounts?from=${encodeURIComponent(
+                  `/payroll/runs/new?period=${run.period}&step=approve`,
+                )}`}
+              >
+                <Landmark aria-hidden="true" className="size-4" />
+                Add a bank account
+              </ButtonLink>
+            )}
+            {actions.live && (
+              <Button
+                variant={noAccount ? "secondary" : "accent"}
+                size="sm"
+                loading={preparing}
+                onClick={() => {
+                  setPreparing(true);
+                  setRefused(null);
+                  void actions
+                    .createBatch(run.id)
+                    .then(() => {
+                      onChanged();
+                    })
+                    .catch((error: unknown) => {
+                      setRefused(
+                        error instanceof ApiError
+                          ? error.message
+                          : "The payment could not be prepared.",
+                      );
+                    })
+                    .finally(() => {
+                      setPreparing(false);
+                    });
+                }}
+              >
+                Prepare the payment
+              </Button>
+            )}
+            {actions.live && !noAccount && (
+              <ButtonLink
+                variant="ghost"
+                size="sm"
+                href="/settings/bank-accounts"
+              >
+                Bank accounts
+              </ButtonLink>
+            )}
+          </div>
+        )}
+      </CardBody>
     </Card>
   );
 }
@@ -619,103 +791,6 @@ function Figure({
       >
         {formatKobo(kobo)}
       </dd>
-    </div>
-  );
-}
-
-/**
- * Where money goes into the wallet.
- *
- * Rendered where a shortfall is, because a shortfall is not an instruction
- * until there is an account number under it. Empty is an ordinary state — a
- * company on the bank-file path has never needed a collection account — and it
- * says so rather than showing nothing, since somebody looking at a shortfall
- * with no account on screen needs to know who to ask.
- */
-export function FundingAccounts({
-  accounts,
-}: {
-  accounts: {
-    provider: string;
-    accountNumber: string;
-    accountName: string;
-    bankName: string;
-    /** Absent from some providers. See the note on `ApiWallet`. */
-    bankCode: string | null;
-    isDefault: boolean;
-  }[];
-}) {
-  if (accounts.length === 0) {
-    return (
-      <Callout tone="info" title="No funding account yet">
-        This company has no collection account, so money cannot be paid into the
-        wallet. Ask your ApproveHR contact to open one: it takes minutes, and
-        transfers into it credit the wallet automatically.
-      </Callout>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-body-sm text-body">
-        Transfer into{" "}
-        {accounts.length === 1 ? "this account" : "any of these accounts"} and
-        the wallet is credited automatically.
-      </p>
-      <ul className="flex flex-col gap-2">
-        {accounts.map((account) => (
-          <li
-            key={`${account.provider}-${account.accountNumber}`}
-            className="flex items-start gap-3 rounded-lg border border-line bg-canvas p-3"
-          >
-            <Landmark aria-hidden="true" className="mt-0.5 size-4 text-muted" />
-            <div className="flex flex-col gap-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="tabular font-medium text-ink">
-                  {account.accountNumber}
-                </span>
-                {/* The one action this card exists to enable.
-                    ------------------------------------------------------
-                    Somebody reading this screen is about to type a ten-digit
-                    account number into their bank, and a transposed digit
-                    sends a payroll's worth of money to a stranger. The old
-                    product had this and the rebuild lost it.
-
-                    `CopyButton` rather than a local one: it is exported from
-                    the webhooks barrel precisely for reuse, and it reports a
-                    clipboard failure instead of silently doing nothing —
-                    which matters here, because `navigator.clipboard` is
-                    unavailable over plain http and a dead Copy button on a
-                    payment instruction is worse than none. */}
-                <CopyButton value={account.accountNumber} label="Copy number" />
-                {/* Only worth saying when there is a choice to make. On a
-                    single account it is a badge on the only option, and it
-                    would also imply the others are somehow lesser — which is
-                    the exact reading the API's flag-not-filter design exists to
-                    avoid, since every account here credits the wallet. */}
-                {accounts.length > 1 && account.isDefault && (
-                  <Badge tone="neutral" size="sm">
-                    Suggested
-                  </Badge>
-                )}
-              </div>
-              <span className="text-body-sm text-body">{account.bankName}</span>
-              {/* Null rather than blank where the provider gave none: an
-                  absent code is not an empty one, and a stray "Bank code"
-                  label with nothing after it reads as a failure to load. */}
-              {account.bankCode && (
-                <span className="text-meta text-muted">
-                  Bank code{" "}
-                  <span className="tabular text-body">{account.bankCode}</span>
-                </span>
-              )}
-              <span className="text-meta text-muted">
-                {account.accountName}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

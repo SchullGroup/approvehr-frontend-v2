@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `10318a81` (2026-11-18) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `0832da45` (2026-11-19) · regenerate with `npm run docs`, never by hand
 
-**169 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**170 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   148 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   149 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    12 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
@@ -252,7 +252,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Settings
 
-`/settings` — 31 pages
+`/settings` — 32 pages
 
 | Route                                       | Title                       | What it is                                                                                                                                                                                                                                                                                                            | File                                                              |
 | ------------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -284,6 +284,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/settings/required-details`                | Required details            | Choose which personal details every member of staff must fill in on My profile, and see who still has gaps.                                                                                                                                                                                                           | `src/app/(app)/settings/required-details/page.tsx`                |
 | `/settings/roles`                           | Roles and permissions       | Who can see salaries, approve payroll, or export employee data.                                                                                                                                                                                                                                                       | `src/app/(app)/settings/roles/page.tsx`                           |
 | `/settings/security`                        | Sign-in security            | Two-factor sign-in, the actions that need a code, and your recovery codes.                                                                                                                                                                                                                                            | `src/app/(app)/settings/security/page.tsx`                        |
+| `/settings/setup`                           | Setting up your company     | What is still to set up, and what each step changes in the product.                                                                                                                                                                                                                                                   | `src/app/(app)/settings/setup/page.tsx`                           |
 | `/settings/sms`                             | Text messages               | A weekly text of counts and a link, only for people who opt in. Who has agreed, and how.                                                                                                                                                                                                                              | `src/app/(app)/settings/sms/page.tsx`                             |
 | `/settings/webhooks`                        | Webhooks                    | Send signed JSON to your own server when payroll, leave or people change.                                                                                                                                                                                                                                             | `src/app/(app)/settings/webhooks/page.tsx`                        |
 | `/settings/webhooks/[id]`                   | Endpoint · Webhooks         | Send a test event, and read every delivery attempt with the reason it failed.                                                                                                                                                                                                                                         | `src/app/(app)/settings/webhooks/[id]/page.tsx`                   |

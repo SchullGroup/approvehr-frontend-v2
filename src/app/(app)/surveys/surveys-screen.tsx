@@ -20,6 +20,7 @@ import {
   useToast,
   RowActions,
   LoadState,
+  Illustration,
 } from "@/components/ui";
 import { useCan } from "@/lib/permissions";
 import type { ApiSurvey } from "@/lib/api/surveys";
@@ -82,7 +83,7 @@ export function SurveysScreen() {
         >
           {mine.invites.length === 0 ? (
             <EmptyState
-              icon={<ClipboardList aria-hidden="true" className="size-5" />}
+              art={<Illustration name="shrug" />}
               title="Nothing to answer"
               description="You will see anything you are asked here."
             />

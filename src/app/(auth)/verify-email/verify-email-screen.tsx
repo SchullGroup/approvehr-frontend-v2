@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { ApiError, onAuthChange, tokens } from "@/lib/api/client";
-import { Button, ButtonLink, Callout } from "@/components/ui";
+import { Button, ButtonLink, Callout, Illustration } from "@/components/ui";
 import { account, type DeliveryHint } from "@/lib/api/account";
 import { DeliveryNote } from "@/components/portal/delivery-note";
 
@@ -124,6 +124,7 @@ export function VerifyEmailScreen({ token }: { token: string | null }) {
   if (phase.kind === "confirmed") {
     return (
       <>
+        <Illustration name="paper-b" height={128} className="mb-4" />
         <h1 className="text-h2 text-ink">Email confirmed</h1>
         <Callout
           tone="success"

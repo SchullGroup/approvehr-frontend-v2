@@ -72,7 +72,7 @@ const ADOPTED = [
   "src/app/(app)/payroll/pay-setup/grades-panel.tsx",
   "src/app/(app)/payroll/pay-setup/pay-components-panel.tsx",
   "src/app/(app)/payroll/payments/history/history-screen.tsx",
-  "src/app/(app)/payroll/payments/payments-screen.tsx",
+  "src/app/(app)/payroll/payments/wallet-card.tsx",
   "src/app/(app)/payroll/payments/wallet-statement.tsx",
   "src/app/(app)/payroll/payslips/index-table.tsx",
   "src/app/(app)/payroll/payslips/my-payslip-index.tsx",
