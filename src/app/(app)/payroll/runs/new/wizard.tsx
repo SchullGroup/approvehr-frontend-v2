@@ -841,10 +841,7 @@ export function PayrollRunWizard() {
           {/* --------------------------------------------------------- 1 Period */}
           {stepper.index === 0 && (
             <Card>
-              <CardHeader
-                title="What are you paying?"
-                description="The month decides whose contracts, new starters and exits are picked up."
-              />
+              <CardHeader title="What are you paying?" />
               <CardBody className="grid max-w-4xl gap-5 sm:grid-cols-3">
                 {/* The month was a bare `type="month"` input, which *could* already
                 reach any period and gave nobody a reason to think so — a
@@ -931,7 +928,6 @@ export function PayrollRunWizard() {
                             setOffCycle(event.target.checked)
                           }
                           label="Pay somebody outside this payroll"
-                          description="A final settlement, a bonus, or a correction. It becomes a separate run in the same month and leaves the one above untouched."
                         />
                       </span>
                     </Callout>
@@ -1005,14 +1001,6 @@ export function PayrollRunWizard() {
                     <p className="text-meta leading-relaxed text-muted">
                       {payslipCountLabel(run)} · {formatKobo(run.grossKobo)}{" "}
                       gross
-                    </p>
-                  )}
-                  {settled && (
-                    <p className="text-meta leading-relaxed text-muted">
-                      This run is approved. Its figures are frozen and cannot be
-                      prepared again. To pay somebody outside it, a final
-                      settlement, a bonus, a correction, go back to Period and
-                      tick &ldquo;Pay somebody outside this payroll&rdquo;.
                     </p>
                   )}
                   {approvedAlready && offCycle && (

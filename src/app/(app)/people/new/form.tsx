@@ -1904,55 +1904,49 @@ export function NewEmployeeForm() {
                   ],
                   ["TIN", Boolean(draft.tin), "taxSetup", "tin"],
                 ] as [string, boolean, RecordFieldKey, PayrollGap["field"]][]
-              ).map(([label, done, key, field]) => {
-                /* `gap` names the actual consequence of this one field being
+              )
+                /* A group switched off in Settings is not asked for on this
+                   form, so it has no row here at all: a line saying it is not
+                   asked for only made the checklist harder to read. */
+                .filter(([, , key]) => enabled[key])
+                .map(([label, done, , field]) => {
+                  /* `gap` names the actual consequence of this one field being
                    empty — "cannot be paid" for the bank account, a warning
                    for the other two — rather than a checklist that speaks for
                    all three in the same voice. */
-                const gap = payrollGaps.find((g) => g.field === field);
-                return (
-                  <li
-                    key={label}
-                    className="flex items-start gap-2.5 text-body-sm"
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
-                        done
-                          ? "bg-success text-fill-strong"
-                          : "border border-line-strong",
-                      )}
+                  const gap = payrollGaps.find((g) => g.field === field);
+                  return (
+                    <li
+                      key={label}
+                      className="flex items-start gap-2.5 text-body-sm"
                     >
-                      {done ? (
-                        <Check
-                          aria-hidden="true"
-                          className="size-2.5"
-                          strokeWidth={3}
-                        />
-                      ) : null}
-                    </span>
-                    <span className={done ? "text-body" : "text-muted"}>
-                      {label}
-                      {/* Honest about *why* it is not being asked for. A group
-                          switched off in Settings still leaves the field
-                          checked by the engine (or, for TIN, checked by
-                          nobody at all) — a checklist that quietly omitted the
-                          reason would look like the product had changed its
-                          mind. */}
-                      {!done && !enabled[key] && (
-                        <span className="block text-meta text-faint">
-                          Not asked for here: switched off in Settings
-                        </span>
-                      )}
-                      {!done && enabled[key] && gap && (
-                        <span className="block text-meta text-faint">
-                          {gap.consequence}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
+                      <span
+                        className={cn(
+                          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
+                          done
+                            ? "bg-success text-fill-strong"
+                            : "border border-line-strong",
+                        )}
+                      >
+                        {done ? (
+                          <Check
+                            aria-hidden="true"
+                            className="size-2.5"
+                            strokeWidth={3}
+                          />
+                        ) : null}
+                      </span>
+                      <span className={done ? "text-body" : "text-muted"}>
+                        {label}
+                        {!done && gap && (
+                          <span className="block text-meta text-faint">
+                            {gap.consequence}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
             </ul>
           </CardBody>
         </Card>

@@ -460,16 +460,6 @@ function Form() {
           <div className="flex flex-col gap-6">
             <CompanyLogoCard />
 
-            <Card>
-              <CardHeader title="Where this is used" level={3} />
-              <CardBody className="flex flex-col gap-2.5 text-body-sm leading-relaxed text-body">
-                <p>Contracts, offer letters and confirmation letters.</p>
-                <p>The header of every payslip.</p>
-                <p>PAYE, pension and NHF schedules filed on your behalf.</p>
-                <p>Your data processing record under the NDPA.</p>
-              </CardBody>
-            </Card>
-
             {dirty && (
               <Callout tone="info" title="Unsaved changes">
                 Nothing is written until you save. Filings already generated
@@ -567,14 +557,6 @@ function Form() {
               </li>
             ))}
           </ul>
-          <CardBody className="border-t border-line">
-            <p className="text-body-sm leading-relaxed text-muted">
-              Adding and removing entities is not wired up yet: it changes which
-              tax office each employee is filed to, so it needs the migration
-              step that moves people across, not just a form. The button above
-              is disabled rather than hidden so you can see it is coming.
-            </p>
-          </CardBody>
         </Card>
       </PageBody>
     </>
