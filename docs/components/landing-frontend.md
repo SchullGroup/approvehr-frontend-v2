@@ -2,7 +2,7 @@
 
 _Repo:_ `aprrovehr-frontend` · _Generated from_ `src/**/*.{ts,tsx}`
 
-_Snapshot:_ `origin/main` at `2dbf44b` (2026-09-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ `origin/main` at `4fe4df6` (2026-11-10) · regenerate with `npm run docs`, never by hand
 
 The smallest of the three frontends. Every exported symbol, grouped by folder.
 
@@ -10,11 +10,11 @@ The smallest of the three frontends. Every exported symbol, grouped by folder.
 | ------------------------------------------------------------------- | -----: | ---------: | ----: | --------: |
 | [Layout — `src/layout`](#layout--srclayout)                         |      1 |          1 |     0 |         0 |
 | [Components — `src/components`](#components--srccomponents)         |     14 |         35 |     0 |         0 |
-| [Pages — `src/pages`](#pages--srcpages)                             |     13 |         13 |     0 |         0 |
-| [Content — `src/data`](#content--srcdata)                           |      6 |          0 |     0 |        14 |
+| [Pages — `src/pages`](#pages--srcpages)                             |     14 |         14 |     0 |         0 |
+| [Content — `src/data`](#content--srcdata)                           |      7 |          0 |     0 |        14 |
 | [Helpers — `src/lib`, `src/services`](#helpers--srclib-srcservices) |      3 |          0 |     0 |         3 |
 | [Everything else](#everything-else)                                 |      2 |          1 |     0 |         0 |
-| **Total**                                                           | **39** |     **50** | **0** |    **17** |
+| **Total**                                                           | **41** |     **51** | **0** |    **17** |
 
 ---
 
@@ -70,6 +70,7 @@ One folder per screen.
 | `src/pages/Pricing/Pricing.tsx`               | `PricingPage`        | —     | —         | —    |
 | `src/pages/Pricing/PricingCalculator.tsx`     | `PricingCalculator`  | —     | —         | —    |
 | `src/pages/Product/Product.tsx`               | `ModulePage`         | —     | —         | —    |
+| `src/pages/Support/Support.tsx`               | `SupportPage`        | —     | —         | —    |
 
 ---
 
@@ -85,6 +86,7 @@ The words and figures the site renders. Nothing here is fabricated proof.
 | `src/data/marketing/modules.ts`         | —          | —     | `moduleById`                                                                                | 3 const · 3 types |
 | `src/data/marketing/nigerian-states.ts` | —          | —     | —                                                                                           | 1 const           |
 | `src/data/marketing/pricing.ts`         | —          | —     | `tierFor`, `quote`, `cumulativeIncludes`                                                    | 2 const · 3 types |
+| `src/data/marketing/support.ts`         | —          | —     | —                                                                                           | 2 const · 3 types |
 
 ---
 

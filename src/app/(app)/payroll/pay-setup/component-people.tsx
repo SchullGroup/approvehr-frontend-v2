@@ -15,6 +15,7 @@ import {
   payComponentsApi,
   type ApiComponentPeople,
 } from "@/lib/api/pay-components";
+import { HmoDetails } from "./hmo-details";
 
 /**
  * Who has this component: everyone, or the people ticked.
@@ -135,6 +136,9 @@ export function ComponentPeople({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Renders only on the HMO premium's list, the one that carries member IDs. */}
+      {data && <HmoDetails data={data} />}
+
       <h3 className="text-body-sm font-semibold text-ink">Who has it</h3>
 
       <div className="flex flex-wrap gap-4">

@@ -381,6 +381,8 @@ export type ApiEmployee = {
   taxState: string;
   tin: string | null;
   nhfNumber: string | null;
+  /** Member ID on the HMO card. Absent from an API that predates the field. */
+  hmoNumber?: string | null;
   /** Integer kobo, or null for undeclared. See `Employee.annualRentKobo`. */
   annualRentKobo: number | null;
   rentDeclaredAt: string | null;
@@ -1432,6 +1434,7 @@ export function toEmployee(api: ApiEmployee): Employee {
     taxState: api.taxState,
     tin: api.tin,
     nhfNumber: api.nhfNumber,
+    hmoNumber: api.hmoNumber ?? null,
     addressLine: api.addressLine,
     nin: api.nin,
     stateOfOrigin: api.stateOfOrigin,

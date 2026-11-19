@@ -51,6 +51,7 @@ import { useOrgTimezone } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
 import { todayIn } from "@/lib/time";
+import { PlanProviderDialog } from "./plan-provider-dialog";
 
 /**
  * Benefits: the plans, who is on them, and what they cost.
@@ -119,6 +120,9 @@ export function BenefitsPanel() {
   const [tab, setTab] = useState<"plans" | "people">("plans");
   const [creating, setCreating] = useState(false);
   const [enrolTo, setEnrolTo] = useState<ApiBenefitPlan | null>(null);
+  const [editingProvider, setEditingProvider] = useState<ApiBenefitPlan | null>(
+    null,
+  );
 
   const plans = useBenefitPlans(true);
   const enrolments = useBenefitEnrolments({ includeEnded: true });
@@ -202,6 +206,7 @@ export function BenefitsPanel() {
                 canEnrol={canEnrol}
                 preTaxNotice={notices.data?.preTax ?? null}
                 onEnrol={setEnrolTo}
+                onEditProvider={setEditingProvider}
                 onChanged={() => {
                   plans.reload();
                   enrolments.reload();
@@ -226,6 +231,14 @@ export function BenefitsPanel() {
           plans.reload();
         }}
       />
+      <PlanProviderDialog
+        plan={editingProvider}
+        onClose={() => setEditingProvider(null)}
+        onDone={() => {
+          setEditingProvider(null);
+          plans.reload();
+        }}
+      />
       <EnrolDialog
         plan={enrolTo}
         wholeMonthNotice={notices.data?.wholeMonth ?? null}
@@ -246,6 +259,7 @@ function Plans({
   canEnrol,
   preTaxNotice,
   onEnrol,
+  onEditProvider,
   onChanged,
 }: {
   plans: ApiBenefitPlan[];
@@ -253,6 +267,7 @@ function Plans({
   canEnrol: boolean;
   preTaxNotice: string | null;
   onEnrol: (plan: ApiBenefitPlan) => void;
+  onEditProvider: (plan: ApiBenefitPlan) => void;
   onChanged: () => void;
 }) {
   const mutations = useBenefitMutations();
@@ -362,6 +377,10 @@ function Plans({
                         ...(canPrice
                           ? [
                               {
+                                label: "Change provider",
+                                onSelect: () => onEditProvider(plan),
+                              },
+                              {
                                 label: plan.archived
                                   ? "Switch on"
                                   : "Switch off",
@@ -424,6 +443,15 @@ function Plans({
                   onClick={() => onEnrol(plan)}
                 >
                   Put somebody on
+                </Button>
+              )}
+              {canPrice && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onEditProvider(plan)}
+                >
+                  Change provider
                 </Button>
               )}
               {canPrice && (

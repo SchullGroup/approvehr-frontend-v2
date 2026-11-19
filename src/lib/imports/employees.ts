@@ -230,6 +230,7 @@ export type EmployeeField =
   | "tin"
   | "annualRent"
   | "nhfNumber"
+  | "hmoNumber"
   | "nextOfKinName"
   | "nextOfKinRelationship"
   | "nextOfKinPhone"
@@ -529,6 +530,26 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     required: false,
     example: "NHF0012345",
     note: "Their NHF number.",
+  },
+  {
+    /* Mirrors the API's dictionary: same field, same aliases. Never
+       `recommended` — an HMO card is not something every company issues. */
+    field: "hmoNumber",
+    column: "HMO member ID",
+    aliases: [
+      "hmo_number",
+      "hmo_id",
+      "hmo_no",
+      "hmo_member_id",
+      "hmo_member_number",
+      "hmo_card_number",
+      "enrollee_id",
+      "enrollee_number",
+      "member_id",
+    ],
+    required: false,
+    example: "HYG/123456/0",
+    note: "The number on their HMO card. Optional.",
   },
   {
     field: "nextOfKinName",

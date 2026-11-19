@@ -438,3 +438,87 @@ describe("editing a pay component", () => {
     expect(componentForm().name).toHaveValue("Bonus pool");
   });
 });
+
+/**
+ * The HMO premium is the one component with a provider to give.
+ *
+ * Optional, so the box starts holding whatever the company has said (or nothing),
+ * an emptied box takes it off with `null` rather than saving a blank, and no other
+ * component grows a question it cannot answer.
+ */
+describe("editing the HMO premium", () => {
+  const deduction = {
+    ...base,
+    kind: "DEDUCTION" as const,
+    basis: "FIXED" as const,
+    taxable: true,
+    pensionable: false,
+    defaultRate: null,
+    applyMode: "OPTIONAL" as const,
+  };
+  const hmo: ApiPayComponent = {
+    ...deduction,
+    id: "c-hmo",
+    code: "HMO",
+    name: "HMO premium",
+    isSystem: true,
+    defaultAmountKobo: 540_000,
+    provider: "Hygeia HMO",
+  };
+  const union: ApiPayComponent = {
+    ...deduction,
+    id: "c-union",
+    code: "UNION_DUES",
+    name: "Union dues",
+    defaultAmountKobo: 100_000,
+  };
+
+  const providerBox = () =>
+    within(screen.getByRole("dialog")).queryByLabelText(/^hmo provider/i);
+
+  beforeEach(() => {
+    mocks.componentRows = [hmo, union];
+    mocks.componentUpdate.mockReset().mockResolvedValue(undefined);
+    render(
+      <ToastProvider>
+        <ComponentsPanel kind="DEDUCTION" />
+      </ToastProvider>,
+    );
+  });
+
+  it("opens holding the provider the company has set, and saves it back unchanged", async () => {
+    editComponent("HMO premium");
+    expect(providerBox()).toHaveValue("Hygeia HMO");
+
+    press("Save");
+    await waitFor(() => expect(mocks.componentUpdate).toHaveBeenCalledTimes(1));
+    expect(mocks.componentUpdate).toHaveBeenCalledWith(
+      "c-hmo",
+      expect.objectContaining({ provider: "Hygeia HMO" }),
+    );
+  });
+
+  it("takes the provider off with null when the box is emptied", async () => {
+    editComponent("HMO premium");
+    fireEvent.change(providerBox()!, { target: { value: "   " } });
+
+    press("Save");
+    await waitFor(() => expect(mocks.componentUpdate).toHaveBeenCalledTimes(1));
+    expect(mocks.componentUpdate).toHaveBeenCalledWith(
+      "c-hmo",
+      expect.objectContaining({ provider: null }),
+    );
+  });
+
+  it("does not ask any other component who it is paid to", async () => {
+    editComponent("Union dues");
+    expect(providerBox()).toBeNull();
+
+    press("Save");
+    await waitFor(() => expect(mocks.componentUpdate).toHaveBeenCalledTimes(1));
+    /* Not even a `provider: undefined` key riding along. */
+    expect(mocks.componentUpdate.mock.calls[0]?.[1]).not.toHaveProperty(
+      "provider",
+    );
+  });
+});

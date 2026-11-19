@@ -32,6 +32,30 @@ describe("number columns", () => {
     expect(rows[0]?.[1]).toBe("Amount");
   });
 
+  it("shows a money column as #,##0.00 without touching the digits, and leaves number columns bare", async () => {
+    const bytes = writeXlsx([
+      {
+        name: "S",
+        rows: [
+          ["Account No", "Amount", "Plain"],
+          ["0018069180", "162600.00", "7"],
+        ],
+        moneyColumns: [1],
+        numberColumns: [2],
+      },
+    ]);
+    const xml = new TextDecoder().decode(bytes);
+    /* Style 3 is the built-in `#,##0.00`; the stored value is the API's digits. */
+    expect(xml).toContain('<c r="B2" s="3"><v>162600.00</v></c>');
+    expect(xml).toContain('<xf numFmtId="4"');
+    /* `numberColumns` is exactly what it was: a bare number, no style. */
+    expect(xml).toContain('<c r="C2"><v>7</v></c>');
+    /* The header is never money, and an account number stays text. */
+    expect(xml).toContain('<c r="B1" t="inlineStr"');
+    expect(xml).toContain('<c r="A2" t="inlineStr"');
+    expect((await readXlsx(bytes)).sheets[0]?.grid[1]?.[1]).toBe("162600.00");
+  });
+
   it("writes a cell that is not a plain number as text rather than refusing it", async () => {
     const bytes = writeXlsx([
       {
