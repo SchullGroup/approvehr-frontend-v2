@@ -1,22 +1,18 @@
 "use client";
 
-import { KeyRound, Server, Spline } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import {
   Badge,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
-  Disclosure,
   Spinner,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { AssistantChat } from "@/components/portal/assistant-chat";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { salesScriptAssistantName } from "@/lib/sales-script";
 import { useAssistantAvailable } from "@/lib/store/ai";
-import { useAssistantActions } from "@/lib/store/ai-chat";
 import { useSession } from "@/lib/store/session";
 
 /**
@@ -58,7 +54,6 @@ export function AssistantScreen() {
 
         {available && !loading && (
           <>
-            <WhatItCanDo />
             {scriptName && (
               <p className="text-meta text-muted">
                 Answering: <span className="text-ink">{scriptName}</span>
@@ -115,65 +110,5 @@ function NotWired({
         )}
       </CardBody>
     </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/** What it may propose, from `GET /ai/actions`. Closed by default. */
-function WhatItCanDo() {
-  const { actions, loading, error } = useAssistantActions();
-
-  return (
-    <Disclosure
-      title="What it can offer to do"
-      level={2}
-      hint="It reads freely. Anything that would change a record is offered as a proposal you confirm."
-    >
-      {loading ? (
-        <p className="flex items-center gap-2 text-body-sm text-muted">
-          <Spinner size="sm" />
-          Loading
-        </p>
-      ) : error ? (
-        <LoadFailure subject="what the assistant can do" error={error} />
-      ) : actions.length === 0 ? (
-        <p className="text-body-sm text-muted">
-          Nothing yet. It can answer questions about your records; there is
-          nothing it can offer to change.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {actions.map((action) => (
-            <li key={action.name} className="flex flex-col gap-1">
-              <p className="text-body-sm text-ink">{action.description}</p>
-              <p className="flex items-center gap-1.5 text-meta text-muted">
-                {action.gate.kind === "permission" ? (
-                  <>
-                    <Spline aria-hidden="true" className="size-3.5" />
-                    Needs the {action.gate.permission} permission
-                  </>
-                ) : (
-                  <>
-                    <Server aria-hidden="true" className="size-3.5" />
-                    Needs the service behind it to be wired
-                  </>
-                )}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <Callout
-        tone="neutral"
-        title="Nothing happens on its own"
-        className="mt-4"
-      >
-        Asking cannot change anything. When a change is worth making the
-        assistant describes it (read out of your own records, not written by it)
-        and it is made only when you press Confirm.
-      </Callout>
-    </Disclosure>
   );
 }

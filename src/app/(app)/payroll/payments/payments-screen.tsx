@@ -5,17 +5,12 @@ import { useState } from "react";
 import { Banknote, Landmark } from "lucide-react";
 import {
   Badge,
-  Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
-  CardHeader,
   EmptyState,
   Money,
   Spinner,
-  Stat,
-  LoadState,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { naira } from "@/lib/api/payments";
@@ -25,7 +20,7 @@ import {
   useWallet,
   useWalletStatement,
 } from "@/lib/store/payments";
-import { FundingAccounts } from "../runs/new/pay-panel";
+import { WalletCard } from "./wallet-card";
 import { WalletStatement } from "./wallet-statement";
 
 /**
@@ -124,105 +119,46 @@ export function PaymentsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {/* One figure, and an em dash where it has not arrived.
+        {/* One card: the balance, and the account to pay into.
             -----------------------------------------------------------------
             Never ₦0.00 for an unanswered request. `useWalletStatement`
             returns null while loading, on failure, and offline — and a
             confident zero against any of those three is a claim about a
             company's money that happens to be false. The ₦0 incident this
             codebase has a rule about was exactly this shape one module
-            along. */}
-        <div className="grid items-start gap-4 sm:grid-cols-2">
-          {/* One balance, and it is the wallet's own.
-              -----------------------------------------------------------------
-              There were two tiles here -- "Available to pay with" and "In the
-              account" -- and they showed the same number, which was neither
-              of the things they claimed and not the wallet balance either.
-              Both came from `GET /payments/wallet`, which re-derives a
-              position by summing `LedgerEntry`. Nothing that moves the wallet
-              writes a ledger row, so after a payroll the tiles read
-              ₦15,012,300.55 while the wallet held ₦5,620,778.55 and said so
-              in the statement directly below them.
+            along. `WalletCard` draws a dash for it.
 
-              This reads the wallet. `GET /payments/wallet/account` returns the
-              stored balance -- the figure with a row lock behind it, both
-              sides recorded on every movement, and `reconcileWallet` checking
-              it against them -- and it is the *same request* the statement
-              below is drawn from, so the headline and the rows cannot
-              disagree. That is why `useWalletStatement` is called here and
-              passed down rather than called twice. */}
-          <Stat
-            label="Wallet balance"
-            value={
-              statementHeld ? (
-                <Money
-                  amount={naira(statementHeld.balanceKobo)}
-                  decimals
-                  size="xl"
-                />
-              ) : (
-                <Unknown />
-              )
-            }
-            hint="what the wallet holds right now"
-          />
+            The balance is the wallet's own, and not a re-derived ledger sum.
+            `GET /payments/wallet/account` returns the stored balance -- the
+            figure with a row lock behind it, both sides recorded on every
+            movement, and `reconcileWallet` checking it against them -- and it
+            is the *same request* the statement below is drawn from, so the
+            headline and the rows cannot disagree. That is why
+            `useWalletStatement` is called here and passed down rather than
+            called twice. (There used to be two tiles, "Available to pay with"
+            and "In the account", that showed one number which was neither of
+            the things they claimed: they summed `LedgerEntry`, which nothing
+            that moves the wallet writes to.)
 
-          {/* The account to pay into, beside the figures rather than in a card
-              of its own further down.
-              -----------------------------------------------------------------
-              It answers the question the two figures raise. Somebody reading
-              "available ₦15,012,300.55" and finding it short needs the account
-              number next, and it used to be a scroll away under a heading that
-              did not say "account number".
-
-              "Paying from" — the company's own bank account — is deliberately
-              not here and not anywhere on this screen. It is a settings fact,
-              it is on the batch where a payment is actually checked, and
-              sitting it next to this one only ever invited money being sent to
-              the wrong one of the two. */}
-          <Card>
-            <CardHeader title="Putting money in" />
-            <CardBody>
-              {/* The one loading and failure rule. The wallet's own read failing
-                  is said here, once, rather than above the figures and again
-                  as "Not available here ... offline". */}
-              <LoadState
-                loading={wallet.loading}
-                error={wallet.error}
-                subject="the wallet"
-                onRetry={wallet.reload}
-                skeleton="list"
-                hasData={held !== null && held !== undefined}
-              >
-                {held ? (
-                  <FundingAccounts accounts={held.fundingAccounts} />
-                ) : (
-                  <Callout tone="info" title="Not available here">
-                    The wallet is a live balance from the API. There is no
-                    ledger to read offline, and a figure invented here would be
-                    a claim about a company&rsquo;s money.
-                  </Callout>
-                )}
-              </LoadState>
-            </CardBody>
-          </Card>
-          {/* "Already promised" was here, and it is gone on purpose.
-              -----------------------------------------------------------------
-              It rendered `committedKobo`, which counts instructions inside
-              APPROVED or SUBMITTED batches. Approving a payroll debits the
-              wallet at approval and leaves the batch it builds in DRAFT, so
-              the figure read ₦0.00 for the one case it exists to describe.
-              A tile that is always zero teaches a reader to stop looking at
-              it, and this one sits beside figures about the same money.
-
-              The underlying disagreement between the ledger-derived position
-              and the stored wallet is a separate, open piece of work. This
-              only stops the screen asserting something it cannot support. */}
-          {/* "Paying from" was here. The account salaries leave from is a
-              settings fact, not a figure about the money, and it sat in a row
-              of amounts reading as though it were one. It is still on the
-              batch, which is where somebody checking a payment looks. */}
-        </div>
+            The account sits beside it because it answers the question the
+            figure raises. Somebody finding the balance short needs the
+            account number next. "Paying from" -- the company's own bank
+            account -- is deliberately not here: it is a settings fact, it is
+            on the batch where a payment is checked, and next to this one it
+            only invites money being sent to the wrong one of the two. */}
+        <WalletCard
+          balanceKobo={statementHeld ? statementHeld.balanceKobo : null}
+          accounts={held ? held.fundingAccounts : null}
+          loading={wallet.loading}
+          error={wallet.error}
+          onRetry={wallet.reload}
+        />
+        {/* "Already promised" was here, and it is gone on purpose: it rendered
+            `committedKobo`, which counts instructions inside APPROVED or
+            SUBMITTED batches, and approving a payroll debits the wallet at
+            approval and leaves the batch it builds in DRAFT, so the figure
+            read ₦0.00 for the one case it exists to describe. "Paying from"
+            is gone for the reason in the comment above. */}
 
         {/* Not an explanation of a figure this screen shows.
             -----------------------------------------------------------------
@@ -295,21 +231,5 @@ export function PaymentsScreen() {
          * still written; nothing displays them. */}
       </PageBody>
     </>
-  );
-}
-
-/**
- * The figure that has not arrived.
- *
- * An em dash rather than a spinner: these tiles sit side by side, and four
- * spinners read as a broken screen where four dashes read as "not yet". Same
- * treatment `history-screen` uses, and for the same reason — a `₦0.00` here is
- * a claim, and the claim is false.
- */
-function Unknown() {
-  return (
-    <span className="text-muted" title="Not loaded yet">
-      &mdash;
-    </span>
   );
 }

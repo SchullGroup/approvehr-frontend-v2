@@ -128,11 +128,11 @@ function Team() {
       <>
         <PageHeader
           title="Team tasks"
-          description={
-            scope.everyone
-              ? "Everybody's finished work, by person."
-              : "Everyone you manage or whose department you run."
-          }
+          {...(scope.everyone
+            ? {}
+            : {
+                description: "Everyone you manage or whose department you run.",
+              })}
         />
         <PageBody className="space-y-4">
           {switcher}

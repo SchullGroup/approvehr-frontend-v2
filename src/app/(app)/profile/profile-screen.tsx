@@ -49,6 +49,7 @@ import { MyLoans } from "@/app/(app)/payroll/loans";
 import { MyRota } from "@/app/(app)/people/shifts";
 import { MyAssets } from "@/app/(app)/people/assets";
 import { Resign } from "@/app/(app)/people/offboarding";
+import { LettersFromHr } from "@/app/(app)/people/queries/entries";
 import { ConductPanel } from "@/app/(app)/people/[id]/conduct";
 import { EmploymentHistoryPanel } from "@/app/(app)/people/[id]/employment-history";
 import { TYPE_LABELS, enumKey } from "@/app/(app)/people/[id]/record";
@@ -60,6 +61,7 @@ import {
 } from "@/lib/types";
 import { self } from "@/lib/api/self";
 import { PROFILE_TABS, isProfileTab, type ProfileTab } from "./tabs";
+import { HealthCoverCard } from "./health-cover-card";
 import { MyDetails } from "./my-details";
 import { TextMessagesCard } from "./text-messages-card";
 
@@ -289,6 +291,11 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
           />
         )}
 
+        {/* A letter waiting for a reply is something that needs the person, so it is outside the
+            tabs, like the missing details above. Renders nothing unless the company runs
+            queries and one has been issued to this person, and never shows a subject line. */}
+        <LettersFromHr />
+
         <Tabs items={TAB_ITEMS} value={tab} onChange={change}>
           {tab === "details" && (
             <div className="flex flex-col gap-6">
@@ -321,6 +328,10 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
             <div className="flex flex-col gap-6">
               <div className="grid gap-6 lg:grid-cols-2">
                 <PayCard grossMonthly={employee.grossMonthly} />
+                {/* Renders nothing offline, and nothing on an API that predates
+                    it. Everybody on staff may read their own: the API takes the
+                    employee from the session. */}
+                <HealthCoverCard />
               </div>
               {/* Same replacement as the Details tab, and this is the half that
                   matters: `BankPanel` wrote an account number straight to the

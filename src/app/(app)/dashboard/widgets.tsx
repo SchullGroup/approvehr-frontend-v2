@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Inbox,
   Hourglass,
-  FileChartColumn,
   TrendingDown,
   Users,
   Wallet,
@@ -36,7 +35,7 @@ import { AppUseCard } from "./app-use-card";
 import { TodayPanel } from "./today-panel";
 import { QuickActions } from "./quick-actions";
 import { AppraisalsCard } from "./appraisals-card";
-import { formatKobo } from "@/lib/api/payroll";
+import { formatKobo, periodLabel } from "@/lib/api/payroll";
 import {
   employmentTypeLabel,
   naira,
@@ -46,7 +45,6 @@ import {
 } from "@/lib/api/insights";
 import { cn } from "@/lib/cn";
 import { useCan } from "@/lib/permissions";
-import { useCompanyHeadline } from "@/lib/store/company-report";
 import { formatDate } from "@/lib/time";
 
 /**
@@ -128,6 +126,9 @@ function ChartLoading({ title }: { title: string }) {
 const NeedsYou: WidgetComponent = ({ dashboard }) => {
   const { headcount, approvals, exits, onboarding, payroll } = dashboard;
   const canAddEmployee = useCan("EDIT_RECORDS");
+  /* Saying that the money went out is `APPROVE_PAYROLL`, the same permission
+     that approved the run, so the row is for the people who can act on it. */
+  const canApprovePayroll = useCan("APPROVE_PAYROLL");
   if (!headcount || !approvals) return null;
 
   /* Absent means no permission; zero means nothing held up. Both draw nothing,
@@ -135,6 +136,19 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
   const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
   const onboardingHeldUp = onboarding ? onboarding.withMandatoryOutstanding : 0;
   const nobodyOnPayroll = headcount.active === 0;
+  /* `APPROVED` is already "nobody has confirmed this was paid": a run only
+     reaches `PAID` through a completed payment batch, which is what recording a
+     bank payment completes. It is true of a company paying from the wallet as
+     much as one paying from its own bank (a wallet run is debited at approval
+     and stays `APPROVED` until its batch completes), so the row is worded for
+     both and does not need to know which this is. It reads the dashboard's own
+     block, which is this month's payroll only: an older run left unpaid is on
+     the payroll home, not here. */
+  const awaitingPayment =
+    canApprovePayroll &&
+    payroll !== null &&
+    payroll !== undefined &&
+    payroll.status === "APPROVED";
 
   const anything =
     approvals.waiting > 0 ||
@@ -142,6 +156,7 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
     exitsHeldUp > 0 ||
     onboardingHeldUp > 0 ||
     (payroll !== null && payroll !== undefined && payroll.blockers > 0) ||
+    awaitingPayment ||
     (nobodyOnPayroll && canAddEmployee);
 
   /* "Needs you" promises every line on it is one click from being dealt with.
@@ -209,47 +224,16 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
               urgent
             />
           )}
+          {awaitingPayment && (
+            <Row
+              href={`/payroll/runs/new?period=${payroll.period}&step=approve`}
+              label={`${periodLabel(payroll.period)} payroll is approved, waiting for payment to go out`}
+              action="Open the payment"
+            />
+          )}
         </ul>
       </CardBody>
     </Card>
-  );
-};
-
-/**
- * The one sentence the company report opens on, for somebody who runs the
- * company, with a link to the report.
- *
- * Fetched on its own after first paint (`useCompanyHeadline`) rather than
- * carried by `/insights/dashboard`: the sentence is worked out by the same rules
- * as the report, which is dear, and the dashboard is the screen people open
- * most. It draws **nothing** when there is nothing to say, when the read fails,
- * or when the API sends a rule this build does not know (see
- * `printableCompanyHeadline`). A card saying nothing stands out is furniture, and
- * a card saying a read failed is worse on the owner's first screen than no card.
- * It must leave no child nodes at all, or the grid's `empty:hidden` stops closing
- * the row.
- */
-const WorkforceHeadline: WidgetComponent = () => {
-  const headline = useCompanyHeadline(useCan("EDIT_RECORDS"));
-  if (!headline) return null;
-
-  return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-      <span className="inline-flex items-center gap-2">
-        <FileChartColumn
-          aria-hidden="true"
-          className="size-4 shrink-0 text-accent-text"
-        />
-        <span className="font-medium text-ink">{headline.sentence}</span>
-      </span>
-      <Link
-        href="/reports/company"
-        className="inline-flex w-fit items-center gap-1 text-meta text-accent-text hover:underline"
-      >
-        Open the company report
-        <ArrowRight aria-hidden="true" className="size-3" />
-      </Link>
-    </p>
   );
 };
 
@@ -811,7 +795,7 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
   );
 };
 
-const MyClock: WidgetComponent = () => <MyClockCard />;
+const MyClock: WidgetComponent = () => <MyClockCard hero />;
 
 /* Both read their own request, so neither takes the dashboard's payload. See
    `TodayPanel` and `AppUseCard`: each draws nothing when it has nothing to say. */
@@ -839,7 +823,6 @@ const Noticeboard: WidgetComponent = ({ dashboard }) => (
  */
 export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "needs-you": NeedsYou,
-  "workforce-headline": WorkforceHeadline,
   today: Today,
   "my-queue": MyQueue,
   "stat-headcount": StatHeadcount,

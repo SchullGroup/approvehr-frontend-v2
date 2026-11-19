@@ -6,10 +6,14 @@ import { Button, Callout } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { payrollApi } from "@/lib/api/payroll";
-import type { BankRegister, PayrollRunDetail } from "@/lib/api/payroll";
+import type { PayrollRunDetail } from "@/lib/api/payroll";
+import {
+  bankPaymentFilename,
+  bankPaymentSheets,
+  unpayableCount,
+} from "@/lib/payroll/bank-payment-schedule";
 import { useCan } from "@/lib/permissions";
 import { downloadXlsx, writeXlsx } from "@/lib/xlsx";
-import type { SheetSpec } from "@/lib/xlsx";
 
 /**
  * Every calculated payslip figure on this run, joined with unmasked bank
@@ -45,8 +49,11 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
     setRefused(null);
     try {
       const register = await payrollApi.bankRegister(run.id);
-      downloadXlsx(filenameFor(register), writeXlsx(sheetsFor(register)));
-      const missing = unpayable(register);
+      downloadXlsx(
+        bankPaymentFilename(register),
+        writeXlsx(bankPaymentSheets(register)),
+      );
+      const missing = unpayableCount(register);
       push({
         tone: "success",
         title: "Bank payment schedule downloaded",
@@ -84,10 +91,10 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
               account numbers on it is a different thing to keep and to send
               than one without. */}
           <p className="mt-0.5 text-meta leading-relaxed text-muted">
-            For when your bank pays directly. One sheet: bank code, bank,
-            account number, account name and the amount to pay each person. It
-            carries account numbers, so keep it as carefully as you would a bank
-            statement.
+            For when your bank pays directly. One sheet in your bank&apos;s
+            upload layout: account number, account name, bank code, bank name,
+            the amount to pay each person and a narration. It carries account
+            numbers, so keep it as carefully as you would a bank statement.
           </p>
         </div>
         <Button
@@ -102,85 +109,4 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
       </div>
     </div>
   );
-}
-
-function filenameFor(register: BankRegister): string {
-  return `bank-payment-schedule-${register.run.period}.xlsx`;
-}
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-/**
- * The payment schedule a bank pays from: one sheet, one amount per person.
- *
- * The same layout companies already send their bank — Id, Destination Bank Code,
- * DestinationBank Name, Account No, Account Name, Amount, Currency, Narration,
- * Reference No. Everything a payslip carries beyond the figure that moves (gross,
- * housing, transport, PAYE, pension) is left out: the bank needs a single value
- * to pay, and the rest only invites questions.
- *
- * Only people with something to pay are listed. Somebody whose net is nil has no
- * transfer to make, so they are not a row the bank has to skip.
- */
-function sheetsFor(register: BankRegister): SheetSpec[] {
-  const month = MONTHS[Number(register.run.period.slice(5, 7)) - 1] ?? "";
-  const narration = `${month} Salary`;
-  const payable = register.employees.filter((e) => Number(e.net) > 0);
-
-  const header = [
-    "Id",
-    "Destination Bank Code",
-    "DestinationBank Name",
-    "Account No",
-    "Account Name",
-    "Amount",
-    "Currency",
-    "Narration",
-    "Reference No",
-  ];
-  const rows = payable.map((e, index) => {
-    const n = String(index + 1).padStart(3, "0");
-    return [
-      n,
-      e.bankCode ?? "",
-      e.bankName,
-      e.bankAccountNumber,
-      e.bankAccountName,
-      e.net,
-      "NGN",
-      narration,
-      `TRN${n}`,
-    ];
-  });
-
-  return [
-    {
-      name: "Payment Schedule",
-      rows: [header, ...rows],
-      boldRows: [0],
-      freezeFirstRow: true,
-      numberColumns: [5],
-      widths: [6, 22, 24, 16, 30, 16, 10, 16, 14],
-    },
-  ];
-}
-
-/** People on the schedule the bank cannot pay yet: no account, or no bank code. */
-function unpayable(register: BankRegister): number {
-  return register.employees.filter(
-    (e) => Number(e.net) > 0 && (!e.bankAccountNumber || !e.bankCode),
-  ).length;
 }

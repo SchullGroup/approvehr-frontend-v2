@@ -1884,78 +1884,76 @@ export function NewEmployeeForm() {
           finished && "hidden",
         )}
       >
-        <Card>
-          <CardHeader title="Payroll readiness" />
-          <CardBody className="flex flex-col gap-3">
-            <ul className="flex flex-col gap-2">
-              {(
-                [
+        {/* A group switched off in Settings is not a row here at all. The
+            checklist used to keep it, greyed, with "Not asked for here:
+            switched off in Settings" under it, which read as something left
+            undone rather than something this company does not use. With all
+            three off there is nothing to list, so the card goes too. */}
+        {hasExtras && (
+          <Card>
+            <CardHeader title="Payroll readiness" />
+            <CardBody className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-2">
+                {(
                   [
-                    "Bank account",
-                    Boolean(draft.bankAccount),
-                    "bankDetails",
-                    "bankAccount",
-                  ],
-                  [
-                    "Pension PIN",
-                    Boolean(draft.pensionPin),
-                    "pensionSetup",
-                    "pensionPin",
-                  ],
-                  ["TIN", Boolean(draft.tin), "taxSetup", "tin"],
-                ] as [string, boolean, RecordFieldKey, PayrollGap["field"]][]
-              ).map(([label, done, key, field]) => {
-                /* `gap` names the actual consequence of this one field being
+                    [
+                      "Bank account",
+                      Boolean(draft.bankAccount),
+                      "bankDetails",
+                      "bankAccount",
+                    ],
+                    [
+                      "Pension PIN",
+                      Boolean(draft.pensionPin),
+                      "pensionSetup",
+                      "pensionPin",
+                    ],
+                    ["TIN", Boolean(draft.tin), "taxSetup", "tin"],
+                  ] as [string, boolean, RecordFieldKey, PayrollGap["field"]][]
+                )
+                  .filter(([, , key]) => enabled[key])
+                  .map(([label, done, , field]) => {
+                    /* `gap` names the actual consequence of this one field being
                    empty — "cannot be paid" for the bank account, a warning
                    for the other two — rather than a checklist that speaks for
                    all three in the same voice. */
-                const gap = payrollGaps.find((g) => g.field === field);
-                return (
-                  <li
-                    key={label}
-                    className="flex items-start gap-2.5 text-body-sm"
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
-                        done
-                          ? "bg-success text-fill-strong"
-                          : "border border-line-strong",
-                      )}
-                    >
-                      {done ? (
-                        <Check
-                          aria-hidden="true"
-                          className="size-2.5"
-                          strokeWidth={3}
-                        />
-                      ) : null}
-                    </span>
-                    <span className={done ? "text-body" : "text-muted"}>
-                      {label}
-                      {/* Honest about *why* it is not being asked for. A group
-                          switched off in Settings still leaves the field
-                          checked by the engine (or, for TIN, checked by
-                          nobody at all) — a checklist that quietly omitted the
-                          reason would look like the product had changed its
-                          mind. */}
-                      {!done && !enabled[key] && (
-                        <span className="block text-meta text-faint">
-                          Not asked for here: switched off in Settings
+                    const gap = payrollGaps.find((g) => g.field === field);
+                    return (
+                      <li
+                        key={label}
+                        className="flex items-start gap-2.5 text-body-sm"
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
+                            done
+                              ? "bg-success text-fill-strong"
+                              : "border border-line-strong",
+                          )}
+                        >
+                          {done ? (
+                            <Check
+                              aria-hidden="true"
+                              className="size-2.5"
+                              strokeWidth={3}
+                            />
+                          ) : null}
                         </span>
-                      )}
-                      {!done && enabled[key] && gap && (
-                        <span className="block text-meta text-faint">
-                          {gap.consequence}
+                        <span className={done ? "text-body" : "text-muted"}>
+                          {label}
+                          {!done && gap && (
+                            <span className="block text-meta text-faint">
+                              {gap.consequence}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardBody>
-        </Card>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </CardBody>
+          </Card>
+        )}
 
         {gross !== null && gross > 0 && (
           <FirstPayslip grossKobo={grossKobo} annualRentKobo={annualRentKobo} />

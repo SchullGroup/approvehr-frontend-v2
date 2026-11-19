@@ -78,6 +78,35 @@ export type ApiBenefitNotices = {
   kinds: Record<ApiBenefitKind, string>;
 };
 
+/**
+ * One HMO a member of staff is on, as `GET /benefits/me` tells them.
+ *
+ * Every field that can be absent **is** null — never an empty string and never a
+ * zero — and the card renders null as "Not on file". The two money figures stay
+ * apart for the reason at the top of this file: what comes off their pay is not
+ * what the company pays.
+ */
+export type ApiHealthCover = {
+  /** A deduction on their payslip, or a plan in Benefits. Same card either way. */
+  source: "PAYROLL" | "BENEFIT_PLAN";
+  name: string;
+  provider: string | null;
+  /** ISO date. Null when the cover has no start of its own (a company-wide premium). */
+  since: string | null;
+  /** What comes off their pay each month. Null when it is a percentage of pay, or has no figure. */
+  employeeMonthlyKobo: number | null;
+  /** What the company pays for them each month. Plans only; null otherwise. */
+  employerMonthlyKobo: number | null;
+  /** Spouse and children on the cover. Plans only; null otherwise. */
+  dependants: number | null;
+};
+
+export type ApiMyHealthCover = {
+  /** The member ID on their HMO card, if HR has entered it. */
+  memberNumber: string | null;
+  covers: ApiHealthCover[];
+};
+
 export type PlanBody = {
   name: string;
   kind: ApiBenefitKind;
@@ -93,6 +122,14 @@ const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
 export const benefitsApi = {
   notices: (signal?: AbortSignal) =>
     request<ApiBenefitNotices>("/benefits/notices", signalOf(signal)),
+
+  /**
+   * The signed-in person's own HMO. No permission and no id: the API reads the
+   * employee from the session, so this is the one benefits call every member of
+   * staff can make and it can only ever answer about the caller.
+   */
+  mine: (signal?: AbortSignal) =>
+    request<ApiMyHealthCover>("/benefits/me", signalOf(signal)),
 
   plans: (includeArchived = false, signal?: AbortSignal) =>
     request<ApiBenefitPlan[]>("/benefits/plans", {

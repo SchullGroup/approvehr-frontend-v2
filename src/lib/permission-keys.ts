@@ -91,6 +91,12 @@ export const PERMISSION_KEYS = [
   /* The Master view of Projects: every project, program and task in the
      company, read only. Held by the Owner role; giveable to anybody. */
   "SEE_ALL_WORK",
+  /* Queries: the employer's written letter to one person, and their one reply. Two grants and not
+     one, because whoever writes the letter should not also be the one who judges the answer. Every
+     EDIT_RECORDS holder has both on the day through the server's legacy expansion, so no role
+     changes. */
+  "ISSUE_QUERIES",
+  "DECIDE_QUERIES",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -112,7 +118,8 @@ export type PermissionModule =
   | "access"
   | "records"
   | "audit"
-  | "projects";
+  | "projects"
+  | "queries";
 
 export type PermissionAction =
   | "view"
@@ -188,6 +195,8 @@ export const PERMISSION_SHAPE: Record<
   APPROVE_SHIFT_SWAP: { module: "shifts", action: "approve" },
   VIEW_FAIRNESS: { module: "performance", action: "view" },
   SEE_ALL_WORK: { module: "projects", action: "view" },
+  ISSUE_QUERIES: { module: "queries", action: "create" },
+  DECIDE_QUERIES: { module: "queries", action: "approve" },
   MANAGE_SETTINGS: { module: "settings", action: "manage" },
   MANAGE_ROLES: { module: "access", action: "manage" },
   INVITE_STAFF: { module: "access", action: "invite" },

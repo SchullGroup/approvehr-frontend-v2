@@ -190,6 +190,17 @@ export type SheetSpec = {
    * plain number is still written as text rather than refused.
    */
   numberColumns?: readonly number[];
+  /**
+   * Columns (0-based) written as real numbers **shown as money**: `#,##0.00`,
+   * so 162600 reads `162,600.00`. The same as `numberColumns` in every other
+   * respect — header row excepted, and a cell that is not a plain number is still
+   * written as text rather than refused.
+   *
+   * A separate list rather than a change to `numberColumns`, which writes a bare
+   * number with no style and has a test pinning exactly that. The stored value is
+   * the same digits either way; only what the cell displays differs.
+   */
+  moneyColumns?: readonly number[];
   /** Column widths in characters, in order. Missing ones get a default. */
   widths?: readonly number[];
   /** Freeze the first row so a long file keeps its headings on screen. */
@@ -282,6 +293,15 @@ function sheetXml(sheet: SheetSpec): string {
             /^-?\d+(\.\d+)?$/.test(value)
           ) {
             return `<c r="${reference}"><v>${value}</v></c>`;
+          }
+          /* `s="3"` is `#,##0.00`. The value is the same digits the API sent, so
+             nothing is rounded or reformatted on the way into the cell. */
+          if (
+            rowIndex > 0 &&
+            sheet.moneyColumns?.includes(columnIdx) &&
+            /^-?\d+(\.\d+)?$/.test(value)
+          ) {
+            return `<c r="${reference}" s="3"><v>${value}</v></c>`;
           }
           const space = value !== value.trim() ? ' xml:space="preserve"' : "";
           return `<c r="${reference}" t="inlineStr"${style}><is><t${space}>${escapeXml(value)}</t></is></c>`;
@@ -393,7 +413,7 @@ function dateFormula(cell: string, format: DateCheckFormat): string {
     .concat(")");
 }
 
-const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="49" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="49" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 
 /**
  * A workbook, as bytes.

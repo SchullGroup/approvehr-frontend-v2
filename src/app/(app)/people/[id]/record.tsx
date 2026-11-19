@@ -1,5 +1,6 @@
 "use client";
 
+import { QueriesAboutPerson } from "@/app/(app)/people/queries/entries";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +10,7 @@ import {
   Eye,
   EyeOff,
   FileText,
+  HeartPulse,
   IdCard,
   Landmark,
   Mail,
@@ -527,6 +529,9 @@ export function EmployeeRecord({
               fact about somebody else and a fact restating your own current
               session read very differently on the same line. */}
           {!isSelf && <AccessLine employee={employee} />}
+
+          {/* For the people who work queries: only that there are some, and the way to them. */}
+          {!isSelf && <QueriesAboutPerson employeeId={employee.id} />}
 
           {/* A small checklist, not the page's main focus. These never hold
               back a payslip — `payrollGapsFor` says so in `consequence` — so a
@@ -1185,6 +1190,11 @@ export function EmployeeRecord({
                   title: "Tax and statutory numbers",
                   icon: <IdCard aria-hidden="true" className="size-4" />,
                 },
+                {
+                  id: "hmo",
+                  title: "HMO",
+                  icon: <HeartPulse aria-hidden="true" className="size-4" />,
+                },
               ]}
               employee={employee}
               onSave={onSave}
@@ -1348,6 +1358,26 @@ export function EmployeeRecord({
                   type: "money",
                   emptyLabel: "Nothing declared: no personal relief",
                   help: "Since January 2026 there is no general tax-free allowance. Relief is 20% of the rent they declare, capped at ₦500,000 a year, so declaring nothing means they get no personal relief and pay more tax.",
+                },
+                /**
+                 * The number on their HMO card. Optional all the way down:
+                 * nothing in payroll, the readiness list or the completeness
+                 * count above reads it, so an empty one is not a gap and is not
+                 * styled as one. Staff see it on their own profile.
+                 *
+                 * No `digits` and no format: HMOs number their members in no
+                 * common shape (`HYG/123456/0`), and a pattern would refuse
+                 * somebody's real card. Shown plainly rather than behind
+                 * `Guarded`, which is for the numbers a payment or a filing is
+                 * made against.
+                 */
+                {
+                  key: "hmoNumber",
+                  group: "hmo",
+                  label: "HMO member ID",
+                  optional: true,
+                  emptyLabel: "Not on file",
+                  help: "The number on their HMO card. Leave it blank if they do not have one yet.",
                 },
               ]}
             />

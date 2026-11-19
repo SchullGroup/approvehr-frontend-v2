@@ -287,6 +287,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Whose probation is ending, who is overdue a decision, and who is on one nobody has dated."
   },
   {
+    "href": "/people/queries",
+    "title": "Queries",
+    "description": "Written queries to staff, their one written reply, and the outcome recorded on each."
+  },
+  {
     "href": "/people/shifts",
     "title": "Shifts",
     "description": "Who works when: nights, earlies and weekend cover, and the cover requests waiting on an answer."
@@ -512,19 +517,14 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
   },
   {
-    "href": "/settings/performance",
-    "title": "Appraisal scoring",
-    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
-  },
-  {
-    "href": "/settings/performance",
-    "title": "Appraisal scoring",
-    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
-  },
-  {
     "href": "/settings/policies",
     "title": "Handbook",
     "description": "Your company policies, the version in force, and who has accepted each one."
+  },
+  {
+    "href": "/settings/queries",
+    "title": "Queries",
+    "description": "Whether queries are switched on, the usual reply time, and who may decide a query they issued."
   },
   {
     "href": "/settings/required-details",
@@ -540,6 +540,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "href": "/settings/security",
     "title": "Sign-in security",
     "description": "Two-factor sign-in, the actions that need a code, and your recovery codes."
+  },
+  {
+    "href": "/settings/setup",
+    "title": "Setting up your company",
+    "description": "What is still to set up, and what each step changes in the product."
   },
   {
     "href": "/settings/sms",
