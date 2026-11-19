@@ -901,19 +901,22 @@ function Subsections({
  *
  * Every one of the company's own parts is listed, from Settings under
  * Appraisal scoring, by the names it gave them, so the list matches Settings.
- * Only the parts made out of ratings can be chosen. The others are shown
- * greyed out with what they are scored from instead: Weekly tasks come from
- * graded tasks, Delivery against objectives from the objectives themselves,
- * Manager appraisal from the appraisers' overall mark and the self-assessment
- * from the person's own form, so a rating filed under a section could not
- * reach any of them. A source the company has no part for is not listed: a
- * section filed under it would count for nothing. A section that feeds the
- * same part as another is averaged in with it.
+ * The competency and leadership parts are made of the manager's ratings on
+ * the sections filed under them. A Self-assessment part is made of the
+ * person's own answers to the sections filed under it, which is how a company
+ * writes its self-appraisal questions. The others are shown greyed out with
+ * what they are scored from instead: Weekly tasks come from graded tasks,
+ * Delivery against objectives from the objectives themselves and Manager
+ * appraisal from the appraisers' overall mark, so a rating filed under a
+ * section could not reach any of them. A source the company has no part for
+ * is not listed: a section filed under it would count for nothing. A section
+ * that feeds the same part as another is averaged in with it.
  */
-const RATED_SOURCES: readonly ScoreComponent[] = [
+const SECTION_SOURCES: readonly ScoreComponent[] = [
   "CORE_COMPETENCY",
   "BEHAVIOURAL_COMPETENCY",
   "LEADERSHIP",
+  "SELF_ASSESSMENT",
 ];
 
 /** What a part a section cannot feed is scored from, for its greyed-out option. */
@@ -921,7 +924,6 @@ const SCORED_FROM: Partial<Record<ScoreComponent, string>> = {
   OBJECTIVES: "scored from objectives",
   TASKS: "scored from graded weekly tasks",
   MANAGER_APPRAISAL: "scored from the appraisers' overall mark",
-  SELF_ASSESSMENT: "scored from the person's own form",
 };
 
 export function CountsTowards({
@@ -939,7 +941,7 @@ export function CountsTowards({
   const offered = (settings?.rows ?? [])
     .filter((row) => row.isPart !== false)
     .map((row) => {
-      const rated = RATED_SOURCES.includes(row.component);
+      const rated = SECTION_SOURCES.includes(row.component);
       return {
         value: row.component,
         rated,
@@ -952,7 +954,7 @@ export function CountsTowards({
   return (
     <Field
       label="Counts towards"
-      help="The part of the mark this section's ratings feed, from your parts in Settings, under Appraisal scoring. Two sections that feed the same part are averaged together."
+      help="The part of the mark this section's ratings feed, from your parts in Settings, under Appraisal scoring. Two sections that feed the same part are averaged together. Under a self-assessment part, the person's own answers are what count, so ask those questions of the person."
     >
       <Select
         value={value}

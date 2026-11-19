@@ -37,6 +37,7 @@ const SETTINGS = [
   scoringRow("CORE_COMPETENCY", "A", true),
   scoringRow("BEHAVIOURAL_COMPETENCY", "Our values", true),
   scoringRow("LEADERSHIP", "Leadership", false),
+  scoringRow("SELF_ASSESSMENT", "How I did", true),
 ];
 let scoringRows = SETTINGS;
 
@@ -144,7 +145,11 @@ describe("what a section counts towards", () => {
       "C (scored from graded weekly tasks, not from a section)",
       "A",
       "Our values",
+      "How I did",
     ]);
+    expect(
+      within(select).getByRole("option", { name: "How I did" }),
+    ).toBeEnabled();
     expect(within(select).getByRole("option", { name: /^C / })).toBeDisabled();
     expect(within(select).getByRole("option", { name: "A" })).toBeEnabled();
   });
