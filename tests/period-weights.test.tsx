@@ -306,3 +306,94 @@ describe("a company that wrote its own parts in Settings", () => {
     ).toMatch(/at least one part/i);
   });
 });
+
+describe("parts a company made from its own questions", () => {
+  /* Two parts the company made, each with its own key, and Delivery. */
+  const own: ApiScoringWeights = {
+    source: "saved",
+    rows: [
+      {
+        component: "part_care",
+        kind: "QUESTIONS",
+        label: "Customer care",
+        weightBp: 6000,
+        isPart: true,
+      },
+      {
+        component: "part_team",
+        kind: "QUESTIONS",
+        leadersOnly: true,
+        label: "Running the team",
+        weightBp: 3000,
+        isPart: true,
+      },
+      {
+        component: "OBJECTIVES",
+        kind: "OBJECTIVES",
+        label: "Delivery",
+        weightBp: 1000,
+        isPart: true,
+      },
+    ],
+    totalBp: 10000,
+    selfAssessmentNote: "",
+  };
+
+  it("draws a row for each, in the company's order, and sends them by key", async () => {
+    const user = userEvent.setup();
+    const seen: WeightText[] = [];
+    function Harness() {
+      const [text, setText] = useState(
+        weightsToText({ part_care: 6000, part_team: 3000, OBJECTIVES: 1000 }),
+      );
+      return (
+        <PeriodWeights
+          value={text}
+          onChange={(next) => {
+            seen.push(next);
+            setText(next);
+          }}
+          companyDefaults={own}
+        />
+      );
+    }
+    render(<Harness />);
+    const rows = screen
+      .getAllByRole("spinbutton")
+      .map((box) => box.getAttribute("aria-label") ?? "");
+    expect(screen.getByLabelText("Customer care")).toHaveValue(60);
+    expect(screen.getByLabelText("Running the team")).toHaveValue(30);
+    expect(rows.length).toBe(3);
+    const care = screen.getByLabelText("Customer care");
+    await user.clear(care);
+    await user.type(care, "50");
+    expect(weightsFromText(seen.at(-1)!)).toMatchObject({
+      part_care: 5000,
+      part_team: 3000,
+      OBJECTIVES: 1000,
+    });
+  });
+
+  it("names a frozen period's parts by the names it started with, even once a part is gone", () => {
+    render(
+      <PeriodWeights
+        readOnly
+        basis="frozen"
+        value={weightsToText({ part_gone: 10000 })}
+        onChange={() => {}}
+        companyDefaults={own}
+        parts={["part_gone"]}
+        details={[
+          {
+            key: "part_gone",
+            kind: "QUESTIONS",
+            leadersOnly: false,
+            label: "Short-lived",
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Short-lived")).toBeInTheDocument();
+    expect(screen.getAllByText("100%").length).toBeGreaterThan(0);
+  });
+});

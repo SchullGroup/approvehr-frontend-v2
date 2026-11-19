@@ -305,7 +305,7 @@ export type SectionBody = {
   /** Blank or null clears it. */
   description?: string | null;
   order?: number;
-  component?: ScoreComponent | null;
+  component?: PartKey | null;
 };
 
 /** A section of an appraisal — "Core competency", a company's own values. */
@@ -335,7 +335,7 @@ export type ApiSection = {
    * them under is actually worth — which is the feedback's complaint that the
    * configured sections do not reach appraisal creation.
    */
-  component: ScoreComponent | null;
+  component: PartKey | null;
   weightBp: number | null;
 };
 
@@ -1277,7 +1277,49 @@ export type ApiAutoAssigned = {
  */
 
 /**
- * Mirrors `ScoreComponent`. Self-assessment and Weekly tasks ship weighted at
+ * A scoring part's key, as the API names it: one of the built-in names
+ * (`ScoreComponent`) for a part every company had before it could make its
+ * own, and always for the four automatic kinds; `part_<id>` for a part a
+ * company made from its own questions.
+ */
+export type PartKey = string;
+
+/**
+ * What a part's mark is made from. `QUESTIONS` is a part the company makes:
+ * the manager's ratings on the sections filed under it. The other four are
+ * worked out from data the product already has, one part each at most, and
+ * keyed by their own name.
+ */
+export type PartKind =
+  | "QUESTIONS"
+  | "OBJECTIVES"
+  | "TASKS"
+  | "MANAGER_APPRAISAL"
+  | "SELF_ASSESSMENT";
+
+/** What a built-in key is made from, for a server that does not say. */
+export function kindOfBuiltIn(key: PartKey): PartKind | null {
+  switch (key) {
+    case "OBJECTIVES":
+    case "TASKS":
+    case "MANAGER_APPRAISAL":
+    case "SELF_ASSESSMENT":
+      return key;
+    case "CORE_COMPETENCY":
+    case "BEHAVIOURAL_COMPETENCY":
+    case "LEADERSHIP":
+      return "QUESTIONS";
+    default:
+      return null;
+  }
+}
+
+/** Whether the sections filed under a part of this kind make up its mark. */
+export const takesSections = (kind: PartKind | null | undefined): boolean =>
+  kind === "QUESTIONS" || kind === "SELF_ASSESSMENT";
+
+/**
+ * The built-in part keys. Self-assessment and Weekly tasks ship weighted at
  * zero, and so does Manager appraisal.
  */
 export type ScoreComponent =
@@ -1323,7 +1365,7 @@ export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
 export type LaterComponent = "MANAGER_APPRAISAL";
 
 export function isLaterComponent(
-  component: ScoreComponent,
+  component: PartKey,
 ): component is LaterComponent {
   return component === "MANAGER_APPRAISAL";
 }
@@ -1336,11 +1378,7 @@ export function isLaterComponent(
  * missing key is a weight nobody chose; a part it has never heard of is the one
  * thing that is not that.
  */
-export type WeightSet = Record<
-  Exclude<ScoreComponent, LaterComponent>,
-  number
-> &
-  Partial<Record<LaterComponent, number>>;
+export type WeightSet = Record<PartKey, number>;
 
 /**
  * A weight set from the rows a server sent: a part the server has always had is
@@ -1348,15 +1386,19 @@ export type WeightSet = Record<
  * server sent it. The one place that rule is written.
  */
 export function weightSetFromRows(
-  rows: readonly { component: ScoreComponent; weightBp: number }[],
+  rows: readonly { component: PartKey; weightBp: number }[],
 ): WeightSet {
-  const set: Partial<Record<ScoreComponent, number>> = {};
+  const set: WeightSet = {};
   for (const component of SCORE_COMPONENT_ORDER) {
     const row = rows.find((one) => one.component === component);
     if (row) set[component] = row.weightBp;
     else if (!isLaterComponent(component)) set[component] = 0;
   }
-  return set as WeightSet;
+  /* A company's own parts, after the built-in ones. */
+  for (const row of rows) {
+    if (!(row.component in set)) set[row.component] = row.weightBp;
+  }
+  return set;
 }
 
 /**
@@ -1374,7 +1416,14 @@ export type CycleWeights = {
    * while it is a draft, the parts that carried a weight once it started. A
    * screen lists these and no others. Absent from an older API.
    */
-  parts?: ScoreComponent[];
+  parts?: PartKey[];
+  /** The same parts with what each is made from and its name. Absent from an older API. */
+  details?: {
+    key: PartKey;
+    kind: PartKind;
+    leadersOnly: boolean;
+    label: string;
+  }[];
 };
 
 /** Why a component did not enter the arithmetic. Null means it did. */
@@ -1434,7 +1483,12 @@ export function weightedParts<T extends { weightBp: number }>(
 }
 
 export type ApiComponentScore = {
-  component: ScoreComponent;
+  /** The part's key. */
+  component: PartKey;
+  /** What the part is made from. Absent from an older API. */
+  kind?: PartKind;
+  /** Only scored for people who lead others. Absent from an older API. */
+  leadersOnly?: boolean;
   /** The API's wording. Do not keep a second copy of these five labels. */
   label: string;
   /** 0–10000, or **null** when nothing was recorded. Never 0 for an absence. */
@@ -1575,7 +1629,13 @@ export type ApiScoreRegister = {
   started: boolean;
   /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
   weightsFrom: WeightsFrom;
-  weights: { component: ScoreComponent; label: string; weightBp: number }[];
+  weights: {
+    component: PartKey;
+    kind?: PartKind;
+    leadersOnly?: boolean;
+    label: string;
+    weightBp: number;
+  }[];
   /** Published rather than left to be added up. 10000 for anything saved here. */
   weightsTotalBp: number;
   rows: ApiScoreRow[];
@@ -1603,7 +1663,11 @@ export type ApiScoringWeights = {
   /** Whether the company chose these or is on the shipped defaults. */
   source: "saved" | "default";
   rows: {
-    component: ScoreComponent;
+    component: PartKey;
+    /** What the part is made from. Absent from an older API. */
+    kind?: PartKind;
+    /** Only scored for people who lead others. Absent from an older API. */
+    leadersOnly?: boolean;
     /** The company's own name for the part, or the built-in one. */
     label: string;
     /** The built-in name. Absent from an API one deploy behind. */
@@ -1657,9 +1721,14 @@ export type ApiScoringWeightsSaved = ApiScoringWeights & {
  */
 export type ApiScoringPart = {
   id: string;
-  source: ScoreComponent;
-  /** The source's built-in name, for "Scored from". */
+  /** The part's key: what sections are filed under. */
+  source: PartKey;
+  /** What it is made from, in words, for "Scored from". */
   sourceLabel: string;
+  /** What it is made from. Absent from an older API. */
+  kind?: PartKind;
+  /** Only scored for people who lead others. Absent from an older API. */
+  leadersOnly?: boolean;
   name: string;
   /** Null when the company wrote none. */
   description: string | null;
@@ -1679,12 +1748,28 @@ export type ApiScoringParts = {
     description: string;
     usedBy: string | null;
   }[];
+  /**
+   * What a part can be made from: its own questions any number of times, each
+   * automatic kind once (`usedBy` names the part that has it). Absent from an
+   * older API.
+   */
+  kinds?: {
+    kind: PartKind;
+    label: string;
+    description: string;
+    usedBy: string | null;
+  }[];
   /** What self-assessment does to a mark, in the API's own words. */
   selfAssessmentNote: string;
 };
 
 export type ScoringPartInput = {
-  source: ScoreComponent;
+  /** What it is made from. */
+  kind?: PartKind;
+  /** A built-in key, the older way to say it. */
+  source?: ScoreComponent;
+  /** Only for a part made from questions. */
+  leadersOnly?: boolean;
   name: string;
   /** Empty or null means no description. */
   description?: string | null;
@@ -1747,7 +1832,7 @@ export type ApiNamedOnList = {
 
 /** How one component came out across a whole cycle. */
 export type ApiReportComponent = {
-  component: ScoreComponent;
+  component: PartKey;
   label: string;
   weightBp: number;
   /** People it actually counted for. */
@@ -1932,7 +2017,13 @@ export type ApiCycleReport = {
   published: boolean;
   /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
   weightsFrom: WeightsFrom;
-  weights: { component: ScoreComponent; label: string; weightBp: number }[];
+  weights: {
+    component: PartKey;
+    kind?: PartKind;
+    leadersOnly?: boolean;
+    label: string;
+    weightBp: number;
+  }[];
   weightsTotalBp: number;
   distribution: ApiScoreDistribution;
   forms: {
@@ -3161,9 +3252,9 @@ export const performanceApi = {
   setScoringWeights: (
     weights: WeightSet,
     /** Renames parts. A part left out keeps its name; "" goes back to the built-in one. */
-    labels?: Partial<Record<ScoreComponent, string>>,
+    labels?: Partial<Record<PartKey, string>>,
     /** Same shape as `labels`: a part left out keeps its description; "" goes back to the built-in one. */
-    descriptions?: Partial<Record<ScoreComponent, string>>,
+    descriptions?: Partial<Record<PartKey, string>>,
   ) =>
     request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
       method: "PUT",

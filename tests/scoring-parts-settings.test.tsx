@@ -10,7 +10,9 @@ import type { ApiScoringParts, ScoreComponent } from "@/lib/api/performance";
  * The company writes its own parts: a name, what it is scored from, a weight
  * and a description. Saved parts are plain rows with an edit and a delete
  * icon, never open boxes. A company with no parts sees an empty list and a way
- * to add the first. Each source backs one part, so a used one is not offered.
+ * to add the first. A part made from its own questions can be added as many
+ * times as the company likes; each automatic kind backs one part, so a used
+ * one is not offered.
  */
 
 const SOURCES: { source: ScoreComponent; label: string }[] = [
@@ -128,7 +130,7 @@ describe("a company with no parts", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("adds a part with its own name, source, weight and description", async () => {
+  it("adds a part made from its own questions, with its own name, weight and description", async () => {
     const user = userEvent.setup();
     mount();
     await user.click(
@@ -137,9 +139,9 @@ describe("a company with no parts", () => {
 
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Name"), "Customer focus");
-    await user.selectOptions(
-      within(dialog).getByLabelText("Scored from"),
-      "CORE_COMPETENCY",
+    /* Its own questions is what a new part starts as. */
+    expect(within(dialog).getByLabelText("Scored from")).toHaveValue(
+      "QUESTIONS",
     );
     await user.type(within(dialog).getByLabelText("Weight"), "30");
     await user.type(
@@ -151,10 +153,47 @@ describe("a company with no parts", () => {
     await waitFor(() => expect(add).toHaveBeenCalledTimes(1));
     expect(add).toHaveBeenCalledWith({
       name: "Customer focus",
-      source: "CORE_COMPETENCY",
+      kind: "QUESTIONS",
+      leadersOnly: false,
       weightBp: 3000,
       description: "How they treat the people we serve.",
     });
+  });
+
+  it("keeps a part made from questions to people who lead others when asked", async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(
+      screen.getByRole("button", { name: "Add the first part" }),
+    );
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Name"), "Running the team");
+    await user.click(
+      within(dialog).getByLabelText("Only for people who lead others"),
+    );
+    await user.type(within(dialog).getByLabelText("Weight"), "20");
+    await user.click(within(dialog).getByRole("button", { name: "Add part" }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "QUESTIONS", leadersOnly: true }),
+      ),
+    );
+  });
+
+  it("does not offer 'Only for people who lead others' on an automatic part", async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(
+      screen.getByRole("button", { name: "Add the first part" }),
+    );
+    const dialog = screen.getByRole("dialog");
+    await user.selectOptions(
+      within(dialog).getByLabelText("Scored from"),
+      "OBJECTIVES",
+    );
+    expect(
+      within(dialog).queryByLabelText("Only for people who lead others"),
+    ).toBeNull();
   });
 
   it("will not add a part with no name", async () => {
@@ -200,7 +239,7 @@ describe("a company with parts", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("does not offer a source another part already uses", async () => {
+  it("does not offer an automatic kind another part already has, and always offers its own questions", async () => {
     const user = userEvent.setup();
     mount();
     await user.click(screen.getByRole("button", { name: "Add part" }));
@@ -210,8 +249,18 @@ describe("a company with parts", () => {
       .getAllByRole("option")
       .map((option) => (option as HTMLOptionElement).value);
     expect(options).not.toContain("OBJECTIVES");
-    expect(options).not.toContain("LEADERSHIP");
     expect(options).toContain("TASKS");
+    /* Leading people is made from questions: another one is still offered. */
+    expect(options).toContain("QUESTIONS");
+  });
+
+  it("says a part made from questions is scored from the questions filed under it", () => {
+    mount();
+    expect(
+      screen.getByText(
+        "Scored from the questions filed under it, for people who lead others only",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("edits a part, offering its own source back", async () => {
@@ -231,7 +280,7 @@ describe("a company with parts", () => {
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
     expect(update).toHaveBeenCalledWith("p-1", {
       name: "Results",
-      source: "OBJECTIVES",
+      kind: "OBJECTIVES",
       weightBp: 5500,
       description: null,
     });

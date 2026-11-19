@@ -10,8 +10,7 @@ import {
   weightSetFromRows,
   type ApiScoringWeights,
   type CycleWeights,
-  type LaterComponent,
-  type ScoreComponent,
+  type PartKey,
   type WeightSet,
 } from "@/lib/api/performance";
 
@@ -51,21 +50,26 @@ import {
  * sending a 0 for it would write over one set somewhere newer.
  */
 
-/** What is in each field, as typed. A later part is only there if the server spoke of it. */
-export type WeightText = Record<
-  Exclude<ScoreComponent, LaterComponent>,
-  string
-> &
-  Partial<Record<LaterComponent, string>>;
+/** What is in each field, as typed, by part key. A later part is only there if the server spoke of it. */
+export type WeightText = Record<PartKey, string>;
 
-/** The parts this text holds: every part there has always been, and a later one only when it is present. */
-const partsOf = (
-  held: Partial<Record<ScoreComponent, unknown>>,
-): ScoreComponent[] =>
-  SCORE_COMPONENT_ORDER.filter(
+/**
+ * The parts this text holds: every built-in part there has always been, a
+ * later one only when it is present, and then the company's own parts.
+ */
+const partsOf = (held: Partial<Record<PartKey, unknown>>): PartKey[] => [
+  ...SCORE_COMPONENT_ORDER.filter(
     (component) =>
       !isLaterComponent(component) || held[component] !== undefined,
-  );
+  ),
+  ...Object.keys(held).filter(
+    (key) => !(SCORE_COMPONENT_ORDER as readonly string[]).includes(key),
+  ),
+];
+
+/** What a field holds. A part the set does not mention weighs 0. */
+const typedOf = (text: WeightText, component: PartKey): string =>
+  text[component] ?? "0";
 
 /**
  * The sources the company has a part for, from the Settings read. Every source
@@ -74,25 +78,37 @@ const partsOf = (
  */
 export function companyPartsOf(
   settings: ApiScoringWeights | null,
-): ScoreComponent[] | null {
+): PartKey[] | null {
   if (settings === null) return null;
   return settings.rows
     .filter((row) => row.isPart !== false)
     .map((row) => row.component);
 }
 
-/** Until Settings has been read, a source is named by itself: "Core competency". */
-const sourceWords = (component: ScoreComponent): string => {
+/**
+ * Until Settings has been read, a built-in part is named by itself ("Core
+ * competency"), and a company's own part plainly.
+ */
+const sourceWords = (component: PartKey): string => {
+  if (component.startsWith("part_")) return "A part of your own";
   const words = component.toLowerCase().replaceAll("_", " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
-/** The rows drawn: the parts held in the text, narrowed to `parts` when known. */
+/**
+ * The rows drawn: `parts` when known, in their order, or the parts held in
+ * the text. A later built-in part is drawn only when the text holds it.
+ */
 const shownOf = (
-  text: Partial<Record<ScoreComponent, unknown>>,
-  parts: readonly ScoreComponent[] | null | undefined,
-): ScoreComponent[] =>
-  partsOf(text).filter((component) => !parts || parts.includes(component));
+  text: Partial<Record<PartKey, unknown>>,
+  parts: readonly PartKey[] | null | undefined,
+): PartKey[] =>
+  parts
+    ? parts.filter(
+        (component) =>
+          !isLaterComponent(component) || text[component] !== undefined,
+      )
+    : partsOf(text);
 
 const ROW_RULE = "Each weight is a whole number from 0 to 100.";
 const ZERO_RULE = "Give at least one part a weight above 0%.";
@@ -104,7 +120,7 @@ export function weightsToText(weights: WeightSet): WeightText {
       component,
       String((weights[component] ?? 0) / 100),
     ]),
-  ) as WeightText;
+  );
 }
 
 /** The typed set in basis points. Only meaningful once `periodWeightsProblem` is null. */
@@ -112,9 +128,9 @@ export function weightsFromText(text: WeightText): WeightSet {
   return Object.fromEntries(
     partsOf(text).map((component) => [
       component,
-      Math.round(Number(text[component]) * 100),
+      Math.round(Number(typedOf(text, component)) * 100),
     ]),
-  ) as WeightSet;
+  );
 }
 
 /** A whole number from 0 to 100, and nothing else: no decimals, no blanks, no signs. */
@@ -129,22 +145,19 @@ function wholePercent(text: string): boolean {
  */
 export function periodWeightsProblem(
   text: WeightText,
-  only?: readonly ScoreComponent[] | null,
+  only?: readonly PartKey[] | null,
 ): string | null {
   const parts = shownOf(text, only);
-  if (!parts.every((c) => wholePercent(text[c] ?? ""))) {
+  if (!parts.every((c) => wholePercent(typedOf(text, c)))) {
     return ROW_RULE;
   }
-  const total = parts.reduce((sum, c) => sum + Number(text[c]), 0);
+  const total = parts.reduce((sum, c) => sum + Number(typedOf(text, c)), 0);
   return total > 0 ? null : ZERO_RULE;
 }
 
-function totalBp(
-  text: WeightText,
-  only: readonly ScoreComponent[] | null,
-): number {
+function totalBp(text: WeightText, only: readonly PartKey[] | null): number {
   return shownOf(text, only).reduce((sum, c) => {
-    const n = Number(text[c]);
+    const n = Number(typedOf(text, c));
     return sum + (Number.isFinite(n) ? Math.round(n * 100) : 0);
   }, 0);
 }
@@ -158,6 +171,7 @@ export function PeriodWeights({
   disabled = false,
   basis,
   parts: givenParts,
+  details,
 }: {
   value: WeightText;
   onChange: (next: WeightText) => void;
@@ -169,7 +183,9 @@ export function PeriodWeights({
    * The parts to list, when the period says (`CycleWeights.parts`). Otherwise
    * the company's parts from Settings.
    */
-  parts?: readonly ScoreComponent[] | undefined;
+  parts?: readonly PartKey[] | undefined;
+  /** The period's own names for its parts (`CycleWeights.details`), frozen ones included. */
+  details?: CycleWeights["details"];
   /** Overrides the reset, for a caller that has to tell the server. */
   onUseDefaults?: () => void;
   disabled?: boolean;
@@ -180,7 +196,8 @@ export function PeriodWeights({
    */
   basis?: CycleWeights["basis"];
 }) {
-  const labelOf = (component: ScoreComponent) =>
+  const labelOf = (component: PartKey) =>
+    details?.find((part) => part.key === component)?.label ??
     companyDefaults?.rows.find((row) => row.component === component)?.label ??
     sourceWords(component);
 
@@ -232,7 +249,7 @@ export function PeriodWeights({
 
       <div className="flex flex-col gap-3">
         {parts.map((component) => {
-          const text = value[component] ?? "";
+          const text = typedOf(value, component);
           const bad = !readOnly && !wholePercent(text);
           return (
             <div
