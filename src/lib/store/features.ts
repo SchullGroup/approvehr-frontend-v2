@@ -406,7 +406,7 @@ export const FEATURE_COPY: Record<
   /* Rendered on `/settings/queries`, where turning it on asks first. */
   queries: {
     label: "Queries",
-    line: "Write to one person asking them to explain something by a stated time, and keep their one written reply and the outcome on the same record. A query changes no pay, no status and no exit.",
+    line: "Write to one person asking them to explain something by a stated time, and keep their one written reply and the outcome on the same record. A query changes no pay, no employment record and no exit.",
   },
 };
 
