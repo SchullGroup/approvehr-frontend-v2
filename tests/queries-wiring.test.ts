@@ -39,9 +39,9 @@ describe("the company switch", () => {
     expect(FEATURE_COPY.queries.label).toBe("Queries");
   });
 
-  it("says that a query changes no pay, status or exit", () => {
+  it("says that a query changes no pay, employment record or exit", () => {
     expect(FEATURE_COPY.queries.line).toMatch(
-      /changes no pay, no status and no exit/,
+      /changes no pay, no employment record and no exit/,
     );
   });
 });
