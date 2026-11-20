@@ -28,6 +28,7 @@ import {
   History,
   Inbox,
   Laptop,
+  MessageSquareText,
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
@@ -629,6 +630,21 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/offboarding",
       label: "Exit management",
       icon: <DoorOpen aria-hidden="true" />,
+    },
+    {
+      /* The register of written queries, for the people who write them and the people who
+         decide them: **either** permission, and the company's `queries` switch, off for every
+         company until it is turned on in Settings.
+
+         There is no row for the person a query is addressed to, on purpose. Their way in is the
+         notification, which says only that a letter is waiting, and the "Letters from HR" entry on
+         their own profile. A sidebar row labelled "Queries" in front of somebody who has been
+         queried would say what the letter is before they have opened it. */
+      href: "/people/queries",
+      label: "Queries",
+      icon: <MessageSquareText aria-hidden="true" />,
+      anyPermission: ["ISSUE_QUERIES", "DECIDE_QUERIES"],
+      feature: "queries",
     },
     {
       /* The HR register — what is on file and what is outstanding. The

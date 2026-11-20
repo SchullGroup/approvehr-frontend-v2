@@ -14,6 +14,8 @@ import {
   Input,
   Spinner,
   TextLink,
+  ConnectionGlyph,
+  HeroBackdrop,
 } from "@/components/ui";
 import { AuthShell } from "@/components/portal/auth-shell";
 import { PasswordField } from "@/components/portal/password-field";
@@ -381,7 +383,14 @@ function ConnectionBadge({ reachable }: { reachable: boolean | null }) {
 function Unreachable() {
   return (
     <>
-      <p className="mt-2 text-body leading-relaxed">
+      {/* The same blue mark as the offline page and the in-app No connection card. */}
+      <span className="relative mt-3 inline-flex size-14 overflow-hidden rounded-full">
+        <HeroBackdrop />
+        <span className="relative">
+          <ConnectionGlyph size={56} />
+        </span>
+      </span>
+      <p className="mt-4 text-body leading-relaxed">
         Signing in needs the ApproveHR service, and it is not answering right
         now. Nothing you have entered has been lost, and nothing has been signed
         in.

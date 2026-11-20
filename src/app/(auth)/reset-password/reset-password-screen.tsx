@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
-import { Button, ButtonLink, Callout } from "@/components/ui";
+import { Button, ButtonLink, Callout, Illustration } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
 import { PasswordField } from "@/components/portal/password-field";
 
@@ -96,6 +96,7 @@ export function ResetPasswordScreen({ token }: { token: string | null }) {
   if (done) {
     return (
       <>
+        <Illustration name="arms-crossed" height={128} className="mb-4" />
         <h1 className="text-h2 text-ink">Password changed</h1>
         <Callout
           tone="success"

@@ -7,6 +7,22 @@ import { MomentCard } from "./moment-card";
 import type { RecordedPayment } from "./record-paid-dialog";
 
 /**
+ * What recording a bank payment is, said so that it is true of every company.
+ *
+ * ## Why none of it mentions the wallet
+ *
+ * This moment used to end on "The wallet has come down by that amount", and that
+ * was false. Recording writes the payment into the ledger and closes the run
+ * (`markBatchPaid` on the API); it does not touch the wallet. A company that
+ * pays from the wallet had it debited when the payroll was approved, and one
+ * that pays from its own bank account never had a wallet to debit. Both reach
+ * this moment, so the one line has to be true of both, and the only thing true
+ * of both is that recording moves nothing.
+ */
+export const RECORDED_MOVES_NO_MONEY =
+  "Nothing was sent. This only records what your bank did.";
+
+/**
  * What to say once somebody has recorded that their bank paid.
  *
  * Kept as a plain function beside the component for the reason
@@ -18,7 +34,7 @@ import type { RecordedPayment } from "./record-paid-dialog";
  * Every line is something the API's answer or the form already held. The
  * figure is the batch total the API returned, the date is the one typed (or
  * "today", which is what the API stamps when it is left blank), and the
- * wallet line is the sentence this screen has always used for the same fact.
+ * second line is `RECORDED_MOVES_NO_MONEY` above.
  */
 export function recordedPaymentCopy(recorded: RecordedPayment): {
   title: string;
@@ -41,7 +57,7 @@ export function recordedPaymentCopy(recorded: RecordedPayment): {
       recorded.paidOn ? `paid on ${longDate(recorded.paidOn)}` : "dated today"
     }.`,
     details: [
-      "The wallet has come down by that amount.",
+      RECORDED_MOVES_NO_MONEY,
       ...(recorded.bankReference
         ? [
             `Your bank's reference, ${recorded.bankReference}, is saved on the ledger line.`,

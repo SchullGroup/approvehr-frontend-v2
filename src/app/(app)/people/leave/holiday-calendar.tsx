@@ -5,17 +5,13 @@ import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
-  Callout,
   Disclosure,
   IconButton,
   Spinner,
   TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import {
-  UNCONFIRMED_HOLIDAY_EFFECT,
-  type PublicHolidayRow,
-} from "@/lib/api/leave";
+import { type PublicHolidayRow } from "@/lib/api/leave";
 import { usePublicHolidays } from "@/lib/store/holidays";
 import { shortDate } from "@/lib/today";
 
@@ -205,13 +201,15 @@ function MiniMonth({
  * which is what the leave screen is actually for. It is a `Disclosure` now, and
  * the summary carries both counts so somebody can decide *not* to open it.
  *
- * ## The warning is outside the disclosure, and that is the whole point
+ * ## What stays outside the disclosure
  *
- * Payroll proration and overtime rates already treat an unproclaimed date as a
- * holiday while the timesheet and the help desk's SLA clock do not — a live
- * inconsistency with money attached, which is precisely the thing a reveal must
- * never swallow. So the `awaitingProclamation` callout and the read error sit
- * above the closed strip, not inside it. Warning outside, calendar inside.
+ * The read error sits above the closed strip, not inside it, so a failed read is
+ * never hidden behind a reveal. The "not gazetted yet" callout that used to sit
+ * beside it was removed on request (the Text Audit, 18 Nov 2026): the strip's own
+ * "awaiting proclamation" badge is the signal now. The inconsistency it described
+ * is still real (payroll proration and overtime treat an unproclaimed date as a
+ * holiday; the timesheet and the help desk's clock do not), it is just no longer
+ * said on this screen.
  *
  * ## The year control moved into the panel
  *
@@ -264,17 +262,6 @@ export function HolidayCalendarCard({
         error={calendar.error}
         onRetry={calendar.reload}
       />
-
-      {/* Outside the disclosure. The count, with the consequence attached: both
-          halves are true and the second is the one nobody expects. */}
-      {awaiting !== null && awaiting > 0 && (
-        <Callout
-          tone="warning"
-          title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} not gazetted yet`}
-        >
-          {`${UNCONFIRMED_HOLIDAY_EFFECT.acts} ${UNCONFIRMED_HOLIDAY_EFFECT.waits}`}
-        </Callout>
-      )}
 
       <Disclosure
         className="bg-surface"

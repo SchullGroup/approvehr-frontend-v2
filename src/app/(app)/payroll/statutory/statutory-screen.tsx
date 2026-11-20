@@ -270,28 +270,6 @@ export function StatutoryScreen() {
                 )}
               </CardBody>
             </Card>
-
-            <Card>
-              <CardHeader title="How this is produced" />
-              <CardBody className="flex flex-col gap-3">
-                <p className="text-body-sm leading-relaxed text-body">
-                  Each row is computed from the approved payroll run rather than
-                  re-entered. PAYE splits by the employee&apos;s tax state,
-                  pension by their PFA, and NHF and NSITF across everyone on the
-                  run. If a run is corrected, the schedules regenerate with it.
-                </p>
-                <p className="text-body-sm leading-relaxed text-body">
-                  A deduction your company does not operate produces no schedule
-                  at all, not an empty one. A nil return you had no obligation
-                  to make is worse than no return, so the reason is stated
-                  instead. Change what you deduct under{" "}
-                  <strong className="font-medium text-ink">
-                    Settings → Payroll
-                  </strong>
-                  .
-                </p>
-              </CardBody>
-            </Card>
           </>
         )}
       </PageBody>

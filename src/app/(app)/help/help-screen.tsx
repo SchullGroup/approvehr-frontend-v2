@@ -20,8 +20,6 @@ import {
   SegmentedControl,
   Select,
   Skeleton,
-  Stat,
-  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -37,7 +35,6 @@ import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
-  formatWorkingMinutes,
   responseTargetLine,
   ticketClock,
   type ApiTicket,
@@ -155,45 +152,6 @@ function QueueView() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <StatGrid>
-          <Stat
-            label="Open"
-            value={pulse.loading ? "—" : String(pulse.open)}
-            hint="not sorted yet"
-          />
-          {/*
-            The API's `overdue` is narrower than "breached": open, and past the
-            *first-reply* target. The label says that rather than the shorter
-            word, because a number under a label that overstates it is the kind
-            of figure people stop trusting.
-          */}
-          <Stat
-            label="Not answered in time"
-            value={pulse.loading ? "—" : String(pulse.overdue)}
-            {...(pulse.overdue > 0
-              ? { trend: { direction: "down" as const, label: "Past target" } }
-              : {})}
-            hint="still waiting on a first reply"
-          />
-          <Stat
-            label="Nobody on it"
-            value={pulse.loading ? "—" : String(pulse.unassigned)}
-            hint="open, unassigned"
-          />
-          <Stat
-            label="Median first reply"
-            value={
-              pulse.medianFirstResponseMinutes === null
-                ? "—"
-                : formatWorkingMinutes(
-                    pulse.medianFirstResponseMinutes,
-                    pulse.minutesPerDay,
-                  )
-            }
-            hint="last 30 days"
-          />
-        </StatGrid>
-
         {/* ---- What people are asking about ------------------------------
             Four counts of open tickets say how much is waiting and never say
             what any of it is about. `volume.byCategory` has been on the
@@ -249,7 +207,6 @@ function QueueView() {
         <Card>
           <CardHeader
             title="Queue"
-            description="Soonest promise first. Requests with no target set sit at the bottom."
             action={
               <SegmentedControl
                 label="Which requests"

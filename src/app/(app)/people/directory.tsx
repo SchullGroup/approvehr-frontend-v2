@@ -76,7 +76,6 @@ import {
 import { MissingDetailsDialog } from "@/components/people/missing-details-dialog";
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
-import { DirectoryFieldSettings } from "./directory-settings";
 import { useDismiss } from "@/hooks/use-dismiss";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
@@ -406,8 +405,6 @@ export function Directory({
         )}
       </div>
 
-      <DirectoryFieldSettings />
-
       {/* ---- Where people stand ----------------------------------------
           `byStatus` has been on every directory response since the endpoint
           existed and no screen read it — the eight statuses were visible one
@@ -492,19 +489,9 @@ export function Directory({
             value={count(summary.incomplete)}
             icon={<ShieldAlert aria-hidden="true" />}
             className="h-full transition-colors hover:border-accent-line"
-            {...(summary.incomplete !== undefined && summary.incomplete > 0
-              ? {
-                  trend: {
-                    direction: "down" as const,
-                    label: "Worth checking before payroll",
-                  },
-                }
-              : {})}
-            /* Only a missing bank account actually blocks a payslip — a missing
-               PIN only leaves the remittance schedule incomplete, and a missing
-               TIN does not affect the run at all. This count is every field that
-               is unfilled, not every record that will miss pay. */
-            hint="missing bank, PIN or TIN: only a missing bank account blocks pay"
+            /* No verdict line and no caption under the count: the page it links
+               to ("Records incomplete") says what is missing and what blocks pay.
+               Kene asked for both lines to go (18 Nov 2026). */
           />
         </Link>
       </StatGrid>
