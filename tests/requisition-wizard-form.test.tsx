@@ -28,6 +28,18 @@ vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
 }));
 
+vi.mock("@/lib/store/work-locations", () => ({
+  useWorkLocations: () => ({
+    locations: [
+      { id: "loc-hq", name: "Lagos HQ" },
+      { id: "loc-abk", name: "Abeokuta site" },
+    ],
+    loading: false,
+    error: null,
+    source: "api",
+    create: vi.fn(),
+  }),
+}));
 vi.mock("@/lib/store/departments", () => ({
   useDepartments: () => ({
     flat: [{ id: "dept-1", name: "Finance" }],
@@ -124,8 +136,12 @@ const pick = async (
 /** Fill the first two steps and arrive at the process step. */
 async function toProcess(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
+  await user.type(
+    screen.getByLabelText(/About the role/),
+    "Runs the monthly payroll and answers staff questions about pay.",
+  );
   await pick(user, /Department/, "Finance");
-  await user.selectOptions(screen.getByLabelText(/Location/), "Lagos, NG");
+  await user.selectOptions(screen.getByLabelText(/Location/), "Lagos HQ");
   await user.click(screen.getByRole("button", { name: /Continue/ }));
   await user.type(screen.getByLabelText(/Band minimum/), "650000");
   await user.type(screen.getByLabelText(/Band maximum/), "900000");

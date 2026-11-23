@@ -60,6 +60,7 @@ import {
 } from "@/lib/store/recruitment";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useDepartments } from "@/lib/store/departments";
+import { useWorkLocations } from "@/lib/store/work-locations";
 import { useSession } from "@/lib/store/session";
 import { STAGES, fullName, type StageId } from "@/lib/types";
 
@@ -80,6 +81,12 @@ const BREADCRUMB = [
 
 type Draft = {
   title: string;
+  /**
+   * What the job is, in the company's own words (UAT 23 Nov, U98 / PERF-18).
+   * Required: an advert used to go public as one generated line ("We are hiring
+   * one for this role in Operations") because nothing asked what the job was.
+   */
+  about: string;
   departmentId: string;
   /** The department's name, kept in sync with `departmentId` — see `setDepartment`
    *  below. This is what the advert copy sentences actually read, since they are
@@ -108,6 +115,7 @@ type Draft = {
 
 const EMPTY: Draft = {
   title: "",
+  about: "",
   departmentId: "",
   department: "",
   location: "",
@@ -174,7 +182,9 @@ function advertText(draft: Draft): { summary: string; description: string } {
     .filter(Boolean)
     .join(" ");
 
+  const about = draft.about.trim();
   const description = [
+    ...(about ? [about, ""] : []),
     `We are hiring ${draft.openings === 1 ? "one" : draft.openings} for this role${draft.department ? ` in ${draft.department}` : ""}, reporting into the hiring manager.`,
     ...(musts.length > 0
       ? ["", "What you need:", ...musts.map((line) => `- ${line}`)]
@@ -259,6 +269,9 @@ function Wizard() {
   const stages = useStageMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const departments = useDepartments();
+  /* The company's own sites (UAT 23 Nov, U100 / PERF-20). The list used to be
+     fixed: an invented Port Harcourt, no Abeokuta, and "Remote" twice over. */
+  const sites = useWorkLocations();
   const templates = useTemplates();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   /* A company with templates picks one; one without (an older API, or none made
@@ -292,6 +305,10 @@ function Wizard() {
     setDraft((d) => ({ ...d, departmentId: id, department: name }));
   };
 
+  /* Switched-off sites are already left out. A name the company has typed
+     twice is offered once. */
+  const siteNames = [...new Set(sites.locations.map((site) => site.name))];
+
   const min = Number(draft.salaryMin.replace(/\D/g, "")) || 0;
   const max = Number(draft.salaryMax.replace(/\D/g, "")) || 0;
   const bandInvalid = min > 0 && max > 0 && min > max;
@@ -307,7 +324,10 @@ function Wizard() {
 
   const complete = {
     role: Boolean(
-      draft.title && (draft.departmentId || noDepartments) && draft.location,
+      draft.title &&
+      draft.about.trim() &&
+      (draft.departmentId || noDepartments) &&
+      draft.location.trim(),
     ),
     pay: min > 0 && max > 0 && !bandInvalid,
     process:
@@ -507,6 +527,18 @@ function Wizard() {
                   />
                 </Field>
 
+                <Field
+                  label="About the role"
+                  required
+                  help="What the job is and what they will do. It opens the advert, so a candidate reads it first."
+                >
+                  <Textarea
+                    rows={4}
+                    value={draft.about}
+                    onChange={(e) => set("about", e.currentTarget.value)}
+                  />
+                </Field>
+
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field
                     label="Department"
@@ -533,24 +565,37 @@ function Wizard() {
                     />
                   </Field>
 
-                  <Field label="Location" required>
-                    <Select
-                      value={draft.location}
-                      onChange={(e) => set("location", e.currentTarget.value)}
-                      placeholder="Select a location"
+                  {siteNames.length > 0 ? (
+                    <Field label="Location" required>
+                      <Select
+                        value={draft.location}
+                        onChange={(e) => set("location", e.currentTarget.value)}
+                        placeholder="Select a location"
+                      >
+                        {siteNames.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  ) : (
+                    <Field
+                      label="Location"
+                      required
+                      help={
+                        sites.loading
+                          ? undefined
+                          : "Your company has no sites set up, so type where the job is."
+                      }
                     >
-                      {[
-                        "Lagos, NG",
-                        "Abuja, NG",
-                        "Port Harcourt, NG",
-                        "Remote, NG",
-                      ].map((l) => (
-                        <option key={l} value={l}>
-                          {l}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
+                      <Input
+                        value={draft.location}
+                        onChange={(e) => set("location", e.currentTarget.value)}
+                        placeholder="City or site"
+                      />
+                    </Field>
+                  )}
                 </div>
 
                 <FieldSet legend="Employment type">
@@ -899,6 +944,7 @@ function Wizard() {
                   onEdit={() => stepper.goTo(0)}
                   rows={[
                     ["Title", draft.title || "—"],
+                    ["About the role", draft.about.trim() || "—"],
                     ["Department", draft.department || "—"],
                     ["Location", draft.location || "—"],
                     [
