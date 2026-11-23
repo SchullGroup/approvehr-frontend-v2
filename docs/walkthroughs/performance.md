@@ -270,10 +270,9 @@ A mark is made of **parts**, and the company writes its own list of them. A part
 company's choosing, a **description** (optional), a **weight**, and the thing its mark is **scored
 from**: delivery against objectives, weekly tasks, core competencies, behavioural competencies,
 leadership, **manager appraisal**, or what somebody said about themselves. Each source backs one part at
-most, so a source another part already uses is not offered. Weights are proportional: each part counts as
-its weight over the total, and the share it comes to is shown on its row, so the total does not have to be
-100%. A company that signs up starts with no parts, and **an appraisal period cannot start until at least
-one part has a weight**.
+most, so a source another part already uses is not offered. **The weights add up to 100%**: a part's
+weight is its share of the score, and nothing else is saved. A company that signs up starts with no parts,
+and **an appraisal period cannot start until at least one part has a weight**.
 
 Saved parts are plain rows, not open boxes: the name, **Scored from** and the source's own name, the
 weight with the share of a mark it comes to (**Counts for nothing** at 0%), and the description. Nothing is
@@ -289,8 +288,8 @@ scored from it; the card under the list says what it does to a mark and says **N
 | -------------- | ---------------------------------------------------------------------------------------------------- |
 | **Where**      | `/settings/performance` → **Parts of a mark**                                                        |
 | **Who**        | HR / Owner (everybody else can read the parts)                                                       |
-| **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from**, a **Weight** in percent, and an optional **Description**, then **Add part** again. The pencil on a row edits it in the same form, and the bin deletes it after asking |
-| **You'll see** | A toast saying the part was added, saved or deleted and, for an add or a change, that **It applies to the next appraisal period you start.** **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. The **Total** badge turns red at 0%, because a set that is all zeros cannot make a mark. When the parts add up to more than 100% the card says so in plain words above the list (**These add up to 110%, which is more than 100%. Each part counts for its share of 110%, not for the weight typed. To make the weights read as shares of 100%, take off 10%.**), and the same sentence shows under the **Weight** box while a number is being typed that takes the total over. It is a warning: nothing is shut by it, and 110% is saved if that is what the company means |
+| **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from** and an optional **Description**, then **Add part** again. The part is added at 0% and **Change the weights** opens next. **Change the weights** has a box for every part's weight; **Save the weights** saves them all at once. The pencil on a row edits its name, source and description, and the bin deletes a part at 0% after asking |
+| **You'll see** | **X added at 0%** and **Give it a weight, so the weights still add up to 100%.** In **Change the weights**, **Save the weights** stays dead until the weights add up to exactly 100%, and the dialog says by how much they are off (**These add up to 110%. Take off 10%.**). The bin on a part that still counts opens **Give X's weight to the other parts first** instead of deleting it, and its button opens **Change the weights** with that part at 0. **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. A set saved before this rule (110%, say) is listed with **These add up to 110%. They have to add up to 100%: change the weights to take off 10%. Until they do, each part counts for its share of 110%.** above it |
 
 > 💡 **A change here does not move a period that has started.** When a period starts, its parts and
 > weights are copied onto it, so changing or deleting a part afterwards cannot move a mark that has already
@@ -449,10 +448,10 @@ them on its own page.
 | **Where**      | `/performance/periods/{id}`, on a draft: the card **How the mark is made up**                                                                    |
 | **Who**        | HR / Owner                                                                                                                                       |
 | **Click**      | Type a whole number from 0 to 100 into each part, then **Save the weights**. **Use the company defaults** puts the company's back               |
-| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. Over 100% the card says **These add up to 110%, which is more than 100%...** and how much to take off, and still saves; on a period that has started the same sentence is shown without the advice. |
+| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. Under the pie it says **Take 10% off somewhere** or **10% still to give out** until the weights add up to 100%, and **Save the weights** stays dead until they do. |
 
 Two things about it. Whole numbers only: the company defaults in Settings take two decimal places, but here
-a weight is a whole number from 0 to 100, and the parts count in proportion to their total. And an untouched
+a weight is a whole number from 0 to 100, and the weights add up to 100% here too. And an untouched
 card does nothing: the period keeps following the company's weights, and when it starts whatever the company
 holds at that moment is fixed onto it. From the moment it starts the card is read-only and reads **Fixed
 when this period started.** (a period from before this existed reads **This period follows the company's
@@ -1742,7 +1741,7 @@ seeded accounts to use.
 
 | #   | Do this                                                                                                                     | What to point at                                                                                                                   |
 | --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **HR** — `/settings/performance`. Show the parts of a mark and their weights, then change one.                              | Each part counts in proportion to the total, and the share it comes to is shown beside it. Manager appraisal starts at 0%.        |
+| 1   | **HR** — `/settings/performance`. Show the parts of a mark and their weights, then change one.                              | The weights add up to 100%, and Save stays dead until they do. Manager appraisal starts at 0%.                                    |
 | 2   | **HR** — **Start an appraisal period**. Name it, set a due date, open _What to tell people_, type two sentences. Create it. | Nobody has been told anything yet. Say so.                                                                                         |
 | 3   | **HR** — **Write the questions**. Add one for the person and one for their manager.                                         | _Filed under_. And Start is dead until at least one question exists, and says why.                                                 |
 | 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |

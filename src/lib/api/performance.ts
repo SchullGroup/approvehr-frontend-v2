@@ -1674,7 +1674,7 @@ export type ApiScoringPart = {
 
 export type ApiScoringParts = {
   parts: ApiScoringPart[];
-  /** Weights are proportional, so this need not be 10000. */
+  /** 10000 for a set saved since the 100% rule; an older set may differ. */
   totalBp: number;
   /** Every source a part can be scored from, and the part using it if any. */
   sources: {
@@ -3163,12 +3163,12 @@ export const performanceApi = {
     ),
 
   /**
-   * The **whole** set, replaced, and refused unless it makes exactly 100%.
+   * The **whole** set, replaced, in one write.
    *
-   * There is no endpoint that saves one weight, deliberately: it could not check
-   * a total, so the check would end up in a form and be a suggestion. That is
-   * why the incumbent needs a "Resolve Weights" button and this does not — there
-   * is never an unbalanced state to resolve.
+   * The company's weights add up to exactly 100% (UAT 23 Nov, L14), and the
+   * only place that can be checked is a write of the whole set: the Settings
+   * weights editor sends nothing else, and Save stays shut until the total is
+   * 100%. The API refuses only a set of zeros, so that check is this side's.
    */
   setScoringWeights: (
     weights: WeightSet,
@@ -4199,35 +4199,33 @@ export function weightProblem(entries: { weightBp: number }[]): string | null {
 }
 
 /**
- * What to say beside a set of proportional weights that add up to more than
- * 100%, or null when they do not.
+ * What to say beside a company's weights that do not add up to 100%, or null
+ * when they do (UAT 23 Nov, L14 / PERF-39: the weights add up to 100%
+ * everywhere, so a part's weight is its share of the score).
  *
- * A warning and not a refusal. The company's parts and a period's own weights
- * are proportional: each part counts for its weight over the total, so 110% is
- * a legitimate set and the API takes it. What goes wrong is the reading. A
- * person who typed 45 and sees 45% on the row takes it for 45% of the mark,
- * and the mark counts it for 45/110, so the total is the only place the
- * difference can be said. It is said beside the total and beside the field that
- * moves it, in one place, so the two cannot describe it differently.
- *
- * **Not said for exactly 100%, or for less.** Under 100% nothing is
- * misleading: every part still counts for at least its weight's worth of the
- * whole, and "weights that do not add up to 100%" is a question for the
- * company, not an alarm.
- *
- * `canChange` is false for a set that is fixed (a period that has started): the
- * advice to take some off would be an instruction nobody can follow.
+ * Nothing on this side saves a set that is not 100%. A set saved before that
+ * rule (110%, say) still scores in proportion to its total on the server until
+ * somebody changes it, so the sentence says so, and where the set can be
+ * changed it says by how much. `canChange` is false for a set nobody here can
+ * change (a period that has started): advice nobody can follow is left out.
  */
-export function overFullWeightNote(
+export function weightTotalNote(
   totalBp: number,
   { canChange = true }: { canChange?: boolean } = {},
 ): string | null {
-  if (!Number.isFinite(totalBp) || totalBp <= FULL_WEIGHT_BP) return null;
+  if (!Number.isFinite(totalBp) || totalBp === FULL_WEIGHT_BP) return null;
   const total = weightLabel(totalBp);
-  const said = `These add up to ${total}, which is more than 100%. Each part counts for its share of ${total}, not for the weight typed.`;
+  const gap =
+    totalBp < FULL_WEIGHT_BP
+      ? `add ${weightLabel(FULL_WEIGHT_BP - totalBp)}`
+      : `take off ${weightLabel(totalBp - FULL_WEIGHT_BP)}`;
+  const meanwhile =
+    totalBp > 0
+      ? ` Until they do, each part counts for its share of ${total}.`
+      : "";
   return canChange
-    ? `${said} To make the weights read as shares of 100%, take off ${weightLabel(totalBp - FULL_WEIGHT_BP)}.`
-    : said;
+    ? `These add up to ${total}. They have to add up to 100%: change the weights to ${gap}.${meanwhile}`
+    : `These add up to ${total}, not 100%.${meanwhile}`;
 }
 
 /**

@@ -247,7 +247,6 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
     await user.click(screen.getByRole("button", { name: "Add part" }));
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Name"), "Line view");
-    await user.type(within(dialog).getByLabelText("Weight"), "20");
     await user.selectOptions(
       within(dialog).getByLabelText("Scored from"),
       "MANAGER_APPRAISAL",
@@ -259,6 +258,11 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
 
   it("after a delete", async () => {
     const user = userEvent.setup();
+    /* At 0%: a part that still counts is not deleted (L14). */
+    view = viewOf([
+      { ...delivery, weightBp: 10000 },
+      { ...lineView, weightBp: 0 },
+    ]);
     mount();
     await user.click(screen.getByRole("button", { name: "Delete Line view" }));
     await user.click(

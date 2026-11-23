@@ -384,7 +384,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     href: "/settings/performance",
     title: "Appraisal scoring",
     description:
-      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. Each part counts in proportion to the total, and the weights are frozen onto an appraisal period when it starts.",
+      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. The weights add up to 100%, and they are frozen onto an appraisal period when it starts.",
     group: "people",
   },
   {
