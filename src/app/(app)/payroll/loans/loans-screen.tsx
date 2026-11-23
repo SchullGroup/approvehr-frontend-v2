@@ -646,7 +646,7 @@ function OwedLine({ summary }: { summary: ApiLoanSummary }) {
             <>
               , including{" "}
               <Money amount={naira(thisMonth.arrearsKobo)} decimals /> carried
-              from a short month
+              from months it was not taken
             </>
           )}
         </>

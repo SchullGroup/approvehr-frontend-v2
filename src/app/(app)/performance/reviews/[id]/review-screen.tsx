@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileQuestion, LineChart, ShieldCheck } from "lucide-react";
+import { FileQuestion, LineChart } from "lucide-react";
 import {
   Badge,
   Button,
@@ -298,7 +298,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               size="sm"
             >
               <LineChart aria-hidden="true" className="size-3.5" />
-              {isSubject ? "My previous marks" : "Previous marks"}
+              {isSubject ? "My previous scores" : "Previous scores"}
             </ButtonLink>
           </>
         }
@@ -359,7 +359,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 review.kind === "MANAGER"
                   ? "The appraiser's overall view, in their own words, with the date it was sent."
                   : markShown
-                    ? "Shown beside the manager's rating. It does not count towards the final mark unless the company has turned that on."
+                    ? "Shown beside the manager's rating. It does not count towards the final score unless the company has turned that on."
                     : review.kind === "SELF"
                       ? "Shown beside the manager's review."
                       : undefined
@@ -375,7 +375,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                     gave is shown whatever the setting says now. */}
                 {markShown && !comparing && (
                   <Stat
-                    label="Overall mark"
+                    label="Overall rating"
                     value={
                       review.rating === null
                         ? "None given"
@@ -383,7 +383,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                     }
                     {...(review.rating === null
                       ? {
-                          hint: "No overall mark. The answers stand on their own.",
+                          hint: "No overall rating. The answers stand on their own.",
                         }
                       : {})}
                   />
@@ -518,7 +518,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             <ScorePanel
               score={score.score}
               loading={score.loading}
-              subjectName={review.subjectName}
               overallMark={review.overallMark}
               message={score.available ? score.error?.message : score.refusal}
             />
@@ -527,8 +526,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {review.kind === "MANAGER" && record.flag && (
             <Card>
               <CardHeader
-                title="Mark against the evidence"
-                description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
+                title="Score against the evidence"
+                description="Their score beside what their objectives, peer feedback and past scores suggest. Their manager doesn't see this."
                 action={<StatusBadge status={record.flag.status} />}
               />
               <CardBody>
@@ -643,20 +642,18 @@ function ScorePanel({
   score,
   loading,
   message,
-  subjectName,
   overallMark,
 }: {
   score: ApiEmployeeScore | null;
   loading: boolean;
   message: string | undefined;
-  subjectName: string;
   /** The company's setting, from the review. See `showsOverallMark`. */
   overallMark: boolean | undefined;
 }) {
   if (loading) {
     return (
       <Card>
-        <CardHeader title="What the mark is made of" />
+        <CardHeader title="What the score is made of" />
         <CardBody className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading the score
@@ -668,7 +665,7 @@ function ScorePanel({
   if (!score) {
     return (
       <Card>
-        <CardHeader title="What the mark is made of" />
+        <CardHeader title="What the score is made of" />
         <CardBody>
           {/* The API's own sentence, whatever it is — including "your rating is
               not final yet", which is a refusal with a reason rather than an
@@ -684,7 +681,7 @@ function ScorePanel({
 
   return (
     <Card>
-      <CardHeader title="What the mark is made of" />
+      <CardHeader title="What the score is made of" />
       <CardBody className="flex flex-col gap-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
@@ -758,8 +755,8 @@ function ScorePanel({
         {score.unmappedRatings > 0 && (
           <p className="text-body-sm text-muted">
             {score.unmappedRatings === 1
-              ? "1 rating belongs to a category that no part of the mark uses, so it is not in the score."
-              : `${score.unmappedRatings} ratings belong to categories that no part of the mark uses, so they are not in the score.`}
+              ? "1 rating belongs to a category that no part of the score uses, so it is not in the score."
+              : `${score.unmappedRatings} ratings belong to categories that no part of the score uses, so they are not in the score.`}
           </p>
         )}
 
@@ -791,25 +788,15 @@ function ScorePanel({
           level={4}
           dense
           title="How this score is put together"
-          hint="The weights used, and why the figures are whole numbers."
+          hint="The weights used."
         >
           <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
             <p>
               {score.weightsFrom === "period"
                 ? weightsFromNote("period")
                 : score.weightsFrom === "snapshot"
-                  ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
-                  : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this mark, even though it has already been given."}
-            </p>
-            <p className="flex items-start gap-2 text-muted">
-              <ShieldCheck
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0"
-              />
-              <span>
-                Scores are worked out in whole numbers, so {subjectName}&apos;s
-                mark comes out exactly the same every time it is worked out.
-              </span>
+                  ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this score."
+                  : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this score, even though it has already been given."}
             </p>
           </div>
         </Disclosure>

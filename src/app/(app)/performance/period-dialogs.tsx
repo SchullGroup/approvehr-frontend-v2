@@ -1462,7 +1462,7 @@ function FiledUnderPicker({
        somebody chose. */
     return option.weightBp === null
       ? `${option.name}, not weighted`
-      : `${option.name}, ${weightLabel(option.weightBp)} of the mark`;
+      : `${option.name}, ${weightLabel(option.weightBp)} of the score`;
   };
 
   const addSubsection = async () => {
@@ -1513,7 +1513,7 @@ function FiledUnderPicker({
                rather than asking for it a second time. */
             chosen
               ? `It will be filed under ${chosen.name}.`
-              : "It will not be filed under a section, so a level recorded on it counts towards no part of the mark."
+              : "It will not be filed under a section, so a level recorded on it counts towards no part of the score."
           }
         >
           <Input

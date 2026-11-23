@@ -623,7 +623,7 @@ export function KpisTab({
             : {})}
         />
         <Stat
-          label="Measures at target"
+          label="Targets met"
           /* "0 of 0" is a measurement of a set nobody has created. */
           value={
             measures.length === 0 ? (
@@ -1117,7 +1117,7 @@ export function KpisTab({
         }}
         body={
           completing && completing.keyResults.some((measure) => !measure.met)
-            ? `${completing.keyResults.filter((m) => !m.met).length} of its measures are short of target. You can still mark it done; the numbers stay as they are.`
+            ? `${completing.keyResults.filter((m) => !m.met).length} of its targets are not met. You can still mark it done; the numbers stay as they are.`
             : "Progress goes to 100% and it leaves the tracked list."
         }
       />
@@ -1572,8 +1572,8 @@ function GoalDetailModal({
           {goal.revisionCount > 0 && (
             <span>
               {goal.revisionCount === 1
-                ? "Target reopened once"
-                : `Target reopened ${goal.revisionCount} times`}
+                ? "Reopened once"
+                : `Reopened ${goal.revisionCount} times`}
             </span>
           )}
           {goal.parentTitle && <span>Under {goal.parentTitle}</span>}
@@ -1626,7 +1626,7 @@ function GoalDetailModal({
           </ul>
         ) : (
           <p className="text-body-sm text-body">
-            No measure yet, so its progress has to be entered by hand.
+            No target yet, so its progress has to be entered by hand.
           </p>
         )}
 
@@ -1644,8 +1644,8 @@ function GoalDetailModal({
             to confuse into "this KPI is finished". */}
         {goal.targetFrozen && (
           <p className="border-t border-line pt-4 text-body-sm text-muted">
-            Agreed, so the target is fixed. The title, the period and every
-            measure&apos;s target stay as they are, and no new measure can be
+            Agreed, so it is fixed. The title, the period and every
+            target&apos;s figure stay as they are, and no new target can be
             added, because that would change what delivering this means.
             Progress numbers can still change.
           </p>
@@ -1676,7 +1676,7 @@ function GoalDetailModal({
           )}
           {goal.approval === "AGREED" && !done && (
             <Button size="sm" onClick={act(() => onReopen(goal))}>
-              Reopen the target
+              Reopen the objective
             </Button>
           )}
           {goal.approval === "AGREED" && !done && canPlan && onPlan && (
@@ -1693,7 +1693,7 @@ function GoalDetailModal({
               {!goal.targetFrozen && (
                 <Button size="sm" onClick={act(() => onAddMeasure(goal))}>
                   <Plus aria-hidden="true" className="size-4" />
-                  Add a measure
+                  Add a target
                 </Button>
               )}
               <Button size="sm" onClick={act(() => onAddChild(goal.id))}>
@@ -1844,7 +1844,7 @@ export function MeasureRow({
           )}
           {!unread && measure.met && (
             <Badge tone="accent" size="sm" icon={<Check aria-hidden="true" />}>
-              At target
+              Met
             </Badge>
           )}
         </span>
@@ -1868,8 +1868,8 @@ export function MeasureRow({
         {unread
           ? "No reading yet"
           : `Now ${formatMeasure(measure.currentValue, measure.unit)}`}{" "}
-        · target {formatMeasure(measure.targetValue, measure.unit)} · started at{" "}
-        {formatMeasure(measure.startValue, measure.unit)}
+        · aiming for {formatMeasure(measure.targetValue, measure.unit)} ·
+        started at {formatMeasure(measure.startValue, measure.unit)}
       </p>
 
       {editable && (

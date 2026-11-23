@@ -174,7 +174,7 @@ export function CompanyReportScreen({
               plain
               icon={<Users aria-hidden="true" />}
               title="This report covers the whole company"
-              description="It compares everyone's marks, so it is only open to people who can see every employee's record."
+              description="It compares everyone's scores, so it is only open to people who can see every employee's record."
               action={
                 <ButtonLink href="/performance" variant="secondary">
                   Your own performance
@@ -260,7 +260,7 @@ function Masthead({ report, zone }: { report: CompanyReport; zone: string }) {
         <>
           <span className="font-medium text-ink">{cycle.name}.</span>{" "}
           {cycle.stageLabel}
-          {cycle.marksMayMove ? ". Marks can still move." : "."}{" "}
+          {cycle.marksMayMove ? ". Scores can still move." : "."}{" "}
         </>
       ) : null}
       Worked out from ApproveHR records by fixed rules,{" "}
@@ -270,7 +270,7 @@ function Masthead({ report, zone }: { report: CompanyReport; zone: string }) {
 }
 
 const RULE_NAME: Record<HeadlineRule, string> = {
-  H1: "marks flagged by the Fairness check that still need a decision",
+  H1: "scores flagged by the Fairness check that still need a decision",
   H2: "people with no appraiser",
   H3: "people with no agreed objective",
   H4: "a gap between groups that the Fairness check flags",

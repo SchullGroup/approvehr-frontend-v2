@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { Fragment } from "react";
 import { Flag, Link2, ShieldCheck } from "lucide-react";
 import {
@@ -251,7 +252,7 @@ function ConsentLine({
         <p className="flex items-center gap-2 text-body-sm font-medium text-ink">
           <ShieldCheck aria-hidden="true" className="size-4 text-faint" />
           Agreed to the privacy notice on{" "}
-          <span className="tabular">{consent.acceptedOn}</span>
+          <span className="tabular">{formatDay(consent.acceptedOn)}</span>
         </p>
         <Disclosure
           title="The notice they were shown"

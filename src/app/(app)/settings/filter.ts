@@ -134,6 +134,10 @@ export const PAGE_WORDS: Readonly<Record<string, readonly string[]>> = {
     "appraisal",
     "weights",
     "rating",
+    "score",
+    "overall rating",
+    /* The words these screens used before the UAT rename (U94), kept so a
+       search by the old word still finds the page. */
     "marks",
     "overall mark",
     "self-assessment",
@@ -384,7 +388,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     href: "/settings/performance",
     title: "Appraisal scoring",
     description:
-      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. Each part counts in proportion to the total, and the weights are frozen onto an appraisal period when it starts.",
+      "How much each part of an appraisal counts, what each rating is called, and whether forms end with an overall rating. The weights add up to 100%, and they are frozen onto an appraisal period when it starts.",
     group: "people",
   },
   {

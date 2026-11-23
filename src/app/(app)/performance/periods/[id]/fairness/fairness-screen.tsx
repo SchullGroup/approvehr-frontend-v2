@@ -166,7 +166,7 @@ export function FairnessScreen({
                 <Disclosure title="How flags work" region={false}>
                   <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
                     <li>
-                      Marks are compared before calibration. Any moves made
+                      Scores are compared before calibration. Any moves made
                       during calibration are shown on the period page.
                     </li>
                     <li>
@@ -181,7 +181,7 @@ export function FairnessScreen({
                     <li>
                       A manager is flagged at{" "}
                       {pct(data.managers.rules.apartBp).replace("%", "")} points
-                      from everyone else, or when their marks barely vary.
+                      from everyone else, or when their scores barely vary.
                     </li>
                   </ul>
                 </Disclosure>
@@ -211,7 +211,7 @@ function Summary({
     <div className="flex flex-col gap-3">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
-          label="Marks compared"
+          label="Scores compared"
           value={String(data.compared)}
           hint={
             periods === 3
@@ -231,7 +231,9 @@ function Summary({
         />
         <Stat
           label="Company average"
-          value={data.averageBp === null ? "No marks yet" : pct(data.averageBp)}
+          value={
+            data.averageBp === null ? "No scores yet" : pct(data.averageBp)
+          }
         />
       </div>
       {data.skipped.length > 0 && (
@@ -254,8 +256,8 @@ function Groups({ data }: { data: ApiFairness }) {
         <EmptyState
           compact
           icon={<Scale aria-hidden="true" />}
-          title="No marks yet"
-          description="Groups appear once people have marks."
+          title="No scores yet"
+          description="Groups appear once people have scores."
         />
       </Card>
     );
@@ -403,7 +405,7 @@ export function GroupCard({
         <CardBody>
           {view === "average" ? (
             <RangeChart
-              caption={`Average mark by ${dimension.label.toLowerCase()}`}
+              caption={`Average score by ${dimension.label.toLowerCase()}`}
               referenceBp={averageBp}
               rows={dimension.groups.map((g) => ({
                 ...g,
@@ -448,7 +450,7 @@ function Managers({ data }: { data: ApiFairness }) {
       <Card>
         <CardHeader
           level={3}
-          title="Average mark given, by manager"
+          title="Average score given, by manager"
           action={
             managers.length > 0 ? (
               <SegmentedControl
@@ -470,7 +472,7 @@ function Managers({ data }: { data: ApiFairness }) {
         ) : view === "average" ? (
           <CardBody>
             <RangeChart
-              caption="Average mark by manager"
+              caption="Average score by manager"
               referenceBp={data.averageBp}
               rows={managers.map((m) => ({
                 ...m,

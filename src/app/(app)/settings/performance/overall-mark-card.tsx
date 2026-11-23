@@ -93,7 +93,7 @@ export function OverallMarkCard({
         tone: "success",
         title: overallMarkSavedTitle(next, managerAppraisal),
         detail:
-          "It applies to the next form anybody opens. Marks already given are not touched.",
+          "It applies to the next form anybody opens. Ratings already given are not touched.",
       });
       onChanged();
     } catch (error) {
@@ -108,7 +108,7 @@ export function OverallMarkCard({
   return (
     <Card>
       <CardHeader
-        title="Overall mark on appraisals"
+        title="Overall rating on appraisals"
         level={3}
         description={overallMarkHeader(on, managerAppraisal)}
       />
@@ -118,15 +118,15 @@ export function OverallMarkCard({
         ) : switchable ? (
           <>
             <Switch
-              label="Ask for an overall mark at the end of an appraisal"
+              label="Ask for an overall rating at the end of an appraisal"
               description={overallMarkSwitchNote(managerAppraisal)}
               checked={on}
               disabled={!features.editable || features.saving === "overallMark"}
               onChange={(event) => void set(event.target.checked)}
             />
             <p className="text-body-sm text-muted">
-              It applies to the next form anybody opens. A mark already given is
-              never removed or changed.
+              It applies to the next form anybody opens. A rating already given
+              is never removed or changed.
             </p>
             {!features.editable && (
               <p className="text-body-sm text-muted">
@@ -142,8 +142,8 @@ export function OverallMarkCard({
         ) : (
           <p className="text-body-sm text-muted">
             {connected
-              ? "This server has not been updated to offer this setting yet, so there is nothing to switch. Forms do not ask for an overall mark until it is."
-              : "Whether forms ask for an overall mark is a company setting kept on the server, so there is nothing to switch here."}
+              ? "This server has not been updated to offer this setting yet, so there is nothing to switch. Forms do not ask for an overall rating until it is."
+              : "Whether forms ask for an overall rating is a company setting kept on the server, so there is nothing to switch here."}
           </p>
         )}
       </CardBody>

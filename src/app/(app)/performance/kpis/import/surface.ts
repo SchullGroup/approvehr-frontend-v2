@@ -72,7 +72,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
       {
         tone: "warning",
         title: `${one ? "1 objective has" : `${unfiled.toLocaleString("en-NG")} objectives have`} no appraisal period`,
-        body: `${one ? "It still imports" : "They still import"}, but an objective that is not filed in an appraisal period counts towards nobody's appraisal mark, even once it is agreed. To file ${one ? "it" : "them"} in one, name a period that is still open under Appraisal period (you can type it beside each row below), or choose one with Edit on ${one ? "the objective" : "each objective"} before it is agreed.`,
+        body: `${one ? "It still imports" : "They still import"}, but an objective that is not filed in an appraisal period counts towards nobody's appraisal score, even once it is agreed. To file ${one ? "it" : "them"} in one, name a period that is still open under Appraisal period (you can type it beside each row below), or choose one with Edit on ${one ? "the objective" : "each objective"} before it is agreed.`,
       },
     ];
   },
@@ -82,7 +82,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
   linkedStats: [
     {
       key: "measuresAdded",
-      label: "Measures added",
+      label: "Targets added",
       hint: "numbers to hit, added with their objectives",
     },
   ],

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -761,13 +762,13 @@ function SentApprovalRow({
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
             <span>
-              {lead} {row.requestedAt}
+              {lead} {formatDay(row.requestedAt)}
             </span>
             {row.status === "pending" && row.sentTo && (
               <span>Waiting on {row.sentTo}</span>
             )}
             {row.status !== "pending" && row.decidedAt && (
-              <span>Decided {row.decidedAt.slice(0, 10)}</span>
+              <span>Decided {formatDay(row.decidedAt)}</span>
             )}
           </div>
           {row.status === "declined" && row.decisionNote && (

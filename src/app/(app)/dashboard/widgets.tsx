@@ -45,7 +45,7 @@ import {
 } from "@/lib/api/insights";
 import { cn } from "@/lib/cn";
 import { useCan } from "@/lib/permissions";
-import { formatDate } from "@/lib/time";
+import { formatMonth } from "@/lib/time";
 
 /**
  * One component per catalogue entry.
@@ -1048,22 +1048,7 @@ function Owed({
   );
 }
 
-/**
- * `2026-08` as `Aug 2026`. Short, because it is an axis label as often as
- * prose. Always UTC: a `YYYY-MM` period has no time-of-day, so there is no
- * moment for the company's zone to relocate — the day/month/year that
- * `formatDate` gives is sliced down to month+year rather than reached for
- * with a fresh Intl call, so this stays covered by the guardrail too.
- */
+/** `2026-08` as `Aug 2026`: the one month format (`formatMonth`, lib/time). */
 function monthLabel(period: string): string {
-  const [year, month] = period.split("-");
-  if (!year || !month) return period;
-  const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
-  /* NaN-guarded before formatDate, not after: formatDate returns "—" for an
-     unparseable date, and "—".split(" ") is a one-element array, so reading
-     [1] and calling .slice on it would throw instead of degrading — the
-     same shape format.ts's monthLabel guards against. */
-  if (Number.isNaN(date.getTime())) return period;
-  const [, longMonth, y] = formatDate(date, "UTC").split(" ");
-  return `${longMonth.slice(0, 3)} ${y}`;
+  return formatMonth(period);
 }

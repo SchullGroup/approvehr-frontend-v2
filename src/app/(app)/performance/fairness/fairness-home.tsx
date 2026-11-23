@@ -53,7 +53,7 @@ export function FairnessHome() {
               <EmptyState
                 icon={<Scale aria-hidden="true" />}
                 title="No period to check yet"
-                description="The fairness check compares marks once an appraisal period has started."
+                description="The fairness check compares scores once an appraisal period has started."
               />
             </Card>
           </LoadState>

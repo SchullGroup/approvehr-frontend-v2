@@ -180,7 +180,7 @@ export function BulkLinkDialog({
             />
           </Field>
           {chosen && chosen.measures.length > 0 && (
-            <Field label="Measure" optional>
+            <Field label="Target" optional>
               <MeasurePicker
                 labelled
                 measures={chosen.measures}

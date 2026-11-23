@@ -160,7 +160,7 @@ export const quarterText = (quarter: string) => {
  * not the server's.
  */
 const NEEDS_PERIOD =
-  "Choose the appraisal period this is scored in. An objective with none counts towards nobody's mark, even once it is agreed.";
+  "Choose the appraisal period this is scored in. An objective with none counts towards nobody's score, even once it is agreed.";
 
 /**
  * The form for a new KPI, and — in `objective` mode — for a new objective.
@@ -477,10 +477,10 @@ export function NewKpiDialog({
             {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
-                ? "Counts towards this person's mark for that period, once somebody agrees it."
+                ? "Counts towards this person's score for that period, once somebody agrees it."
                 : needsPeriod
                   ? "Pick the period this is scored in."
-                  : "Without an appraisal period, this objective will not count towards anyone's mark, even once it is agreed."
+                  : "Without an appraisal period, this objective will not count towards anyone's score, even once it is agreed."
             }
           >
             <Select
@@ -515,7 +515,7 @@ export function NewKpiDialog({
           periodsLoading !== true && (
             <Callout tone="warning">
               No appraisal period is open, so this objective will count towards
-              nobody&apos;s mark. Start a period first, then edit the objective
+              nobody&apos;s score. Start a period first, then edit the objective
               to file it in that period.
             </Callout>
           )}
@@ -925,7 +925,7 @@ function AddMeasureForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Add a measure"
+      title="Add a target"
       description={goalTitle}
       size="md"
       footer={
@@ -944,14 +944,14 @@ function AddMeasureForm({
               loading={saving}
               onClick={() => void submit()}
             >
-              Add measure
+              Add target
             </Button>
           </>
         )
       }
     >
       {choosing ? (
-        <FieldSet legend="What kind of measure is this?">
+        <FieldSet legend="What kind of target is this?">
           <div className="grid gap-3 sm:grid-cols-2">
             <RadioCard
               name="measure-kind"
@@ -960,7 +960,7 @@ function AddMeasureForm({
               onChange={() => setPicked("NUMBER")}
               icon={<Target aria-hidden="true" />}
               label="A number to reach"
-              description="A figure that moves from where it is to a target: revenue of ₦40m, 12 hires, cost down to ₦300k."
+              description="From where it is now: revenue of ₦40m, 12 hires, cost down to ₦300k."
             />
             <RadioCard
               name="measure-kind"
@@ -991,7 +991,7 @@ function AddMeasureForm({
       ) : (
         <div className="flex flex-col gap-4">
           <Field
-            label="Measure"
+            label="Name"
             required
             {...(errors["label"] ? { error: errors["label"] } : {})}
           >
@@ -1023,7 +1023,7 @@ function AddMeasureForm({
             </Field>
             <Field
               label="Current value"
-              help="Leave blank if nothing has been measured yet. The measure then counts as unread and stays out of the objective's progress until a reading is entered."
+              help="Leave blank if nothing has been measured yet. The target then counts as unread and stays out of the objective's progress until a reading is entered."
             >
               <Input
                 inputMode="decimal"
@@ -1325,10 +1325,10 @@ export function EditGoalDialog({
             {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
-                ? "Counts towards this person's mark for that period, once somebody agrees it."
+                ? "Counts towards this person's score for that period, once somebody agrees it."
                 : needsPeriod
                   ? "Pick the period this is scored in."
-                  : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+                  : "Nothing here reaches an appraisal score. A quarter alone lets the objective be agreed and still score nothing."
             }
           >
             <Select

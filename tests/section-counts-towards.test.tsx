@@ -96,7 +96,7 @@ describe("what a section counts towards", () => {
     );
   });
 
-  it("clearing it sends null, which is how a section is taken out of the mark", async () => {
+  it("clearing it sends null, which is how a section is taken out of the score", async () => {
     sections = [section({ component: "CORE_COMPETENCY", weightBp: 4000 })];
     show();
     await userEvent.click(
@@ -139,7 +139,7 @@ describe("what a section counts towards", () => {
       .getAllByRole("option")
       .map((option) => option.textContent);
     expect(labels).toEqual([
-      "No part of the mark (ratings are only recorded)",
+      "No part of the score (ratings are only recorded)",
       "C (scored from graded weekly tasks, not from a section)",
       "A",
       "Our values",
@@ -182,7 +182,7 @@ describe("what a section counts towards", () => {
         .getAllByRole("option")
         .map((option) => option.textContent),
     ).toEqual([
-      "No part of the mark (ratings are only recorded)",
+      "No part of the score (ratings are only recorded)",
       "C (scored from graded weekly tasks, not from a section)",
     ]);
   });

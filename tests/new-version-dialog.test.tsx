@@ -205,7 +205,7 @@ describe("starting it", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Teamwork is now answered as a level on a scale. Teamwork (retired) keeps its 12 ratings and every mark made from them.",
+        "Teamwork is now answered as a level on a scale. Teamwork (retired) keeps its 12 ratings and every score made from them.",
       ),
     ).toBeInTheDocument();
     for (const note of notes) {

@@ -11,6 +11,7 @@ import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
 import { useSession } from "./session";
 import { TODAY } from "@/lib/today";
+import { formatDayRange } from "@/lib/time";
 import { createPersistedState, patched } from "./persisted";
 import { pushDemoNotification } from "./notifications";
 import type { LeaveWindow } from "@/lib/workflows/leave";
@@ -217,7 +218,7 @@ export function useLeaveStore() {
       pushDemoNotification({
         ruleId: "n-leave-request",
         title: `${leaveLabel(request.type)}, ${requester ? fullName(requester) : "Unknown"}`,
-        body: `${request.from} to ${request.to} · ${request.days} ${request.days === 1 ? "day" : "days"}`,
+        body: `${formatDayRange(request.from, request.to)} · ${request.days} ${request.days === 1 ? "day" : "days"}`,
         actionHref: "/approvals",
         entityType: "leave_request",
         entityId: request.id,
@@ -331,7 +332,7 @@ export function validateLeave(
       if (clash) {
         errors.push({
           field: "from",
-          message: `Overlaps an existing ${clash.status} request, ${clash.from} to ${clash.to}.`,
+          message: `Overlaps an existing ${clash.status} request, ${formatDayRange(clash.from, clash.to)}.`,
         });
       }
     }

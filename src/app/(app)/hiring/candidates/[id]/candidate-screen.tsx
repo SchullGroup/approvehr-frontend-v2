@@ -62,7 +62,7 @@ import { useApplicantRecord, useOfferBands } from "@/lib/store/hiring";
 import { kindFrom } from "@/lib/hiring/candidate-href";
 import { useRealPipelineApplication } from "@/lib/store/recruitment";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { formatDateShort } from "@/lib/time";
+import { formatDateShort, formatDay } from "@/lib/time";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
@@ -989,7 +989,12 @@ function Pipeline({ card }: { card: PipelineCard }) {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <DescriptionList
                 columns={2}
-                items={[{ term: "Start date", value: card.offer.startDate }]}
+                items={[
+                  {
+                    term: "Start date",
+                    value: formatDay(card.offer.startDate),
+                  },
+                ]}
               />
               {card.offer.status === "pending_approval" && (
                 <ButtonLink href="/hiring/offers" variant="accent" size="sm">

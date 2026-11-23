@@ -230,18 +230,18 @@ describe("with the self review in", () => {
     expect(row.getByText("Nothing added")).toBeInTheDocument();
   });
 
-  it("has no overall mark row where the company does not ask for one and nobody gave one", () => {
+  it("has no overall rating row where the company does not ask for one and nobody gave one", () => {
     mount({ review: manager(), selfReview: self() });
-    expect(screen.queryByText("Overall mark")).toBeNull();
+    expect(screen.queryByText("Overall rating")).toBeNull();
   });
 
-  it("shows the overall marks side by side in the company's words, and none given as none given", () => {
+  it("shows the overall ratings side by side in the company's words, and none given as none given", () => {
     mount({
       review: manager({ rating: 4, overallMark: true }),
       selfReview: self({ rating: null, overallMark: true }),
     });
     const row = within(
-      screen.getByText("Overall mark").closest("li") as HTMLElement,
+      screen.getByText("Overall rating").closest("li") as HTMLElement,
     );
     expect(row.getByText("Four")).toBeInTheDocument();
     expect(row.getByText("None given")).toBeInTheDocument();

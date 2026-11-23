@@ -93,7 +93,7 @@ describe("New KPI", () => {
     await user.click(screen.getByRole("button", { name: "Create objective" }));
 
     expect(onCreate).not.toHaveBeenCalled();
-    expect(screen.getByText(/counts towards nobody's mark/)).toBeVisible();
+    expect(screen.getByText(/counts towards nobody's score/)).toBeVisible();
   });
 
   it("creates it filed in the period that was chosen", async () => {
@@ -211,7 +211,7 @@ describe("Edit a KPI", () => {
     await user.type(screen.getByLabelText(/Description/), " More.");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByText(/counts towards nobody's mark/)).toBeVisible();
+    expect(screen.getByText(/counts towards nobody's score/)).toBeVisible();
 
     await user.selectOptions(periodField()!, "c-h1");
     await user.click(screen.getByRole("button", { name: "Save changes" }));

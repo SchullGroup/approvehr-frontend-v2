@@ -26,7 +26,7 @@ import {
   type SettableStatus,
 } from "@/lib/api/assets";
 import { CURRENT_USER, employeeById } from "@/lib/mock/people";
-import { todayIn } from "@/lib/time";
+import { formatDay, todayIn } from "@/lib/time";
 import { createPersistedState } from "./persisted";
 import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
@@ -286,24 +286,7 @@ export const CONDITIONS: AssetCondition[] = [
 
 /** `2026-04-12` → `12 Apr 2026`. Every equipment screen formats a day this way. */
 export function dayLabel(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(`${iso.slice(0, 10)}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return iso;
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  return formatDay(iso);
 }
 
 /**

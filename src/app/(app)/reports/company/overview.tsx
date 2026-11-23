@@ -28,11 +28,11 @@ import type {
 
 const AXES: { id: ReportAxis; label: string; reads: string }[] = [
   { id: "results", label: "Results", reads: "What people delivered." },
-  { id: "process", label: "Process", reads: "How the marks were produced." },
+  { id: "process", label: "Process", reads: "How the scores were produced." },
   {
     id: "fairness",
     label: "Fairness",
-    reads: "Whether the marks can be compared.",
+    reads: "Whether the scores can be compared.",
   },
 ];
 
@@ -288,9 +288,9 @@ export function MethodText() {
         it did not measure.
       </p>
       <p>
-        <span className="font-medium text-ink">Marks.</span> While a period has
-        not been published, marks can still move. Marks are not adjusted for how
-        each manager rates, which is a question the Fairness check looks at.
+        <span className="font-medium text-ink">Scores.</span> While a period has
+        not been published, scores can still move. Scores are not adjusted for
+        how each manager rates, which is a question the Fairness check looks at.
       </p>
       <p>
         <span className="font-medium text-ink">Names.</span> Names appear only

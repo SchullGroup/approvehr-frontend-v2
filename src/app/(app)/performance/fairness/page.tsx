@@ -4,7 +4,7 @@ import { FairnessHome } from "./fairness-home";
 export const metadata: Metadata = {
   title: "Fairness check",
   description:
-    "How an appraisal period's marks compare by gender, age, time at the company, location, contract type, department and manager.",
+    "How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager.",
 };
 
 export default function FairnessModulePage() {

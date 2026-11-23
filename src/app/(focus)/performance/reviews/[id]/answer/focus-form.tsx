@@ -583,7 +583,7 @@ export function FocusForm({
       : current.kind === "intro"
         ? "Before you start"
         : current.kind === "mark"
-          ? "Overall mark"
+          ? "Overall rating"
           : current.kind === "potential"
             ? "Potential"
             : current.kind === "summary"

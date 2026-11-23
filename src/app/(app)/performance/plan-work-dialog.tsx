@@ -194,7 +194,7 @@ export function PlanWorkDialog({
         const measure = measureLabel(s.keyResultId);
         const description = [
           s.detail.trim(),
-          measure ? `Moves the measure "${measure}".` : "",
+          measure ? `Moves the target "${measure}".` : "",
         ]
           .filter(Boolean)
           .join("\n\n");
@@ -592,7 +592,7 @@ function StoryCard({
 
             {keyResults.length > 0 && (
               <Field
-                label="Moves the measure"
+                label="Moves the target"
                 help={`Written into the ${TASK.one}'s description.`}
                 className="min-w-40 flex-1"
               >

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { Lock } from "lucide-react";
 import {
   AreaChart,
@@ -20,7 +21,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
 import { useReports } from "@/lib/store/insights";
 import { useOrgTimezone } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatMonth, todayIn } from "@/lib/time";
 import { employmentTypeLabel, naira } from "@/lib/api/insights";
 import { monthLabel } from "@/lib/api/overtime";
 import { Field, Select } from "@/components/ui";
@@ -336,7 +337,7 @@ function Reports() {
                   height={160}
                   format={(n: number) => n.toLocaleString()}
                   points={workforce.trend.map((row) => ({
-                    label: row.month,
+                    label: formatMonth(row.month),
                     value: row.headcount,
                   }))}
                 />
@@ -388,9 +389,7 @@ function Reports() {
                 <BarChart
                   caption="Gross pay by department for the period"
                   colorBy="series"
-                  format={(n) =>
-                    `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
+                  format={(n) => formatMoney(n, "NGN", { decimals: true })}
                   points={payrollByDepartment.map((d) => ({
                     label: d.department,
                     value: naira(d.grossKobo),
@@ -419,9 +418,7 @@ function Reports() {
                   <DonutChart
                     caption="How gross pay divides for the period"
                     centreLabel="Gross"
-                    format={(n) =>
-                      `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    }
+                    format={(n) => formatMoney(n, "NGN", { decimals: true })}
                     points={[
                       {
                         label: "Basic",
@@ -479,9 +476,7 @@ function Reports() {
                 <BarChart
                   caption="Average gross pay per person, by department, for the period"
                   colorBy="series"
-                  format={(n) =>
-                    `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
+                  format={(n) => formatMoney(n, "NGN", { decimals: true })}
                   points={[...payrollByDepartment]
                     .map((d) => ({
                       label: d.department,

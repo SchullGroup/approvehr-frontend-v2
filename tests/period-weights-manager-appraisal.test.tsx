@@ -165,7 +165,7 @@ describe("the editor", () => {
     render(<Harness start={weightsToText(SIX)} company={defaults(false)} />);
     expect(rowLabels()).toHaveLength(6);
     expect(screen.queryByText(/Manager appraisal/)).toBeNull();
-    expect(screen.queryByText(/overall mark/i)).toBeNull();
+    expect(screen.queryByText(/overall rating/i)).toBeNull();
   });
 
   it("counts the new row in the total as it is typed", async () => {
@@ -181,7 +181,7 @@ describe("the editor", () => {
     ).toBeInTheDocument();
   });
 
-  it("says what happens to the share where no appraiser has sent a mark, in the company's own name for the part", () => {
+  it("says what happens to the share where no appraiser has sent a score, in the company's own name for the part", () => {
     render(
       <Harness
         start={weightsToText(SEVEN)}
@@ -190,7 +190,7 @@ describe("the editor", () => {
     );
     expect(
       screen.getByText(
-        "If no appraiser has sent an overall mark for someone, the Line view share is spread over the other parts.",
+        "If no appraiser has sent an overall rating for someone, the Line view share is spread over the other parts.",
       ),
     ).toBeInTheDocument();
     expect(rowLabels()).toContain("Line view");

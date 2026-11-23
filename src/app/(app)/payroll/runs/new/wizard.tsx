@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import {
   forwardRef,
   useCallback,
@@ -975,7 +976,7 @@ export function PayrollRunWizard() {
                       {existing.status === "APPROVED" ||
                       existing.status === "PAID"
                         ? "It is approved, so its figures are frozen."
-                        : "It is still a draft: you can prepare it again from the next step."}
+                        : "It is not approved yet: you can prepare it again from the next step."}
                       {/* The way out of what used to be a dead end. An approved
                       payroll cannot be re-prepared — correctly — and before
                       `sequence` a leaver's final pay had nowhere to go. */}
@@ -1013,7 +1014,7 @@ export function PayrollRunWizard() {
                   title={`${periodLabel(period)}, paying ${payDate}`}
                   description={
                     run
-                      ? `Prepared${run.preparedAt ? ` ${run.preparedAt.slice(0, 10)}` : ""}. Preparing again replaces the payslips and settles nothing.`
+                      ? `Prepared${run.preparedAt ? ` ${formatDay(run.preparedAt)}` : ""}. Preparing again replaces the payslips and settles nothing.`
                       : "Nothing has been worked out for this period yet."
                   }
                   action={

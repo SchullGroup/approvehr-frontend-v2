@@ -223,7 +223,7 @@ describe("the list", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(dialog()).getByText(/It does not change your mark/),
+      within(dialog()).getByText(/It does not change your score/),
     ).toBeInTheDocument();
   });
 

@@ -245,13 +245,13 @@ describe("how it is answered", () => {
     expect(onChanged).not.toHaveBeenCalled();
   });
 
-  it("says where an answer counts, and that an unweighted section counts towards none of the mark", () => {
+  it("says where an answer counts, and that an unweighted section counts towards none of the score", () => {
     show(competency(), {
       section: { name: "Key result area", weightBp: null },
     });
     expect(
       screen.getByText(
-        "Key result area is not weighted, so a level recorded on this counts towards no part of the mark.",
+        "Key result area is not weighted, so a level recorded on this counts towards no part of the score.",
       ),
     ).toBeInTheDocument();
   });
@@ -260,7 +260,7 @@ describe("how it is answered", () => {
     show(competency({ sectionId: null, sectionName: null }), { section: null });
     expect(
       screen.getByText(
-        "This subsection is not filed under a section, so a level recorded on it counts towards no part of the mark.",
+        "This subsection is not filed under a section, so a level recorded on it counts towards no part of the score.",
       ),
     ).toBeInTheDocument();
   });
@@ -434,7 +434,7 @@ describe("the choices of a pick-a-list subsection", () => {
 
   it("shows a refusal from the API as it comes and keeps what was typed", async () => {
     const refusal =
-      '"Meets" has already been picked in ratings, so changing its score would change marks people were already given. Keep its score as it is, or take it out of this list and add a new choice with the score you want. Marks already given keep the score they were given.';
+      '"Meets" has already been picked in ratings, so changing its score would change scores people were already given. Keep its score as it is, or take it out of this list and add a new choice with the score you want. Scores already given keep the score they were given.';
     setChoiceOptions.mockRejectedValue(new ApiError(409, "conflict", refusal));
     show(pickList());
 

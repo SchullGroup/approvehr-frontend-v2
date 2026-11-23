@@ -11,7 +11,7 @@ import { formatDateShort } from "@/lib/time";
 import { useCycleMutations, useFlagDecisions } from "@/lib/store/performance";
 
 const ASK_PROMPT =
-  "Please add the work this mark is based on, or reconsider it before calibration.";
+  "Please add the work this score is based on, or reconsider it before calibration.";
 
 /**
  * What has been decided about one flagged mark, and the three ways to decide
@@ -47,7 +47,7 @@ export function FlagActions({
     setBusy(true);
     try {
       await reopen(cycleId, person.employeeId);
-      toast.push({ title: `${first}'s mark is open again`, tone: "success" });
+      toast.push({ title: `${first}'s score is open again`, tone: "success" });
       onChanged();
     } catch (caught) {
       toast.push({
@@ -69,13 +69,13 @@ export function FlagActions({
           Not decided yet.
           {published
             ? ""
-            : " Publishing waits until every flagged mark has a decision."}
+            : " Publishing waits until every flagged score has a decision."}
         </p>
       )}
       {resolution.state === "stands" && (
         <div className="text-body-sm text-body">
           <p>
-            <span className="font-medium text-ink">Mark stands</span>
+            <span className="font-medium text-ink">Score stands</span>
             {resolution.by ? `, decided by ${resolution.by}` : ""} on{" "}
             {day(resolution.at)}.
           </p>
@@ -89,7 +89,7 @@ export function FlagActions({
       {resolution.state === "moved" && (
         <div className="text-body-sm text-body">
           <p>
-            <span className="font-medium text-ink">Mark changed</span>
+            <span className="font-medium text-ink">Score changed</span>
             {resolution.by ? ` by ${resolution.by}` : ""} on{" "}
             {day(resolution.at)}.
           </p>
@@ -120,7 +120,7 @@ export function FlagActions({
             size="sm"
             onClick={() => setDialog("stands")}
           >
-            Mark stands
+            Score stands
           </Button>
           {canMove && (
             <Button
@@ -128,7 +128,7 @@ export function FlagActions({
               size="sm"
               onClick={() => setDialog("move")}
             >
-              Change the mark
+              Change the score
             </Button>
           )}
           {canAsk && (
@@ -209,7 +209,7 @@ function MarkStandsDialog({
     try {
       await stands(cycleId, person.employeeId, note.trim() || null);
       toast.push({
-        title: `${person.firstName}'s mark stands`,
+        title: `${person.firstName}'s score stands`,
         tone: "success",
       });
       setNote("");
@@ -230,8 +230,8 @@ function MarkStandsDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Let ${person.firstName}'s mark stand?`}
-      description="Recorded with your name and today's date. If the mark changes later, this reopens."
+      title={`Let ${person.firstName}'s score stand?`}
+      description="Recorded with your name and today's date. If the score changes later, this reopens."
       size="sm"
       footer={
         <div className="flex justify-end gap-2">
@@ -239,7 +239,7 @@ function MarkStandsDialog({
             Cancel
           </Button>
           <Button variant="accent" loading={busy} onClick={() => void save()}>
-            Mark stands
+            Score stands
           </Button>
         </div>
       }
@@ -253,7 +253,7 @@ function MarkStandsDialog({
           rows={3}
           value={note}
           disabled={busy}
-          placeholder="The manager showed the client work behind the mark at the calibration meeting."
+          placeholder="The manager showed the client work behind the score at the calibration meeting."
           onChange={(event) => setNote(event.target.value)}
         />
       </Field>

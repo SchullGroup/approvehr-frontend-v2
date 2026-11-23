@@ -62,12 +62,12 @@ function renderRow() {
   );
 }
 
-describe("a row of the Marks table", () => {
+describe("a row of the Scores table", () => {
   it("has one menu, not three buttons", () => {
     renderRow();
     expect(screen.queryByRole("button", { name: "Ask colleagues" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Change the mark" }),
+      screen.queryByRole("button", { name: "Change the score" }),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Send back" })).toBeNull();
     expect(
@@ -86,14 +86,14 @@ describe("a row of the Marks table", () => {
     expect(items).toEqual(
       expect.arrayContaining([
         expect.stringContaining("Ask colleagues"),
-        expect.stringContaining("Change the mark"),
+        expect.stringContaining("Change the score"),
         expect.stringContaining("Send back"),
       ]),
     );
     act(() =>
       screen
         .getAllByRole("menuitem")
-        .find((item) => item.textContent?.includes("Change the mark"))!
+        .find((item) => item.textContent?.includes("Change the score"))!
         .click(),
     );
     expect(screen.getByRole("dialog")).toHaveTextContent("Calibrate dialog");

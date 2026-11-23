@@ -324,12 +324,12 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/performance/fairness",
     "title": "Fairness check",
-    "description": "How an appraisal period's marks compare by gender, age, time at the company, location, contract type, department and manager."
+    "description": "How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager."
   },
   {
     "href": "/performance/how-it-works",
     "title": "How appraisals work",
-    "description": "What a period is, what a mark is made of, and what happens when one is given."
+    "description": "What a period is, what a score is made of, and what happens when one is given."
   },
   {
     "href": "/performance/kpis",
@@ -514,7 +514,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
+    "description": "The parts an appraisal score is made of, each with its own name, weight and source, what each rating is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
   },
   {
     "href": "/settings/policies",

@@ -72,12 +72,14 @@ const openQueue = (posting = "") =>
 
 const waitForRows = () =>
   waitFor(() =>
-    expect(screen.getAllByText(/^Applied 2026-/).length).toBeGreaterThan(0),
+    expect(
+      screen.getAllByText(/^Applied \d{1,2} [A-Z][a-z]{2} 2026/).length,
+    ).toBeGreaterThan(0),
   );
 
 /** The fit numbers on the page, in the order the rows are drawn. */
 const fitsOnPage = (): (number | null)[] =>
-  screen.getAllByText(/^Applied 2026-/).map((applied) => {
+  screen.getAllByText(/^Applied \d{1,2} [A-Z][a-z]{2} 2026/).map((applied) => {
     const row = applied.closest("div.rounded-md") as HTMLElement;
     const badge = within(row).queryByText(/^Fit \d+/);
     return badge ? Number(/\d+/.exec(badge.textContent ?? "")?.[0]) : null;

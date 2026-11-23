@@ -51,7 +51,7 @@ const USES = [
   {
     icon: <MessageSquareText aria-hidden="true" />,
     title: "A progress note from a headline",
-    where: "Objectives → a measure → record progress",
+    where: "Objectives → a target → record progress",
     from: "The headline you type. Fewer than ten characters is refused: a note written from “did work” would be entirely invention.",
     href: "/performance/kpis",
   },

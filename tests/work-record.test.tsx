@@ -314,10 +314,10 @@ describe("the Work record panel", () => {
     render(<WorkRecordPanel employeeId="emp-1" />);
     await screen.findByText("Week of 19 Oct 2026");
     expect(
-      screen.getByText(/Grow pipeline · Measure: Qualified leads/),
+      screen.getByText(/Grow pipeline · Target: Qualified leads/),
     ).toBeTruthy();
     expect(
-      screen.getByText(/Grow pipeline · Measure: Demos booked/),
+      screen.getByText(/Grow pipeline · Target: Demos booked/),
     ).toBeTruthy();
     expect(screen.getByText("Not linked to an objective")).toBeTruthy();
     expect(screen.getByText("2 finished · 100% complete")).toBeTruthy();

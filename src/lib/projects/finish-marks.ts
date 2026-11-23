@@ -38,7 +38,7 @@ export const FINISH_TAG = {
  * says they have seen it and it stands, and it gates nothing and feeds no number.
  */
 export const ACCEPTANCE_MEANS =
-  "Acceptance says a leader has seen it and it stands. It changes no mark.";
+  "Acceptance says a leader has seen it and it stands. It changes no score.";
 
 /** The same, for the button that takes a won't-do mark off on one press. */
 export const TAKE_BACK_WONT_DO_MEANS =

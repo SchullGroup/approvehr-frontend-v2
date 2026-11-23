@@ -72,9 +72,9 @@ describe("the small parts", () => {
   });
 
   it("puts the noun with the number", () => {
-    expect(measuresPhrase(0)).toBe("no measure");
-    expect(measuresPhrase(1)).toBe("1 measure");
-    expect(measuresPhrase(3)).toBe("3 measures");
+    expect(measuresPhrase(0)).toBe("no target");
+    expect(measuresPhrase(1)).toBe("1 target");
+    expect(measuresPhrase(3)).toBe("3 targets");
   });
 
   it("lists names, and counts past three", () => {
@@ -89,7 +89,7 @@ describe("the small parts", () => {
 
   it("describes an objective by whose, when and what it is measured by", () => {
     expect(describeObjective(personal)).toBe(
-      "Chidi Nwosu's objective for H1 2026, with 2 measures.",
+      "Chidi Nwosu's objective for H1 2026, with 2 targets.",
     );
     expect(
       describeObjective({
@@ -97,7 +97,7 @@ describe("the small parts", () => {
         reviewCycleName: null,
         dueQuarter: null,
       }),
-    ).toBe("The company's objective, with no measure.");
+    ).toBe("The company's objective, with no target.");
   });
 });
 
@@ -207,7 +207,7 @@ describe("KPIs given to people", () => {
   });
 });
 
-describe("a measure was added", () => {
+describe("a target was added", () => {
   const measure = {
     label: "Customers",
     unit: "customers",
@@ -243,43 +243,38 @@ describe("a measure was added", () => {
 });
 
 describe("an objective was marked done", () => {
-  it("says so when measures are short, and that the numbers stay", () => {
+  it("says so when targets are short, and that the numbers stay", () => {
     expect(
       markedDoneSaid({ title: "X", measures: 3, shortOfTarget: 2 }),
     ).toEqual({
       title: '"X" is marked done',
-      detail:
-        "2 of its 3 measures are short of target. The numbers stay as they are.",
+      detail: "2 of its 3 targets are not met. The numbers stay as they are.",
     });
     expect(
       markedDoneSaid({ title: "X", measures: 3, shortOfTarget: 1 }).detail,
-    ).toBe(
-      "1 of its 3 measures is short of target. The numbers stay as they are.",
-    );
+    ).toBe("1 of its 3 targets is not met. The numbers stay as they are.");
     expect(
       markedDoneSaid({ title: "X", measures: 2, shortOfTarget: 2 }).detail,
-    ).toBe(
-      "All 2 of its measures are short of target. The numbers stay as they are.",
-    );
+    ).toBe("All 2 of its targets are not met. The numbers stay as they are.");
     expect(
       markedDoneSaid({ title: "X", measures: 1, shortOfTarget: 1 }).detail,
-    ).toBe("Its measure is short of target. The numbers stay as they are.");
+    ).toBe("Its target is not met. The numbers stay as they are.");
   });
 
   it("says it is at target when it is", () => {
     expect(
       markedDoneSaid({ title: "X", measures: 2, shortOfTarget: 0 }).detail,
     ).toBe(
-      "Every measure is at target. Progress is 100%, and it has left the tracked list.",
+      "Every target is met. Progress is 100%, and it has left the tracked list.",
     );
     expect(
       markedDoneSaid({ title: "X", measures: 1, shortOfTarget: 0 }).detail,
     ).toBe(
-      "Its measure is at target. Progress is 100%, and it has left the tracked list.",
+      "Its target is met. Progress is 100%, and it has left the tracked list.",
     );
   });
 
-  it("has nothing to say about measures when it has none", () => {
+  it("has nothing to say about targets when it has none", () => {
     expect(
       markedDoneSaid({ title: "X", measures: 0, shortOfTarget: 0 }).detail,
     ).toBe("Progress is 100%, and it has left the tracked list.");
@@ -332,10 +327,10 @@ describe("sending an objective to be agreed", () => {
       kind: "moment",
       copy: {
         title: '"Ship the billing flow" is waiting to be agreed',
-        lead: "Chidi Nwosu's objective for H1 2026, with 2 measures.",
+        lead: "Chidi Nwosu's objective for H1 2026, with 2 targets.",
         details: [
           "Sent to 1 person who can agree it.",
-          "Once it is agreed the target is fixed. Progress still moves.",
+          "Once it is agreed it is fixed. Progress still moves.",
         ],
       },
     });
@@ -375,7 +370,7 @@ describe("sending an objective to be agreed", () => {
     const result = sentToAgreeCopy({ goal: personal, sentTo: undefined });
     expect(result.kind).toBe("moment");
     expect(result.kind === "moment" && result.copy.details).toEqual([
-      "Once it is agreed the target is fixed. Progress still moves.",
+      "Once it is agreed it is fixed. Progress still moves.",
     ]);
   });
 });
@@ -384,9 +379,9 @@ describe("agreeing an objective", () => {
   it("says what was agreed and what is now fixed", () => {
     expect(agreedCopy(personal)).toEqual({
       title: '"Ship the billing flow" is agreed',
-      lead: "Chidi Nwosu's objective for H1 2026, with 2 measures.",
+      lead: "Chidi Nwosu's objective for H1 2026, with 2 targets.",
       details: [
-        "The target is fixed. Progress still moves.",
+        "It is fixed. Progress still moves.",
         "Changing it now takes a revision, which is recorded.",
       ],
     });
@@ -398,7 +393,7 @@ describe("agreeing an objective", () => {
 });
 
 describe("the voice", () => {
-  it("has no exclamation marks anywhere", () => {
+  it("has no exclamation scores anywhere", () => {
     const everything = JSON.stringify([
       objectiveCreatedSaid(company),
       kpiAddedSaid(personal),

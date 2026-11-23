@@ -72,10 +72,10 @@ describe("a company that has not chosen", () => {
     ).toBeInTheDocument();
   });
 
-  it("says it is evidence to read and never changes a mark, on the switch itself", () => {
+  it("says it is evidence to read and never changes a score, on the switch itself", () => {
     mount();
     expect(
-      screen.getByText(/It is evidence to read and never changes a mark/),
+      screen.getByText(/It is evidence to read and never changes a score/),
     ).toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe("a company that has not chosen", () => {
       screen.getByText("Save a task title with an attached task"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Change a mark, a score, a band or a rank"),
+      screen.getByText("Change a score, a band or a rank"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Choose anybody for anybody: a person still picks"),
