@@ -253,6 +253,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           isManager ||
           hasPermission(permissions, "EDIT_RECORDS") ||
           hasPermission(permissions, "START_EXIT_DEPARTMENT"),
+        "my-team": isManager,
       },
       collaborator,
     }),

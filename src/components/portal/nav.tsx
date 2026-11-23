@@ -98,7 +98,9 @@ export type NavRowFact =
    * management. An employee hands in their notice from "Leaving" on their own
    * profile, which is one place for it rather than two.
    */
-  | "exits";
+  | "exits"
+  /** Has somebody reporting to them: My team (U22). */
+  | "my-team";
 
 /**
  * The permissions that put somebody else's request in front of you.
@@ -178,6 +180,7 @@ export const NOTHING_ANSWERED_YET: NavFacts = {
     approvals: false,
     "agrees-objectives": false,
     exits: false,
+    "my-team": false,
   },
   collaborator: false,
 };
@@ -613,6 +616,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/org-chart",
       label: "Org chart",
       icon: <Network aria-hidden="true" />,
+    },
+    {
+      /* A line manager's own people, without pay (U22). A full record carries
+         pay, so a manager could not open one, and had no page for their team. */
+      href: "/people/team",
+      label: "My team",
+      icon: <Users aria-hidden="true" />,
+      rows: "my-team",
+      always: true,
     },
     {
       /* Restored alongside the status field on the create form (see
