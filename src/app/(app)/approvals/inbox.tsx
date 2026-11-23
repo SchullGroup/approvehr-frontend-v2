@@ -948,7 +948,9 @@ function ApprovalRow({
               size="sm"
               className="flex-1 sm:flex-none"
             >
-              Open {item.kindLabel.toLowerCase()}
+              {item.kind === "employment_change"
+                ? "Decide"
+                : `Open ${item.kindLabel.toLowerCase()}`}
             </ButtonLink>
             <ArchiveButton
               item={item}

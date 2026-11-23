@@ -511,6 +511,10 @@ const REAL_SCREEN: Partial<Record<ApprovalKind, string>> = {
   expense: "/payroll/expenses",
   requisition: "/hiring",
   offer: "/hiring/offers",
+  /* The API refuses these from the queue ("employment_changes cannot be
+     decided from the approvals queue"), so Approve here did nothing (U17).
+     Decided on Promotions and transfers, which opens on the change. */
+  employment_change: "/people/changes",
 };
 
 /** False for the three kinds that `decide()` now refuses outright (422). */
