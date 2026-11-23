@@ -598,7 +598,7 @@ const BAND_FILL: Record<ScoreBand, string> = {
   OUTSTANDING: "var(--color-success-strong)",
 };
 
-function Distribution({ report }: { report: ApiCycleReport }) {
+export function Distribution({ report }: { report: ApiCycleReport }) {
   const { distribution } = report;
 
   return (
@@ -608,7 +608,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
         description={
           distribution.scored === 0
             ? "Nothing to show yet."
-            : `${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"}, sorted into five bands.`
+            : `${distribution.scored} ${distribution.scored === 1 ? "score" : "scores"}, sorted into five bands.`
         }
       />
       <CardBody className="flex flex-col gap-4">
@@ -643,7 +643,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
                only cue: every column carries its count and its band name. */
               tones={distribution.bands.map((band) => BAND_FILL[band.band])}
               format={(n) => `${String(n)}`}
-              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
             />
             <BarChart
               className="sm:hidden"
@@ -653,7 +653,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
               }))}
               tones={distribution.bands.map((band) => BAND_FILL[band.band])}
               format={(n) => `${String(n)}`}
-              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
             />
           </>
         )}

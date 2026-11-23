@@ -193,7 +193,7 @@ describe("the delete dialog", () => {
     expect(
       screen.getByRole("heading", { name: "Delete this objective?" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/along with its 2 measures/)).toBeInTheDocument();
+    expect(screen.getByText(/along with its 2 targets/)).toBeInTheDocument();
     expect(screen.getByText(/cannot be undone/)).toBeInTheDocument();
   });
 

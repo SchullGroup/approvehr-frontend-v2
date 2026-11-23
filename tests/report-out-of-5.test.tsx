@@ -110,3 +110,22 @@ describe("the report of a published period", () => {
     expect(screen.queryByText(/so far/)).toBeNull();
   });
 });
+
+describe("the report's words", () => {
+  it("counts scores, not marks, in the spread", async () => {
+    const { Distribution } =
+      await import("@/app/(app)/performance/periods/[id]/report/report-screen");
+    render(
+      <Distribution
+        report={
+          {
+            ...report,
+            distribution: { ...report.distribution, bands: [] },
+          } as ApiCycleReport
+        }
+      />,
+    );
+    expect(screen.getAllByText(/2 scores/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\bmarks?\b/)).toBeNull();
+  });
+});

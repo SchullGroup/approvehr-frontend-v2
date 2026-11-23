@@ -7,7 +7,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiReviewFlags, ReviewCycleStage } from "@/lib/api/performance";
 import { flaggedCount } from "./people-to-review";
 
-const marks = (n: number) => `${String(n)} ${n === 1 ? "mark" : "marks"}`;
+const marks = (n: number) => `${String(n)} ${n === 1 ? "score" : "scores"}`;
 
 /**
  * Why the period cannot be published yet, or null. Mirrors `publishBlocker` in

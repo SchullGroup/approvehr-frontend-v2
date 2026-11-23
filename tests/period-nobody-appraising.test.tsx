@@ -162,6 +162,16 @@ describe("a published period", () => {
     expect(screen.queryByText(/Nobody (was|is) in this period/)).toBeNull();
   });
 
+  it("lists nobody without an appraiser: nobody can be given one now", () => {
+    state.stage = "PUBLISHED";
+    state.exceptions = { rows: [person("Halima Sani")] };
+    mount();
+    expect(screen.queryByText(/no appraiser yet/)).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "Assign appraisers" }),
+    ).toBeNull();
+  });
+
   it("offers no Rename", async () => {
     state.stage = "PUBLISHED";
     mount();

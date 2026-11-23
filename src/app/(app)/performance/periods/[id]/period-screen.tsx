@@ -619,10 +619,14 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                         marked={detail.register?.rows.length ?? null}
                         onShowLeft={() => setShowingLeft(true)}
                       />
-                      <NobodyAppraising
-                        cycleId={cycleId}
-                        exceptions={detail.exceptions}
-                      />
+                      {/* Nobody can be given an appraiser once a period is
+                          published, so a published one lists nobody. */}
+                      {period?.stage !== "PUBLISHED" && (
+                        <NobodyAppraising
+                          cycleId={cycleId}
+                          exceptions={detail.exceptions}
+                        />
+                      )}
                       <MultiAppraiserReviews
                         participants={detail.participants}
                       />

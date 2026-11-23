@@ -1422,7 +1422,7 @@ export function DeleteGoalDialog({
       <p className="text-body-sm text-body">
         {measures > 0
           ? `This removes it for good, along with its ${String(measures)} ${
-              measures === 1 ? "measure" : "measures"
+              measures === 1 ? "target" : "targets"
             }. It cannot be undone.`
           : "This removes it for good. It cannot be undone."}
       </p>
