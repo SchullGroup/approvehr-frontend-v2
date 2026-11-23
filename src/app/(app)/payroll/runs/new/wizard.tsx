@@ -14,7 +14,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Ban,
-  Check,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
@@ -53,6 +52,7 @@ import {
   RunStatusBadge,
   SourceBadge,
 } from "@/components/payroll/run-panels";
+import { BankAccountDialog } from "@/components/payroll/bank-account-dialog";
 import { ExcludeFromPayrollDialog } from "@/components/payroll/exclude-dialog";
 import { useStepUp } from "@/components/portal/step-up";
 import { ApiError } from "@/lib/api/client";
@@ -74,7 +74,9 @@ import { SheetPanel } from "./sheet-panel";
 import { blockerPerson } from "./blocker-person";
 import { periodFromParam } from "./period-param";
 import type { ApprovedRunFacts } from "./approved-moment";
+import { ApproveActions, sentForApprovalDetail } from "./approve-actions";
 import { ApproveStep } from "./approve-step";
+import { opensOnApprove } from "./opening-step";
 import { BankRegisterCard } from "./bank-register-card";
 import { RUN_BREADCRUMB } from "./breadcrumb";
 import { OverflowMenu } from "./overflow-menu";
@@ -149,6 +151,9 @@ const STEPS = [
 
 const currentPeriod = TODAY.slice(0, 7);
 
+/** The blocker whose fix is a dialog over the run, not a link out of it (U84). */
+const BANK_IN_PLACE: ReadonlySet<string> = new Set(["missing_bank_account"]);
+
 /**
  * Move a `YYYY-MM` key by whole months, through `Date` rather than by
  * arithmetic on the parts — December plus one is next January, and every
@@ -192,6 +197,9 @@ export function PayrollRunWizard() {
 
   const canPrepare = useCan("RUN_PAYROLL");
   const canApprove = useCan("APPROVE_PAYROLL");
+  /* Saving an account number is a record edit (U84), so the in-run dialog is
+     for somebody who may make one; anybody else keeps the link to the record. */
+  const canEditRecords = useCan("EDIT_RECORDS");
 
   const {
     runs,
@@ -252,9 +260,9 @@ export function PayrollRunWizard() {
    * be re-prepared, so the callout below was a dead end rather than a choice.
    */
   const [offCycle, setOffCycle] = useState(false);
-  const [busy, setBusy] = useState<"prepare" | "approve" | "cancel" | null>(
-    null,
-  );
+  const [busy, setBusy] = useState<
+    "prepare" | "approve" | "cancel" | "send" | null
+  >(null);
   /**
    * Why approving produced no payment, when it produced none.
    *
@@ -455,6 +463,12 @@ export function PayrollRunWizard() {
      first time this was tried. `record-page.tsx` reaches for the same
      number for the same reason. */
   const directory = useEmployeeDirectory({ pageSize: 200 });
+  const employeeWrites = useEmployeeMutations();
+  const [addingBank, setAddingBank] = useState<{
+    employeeId: string;
+    name: string;
+  } | null>(null);
+  const bankInPlace = canEditRecords && connected;
   /* The full row where this reader is sent one, and the lookup row where
      not: an analyst without Edit records is sent lookup rows only, and the
      blocker used to vanish for her while the footer still counted it (U29). */
@@ -505,21 +519,54 @@ export function PayrollRunWizard() {
   const blocked = counts.blockers > 0 || discrepancies.length > 0;
   const canContinue = [Boolean(run) && !blocked, false][stepper.index];
 
-  /* The approvers are told once, when the maker moves on to Approve: not on every
-     calculation, which used to email them about a run still being worked. The
-     server refuses while anything blocks the run and sends nothing the second
-     time, so this can run as often as the step is entered; a refusal is not the
-     maker's problem and is left unsaid. */
-  const submittedRef = useRef<string | null>(null);
-  const runIdNow = run?.id ?? null;
-  useEffect(() => {
-    if (stepper.index !== 1 || !runIdNow || settled || !canPrepare) return;
-    if (submittedRef.current === runIdNow) return;
-    submittedRef.current = runIdNow;
-    void payrollApi.submitForApproval(runIdNow).catch(() => {
-      submittedRef.current = null;
-    });
-  }, [stepper.index, runIdNow, settled, canPrepare]);
+  /* The approvers are told when the maker presses "Send for approval" (U78):
+     entering the Approve step used to email them on its own, so looking was
+     asking, and the maker was never told. The server refuses while anything
+     blocks the run and emails each approver once; a second press refreshes the
+     line in their bell with these figures. */
+  async function sendForApproval() {
+    if (!run) return;
+    setBusy("send");
+    try {
+      const result = await payrollApi.submitForApproval(run.id);
+      toast.push({
+        title: "Sent for approval",
+        tone: "success",
+        detail: sentForApprovalDetail(result.told),
+      });
+    } catch (caught) {
+      toast.push({
+        title: "Not sent for approval",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "The approvers were not told. Try again.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* An approver, and anybody opening an approved run, lands on Approve once the
+     run is known (U79). Decided once, so changing the month on the first step
+     never moves somebody off the screen they are working on. */
+  const [landed, setLanded] = useState(requested >= 0);
+  if (!landed && !loading && (runId === null || run)) {
+    setLanded(true);
+    if (
+      run &&
+      stepper.index === 0 &&
+      opensOnApprove({
+        stepRequested: false,
+        approved: approvedAlready,
+        canPrepare,
+        canApprove,
+      })
+    ) {
+      stepper.goTo(1);
+    }
+  }
 
   const doneFlags = [Boolean(run) && !blocked, settled];
   const displaySteps = stepper.steps.map((step, i) => ({
@@ -662,17 +709,31 @@ export function PayrollRunWizard() {
 
     if (exception.code === "missing_bank_account") {
       return (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy !== null || excludeBusy}
-          onClick={() => {
-            setExcludeError(null);
-            setExcluding({ employeeId, name: nameOf(employeeId) });
-          }}
-        >
-          Exclude from this payroll
-        </Button>
+        <>
+          {bankInPlace && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy !== null || excludeBusy}
+              onClick={() =>
+                setAddingBank({ employeeId, name: nameOf(employeeId) })
+              }
+            >
+              Add account number
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy !== null || excludeBusy}
+            onClick={() => {
+              setExcludeError(null);
+              setExcluding({ employeeId, name: nameOf(employeeId) });
+            }}
+          >
+            Exclude from this payroll
+          </Button>
+        </>
       );
     }
 
@@ -1096,6 +1157,7 @@ export function PayrollRunWizard() {
                     <ExceptionList
                       exceptions={exceptions}
                       actionFor={actionFor}
+                      replaceFixFor={bankInPlace ? BANK_IN_PLACE : undefined}
                     />
                   )}
                 </>
@@ -1192,20 +1254,16 @@ export function PayrollRunWizard() {
                disabled "Already approved" button: a control that does nothing,
                beside the two that do (the pay card above carries what happens
                next). */
-                settled ? null : (
-                  <Button
-                    variant="approve"
-                    className="max-sm:min-h-11"
-                    onClick={() => setConfirming(true)}
-                    loading={busy === "approve"}
-                    disabled={!run || blocked || !canApprove}
-                  >
-                    {busy !== "approve" && (
-                      <Check aria-hidden="true" className="size-4" />
-                    )}
-                    Approve this run
-                  </Button>
-                )
+                <ApproveActions
+                  settled={settled}
+                  canApprove={canApprove}
+                  canPrepare={canPrepare}
+                  canSend={connected}
+                  ready={Boolean(run) && !blocked}
+                  busy={busy === "approve" || busy === "send" ? busy : null}
+                  onApprove={() => setConfirming(true)}
+                  onSend={() => void sendForApproval()}
+                />
               ) : missingPayStatus ? (
                 <Button
                   variant="accent"
@@ -1254,6 +1312,20 @@ export function PayrollRunWizard() {
           the API has refused the approval — a company with the switch off never
           sees it. */}
           {stepUp.dialog}
+
+          <BankAccountDialog
+            open={addingBank !== null}
+            name={addingBank?.name ?? ""}
+            onClose={() => setAddingBank(null)}
+            onSave={async (input) => {
+              if (!addingBank) return;
+              /* The same write the Pay tab makes, then the run again, so the
+                 blocker clears where it was raised. */
+              await employeeWrites.update(addingBank.employeeId, input);
+              setAddingBank(null);
+              await prepare();
+            }}
+          />
 
           {excluding && (
             <ExcludeFromPayrollDialog

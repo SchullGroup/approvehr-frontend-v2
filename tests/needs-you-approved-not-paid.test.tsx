@@ -139,7 +139,9 @@ describe("an approved payroll nobody has recorded as paid", () => {
     expect(
       screen.getByText("2 requests waiting for a decision"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/3 people cannot be paid yet/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 records missing a bank account or pension PIN/),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/payroll is approved, waiting for payment/),
     ).toBeInTheDocument();

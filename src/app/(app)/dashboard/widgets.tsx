@@ -190,11 +190,14 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
               urgent={approvals.overdue > 0}
             />
           )}
+          {/* The figure counts a missing pension PIN as well as a missing bank
+              account (U83), and only the second stops pay, so the row says what
+              it counts rather than "cannot be paid". The list it opens needs
+              EDIT_RECORDS; without it the row is a fact and no button. */}
           {headcount.incomplete > 0 && (
             <Row
-              href="/people"
-              label={`${String(headcount.incomplete)} ${headcount.incomplete === 1 ? "person" : "people"} cannot be paid yet`}
-              detail="No account number or no pension PIN on file"
+              href={canAddEmployee ? "/people/incomplete" : null}
+              label={`${String(headcount.incomplete)} ${headcount.incomplete === 1 ? "record" : "records"} missing a bank account or pension PIN`}
               action="Fix records"
               urgent
             />
@@ -859,7 +862,8 @@ function Row({
   label,
   action,
 }: {
-  href: string;
+  /** `null` when the reader cannot open where it leads: a fact, no button. */
+  href: string | null;
   label: string;
   detail?: string;
   action: string;
@@ -874,9 +878,11 @@ function Row({
       <p className="min-w-40 flex-1 text-body-sm font-medium text-ink">
         {label}
       </p>
-      <ButtonLink href={href} variant="secondary" size="sm">
-        {action}
-      </ButtonLink>
+      {href && (
+        <ButtonLink href={href} variant="secondary" size="sm">
+          {action}
+        </ButtonLink>
+      )}
     </li>
   );
 }

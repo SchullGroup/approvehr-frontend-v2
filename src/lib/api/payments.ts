@@ -517,6 +517,16 @@ export function paymentOutcome(row: {
      to the bank a fortnight ago". */
   switch (row.batchStatus) {
     case "APPROVED":
+      /* Approved, and the bank file can be taken, but nothing has been paid
+         and nobody has said the bank paid it. It read "paid at your bank"
+         from the moment it was approved (U34). Recording the payment settles
+         the instruction, which then reads "Paid". */
+      return {
+        label: "Approved, not paid",
+        tone: "neutral",
+        hint: "Not paid until somebody records that the bank paid it, on the payroll's pay step.",
+        moved: "no",
+      };
     case "SUBMITTED":
     case "COMPLETED":
     case "PARTIALLY_SETTLED":

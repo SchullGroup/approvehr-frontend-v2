@@ -35,7 +35,8 @@ export function PensionSchemePanel({ canEdit }: { canEdit: boolean }) {
   const [query, setQuery] = useState("");
   const directory = useEmployeeDirectory({
     pageSize: 200,
-    status: "active",
+    /* The API's statuses are upper case and it refuses "active" (PAY-13). */
+    status: "ACTIVE",
     ...(query.trim() ? { q: query.trim() } : {}),
   });
   const { update } = useEmployeeMutations();
@@ -134,9 +135,15 @@ export function PensionSchemePanel({ canEdit }: { canEdit: boolean }) {
           {directory.loading && <Spinner size="sm" />}
         </div>
         <p className="mt-3 text-body-sm text-muted">
-          {people.length === 0
-            ? "Nobody to show."
-            : `${String(people.length - outCount)} in, ${String(outCount)} out, of ${String(people.length)} shown.`}
+          {directory.error
+            ? `The list did not load. ${directory.error.message}`
+            : directory.lookupOnly
+              ? "Seeing who is in the scheme needs the “Edit records” permission."
+              : people.length === 0
+                ? directory.loading
+                  ? "Loading…"
+                  : "Nobody to show."
+                : `${String(people.length - outCount)} in, ${String(outCount)} out, of ${String(people.length)} shown.`}
         </p>
         <ul className="mt-2 divide-y divide-line">
           {people.map((person) => (
