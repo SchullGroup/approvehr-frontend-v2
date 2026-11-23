@@ -52,6 +52,7 @@ import {
   RunStatusBadge,
   SourceBadge,
 } from "@/components/payroll/run-panels";
+import { BankAccountDialog } from "@/components/payroll/bank-account-dialog";
 import { ExcludeFromPayrollDialog } from "@/components/payroll/exclude-dialog";
 import { useStepUp } from "@/components/portal/step-up";
 import { ApiError } from "@/lib/api/client";
@@ -150,6 +151,9 @@ const STEPS = [
 
 const currentPeriod = TODAY.slice(0, 7);
 
+/** The blocker whose fix is a dialog over the run, not a link out of it (U84). */
+const BANK_IN_PLACE: ReadonlySet<string> = new Set(["missing_bank_account"]);
+
 /**
  * Move a `YYYY-MM` key by whole months, through `Date` rather than by
  * arithmetic on the parts — December plus one is next January, and every
@@ -193,6 +197,9 @@ export function PayrollRunWizard() {
 
   const canPrepare = useCan("RUN_PAYROLL");
   const canApprove = useCan("APPROVE_PAYROLL");
+  /* Saving an account number is a record edit (U84), so the in-run dialog is
+     for somebody who may make one; anybody else keeps the link to the record. */
+  const canEditRecords = useCan("EDIT_RECORDS");
 
   const {
     runs,
@@ -456,6 +463,12 @@ export function PayrollRunWizard() {
      first time this was tried. `record-page.tsx` reaches for the same
      number for the same reason. */
   const directory = useEmployeeDirectory({ pageSize: 200 });
+  const employeeWrites = useEmployeeMutations();
+  const [addingBank, setAddingBank] = useState<{
+    employeeId: string;
+    name: string;
+  } | null>(null);
+  const bankInPlace = canEditRecords && connected;
   /* The full row where this reader is sent one, and the lookup row where
      not: an analyst without Edit records is sent lookup rows only, and the
      blocker used to vanish for her while the footer still counted it (U29). */
@@ -696,17 +709,31 @@ export function PayrollRunWizard() {
 
     if (exception.code === "missing_bank_account") {
       return (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy !== null || excludeBusy}
-          onClick={() => {
-            setExcludeError(null);
-            setExcluding({ employeeId, name: nameOf(employeeId) });
-          }}
-        >
-          Exclude from this payroll
-        </Button>
+        <>
+          {bankInPlace && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy !== null || excludeBusy}
+              onClick={() =>
+                setAddingBank({ employeeId, name: nameOf(employeeId) })
+              }
+            >
+              Add account number
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy !== null || excludeBusy}
+            onClick={() => {
+              setExcludeError(null);
+              setExcluding({ employeeId, name: nameOf(employeeId) });
+            }}
+          >
+            Exclude from this payroll
+          </Button>
+        </>
       );
     }
 
@@ -1130,6 +1157,7 @@ export function PayrollRunWizard() {
                     <ExceptionList
                       exceptions={exceptions}
                       actionFor={actionFor}
+                      replaceFixFor={bankInPlace ? BANK_IN_PLACE : undefined}
                     />
                   )}
                 </>
@@ -1284,6 +1312,20 @@ export function PayrollRunWizard() {
           the API has refused the approval — a company with the switch off never
           sees it. */}
           {stepUp.dialog}
+
+          <BankAccountDialog
+            open={addingBank !== null}
+            name={addingBank?.name ?? ""}
+            onClose={() => setAddingBank(null)}
+            onSave={async (input) => {
+              if (!addingBank) return;
+              /* The same write the Pay tab makes, then the run again, so the
+                 blocker clears where it was raised. */
+              await employeeWrites.update(addingBank.employeeId, input);
+              setAddingBank(null);
+              await prepare();
+            }}
+          />
 
           {excluding && (
             <ExcludeFromPayrollDialog
