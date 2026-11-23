@@ -976,7 +976,7 @@ export function PayrollRunWizard() {
                       {existing.status === "APPROVED" ||
                       existing.status === "PAID"
                         ? "It is approved, so its figures are frozen."
-                        : "It is still a draft: you can prepare it again from the next step."}
+                        : "It is not approved yet: you can prepare it again from the next step."}
                       {/* The way out of what used to be a dead end. An approved
                       payroll cannot be re-prepared — correctly — and before
                       `sequence` a leaver's final pay had nowhere to go. */}

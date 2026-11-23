@@ -110,6 +110,22 @@ export function periodLabel(key: string): string {
   return name && year ? `${name} ${year}` : key;
 }
 
+/**
+ * A payroll's own label, only when it says more than its month: "August 2026
+ * (August 2026)" said the month twice (UAT 23 Nov, L16: PAY-31).
+ */
+export function extraRunLabel(run: {
+  period: string;
+  label?: string | null;
+}): string | null {
+  const label = run.label?.trim();
+  if (!label) return null;
+  return label.toLowerCase() ===
+    periodLabel(periodKey(run.period)).toLowerCase()
+    ? null
+    : label;
+}
+
 /** `2026-08-28` → `28 August 2026`, for a payslip somebody keeps. */
 export function longDate(isoDate: string): string {
   const day = isoDate.slice(8, 10);

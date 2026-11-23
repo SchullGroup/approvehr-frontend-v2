@@ -39,6 +39,7 @@ import {
   formatKobo,
   headcountLabel,
   naira,
+  extraRunLabel,
   paidPeopleLabel,
   periodLabel,
   type PayrollRun,
@@ -413,7 +414,7 @@ export function PayrollScreen() {
                             {periodLabel(run.period)}
                           </TextLink>
                         }
-                        subtitle={run.label ?? undefined}
+                        subtitle={extraRunLabel(run) ?? undefined}
                       />
                       <TD align="right" className="tabular">
                         {/* Two lines rather than one long string: a numeric column
@@ -463,8 +464,10 @@ export function PayrollScreen() {
                       <TextLink href={`/payroll/runs/new?period=${run.period}`}>
                         {periodLabel(run.period)}
                       </TextLink>
-                      {run.label && (
-                        <p className="text-body-sm text-muted">{run.label}</p>
+                      {extraRunLabel(run) && (
+                        <p className="text-body-sm text-muted">
+                          {extraRunLabel(run)}
+                        </p>
                       )}
                     </div>
                     <RunStatusBadge status={run.status} />
@@ -601,7 +604,7 @@ function UnpaidLine({
         {named && (
           <>
             {periodLabel(run.period)}
-            {run.label ? ` (${run.label})` : ""}
+            {extraRunLabel(run) ? ` (${extraRunLabel(run)})` : ""}
             {": "}
           </>
         )}
