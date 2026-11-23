@@ -86,6 +86,10 @@ const review = (over: Partial<ApiReviewDetail> = {}): ApiReviewDetail =>
     mine: true,
     submitted: false,
     questions: [],
+    /* "How far could they go?" (the talent map) is its own page at the end of a
+       manager's review. These scenarios are about the overall rating, so the
+       period here does not ask it; the page's own place is checked below. */
+    askPotential: false,
     ...over,
   }) as unknown as ApiReviewDetail;
 
@@ -109,8 +113,8 @@ describe("where the period needs the manager's overall mark", () => {
   it("has the page whatever the company's own setting says, and it does not ask whether there is one", async () => {
     mount({ overallMark: false, overallMarkRequired: true });
     await next("Start");
-    expect(heading("Your overall mark")).toBeInTheDocument();
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Your overall rating")).toBeInTheDocument();
+    expect(heading("Is there an overall rating?")).toBeNull();
     expect(screen.getByText(/^Needed\./)).toBeInTheDocument();
   });
 
@@ -121,7 +125,9 @@ describe("where the period needs the manager's overall mark", () => {
     });
     await next("Start");
     expect(
-      screen.getByText("Needed. It counts for 30% of the mark in this period."),
+      screen.getByText(
+        "Needed. It counts for 30% of the score in this period.",
+      ),
     ).toBeInTheDocument();
     first.unmount();
     window.localStorage.clear();
@@ -148,7 +154,7 @@ describe("where the period needs the manager's overall mark", () => {
     mount({ overallMarkRequired: true });
     await next("Start");
     await next("Next");
-    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(heading("Your overall rating")).toBeInTheDocument();
     expect(heading("Your recommendations")).toBeNull();
     expect(
       screen.getByText("This one needs an answer before you can go on."),
@@ -185,13 +191,13 @@ describe("where the period needs the manager's overall mark", () => {
     expect(screen.getByText("Needs an answer")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "The overall mark still needs an answer before this can go.",
+        "The overall rating still needs an answer before this can go.",
       ),
     ).toBeInTheDocument();
 
     await next("Send it");
     expect(send).not.toHaveBeenCalled();
-    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(heading("Your overall rating")).toBeInTheDocument();
     expect(
       screen.getByText("This one needs an answer before you can go on."),
     ).toBeInTheDocument();
@@ -207,8 +213,8 @@ describe("where the period needs the manager's overall mark", () => {
       />,
     );
     await next("Start");
-    expect(heading("Your overall mark")).toBeNull();
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Your overall rating")).toBeNull();
+    expect(heading("Is there an overall rating?")).toBeNull();
     expect(heading("Your recommendations")).toBeInTheDocument();
   });
 
@@ -222,11 +228,11 @@ describe("where the period needs the manager's overall mark", () => {
       />,
     );
     await next("Start");
-    expect(heading("Your overall mark")).toBeInTheDocument();
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Your overall rating")).toBeInTheDocument();
+    expect(heading("Is there an overall rating?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
     await next("Next");
-    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(heading("Your overall rating")).toBeInTheDocument();
   });
 });
 
@@ -234,7 +240,7 @@ describe("where the period does not need it", () => {
   it("is still optional on a manager's form where the company asks for a mark", async () => {
     mount({ overallMark: true, overallMarkRequired: false });
     await next("Start");
-    expect(heading("Is there an overall mark?")).toBeInTheDocument();
+    expect(heading("Is there an overall rating?")).toBeInTheDocument();
     expect(
       screen.getByText("Optional. Leave it if the answers say enough."),
     ).toBeInTheDocument();
@@ -244,15 +250,15 @@ describe("where the period does not need it", () => {
   it("treats a server that does not say as not needed, and has no page when the company does not ask", async () => {
     mount();
     await next("Start");
-    expect(heading("Your overall mark")).toBeNull();
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Your overall rating")).toBeNull();
+    expect(heading("Is there an overall rating?")).toBeNull();
     expect(heading("Your recommendations")).toBeInTheDocument();
   });
 
   it("does not hold a self-review to it", async () => {
     mount({ kind: "SELF", kindLabel: "Self-review", overallMark: false });
     await next("Start");
-    expect(heading("Your overall mark")).toBeNull();
+    expect(heading("Your overall rating")).toBeNull();
     expect(heading("Anything to add?")).toBeInTheDocument();
   });
 });
@@ -265,7 +271,7 @@ describe("the strip above the form says what the overall mark is worth, from the
       appraiser: appraiser({ markShareBp: 3000 }) as never,
     });
     expect(
-      screen.getByText("Your overall mark counts for 30% of the mark."),
+      screen.getByText("Your overall rating counts for 30% of the score."),
     ).toBeInTheDocument();
   });
 
@@ -275,7 +281,7 @@ describe("the strip above the form says what the overall mark is worth, from the
       appraiser: appraiser({ markShareBp: 0 }) as never,
     });
     expect(
-      screen.getByText("Your overall mark does not count towards the score."),
+      screen.getByText("Your overall rating does not count towards the score."),
     ).toBeInTheDocument();
   });
 
@@ -284,7 +290,7 @@ describe("the strip above the form says what the overall mark is worth, from the
     expect(screen.getByText("Line manager")).toBeInTheDocument();
     expect(screen.queryByText(/counts for/)).toBeNull();
     expect(screen.queryByText(/does not count/)).toBeNull();
-    expect(screen.queryByText(/of the mark/)).toBeNull();
+    expect(screen.queryByText(/of the score/)).toBeNull();
   });
 });
 
@@ -293,7 +299,7 @@ describe("with several appraisers, the mark page and the strip say the same thin
      30% this appraiser's own slice is 18%, and a page saying "it counts for 30%"
      would be the whole part said as theirs, beside a strip that says otherwise. */
   const STRIP =
-    "Your overall mark counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the mark.";
+    "Your overall rating counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the score.";
   const shared = () =>
     appraiser({ weightBp: 6000, appraiserCount: 2, markShareBp: 3000 });
 
@@ -304,10 +310,10 @@ describe("with several appraisers, the mark page and the strip say the same thin
     });
     expect(screen.getByText(STRIP)).toBeInTheDocument();
     await next("Start");
-    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(heading("Your overall rating")).toBeInTheDocument();
     expect(screen.getByText(`Needed. ${STRIP}`)).toBeInTheDocument();
     expect(
-      screen.queryByText(/counts for 30% of the mark in this period/),
+      screen.queryByText(/counts for 30% of the score in this period/),
     ).toBeNull();
   });
 
@@ -356,7 +362,7 @@ describe("a review sent back for revision keeps the mark it was given", () => {
     );
     mount({ overallMarkRequired: true, rating: 4 } as never);
     /* A remembered mark opens the form on the page that holds it. */
-    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(heading("Your overall rating")).toBeInTheDocument();
     expect(picked(/Below Expectations/)).toBeChecked();
     expect(picked(/Exceeds Expectations/)).not.toBeChecked();
     await next("Next");
@@ -375,7 +381,7 @@ describe("a review sent back for revision keeps the mark it was given", () => {
         .filter((radio) => (radio as HTMLInputElement).checked),
     ).toHaveLength(0);
     await next("Next");
-    expect(heading("Your overall mark")).toBeInTheDocument();
+    expect(heading("Your overall rating")).toBeInTheDocument();
     expect(
       screen.getByText("This one needs an answer before you can go on."),
     ).toBeInTheDocument();
@@ -388,8 +394,8 @@ describe("a review sent back for revision keeps the mark it was given", () => {
       rating: 4,
     } as never);
     await next("Start");
-    expect(heading("Your overall mark")).toBeNull();
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Your overall rating")).toBeNull();
+    expect(heading("Is there an overall rating?")).toBeNull();
     await next("Skip");
     await next("Send it");
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
@@ -414,5 +420,34 @@ describe("a review sent back for revision keeps the mark it was given", () => {
     await userEvent.click(picked(/Meets Expectations/));
     await userEvent.click(screen.getByText("Leave it blank instead"));
     expect(picked(/Meets Expectations/)).not.toBeChecked();
+  });
+});
+
+describe("how far could they go", () => {
+  it("is its own page after the overall rating and before the closing note, where the period asks it", async () => {
+    mount({
+      overallMarkRequired: true,
+      rating: 4,
+      askPotential: true,
+    } as never);
+    await next("Start");
+    expect(heading("Your overall rating")).toBeInTheDocument();
+    await next("Next");
+    expect(heading("How far could Chidi go?")).toBeInTheDocument();
+    expect(heading("Your recommendations")).toBeNull();
+    await next("Skip");
+    expect(heading("Your recommendations")).toBeInTheDocument();
+  });
+
+  it("is not asked where the period has switched it off", async () => {
+    mount({
+      overallMarkRequired: true,
+      rating: 4,
+      askPotential: false,
+    } as never);
+    await next("Start");
+    await next("Next");
+    expect(heading("How far could Chidi go?")).toBeNull();
+    expect(heading("Your recommendations")).toBeInTheDocument();
   });
 });

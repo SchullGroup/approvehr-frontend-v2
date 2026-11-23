@@ -97,7 +97,7 @@ export function evidenceLine(
       : part.component === "TASKS"
         ? ["graded task", "graded tasks"]
         : part.component === "MANAGER_APPRAISAL"
-          ? ["overall mark", "overall marks"]
+          ? ["overall rating", "overall ratings"]
           : ["rating", "ratings"];
   return `Based on ${String(n)} ${n === 1 ? unit[0] : unit[1]}`;
 }
@@ -188,13 +188,13 @@ export function appraiserStripLine(args: {
   const others = appraiser.appraiserCount - 1;
   const shared = others > 0;
   const alongside = `alongside ${String(others)} ${others === 1 ? "other" : "others"}`;
-  const whose = mine ? "Your overall mark" : "This overall mark";
+  const whose = mine ? "Your overall rating" : "This overall rating";
   const share = appraiser.markShareBp;
 
   if (share !== undefined && share > 0) {
     return shared
-      ? `${whose} counts for ${weightLabel(appraiser.weightBp)} of what the appraisers say, ${alongside}. What they say is ${weightLabel(share)} of the mark.`
-      : `${whose} counts for ${weightLabel(share)} of the mark.`;
+      ? `${whose} counts for ${weightLabel(appraiser.weightBp)} of what the appraisers say, ${alongside}. What they say is ${weightLabel(share)} of the score.`
+      : `${whose} counts for ${weightLabel(share)} of the score.`;
   }
   if (share === 0 && asksMark) {
     return `${whose} does not count towards the score${shared ? `, ${alongside}` : ""}.`;

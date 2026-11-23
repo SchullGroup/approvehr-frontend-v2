@@ -188,7 +188,7 @@ describe("reading the framework", () => {
     render(<Harness />);
     const core = screen.getByRole("button", { name: /Core competency/ });
     expect(core).toHaveTextContent("3 subsections");
-    expect(core).toHaveTextContent("40% of the mark");
+    expect(core).toHaveTextContent("40% of the score");
     /* Null is "not weighted", never 0%. */
     const kra = screen.getByRole("button", { name: /Key result area/ });
     expect(kra).toHaveTextContent("0 subsections");
@@ -389,7 +389,7 @@ describe("the two tabs under a subsection", () => {
     await userEvent.click(ratedTab());
     expect(
       screen.getByText(
-        "Key result area is not weighted, so a level recorded on this counts towards no part of the mark.",
+        "Key result area is not weighted, so a level recorded on this counts towards no part of the score.",
       ),
     ).toBeInTheDocument();
   });

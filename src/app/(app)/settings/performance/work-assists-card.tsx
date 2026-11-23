@@ -93,7 +93,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
           level={3}
           description={
             on === true
-              ? "Beside Confirm on a done-or-not measure, the tasks linked to it are listed, and a person writing a weekly line can start from the tasks they finished that week."
+              ? "Beside Confirm on a done-or-not target, the tasks linked to it are listed, and a person writing a weekly line can start from the tasks they finished that week."
               : on === false
                 ? "Off. Neither is offered. Tasks closed as won't do and accepted tasks stay as recorded."
                 : "Whether the linked tasks are listed beside Confirm and finished tasks are offered when somebody writes a weekly line."
@@ -106,7 +106,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
             <>
               <Switch
                 label="Offer the linked tasks beside Confirm, and finished tasks for weekly lines"
-                description="A manager confirming a done-or-not measure sees which tasks are linked to it and where each stands. A person writing a weekly line on an agreed objective can add the tasks they finished that week as text to edit. Both are for reading. Neither changes a mark."
+                description="A manager confirming a done-or-not target sees which tasks are linked to it and where each stands. A person writing a weekly line on an agreed objective can add the tasks they finished that week as text to edit. Both are for reading. Neither changes a score."
                 checked={on}
                 disabled={!features.editable || saving}
                 onChange={(event) => {
@@ -162,7 +162,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
             <p className="font-medium text-ink">What it offers</p>
             <ul className="mt-2 list-disc pl-5">
               <li>
-                Beside Confirm on a done-or-not measure: the tasks linked to it,
+                Beside Confirm on a done-or-not target: the tasks linked to it,
                 open ones first, each with where it stands (open, finished on a
                 date, closed as won&apos;t do, accepted by someone)
               </li>
@@ -175,16 +175,16 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
           <div>
             <p className="font-medium text-ink">What it never does</p>
             <ul className="mt-2 list-disc pl-5">
-              <li>Confirm a measure, or say that one is done</li>
+              <li>Confirm a target, or say that one is done</li>
               <li>File, submit, grade or score anything</li>
-              <li>Change a mark, a score, a band or a rank</li>
+              <li>Change a score, a band or a rank</li>
               <li>Save a task title anywhere</li>
               <li>Offer anything while Projects is switched off</li>
             </ul>
           </div>
           <p className="sm:col-span-2">
             The list beside Confirm is shown to the people who may confirm the
-            measure. The person whose objective it is does not see it. The
+            target. The person whose objective it is does not see it. The
             weekly-line suggestions are read only by the person who owns the
             objective, from their own finished tasks.
           </p>
@@ -222,8 +222,8 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
         <div className="text-body-sm leading-relaxed text-body">
           <div className="flex flex-col gap-3">
             <p>
-              From now on, beside Confirm on a done-or-not measure, the tasks
-              linked to that measure are listed with where each stands. And a
+              From now on, beside Confirm on a done-or-not target, the tasks
+              linked to that target are listed with where each stands. And a
               person writing a weekly line on an agreed objective can add the
               tasks they finished that week as text, then edit it.
             </p>
@@ -233,7 +233,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
                 the text and sends it themselves, as before.
               </li>
               <li>
-                The list never says a measure is done and never recommends
+                The list never says a target is done and never recommends
                 confirming it. A manager still decides.
               </li>
               <li>

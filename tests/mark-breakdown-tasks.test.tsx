@@ -44,7 +44,7 @@ const tasks: ApiComponentScore = {
   evidenceCount: 4,
 };
 
-describe("a Weekly tasks row in a mark's breakdown", () => {
+describe("a Weekly tasks row in a score's breakdown", () => {
   it("is named by the API's label with its score", () => {
     expect(breakdownSentence([tasks])).toBe("Weekly tasks 75%.");
   });
@@ -126,7 +126,7 @@ describe("How it works", () => {
   it("explains Weekly tasks and how they are graded", () => {
     render(<HowItWorksBody />);
     expect(
-      screen.getByText(/Weekly tasks count toward the mark/i),
+      screen.getByText(/Weekly tasks count toward the score/i),
     ).toBeTruthy();
     expect(screen.getByText(/Partly completed counts half/i)).toBeTruthy();
   });

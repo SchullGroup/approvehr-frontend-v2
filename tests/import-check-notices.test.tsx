@@ -128,7 +128,7 @@ describe("the notice the objectives screen puts above the report", () => {
     /* The consequence, and that it does not stop anything. */
     expect(notice?.body).toContain("They still import");
     expect(notice?.body).toContain(
-      "counts towards nobody's appraisal mark, even once it is agreed",
+      "counts towards nobody's appraisal score, even once it is agreed",
     );
   });
 

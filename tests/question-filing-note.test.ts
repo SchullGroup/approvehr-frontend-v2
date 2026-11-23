@@ -57,11 +57,11 @@ const everyState: [string, Filing][] = [
   ["nothing chosen", { sectionId: "", competencyId: "" }],
 ];
 
-describe("what a question's filing says about the mark", () => {
-  it("says where the mark comes from when it is filed under a weighted subsection", () => {
+describe("what a question's filing says about the score", () => {
+  it("says where the score comes from when it is filed under a weighted subsection", () => {
     expect(filingNote(everyState[0]![1])).toEqual({
       tone: "muted",
-      text: "Answers to questions written here do not count towards the mark. Core competency is 40% of the mark, and it comes from the level recorded on Diligence, under Competency ratings.",
+      text: "Answers to questions written here do not count towards the score. Core competency is 40% of the score, and it comes from the level recorded on Diligence, under Competency ratings.",
     });
   });
 
@@ -72,7 +72,7 @@ describe("what a question's filing says about the mark", () => {
       section: { name: "Core competency", weightBp: 5833 },
       subsectionName: "Diligence",
     });
-    expect(note.text).toContain("Core competency is 58.33% of the mark");
+    expect(note.text).toContain("Core competency is 58.33% of the score");
   });
 
   it("says a section that is not weighted is not weighted, never 0%", () => {
@@ -87,7 +87,7 @@ describe("what a question's filing says about the mark", () => {
     expect(note.text).toContain("the level recorded on Diligence");
   });
 
-  it("says an unfiled subsection counts towards no part of the mark", () => {
+  it("says an unfiled subsection counts towards no part of the score", () => {
     expect(filingNote(everyState[3]![1]).text).toContain(
       "Punctuality is not filed under a section",
     );
@@ -108,7 +108,7 @@ describe("what a question's filing says about the mark", () => {
     /* No subsection is named, so no kind is: "what is recorded" is true of a
        level, a yes or no and a pick alike. */
     expect(filingNote(everyState[5]![1]).text).toBe(
-      "Answers to questions written here do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
+      "Answers to questions written here do not count towards the score. The score comes from what is recorded on each subsection, under Competency ratings.",
     );
   });
 
@@ -143,10 +143,10 @@ describe("what a question's filing says about the mark", () => {
         answerKind: "BOOLEAN",
       };
       expect(filingNote(unfiled).text).toContain(
-        "so an answer recorded on it counts towards no part of the mark either",
+        "so an answer recorded on it counts towards no part of the score either",
       );
       expect(filingNote({ ...unfiled, answerKind: "RATING" }).text).toContain(
-        "so a level recorded on it counts towards no part of the mark either",
+        "so a level recorded on it counts towards no part of the score either",
       );
     });
   });

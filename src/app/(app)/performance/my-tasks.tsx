@@ -231,7 +231,7 @@ export function MyTasksPanel() {
               /* It said this was "what your delivery score is built from",
                  and weekly tasks count 0% unless a period weights them
                  (UAT 23 Nov, U86 / PERF-7). */
-              description="A manager grades what you log here. It changes your mark only if your appraisal period gives weekly tasks a weight."
+              description="A manager grades what you log here. It changes your score only if your appraisal period gives weekly tasks a weight."
             />
           ) : (
             <CardBody className="flex flex-col gap-5">

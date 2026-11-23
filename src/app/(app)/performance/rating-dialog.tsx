@@ -513,12 +513,12 @@ export function RecordLevelDialog({
               reviewCycleId
                 ? kind === "TEXT"
                   ? "Filed under that period. Each person has one answer per period, so writing it again replaces this one."
-                  : "Counts towards this person's mark for that period. Each person has one rating per period, so rating them again corrects this one."
+                  : "Counts towards this person's score for that period. Each person has one rating per period, so rating them again corrects this one."
                 : kind === "RATING"
-                  ? "This will not affect any appraisal mark. It is a snapshot of where they are now, and it fills the competency gap table and heatmap."
+                  ? "This will not affect any appraisal score. It is a snapshot of where they are now, and it fills the competency gap table and heatmap."
                   : kind === "TEXT"
                     ? "A snapshot of where they are now."
-                    : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it does not appear in the competency gap table or heatmap, which are about levels."
+                    : "This will not affect any appraisal score. It is a snapshot of where they are now, and it does not appear in the competency gap table or heatmap, which are about levels."
             }
           >
             <Select

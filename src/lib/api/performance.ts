@@ -4151,7 +4151,7 @@ export function scoringWeightProblem(
 ): string | null {
   const total = entries.reduce((sum, entry) => sum + entry.weightBp, 0);
   if (total > 0) return null;
-  return "Give at least one part a weight above 0%, or there is nothing to make a mark from.";
+  return "Give at least one part a weight above 0%, or there is nothing to make a score from.";
 }
 
 /**
@@ -4260,7 +4260,7 @@ export const APPRAISER_ROLE_HELP: Record<AppraiserRole, string> = {
   LINE_MANAGER: "The person's own manager. One at most.",
   FUNCTIONAL_MANAGER: "Owns the craft rather than the reporting line.",
   PROJECT_LEAD: "Ran the work they spent the period on.",
-  SKIP_LEVEL: "Their manager's manager, checking the mark.",
+  SKIP_LEVEL: "Their manager's manager, checking the score.",
 };
 
 /**

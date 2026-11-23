@@ -231,7 +231,7 @@ function ResultsChart({
         y: percent,
         size: row.people,
         flagged: row.fairness?.flagged === true,
-        detail: `${row.name}, ${String(row.people)} ${plural(row.people, "person", "people")}, average mark ${markOrDash(mark)}, ${
+        detail: `${row.name}, ${String(row.people)} ${plural(row.people, "person", "people")}, average score ${markOrDash(mark)}, ${
           hasCost
             ? `gross pay per head ${koboOrDash(row.cost?.perHeadKobo)}`
             : `goal progress ${progressOrDash(row.results.goals.progressMean)}`
@@ -252,8 +252,8 @@ function ResultsChart({
   const referenceY =
     company.markMeanBp === null ? undefined : company.markMeanBp / 100;
   const title = hasCost
-    ? "Average mark against gross pay per head"
-    : "Average mark against goal progress";
+    ? "Average score against gross pay per head"
+    : "Average score against goal progress";
 
   return (
     <Card>
@@ -276,11 +276,11 @@ function ResultsChart({
         <BubbleChart
           points={plotted}
           title={title}
-          summary={`${String(plotted.length)} ${plural(plotted.length, "department is", "departments are")} plotted. The horizontal axis is ${hasCost ? "gross pay per head, per month" : "average goal progress"}, the vertical axis is the average mark, and bubble size is headcount.`}
+          summary={`${String(plotted.length)} ${plural(plotted.length, "department is", "departments are")} plotted. The horizontal axis is ${hasCost ? "gross pay per head, per month" : "average goal progress"}, the vertical axis is the average score, and bubble size is headcount.`}
           xLabel={
             hasCost ? "Gross pay per head, per month" : "Average goal progress"
           }
-          yLabel="Average mark"
+          yLabel="Average score"
           formatX={(value) =>
             hasCost ? wholeNaira(value) : `${String(Math.round(value))}%`
           }
@@ -412,8 +412,8 @@ function DepartmentTable({
             <TH align="right">People</TH>
             {lens === "results" && (
               <>
-                <TH align="right">Average mark</TH>
-                <TH>Marks</TH>
+                <TH align="right">Average score</TH>
+                <TH>Scores</TH>
                 <TH align="right">Goal progress</TH>
                 <TH align="right">Weekly tasks</TH>
                 {hasWork && <TH align="right">Project work</TH>}
@@ -425,7 +425,7 @@ function DepartmentTable({
                 <TH align="right">Have an appraiser</TH>
                 <TH align="right">Agreed objectives</TH>
                 <TH align="right">Manager reviews in</TH>
-                <TH align="right">Flagged marks decided</TH>
+                <TH align="right">Flagged scores decided</TH>
               </>
             )}
             {lens === "fairness" && (
@@ -666,7 +666,7 @@ function MobileFigures({
     return (
       <span className="flex flex-col gap-0.5 text-meta text-muted">
         <span>
-          Average mark{" "}
+          Average score{" "}
           <span className="tabular font-medium text-ink">
             {markOrDash(row.results.markMeanBp)}
           </span>

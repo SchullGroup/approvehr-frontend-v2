@@ -164,7 +164,7 @@ describe("<PeriodWeights />", () => {
     expect(screen.getByLabelText("Delivery against objectives")).toHaveValue(
       40,
     );
-    expect(screen.getByText("How the mark is made up")).toBeInTheDocument();
+    expect(screen.getByText("How the score is made up")).toBeInTheDocument();
   });
 
   it("shows the running total in the pie, and says how much to take off when over 100", async () => {

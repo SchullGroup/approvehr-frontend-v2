@@ -54,8 +54,8 @@ import { SCORING_TABS, type ScoringTabId } from "./tabs";
 import { WorkRecordCard } from "./work-record-card";
 
 const TAB_ITEMS: TabItem[] = [
-  { id: "weights", label: "Parts of a mark" },
-  { id: "marks", label: "Names of marks" },
+  { id: "weights", label: "Parts of the score" },
+  { id: "marks", label: "Rating names" },
   { id: "records", label: "Records" },
 ];
 
@@ -362,7 +362,7 @@ function PartsPanel({
       toast.push({
         tone: "success",
         title: `${deleting.name} deleted`,
-        detail: "It no longer counts towards a mark.",
+        detail: "It no longer counts towards a score.",
       });
       setDeleting(null);
     } catch (caught) {
@@ -415,7 +415,7 @@ function PartsPanel({
           <>
             <Card>
               <CardHeader
-                title="The parts of a mark"
+                title="The parts of the score"
                 description={`The score is the weighted average of these parts. ${WEIGHTS_RULE}`}
                 action={
                   <span className="flex flex-wrap items-center gap-3">
@@ -541,7 +541,7 @@ function PartsPanel({
                             ) : (
                               part.shareBp !== part.weightBp && (
                                 <p className="tabular text-meta text-muted">
-                                  {`${weightLabel(part.shareBp)} of a mark`}
+                                  {`${weightLabel(part.shareBp)} of the score`}
                                 </p>
                               )
                             )}
@@ -588,7 +588,7 @@ function PartsPanel({
               <CardBody className="flex flex-col gap-3 text-body-sm text-body">
                 <p>
                   When a period starts, its parts and weights are copied onto
-                  it. Changing or deleting a part afterwards cannot move a mark
+                  it. Changing or deleting a part afterwards cannot move a score
                   that has already been awarded.
                 </p>
                 <p className="flex items-start gap-2 text-body-sm text-body">
@@ -734,7 +734,7 @@ function PartModal({
         </Field>
         <Field
           label="Scored from"
-          help={chosen?.description || "Where this part's mark comes from."}
+          help={chosen?.description || "Where this part's score comes from."}
         >
           <Select
             value={draft.source}
@@ -915,14 +915,14 @@ function SelfAssessment({
         {on ? (
           <p className="text-body-sm text-muted">
             At {weightLabel(weightBp)}, somebody who rates themselves 5 out of 5
-            rather than 3 out of 5 moves their own final mark by{" "}
+            rather than 3 out of 5 moves their own final score by{" "}
             {weightLabel(swingBp)}. Two people who delivered identically will
-            not get the same mark.
+            not get the same score.
           </p>
         ) : (
           <p className="text-body-sm text-body">
             Add a part scored from self-assessment and an employee&apos;s own
-            opinion of themselves becomes part of the mark used to decide
+            opinion of themselves becomes part of the score used to decide
             confirmation, promotion and bonus.
           </p>
         )}

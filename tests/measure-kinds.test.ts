@@ -26,7 +26,7 @@ import {
  * keep them apart.
  */
 
-describe("a measure's kind", () => {
+describe("a target's kind", () => {
   it("is done-or-not-done only when the server says so", () => {
     expect(isDoneMeasure({ kind: "DONE" })).toBe(true);
     expect(isDoneMeasure({ kind: "NUMBER" })).toBe(false);
@@ -37,7 +37,7 @@ describe("a measure's kind", () => {
   });
 });
 
-describe("whether a measure has been read", () => {
+describe("whether a target has been read", () => {
   it("is unread when the server says no reading was ever entered", () => {
     expect(isUnread({ lastReadAt: null })).toBe(true);
   });
@@ -53,7 +53,7 @@ describe("whether a measure has been read", () => {
   });
 });
 
-describe("how many of an objective's measures are read", () => {
+describe("how many of an objective's targets are read", () => {
   const read = { lastReadAt: "2026-10-01T09:00:00.000Z" };
   const unread = { lastReadAt: null };
 
@@ -69,17 +69,17 @@ describe("how many of an objective's measures are read", () => {
     expect(readCount([unread, unread])).toEqual({ read: 0, of: 2 });
   });
 
-  it("says nothing for an objective with no measures", () => {
+  it("says nothing for an objective with no targets", () => {
     expect(readCount([])).toBeNull();
   });
 
-  it("makes no claim when any measure comes from a server that does not say", () => {
+  it("makes no claim when any target comes from a server that does not say", () => {
     expect(readCount([read, {}])).toBeNull();
     expect(readCount([unread, {}])).toBeNull();
   });
 });
 
-describe("whether nothing has been recorded on a measure", () => {
+describe("whether nothing has been recorded on a target", () => {
   it("takes the server's word that it has not been", () => {
     expect(
       hasNoReading({ lastReadAt: null, startValue: "0", currentValue: "0" }),
@@ -124,7 +124,7 @@ describe("what the face of a card says about its figure", () => {
     }) as unknown as ApiGoal;
   const stamp = "2026-10-22T09:00:00.000Z";
 
-  it("carries how many measures are read, so the card and the window cannot differ", () => {
+  it("carries how many targets are read, so the card and the window cannot differ", () => {
     expect(goalFacts(goal([null, null]), "emp-1").reads).toEqual({
       read: 0,
       of: 2,
@@ -135,7 +135,7 @@ describe("what the face of a card says about its figure", () => {
     });
   });
 
-  it("has nothing to say when every measure is read, or there are none", () => {
+  it("has nothing to say when every target is read, or there are none", () => {
     expect(goalFacts(goal([stamp, stamp]), "emp-1").reads).toBeNull();
     expect(goalFacts(goal([]), "emp-1").reads).toBeNull();
   });
@@ -170,29 +170,29 @@ describe("the caption under the average", () => {
 describe("what is said under an objective's progress", () => {
   it("says a bar with nothing read is not a result", () => {
     expect(readCountLine({ read: 0, of: 3 })).toBe(
-      "0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.",
+      "0 of 3 targets read. Nothing is counted yet, so the figure above is not a result.",
     );
   });
 
-  it("does not say '0 of 1 measures' for an objective with one measure", () => {
+  it("does not say '0 of 1 targets' for an objective with one target", () => {
     expect(readCountLine({ read: 0, of: 1 })).toBe(
-      "Its measure has not been read. Nothing is counted yet, so the figure above is not a result.",
+      "Its target has not been read. Nothing is counted yet, so the figure above is not a result.",
     );
   });
 
   it("says the unread ones are left out, when some are read", () => {
     expect(readCountLine({ read: 1, of: 3 })).toBe(
-      "1 of 3 measures read. The others are left out of the figure above until somebody enters a reading.",
+      "1 of 3 targets read. The others are left out of the figure above until somebody enters a reading.",
     );
   });
 
-  it("labels the bar by what it is made of, not by how many measures there are", () => {
+  it("labels the bar by what it is made of, not by how many targets there are", () => {
     expect(progressLabel(0, null)).toBe("Progress, entered by hand");
-    expect(progressLabel(1, null)).toBe("Progress, from 1 measure");
-    expect(progressLabel(3, null)).toBe("Progress, from 3 measures");
+    expect(progressLabel(1, null)).toBe("Progress, from 1 target");
+    expect(progressLabel(3, null)).toBe("Progress, from 3 targets");
     /* "From 3 measures" would be false while two of them are left out. */
     expect(progressLabel(3, { read: 1, of: 3 })).toBe(
-      "Progress, from the measures read so far",
+      "Progress, from the targets read so far",
     );
     expect(progressLabel(3, { read: 0, of: 3 })).toBe(
       "Progress, nothing read yet",
@@ -200,7 +200,7 @@ describe("what is said under an objective's progress", () => {
   });
 });
 
-describe("the toast when a measure is added", () => {
+describe("the toast when a target is added", () => {
   const number = {
     label: "Customers",
     unit: "customers",
@@ -209,7 +209,7 @@ describe("the toast when a measure is added", () => {
     lowerIsBetter: false,
   };
 
-  it("says a done-or-not-done measure counts as not done until it is confirmed", () => {
+  it("says a done-or-not-done target counts as not done until it is confirmed", () => {
     const said = measureAddedSaid(
       {
         label: "Both engineers hired",

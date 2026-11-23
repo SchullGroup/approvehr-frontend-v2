@@ -341,7 +341,7 @@ describe("where HR's recommendation sits", () => {
     const rating = screen.getByRole("heading", { name: "The rating" });
     const reco = screen.getByRole("heading", { name: "HR's recommendation" });
     const mark = screen.getByRole("heading", {
-      name: "What the mark is made of",
+      name: "What the score is made of",
     });
     const reviews = screen.getByRole("heading", {
       name: "Self review and manager review",
@@ -354,7 +354,7 @@ describe("where HR's recommendation sits", () => {
   });
 });
 
-describe("what the mark is made of, when parts were left out", () => {
+describe("what the score is made of, when parts were left out", () => {
   const part = (
     component: string,
     label: string,

@@ -109,7 +109,7 @@ export function finalisedCopy({
     lead: ratingLabel
       ? `The rating for ${cycleName} is "${ratingLabel}".`
       : markShown
-        ? `${cycleName} has no overall mark, so ${first} will read the answers.`
+        ? `${cycleName} has no overall rating, so ${first} will read the answers.`
         : `${first} will read the answers.`,
     details,
   };

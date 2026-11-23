@@ -215,7 +215,7 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
             It is read by the people who can read the review and the
             person&apos;s work: the person, their manager, an assigned appraiser
             and HR. It is evidence to read beside a rating and never changes a
-            mark. A formal dispute of the rating keeps it a full period longer.
+            score. A formal dispute of the rating keeps it a full period longer.
           </p>
         </CardBody>
       </Card>

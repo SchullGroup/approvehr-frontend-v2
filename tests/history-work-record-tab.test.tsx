@@ -86,7 +86,7 @@ describe("the history page's two tabs", () => {
     open();
 
     expect(tab("Appraisal history")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Latest mark")).toBeInTheDocument();
+    expect(screen.getByText("Latest score")).toBeInTheDocument();
     expect(screen.queryByTestId("work-record-panel")).not.toBeInTheDocument();
   });
 
@@ -100,7 +100,7 @@ describe("the history page's two tabs", () => {
       "data-employee-id",
       "emp-1",
     );
-    expect(screen.queryByText("Latest mark")).not.toBeInTheDocument();
+    expect(screen.queryByText("Latest score")).not.toBeInTheDocument();
   });
 
   it("Appraisal history brings the history back and takes the work record off", async () => {
@@ -110,7 +110,7 @@ describe("the history page's two tabs", () => {
     await userEvent.click(tab("Appraisal history"));
 
     expect(tab("Appraisal history")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Latest mark")).toBeInTheDocument();
+    expect(screen.getByText("Latest score")).toBeInTheDocument();
     expect(screen.queryByTestId("work-record-panel")).not.toBeInTheDocument();
   });
 

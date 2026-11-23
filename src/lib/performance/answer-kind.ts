@@ -48,7 +48,7 @@ export const ANSWER_KINDS: readonly AnswerKind[] = [
  * ways, and so that none of them can promise a mark from a paragraph.
  */
 export const WRITTEN_NEVER_COUNTS =
-  "A written answer is read by people and never counts towards the mark.";
+  "A written answer is read by people and never counts towards the score.";
 
 /** What the API means by a subsection that does not say how it is answered. */
 export function answerKindOf(source: KindCarrier): AnswerKind {
@@ -394,18 +394,18 @@ export function directCounts(input: {
   if (input.section === null) {
     return {
       tone: "warning",
-      text: `This subsection is not filed under a section, so ${words.a} recorded on it counts towards no part of the mark.`,
+      text: `This subsection is not filed under a section, so ${words.a} recorded on it counts towards no part of the score.`,
     };
   }
   if (input.section.weightBp === undefined) return null;
   if (input.section.weightBp === null) {
     return {
       tone: "warning",
-      text: `${input.section.name} is not weighted, so ${words.a} recorded on this counts towards no part of the mark.`,
+      text: `${input.section.name} is not weighted, so ${words.a} recorded on this counts towards no part of the score.`,
     };
   }
   return {
     tone: "muted",
-    text: `${input.section.name} is ${weightLabel(input.section.weightBp)} of the mark, and ${words.a} recorded here counts towards it.`,
+    text: `${input.section.name} is ${weightLabel(input.section.weightBp)} of the score, and ${words.a} recorded here counts towards it.`,
   };
 }

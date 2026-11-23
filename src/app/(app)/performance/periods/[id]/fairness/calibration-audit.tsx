@@ -74,11 +74,11 @@ export function CalibrationAudit({ cycleId }: { cycleId: string }) {
       <Card>
         <CardHeader
           title="Calibration moves"
-          description="Marks adjusted after the manager stage closed. Shown here so the audit trail is visible before publishing."
+          description="Scores adjusted after the manager stage closed. Shown here so the audit trail is visible before publishing."
         />
         <CardBody>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="Marks moved" value={String(calibration.moved)} />
+            <Stat label="Scores moved" value={String(calibration.moved)} />
             <Stat label="Moved up" value={String(calibration.up)} />
             <Stat label="Moved down" value={String(calibration.down)} />
           </div>
@@ -126,7 +126,7 @@ export function CalibrationAudit({ cycleId }: { cycleId: string }) {
             <THead>
               <TH>Date</TH>
               <TH>Employee</TH>
-              <TH className="text-right">Mark</TH>
+              <TH className="text-right">Score</TH>
               <TH>By</TH>
               <TH>Reason</TH>
             </THead>

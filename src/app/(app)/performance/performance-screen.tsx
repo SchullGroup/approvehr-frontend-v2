@@ -149,7 +149,7 @@ function ChangeMarks({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       className="text-body-sm text-accent-text hover:underline"
     >
-      Change how marks are made up
+      Change how scores are made up
     </button>
   );
 }

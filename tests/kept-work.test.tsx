@@ -275,7 +275,7 @@ describe("the record", () => {
     expect(screen.getByText("3 tasks finished")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Finished on the project boards, 1 Jul 2026 to 31 Dec 2026, as it stood on 1 Nov 2026, when the rating was made final\. It does not change if tasks are reopened or removed later, and it does not change the mark/,
+        /Finished on the project boards, 1 Jul 2026 to 31 Dec 2026, as it stood on 1 Nov 2026, when the rating was made final\. It does not change if tasks are reopened or removed later, and it does not change the score/,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(LIVE)).not.toBeInTheDocument();

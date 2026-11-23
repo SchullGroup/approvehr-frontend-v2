@@ -364,6 +364,6 @@ describe("what it says about what is kept", () => {
     expect(
       screen.getByText("Anything, while Projects is switched off"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/never changes a mark/)).toBeInTheDocument();
+    expect(screen.getByText(/never changes a score/)).toBeInTheDocument();
   });
 });

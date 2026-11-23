@@ -101,7 +101,7 @@ export function WorkInAnswersCard({ connected }: { connected: boolean }) {
             <>
               <Switch
                 label="Let people use their own project work in their review answers"
-                description="They can pin finished tasks to an answer with a note, flag an item as wrong, and see colleagues who shared a project first when feedback is asked for. It is evidence to read and never changes a mark."
+                description="They can pin finished tasks to an answer with a note, flag an item as wrong, and see colleagues who shared a project first when feedback is asked for. It is evidence to read and never changes a score."
                 checked={on}
                 disabled={!features.editable || saving}
                 onChange={(event) => {
@@ -169,7 +169,7 @@ export function WorkInAnswersCard({ connected }: { connected: boolean }) {
           <div>
             <p className="font-medium text-ink">What it never does</p>
             <ul className="mt-2 list-disc pl-5">
-              <li>Change a mark, a score, a band or a rank</li>
+              <li>Change a score, a band or a rank</li>
               <li>Save a task title with an attached task</li>
               <li>Remove anything from the finished-work list</li>
               <li>Choose anybody for anybody: a person still picks</li>
@@ -210,7 +210,7 @@ export function WorkInAnswersCard({ connected }: { connected: boolean }) {
               </li>
               <li>
                 A person can flag an item on their list as wrong. It does not
-                remove the item or change a mark.
+                remove the item or change a score.
               </li>
               <li>
                 When feedback is asked for, or an appraiser is chosen, the

@@ -37,7 +37,7 @@ export const PIN_PURPOSE =
 
 /** Said wherever a person is about to pin: it is their choice, and it moves no mark. */
 export const PIN_NO_MARK =
-  "It does not change your mark, and nothing is added or graded for you.";
+  "It does not change your score, and nothing is added or graded for you.";
 
 /** The limit, as a sentence that is true at every count. */
 export function pinCountLine(count: number): string {
@@ -184,7 +184,7 @@ export function orderBySharedProjects<T extends { id: string }>(
 
 /** What a flag is and is not, said beside the control that raises one. */
 export const FLAG_PURPOSE =
-  "This tells whoever reads your work that an item is not right. It does not remove it from the list and it does not change your mark.";
+  "This tells whoever reads your work that an item is not right. It does not remove it from the list and it does not change your score.";
 
 /** The reason, or why it cannot be sent yet. Empty is not a problem to shout about, just not ready. */
 export function reasonProblem(reason: string): string | null {

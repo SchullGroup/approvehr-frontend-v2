@@ -96,7 +96,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       notYet: "No manager review is due yet",
     },
     {
-      label: "Marks final",
+      label: "Scores final",
       stage: "CALIBRATION",
       done: report?.marks.finalised ?? 0,
       total: report?.marks.people ?? 0,
@@ -109,7 +109,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       /* You can only answer a mark you have been told, so the denominator is
          what has been finalised — not the headcount. */
       total: report?.marks.finalised ?? 0,
-      notYet: "No mark is final yet",
+      notYet: "No score is final yet",
     },
   ];
 }

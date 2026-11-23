@@ -372,7 +372,7 @@ function NotOnTheMap({ grid }: { grid: ApiNineBox }) {
   if (waiting.length === 0) return null;
   return (
     <Disclosure
-      title="No mark yet"
+      title="No score yet"
       meta={<span className="text-meta text-muted">{waiting.length}</span>}
       level={2}
     >

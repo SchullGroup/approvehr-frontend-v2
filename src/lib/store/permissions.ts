@@ -324,7 +324,7 @@ const DEMO_COPY: Record<
   VIEW_FAIRNESS: {
     label: "See the fairness check",
     description:
-      "How an appraisal period's marks compare by gender, age, time at the company, location, contract type and department. Group averages only, never one person's.",
+      "How an appraisal period's scores compare by gender, age, time at the company, location, contract type and department. Group averages only, never one person's.",
     section: "people",
   },
   SEE_ALL_WORK: {

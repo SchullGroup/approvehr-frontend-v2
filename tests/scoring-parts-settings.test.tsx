@@ -190,7 +190,7 @@ describe("a company with parts", () => {
     ).toBeInTheDocument();
     /* At a total of 100% the share is the weight, and is said once (L14). */
     expect(screen.getByText("60%")).toBeInTheDocument();
-    expect(screen.queryByText("60% of a mark")).toBeNull();
+    expect(screen.queryByText("60% of a score")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Edit Delivery" }),
     ).toBeInTheDocument();
@@ -206,7 +206,7 @@ describe("a company with parts", () => {
       { id: "p-2", source: "LEADERSHIP", name: "Leading", weightBp: 6000 },
     ]);
     mount();
-    expect(screen.getAllByText("50% of a mark")).toHaveLength(2);
+    expect(screen.getAllByText("50% of the score")).toHaveLength(2);
   });
 
   it("does not offer a source another part already uses", async () => {

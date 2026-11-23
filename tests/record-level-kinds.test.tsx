@@ -429,7 +429,7 @@ describe("the appraisal period", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("says, once one is chosen, that it counts towards the mark, for every kind", async () => {
+  it("says, once one is chosen, that it counts towards the score, for every kind", async () => {
     mount();
     await pickSkill("Customer feedback");
     await userEvent.selectOptions(
@@ -437,7 +437,7 @@ describe("the appraisal period", () => {
       "p-1",
     );
     expect(
-      screen.getByText(/Counts towards this person's mark for that period/),
+      screen.getByText(/Counts towards this person's score for that period/),
     ).toBeInTheDocument();
   });
 });

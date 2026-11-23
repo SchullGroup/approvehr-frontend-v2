@@ -194,9 +194,9 @@ export function ApprovalsScreen() {
                   hint="Nobody agrees their own, so yours are not here"
                 />
                 <Stat
-                  label="With a measure on them"
+                  label="With a target on them"
                   value={`${measured} of ${approvals.queue.length}`}
-                  hint="An objective with no measure is scored on a stated figure"
+                  hint="An objective with no target is scored on a stated figure"
                 />
               </StatGrid>
             )}
@@ -212,7 +212,7 @@ export function ApprovalsScreen() {
           <Card>
             <CardHeader
               title="Waiting to be agreed"
-              description="Once you agree it, the target is fixed. Progress can still change, but changing the target itself means reopening it with a recorded reason."
+              description="Once you agree it, it is fixed. Progress can still change, but changing the objective itself means reopening it with a recorded reason."
             />
             <LoadState
               loading={approvals.loading}
@@ -274,9 +274,9 @@ export function ApprovalsScreen() {
             {agreeing?.ownerName ?? "The owner"} will be judged on this for{" "}
             {agreeing?.reviewCycleName ??
               quarterLabel(agreeing?.dueQuarter ?? null)}
-            . The target is fixed from now on. Progress can still change, but
-            changing the target itself needs a revision that records who changed
-            it and why.
+            . It is fixed from now on. Progress can still change, but changing
+            the objective itself needs a revision that records who changed it
+            and why.
           </span>
         }
         onConfirm={async () => {
@@ -398,7 +398,7 @@ function ObjectiveCard({
 
       {goal.keyResults.length === 0 ? (
         <p className="mt-3 text-body-sm text-body">
-          No measure on this one. It can be agreed, and its progress will be the
+          No target on this one. It can be agreed, and its progress will be the
           figure the owner states rather than one that counts itself.
         </p>
       ) : (
@@ -449,7 +449,7 @@ function ObjectiveCard({
                 )
               ) : measure.met ? (
                 <span className="ml-1.5 font-medium text-warning-text">
-                  · already at target
+                  · already met
                 </span>
               ) : hasNoReading(measure) ? (
                 <span className="ml-1.5 text-muted">

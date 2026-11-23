@@ -103,11 +103,11 @@ export function markPageWords(
 ): { title: string; lead: string } {
   if (!required) {
     return {
-      title: "Is there an overall mark?",
+      title: "Is there an overall rating?",
       lead: "Optional. Leave it if the answers say enough.",
     };
   }
-  const title = "Your overall mark";
+  const title = "Your overall rating";
   const share = appraiser?.markShareBp;
   if (appraiser && share !== undefined && share > 0) {
     if (appraiser.appraiserCount > 1) {
@@ -120,7 +120,7 @@ export function markPageWords(
     }
     return {
       title,
-      lead: `Needed. It counts for ${weightLabel(share)} of the mark in this period.`,
+      lead: `Needed. It counts for ${weightLabel(share)} of the score in this period.`,
     };
   }
   return { title, lead: "Needed. This period counts it towards the score." };
@@ -163,13 +163,13 @@ export function stillNeededLine(
 ): string | null {
   if (questions === 0) {
     return markMissing
-      ? "The overall mark still needs an answer before this can go."
+      ? "The overall rating still needs an answer before this can go."
       : null;
   }
   const counted =
     questions === 1 ? "1 question" : `${String(questions)} questions`;
   if (markMissing) {
-    return `${counted} and the overall mark still need an answer before this can go.`;
+    return `${counted} and the overall rating still need an answer before this can go.`;
   }
   return questions === 1
     ? "1 question still needs an answer before this can go."

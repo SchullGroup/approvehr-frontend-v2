@@ -177,7 +177,7 @@ export function AskPeersDialog({
 
         <p className="text-body-sm leading-relaxed text-body">
           Each one gets their own form about {subjectName}. Their answers count
-          towards the mark only if they are an appraiser with a share of it;
+          towards the score only if they are an appraiser with a share of it;
           otherwise they are read as feedback beside it.
         </p>
         {anyShared && (

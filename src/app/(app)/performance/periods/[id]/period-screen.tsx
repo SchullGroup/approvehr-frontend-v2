@@ -157,13 +157,13 @@ const STAGE_AFTER: Partial<Record<ReviewCycleStage, ReviewCycleStage>> = {
 
 const STAGE_NEXT_LABEL: Record<string, string> = {
   MANAGER: "manager reviews",
-  CALIBRATION: "checking marks",
+  CALIBRATION: "checking scores",
 };
 
 /** What the main button says for the move out of the current stage. */
 const NEXT_BUTTON: Record<string, string> = {
   MANAGER: "Open manager reviews",
-  CALIBRATION: "Check marks",
+  CALIBRATION: "Check scores",
 };
 
 type PeriodTabId = "overview" | "questions" | "marks" | "settings";
@@ -331,7 +331,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         detail:
           nextStage === "MANAGER"
             ? "Managers write their reviews now. Self-reviews already in are kept."
-            : "Marks are in. Nothing more is asked of anyone until you publish.",
+            : "Scores are in. Nothing more is asked of anyone until you publish.",
       });
       detail.reload();
     } catch (error) {
@@ -350,7 +350,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         tone: "success",
         detail:
           result.unscored.length > 0
-            ? `${result.unscored.length} ${result.unscored.length === 1 ? "person finishes" : "people finish"} with no mark: ${result.unscored.join(", ")}.`
+            ? `${result.unscored.length} ${result.unscored.length === 1 ? "person finishes" : "people finish"} with no score: ${result.unscored.join(", ")}.`
             : "People can now read what their manager wrote about them.",
       });
       detail.reload();
@@ -589,7 +589,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             items={[
               ...(questionsTab ? [] : [{ id: "overview", label: "Overview" }]),
               ...(canManage ? [{ id: "questions", label: "Questions" }] : []),
-              ...(draft ? [] : [{ id: "marks", label: "Marks" }]),
+              ...(draft ? [] : [{ id: "marks", label: "Scores" }]),
               ...(canManage ? [{ id: "settings", label: "Settings" }] : []),
             ]}
             value={periodTab}
@@ -636,7 +636,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                       variant="ghost"
                       onClick={() => setShowingMakeup(true)}
                     >
-                      How the mark is made up
+                      How the score is made up
                     </Button>
                   </div>
                   <Register
@@ -715,7 +715,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         <Modal
           open
           onClose={() => setShowingMakeup(false)}
-          title="How the mark is made up"
+          title="How the score is made up"
           size="md"
           footer={
             <Button onClick={() => setShowingMakeup(false)}>Close</Button>
@@ -807,7 +807,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           title="Share the results?"
           confirmLabel="Share them"
           tone="primary"
-          body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no mark finishes with none.`}
+          body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no score finishes with none.`}
         />
       )}
 
@@ -1032,7 +1032,7 @@ function QuestionsPanel({
             <CardHeader title="Questions" />
             <CardBody className="flex flex-col gap-3">
               <p className="text-meta text-muted">
-                Read by managers. Not part of the mark.
+                Read by managers. Not part of the score.
               </p>
               <ul className="flex flex-col gap-2">
                 {extra.map((q) => (
@@ -1262,7 +1262,7 @@ function Register({
   if (register.rows.length === 0) {
     return (
       <Card>
-        <CardHeader title="Where the marks stand" />
+        <CardHeader title="Where the scores stand" />
         <EmptyState
           compact
           icon={<UserX aria-hidden="true" />}
@@ -1276,13 +1276,13 @@ function Register({
   return (
     <Card>
       <CardHeader
-        title="Where the marks stand"
+        title="Where the scores stand"
         description={
           register.weightsFrom === "period"
             ? `${weightsFromNote("period")} Totalling ${weightLabel(register.weightsTotalBp)}. They lock in when the period starts.`
             : register.weightsFrom === "snapshot"
-              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
-              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
+              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these scores.`
+              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -1408,7 +1408,7 @@ function RegisterRow({
       <TD align="right">
         {/* Absent is absent. Nothing recorded is not a mark of nought. */}
         {row.scoreBp === null ? (
-          <span className="text-muted">No mark</span>
+          <span className="text-muted">No score</span>
         ) : (
           <>
             <span className="inline-flex items-center justify-end gap-1.5">
@@ -1419,7 +1419,7 @@ function RegisterRow({
                 <InfoTooltip
                   id={`mark-parts-${row.employeeId}`}
                   text={breakdownSentence(row.components)}
-                  label={`How ${row.employeeName}’s mark is made up`}
+                  label={`How ${row.employeeName}’s score is made up`}
                 />
               )}
             </span>
@@ -1464,7 +1464,7 @@ function RegisterRow({
       {canCalibrate && (
         <TD>
           {row.scoreBp === null ? (
-            <span className="text-meta text-muted">No mark yet</span>
+            <span className="text-meta text-muted">No score yet</span>
           ) : (
             <CalibrateButton cycleId={cycleId} row={row} onChanged={onAsked} />
           )}
@@ -1522,7 +1522,7 @@ function RegisterCard({
         </div>
         <div className="shrink-0 text-right">
           {row.scoreBp === null ? (
-            <span className="text-body-sm text-muted">No mark</span>
+            <span className="text-body-sm text-muted">No score</span>
           ) : (
             <span className="tabular font-medium text-ink">
               {scoreLabel(row.scoreBp)}
@@ -1567,7 +1567,7 @@ function RegisterCard({
           )}
           {canCalibrate &&
             (row.scoreBp === null ? (
-              <span className="text-meta text-muted">No mark yet</span>
+              <span className="text-meta text-muted">No score yet</span>
             ) : (
               <CalibrateButton
                 cycleId={cycleId}
@@ -2057,7 +2057,7 @@ function AppraiseLeadersToggle({
       <p className="text-meta text-muted">
         Off for both by default. Whoever is left out still appraises their own
         team. They just do not get a form of their own, so they are not left
-        with no mark.
+        with no score.
       </p>
     </div>
   );
@@ -2102,7 +2102,7 @@ function CalibrateButton({
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        {row.calibration ? "Change it" : "Change the mark"}
+        {row.calibration ? "Change it" : "Change the score"}
       </Button>
       <CalibrateDialog
         open={open}

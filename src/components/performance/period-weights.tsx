@@ -190,7 +190,7 @@ export function PeriodWeights({
   return (
     <section className="flex flex-col gap-3" aria-labelledby="weights-heading">
       <h3 id="weights-heading" className="text-body-sm font-medium text-ink">
-        How the mark is made up
+        How the score is made up
       </h3>
       <WeightsPie
         fixed={readOnly}
@@ -279,7 +279,7 @@ export function PeriodWeights({
 
       {parts.includes("MANAGER_APPRAISAL") && (
         <p className="text-meta text-muted">
-          If no appraiser has sent an overall mark for someone, the{" "}
+          If no appraiser has sent an overall rating for someone, the{" "}
           {labelOf("MANAGER_APPRAISAL")} share is spread over the other parts.
         </p>
       )}
