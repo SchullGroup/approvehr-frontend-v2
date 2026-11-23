@@ -386,7 +386,7 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
             rechecking={imp.progress !== null}
             /* The step's own button now submits directly — see the file
                header for why there is no separate confirm step any more. */
-            onConfirm={() => void imp.runImport()}
+            onConfirm={(options) => void imp.runImport(options)}
             confirming={imp.progress !== null}
           />
         )}
