@@ -106,7 +106,6 @@ const SECTION_OF: Record<string, string> = {
   "core-hr/Probation": "Lifecycle",
   "core-hr/Promotions": "Lifecycle",
   "core-hr/Exit management": "Lifecycle",
-  "core-hr/Surveys": "Engagement",
   "core-hr/One-to-ones": "Engagement",
   "core-hr/Documents": "Records",
   "core-hr/Signatures": "Records",
@@ -462,13 +461,6 @@ const KEYWORDS: Record<string, string[]> = {
   ],
   "core-hr/Onboarding": ["new hire", "new starter", "joiner", "induction"],
   "core-hr/Probation": ["confirmation", "trial period", "confirm"],
-  "core-hr/Surveys": [
-    "feedback",
-    "pulse",
-    "questionnaire",
-    "engagement",
-    "poll",
-  ],
   "core-hr/Promotions": ["promote", "raise", "transfer", "regrade", "career"],
   "core-hr/Exit management": [
     "offboarding",

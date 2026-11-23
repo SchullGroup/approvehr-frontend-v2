@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `4359f567` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `15d06508` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -34,11 +34,11 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — `/settings`](#screens--settings)                                                        |      109 |        110 |       1 |        10 |
 | [Screens — `/approvals`](#screens--approvals)                                                      |        2 |          2 |       0 |         0 |
 | [Screens — `/assistant`](#screens--assistant)                                                      |        2 |          2 |       0 |         0 |
-| [Screens — the rest of the signed-in app](#screens--the-rest-of-the-signed-in-app)                 |       43 |         47 |       0 |         2 |
+| [Screens — the rest of the signed-in app](#screens--the-rest-of-the-signed-in-app)                 |       43 |         47 |       0 |         3 |
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       48 |         53 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1361** |   **1129** | **472** |  **1727** |
+| **Total**                                                                                          | **1361** |   **1129** | **472** |  **1728** |
 
 ---
 
@@ -1507,7 +1507,7 @@ Everything else under `src/app/(app)`.
 | `src/app/(app)/profile/profile-screen.tsx`        | `ProfileScreen`                                                               | —     | —              | —                |
 | `src/app/(app)/profile/tabs.ts`                   | —                                                                             | —     | `isProfileTab` | 1 const · 1 type |
 | `src/app/(app)/profile/text-messages-card.tsx`    | `TextMessagesCard`                                                            | —     | —              | —                |
-| `src/app/(app)/surveys/answer-dialog.tsx`         | `AnswerDialog`                                                                | —     | —              | —                |
+| `src/app/(app)/surveys/answer-dialog.tsx`         | `AnswerDialog`                                                                | —     | `scaleLabel`   | —                |
 | `src/app/(app)/surveys/page.tsx`                  | `SurveysPage`                                                                 | —     | —              | 1 const          |
 | `src/app/(app)/surveys/results-panel.tsx`         | `ResultsPanel`                                                                | —     | —              | —                |
 | `src/app/(app)/surveys/surveys-screen.tsx`        | `SurveysScreen`                                                               | —     | —              | —                |
