@@ -262,10 +262,9 @@ describe("giving kudos", () => {
     const dialog = await open();
 
     await userEvent.click(screen.getByRole("option", { name: /Tunde Bello/ }));
+    /* The words follow the switch (UAT 23 Nov, U108): on to begin with. */
     expect(
-      within(dialog).getByText(
-        "Off, and only you and Tunde Bello can read it.",
-      ),
+      within(dialog).getByText("On: everyone in the company can read it."),
     ).toBeInTheDocument();
     await userEvent.type(
       within(dialog).getByLabelText(/What for/),
@@ -274,6 +273,9 @@ describe("giving kudos", () => {
     await userEvent.click(
       within(dialog).getByRole("switch", { name: "Share on the company feed" }),
     );
+    expect(
+      within(dialog).getByText("Off: only you and Tunde Bello can read it."),
+    ).toBeInTheDocument();
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Send kudos" }),
     );
@@ -319,9 +321,7 @@ describe("giving kudos", () => {
       "Zainab Okafor",
     );
     expect(
-      within(dialog).getByText(
-        "Off, and only you and Zainab Okafor can read it.",
-      ),
+      within(dialog).getByText("On: everyone in the company can read it."),
     ).toBeInTheDocument();
     await userEvent.type(within(dialog).getByLabelText(/What for/), "Thanks");
     await userEvent.click(
