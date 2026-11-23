@@ -13,6 +13,7 @@ import { usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
+import { BirthdayLine } from "./birthday-line";
 import { CompleteDetailsPrompt } from "./complete-details";
 import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
@@ -181,6 +182,12 @@ export function DashboardScreen() {
       />
 
       <PageBody>
+        {/* Under the greeting, and nothing on every day but one. The wrapper
+            takes itself out of the page when the line draws nothing, so there
+            is no gap above the rows on an ordinary day. */}
+        <div className="mb-4 empty:hidden">
+          <BirthdayLine />
+        </div>
         <SetupPrompt />
         <CompleteDetailsPrompt />
 
