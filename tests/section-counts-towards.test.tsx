@@ -113,9 +113,7 @@ describe("what a section counts towards", () => {
 
   it("is offered when a section is created", async () => {
     show();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Add a group" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Add a group" }));
     await userEvent.type(screen.getByLabelText("New section"), "Our values");
     await userEvent.selectOptions(
       screen.getByLabelText("What the new section counts towards"),
