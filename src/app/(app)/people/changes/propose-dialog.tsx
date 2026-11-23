@@ -7,23 +7,25 @@ import {
   Field,
   Input,
   Modal,
+  SearchPicker,
   Select,
   Textarea,
   useToast,
+  type PickerOption,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type {
   ApiFieldSnapshot,
   EmploymentChangeBody,
 } from "@/lib/api/endpoints";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useEmployee, useEmployeeSearch } from "@/lib/store/employees-api";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmploymentChangeActions } from "@/lib/store/employment-changes";
 import { useOrgTimezone } from "@/lib/store/session";
 import { money } from "@/lib/pay/flags";
 import { todayIn } from "@/lib/time";
 
-type Kind = EmploymentChangeBody["kind"];
+export type Kind = EmploymentChangeBody["kind"];
 
 const KINDS: { id: Kind; label: string; hint: string }[] = [
   {
@@ -68,16 +70,35 @@ const KINDS: { id: Kind; label: string; hint: string }[] = [
  * date almost always is and, more to the point, is never accidentally today:
  * a date left at today's would apply the moment it is approved, which is the
  * behaviour this design exists to avoid doing by accident.
+ *
+ * ## Who
+ *
+ * A search over the whole company, not a select of the directory's first page,
+ * which stopped at 25 people (U18). The record page opens it for one person,
+ * with the kind of change already chosen, which is how pay, title and
+ * department are changed there (U14).
  */
-export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
+export function ProposeChangeDialog({
+  onClose,
+  person: fixedPerson,
+  kind: initialKind = "PROMOTION",
+}: {
+  onClose: () => void;
+  /** Opened from somebody's record: the person is not chosen here. */
+  person?: { id: string; name: string };
+  kind?: Kind;
+}) {
   const { propose, readOnly } = useEmploymentChangeActions();
-  const directory = useEmployeeDirectory();
+  const search = useEmployeeSearch();
   const departments = useDepartments();
   const toast = useToast();
   const timeZone = useOrgTimezone();
 
-  const [employeeId, setEmployeeId] = useState("");
-  const [kind, setKind] = useState<Kind>("PROMOTION");
+  const [chosen, setChosen] = useState<PickerOption | null>(
+    fixedPerson ? { value: fixedPerson.id, label: fixedPerson.name } : null,
+  );
+  const employeeId = chosen?.value ?? "";
+  const [kind, setKind] = useState<Kind>(initialKind);
   const [effectiveOn, setEffectiveOn] = useState(() =>
     firstOfNextMonth(timeZone),
   );
@@ -88,10 +109,9 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const person = useMemo(
-    () => directory.employees.find((row) => row.id === employeeId),
-    [directory.employees, employeeId],
-  );
+  /* The full record, for what they are paid and called now. The search
+     answers with names only. */
+  const person = useEmployee(employeeId).employee;
 
   const kindHint = KINDS.find((k) => k.id === kind)?.hint ?? "";
 
@@ -129,7 +149,7 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
       await propose({ employeeId, kind, effectiveOn, to, note: note.trim() });
       toast.push({
         tone: "success",
-        title: `Proposed for ${person ? `${person.firstName} ${person.lastName}` : "them"}`,
+        title: `Proposed for ${chosen?.label ?? "them"}`,
         detail:
           "It is waiting for somebody who can approve employment changes.",
       });
@@ -169,19 +189,27 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Who" required>
-          <Select
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.currentTarget.value)}
-          >
-            <option value="">Choose somebody</option>
-            {directory.employees.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.firstName} {row.lastName} — {row.jobTitle}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {fixedPerson ? (
+          <div>
+            <p className="text-meta text-muted">Who</p>
+            <p className="mt-0.5 text-body-sm text-ink">{fixedPerson.name}</p>
+          </div>
+        ) : (
+          <Field label="Who" required>
+            <SearchPicker
+              selected={chosen}
+              onSelect={setChosen}
+              onQueryChange={search.search}
+              options={search.options}
+              pending={search.pending}
+              failed={search.failed}
+              onRetry={search.retry}
+              more={search.more}
+              placeholder="Search for somebody"
+              aria-label="Who"
+            />
+          </Field>
+        )}
 
         <Field label="What kind of change" help={kindHint}>
           <Select
