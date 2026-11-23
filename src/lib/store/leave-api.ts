@@ -271,6 +271,9 @@ export type LeaveDetailState = {
   detail: LeaveDetail | null;
   loading: boolean;
   connected: boolean;
+  /** The API's own sentence when it refused this request to this reader (403):
+   *  "not yours", not "withdrawn" (L30). */
+  refused?: string | null;
 };
 
 /**
@@ -296,6 +299,7 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
   const [fetched, setFetched] = useState<{
     id: string;
     detail: LeaveDetail | null;
+    refused?: string | null;
   } | null>(null);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
@@ -308,8 +312,16 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
       try {
         const detail = await leaveApi.get(id);
         if (!cancelled) setFetched({ id, detail });
-      } catch {
-        if (!cancelled) setFetched({ id, detail: null });
+      } catch (error) {
+        if (!cancelled)
+          setFetched({
+            id,
+            detail: null,
+            refused:
+              error instanceof ApiError && error.status === 403
+                ? error.message
+                : null,
+          });
       }
     })();
     return () => {
@@ -362,6 +374,7 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
     detail: matched ? fetched.detail : null,
     loading: active && !matched,
     connected: true,
+    refused: matched ? (fetched.refused ?? null) : null,
   };
 }
 

@@ -30,3 +30,16 @@ export function resumeIndex(
   const next = questions.findIndex((question) => question.step > step);
   return next === -1 ? questions.length - 1 : next;
 }
+
+/**
+ * The first sentence of an answer's consequence, and the rest (L36). The
+ * consequence is the API's own legal sentence and is not reworded here; the
+ * wizard shows the first sentence on the answer and the rest behind "More",
+ * because four grey lines under each "No" slowed a new owner down.
+ */
+export function firstSentence(text: string): { first: string; rest: string } {
+  const match = /^([^]+?[.!?])\s+([^]+)$/.exec(text.trim());
+  return match
+    ? { first: match[1]!, rest: match[2]! }
+    : { first: text.trim(), rest: "" };
+}

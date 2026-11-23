@@ -122,6 +122,33 @@ export type ApiCoverage = {
  * deciding what to write down about another person, and whether the other
  * person will see it changes what they write.
  */
+/**
+ * Where one meeting stands (U109). A meeting whose day has passed without
+ * being marked held is "missed", not "upcoming": it said "Coming up" with
+ * "Cancel it" a month after its date. `today` is the company's own day.
+ */
+export function meetingState(
+  meeting: Pick<ApiOneOnOneMeeting, "scheduledFor" | "heldAt">,
+  today: string,
+): "held" | "missed" | "upcoming" {
+  if (meeting.heldAt) return "held";
+  return meeting.scheduledFor.slice(0, 10) < today ? "missed" : "upcoming";
+}
+
+/** Titled with the other person: the manager for the employee, and the
+ *  employee for the manager (U109). */
+export function oneOnOneTitle(
+  series: Pick<
+    ApiOneOnOne,
+    "managerId" | "managerName" | "employeeId" | "employeeName"
+  >,
+  me: string | null,
+): string {
+  return me !== null && me === series.employeeId
+    ? `With ${series.managerName}`
+    : `With ${series.employeeName}`;
+}
+
 export const SHARED_NOTES_NOTE =
   "Both of you can read and edit these notes. There is no private half.";
 

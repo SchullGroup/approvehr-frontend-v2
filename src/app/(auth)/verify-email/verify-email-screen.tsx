@@ -6,6 +6,7 @@ import { ApiError, onAuthChange, tokens } from "@/lib/api/client";
 import { Button, ButtonLink, Callout, Illustration } from "@/components/ui";
 import { account, type DeliveryHint } from "@/lib/api/account";
 import { DeliveryNote } from "@/components/portal/delivery-note";
+import { auth } from "@/lib/api/endpoints";
 
 /**
  * Confirming an email address.
@@ -77,6 +78,20 @@ export function VerifyEmailScreen({ token }: { token: string | null }) {
         const result = await account.confirmEmail(token);
         setPhase({ kind: "confirmed", email: result.email });
       } catch (caught) {
+        /* A spent link opened by somebody already confirmed, the second
+           click on the email, is not a failure (L32). Asked of the account
+           this browser is signed in to; anybody else gets the refusal. */
+        if (tokens.has()) {
+          try {
+            const me = await auth.me();
+            if (typeof me.emailVerifiedAt === "string") {
+              setPhase({ kind: "already" });
+              return;
+            }
+          } catch {
+            /* Not signed in after all, or offline: say the link is spent. */
+          }
+        }
         setPhase({
           kind: "dead",
           message:

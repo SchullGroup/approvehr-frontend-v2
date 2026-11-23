@@ -965,6 +965,7 @@ export function LeaveScreen() {
         onClose={() => setOpenId(null)}
         loading={detail.loading}
         detail={detail.detail}
+        refused={detail.refused}
         actionsFor={actionsFor}
         canWithdraw={canWithdraw}
         onApprove={setApproving}
@@ -1144,6 +1145,7 @@ function RequestPanel({
   onClose,
   loading,
   detail,
+  refused,
   actionsFor,
   canWithdraw,
   onApprove,
@@ -1157,6 +1159,8 @@ function RequestPanel({
   onClose: () => void;
   loading: boolean;
   detail: ReturnType<typeof useLeaveRequestDetail>["detail"];
+  /** The API's sentence when it refused this request to this reader (L30). */
+  refused?: string | null | undefined;
   /** Who is reading, so the files know whether this is their own leave. */
   readerEmployeeId: string | null;
   /** Holds `APPROVE_LEAVE_ALL`. */
@@ -1288,7 +1292,8 @@ function RequestPanel({
 
       {!loading && !request && (
         <p className="text-body-sm text-muted">
-          That request is no longer here. It may have been withdrawn.
+          {refused ??
+            "That request is no longer here. It may have been withdrawn."}
         </p>
       )}
 

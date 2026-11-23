@@ -72,6 +72,8 @@ export type EmployeeDraft = {
   workLocationId: string;
 
   jobTitle: string;
+  /** The Job roles catalogue row chosen, or "". Never inferred from the title (U47). */
+  jobRoleId: string;
   departmentId: string;
   /**
    * The access role the invitation will carry.
@@ -135,6 +137,7 @@ export const BLANK_DRAFT: EmployeeDraft = {
   gender: "",
   workLocationId: "",
   jobTitle: "",
+  jobRoleId: "",
   departmentId: "",
   accessRoleId: "",
   managerId: "",
@@ -189,12 +192,12 @@ const EMPTY: Stored = {
  * than merely lacking a value for it, so `draft.middleName.trim()` would throw
  * on `undefined` if it were half-restored instead of dropped.
  *
- * 3 adds `gender`, for the same reason.
+ * 3 adds `gender`, for the same reason, and 4 adds `jobRoleId`.
  */
 const store = createPersistedState<Stored>({
   key: "approvehr.employee-draft.store",
   empty: EMPTY,
-  version: 3,
+  version: 4,
 });
 
 /* --------------------------------------------------------------------- hook */

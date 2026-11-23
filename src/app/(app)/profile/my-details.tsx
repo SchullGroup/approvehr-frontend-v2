@@ -339,9 +339,19 @@ export function MyDetails({
       null,
   );
   const [busy, setBusy] = useState(false);
+  /* The API's own message for each field it refused, shown under that field
+     rather than only in a toast (U61). Cleared as the field is changed. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const set = (key: keyof Draft, value: string) =>
+  const set = (key: keyof Draft, value: string) => {
     setDraft((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => {
+      if (!(key in current)) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
 
   /* Only what moved. Sending the whole draft would raise an approval for every
      sensitive field on the record every time somebody corrects their phone. */
@@ -387,13 +397,24 @@ export function MyDetails({
     setBusy(false);
 
     if (!result.ok) {
+      const onFields = Object.fromEntries(
+        (result.error?.fieldErrors ?? []).map((one) => [
+          one.field,
+          one.message,
+        ]),
+      );
+      setFieldErrors(onFields);
       toast.push({
         title: "That did not save",
         tone: "danger",
-        detail: result.error?.message ?? SELF_SERVICE_OFFLINE,
+        detail:
+          Object.keys(onFields).length > 0
+            ? "Check the fields marked below."
+            : (result.error?.message ?? SELF_SERVICE_OFFLINE),
       });
       return;
     }
+    setFieldErrors({});
 
     const { applied, pending: raised, refused } = result.outcome;
     pending.reload();
@@ -556,6 +577,7 @@ export function MyDetails({
                         key={key}
                         label={LABEL[key]}
                         required={isRequired(key)}
+                        error={fieldErrors[key]}
                         {...(waiting.has(key)
                           ? {
                               /* The API's own masked summary — "••••4471 →
