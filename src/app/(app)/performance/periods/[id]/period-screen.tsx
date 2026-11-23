@@ -52,6 +52,8 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
+  EXCEPTION_CODE_SUMMARY,
+  groupExceptionsByCode,
   outOf5FromBp,
   outOf5Label,
   ratingWordsFrom,
@@ -60,6 +62,7 @@ import {
   visibleComponents,
   weightLabel,
   weightsFromNote,
+  type ApiAppraiserMap,
   type ApiComponentScore,
   type ApiCycle,
   type ApiCycleParticipants,
@@ -614,6 +617,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                         participants={detail.participants}
                         onShowLeft={() => setShowingLeft(true)}
                       />
+                      <NobodyAppraising
+                        cycleId={cycleId}
+                        exceptions={detail.exceptions}
+                      />
                       <MultiAppraiserReviews
                         participants={detail.participants}
                       />
@@ -886,25 +893,68 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The people something is wrong with, by name, above everything else.
+ * The people something is wrong with, by name (UAT 23 Nov, U102 / PERF-23).
  *
- * `NO_APPRAISER` is a WARNING in a draft and a BLOCKER once the cycle is
- * running, which is the API's decision and the right one: colouring the whole
- * company red before anybody has started teaches people to ignore the colour.
+ * The period page said people nobody asked were "listed above" and listed
+ * nobody: the list had gone in a redesign and only its comment stayed. It is
+ * back, from the appraiser map's own exceptions (`NO_APPRAISER` and the rest),
+ * one line per kind of problem with the people named, and a link to Who
+ * appraises whom, where they are fixed. Nothing to fix draws nothing: the
+ * progress above already says what is in.
  *
- * An empty list is stated rather than left blank. "Everybody has an appraiser" is
- * a fact worth reading, and a card that simply disappears when the news is good
- * is a card nobody trusts when it comes back.
- *
- * ## One line per problem, not one line per person
- *
- * A company where nobody has been mapped yet can have thirty people sharing
- * the exact same `NO_APPRAISER` sentence, and thirty near-identical lines is
- * not thirty facts — it is one fact said thirty times. `groupExceptionsByCode`
- * collapses a repeated one to a count with a **Review and fix** button; a
- * genuinely different problem, or a lone occurrence of this one, still gets
- * its own full sentence. See its own header on `lib/api/performance.ts`.
+ * Named and not counted, because a count tells nobody who to go and look at;
+ * past eight names the rest are counted, and every one of them is on the page
+ * the link opens.
  */
+const NAMED = 8;
+
+function namesInLine(names: string[]): string {
+  if (names.length <= NAMED) {
+    return names.length === 1
+      ? names[0]!
+      : `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
+  }
+  const rest = names.length - NAMED;
+  return `${names.slice(0, NAMED).join(", ")} and ${rest} ${rest === 1 ? "other" : "others"}`;
+}
+
+function NobodyAppraising({
+  cycleId,
+  exceptions,
+}: {
+  cycleId: string;
+  exceptions: ApiAppraiserMap | null;
+}) {
+  if (!exceptions) return null;
+  const flat = exceptions.rows.flatMap((row) =>
+    row.exceptions.map((issue) => ({ ...issue, name: row.employeeName })),
+  );
+  if (flat.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {groupExceptionsByCode(flat).map((group) => {
+        const summary = EXCEPTION_CODE_SUMMARY[
+          group.code as keyof typeof EXCEPTION_CODE_SUMMARY
+        ](group.items.length);
+        return (
+          <NoticeLine key={`${group.code}-${group.severity}`}>
+            <span>
+              {`${summary.replace(/\.$/, "")}: ${namesInLine(group.items.map((item) => item.name))}.`}
+            </span>
+            <Link
+              href={`/performance/appraisers?period=${cycleId}`}
+              className={NOTICE_LINK}
+            >
+              Assign appraisers
+            </Link>
+          </NoticeLine>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Who has not sent a form yet, by name and by what is missing.
  *
