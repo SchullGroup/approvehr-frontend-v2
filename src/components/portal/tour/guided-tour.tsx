@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { DECIDING_PERMISSIONS } from "@/components/portal/nav";
 import { Button } from "@/components/ui";
 import { useDismiss } from "@/hooks/use-dismiss";
@@ -146,7 +146,37 @@ function visibleSteps(
    Only 5 and 6 are reachable — `MANAGE_SETTINGS` is the one thing left that
    changes the length — and the numeral is there so a seventh step cannot
    make this render "undefined things". */
-const WORD: Record<number, string> = { 5: "Five", 6: "Six" };
+const WORD: Record<number, string> = {
+  3: "Three",
+  4: "Four",
+  5: "Five",
+  6: "Six",
+};
+
+/** The width the header search appears at (`md:flex` in `shell.tsx`). */
+const WIDE = "(min-width: 768px)";
+
+/**
+ * Whether the header search is on screen. A phone has no search in its header,
+ * so the step about it is left out there (UAT 23 Nov, L28: SELF-19). Read
+ * through `useSyncExternalStore` so a rotation is heard, and `true` on the
+ * server, where there is no screen to ask.
+ */
+function useWideScreen(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      if (typeof window.matchMedia !== "function") return () => undefined;
+      const query = window.matchMedia(WIDE);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    /* A browser with no `matchMedia` is treated as wide: the step stays. */
+    () =>
+      typeof window.matchMedia !== "function" ||
+      window.matchMedia(WIDE).matches,
+    () => true,
+  );
+}
 
 /**
  * Exported so a test can hold every step's targets to something the sidebar
@@ -197,6 +227,9 @@ export const TOUR_STEPS: readonly Step[] = [
       '[data-tour="nav-item:/people/leave"]',
       '[data-tour="nav-group:time"]',
       '[data-tour="nav"]',
+      /* On a phone the sidebar is behind the menu button, so that is what
+         this points at rather than at nothing (UAT 23 Nov, L28). */
+      '[data-tour="nav-toggle"]',
     ],
     always: true,
   },
@@ -205,10 +238,12 @@ export const TOUR_STEPS: readonly Step[] = [
     title: "Waiting on you, and sent by you",
     /* Only for somebody who decides something: the sidebar has no My approvals
        row for anybody else (UAT 23 Nov, U57), so there is nothing to point at. */
+    /* Worded for anybody who decides something, not only an administrator: a
+       line manager deciding leave alone was told staff loans and payroll came
+       here too (UAT 23 Nov, L28: SELF-19). */
     body:
-      "Leave, expenses, staff loans and payroll all put what needs a " +
-      "decision in this one queue, oldest deadline first, so there is " +
-      "no module to remember to check.",
+      "Whatever needs your decision lands in this one queue, oldest " +
+      "deadline first, so there is no module to remember to check.",
     target: ['[data-tour="nav-item:/approvals"]', '[data-tour="nav"]'],
     always: true,
   },
@@ -303,12 +338,15 @@ export function GuidedTour() {
     return () => window.removeEventListener(TOUR_OPEN, onOpen);
   }, []);
 
+  const wide = useWideScreen();
   const steps = useMemo(
     () =>
       visibleSteps(TOUR_STEPS, permissions, features).filter(
-        (step) => step.id !== "approvals" || canApprove,
+        (step) =>
+          (step.id !== "approvals" || canApprove) &&
+          (step.id !== "search" || wide),
       ),
-    [permissions, features, canApprove],
+    [permissions, features, canApprove, wide],
   );
 
   /* Auto-opens only for a real account that has not seen it. `features` is
@@ -359,9 +397,15 @@ export function GuidedTour() {
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <Button variant="ghost" size="sm" onClick={close}>
-          {last ? "Done" : "Skip"}
-        </Button>
+        {/* One way out on the last step, Done, rather than Done beside Finish
+            (UAT 23 Nov, L28). */}
+        {last ? (
+          <span />
+        ) : (
+          <Button variant="ghost" size="sm" onClick={close}>
+            Skip
+          </Button>
+        )}
         <div className="flex gap-2">
           {index > 0 && (
             <Button
@@ -377,7 +421,7 @@ export function GuidedTour() {
             size="sm"
             onClick={() => (last ? close() : setStepId(steps[index + 1]!.id))}
           >
-            {last ? "Finish" : "Next"}
+            {last ? "Done" : "Next"}
           </Button>
         </div>
       </div>
