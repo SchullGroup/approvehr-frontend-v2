@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `1729151b` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `0f9562dc` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -17,7 +17,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       40 |         95 |       6 |        12 |
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       45 |         44 |       1 |        18 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       22 |         49 |       0 |         6 |
-| [Module components — `src/components/*`](#module-components--srccomponents)                        |      167 |        244 |      11 |        53 |
+| [Module components — `src/components/*`](#module-components--srccomponents)                        |      168 |        245 |      11 |        53 |
 | [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       77 |          0 |       0 |       283 |
 | [Data hooks — `src/lib/store`](#data-hooks--srclibstore)                                           |      104 |          0 |     383 |        97 |
 | [Seed data — `src/lib/mock`](#seed-data--srclibmock)                                               |       10 |          0 |       0 |        21 |
@@ -27,7 +27,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — `/people`](#screens--people)                                                            |      132 |        141 |       0 |        29 |
 | [Screens — `/payroll`](#screens--payroll)                                                          |       75 |         82 |       2 |        36 |
 | [Screens — `/performance`](#screens--performance)                                                  |       92 |        102 |       3 |        68 |
-| [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         69 |       1 |         9 |
+| [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
 | [Screens — `/projects`](#screens--projects)                                                        |       38 |         37 |       0 |         3 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
 | [Screens — `/reports`](#screens--reports)                                                          |       12 |         15 |       0 |         8 |
@@ -36,9 +36,9 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — `/assistant`](#screens--assistant)                                                      |        2 |          2 |       0 |         0 |
 | [Screens — the rest of the signed-in app](#screens--the-rest-of-the-signed-in-app)                 |       43 |         47 |       0 |         2 |
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        18 |
-| [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       46 |         51 |       0 |         6 |
+| [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       48 |         53 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1357** |   **1127** | **472** |  **1719** |
+| **Total**                                                                                          | **1360** |   **1131** | **472** |  **1719** |
 
 ---
 
@@ -212,6 +212,7 @@ Shared pieces owned by one module but used from more than one screen.
 | `src/components/hiring/people-editor.tsx`                  | `PeopleEditor`                                                                                                                          | —                                 | —                                                                                                                    | 1 type            |
 | `src/components/hiring/pipeline-filters.tsx`               | `PipelineFilters`                                                                                                                       | —                                 | —                                                                                                                    | —                 |
 | `src/components/hiring/pipeline-table.tsx`                 | `PipelineTable`                                                                                                                         | —                                 | —                                                                                                                    | —                 |
+| `src/components/hiring/publish-advert-dialog.tsx`          | `PublishAdvertDialog`                                                                                                                   | —                                 | —                                                                                                                    | —                 |
 | `src/components/hiring/record-comms.tsx`                   | `RecordEmails`, `InterviewScoreCard`, `DeletionNotice`                                                                                  | —                                 | —                                                                                                                    | —                 |
 | `src/components/hiring/record-tags.tsx`                    | `RecordTags`                                                                                                                            | —                                 | `cardFromDetail`                                                                                                     | —                 |
 | `src/components/hiring/reject-dialog.tsx`                  | `RejectDialog`                                                                                                                          | —                                 | —                                                                                                                    | 2 types           |
@@ -1232,7 +1233,7 @@ Screen components for the hiring module, including its dialogs and panels.
 | `src/app/(app)/hiring/requisitions/new/page.tsx`                                    | `NewRequisitionPage`                                          | —          | —                                          | 1 const          |
 | `src/app/(app)/hiring/requisitions/new/wizard.tsx`                                  | `RequisitionWizard`                                           | —          | —                                          | —                |
 | `src/app/(app)/hiring/settings/page.tsx`                                            | `HiringSettingsPage`                                          | —          | —                                          | —                |
-| `src/app/(app)/hiring/settings/settings-shell.tsx`                                  | `HiringSettingsShell`                                         | —          | —                                          | —                |
+| `src/app/(app)/hiring/settings/settings-shell.tsx`                                  | `HiringSettingsTabs`, `HiringSettingsShell`                   | —          | —                                          | 2 const          |
 | `src/app/(app)/hiring/settings/accepted-offers/accepted-offers-screen.tsx`          | `AcceptedOffersScreen`                                        | —          | —                                          | —                |
 | `src/app/(app)/hiring/settings/accepted-offers/page.tsx`                            | `AcceptedOffersPage`                                          | —          | —                                          | 1 const          |
 | `src/app/(app)/hiring/settings/emails/emails-screen.tsx`                            | `EmailsScreen`                                                | —          | —                                          | —                |
@@ -1575,6 +1576,8 @@ Screens that take the whole window, with no sidebar and no top bar. Today that i
 | `src/app/(auth)/reset-password/reset-password-screen.tsx`   | `ResetPasswordScreen`                                                                                                                            | —     | —                                          | —                |
 | `src/app/(auth)/verify-email/page.tsx`                      | `VerifyEmailPage`                                                                                                                                | —     | —                                          | 1 const          |
 | `src/app/(auth)/verify-email/verify-email-screen.tsx`       | `VerifyEmailScreen`                                                                                                                              | —     | —                                          | —                |
+| `src/app/(careers)/layout.tsx`                              | `CareersLayout`                                                                                                                                  | —     | —                                          | —                |
+| `src/app/(careers)/not-found.tsx`                           | `CareersNotFound`                                                                                                                                | —     | —                                          | 1 const          |
 | `src/app/(careers)/careers/[org]/page.tsx`                  | `CareersListingPage`                                                                                                                             | —     | —                                          | 2 const          |
 | `src/app/(careers)/careers/[org]/[role]/apply-form.tsx`     | `ApplyForm`                                                                                                                                      | —     | —                                          | —                |
 | `src/app/(careers)/careers/[org]/[role]/page.tsx`           | `RolePage`                                                                                                                                       | —     | `generateMetadata`                         | 1 const          |
