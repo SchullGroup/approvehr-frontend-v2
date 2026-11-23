@@ -42,6 +42,7 @@ import {
   type RowActionItem,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { PublishAdvertDialog } from "@/components/hiring/publish-advert-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
   EMPLOYMENT_TYPE_LABEL,
@@ -104,6 +105,7 @@ export function PostingsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the adverts"
               description="Applications hold a stranger's phone number and salary expectation, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -170,6 +172,15 @@ function Adverts() {
   const [editing, setEditing] = useState<ApiPosting | null>(null);
   const [creating, setCreating] = useState(false);
   const [closing, setClosing] = useState<ApiPosting | null>(null);
+  /* Kept apart from whether the dialog is open, so its title and preview do
+     not blank while it closes. */
+  const [publishing, setPublishing] = useState<ApiPosting | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const askToPublish = (posting: ApiPosting) => {
+    setPublishing(posting);
+    setPublishOpen(true);
+  };
   const [copied, setCopied] = useState<string | null>(null);
 
   const postings = usePostings(status === "ALL" ? {} : { status });
@@ -383,6 +394,7 @@ function Adverts() {
           >
             {rows.length === 0 ? (
               <EmptyState
+                mood={postings.postings.length === 0 ? "start" : "search"}
                 icon={<Megaphone aria-hidden="true" />}
                 title={
                   postings.postings.length === 0
@@ -427,12 +439,7 @@ function Adverts() {
                           copied={copied === posting.id}
                           onCopy={() => void copyLink(posting)}
                           onEdit={() => setEditing(posting)}
-                          onPublish={() =>
-                            void run(
-                              () => postings.publish(posting.id),
-                              `${posting.title} is live`,
-                            )
-                          }
+                          onPublish={() => askToPublish(posting)}
                           onClose={() => setClosing(posting)}
                         />
                       ))}
@@ -450,12 +457,7 @@ function Adverts() {
                       copied={copied === posting.id}
                       onCopy={() => void copyLink(posting)}
                       onEdit={() => setEditing(posting)}
-                      onPublish={() =>
-                        void run(
-                          () => postings.publish(posting.id),
-                          `${posting.title} is live`,
-                        )
-                      }
+                      onPublish={() => askToPublish(posting)}
                       onClose={() => setClosing(posting)}
                     />
                   ))}
@@ -493,6 +495,25 @@ function Adverts() {
         onUpdate={(id: string, body: UpdatePostingBody) =>
           run(() => postings.update(id, body), "Advert saved")
         }
+      />
+
+      <PublishAdvertDialog
+        posting={publishing}
+        open={publishOpen}
+        busy={publishBusy}
+        onClose={() => setPublishOpen(false)}
+        onPublish={() => {
+          if (!publishing) return;
+          const advert = publishing;
+          setPublishBusy(true);
+          void run(
+            () => postings.publish(advert.id),
+            `${advert.title} is live`,
+          ).then((done) => {
+            setPublishBusy(false);
+            if (done) setPublishOpen(false);
+          });
+        }}
       />
 
       <ConfirmDialog

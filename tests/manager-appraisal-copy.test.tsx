@@ -187,6 +187,14 @@ describe("How it works", () => {
     expect(screen.getAllByText("THE API'S MANAGER NOTE")).toHaveLength(1);
   });
 
+  /* UAT 23 Nov, U97 / PERF-22: disputes were removed in October, and the only
+     button on a final rating is "I have seen this". */
+  it("does not promise a formal disagreement nobody can make", () => {
+    render(<HowItWorksBody />);
+    expect(screen.queryByText(/formally disagree/)).toBeNull();
+    expect(screen.getByText(/tells HR/)).toBeInTheDocument();
+  });
+
   it("says nothing about the part where the server has none", () => {
     serve(null);
     render(<HowItWorksBody />);
@@ -268,5 +276,16 @@ describe("the appraiser mapping", () => {
     const line = FEATURE_COPY.multiAppraiser.line;
     expect(line).toContain("share decides how much their overall mark weighs");
     expect(line).not.toMatch(/share of the mark/);
+  });
+});
+
+/* UAT 23 Nov, L14 / PERF-39: How it works said "the shares always add up to
+   100%" while the period page said the weights "do not have to make 100%". */
+describe("one rule about weights", () => {
+  it("is the sentence How it works and the period weights both say", async () => {
+    const { WEIGHTS_RULE } = await import("@/lib/performance/score-wording");
+    render(<HowItWorksBody />);
+    expect(screen.getByText(WEIGHTS_RULE)).toBeInTheDocument();
+    expect(screen.queryByText(/always add up/)).toBeNull();
   });
 });

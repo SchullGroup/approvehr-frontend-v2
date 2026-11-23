@@ -128,6 +128,7 @@ export function BelowScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot open this list"
               description="It holds applicants' details and is where people are turned down, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -431,6 +432,9 @@ function Below({ id }: { id: string }) {
             >
               {rows.length === 0 && !stale ? (
                 <EmptyState
+                  mood={
+                    narrowed ? "search" : noPassMark ? "start" : "all-clear"
+                  }
                   icon={<Inbox aria-hidden="true" />}
                   title={
                     narrowed

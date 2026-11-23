@@ -131,6 +131,7 @@ export function ApprovalsScreen() {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<Target aria-hidden="true" />}
             title="Appraisals are switched off"
             description="Agreeing objectives before the period they cover is part of the appraisal module. Turn it on and this queue fills itself."

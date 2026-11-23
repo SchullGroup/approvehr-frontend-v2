@@ -815,14 +815,27 @@ describe("the PDF", () => {
     window.print = vi.fn();
   });
 
-  it("offers Download PDF only with EXPORT_DATA", () => {
+  /* UAT 23 Nov, L12 / PERF-34: it opens the print dialog, and it said
+     "Download PDF". */
+  it("does not call the print dialog a download", () => {
+    state.perms = new Set(["EDIT_RECORDS", "EXPORT_DATA"]);
     mount();
     expect(screen.queryByRole("button", { name: /Download PDF/ })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers Print or save as PDF only with EXPORT_DATA", () => {
+    mount();
+    expect(
+      screen.queryByRole("button", { name: /Print or save as PDF/ }),
+    ).toBeNull();
     cleanupDom();
     state.perms = new Set(["EDIT_RECORDS", "EXPORT_DATA"]);
     mount();
     expect(
-      screen.getByRole("button", { name: /Download PDF/ }),
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
     ).toBeInTheDocument();
   });
 
@@ -830,7 +843,9 @@ describe("the PDF", () => {
     state.perms = new Set(["EDIT_RECORDS", "EXPORT_DATA"]);
     const user = userEvent.setup();
     mount();
-    await user.click(screen.getByRole("button", { name: /Download PDF/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
+    );
     expect(printApi).toHaveBeenCalledTimes(1);
     expect(printApi.mock.calls[0]![0]).toBe("c-1");
     expect(printApi.mock.calls[0]![1]).toContain("findings");
@@ -845,7 +860,9 @@ describe("the PDF", () => {
     printApi.mockRejectedValue(new Error("down"));
     const user = userEvent.setup();
     mount();
-    await user.click(screen.getByRole("button", { name: /Download PDF/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
+    );
     expect(window.print).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });

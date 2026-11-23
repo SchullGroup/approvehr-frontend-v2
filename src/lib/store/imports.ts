@@ -539,8 +539,9 @@ export function useImport(
    * folds the decisions into the fingerprint, so a batch checked with "skip" and
    * applied with "update" is refused rather than quietly landing the other one.
    *
-   * Every duplicate row gets an entry here — `update`, by default, the moment
-   * the check reveals it (see the seeding effect in `CheckReport`). There is
+   * Every duplicate row gets an entry here the moment the check reveals it
+   * (see the seeding effect in `CheckReport`): `update` when the file's name
+   * agrees with the matched person's, `skip` when it does not (U12). There is
    * no "undecided" state any more: the customer's job is to opt specific
    * people OUT, not to answer for every one of them, which is what made this
    * screen one click per row instead of one click for the file. A row is only
@@ -568,26 +569,30 @@ export function useImport(
   );
 
   /**
-   * Fills in "update" for rows a person has not touched, without disturbing
-   * one they have. Called once a check reveals which rows are duplicates, so
-   * the default is "update" from the first render of the report rather than
-   * a blank the customer has to fill in themselves — and called again after
-   * every recheck, where it is a no-op for rows already decided and a fresh
-   * default for any new duplicate the recheck turned up.
+   * Fills in each row's default for rows a person has not touched, without
+   * disturbing one they have. Called once a check reveals which rows are
+   * duplicates, so the default is there from the first render of the report
+   * rather than a blank the customer has to fill in themselves, and called
+   * again after every recheck, where it is a no-op for rows already decided
+   * and a fresh default for any new duplicate the recheck turned up.
    */
-  const seedDecisions = useCallback((rows: readonly number[]) => {
-    setDecisions((prior) => {
-      let changed = false;
-      const next = { ...prior };
-      for (const row of rows) {
-        if (!(row in next)) {
-          next[row] = "update";
-          changed = true;
+  const seedDecisions = useCallback(
+    (defaults: Readonly<Record<number, "skip" | "update">>) => {
+      setDecisions((prior) => {
+        let changed = false;
+        const next = { ...prior };
+        for (const [key, action] of Object.entries(defaults)) {
+          const row = Number(key);
+          if (!(row in next)) {
+            next[row] = action;
+            changed = true;
+          }
         }
-      }
-      return changed ? next : prior;
-    });
-  }, []);
+        return changed ? next : prior;
+      });
+    },
+    [],
+  );
 
   /**
    * Which of the file's rows to send, by row number, or null for all of them.

@@ -140,6 +140,7 @@ export function AfterHoursPanel() {
         {rows !== null &&
           (rows.length === 0 ? (
             <EmptyState
+              plain
               icon={<DoorOpen aria-hidden="true" />}
               title="Nothing waiting"
               description="No door scans outside working hours need a decision."

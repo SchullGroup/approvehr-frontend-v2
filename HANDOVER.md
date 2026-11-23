@@ -13511,6 +13511,29 @@ honoured) is the contract given for the backend half and has not been read again
 that predates it the field is absent and the toast says nothing about telling. Not run: `npm run
 verify-demo:build`, the whole vitest suite in one run (CI does not run vitest), iOS Safari or any real device.
 
+# Empty states draw a figure by mood (23 Nov 2026)
+
+Kene: "Build out the illustrations into each empty state screen." `EmptyState` now draws an Open Peeps figure on every
+full-size state instead of the grey icon circle; `docs/illustrations.md` is the guide (it did not exist on the web side
+before) and supersedes the "good-news only" line in the 14 Nov entry above.
+
+- **Mechanism, not 100 edits**: `EmptyState` takes `mood` (`nothing` shrug, `start` welcome, `caught-up` coffee-break,
+  `all-clear` hand-on-hip, `waiting` on-phone, `documents` paper-b, `search` arms-crossed). Without one the default
+  follows `action` (`start` with one, `nothing` without). `plain` (or `art={null}`) keeps the icon; `compact` keeps it
+  too unless it asks for a mood (then 104px, otherwise 136px); explicit `art` beats everything (Wellness).
+- **Every call site was classified** (275 in 176 files): 90 draw a figure (46 sites set a mood, the rest follow the
+  default), 103 keep the icon with `plain` (93 refusals / errors / not-found / switched off / needs the API / account
+  state, 10 that are one section of a record or a drawer), 73 compact ones untouched, 9 already carried explicit `art`.
+- **`tests/empty-state-call-sites.test.ts`** reads the source and fails when an `EmptyState` whose icon is a refusal or an
+  error (lock, shield, warning, question mark, crossed-out person, plug, compass) has no `plain`/`compact`/`art`, so a
+  new permission screen cannot quietly get a smiling person. `GOOD_NEWS` in it lists the one allowed exception.
+- A few states double as loading placeholders ("Loading…" while the list reads); they pass `plain={loading}` so the
+  figure only appears once the list is truly empty. "The accounts could not be read" does the same with `plain={unread}`.
+- **Seven figures only.** The Flat Assets pack is not on this machine, so no figure was added: they repeat across the app.
+  More need the pack (`docs/illustrations.md` has the link) and `scripts/import-peeps.ts`.
+- Not checked: how the figure sits on every one of the ~90 screens (only a few were looked at in a browser), and screens
+  where two full-size states could show at once (read from the code, not run).
+
 ---
 
 # Queries have their screens, and a letter says nothing until it is opened

@@ -59,6 +59,22 @@ import type { PendingInvite, SentInvite } from "@/lib/api/invites";
  * It costs one request the dialog was already parallelising, and it means the
  * screen is never briefly wrong about what pressing the button will do.
  */
+/**
+ * The role ids an invitation's role names stand for, among the roles this
+ * reader can give out; the chosen role when none matches. A corrected
+ * invitation carries the same access as the one it replaces (L37).
+ */
+export function roleIdsByName(
+  names: readonly string[],
+  roles: readonly { id: string; name: string }[],
+  fallback: string,
+): string[] {
+  const ids = roles
+    .filter((role) => names.includes(role.name))
+    .map((role) => role.id);
+  return ids.length > 0 ? ids : fallback ? [fallback] : [];
+}
+
 export function InviteToSignIn({
   open,
   employeeId,
@@ -211,6 +227,35 @@ export function InviteToSignIn({
         caught instanceof ApiError
           ? caught.message
           : "That did not cancel. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Cancel the invitation and send one to the address on the record, with the
+   * same access, in one press. Correcting a typo used to take a cancel and a
+   * re-send, five clicks, with the login on the wrong address meanwhile (L37).
+   */
+  const sendToRecordAddress = async () => {
+    if (!pending) return;
+    setBusy(true);
+    setFailed(null);
+    try {
+      await invitesApi.revoke(pending.userId);
+      setPending(null);
+      setSent(
+        await invitesApi.send(
+          employeeId,
+          roleIdsByName(pending.roles, roles ?? [], roleId),
+        ),
+      );
+    } catch (caught) {
+      setFailed(
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not send. Try again.",
       );
     } finally {
       setBusy(false);
@@ -407,8 +452,18 @@ export function InviteToSignIn({
               <Callout tone="warning" title="Their record says something else">
                 The record now reads{" "}
                 <span className="font-medium">{email}</span>. Sending it again
-                still goes to {pending.email}. Cancel the invitation and send a
-                new one to use the address on the record.
+                still goes to {pending.email}.
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
+                  loading={busy}
+                  disabled={busy}
+                  onClick={() => void sendToRecordAddress()}
+                >
+                  Send to {email} instead
+                </Button>
               </Callout>
             )}
           </div>

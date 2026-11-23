@@ -203,3 +203,14 @@ export function appraiserStripLine(args: {
     ? `${mine ? "Your" : "This appraiser's"} share among the ${String(appraiser.appraiserCount)} appraisers is ${weightLabel(appraiser.weightBp)}.`
     : null;
 }
+
+/**
+ * The one sentence about how weights become shares (UAT 23 Nov, L14 / PERF-39).
+ *
+ * How it works said "the shares always add up to 100%", the period page said the
+ * weights "do not have to make 100%", and both were read as two rules. Both are
+ * true of different numbers; this says it once, for every screen that explains a
+ * weight.
+ */
+export const WEIGHTS_RULE =
+  "Each part counts in proportion to its weight, so the weights do not have to add up to 100%.";

@@ -77,6 +77,7 @@ const NO_COUNTS = (): Record<LoanStatus, number> => ({
   ACTIVE: 0,
   SETTLED: 0,
   DECLINED: 0,
+  CONSOLIDATED: 0,
 });
 
 /** A loan whose repayments are being taken. */

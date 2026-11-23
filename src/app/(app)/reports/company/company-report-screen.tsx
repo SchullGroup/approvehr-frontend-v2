@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Users } from "lucide-react";
+import { Printer, Users } from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -154,8 +154,11 @@ export function CompanyReportScreen({
                       void savePdf();
                     }}
                   >
-                    <Download aria-hidden="true" className="size-4" />
-                    Download PDF
+                    {/* It opens the browser's print dialog, where "Save as
+                        PDF" is one of the choices: it said "Download PDF" and
+                        downloaded nothing (UAT 23 Nov, L12 / PERF-34). */}
+                    <Printer aria-hidden="true" className="size-4" />
+                    Print or save as PDF
                   </Button>
                 )}
               </div>
@@ -168,6 +171,7 @@ export function CompanyReportScreen({
         {!canSee ? (
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="This report covers the whole company"
               description="It compares everyone's marks, so it is only open to people who can see every employee's record."
@@ -181,6 +185,7 @@ export function CompanyReportScreen({
         ) : !detail.available ? (
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="Company reports need the live system"
               description="Every figure in them is counted over the whole company by the server, so there is nothing to show without it."

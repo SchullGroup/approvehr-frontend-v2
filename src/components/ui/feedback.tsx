@@ -1,11 +1,70 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import type { PeepName } from "@/lib/peeps";
+import { Illustration } from "./illustration";
 
 /* Empty, loading and pending states. */
 
+/**
+ * What an empty screen is saying, which decides the Open Peeps figure drawn above the words.
+ *
+ * One pose per mood, and the same pose wherever the mood is used, so a figure comes to mean something:
+ *
+ * | mood        | figure         | the words say                                                        |
+ * | ----------- | -------------- | -------------------------------------------------------------------- |
+ * | `nothing`   | `shrug`        | nothing here, and nothing to do about it (the default without action) |
+ * | `start`     | `welcome`      | nothing yet, and here is how to add the first (the default with one)  |
+ * | `caught-up` | `coffee-break` | you have dealt with everything that was waiting on you                |
+ * | `all-clear` | `hand-on-hip`  | nothing is wrong, missing, late or flagged                            |
+ * | `waiting`   | `on-phone`     | it will appear once somebody else has done something                  |
+ * | `documents` | `paper-b`      | forms, claims, policies and records                                   |
+ * | `search`    | `arms-crossed` | the search or the filters matched nothing                             |
+ *
+ * `docs/illustrations.md` says which screens get a figure and which never do.
+ */
+export type EmptyMood =
+  | "nothing"
+  | "start"
+  | "caught-up"
+  | "all-clear"
+  | "waiting"
+  | "documents"
+  | "search";
+
+export const MOOD_FIGURE: Record<EmptyMood, PeepName> = {
+  nothing: "shrug",
+  start: "welcome",
+  "caught-up": "coffee-break",
+  "all-clear": "hand-on-hip",
+  waiting: "on-phone",
+  documents: "paper-b",
+  search: "arms-crossed",
+};
+
+/** Drawn height of the figure, in pixels: quiet, not a banner. The compact kind is for an area that asked. */
+const FIGURE_HEIGHT = { full: 136, compact: 104 } as const;
+
+/**
+ * An empty list, tab or screen: a few plain words, and a way onward when there is one.
+ *
+ * ## What is drawn above the words
+ *
+ * - **A full-size state gets a figure** (`mood`, or `start` when it has an `action` and `nothing` when it has not).
+ * - **A `compact` one keeps its small icon**: it sits in a card, a drawer or a table cell, which is no place
+ *   for a person. Pass `mood` to a compact state only when its area really is the screen's own.
+ * - **`plain` keeps the icon** on a full-size one. That is for the states a person must never smile at: no
+ *   permission, an error, a record that is not there, a module that is switched off or needs the API, and a
+ *   section of a record page that is only one of several (`tests/empty-state-call-sites.test.ts` fails when one of
+ *   the first kind is left without it).
+ * - **`art` wins over all of it**: Wellness's own mascots, or a figure picked by hand. `art={null}` is `plain`.
+ *
+ * A figure is decorative: it is hidden from assistive tech, and the title and description say everything.
+ */
 export function EmptyState({
   icon,
   art,
+  mood,
+  plain = false,
   title,
   description,
   action,
@@ -14,16 +73,32 @@ export function EmptyState({
 }: {
   icon?: React.ReactNode;
   /**
-   * A drawing in place of the grey icon circle, at the size it should be drawn
-   * (Wellness's mascots). Decorative: the title and description say it all.
+   * A drawing in place of the grey icon circle, at the size it should be drawn (Wellness's mascots). Beats
+   * `mood`, `plain` and the default; `null` means no drawing at all.
    */
   art?: React.ReactNode;
+  /** Which figure to draw. See `EmptyMood`. Left out, it follows `action`. */
+  mood?: EmptyMood;
+  /**
+   * Keep the icon circle and draw no figure. For permission, error, not-found, "switched off" and
+   * "needs the API" states, and for a state that is one small section of a page.
+   */
+  plain?: boolean;
   title: string;
   description?: string;
   action?: React.ReactNode;
   className?: string;
   compact?: boolean;
 }) {
+  const drawing =
+    art !== undefined ? (
+      art
+    ) : plain || (compact && mood === undefined) ? null : (
+      <Illustration
+        name={MOOD_FIGURE[mood ?? (action ? "start" : "nothing")]}
+        height={compact ? FIGURE_HEIGHT.compact : FIGURE_HEIGHT.full}
+      />
+    );
   return (
     <div
       className={cn(
@@ -32,12 +107,12 @@ export function EmptyState({
         className,
       )}
     >
-      {art && (
+      {drawing && (
         <div aria-hidden="true" className="mb-3">
-          {art}
+          {drawing}
         </div>
       )}
-      {!art && icon && (
+      {!drawing && icon && (
         <span
           aria-hidden="true"
           className="mb-5 flex size-16 items-center justify-center rounded-full bg-sunken text-faint [&>svg]:size-7"

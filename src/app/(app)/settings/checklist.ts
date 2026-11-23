@@ -325,7 +325,7 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
   if (roles === 0) {
     return {
       id: "roles",
-      title: "Roles and access",
+      title: "Access",
       affects,
       status: "todo",
       detail: "No roles yet, so nobody has any permission at all.",
@@ -337,7 +337,7 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
   if (canApprovePayroll === 0) {
     return {
       id: "roles",
-      title: "Roles and access",
+      title: "Access",
       affects,
       status: "attention",
       detail: `${plural(roles, "role", "roles")}, and nobody holds the permission to approve a payroll. A prepared payroll would have nowhere to go.`,
@@ -349,7 +349,7 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
   if (usersWithoutRole > 0) {
     return {
       id: "roles",
-      title: "Roles and access",
+      title: "Access",
       affects,
       status: "attention",
       detail: `${plural(usersWithoutRole, "account has", "accounts have")} no role, so ${usersWithoutRole === 1 ? "it" : "they"} can sign in and see nothing.`,
@@ -361,7 +361,7 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
   if (unlinkedAccounts > 0) {
     return {
       id: "roles",
-      title: "Roles and access",
+      title: "Access",
       affects,
       status: "attention",
       detail: `${plural(unlinkedAccounts, "account can", "accounts can")} sign in with no personnel record, so nobody knows whose ${unlinkedAccounts === 1 ? "it is" : "these are"} until you say.`,
@@ -372,7 +372,7 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
 
   return {
     id: "roles",
-    title: "Roles and access",
+    title: "Access",
     affects,
     status: "done",
     detail:

@@ -1,9 +1,7 @@
-import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LINKED_FILES_NOTE,
   LINKED_FOLDER,
-  LINKED_UPLOAD_DEFAULT,
   LINKED_UPLOAD_INTERRUPTED,
   LINKED_UPLOAD_NOT_STORED,
   LinkedUploadRefused,
@@ -84,10 +82,10 @@ describe("where the uploader is", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("is the old platform's uploader when the variable is not set at all, which is not off", () => {
+  it("is off when the variable is not set at all (UAT 23 Nov, U5)", () => {
     vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", undefined as unknown as string);
     delete process.env["NEXT_PUBLIC_LINKED_UPLOAD_URL"];
-    expect(linkedUploadConfigured()).toBe(true);
+    expect(linkedUploadConfigured()).toBe(false);
   });
 
   it("is off for `off`, which is not an address", () => {
@@ -134,12 +132,6 @@ describe("where the uploader is", () => {
     expect(String(fetchMock.mock.calls[0]![0])).toMatch(
       /^https:\/\/uploader\.example\.test\/prod\/upload-file\?/,
     );
-  });
-
-  it("names the real address once, as the default, and nowhere else in its source", () => {
-    const source = readFileSync("src/lib/api/linked-upload.ts", "utf8");
-    expect(source.match(/execute-api/g)).toHaveLength(1);
-    expect(source).toContain(LINKED_UPLOAD_DEFAULT);
   });
 });
 

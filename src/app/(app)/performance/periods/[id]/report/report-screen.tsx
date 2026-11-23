@@ -179,6 +179,7 @@ export function PeriodReportScreen({
              for you, and points at the one that is. */
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="This page covers the whole company"
               description="It shows everyone's marks together, so it is only open to people who can see every employee's record."

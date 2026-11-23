@@ -32,6 +32,7 @@ import {
   useCompanySettings,
   useLiveCompanyProfile,
   useOrgTaxState,
+  companyFieldErrors,
   validateProfile,
   type CompanyProfile,
   type ProfileError,
@@ -123,6 +124,7 @@ export function CompanyProfileForm() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Building2 aria-hidden="true" />}
               title="You cannot manage the company profile"
               description="Registered details feed contracts, payslips and statutory filings, so changing them is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
@@ -302,13 +304,19 @@ function Form() {
         detail: "Letters and statutory filings use these details.",
       });
     } catch (caught: unknown) {
+      /* The API names the field and says why; put it under that field
+         rather than only in a toast (U61). */
+      const onFields = companyFieldErrors(caught);
+      if (onFields.length > 0) setErrors(onFields);
       toast.push({
         title: "Could not save the company profile",
         tone: "danger",
         detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Something went wrong. Try again.",
+          onFields.length > 0
+            ? "Check the fields marked below."
+            : caught instanceof ApiError
+              ? caught.message
+              : "Something went wrong. Try again.",
       });
     } finally {
       setSaving(false);

@@ -353,6 +353,7 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   tone = "danger",
   loading = false,
 }: {
@@ -362,6 +363,12 @@ export function ConfirmDialog({
   title: string;
   body: React.ReactNode;
   confirmLabel?: string;
+  /**
+   * What not going ahead is called. "Cancel" reads as the act itself when the
+   * act is cancelling something: "Withdraw this request?" over "Cancel" left
+   * it unclear which button kept the request (UAT 23 Nov, U65).
+   */
+  cancelLabel?: string;
   tone?: "danger" | "primary";
   loading?: boolean;
 }) {
@@ -374,7 +381,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button
             type="button"

@@ -103,6 +103,7 @@ export function FairnessScreen({
         {!allowed ? (
           <Card>
             <EmptyState
+              plain
               icon={<Scale aria-hidden="true" />}
               title="You don't have access to the fairness check"
               description="It needs the “See the fairness check” permission."

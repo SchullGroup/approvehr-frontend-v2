@@ -228,7 +228,10 @@ export function MyTasksPanel() {
               compact
               icon={<ClipboardList aria-hidden="true" />}
               title="Nothing logged yet"
-              description="What you log here is what a manager grades, and what your delivery score is built from."
+              /* It said this was "what your delivery score is built from",
+                 and weekly tasks count 0% unless a period weights them
+                 (UAT 23 Nov, U86 / PERF-7). */
+              description="A manager grades what you log here. It changes your mark only if your appraisal period gives weekly tasks a weight."
             />
           ) : (
             <CardBody className="flex flex-col gap-5">

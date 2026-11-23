@@ -387,9 +387,20 @@ describe("the appraisal period", () => {
     });
   });
 
+  /* UAT 23 Nov, U93 / PERF-13: it used to start on "Not part of an appraisal
+     period", so a level recorded from here counted towards nobody's mark. */
+  it("starts in the running period", () => {
+    mount();
+    expect(screen.getByLabelText(/Appraisal period/)).toHaveValue("p-1");
+  });
+
   it("says, with none chosen, that a level fills the gap table and the heatmap", async () => {
     mount();
     await pickSkill("Punctuality");
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Appraisal period/),
+      "",
+    );
     expect(
       screen.getByText(/it fills the skills gap table and heatmap/),
     ).toBeInTheDocument();
@@ -398,6 +409,10 @@ describe("the appraisal period", () => {
   it("does not say that for a yes or no or a pick, which are in neither", async () => {
     mount();
     await pickSkill("Follows safety procedures");
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Appraisal period/),
+      "",
+    );
     expect(
       screen.queryByText(/it fills the skills gap table and heatmap/),
     ).not.toBeInTheDocument();

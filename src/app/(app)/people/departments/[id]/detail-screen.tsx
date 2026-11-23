@@ -66,6 +66,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<Building2 aria-hidden="true" className="size-5" />}
             title="That unit is not here"
             description="It may have been archived, or the link may be out of date. The structure screen lists everything that is there."
@@ -171,6 +172,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
           {people.length === 0 ? (
             <CardBody>
               <EmptyState
+                plain
                 icon={<Users aria-hidden="true" className="size-5" />}
                 title="Nobody is in this unit yet"
                 description="Assign people to it from the structure screen."

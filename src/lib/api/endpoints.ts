@@ -357,6 +357,12 @@ export type ApiEmployee = {
    * is — ask `GET /invites` for the pending half.
    */
   canLogin: boolean;
+  /**
+   * Never paid through payroll, set by hand on the record. Optional because an API that predates it
+   * does not send it, and absent reads as paid. See `Employee.notOnPayroll`.
+   */
+  notOnPayroll?: boolean;
+  notOnPayrollReason?: string | null;
   /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
   grossMonthlyKobo: number | null;
   /**
@@ -505,6 +511,13 @@ export type ApiOrgChart = {
  */
 export type EmployeeSummary = {
   total: number;
+  /**
+   * Of `total`, how many are paid through payroll and how many are not. `total` is the rows the
+   * table pages through and keeps counting everybody; a headline "Employees" reads `onPayroll`.
+   * Optional because an API that predates the flag does not send them.
+   */
+  onPayroll?: number;
+  notOnPayroll?: number;
   archived: number;
   payrollBlocked: number;
   payrollBlockedInFilter: number;
@@ -1415,6 +1428,12 @@ export function toEmployee(api: ApiEmployee): Employee {
     salaryGradeId: api.salaryGradeId,
     payeManualOverride: api.payeManualOverride,
     canLogin: api.canLogin,
+    ...(api.notOnPayroll === undefined
+      ? {}
+      : { notOnPayroll: api.notOnPayroll }),
+    ...(api.notOnPayrollReason === undefined
+      ? {}
+      : { notOnPayrollReason: api.notOnPayrollReason }),
     grossMonthly:
       api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
     ...(api.hasBankAccount !== undefined

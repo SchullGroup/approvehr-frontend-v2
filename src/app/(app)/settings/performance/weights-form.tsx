@@ -38,6 +38,8 @@ import {
   type ScoreComponent,
 } from "@/lib/api/performance";
 import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
+import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
+import { WeightsPie } from "@/components/performance/weights-pie";
 import { useCan } from "@/lib/permissions";
 import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
@@ -322,7 +324,7 @@ function PartsPanel({
             <Card>
               <CardHeader
                 title="The parts of a mark"
-                description="A mark is the weighted average of these parts. Each counts in proportion to the total."
+                description={`A mark is the weighted average of these parts. ${WEIGHTS_RULE}`}
                 action={
                   <span className="flex flex-wrap items-center gap-3">
                     <Total totalBp={view.totalBp} />
@@ -356,9 +358,21 @@ function PartsPanel({
                     {overFullWeightNote(view.totalBp)}
                   </p>
                 )}
+                {view.parts.length > 0 && (
+                  <div className="flex justify-center border-b border-line px-5 py-5">
+                    <WeightsPie
+                      slices={view.parts.map((part) => ({
+                        id: part.id,
+                        label: part.name,
+                        percent: Math.round(part.weightBp / 100),
+                      }))}
+                    />
+                  </div>
+                )}
                 {view.parts.length === 0 ? (
                   <div className="p-6">
                     <EmptyState
+                      plain
                       title="No parts yet"
                       description="Add the parts your appraisals are marked on: a name, what it is scored from, its weight and a description. An appraisal period cannot start until at least one part has a weight."
                       {...(manage
@@ -413,11 +427,20 @@ function PartsPanel({
                             <p className="tabular text-body-sm font-medium text-ink">
                               {weightLabel(part.weightBp)}
                             </p>
-                            <p className="tabular text-meta text-muted">
-                              {part.weightBp === 0
-                                ? "Counts for nothing"
-                                : `${weightLabel(part.shareBp)} of a mark`}
-                            </p>
+                            {/* The share only where it differs from the
+                                weight: "45%" over "45% of a mark" said one
+                                thing twice (L14 / PERF-39). */}
+                            {part.weightBp === 0 ? (
+                              <p className="tabular text-meta text-muted">
+                                Counts for nothing
+                              </p>
+                            ) : (
+                              part.shareBp !== part.weightBp && (
+                                <p className="tabular text-meta text-muted">
+                                  {`${weightLabel(part.shareBp)} of a mark`}
+                                </p>
+                              )
+                            )}
                           </div>
                           {manage && (
                             <span className="flex gap-1">

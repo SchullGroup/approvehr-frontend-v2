@@ -70,6 +70,13 @@ export function ProgramProjectsView() {
       >
         {projects.length === 0 && (
           <EmptyState
+            mood={
+              unassigned
+                ? "all-clear"
+                : program.canCreateProject
+                  ? "start"
+                  : "nothing"
+            }
             icon={<FolderKanban />}
             title={
               unassigned
@@ -97,6 +104,7 @@ export function ProgramProjectsView() {
         )}
         {projects.length > 0 && shown.length === 0 && (
           <EmptyState
+            mood="search"
             icon={<FolderKanban />}
             title="No projects match"
             description="Try another name or key, or clear the search."

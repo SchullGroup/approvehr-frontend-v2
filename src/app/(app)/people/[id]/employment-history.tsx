@@ -73,6 +73,7 @@ export function EmploymentHistoryPanel({ employeeId }: { employeeId: string }) {
       >
         {changes.length === 0 ? (
           <EmptyState
+            plain
             icon={<History aria-hidden="true" className="size-5" />}
             title="Nothing recorded yet"
             description="Confirmations, promotions, transfers and pay changes appear here as they happen, including ones made straight on this record."

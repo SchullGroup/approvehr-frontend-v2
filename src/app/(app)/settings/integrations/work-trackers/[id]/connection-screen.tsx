@@ -175,6 +175,7 @@ export function ConnectionScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Unplug aria-hidden="true" />}
               title="You cannot manage integrations"
               description="Ask whoever manages settings to add that permission to your role."

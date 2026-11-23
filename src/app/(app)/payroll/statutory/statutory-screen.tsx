@@ -115,6 +115,7 @@ export function StatutoryScreen() {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<ShieldAlert aria-hidden="true" />}
             title="You cannot view statutory filings"
             description={

@@ -7,6 +7,7 @@ import {
   Button,
   ButtonLink,
   AttentionMark,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -22,6 +23,7 @@ import {
   TR,
   TableWrap,
   Tag,
+  TextLink,
   formatMoney,
   useToast,
   RowActions,
@@ -113,6 +115,7 @@ const STATUS_TONE: Record<
   ACTIVE: "accent",
   SETTLED: "success",
   DECLINED: "neutral",
+  CONSOLIDATED: "neutral",
 };
 
 const ROW_TONE: Record<
@@ -323,6 +326,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<CreditCard aria-hidden="true" />}
             title="That loan is not here"
             description={
@@ -398,7 +402,18 @@ export function LoanDetailScreen({ id }: { id: string }) {
   /* With a carry, the total and the monthly figure are the combined loan's, not the application's. */
   const repayableKobo =
     carriedKobo > 0 && proposed ? proposed.totalKobo : loan.totalRepayableKobo;
+  /* Two different carries, kept apart on purpose: `carriedKobo` above is what approving a pending
+     loan WILL fold in; this is what an approved loan HAS already carried from loans it replaced. */
+  const carriedForwardKobo = loan.carriedForwardKobo ?? 0;
+  const foldedCount = loan.foldedLoans?.length ?? 0;
   const costLines = [
+    carriedForwardKobo > 0
+      ? `Includes ${money(carriedForwardKobo)} carried from ${
+          foldedCount === 1
+            ? "an earlier loan"
+            : `${String(foldedCount)} earlier loans`
+        }`
+      : null,
     loan.interestKobo > 0
       ? `${money(loan.interestKobo)} interest (${(loan.interestRate * 100).toFixed(2)}% a year)`
       : null,
@@ -506,6 +521,67 @@ export function LoanDetailScreen({ id }: { id: string }) {
             linkToLoan={false}
             onDismiss={() => setApprovedHere(null)}
           />
+        )}
+
+        {/* One person, one loan. These three say so where it matters: on the loan that was folded into
+            another, on the loan that took others in, and on an application that is about to. */}
+        {loan.status === "CONSOLIDATED" && (
+          <Callout tone="info" title="Combined into one loan">
+            What was still owed on this loan
+            {loan.consolidatedAt
+              ? ` moved, on ${formatDate(loan.consolidatedAt, timeZone)},`
+              : " moved"}{" "}
+            into{" "}
+            {loan.consolidatedIntoId ? (
+              <TextLink href={`/payroll/loans/${loan.consolidatedIntoId}`}>
+                the loan that took it over
+              </TextLink>
+            ) : (
+              "another loan"
+            )}
+            . Nothing comes off this one any more; its schedule is kept as the
+            record.
+          </Callout>
+        )}
+        {foldedCount > 0 && (
+          <Callout tone="info" title="Combined from earlier loans">
+            <span>
+              {money(carriedForwardKobo)} that was still owed on{" "}
+              {foldedCount === 1
+                ? "an earlier loan"
+                : `${String(foldedCount)} earlier loans`}{" "}
+              is repaid with this one, with no interest on it.{" "}
+            </span>
+            {(loan.foldedLoans ?? []).map((folded, index) => (
+              <span key={folded.id}>
+                {index > 0 ? ", " : ""}
+                <TextLink href={`/payroll/loans/${folded.id}`}>
+                  {folded.reason ?? "Earlier loan"}
+                </TextLink>
+              </span>
+            ))}
+          </Callout>
+        )}
+        {pending && loan.combinesWith && (
+          <Callout
+            tone="info"
+            title="This will be combined with their current loan"
+          >
+            {money(loan.combinesWith.owedKobo)} is still owed on{" "}
+            {loan.combinesWith.count === 1
+              ? "their current loan"
+              : `${String(loan.combinesWith.count)} of their current loans`}
+            . Approving this adds it to the new loan: about{" "}
+            {money(
+              Math.floor(
+                (loan.combinesWith.owedKobo + loan.totalRepayableKobo) /
+                  Math.max(1, loan.termMonths),
+              ),
+            )}{" "}
+            a month over {loan.termMonths}{" "}
+            {loan.termMonths === 1 ? "month" : "months"}, with no interest on
+            what is already owed.
+          </Callout>
         )}
 
         {/* What was asked for, and by whom. The reason is the whole case. */}

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ExternalLink, Eye, Lock, Users } from "lucide-react";
+import { ExternalLink, Eye, Lock, Send, Users } from "lucide-react";
 import {
   Badge,
+  Button,
   ButtonLink,
   Callout,
   Card,
@@ -12,7 +12,9 @@ import {
   Skeleton,
   Tabs,
   TextLink,
+  useToast,
 } from "@/components/ui";
+import { PublishAdvertDialog } from "@/components/hiring/publish-advert-dialog";
 import { FormWorkbench } from "@/components/hiring/form-workbench";
 import { ScreeningWorkbench } from "@/components/hiring/screening/screening-workbench";
 import { ShareLinks } from "@/components/hiring/share-links";
@@ -20,7 +22,8 @@ import { SourceBadge } from "@/components/hiring/source-badge";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ExportButton } from "@/components/portal/export-button";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { careersPath, type PostingStatus } from "@/lib/api/careers";
+import { careersApi, careersPath, type PostingStatus } from "@/lib/api/careers";
+import { actionMessage } from "@/lib/use-action";
 import { fetchFile } from "@/lib/api/download";
 import { usePermissions } from "@/lib/permissions";
 import {
@@ -90,6 +93,7 @@ export function PostingScreen({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot open this advert"
               description="The form decides what strangers are asked, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -109,6 +113,31 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
   const share = useShareLinks(advert.posting);
   const posting = advert.posting;
   const [tab, setTab] = useState<PostingTab>(initialTab);
+  const toast = useToast();
+  /* Publish lives on the advert as well as on Job adverts (UAT 23 Nov, U99 /
+     PERF-19): this page used to say it could only be published from there. */
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const publish = async () => {
+    setPublishing(true);
+    try {
+      await careersApi.publishPosting(id);
+      setPublishOpen(false);
+      toast.push({
+        title: `${advert.posting?.title ?? "The advert"} is live`,
+        tone: "success",
+      });
+      advert.reload();
+    } catch (error) {
+      toast.push({
+        title: "Not published",
+        tone: "danger",
+        detail: actionMessage(error),
+      });
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   if (advert.loading) {
     return (
@@ -136,6 +165,7 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
           ) : (
             <Card>
               <EmptyState
+                plain
                 icon={<Lock aria-hidden="true" />}
                 title="That advert is not here"
                 description="It may have been removed, or belong to another company."
@@ -178,6 +208,12 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
         }
         action={
           <>
+            {!live && advert.live && (
+              <Button size="sm" onClick={() => setPublishOpen(true)}>
+                <Send aria-hidden="true" className="size-3.5" />
+                {posting.status === "CLOSED" ? "Publish again" : "Publish"}
+              </Button>
+            )}
             <ButtonLink
               href={`/hiring/postings/applications?posting=${posting.id}&status=ALL`}
               variant="secondary"
@@ -223,17 +259,17 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
             tone="info"
             title={`${posting.title} is ${STATUS_LABEL[posting.status].toLowerCase()}`}
           >
-            Set the form up now. Nobody can apply until the advert is published
-            from{" "}
-            <Link
-              href="/hiring/postings"
-              className="font-medium text-accent-text underline underline-offset-2"
-            >
-              Job adverts
-            </Link>
-            .
+            Set the form up, then publish it. Nobody can apply until then.
           </Callout>
         )}
+
+        <PublishAdvertDialog
+          posting={posting}
+          open={publishOpen}
+          busy={publishing}
+          onClose={() => setPublishOpen(false)}
+          onPublish={() => void publish()}
+        />
 
         <Tabs
           items={[

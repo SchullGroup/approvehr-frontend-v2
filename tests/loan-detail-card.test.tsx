@@ -389,3 +389,97 @@ describe("the card on a loan that was declined", () => {
     expect(inCard.queryByRole("progressbar")).toBeNull();
   });
 });
+
+describe("one person, one loan", () => {
+  it("says what a loan that took others in was combined from, and links them", () => {
+    loanOnScreen.current = running({
+      principalKobo: 5_500_000,
+      totalRepayableKobo: 5_500_000,
+      carriedForwardKobo: 500_000,
+      foldedLoans: [
+        {
+          id: "loan-3",
+          employeeId: "e2",
+          employeeName: "Kenedy Obasi",
+          employeeNo: "CRF-0042",
+          jobTitle: "Driver",
+          principalKobo: 2_000_000,
+          interestRate: 0,
+          interestKobo: 0,
+          totalRepayableKobo: 2_000_000,
+          termMonths: 4,
+          monthlyRepaymentKobo: 500_000,
+          outstandingKobo: 0,
+          status: "CONSOLIDATED",
+          reason: "School fees",
+          startPeriod: "2026-08-01",
+          decidedById: null,
+          decidedByName: null,
+          decidedAt: null,
+          declinedReason: null,
+          completedAt: null,
+          createdAt: "2026-08-01T00:00:00.000Z",
+        },
+      ],
+    });
+    render(<LoanDetailScreen id="loan-7" />);
+
+    expect(screen.getByText("Combined from earlier loans")).toBeVisible();
+    expect(screen.getByRole("link", { name: "School fees" })).toHaveAttribute(
+      "href",
+      "/payroll/loans/loan-3",
+    );
+    /* And the card says how much of the borrowing is that. */
+    expect(
+      within(card()).getByText(
+        "Includes ₦5,000.00 carried from an earlier loan",
+      ),
+    ).toBeVisible();
+  });
+
+  it("says a folded loan was combined, and points at the one that took it", () => {
+    loanOnScreen.current = running({
+      status: "CONSOLIDATED",
+      outstandingKobo: 0,
+      consolidatedIntoId: "loan-9",
+      consolidatedAt: "2026-11-20T09:00:00.000Z",
+    });
+    render(<LoanDetailScreen id="loan-7" />);
+
+    expect(
+      screen.getByText("Combined into one loan", {
+        selector: "p, h2, h3, div",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "the loan that took it over" }),
+    ).toHaveAttribute("href", "/payroll/loans/loan-9");
+  });
+
+  it("warns an approver, before they decide, what approving will combine", () => {
+    loanOnScreen.current = pending({
+      termMonths: 2,
+      principalKobo: 5_000_000,
+      totalRepayableKobo: 5_000_000,
+      combinesWith: { count: 1, owedKobo: 500_000 },
+    });
+    render(<LoanDetailScreen id="loan-7" />);
+
+    expect(
+      screen.getByText("This will be combined with their current loan"),
+    ).toBeVisible();
+    /* ₦5,000 owed plus ₦50,000 new, over two months. */
+    expect(
+      screen.getByText(/about ₦27,500\.00 a month over 2 months/),
+    ).toBeVisible();
+  });
+
+  it("says nothing of this on an ordinary loan", () => {
+    loanOnScreen.current = running();
+    render(<LoanDetailScreen id="loan-7" />);
+
+    expect(screen.queryByText("Combined from earlier loans")).toBeNull();
+    expect(screen.queryByText("Combined into one loan")).toBeNull();
+    expect(screen.queryByText(/combined with their current/)).toBeNull();
+  });
+});
