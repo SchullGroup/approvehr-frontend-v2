@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { askedQuestions, resumeIndex } from "./questions";
+import { askedQuestions, firstSentence, resumeIndex } from "./questions";
 import Link from "next/link";
 import { ArrowLeft, Check, Lock, MapPin, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -549,6 +549,8 @@ export function SetupWizard() {
      which is what makes marking its answer honest rather than a default
      dressed up as one. See `chosenOption`. */
   const answered = question.step <= wizard.step;
+  const followUpOpen =
+    awaitingTaxState || awaitingOffice || awaitingSalarySplit;
   const chosen = answered
     ? chosenOption(
         question,
@@ -577,7 +579,9 @@ export function SetupWizard() {
         <p className="mt-3 text-lead text-body">{question.help}</p>
       </div>
 
-      {answered && (
+      {/* Only on a revisit: right after the first answer a follow-up form
+          may still be open, and "answered already" then reads wrong (L36). */}
+      {answered && !followUpOpen && (
         <p className="mt-4 text-body-sm text-muted">
           You answered this already. Pick again to change it.
         </p>
@@ -601,20 +605,33 @@ export function SetupWizard() {
           )}
         >
           {question.options.map((option) => (
-            <OptionButton
-              key={option.value}
-              option={option}
-              chosen={answered && chosen === option.value}
-              busy={busy === option.value}
-              disabled={
-                busy !== null ||
-                finishing ||
-                awaitingTaxState ||
-                awaitingOffice ||
-                awaitingSalarySplit
-              }
-              onSelect={() => void choose(question, option)}
-            />
+            <div key={option.value} className="flex flex-col gap-1.5">
+              <OptionButton
+                option={option}
+                chosen={answered && chosen === option.value}
+                busy={busy === option.value}
+                disabled={
+                  busy !== null ||
+                  finishing ||
+                  awaitingTaxState ||
+                  awaitingOffice ||
+                  awaitingSalarySplit
+                }
+                onSelect={() => void choose(question, option)}
+              />
+              {/* The rest of the API's sentence, outside the button: a
+                disclosure inside a button is not allowed (L36). */}
+              {option.consequence && firstSentence(option.consequence).rest && (
+                <details className="px-1 text-meta text-muted">
+                  <summary className="cursor-pointer font-medium text-accent-text">
+                    More
+                  </summary>
+                  <p className="mt-1 leading-relaxed">
+                    {firstSentence(option.consequence).rest}
+                  </p>
+                </details>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -1084,7 +1101,7 @@ function OptionButton({
       </span>
       {option.consequence && (
         <span className="text-body-sm leading-relaxed text-body">
-          {option.consequence}
+          {firstSentence(option.consequence).first}
         </span>
       )}
     </button>
