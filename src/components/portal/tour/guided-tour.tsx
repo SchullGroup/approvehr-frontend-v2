@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
+import { DECIDING_PERMISSIONS } from "@/components/portal/nav";
 import { Button } from "@/components/ui";
 import { useDismiss } from "@/hooks/use-dismiss";
 import type { FeatureKey } from "@/lib/api/setup";
@@ -97,10 +97,8 @@ type Step = {
    * reader they personally can turn one on, which is exactly the ability the
    * settings step further down is already withheld from them for.
    *
-   * `canApprove` is for the approvals step, for the same reason in reverse: a
-   * non-approver still has real business on that screen — tracking what they
-   * themselves sent in — so the step stays for everyone, and only the
-   * sentence changes to match what they can actually do there.
+   * `canApprove` decides whether the approvals step is shown at all: the
+   * sidebar draws My approvals only for somebody who decides something.
    */
   body: string | ((ctx: StepBodyCtx) => string);
   /** Tried in order — the first rendered and visible one is pointed at. */
@@ -205,15 +203,12 @@ export const TOUR_STEPS: readonly Step[] = [
   {
     id: "approvals",
     title: "Waiting on you, and sent by you",
-    body: ({ canApprove }) =>
-      canApprove
-        ? "Leave, expenses, staff loans and payroll all put what needs a " +
-          "decision in this one queue, oldest deadline first, so there is " +
-          "no module to remember to check."
-        : "Approving isn't part of your role, and this screen says so if " +
-          "you ever wonder. Switch to Sent by you to see where a leave " +
-          "request, or anything else you've sent off, currently stands, " +
-          "without having to ask.",
+    /* Only for somebody who decides something: the sidebar has no My approvals
+       row for anybody else (UAT 23 Nov, U57), so there is nothing to point at. */
+    body:
+      "Leave, expenses, staff loans and payroll all put what needs a " +
+      "decision in this one queue, oldest deadline first, so there is " +
+      "no module to remember to check.",
     target: ['[data-tour="nav-item:/approvals"]', '[data-tour="nav"]'],
     always: true,
   },
@@ -266,7 +261,7 @@ export function GuidedTour() {
      someone's manager, or somebody holding only `APPROVE_LOANS`, has real
      work in that queue and would never have been told about it. */
   const canApprove =
-    isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+    isManager || hasAnyPermission(permissions, DECIDING_PERMISSIONS);
   const canSettings = hasPermission(permissions, "MANAGE_SETTINGS");
 
   /**
@@ -310,16 +305,19 @@ export function GuidedTour() {
   }, []);
 
   const steps = useMemo(
-    () => visibleSteps(TOUR_STEPS, permissions, features),
-    [permissions, features],
+    () =>
+      visibleSteps(TOUR_STEPS, permissions, features).filter(
+        (step) => step.id !== "approvals" || canApprove,
+      ),
+    [permissions, features, canApprove],
   );
 
   /* Auto-opens only for a real account that has not seen it. `features` is
      read so the sidebar has settled before anything points at it — a tour that
      opens mid-load points at a nav that is about to change size. */
   const unseen = isConnected && !tourSeen && !features.loading;
-  /* `steps.length === 0` can't happen today — welcome, nav, yours, approvals
-     and search all carry `always: true` — but folding it into `useDismiss`'s
+  /* `steps.length === 0` can't happen today — welcome, nav, yours and search
+     all carry `always: true` — but folding it into `useDismiss`'s
      input rather than a second early return keeps the "should this be open"
      question in one place. */
   const wantOpen = (asked ?? unseen) && steps.length > 0;

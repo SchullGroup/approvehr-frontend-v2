@@ -327,7 +327,8 @@ describe("Projects and Wellness among the modules", () => {
 
   it("draws a plain employee's top level in one stable order", () => {
     expect(rowsOf(groupsFor(persona("employee")))).toEqual([
-      ["Home", "My approvals", "Assistant"],
+      /* No My approvals: an employee decides nobody's requests (U57). */
+      ["Home", "Assistant"],
       MODULES_ROWS,
     ]);
   });
@@ -397,7 +398,8 @@ describe("Projects and Wellness among the modules", () => {
     const rows = rowsOf(off);
     expect(rows.flat()).not.toContain("Wellness");
     expect(rows).toEqual([
-      ["Home", "My approvals", "Assistant"],
+      /* No My approvals: an employee decides nobody's requests (U57). */
+      ["Home", "Assistant"],
       MODULES_ROWS.filter((label) => label !== "Wellness"),
     ]);
     expect(off.some((g) => g.id === "wellness")).toBe(false);
@@ -412,7 +414,8 @@ describe("Projects and Wellness among the modules", () => {
     const rows = rowsOf(off);
     expect(rows.flat()).not.toContain("Projects+");
     expect(rows).toEqual([
-      ["Home", "My approvals", "Assistant"],
+      /* No My approvals: an employee decides nobody's requests (U57). */
+      ["Home", "Assistant"],
       MODULES_ROWS.filter((label) => label !== "Projects+"),
     ]);
     expect(
