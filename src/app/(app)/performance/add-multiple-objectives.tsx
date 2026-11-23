@@ -11,9 +11,11 @@ import type {
 import type { ApiGoal } from "@/lib/api/performance";
 import { OBJECTIVES, type ObjectiveField } from "@/lib/imports/objectives";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useAppraisals } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 import { quarterOptions, quarterText, useQuarterToday } from "./goal-dialogs";
+import { defaultPeriodId } from "./goal-facts";
 import { OBJECTIVES_IMPORT_SURFACE } from "./kpis/import/surface";
 import { useObjectiveTemplateLists } from "./kpis/import/lists";
 
@@ -33,14 +35,16 @@ import { useObjectiveTemplateLists } from "./kpis/import/lists";
  * offers something the check then refuses puts the refusal further from its cause,
  * and two lists for one question would drift.
  *
- * ## Assigned to is a typed email, with suggestions
+ * ## One table, with pickers (UAT 23 Nov, U105 / PERF-26)
  *
- * The importer takes a work email, because two people can share a name. The
- * directory rows a department head can read carry no email at all (see
- * `DirectoryPerson`), so for them there is nothing to suggest and the box is a
- * plain email box, which is what the spreadsheet column is too. For somebody
- * holding the records permission the full rows have addresses, and each one is
- * offered by name.
+ * It offered three layouts of thirteen fields and asked for typed emails and
+ * the exact title of a parent. It is one table now; Assigned to is a list of
+ * people and Sits under a list of the objectives that can be a parent. The
+ * importer still takes a work email, because two people can share a name, so
+ * the list's values are emails. The directory rows a department head can read
+ * carry no email (see `DirectoryPerson`), so for them there is nothing to pick
+ * from and the box stays a plain email box, as the spreadsheet column is. A new
+ * row starts in the open appraisal period, as New objective does.
  */
 
 const GROUPS: readonly FieldGroup[] = [
@@ -119,6 +123,13 @@ function Loaded({
   /* Not `TODAY`: that is the demo's fixed August, which left "Due quarter" on an
      ended quarter for a real company. */
   const today = useQuarterToday();
+  /* The open period, by name, which is what the importer's column holds; only
+     where the company's own list offers it. */
+  const { cycles } = useAppraisals();
+  const openId = defaultPeriodId(cycles);
+  const openName = cycles.find((cycle) => cycle.id === openId)?.name ?? null;
+  const openPeriod =
+    openName && (lists["period"] ?? []).includes(openName) ? openName : null;
 
   const surface = useMemo<BulkSurface>(() => {
     const quarters = quarterOptions(today);
@@ -132,6 +143,7 @@ function Loaded({
       people.unshift({ value: ownEmail, label: `Me, ${ownEmail}` });
     }
 
+    const parents = parentSuggestions(goals);
     const chooseFrom = (
       names: readonly string[] | undefined,
       blank: string,
@@ -155,12 +167,19 @@ function Loaded({
           })),
           blank: "Choose a quarter",
         },
-        ownerEmail: {
-          kind: "text",
-          type: "email",
-          placeholder: "Leave empty for a department or company objective",
-          suggestions: people,
-        },
+        ownerEmail:
+          people.length > 0
+            ? {
+                kind: "select",
+                options: people,
+                blank: "Nobody: a department or company objective",
+              }
+            : {
+                kind: "text",
+                type: "email",
+                placeholder:
+                  "Leave empty for a department or company objective",
+              },
         department: chooseFrom(lists["department"], "No department"),
         /* Not "counts towards nobody's mark": that is only true of a card with no
            parent, or whose parent has no open period to give it. The check says
@@ -169,17 +188,23 @@ function Loaded({
           lists["period"],
           "None chosen (the parent's period, if any)",
         ),
-        parent: {
-          kind: "text",
-          placeholder: "The exact title of the objective it sits under",
-          suggestions: parentSuggestions(goals),
-        },
+        parent:
+          parents.length > 0
+            ? { kind: "select", options: parents, blank: "Nothing above it" }
+            : {
+                kind: "text",
+                placeholder: "The exact title of the objective it sits under",
+              },
         description: { kind: "longtext" },
         start: { kind: "text", inputMode: "decimal" },
         target: { kind: "text", inputMode: "decimal" },
       },
       groups: GROUPS,
-      defaults: { quarter: quarters[1] ?? quarters[0] ?? "" },
+      defaults: {
+        quarter: quarters[1] ?? quarters[0] ?? "",
+        ...(openPeriod ? { period: openPeriod } : {}),
+      },
+      onlyLayout: "table",
       itemName: (draft, position) =>
         draft.values["title"]?.trim() || `Objective ${String(position)}`,
       fillable: ["quarter", "period", "department", "ownerEmail"],
@@ -192,7 +217,16 @@ function Loaded({
       refusalWithoutApi: OBJECTIVES_IMPORT_SURFACE.refusalWithoutApi,
       onChanged,
     };
-  }, [employees, archivedIds, ownEmail, lists, goals, onChanged, today]);
+  }, [
+    employees,
+    archivedIds,
+    ownEmail,
+    lists,
+    goals,
+    onChanged,
+    today,
+    openPeriod,
+  ]);
 
   return <BulkCreateDialog open={open} onClose={onClose} surface={surface} />;
 }

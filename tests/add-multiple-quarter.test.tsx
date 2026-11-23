@@ -20,6 +20,11 @@ vi.mock("@/lib/store/employees-api", async (original) => ({
   useEmployeeDirectory: () => ({ employees: [], archivedIds: new Set() }),
 }));
 
+vi.mock("@/lib/store/performance", async (original) => ({
+  ...(await original<typeof import("@/lib/store/performance")>()),
+  useAppraisals: () => ({ cycles: [] }),
+}));
+
 vi.mock("@/app/(app)/performance/kpis/import/lists", () => ({
   useObjectiveTemplateLists: () => ({
     lists: { department: [], period: [] },
@@ -64,8 +69,10 @@ describe("Add multiple, on 21 October 2026", () => {
         />
       </ToastProvider>,
     );
-    fireEvent.click(screen.getByRole("radio", { name: "Stacked" }));
-    const select = screen.getByLabelText(/Due quarter/) as HTMLSelectElement;
+    /* One table now (U105): the first row's cell. */
+    const select = screen.getAllByLabelText(
+      /Due quarter/,
+    )[0] as HTMLSelectElement;
     expect(select.value).toBe("2026-Q4");
   });
 });
