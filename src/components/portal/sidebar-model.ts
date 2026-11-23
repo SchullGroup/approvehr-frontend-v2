@@ -128,10 +128,10 @@ const SECTION_OF: Record<string, string> = {
   "hiring/Job adverts": "Pipeline",
   "hiring/Applications": "Pipeline",
   "hiring/Talent pool": "Pipeline",
-  "hiring/Interviews": "Interviews and offers",
-  "hiring/My interviews": "Interviews and offers",
-  "hiring/Offers": "Interviews and offers",
-  "hiring/Hired": "Interviews and offers",
+  "hiring/Interviews": "Interview to hire",
+  "hiring/My interviews": "Interview to hire",
+  "hiring/Offers": "Interview to hire",
+  "hiring/Hired": "Interview to hire",
   "hiring/Hiring settings": "Setup",
 };
 
