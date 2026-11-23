@@ -54,7 +54,6 @@ const { PostingScreen } =
 
 const Q1 = "0198c0de-0000-7000-8000-000000000001";
 const Q2 = "0198c0de-0000-7000-8000-000000000002";
-const NEW = "0198c0de-0000-7000-8000-000000000003";
 
 const apiQ = (over: Partial<ApiFormQuestion> = {}): ApiFormQuestion => ({
   id: Q1,
@@ -187,8 +186,6 @@ const mount = () =>
       <PostingScreen id="post-1" />
     </ToastProvider>,
   );
-
-const cards = () => screen.getAllByTestId("form-question");
 
 beforeEach(() => {
   for (const fn of [
