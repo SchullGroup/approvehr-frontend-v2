@@ -187,6 +187,14 @@ describe("How it works", () => {
     expect(screen.getAllByText("THE API'S MANAGER NOTE")).toHaveLength(1);
   });
 
+  /* UAT 23 Nov, U97 / PERF-22: disputes were removed in October, and the only
+     button on a final rating is "I have seen this". */
+  it("does not promise a formal disagreement nobody can make", () => {
+    render(<HowItWorksBody />);
+    expect(screen.queryByText(/formally disagree/)).toBeNull();
+    expect(screen.getByText(/tells HR/)).toBeInTheDocument();
+  });
+
   it("says nothing about the part where the server has none", () => {
     serve(null);
     render(<HowItWorksBody />);
