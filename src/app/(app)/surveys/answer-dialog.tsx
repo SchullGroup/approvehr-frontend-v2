@@ -210,14 +210,14 @@ function QuestionField({
             onChange(value ? { scaleValue: Number(value) } : {});
           }}
         >
-          {/* The ceiling is named in the label of every option rather than
-              assumed. A 4 means nothing without knowing whether the top is 5
-              or 10 — the same reason `scaleMax` is a column. */}
+          {/* The ends say what they mean (UAT 23 Nov, U45, SELF-25): "1 of 5"
+              against "The in-office days suit my team" did not say whether 1
+              was agreeing or not. See `scaleLabel`. */}
           <option value="">Choose</option>
           {Array.from({ length: question.scaleMax ?? 5 }, (_, i) => i + 1).map(
             (value) => (
               <option key={value} value={value}>
-                {value} of {question.scaleMax ?? 5}
+                {scaleLabel(value, question.scaleMax ?? 5)}
               </option>
             ),
           )}
@@ -278,4 +278,25 @@ function QuestionField({
       )}
     </Field>
   );
+}
+
+/** The words on a five-point scale, from the lowest to the highest. */
+const FIVE_POINT = [
+  "Strongly disagree",
+  "Disagree",
+  "Neither agree nor disagree",
+  "Agree",
+  "Strongly agree",
+] as const;
+
+/**
+ * One option on a rating question. A five-point scale is words at every point;
+ * any other names its two ends and numbers the points between them, so a 4
+ * still says which way it leans.
+ */
+export function scaleLabel(value: number, max: number): string {
+  if (max === FIVE_POINT.length) return `${value} · ${FIVE_POINT[value - 1]}`;
+  if (value === 1) return `1 · ${FIVE_POINT[0]}`;
+  if (value === max) return `${max} · ${FIVE_POINT[FIVE_POINT.length - 1]}`;
+  return `${value} of ${max}`;
 }

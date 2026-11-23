@@ -106,7 +106,6 @@ const SECTION_OF: Record<string, string> = {
   "core-hr/Probation": "Lifecycle",
   "core-hr/Promotions": "Lifecycle",
   "core-hr/Exit management": "Lifecycle",
-  "core-hr/Surveys": "Engagement",
   "core-hr/One-to-ones": "Engagement",
   "core-hr/Documents": "Records",
   "core-hr/Signatures": "Records",
@@ -128,10 +127,10 @@ const SECTION_OF: Record<string, string> = {
   "hiring/Job adverts": "Pipeline",
   "hiring/Applications": "Pipeline",
   "hiring/Talent pool": "Pipeline",
-  "hiring/Interviews": "Interviews and offers",
-  "hiring/My interviews": "Interviews and offers",
-  "hiring/Offers": "Interviews and offers",
-  "hiring/Hired": "Interviews and offers",
+  "hiring/Interviews": "Interview to hire",
+  "hiring/My interviews": "Interview to hire",
+  "hiring/Offers": "Interview to hire",
+  "hiring/Hired": "Interview to hire",
   "hiring/Hiring settings": "Setup",
 };
 
@@ -462,13 +461,6 @@ const KEYWORDS: Record<string, string[]> = {
   ],
   "core-hr/Onboarding": ["new hire", "new starter", "joiner", "induction"],
   "core-hr/Probation": ["confirmation", "trial period", "confirm"],
-  "core-hr/Surveys": [
-    "feedback",
-    "pulse",
-    "questionnaire",
-    "engagement",
-    "poll",
-  ],
   "core-hr/Promotions": ["promote", "raise", "transfer", "regrade", "career"],
   "core-hr/Exit management": [
     "offboarding",

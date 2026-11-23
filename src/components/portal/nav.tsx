@@ -629,17 +629,10 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <CalendarCheck aria-hidden="true" />,
       permission: "EDIT_RECORDS",
     },
-    {
-      /* **No permission**, and that is the point: every employee answers
-         surveys and a permission gate would hide the screen from the audience
-         it exists for. `MANAGE_SETTINGS` decides what the same route *shows* —
-         one route, narrowed by role rather than by URL, PARITY Rule 1. The
-         feature flag is what hides it from a company that does not run them. */
-      href: "/surveys",
-      label: "Surveys",
-      icon: <ClipboardList aria-hidden="true" />,
-      feature: "surveys",
-    },
+    /* Surveys has no row until a survey can be made here (UAT 23 Nov, U45,
+       HR-11): the screen lists and answers surveys, and there is no way to
+       start or publish one. Somebody asked to answer one is sent a
+       notification that opens /surveys, which still works. */
     {
       /* After Probation and before Exit management: joined, confirmed,
          promoted, left. `EDIT_RECORDS` because proposing a change is editing a
@@ -690,6 +683,22 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "queries",
     },
     {
+      /* No permission, because none of them is the question: a one-to-one is
+         readable by its two participants, which is a property of the rows.
+         That much was always right. What followed from it was not — the item
+         was `always: true`, so every employee carried a sidebar row whose only
+         control offered the whole directory and had each choice refused.
+
+         `rows` asks the rows instead: showing to somebody who manages people,
+         or who is already in one as the report. Everybody else has nothing
+         behind this door yet, and the honest sidebar says so by not having
+         it. It comes back the moment their manager starts one. */
+      href: "/people/one-on-ones",
+      label: "One-to-ones",
+      icon: <MessagesSquare aria-hidden="true" />,
+      rows: "one-on-ones",
+    },
+    {
       /* The HR register — what is on file and what is outstanding. The
          personal view is "My documents" in the block above. */
       href: "/people/documents",
@@ -721,22 +730,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <FileSignature aria-hidden="true" />,
       rows: "signatures",
     },
-    {
-      /* No permission, because none of them is the question: a one-to-one is
-         readable by its two participants, which is a property of the rows.
-         That much was always right. What followed from it was not — the item
-         was `always: true`, so every employee carried a sidebar row whose only
-         control offered the whole directory and had each choice refused.
 
-         `rows` asks the rows instead: showing to somebody who manages people,
-         or who is already in one as the report. Everybody else has nothing
-         behind this door yet, and the honest sidebar says so by not having
-         it. It comes back the moment their manager starts one. */
-      href: "/people/one-on-ones",
-      label: "One-to-ones",
-      icon: <MessagesSquare aria-hidden="true" />,
-      rows: "one-on-ones",
-    },
     {
       /* Laptops, phones and SIM cards. Gated to the register's audience
          because a staff member's own kit already renders on `/profile`, and

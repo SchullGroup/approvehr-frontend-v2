@@ -38,6 +38,7 @@ import {
   type ScoreComponent,
 } from "@/lib/api/performance";
 import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
+import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 import { useCan } from "@/lib/permissions";
 import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
@@ -322,7 +323,7 @@ function PartsPanel({
             <Card>
               <CardHeader
                 title="The parts of a mark"
-                description="A mark is the weighted average of these parts. Each counts in proportion to the total."
+                description={`A mark is the weighted average of these parts. ${WEIGHTS_RULE}`}
                 action={
                   <span className="flex flex-wrap items-center gap-3">
                     <Total totalBp={view.totalBp} />
@@ -414,11 +415,20 @@ function PartsPanel({
                             <p className="tabular text-body-sm font-medium text-ink">
                               {weightLabel(part.weightBp)}
                             </p>
-                            <p className="tabular text-meta text-muted">
-                              {part.weightBp === 0
-                                ? "Counts for nothing"
-                                : `${weightLabel(part.shareBp)} of a mark`}
-                            </p>
+                            {/* The share only where it differs from the
+                                weight: "45%" over "45% of a mark" said one
+                                thing twice (L14 / PERF-39). */}
+                            {part.weightBp === 0 ? (
+                              <p className="tabular text-meta text-muted">
+                                Counts for nothing
+                              </p>
+                            ) : (
+                              part.shareBp !== part.weightBp && (
+                                <p className="tabular text-meta text-muted">
+                                  {`${weightLabel(part.shareBp)} of a mark`}
+                                </p>
+                              )
+                            )}
                           </div>
                           {manage && (
                             <span className="flex gap-1">

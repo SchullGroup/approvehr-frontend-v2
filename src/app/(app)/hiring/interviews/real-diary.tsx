@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/recruitment";
 import { useInterviewsGateway } from "@/lib/hiring/interviews/use-interviews";
 import type { InterviewView } from "@/lib/hiring/interviews/model";
+import { splitScheduled } from "@/lib/hiring/interviews/timing";
 import { useInterviews } from "@/lib/store/recruitment";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDate, formatTime } from "@/lib/time";
@@ -33,8 +34,15 @@ import { formatDate, formatTime } from "@/lib/time";
  * interview with zero scorecards is the nearest true signal.
  */
 export function RealDiary() {
-  const upcoming = useInterviews({ status: "SCHEDULED", pageSize: 50 });
+  const scheduled = useInterviews({ status: "SCHEDULED", pageSize: 50 });
   const completed = useInterviews({ status: "COMPLETED", pageSize: 50 });
+  const gateway = useInterviewsGateway();
+  /* SCHEDULED is the API's status until somebody closes an interview, so a
+     month-old one is still "scheduled". Split by the clock (U91 / PERF-11). */
+  const { upcoming, toClose } = splitScheduled(
+    scheduled.interviews,
+    Date.parse(gateway.now()),
+  );
 
   const needsScorecard = completed.interviews.filter(
     (iv) => iv.scorecardsSubmitted === 0,
@@ -56,13 +64,27 @@ export function RealDiary() {
         </Card>
       )}
 
+      {toClose.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Happened, needs closing"
+            description="Their time has passed. Open each one and mark it complete or a no-show."
+          />
+          <CardBody className="flex flex-col gap-2.5">
+            {toClose.map((iv) => (
+              <Row key={iv.id} interview={iv} tone="warning" />
+            ))}
+          </CardBody>
+        </Card>
+      )}
+
       <Card>
         <CardHeader title="Upcoming" />
         <CardBody className="flex flex-col gap-2.5">
-          {upcoming.loading && upcoming.interviews.length === 0 && (
+          {scheduled.loading && scheduled.interviews.length === 0 && (
             <p className="text-body-sm text-muted">Loading…</p>
           )}
-          {!upcoming.loading && upcoming.interviews.length === 0 && (
+          {!scheduled.loading && upcoming.length === 0 && (
             <EmptyState
               compact
               icon={<CalendarClock aria-hidden="true" />}
@@ -70,7 +92,7 @@ export function RealDiary() {
               description="Interviews you book will appear here."
             />
           )}
-          {upcoming.interviews.map((iv) => (
+          {upcoming.map((iv) => (
             <Row key={iv.id} interview={iv} tone="info" />
           ))}
         </CardBody>
