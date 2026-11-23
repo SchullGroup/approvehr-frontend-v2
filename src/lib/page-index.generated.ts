@@ -328,7 +328,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   },
   {
     "href": "/performance/kpis",
-    "title": "KPIs",
+    "title": "Objectives",
     "description": "What people are aiming at, and how far along it is, yours, your team's, or the company's."
   },
   {

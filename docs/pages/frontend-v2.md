@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `b5073582` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `556a86c2` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 **171 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -205,7 +205,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/performance/fairness`              | Fairness check      | How an appraisal period's marks compare by gender, age, time at the company, location, contract type, department and manager.                                                                                    | `src/app/(app)/performance/fairness/page.tsx`              |
 | `/performance/history/[employeeId]`  | Appraisal history   | One person's mark period by period: the trend, what each mark was made of, and the periods with no mark at all.                                                                                                  | `src/app/(app)/performance/history/[employeeId]/page.tsx`  |
 | `/performance/how-it-works`          | How appraisals work | What a period is, what a mark is made of, and what happens when one is given.                                                                                                                                    | `src/app/(app)/performance/how-it-works/page.tsx`          |
-| `/performance/kpis`                  | KPIs                | What people are aiming at, and how far along it is, yours, your team's, or the company's.                                                                                                                        | `src/app/(app)/performance/kpis/page.tsx`                  |
+| `/performance/kpis`                  | Objectives          | What people are aiming at, and how far along it is, yours, your team's, or the company's.                                                                                                                        | `src/app/(app)/performance/kpis/page.tsx`                  |
 | `/performance/kpis/import`           | Upload objectives   | Give a team its quarter from one spreadsheet: match your own column names, see every row that will not go in and why before anything is saved, and have each objective arrive as a draft for its owner to agree. | `src/app/(app)/performance/kpis/import/page.tsx`           |
 | `/performance/periods`               | Appraisal periods   | Every appraisal period, open ones first, and what each one needs next.                                                                                                                                           | `src/app/(app)/performance/periods/page.tsx`               |
 | `/performance/periods/[id]`          | Appraisal period    | Run an appraisal period: what is still needed, who is late, who has no appraiser, and where every mark stands.                                                                                                   | `src/app/(app)/performance/periods/[id]/page.tsx`          |
