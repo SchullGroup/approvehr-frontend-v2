@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => ({
   reasonRequired: null as boolean | null,
   /** What the chosen type asks for. Zero asks for none. */
   notice: 0,
+  /** The type's own supporting-file setting. */
+  policy: "OPTIONAL" as string,
 }));
 
 const LIMITS: LeaveFileLimits = {
@@ -95,6 +97,7 @@ vi.mock("@/lib/store/leave-api", () => ({
         ...SICK,
         reasonRequired: mocks.reasonRequired,
         minNoticeDays: mocks.notice,
+        attachmentPolicy: mocks.policy,
       },
     ],
   }),
@@ -186,6 +189,7 @@ beforeEach(() => {
   mocks.connected = true;
   mocks.reasonRequired = null;
   mocks.notice = 0;
+  mocks.policy = "OPTIONAL";
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -197,6 +201,12 @@ describe("when the picker is offered", () => {
     expect(
       screen.getByText("PDF, PNG and HEIC, up to 5 files of 5 MB each."),
     ).toBeInTheDocument();
+  });
+
+  it("offers it on every leave type while the server can keep a file, a type set to none included (UAT 23 Nov, T1)", () => {
+    mocks.policy = "NONE";
+    mount();
+    expect(legend()).toBe("Supporting file (optional)");
   });
 
   it("does not offer it where the server cannot", () => {

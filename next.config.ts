@@ -184,10 +184,9 @@ const uploadOrigins = (() => {
  * (`src/lib/api/linked-upload.ts`): the browser POSTs a file to it and gets back
  * an address, and `connect-src` decides whether the browser will send it. Without
  * the origin here the request is refused before it leaves and the person is told
- * their connection dropped, so it is named. **Unset is the old platform's
- * uploader**, the same default `linked-upload.ts` has, so a build with nothing set
- * can send a leave file; blank or `off` is off, and then the policy is exactly
- * what it was before this path existed and admits no origin it will not call.
+ * their connection dropped, so it is named. **Unset is off** (UAT 23 Nov, U5: a
+ * medical certificate must not go to a public uploader by default), as are blank
+ * and `off`, and then the policy admits no origin it will not call.
  *
  * The same rule as the storage origins above, and for the same reason: `https:`
  * only (and `http://localhost` in a development build), the origin and nothing
@@ -195,15 +194,10 @@ const uploadOrigins = (() => {
  * the build down over a header. `linked-upload.ts` applies the same test to the
  * same value, so an address one accepts is never one the other refuses.
  */
-/* The same string as `LINKED_UPLOAD_DEFAULT` in `src/lib/api/linked-upload.ts`,
-   which this file cannot import. `tests/linked-upload-default.test.ts` fails if
-   the two ever differ. */
-const LINKED_UPLOAD_DEFAULT =
-  "https://qerhd0lxje.execute-api.us-east-1.amazonaws.com/prod";
 
 const linkedUploadOrigin = (() => {
   const set = process.env["NEXT_PUBLIC_LINKED_UPLOAD_URL"];
-  const raw = set === undefined ? LINKED_UPLOAD_DEFAULT : set.trim();
+  const raw = (set ?? "").trim();
   if (!raw) return "";
   try {
     const url = new URL(raw);

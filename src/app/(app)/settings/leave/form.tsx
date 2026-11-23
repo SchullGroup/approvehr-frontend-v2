@@ -377,6 +377,12 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   const rollover = useLeaveRollover();
   const carryOver = rollover ? carryOverLine(rollover, timeZone) : null;
   const available = filesAvailable(fileLimits);
+  /* With nowhere private to keep a file, the supporting-file setting is not
+     offered (UAT 23 Nov, U5): asking for a medical certificate that cannot be
+     attached, or can only go somewhere public, helps nobody. A type that already
+     requires one keeps its switch, so HR can turn the requirement off. */
+  const offersFile = (type: TypeRow) =>
+    available !== false || type.attachmentPolicy === "REQUIRED";
 
   /**
    * Whether the last edit has landed.
@@ -503,6 +509,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   }));
 
   const types = isConnected ? (fetched?.rows ?? []) : demoRows;
+  const showFileColumn = isConnected && types.some(offersFile);
   const typesLoading = isConnected && fetched === null;
 
   async function editType(
@@ -788,7 +795,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                             <TH align="right">Carry over</TH>
                             <TH align="right">Notice (days)</TH>
                             {isConnected && <TH>Reason</TH>}
-                            {isConnected && <TH>Supporting file</TH>}
+                            {showFileColumn && <TH>Supporting file</TH>}
                             <TH>Who</TH>
                             {isConnected && (
                               <TH align="right">
@@ -897,16 +904,18 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     )}
                                   </TD>
                                 )}
-                                {isConnected && (
+                                {showFileColumn && (
                                   <TD>
-                                    <SupportingFileSwitch
-                                      type={type}
-                                      available={available}
-                                      label="Required"
-                                      onChange={(patch) =>
-                                        void editType(type, patch)
-                                      }
-                                    />
+                                    {offersFile(type) && (
+                                      <SupportingFileSwitch
+                                        type={type}
+                                        available={available}
+                                        label="Required"
+                                        onChange={(patch) =>
+                                          void editType(type, patch)
+                                        }
+                                      />
+                                    )}
                                   </TD>
                                 )}
                                 <TD>
@@ -1067,14 +1076,16 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                         void editType(type, { reasonRequired })
                                       }
                                     />
-                                    <SupportingFileSwitch
-                                      type={type}
-                                      available={available}
-                                      label="Supporting file required"
-                                      onChange={(patch) =>
-                                        void editType(type, patch)
-                                      }
-                                    />
+                                    {offersFile(type) && (
+                                      <SupportingFileSwitch
+                                        type={type}
+                                        available={available}
+                                        label="Supporting file required"
+                                        onChange={(patch) =>
+                                          void editType(type, patch)
+                                        }
+                                      />
+                                    )}
                                   </div>
                                 )}
 
@@ -1598,28 +1609,30 @@ function AddLeaveTypeForm({
           {error?.where === "reason" && <FormRefusal text={error.message} />}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Switch
-            label="Ask for a supporting file"
-            description={
-              noFiles
-                ? FILES_UNAVAILABLE
-                : fileOn
-                  ? "People must attach a file (a medical certificate, say) to ask for this leave."
-                  : "People can ask for this leave without attaching a file."
-            }
-            checked={fileOn}
-            disabled={noFiles}
-            onChange={(e) => setAskFile(e.target.checked)}
-          />
-          {fileOn && (
-            <p className="text-meta text-muted">
-              To ask for one only after a number of days, set that in the table
-              once the type is added.
-            </p>
-          )}
-          {error?.where === "file" && <FormRefusal text={error.message} />}
-        </div>
+        {!noFiles && (
+          <div className="flex flex-col gap-1.5">
+            <Switch
+              label="Ask for a supporting file"
+              description={
+                noFiles
+                  ? FILES_UNAVAILABLE
+                  : fileOn
+                    ? "People must attach a file (a medical certificate, say) to ask for this leave."
+                    : "People can ask for this leave without attaching a file."
+              }
+              checked={fileOn}
+              disabled={noFiles}
+              onChange={(e) => setAskFile(e.target.checked)}
+            />
+            {fileOn && (
+              <p className="text-meta text-muted">
+                To ask for one only after a number of days, set that in the
+                table once the type is added.
+              </p>
+            )}
+            {error?.where === "file" && <FormRefusal text={error.message} />}
+          </div>
+        )}
 
         {error?.where === "form" && <FormRefusal text={error.message} />}
       </div>
