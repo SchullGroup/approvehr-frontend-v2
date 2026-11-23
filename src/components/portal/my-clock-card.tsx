@@ -24,6 +24,8 @@ import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
   defaultClockLocationId,
+  nearestOfficeLine,
+  useHomeLocationId,
   STATUS_LABEL,
   useAttendanceMutations,
   useAttendanceRoster,
@@ -99,10 +101,12 @@ export function MyClockCard({
      two copies of "which one is preselected" is how the navbar and this card
      come to disagree about where somebody is about to clock in. */
   const remembered = useLastClockLocation();
+  const home = useHomeLocationId();
   const locationId = defaultClockLocationId(
     locations.locations,
     remembered,
     picked,
+    home,
   );
   /* The row, not the id: `clockIn` needs to know whether this location's fence
      is enforced before it decides to ask the browser where the device is. */
@@ -187,13 +191,18 @@ export function MyClockCard({
     } catch (error) {
       const position = error instanceof PositionError ? error : null;
       const fence = geofenceRefusal(error);
+      const nearest = fence
+        ? nearestOfficeLine(error, locations.locations, locationId)
+        : null;
       toast.push({
         title: position?.title ?? fence?.summary ?? "That did not go through",
         tone: "danger",
         detail:
           position?.message ??
           (error instanceof ApiError
-            ? error.message
+            ? nearest
+              ? `${error.message} ${nearest}`
+              : error.message
             : "Something went wrong. Try again."),
       });
     } finally {
@@ -293,7 +302,7 @@ export function MyClockCard({
                     In at {myRow?.clockIn}, out at {myRow?.clockOut}
                   </p>
                   <p className="text-[2.5rem] leading-none font-semibold">
-                    Day complete
+                    Clocked out
                   </p>
                 </>
               ) : nothingToClock && myRow ? (
@@ -638,7 +647,7 @@ export function MyClockCard({
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="success" size="sm" dot>
-                    Day complete
+                    Clocked out
                   </Badge>
                   {/* A mis-click is the common case and used to need a
                       ticket: reversing a clock-out was an HR correction, so

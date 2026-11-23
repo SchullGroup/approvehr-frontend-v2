@@ -23,7 +23,7 @@ import {
   type RequestCorrectionBody,
 } from "@/lib/api/attendance";
 import type { ApiRotaCell } from "@/lib/api/shifts";
-import { readPosition } from "@/lib/geolocation";
+import { readPosition, type PositionFix } from "@/lib/geolocation";
 import {
   ATTENDANCE,
   DEFAULT_POLICY,
@@ -51,6 +51,8 @@ import { useRota } from "./shifts";
 import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 import { useCan } from "@/lib/permissions";
+import { createSharedResource } from "@/lib/shared-resource";
+import { employees as employeesApi } from "@/lib/api/endpoints";
 
 /**
  * Clock-ins, clock-outs and the attendance policy.
@@ -264,11 +266,105 @@ export function defaultClockLocationId(
   locations: readonly { id: string }[],
   remembered: string | null,
   picked: string | null,
+  /**
+   * The person's own work location, from their record. Before the first in
+   * the list (UAT 23 Nov, U27: SELF-4): every employee was offered the first
+   * office alphabetically, and refused "81 km from Abeokuta" at their own desk.
+   */
+  home: string | null = null,
 ): string {
   if (picked) return picked;
   if (remembered && locations.some((one) => one.id === remembered))
     return remembered;
+  if (home && locations.some((one) => one.id === home)) return home;
   return locations[0]?.id ?? "";
+}
+
+/** Each person's own work location id, read once per session and shared. */
+const homeLocations = createSharedResource<string | null>(async (employeeId) =>
+  employeeId
+    ? ((await employeesApi.get(employeeId)).workLocationId ?? null)
+    : null,
+);
+
+/**
+ * The signed-in person's own work location id, or null while it is not known
+ * (or they have none). Connected only: the demo has no ids to match.
+ */
+export function useHomeLocationId(): string | null {
+  const { isConnected, employeeId } = useSession();
+  return (
+    homeLocations.use(isConnected && employeeId ? employeeId : null) ?? null
+  );
+}
+
+/**
+ * The sentence a geofence refusal ends with: the nearest other office, by name,
+ * where the device was when it was refused. Null when there was no position or
+ * no other office has a point on the map.
+ */
+export function nearestOfficeLine(
+  error: unknown,
+  locations: readonly {
+    id: string;
+    name: string;
+    latitude: number | null;
+    longitude: number | null;
+  }[],
+  refusedId: string | null,
+): string | null {
+  const at = (error as { position?: PositionFix } | null)?.position;
+  if (!at) return null;
+  const nearest = nearestLocation(locations, at, refusedId);
+  return nearest
+    ? `The nearest office is ${nearest.location.name}. Choose it under Where and clock in again.`
+    : null;
+}
+
+/**
+ * The office nearest to where the device is, among those with a point on the
+ * map, other than the one that just refused. For a refusal to name where the
+ * clock-in would have been accepted (U27). Null when none has a point.
+ */
+export function nearestLocation<
+  L extends {
+    id: string;
+    name: string;
+    latitude: number | null;
+    longitude: number | null;
+  },
+>(
+  locations: readonly L[],
+  at: { latitude: number; longitude: number },
+  except: string | null,
+): { location: L; metres: number } | null {
+  let best: { location: L; metres: number } | null = null;
+  for (const location of locations) {
+    if (location.id === except) continue;
+    if (location.latitude === null || location.longitude === null) continue;
+    const metres = distanceMetres(at, {
+      latitude: location.latitude,
+      longitude: location.longitude,
+    });
+    if (best === null || metres < best.metres) best = { location, metres };
+  }
+  return best;
+}
+
+/** Great-circle distance, in metres. */
+function distanceMetres(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+): number {
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = rad(b.latitude - a.latitude);
+  const dLon = rad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a.latitude)) *
+      Math.cos(rad(b.latitude)) *
+      Math.sin(dLon / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
 }
 
 export function useAttendanceStore() {
@@ -1417,10 +1513,20 @@ export function useAttendanceMutations() {
       /* On the click, not on page load, and only where the answer matters. */
       const position = location?.geofenceEnforced ? await readPosition() : null;
 
-      const recorded = await attendanceApi.clockIn({
-        ...(location ? { workLocationId: location.id } : {}),
-        ...(position ? { position } : {}),
-      });
+      let recorded: Awaited<ReturnType<typeof attendanceApi.clockIn>>;
+      try {
+        recorded = await attendanceApi.clockIn({
+          ...(location ? { workLocationId: location.id } : {}),
+          ...(position ? { position } : {}),
+        });
+      } catch (error) {
+        /* Where the device was, carried on a refusal, so the widget can name
+           the office that would have accepted it (U27). Never sent anywhere. */
+        if (position && error instanceof ApiError) {
+          (error as ApiError & { position?: PositionFix }).position = position;
+        }
+        throw error;
+      }
       /* After the server confirmed it, never beside the attempt — a refetch
          triggered by a clock that was refused would re-render the same rows
          and read as the refusal having worked. */
