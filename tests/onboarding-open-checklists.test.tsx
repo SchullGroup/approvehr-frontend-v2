@@ -106,6 +106,10 @@ describe("onboarding, from the open checklists", () => {
       expect.anything(),
     );
     expect(screen.getByText("1 of 2 done")).toBeInTheDocument();
+    /* 20 Nov 2026 is before the clock these tests run on. */
+    expect(
+      screen.getByText(/Accountant · Finance · started /),
+    ).toBeInTheDocument();
   });
 
   it("ticks a task through the server, and not one the record answers", async () => {

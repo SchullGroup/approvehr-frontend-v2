@@ -25,7 +25,7 @@ import {
 import { useCan } from "@/lib/permissions";
 import { useFetched } from "@/lib/use-fetched";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { formatDate } from "@/lib/time";
+import { formatDate, todayIn } from "@/lib/time";
 
 /* Module-level, so `useFetched` sees the same loader on every render. */
 const loadOpen = (signal: AbortSignal) =>
@@ -149,7 +149,7 @@ function ChecklistCard({
         description={[
           employee.jobTitle,
           employee.departmentName,
-          `starts ${formatDate(employee.startDate.slice(0, 10), timeZone)}`,
+          `${employee.startDate.slice(0, 10) > todayIn(timeZone) ? "starts" : "started"} ${formatDate(employee.startDate.slice(0, 10), timeZone)}`,
         ]
           .filter(Boolean)
           .join(" · ")}
