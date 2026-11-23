@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { ButtonLink, Spinner } from "@/components/ui";
 import { useReview } from "@/lib/store/performance";
+import { asOwnForm } from "@/lib/performance/own-words";
 import { FocusForm, type SentInfo } from "./focus-form";
 import { SentScreen } from "./focus-sent";
 
@@ -58,6 +59,9 @@ export function ReviewFocus({ reviewId }: { reviewId: string }) {
   const [held, setHeld] = useState<typeof latest>(null);
   if (latest && latest !== held) setHeld(latest);
   const review = latest ?? held;
+  /* The person's own form asks "you", not "they" (L9). Held, so the form's
+     effects that depend on the questions do not run on every render. */
+  const own = useMemo(() => (review ? asOwnForm(review) : null), [review]);
   const ready = useStoresReady();
 
   /* What was sent, once it has been. Held here rather than in the form so that
@@ -105,5 +109,7 @@ export function ReviewFocus({ reviewId }: { reviewId: string }) {
     );
   }
 
-  return <FocusForm review={review} onSent={setSent} onSending={setSending} />;
+  return (
+    <FocusForm review={own ?? review} onSent={setSent} onSending={setSending} />
+  );
 }
