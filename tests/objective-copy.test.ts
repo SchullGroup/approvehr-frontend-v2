@@ -112,7 +112,7 @@ describe("an objective was created", () => {
     ).toEqual({
       title: '"Grow recurring revenue" created',
       detail:
-        "Engineering's objective for H1 2026. It is a draft, so add KPIs under it and send it to be agreed.",
+        "Engineering's objective for H1 2026. It is a draft, so add objectives under it and send it to be agreed.",
     });
   });
 
@@ -127,13 +127,13 @@ describe("a KPI was added", () => {
     expect(kpiAddedSaid(personal)).toEqual({
       title: '"Ship the billing flow" added',
       detail:
-        'Chidi Nwosu\'s KPI under "Grow recurring revenue", for H1 2026. It is a draft until it is sent to be agreed.',
+        'Chidi Nwosu\'s objective under "Grow recurring revenue", for H1 2026. It is a draft until it is sent to be agreed.',
     });
   });
 
   it("says 'Your' to the person who made their own", () => {
     expect(kpiAddedSaid(personal, "emp-chidi").detail).toMatch(
-      /^Your KPI under/,
+      /^Your objective under/,
     );
   });
 
@@ -145,7 +145,9 @@ describe("a KPI was added", () => {
         reviewCycleName: null,
         dueQuarter: null,
       }).detail,
-    ).toBe("Chidi Nwosu's KPI. It is a draft until it is sent to be agreed.");
+    ).toBe(
+      "Chidi Nwosu's objective. It is a draft until it is sent to be agreed.",
+    );
   });
 });
 
@@ -158,7 +160,7 @@ describe("KPIs given to people", () => {
         parentTitle: "Grow recurring revenue",
       }),
     ).toEqual({
-      title: "KPI given to Chidi Nwosu and Emeka Anyanwu",
+      title: "Objective given to Chidi Nwosu and Emeka Anyanwu",
       detail:
         'Each has their own copy under "Grow recurring revenue", to update and send to be agreed.',
     });
@@ -184,7 +186,7 @@ describe("KPIs given to people", () => {
         parentTitle: null,
       }),
     ).toEqual({
-      title: "KPI given to 4 people",
+      title: "Objective given to 4 people",
       detail:
         "Each has their own copy, to update and send to be agreed. Fatima Bello already had it.",
     });
@@ -198,7 +200,7 @@ describe("KPIs given to people", () => {
         parentTitle: "x",
       }),
     ).toEqual({
-      title: "No new KPI made",
+      title: "No new objective made",
       detail: "Fatima Bello and Musa Ibrahim already had it.",
       tone: "info",
     });

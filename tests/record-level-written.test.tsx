@@ -147,7 +147,7 @@ const mount = () => {
 const pickPerson = (id = "e-chidi") =>
   userEvent.selectOptions(screen.getByLabelText(/Employee/), id);
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(screen.getByLabelText(/Which skill/), name);
+  userEvent.selectOptions(screen.getByLabelText(/Which competency/), name);
 const words = () => screen.getByLabelText(/Answer/) as HTMLTextAreaElement;
 const write = (text: string) => userEvent.type(words(), text);
 /** Pasted, because typing four thousand characters one key at a time is not a test. */

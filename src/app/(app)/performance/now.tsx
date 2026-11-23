@@ -432,8 +432,8 @@ export function WhatNeedsYouTab({
             title="Appraisals are switched off"
             description={
               canManagePeriods
-                ? "KPIs work without them. Turn them on to add appraisal periods, a mark made from objectives and skills, and a record of what each person was told."
-                : "Your company does not run formal appraisals. KPIs still work."
+                ? "Objectives work without them. Turn them on to add appraisal periods, a score made from objectives and competencies, and a record of what each person was told."
+                : "Your company does not run formal appraisals. Objectives still work."
             }
             action={
               canManagePeriods ? (
@@ -681,7 +681,7 @@ export function WhatNeedsYouTab({
                     }
                     detail={objectiveNames(toSend)}
                     href="/performance/kpis"
-                    action="Open your KPIs"
+                    action="Open your objectives"
                   />
                 )}
 

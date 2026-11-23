@@ -588,7 +588,7 @@ describe("Find", () => {
 
   it("ranks an exact label first", () => {
     expect(names("leave")[0]).toBe("Time & Leave › Leave");
-    expect(names("kpis")[0]).toBe("Performance › KPIs");
+    expect(names("kpis")[0]).toBe("Performance › Objectives");
   });
 
   it("answers the synonyms the brief names", () => {

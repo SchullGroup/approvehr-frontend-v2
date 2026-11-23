@@ -45,7 +45,7 @@ export function KpisScreen() {
     <>
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
-        title="KPIs"
+        title="Objectives"
         meta={
           <Badge tone={scope === "mine" ? "neutral" : "accent"} size="sm">
             {SCOPE_LABEL[scope]}

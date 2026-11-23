@@ -86,8 +86,11 @@ describe("New KPI", () => {
 
   it("refuses to create one with no period chosen, and says why", async () => {
     const { onCreate, user } = newKpi();
-    await user.type(screen.getByLabelText(/KPI title/), "Close five deals");
-    await user.click(screen.getByRole("button", { name: "Create KPI" }));
+    await user.type(
+      screen.getByLabelText(/Objective title/),
+      "Close five deals",
+    );
+    await user.click(screen.getByRole("button", { name: "Create objective" }));
 
     expect(onCreate).not.toHaveBeenCalled();
     expect(screen.getByText(/counts towards nobody's mark/)).toBeVisible();
@@ -95,9 +98,12 @@ describe("New KPI", () => {
 
   it("creates it filed in the period that was chosen", async () => {
     const { onCreate, user } = newKpi();
-    await user.type(screen.getByLabelText(/KPI title/), "Close five deals");
+    await user.type(
+      screen.getByLabelText(/Objective title/),
+      "Close five deals",
+    );
     await user.selectOptions(periodField()!, "c-h2");
-    await user.click(screen.getByRole("button", { name: "Create KPI" }));
+    await user.click(screen.getByRole("button", { name: "Create objective" }));
 
     expect(onCreate).toHaveBeenCalledTimes(1);
     expect(onCreate.mock.calls[0]![0]).toMatchObject({
@@ -111,8 +117,11 @@ describe("New KPI", () => {
     const { onCreate, user } = newKpi();
     expect(periodField()!.value).toBe("c-h1");
 
-    await user.type(screen.getByLabelText(/KPI title/), "Close five deals");
-    await user.click(screen.getByRole("button", { name: "Create KPI" }));
+    await user.type(
+      screen.getByLabelText(/Objective title/),
+      "Close five deals",
+    );
+    await user.click(screen.getByRole("button", { name: "Create objective" }));
     expect(onCreate.mock.calls[0]![0]).toMatchObject({ reviewCycleId: "c-h1" });
     /* A published period is a record, and is not offered. */
     expect(optionTexts(periodField()!)).not.toContain("H2 2025");
@@ -126,8 +135,8 @@ describe("New KPI", () => {
     expect(optionTexts(periodField()!)[0]).toBe(
       "Not part of an appraisal period",
     );
-    await user.type(screen.getByLabelText(/KPI title/), "Win the tender");
-    await user.click(screen.getByRole("button", { name: "Create KPI" }));
+    await user.type(screen.getByLabelText(/Objective title/), "Win the tender");
+    await user.click(screen.getByRole("button", { name: "Create objective" }));
     expect(onCreate).toHaveBeenCalledTimes(1);
     expect(onCreate.mock.calls[0]![0]).not.toHaveProperty("reviewCycleId");
   });
@@ -146,8 +155,11 @@ describe("New KPI", () => {
 
     expect(periodField()).toBeNull();
     expect(screen.getByText(/No appraisal period is open/)).toBeVisible();
-    await user.type(screen.getByLabelText(/KPI title/), "Close five deals");
-    await user.click(screen.getByRole("button", { name: "Create KPI" }));
+    await user.type(
+      screen.getByLabelText(/Objective title/),
+      "Close five deals",
+    );
+    await user.click(screen.getByRole("button", { name: "Create objective" }));
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
@@ -156,7 +168,9 @@ describe("New KPI", () => {
     state.loading = true;
     newKpi();
 
-    expect(screen.getByRole("button", { name: "Create KPI" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Create objective" }),
+    ).toBeDisabled();
     expect(
       screen.queryByText(/No appraisal period is open/),
     ).not.toBeInTheDocument();

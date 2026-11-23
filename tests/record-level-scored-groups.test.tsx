@@ -85,7 +85,7 @@ vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
 
 const groupLabels = () =>
   Array.from(
-    screen.getByLabelText(/Which skill/).querySelectorAll("optgroup"),
+    screen.getByLabelText(/Which competency/).querySelectorAll("optgroup"),
   ).map((group) => group.label);
 
 beforeEach(() => {

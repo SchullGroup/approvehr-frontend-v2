@@ -110,7 +110,7 @@ describe("the edit dialog", () => {
 
   it("opens on what the objective says now, with Save waiting for a change", () => {
     open();
-    expect(screen.getByLabelText(/KPI title/)).toHaveValue(
+    expect(screen.getByLabelText(/Objective title/)).toHaveValue(
       "Grow qualified pipeline",
     );
     expect(screen.getByLabelText(/Due quarter/)).toHaveValue("2026-Q4");
@@ -120,15 +120,15 @@ describe("the edit dialog", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
   });
 
-  it("calls a shared one an objective and a personal one a KPI", () => {
-    open({ level: "department" });
+  it("calls every rung an objective, a personal one too (U94)", () => {
+    open({ level: "personal" });
     expect(screen.getByLabelText(/Objective title/)).toBeInTheDocument();
   });
 
   it("sends only what changed", async () => {
     const user = userEvent.setup();
     const onSave = open();
-    const title = screen.getByLabelText(/KPI title/);
+    const title = screen.getByLabelText(/Objective title/);
     await user.clear(title);
     await user.type(title, "Grow qualified pipeline by 40");
     await user.selectOptions(
@@ -158,7 +158,7 @@ describe("the edit dialog", () => {
   it("refuses a title that is too short, and sends nothing", async () => {
     const user = userEvent.setup();
     const onSave = open();
-    const title = screen.getByLabelText(/KPI title/);
+    const title = screen.getByLabelText(/Objective title/);
     await user.clear(title);
     await user.type(title, "ab");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
@@ -191,7 +191,7 @@ describe("the delete dialog", () => {
       />,
     );
     expect(
-      screen.getByRole("heading", { name: "Delete this KPI?" }),
+      screen.getByRole("heading", { name: "Delete this objective?" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/along with its 2 measures/)).toBeInTheDocument();
     expect(screen.getByText(/cannot be undone/)).toBeInTheDocument();
@@ -213,7 +213,7 @@ describe("the delete dialog", () => {
     expect(onClose).toHaveBeenCalled();
     expect(onDelete).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Delete KPI" }));
+    await user.click(screen.getByRole("button", { name: "Delete objective" }));
     expect(onDelete).toHaveBeenCalledWith(
       expect.objectContaining({ id: "g-1" }),
     );

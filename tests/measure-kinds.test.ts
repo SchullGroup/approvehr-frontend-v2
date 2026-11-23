@@ -149,13 +149,13 @@ describe("what the face of a card says about its figure", () => {
 describe("the caption under the average", () => {
   it("counts only the objectives the average was taken over", () => {
     expect(averageProgressHint(5, 6)).toBe(
-      "across 5 of 6 KPIs, the rest not read yet",
+      "across 5 of 6 objectives, the rest not read yet",
     );
   });
 
   it("is the plain count when every objective contributes", () => {
-    expect(averageProgressHint(6, 6)).toBe("across 6 KPIs");
-    expect(averageProgressHint(1, 1)).toBe("across 1 KPI");
+    expect(averageProgressHint(6, 6)).toBe("across 6 objectives");
+    expect(averageProgressHint(1, 1)).toBe("across 1 objective");
   });
 
   it("says nothing has been read, rather than leaving a bare dash, when none has", () => {

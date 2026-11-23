@@ -688,9 +688,9 @@ function StoryCard({
             </Select>
             {assignee && !assignee.ownKpiId && (
               <Callout tone="warning" title="This work would not count">
-                {assignee.name} has no agreed KPI under this objective, so
+                {assignee.name} has no agreed objective under this one, so
                 finishing this {TASK.one} will not be filed against it. Give
-                them one with &ldquo;Give a KPI to people&rdquo; on the
+                them one with &ldquo;Give an objective to people&rdquo; on the
                 objective, or choose someone else.
               </Callout>
             )}
@@ -781,7 +781,7 @@ function PeoplePanel({ people }: { people: ApiPlanPerson[] }) {
               )}
               {!person.ownKpiId && (
                 <span className="text-warning-text">
-                  No KPI under this objective
+                  No objective under this one
                 </span>
               )}
             </span>

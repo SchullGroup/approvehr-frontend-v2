@@ -20,7 +20,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
   title: "Upload objectives",
   breadcrumb: [
     { href: "/performance", label: "Performance" },
-    { href: "/performance/kpis", label: "KPIs" },
+    { href: "/performance/kpis", label: "Objectives" },
   ],
   home: { href: "/performance/kpis", label: "See the objectives" },
   useAccess: useCanUploadObjectives,
@@ -28,7 +28,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
   noAccess: {
     title: "Uploading objectives is for people who lead a team",
     description:
-      "You can add your own objectives one at a time on the KPIs screen. To upload for a team, somebody needs to report to you, you need to head a department, or you need the records permission.",
+      "You can add your own objectives one at a time on the Objectives screen. To upload for a team, somebody needs to report to you, you need to head a department, or you need the records permission.",
   },
   prerequisites: {
     people: {
@@ -53,7 +53,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
       title: "Some parent objectives do not exist yet",
       consequence:
         "will be skipped. Add the department or company objective first, then upload the rows beneath it.",
-      action: { href: "/performance/kpis", label: "Go to KPIs" },
+      action: { href: "/performance/kpis", label: "Go to objectives" },
     },
   },
   /* The one consequence of this upload that is easy to cause for fifty rows at

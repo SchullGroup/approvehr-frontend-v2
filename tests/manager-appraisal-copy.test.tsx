@@ -220,7 +220,7 @@ describe("the appraiser mapping", () => {
     );
     expect(
       screen.getByText(
-        "Everybody who has a say, and how much each one's overall mark weighs against the others'. The shares have to make 100%.",
+        "Everybody who has a say, and how much each one's overall rating weighs against the others'. The shares have to make 100%.",
       ),
     ).toBeInTheDocument();
     expect(

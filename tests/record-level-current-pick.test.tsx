@@ -134,7 +134,7 @@ const mount = () => {
 const pick = async (person = "e-chidi") => {
   await userEvent.selectOptions(screen.getByLabelText(/Employee/), person);
   await userEvent.selectOptions(
-    screen.getByLabelText(/Which skill/),
+    screen.getByLabelText(/Which competency/),
     "Customer feedback",
   );
 };

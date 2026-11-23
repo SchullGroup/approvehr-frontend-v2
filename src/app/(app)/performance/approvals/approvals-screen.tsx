@@ -240,7 +240,7 @@ export function ApprovalsScreen() {
                   description={
                     approvals.couldHaveQueue
                       ? "Every objective sent to you has been answered. New ones turn up here."
-                      : "This queue fills up for whoever people report to. Yours are on the KPI tab, where you can send them to be agreed."
+                      : "This queue fills up for whoever people report to. Yours are on the Objectives page, where you can send them to be agreed."
                   }
                 />
               ) : (

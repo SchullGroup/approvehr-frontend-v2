@@ -474,7 +474,7 @@ export function AppraiserMapTab() {
               <THead>
                 <TH>Person</TH>
                 <TH>Appraiser</TH>
-                <TH align="right">Mark</TH>
+                <TH align="right">Rating</TH>
                 <TH align="right">
                   <span className="sr-only">Split</span>
                 </TH>
@@ -894,7 +894,7 @@ export function AppraisersDialog({
       open
       onClose={onClose}
       title={`Who appraises ${row.employeeName}`}
-      description="Everybody who has a say, and how much each one's overall mark weighs against the others'. The shares have to make 100%."
+      description="Everybody who has a say, and how much each one's overall rating weighs against the others'. The shares have to make 100%."
       size="lg"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -940,7 +940,8 @@ export function AppraisersDialog({
         {rows.length === 0 && (
           <Callout tone="warning" title="Nobody would appraise them">
             You can save with an empty list. It is how you undo a mapping. They
-            will finish the period with no mark, and the period will name them.
+            will finish the period with no rating, and the period will name
+            them.
           </Callout>
         )}
 

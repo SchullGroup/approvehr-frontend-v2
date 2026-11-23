@@ -148,7 +148,7 @@ export function objectiveCreatedSaid(
     title: `"${goal.title}" created`,
     detail:
       goal.approval === "DRAFT"
-        ? `${lead} It is a draft, so add KPIs under it and send it to be agreed.`
+        ? `${lead} It is a draft, so add objectives under it and send it to be agreed.`
         : lead,
   };
 }
@@ -157,7 +157,7 @@ export function objectiveCreatedSaid(
 export function kpiAddedSaid(goal: GoalFacts, viewerId?: string | null): Said {
   const period = periodOf(goal);
   const lead =
-    `${possessive(goal, viewerId)} KPI` +
+    `${possessive(goal, viewerId)} objective` +
     (goal.parentTitle ? ` under "${goal.parentTitle}"` : "") +
     (period ? `, for ${period}` : "") +
     ".";
@@ -191,7 +191,7 @@ export function kpisAssignedSaid({
 
   if (owners.length === 0) {
     return {
-      title: "No new KPI made",
+      title: "No new objective made",
       ...(skipped ? { detail: skipped } : {}),
       tone: "info",
     };
@@ -206,8 +206,8 @@ export function kpisAssignedSaid({
   return {
     title:
       owners.length <= 3
-        ? `KPI given to ${namesPhrase(owners)}`
-        : `KPI given to ${String(owners.length)} people`,
+        ? `Objective given to ${namesPhrase(owners)}`
+        : `Objective given to ${String(owners.length)} people`,
     detail: skipped ? `${sentence} ${skipped}` : sentence,
   };
 }
@@ -296,9 +296,11 @@ export function averageProgressHint(
   if (tracked === 0) return null;
   if (counted === 0) return "nothing read yet";
   if (counted === tracked) {
-    return tracked === 1 ? "across 1 KPI" : `across ${String(tracked)} KPIs`;
+    return tracked === 1
+      ? "across 1 objective"
+      : `across ${String(tracked)} objectives`;
   }
-  return `across ${String(counted)} of ${String(tracked)} KPIs, the rest not read yet`;
+  return `across ${String(counted)} of ${String(tracked)} objectives, the rest not read yet`;
 }
 
 /**

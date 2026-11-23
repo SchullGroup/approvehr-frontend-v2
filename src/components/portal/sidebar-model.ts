@@ -557,7 +557,14 @@ const KEYWORDS: Record<string, string[]> = {
   "time/Overtime": ["extra hours", "after hours"],
 
   "performance/Overview": ["performance", "appraisal"],
-  "performance/KPIs": ["goals", "okrs", "targets", "objectives", "metrics"],
+  "performance/Objectives": [
+    "goals",
+    "okrs",
+    "targets",
+    "kpis",
+    "kpi",
+    "metrics",
+  ],
   "performance/Weekly tasks": ["review tasks", "to do", "weekly"],
   "performance/Competency ratings": ["skills", "competencies", "scores"],
   "performance/Appraisal periods": [

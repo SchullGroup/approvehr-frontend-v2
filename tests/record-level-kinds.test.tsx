@@ -117,7 +117,7 @@ const mount = () => {
 const pickPerson = (id = "e-chidi") =>
   userEvent.selectOptions(screen.getByLabelText(/Employee/), id);
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(screen.getByLabelText(/Which skill/), name);
+  userEvent.selectOptions(screen.getByLabelText(/Which competency/), name);
 const save = () =>
   userEvent.click(screen.getByRole("button", { name: "Save it" }));
 const sent = (onSave: ReturnType<typeof mount>["onSave"]) => ({
@@ -403,7 +403,7 @@ describe("the appraisal period", () => {
       "",
     );
     expect(
-      screen.getByText(/it fills the skills gap table and heatmap/),
+      screen.getByText(/it fills the competency gap table and heatmap/),
     ).toBeInTheDocument();
   });
 
@@ -415,17 +415,17 @@ describe("the appraisal period", () => {
       "",
     );
     expect(
-      screen.queryByText(/it fills the skills gap table and heatmap/),
+      screen.queryByText(/it fills the competency gap table and heatmap/),
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        /does not appear in the skills gap table or heatmap, which are about levels/,
+        /does not appear in the competency gap table or heatmap, which are about levels/,
       ),
     ).toBeInTheDocument();
 
     await pickSkill("Customer feedback");
     expect(
-      screen.queryByText(/it fills the skills gap table and heatmap/),
+      screen.queryByText(/it fills the competency gap table and heatmap/),
     ).not.toBeInTheDocument();
   });
 

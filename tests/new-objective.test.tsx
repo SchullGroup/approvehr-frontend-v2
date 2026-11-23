@@ -204,22 +204,24 @@ describe("the objective form", () => {
       <NewKpiDialog open mode="kpi" onClose={vi.fn()} onCreate={vi.fn()} />,
     );
 
-    expect(screen.getByRole("textbox", { name: /kpi title/i })).toHaveValue("");
+    expect(
+      screen.getByRole("textbox", { name: /objective title/i }),
+    ).toHaveValue("");
     expect(screen.getByRole("combobox", { name: /assigned to/i })).toHaveValue(
       "me",
     );
   });
 });
 
-describe("the KPI form is as it was", () => {
-  it("still says KPI, and still starts on the person making it", () => {
+describe("the form for one person's objective", () => {
+  it("says objective (U94), and still starts on the person making it", () => {
     render(<NewKpiDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
     expect(
-      within(dialog).getByRole("heading", { name: "New KPI" }),
+      within(dialog).getByRole("heading", { name: "New objective" }),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByRole("button", { name: "Create KPI" }),
+      within(dialog).getByRole("button", { name: "Create objective" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /assigned to/i })).toHaveValue(
       "me",
@@ -238,7 +240,7 @@ describe("the KPI form is as it was", () => {
     );
     expect(
       screen.getByRole("heading", {
-        name: 'New KPI under "Ship the payments rebuild"',
+        name: 'New objective under "Ship the payments rebuild"',
       }),
     ).toBeInTheDocument();
   });
@@ -416,8 +418,8 @@ describe("what the detail modal is told about a goal", () => {
     expect(rungLabel(goal({ departmentName: null }))).toBe(
       "Department objective",
     );
-    expect(rungLabel(goal({ level: "company" }))).toBe("Company KPI");
-    expect(rungLabel(goal({ level: "personal" }))).toBe("Personal KPI");
+    expect(rungLabel(goal({ level: "company" }))).toBe("Company objective");
+    expect(rungLabel(goal({ level: "personal" }))).toBe("Personal objective");
   });
 
   it("takes measured progress over the stored figure", () => {

@@ -1037,7 +1037,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     },
     {
       href: "/performance/kpis",
-      label: "KPIs",
+      label: "Objectives",
       icon: <TrendingUp aria-hidden="true" />,
       always: true,
     },

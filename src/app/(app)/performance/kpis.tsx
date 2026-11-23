@@ -538,7 +538,7 @@ export function KpisTab({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {scopes.length > 1 ? (
           <SegmentedControl<KpiScope>
-            label="Whose KPIs to show"
+            label="Whose objectives to show"
             value={scope}
             onChange={onScopeChange}
             options={scopes.map((id) => ({
@@ -593,13 +593,13 @@ export function KpisTab({
       </div>
 
       <LoadFailure
-        subject="your KPIs"
+        subject="your objectives"
         error={kpis.error}
         onRetry={kpis.reload}
       />
 
       <StatGrid>
-        <Stat label="KPIs being tracked" value={String(tracked.length)} />
+        <Stat label="Objectives being tracked" value={String(tracked.length)} />
         <Stat
           label="Average progress"
           /* An em dash, not a sentence — see `Stat`'s other callers
@@ -668,8 +668,8 @@ export function KpisTab({
 
       <Card>
         <CardHeader
-          title="All KPIs"
-          description="The company KPI is at the top. Team and personal KPIs sit underneath the goal they support."
+          title="All objectives"
+          description="The company objective is at the top. Team and personal objectives sit under the one they support."
         />
         {kpis.goals.length > 0 && !kpis.loading && (
           <CardBody className="pb-0">
@@ -771,14 +771,19 @@ export function KpisTab({
                   `Showing ${String(matching.length)} of ${String(kpis.goals.length)}. The figures above are for everything, not for what is filtered here.`}
                 {narrowing && order !== "" && " "}
                 {order !== "" &&
-                  "Ordered by date, so KPIs are not grouped under their parent while this is on."}
+                  "Ordered by date, so objectives are not grouped under their parent while this is on."}
               </p>
             )}
           </CardBody>
         )}
         {kpis.loading ? (
           <CardBody>
-            <LoadState loading error={null} subject="the KPIs" skeleton="list">
+            <LoadState
+              loading
+              error={null}
+              subject="the objectives"
+              skeleton="list"
+            >
               {null}
             </LoadState>
           </CardBody>
@@ -801,8 +806,8 @@ export function KpisTab({
         ) : kpis.cascade.length === 0 ? (
           <EmptyState
             icon={<Target aria-hidden="true" />}
-            title="No KPIs yet"
-            description="Start with a company KPI, then add each team's KPIs under it."
+            title="No objectives yet"
+            description="Start with a company objective, then add each team's objectives under it."
             action={
               mutations.editable ? (
                 <Button
@@ -904,7 +909,7 @@ export function KpisTab({
               objective
                 ? objectiveCreatedSaid(goal, actingId)
                 : kpiAddedSaid(goal, actingId),
-            objective ? "the objective" : "the KPI",
+            "the objective",
           );
           if (!outcome.ok) return;
           setCreating(null);
@@ -1692,14 +1697,14 @@ function GoalDetailModal({
                 </Button>
               )}
               <Button size="sm" onClick={act(() => onAddChild(goal.id))}>
-                Add a KPI under this
+                Add an objective under this
               </Button>
               {/* Only on a shared objective. Somebody's personal KPI is not a
                   thing to give a team, and the API refuses it — so the button
                   is absent rather than offering a refusal. */}
               {goal.ownerId === null && (
                 <Button size="sm" onClick={act(() => onAssign(goal))}>
-                  Give a KPI to people
+                  Give an objective to people
                 </Button>
               )}
               {canShare && (
@@ -1713,7 +1718,7 @@ function GoalDetailModal({
                     Mark done
                   </Button>
                   <Button size="sm" onClick={act(() => onStop(goal))}>
-                    Stop this KPI
+                    Stop this objective
                   </Button>
                 </>
               )}

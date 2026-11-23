@@ -44,14 +44,14 @@ const USES = [
   {
     icon: <ListChecks aria-hidden="true" />,
     title: "Objectives under a company goal",
-    where: "KPIs → a company goal → Suggest objectives",
+    where: "Objectives → a company objective → Suggest objectives",
     from: "The goal's own title and description, and nothing else.",
     href: "/performance/kpis",
   },
   {
     icon: <MessageSquareText aria-hidden="true" />,
     title: "A progress note from a headline",
-    where: "KPIs → a measure → record progress",
+    where: "Objectives → a measure → record progress",
     from: "The headline you type. Fewer than ten characters is refused: a note written from “did work” would be entirely invention.",
     href: "/performance/kpis",
   },

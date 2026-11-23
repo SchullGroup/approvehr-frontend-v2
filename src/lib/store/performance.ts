@@ -1532,7 +1532,7 @@ export type Source = "api" | "demo";
 export type KpiScope = "mine" | "team" | "company";
 
 export const SCOPE_LABEL: Record<KpiScope, string> = {
-  mine: "My KPIs",
+  mine: "My objectives",
   team: "My team",
   company: "Whole company",
 };
@@ -1738,7 +1738,7 @@ export function useKpiMutations() {
         },
       ) => {
         guard(
-          "Assigning a KPI needs the API. These are several people's targets, " +
+          "Assigning an objective needs the API. These are several people's targets, " +
             "and ones kept in this browser would never reach their reviews.",
         );
         return performanceApi.assignObjective(parentId, body);

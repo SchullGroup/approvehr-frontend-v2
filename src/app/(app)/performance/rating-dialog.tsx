@@ -250,7 +250,7 @@ export function RecordLevelDialog({
   const submit = async () => {
     const found: Record<string, string> = {};
     if (!person) found["person"] = "Pick who this is about.";
-    if (!competency) found["competency"] = "Pick the skill.";
+    if (!competency) found["competency"] = "Pick the competency.";
     if (kind === "RATING" && !level) {
       found["level"] = "Pick the level they are at.";
     }
@@ -333,13 +333,13 @@ export function RecordLevelDialog({
         </Field>
 
         <Field
-          label="Which skill"
+          label="Which competency"
           required
           {...(errors["competency"] ? { error: errors["competency"] } : {})}
         >
           <Select
             value={competency}
-            placeholder="Pick a skill"
+            placeholder="Pick a competency"
             onChange={(event) => {
               /* Everything that belonged to the last subsection goes with it: a
                  level typed against a five-point scale means nothing against a
@@ -430,8 +430,8 @@ export function RecordLevelDialog({
           (nothingToPick ? (
             <NoticeLine tone="muted">
               <span>
-                {chosen?.name ?? "That skill"} is answered by picking from a
-                list, and the list has no choices yet, so nothing can be
+                {chosen?.name ?? "That competency"} is answered by picking from
+                a list, and the list has no choices yet, so nothing can be
                 recorded on it. Somebody who can manage settings adds them under
                 Questions, By section.
               </span>
@@ -515,10 +515,10 @@ export function RecordLevelDialog({
                   ? "Filed under that period. Each person has one answer per period, so writing it again replaces this one."
                   : "Counts towards this person's mark for that period. Each person has one rating per period, so rating them again corrects this one."
                 : kind === "RATING"
-                  ? "This will not affect any appraisal mark. It is a snapshot of where they are now, and it fills the skills gap table and heatmap."
+                  ? "This will not affect any appraisal mark. It is a snapshot of where they are now, and it fills the competency gap table and heatmap."
                   : kind === "TEXT"
                     ? "A snapshot of where they are now."
-                    : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it does not appear in the skills gap table or heatmap, which are about levels."
+                    : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it does not appear in the competency gap table or heatmap, which are about levels."
             }
           >
             <Select
