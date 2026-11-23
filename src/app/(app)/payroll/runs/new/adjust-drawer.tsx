@@ -1,5 +1,7 @@
 "use client";
 
+import { isLoanLine, loanLinesFor } from "./loan-lines";
+import { useSession } from "@/lib/store/session";
 import { useEffect, useState } from "react";
 import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -100,8 +102,8 @@ export function AdjustDrawer({
   slip,
   runId,
   periodLabel,
-  editable,
-  readOnlyReason,
+  editable: mayEdit,
+  readOnlyReason: whyNot,
   refreshing,
   employees,
   warnings,
@@ -142,6 +144,7 @@ export function AdjustDrawer({
   onAdjusted: (summary: string) => void;
 }) {
   const actions = usePayrollActions();
+  const { employeeId: me } = useSession();
   const overtimePolicy = useOvertimePolicy();
   const { settings: paySettings } = usePayrollSettings();
 
@@ -227,6 +230,13 @@ export function AdjustDrawer({
   }
 
   const person = shown;
+  /* Nobody adjusts their own payslip: hand-setting your own PAYE, pension or
+     bonus is the one change nobody else would see (U13). */
+  const own = person !== null && me !== null && person.employeeId === me;
+  const editable = mayEdit && !own;
+  const readOnlyReason = own
+    ? "This is your own payslip. Somebody else on the payroll team adjusts it."
+    : whyNot;
 
   if (!person) {
     return (
@@ -240,11 +250,13 @@ export function AdjustDrawer({
   const overridden = person.overriddenDeductions ?? [];
   /* Loan instalments are their own lines above; what is left is everything else. */
   const loanKobo = person.lines
-    .filter(
-      (line) =>
-        line.kind === "DEDUCTION" && line.label.startsWith("Staff loan"),
-    )
+    .filter(isLoanLine)
     .reduce((sum, line) => sum + line.amountKobo, 0);
+  /* From the payslip's own lines, so the panel adds up to net pay (U8). */
+  const loanRows = loanLinesFor(
+    person.lines,
+    loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ?? [],
+  );
   const otherKobo = Math.max(0, person.otherDeductionsKobo - loanKobo);
   const overtimeKobo = overtimeOn(person);
   const manualOvertime = hasManualOvertime(person);
@@ -509,19 +521,20 @@ export function AdjustDrawer({
                 }
               />
             )}
-            {(
-              loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ??
-              []
-            ).map((loan) => (
+            {loanRows.map(({ key, label, amountKobo, loan }) => (
               <Line
-                key={loan.loanId}
+                key={key}
                 editColumn={editable}
-                label="Loan"
-                note={`Borrowed ${formatKobo(loan.accumulatedKobo)} · owed ${formatKobo(loan.balanceBeforeKobo)} before this month · ${formatKobo(loan.balanceAfterKobo)} left after`}
-                value={minus(loan.deductionKobo)}
-                marked={loan.overridden === true}
+                label={label}
+                note={
+                  loan
+                    ? `Borrowed ${formatKobo(loan.accumulatedKobo)} · owed ${formatKobo(loan.balanceBeforeKobo)} before this month · ${formatKobo(loan.balanceAfterKobo)} left after`
+                    : "As deducted on the payslip"
+                }
+                value={minus(amountKobo)}
+                marked={loan?.overridden === true}
                 edit={
-                  editable
+                  editable && loan
                     ? {
                         label: `Change this month's loan deduction for ${person.name}`,
                         disabled: refreshing,
@@ -713,9 +726,14 @@ export function AdjustDrawer({
           saving={busy}
           error={error}
           onBack={() => go("overview")}
-          onSave={(payeKobo) =>
+          reasonLabel="Why it is entered by hand"
+          onSave={(payeKobo, reason) =>
             void perform(() =>
-              actions.setTaxOverride(runId, { employeeId, payeKobo }),
+              actions.setTaxOverride(runId, {
+                employeeId,
+                payeKobo,
+                reason,
+              }),
             )
           }
           onUndo={() =>
