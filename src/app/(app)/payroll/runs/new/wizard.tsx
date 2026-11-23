@@ -77,6 +77,8 @@ import type { ApprovedRunFacts } from "./approved-moment";
 import { ApproveActions, sentForApprovalDetail } from "./approve-actions";
 import { ApproveStep } from "./approve-step";
 import { opensOnApprove } from "./opening-step";
+import { offCycleApplies } from "./off-cycle";
+import { defaultPayDate, payDateForMonth } from "./pay-date";
 import { BankRegisterCard } from "./bank-register-card";
 import { RUN_BREADCRUMB } from "./breadcrumb";
 import { OverflowMenu } from "./overflow-menu";
@@ -216,7 +218,7 @@ export function PayrollRunWizard() {
     label: string;
   } | null>(null);
   const period = draft?.period ?? periodParam ?? currentPeriod;
-  const payDate = draft?.payDate ?? `${period}-28`;
+  const payDate = draft?.payDate ?? defaultPayDate(period);
   const label = draft?.label ?? "";
 
   const patch = (
@@ -224,28 +226,14 @@ export function PayrollRunWizard() {
   ) => setDraft({ period, payDate, label, ...next });
 
   /**
-   * Moving the month carries the pay date with it.
-   *
-   * Without this, stepping from August to September leaves the pay date on
-   * 2026-08-28 — a September payroll paying in August, which the form would
-   * show without complaint. The day of the month is what somebody chose and
-   * is kept; it is clamped to the new month's length, so the 31st becomes the
-   * 30th in September rather than silently rolling into October.
+   * Moving the month carries the pay date with it: the new month's default if
+   * the date was left alone, otherwise the chosen day clamped to the month. See
+   * `pay-date.ts`.
    */
-  const withPayDate = (nextPeriod: string) => {
-    const lastDay = new Date(
-      Date.UTC(
-        Number(nextPeriod.slice(0, 4)),
-        Number(nextPeriod.slice(5, 7)),
-        0,
-      ),
-    ).getUTCDate();
-    const day = Math.min(Number(payDate.slice(8, 10)) || 28, lastDay);
-    return {
-      period: nextPeriod,
-      payDate: `${nextPeriod}-${String(day).padStart(2, "0")}`,
-    };
-  };
+  const withPayDate = (nextPeriod: string) => ({
+    period: nextPeriod,
+    payDate: payDateForMonth(payDate, period, nextPeriod),
+  });
 
   const moveMonth = (months: number) =>
     patch(withPayDate(shiftPeriod(period, months)));
@@ -259,7 +247,7 @@ export function PayrollRunWizard() {
    * sequence` existed there was one row per month and an approved run could not
    * be re-prepared, so the callout below was a dead end rather than a choice.
    */
-  const [offCycle, setOffCycle] = useState(false);
+  const [offCycleTicked, setOffCycle] = useState(false);
   const [busy, setBusy] = useState<
     "prepare" | "approve" | "cancel" | "send" | null
   >(null);
@@ -329,6 +317,10 @@ export function PayrollRunWizard() {
     null;
   const runId = existing?.id ?? null;
   const detail = usePayrollRun(runId);
+  /* Offered, and in force, only on an approved month (L4). */
+  const existingApproved =
+    existing?.status === "APPROVED" || existing?.status === "PAID";
+  const offCycle = offCycleApplies(offCycleTicked, existing?.status);
   const run = detail.run;
 
   /**
@@ -987,15 +979,17 @@ export function PayrollRunWizard() {
                       {/* The way out of what used to be a dead end. An approved
                       payroll cannot be re-prepared — correctly — and before
                       `sequence` a leaver's final pay had nowhere to go. */}
-                      <span className="mt-3 flex">
-                        <Checkbox
-                          checked={offCycle}
-                          onChange={(event) =>
-                            setOffCycle(event.target.checked)
-                          }
-                          label="Pay somebody outside this payroll"
-                        />
-                      </span>
+                      {existingApproved && (
+                        <span className="mt-3 flex">
+                          <Checkbox
+                            checked={offCycle}
+                            onChange={(event) =>
+                              setOffCycle(event.target.checked)
+                            }
+                            label="Pay somebody outside this payroll"
+                          />
+                        </span>
+                      )}
                     </Callout>
                   </div>
                 )}

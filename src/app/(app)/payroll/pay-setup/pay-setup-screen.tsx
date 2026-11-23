@@ -93,8 +93,10 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
    * `EDIT_RECORDS` gets Pay setup with one tab on it, which is the honest
    * answer rather than a locked door.
    */
+  /* Benefits asks the two permissions the API reads plans for (L5): View
+     salaries alone was shown the tab only to be refused by it. */
   const visible = ITEMS.filter((item) =>
-    item.id === "benefits" ? canView || canPrice || canEnrol : canView,
+    item.id === "benefits" ? canPrice || canEnrol : canView,
   );
 
   /* A `?tab=` for something this reader may not see falls back to the first
