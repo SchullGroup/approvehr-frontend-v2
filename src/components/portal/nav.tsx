@@ -84,7 +84,42 @@ export type NavRowFact =
   | "interviews"
   | "team-tasks"
   /** Holds the Master grant (`SEE_ALL_WORK`): the Overview row of Projects. */
-  | "master-view";
+  | "master-view"
+  /**
+   * Decides something somebody else asked for: leads people, or holds one of
+   * `DECIDING_PERMISSIONS`. My approvals is absent for everybody else, whose
+   * inbox could only ever say "Approving requests is not part of your role".
+   */
+  | "approvals"
+  /** Leads people or holds `EDIT_RECORDS`: Objectives to agree. */
+  | "agrees-objectives"
+  /**
+   * Leads people, or holds `EDIT_RECORDS` or `START_EXIT_DEPARTMENT`: Exit
+   * management. An employee hands in their notice from "Leaving" on their own
+   * profile, which is one place for it rather than two.
+   */
+  | "exits";
+
+/**
+ * The permissions that put somebody else's request in front of you.
+ *
+ * Wider than the inbox's own `APPROVE_PERMISSIONS` on purpose: this decides
+ * whether the door is shown at all, and a door that appears for somebody with
+ * a hiring or promotion approval is better than one that is missing for them.
+ * `EDIT_RECORDS` is here because HR decides record changes and probation
+ * confirmations from the same inbox.
+ */
+export const DECIDING_PERMISSIONS: readonly PermissionKey[] = [
+  "APPROVE_LEAVE",
+  "APPROVE_LEAVE_ALL",
+  "APPROVE_LEAVE_DEPARTMENT",
+  "APPROVE_PAYROLL",
+  "APPROVE_LOANS",
+  "APPROVE_EXPENSES",
+  "APPROVE_HIRING",
+  "APPROVE_EMPLOYMENT_CHANGE",
+  "EDIT_RECORDS",
+];
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -140,6 +175,9 @@ export const NOTHING_ANSWERED_YET: NavFacts = {
     interviews: false,
     "team-tasks": false,
     "master-view": false,
+    approvals: false,
+    "agrees-objectives": false,
+    exits: false,
   },
   collaborator: false,
 };
@@ -379,6 +417,7 @@ const PERSONAL: NavItem[] = [
     label: "My approvals",
     icon: <ClipboardCheck aria-hidden="true" />,
     badgeSource: "approvals",
+    rows: "approvals",
     always: true,
   },
   {
@@ -630,6 +669,10 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/offboarding",
       label: "Exit management",
       icon: <DoorOpen aria-hidden="true" />,
+      /* UAT 23 Nov (SELF-12, NC-37): an employee met a resignation form here and
+         again as "Leaving" on their profile. The profile is now the one place to
+         hand in notice; this row is for the people who work exits. */
+      rows: "exits",
     },
     {
       /* The register of written queries, for the people who write them and the people who
@@ -945,6 +988,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Shifts",
       icon: <CalendarRange aria-hidden="true" />,
       feature: "shifts",
+      /* The rota planner. Somebody on shifts reads their own rota, and answers
+         cover requests, on their profile (`MyRota`). `EDIT_RECORDS` because the
+         API gives its holders the rota permissions too. */
+      anyPermission: [
+        "MANAGE_ROTA",
+        "MANAGE_SHIFTS",
+        "APPROVE_SHIFT_SWAP",
+        "EDIT_RECORDS",
+      ],
     },
     {
       href: "/people/leave",
@@ -1026,6 +1078,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Objectives to agree",
       icon: <CheckCheck aria-hidden="true" />,
       feature: "appraisals",
+      rows: "agrees-objectives",
     },
     {
       /* `multiAppraiser` cannot be on while `appraisals` is off — the setup
@@ -1352,4 +1405,45 @@ export function visibleNav(
       };
     })
     .filter((group) => group.items.length > 0);
+}
+
+/* -------------------------------------------------------------------------- */
+
+const HOME = { href: "/dashboard", label: "Home" } as const;
+
+/** Every href the sidebar could ever show anybody, before any gate. */
+const NAV_HREFS: ReadonlySet<string> = new Set(
+  NAV.flatMap((group) => group.items.map((item) => item.href)),
+);
+
+/**
+ * Whether a link to `href` leads somewhere this reader may go.
+ *
+ * Only a sidebar route can be judged here: a record, a period or a payslip is
+ * not a door in the nav, and the page behind it answers for itself. `visible`
+ * is `visibleNav`'s answer for the reader, or `null` when nothing has said
+ * (a page rendered outside the shell), which leaves every link as it was.
+ */
+export function navRouteReachable(
+  href: string,
+  visible: readonly NavGroup[] | null,
+): boolean {
+  if (visible === null || !NAV_HREFS.has(href)) return true;
+  return visible.some((group) =>
+    group.items.some((item) => item.href === href && item.locked !== true),
+  );
+}
+
+/**
+ * Where a page's "Back to …" link goes for this reader.
+ *
+ * UAT 23 Nov (SELF-12, U57): an employee's payslip said "Back to Monthly
+ * payroll" and a one-to-one said "Back to People", and both opened onto pages
+ * that turn them away. A parent the reader cannot open is replaced by Home.
+ */
+export function backTarget(
+  crumb: { href: string; label: string },
+  visible: readonly NavGroup[] | null,
+): { href: string; label: string } {
+  return navRouteReachable(crumb.href, visible) ? crumb : HOME;
 }

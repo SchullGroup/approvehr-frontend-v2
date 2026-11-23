@@ -124,6 +124,9 @@ export function EmployeeRecordPage({ id }: { id: string }) {
   /* Messages are noticeboard posts, so they need what posting needs, and a
      live API: demo mode has nowhere to send them. */
   const canPost = useCan("MANAGE_SETTINGS");
+  /* The directory refuses everybody without it, so a refused record must not
+     send them there (UAT 23 Nov, SELF-12). */
+  const canSeeDirectory = useCan("EDIT_RECORDS");
   const canMessage = canPost && record.connected;
 
   const employee = record.employee;
@@ -214,8 +217,12 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             title={failure.title}
             description={failure.detail}
             action={
-              <ButtonLink href="/people" variant="accent" size="sm">
-                Back to directory
+              <ButtonLink
+                href={canSeeDirectory ? "/people" : "/dashboard"}
+                variant="accent"
+                size="sm"
+              >
+                {canSeeDirectory ? "Back to directory" : "Back to Home"}
               </ButtonLink>
             }
           />

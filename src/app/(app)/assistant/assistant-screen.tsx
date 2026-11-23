@@ -1,19 +1,11 @@
 "use client";
 
-import { KeyRound } from "lucide-react";
-import {
-  Badge,
-  ButtonLink,
-  Card,
-  CardBody,
-  CardHeader,
-  Spinner,
-} from "@/components/ui";
+import { ButtonLink, Spinner } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { NotFoundState } from "@/components/portal/not-found-state";
 import { AssistantChat } from "@/components/portal/assistant-chat";
 import { salesScriptAssistantName } from "@/lib/sales-script";
 import { useAssistantAvailable } from "@/lib/store/ai";
-import { useSession } from "@/lib/store/session";
 
 /**
  * The assistant's own page. Has its own address and nav item so it is not
@@ -21,9 +13,19 @@ import { useSession } from "@/lib/store/session";
  * assistant is wired, since the nav item is a visibility hint, not the rule.
  */
 export function AssistantScreen() {
-  const { available, loading, reason } = useAssistantAvailable();
+  const { available, loading } = useAssistantAvailable();
   const scriptName = salesScriptAssistantName();
-  const { isConnected } = useSession();
+
+  /* Not there at all until an assistant is answering (UAT 23 Nov, U52,
+     HR-17): a page that only says "not switched on" is a page a customer can
+     do nothing with, reachable only by its address. */
+  if (!loading && !available) {
+    return (
+      <PageBody>
+        <NotFoundState />
+      </PageBody>
+    );
+  }
 
   return (
     <>
@@ -46,10 +48,6 @@ export function AssistantScreen() {
           </p>
         )}
 
-        {!loading && !available && (
-          <NotWired connected={isConnected} reason={reason} />
-        )}
-
         <AssistantChat />
 
         {available && !loading && (
@@ -63,52 +61,5 @@ export function AssistantScreen() {
         )}
       </PageBody>
     </>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/** No assistant, and why. Connected: the API's own sentence. Not connected: no server to ask. */
-function NotWired({
-  connected,
-  reason,
-}: {
-  connected: boolean;
-  reason: string | null;
-}) {
-  return (
-    <Card>
-      <CardHeader
-        level={2}
-        title="The assistant is not switched on"
-        action={
-          <Badge tone="neutral" size="sm" dot>
-            Off
-          </Badge>
-        }
-      />
-      <CardBody className="flex flex-col items-start gap-3">
-        {connected ? (
-          <p className="text-body-sm text-body">
-            {reason ?? "No assistant is connected."}
-          </p>
-        ) : (
-          <p className="text-body-sm text-body">
-            There is no server answering, so there is no assistant to ask. This
-            page needs a running API and the records behind it.
-          </p>
-        )}
-        <p className="text-body-sm text-muted">
-          Nothing else is affected. Every screen in the product works without
-          it.
-        </p>
-        {connected && (
-          <ButtonLink href="/settings/ai" variant="secondary" size="sm">
-            <KeyRound aria-hidden="true" className="size-3.5" />
-            What this is, and how to switch it on
-          </ButtonLink>
-        )}
-      </CardBody>
-    </Card>
   );
 }

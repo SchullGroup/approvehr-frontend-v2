@@ -542,11 +542,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Two-factor sign-in, the actions that need a code, and your recovery codes."
   },
   {
-    "href": "/settings/setup",
-    "title": "Setting up your company",
-    "description": "What is still to set up, and what each step changes in the product."
-  },
-  {
     "href": "/settings/sms",
     "title": "Text messages",
     "description": "A weekly text of counts and a link, only for people who opt in. Who has agreed, and how."
