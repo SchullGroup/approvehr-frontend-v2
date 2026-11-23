@@ -76,6 +76,13 @@ import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
 import { AskPeersButton } from "./ask-peers";
+import {
+  anybodyToNudge,
+  nudgeAudience,
+  nudgeMessage,
+  nudgeTitle,
+  peerLine,
+} from "./nudge";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { FairnessStatus, publishLock } from "./fairness/fairness-status";
 import { PeriodWeightsSection } from "./period-weights-section";
@@ -162,6 +169,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const toast = useToast();
 
   const [chasing, setChasing] = useState(false);
+  const [confirmingNudge, setConfirmingNudge] = useState(false);
   const [starting, setStarting] = useState(false);
   const [confirmingStart, setConfirmingStart] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -188,6 +196,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 
   const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
+  const nudging = nudgeAudience(detail.participants);
   const draft = period?.stage === "DRAFT";
   const published = period?.stage === "PUBLISHED";
   const running = period !== null && !draft && !published;
@@ -325,7 +334,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
            that quietly disagrees with the outstanding list. */
         ...(result.noAccount > 0
           ? {
-              detail: `${result.noAccount} ${result.noAccount === 1 ? "person has" : "people have"} no sign-in, so the reminder did not reach them. No emails are sent from here.`,
+              detail: `${result.noAccount} ${result.noAccount === 1 ? "person has" : "people have"} no sign-in, so the reminder did not reach them.`,
             }
           : {}),
       });
@@ -334,6 +343,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       failed(error);
     } finally {
       setChasing(false);
+      setConfirmingNudge(false);
     }
   };
 
@@ -474,8 +484,19 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 Move to {STAGE_NEXT_LABEL[nextStage]}
               </Button>
             )}
+            {/* Asks first and names who it reaches: a reminder goes out by
+                email as well as in the app, and cannot be called back. */}
             {canManage && running && (
-              <Button size="sm" loading={chasing} onClick={() => void chase()}>
+              <Button
+                size="sm"
+                disabled={nudging !== null && !anybodyToNudge(nudging)}
+                title={
+                  nudging !== null && !anybodyToNudge(nudging)
+                    ? "Nobody owes a review for this period"
+                    : undefined
+                }
+                onClick={() => setConfirmingNudge(true)}
+              >
                 Nudge who is late
               </Button>
             )}
@@ -848,6 +869,42 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           confirmLabel="Publish it"
           tone="primary"
           body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no mark finishes with none.`}
+        />
+      )}
+
+      {confirmingNudge && period && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirmingNudge(false)}
+          onConfirm={() => void chase()}
+          loading={chasing}
+          title={nudgeTitle(nudging)}
+          confirmLabel="Send the reminders"
+          tone="primary"
+          body={
+            <div className="space-y-3">
+              <p>{nudgeMessage(period.name, period.dueDate)}</p>
+              {nudging === null ? (
+                <p>
+                  It goes to everybody who still owes a review for this period.
+                </p>
+              ) : (
+                <>
+                  {nudging.names.length > 0 && (
+                    <ul
+                      aria-label="Who gets a reminder"
+                      className="max-h-48 list-disc space-y-0.5 overflow-y-auto pl-5"
+                    >
+                      {nudging.names.map((name) => (
+                        <li key={name}>{name}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {peerLine(nudging) && <p>{peerLine(nudging)}</p>}
+                </>
+              )}
+            </div>
+          }
         />
       )}
 
