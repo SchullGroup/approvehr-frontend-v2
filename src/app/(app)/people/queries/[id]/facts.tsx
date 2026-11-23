@@ -113,6 +113,16 @@ export function StatusCard({
               </span>
             </Fact>
           )}
+          {!isSubject && detail.draftedByName && (
+            <Fact label="Drafted by">
+              {detail.draftedByName}
+              {detail.status === "DRAFT" && (
+                <span className="block text-meta text-muted">
+                  A manager wrote this draft. HR reviews it and issues it.
+                </span>
+              )}
+            </Fact>
+          )}
           {detail.replyStateLabel && (
             <Fact label="Reply">
               {detail.replyStateLabel}

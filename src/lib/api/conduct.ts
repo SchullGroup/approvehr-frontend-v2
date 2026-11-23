@@ -179,6 +179,13 @@ export type ApiAction = {
   disputedAt: string | null;
   disputeNote: string | null;
   awaitingConfirmation: boolean;
+  /**
+   * The query this warning followed, as a note. Present only for a reader the server lets see it
+   * (the person it is about, and whoever edits records), and absent on a server a deploy behind:
+   * absent draws nothing, and a link is built from the id and never from text.
+   */
+  queryId?: string | null;
+  queryReference?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -326,6 +333,12 @@ export type CreateActionBody = {
   expiresOn?: string;
   /** Absent means the caller. Set it when recording a warning somebody else gave. */
   issuedById?: string;
+  /**
+   * A note that this followed a query about the same person that has been served and not
+   * withdrawn. Chosen by the person recording the warning, in this form. A query never sets it,
+   * and the server refuses it in its own sentence for anyone who does not work queries.
+   */
+  queryId?: string;
 };
 
 /**

@@ -22,6 +22,7 @@ import {
   type ApiQueryDetail,
   type QueryServedHow,
 } from "@/lib/api/queries";
+import { isDayWarning } from "@/lib/api/query-ties";
 import {
   counter,
   diffBody,
@@ -92,6 +93,15 @@ export function DraftEditor({
 
   const noSignIn = detail.served.subjectHasSignInNow === false;
   const how = draft.servedHow;
+  /* A manager drafting is read from `can`, never from a permission: they may write the letter and
+     nothing else, so `issue` is the server's one word for "this reader is the issuer". */
+  const isIssuer = detail.can.issue;
+  const dayWarnings = detail.warnings.filter((warning) =>
+    isDayWarning(warning.code),
+  );
+  const timeWarnings = detail.warnings.filter(
+    (warning) => !isDayWarning(warning.code),
+  );
 
   /** Saves what changed, and returns whether the draft now matches the page. */
   async function save(): Promise<boolean> {
@@ -129,7 +139,8 @@ export function DraftEditor({
       const result = await actions.issue(detail.id);
       publish(result.detail);
       setAsking(false);
-      /* An act, and a reference. Never the subject line. */
+      /* An act, and a reference. Never the subject line, and never a warning's own words: they
+         name dates of somebody's leave, and the issuer read them in the confirmation. */
       toast.push({
         tone:
           result.nobodyToldInProduct === true || result.warnings.length > 0
@@ -140,8 +151,10 @@ export function DraftEditor({
           : "Query issued",
         ...(result.nobodyToldInProduct === true
           ? { detail: "Nobody was told in the product." }
-          : result.warnings[0]
-            ? { detail: result.warnings[0].message }
+          : result.warnings.length > 0
+            ? {
+                detail: `${result.warnings.length} ${result.warnings.length === 1 ? "thing" : "things"} to check were shown before it was sent.`,
+              }
             : {}),
       });
     } catch (error) {
@@ -203,6 +216,15 @@ export function DraftEditor({
             />
           </Field>
         </FieldRow>
+        {dayWarnings.map((warning) => (
+          /* Beside the dates they are about, as plain words. Nothing blocks. */
+          <p
+            key={warning.code + warning.message}
+            className="-mt-3 text-body-sm text-warning-text"
+          >
+            {warning.message}
+          </p>
+        ))}
 
         <Field
           label="Rules or policies relied on"
@@ -253,7 +275,7 @@ export function DraftEditor({
             />
           </Field>
         </FieldRow>
-        {detail.warnings.map((warning) => (
+        {timeWarnings.map((warning) => (
           /* The server's sentence, as plain words. It never blocks anything. */
           <p
             key={warning.code + warning.message}
@@ -351,23 +373,32 @@ export function DraftEditor({
           </Field>
         )}
 
-        <div className="flex flex-col gap-2 border-t border-line pt-4">
-          <p className="text-body-sm font-medium text-ink">
-            Company letter or attachments
+        {isIssuer ? (
+          <div className="flex flex-col gap-2 border-t border-line pt-4">
+            <p className="text-body-sm font-medium text-ink">
+              Company letter or attachments
+            </p>
+            <p className="text-body-sm text-muted">
+              Attach the company&apos;s own letter or any document the person
+              needs to read. They are frozen when you issue the query.
+            </p>
+            <QueryFiles
+              queryId={detail.id}
+              role="LETTER"
+              files={detail.files.filter((file) => file.role === "LETTER")}
+              canAdd
+              canRemove
+              onChanged={refresh}
+            />
+          </div>
+        ) : (
+          <p className="border-t border-line pt-4 text-body-sm text-muted">
+            You are writing the letter and nothing else. HR reviews it, adds
+            any records and files it refers to, and issues it. You cannot
+            attach files or cite records, and you will not see it again once
+            it is issued.
           </p>
-          <p className="text-body-sm text-muted">
-            Attach the company&apos;s own letter or any document the person
-            needs to read. They are frozen when you issue the query.
-          </p>
-          <QueryFiles
-            queryId={detail.id}
-            role="LETTER"
-            files={detail.files.filter((file) => file.role === "LETTER")}
-            canAdd
-            canRemove
-            onChanged={refresh}
-          />
-        </div>
+        )}
 
         {problem && (
           <p role="alert" className="text-body-sm text-danger-text">
@@ -428,6 +459,19 @@ export function DraftEditor({
             Issuing takes a reference number and freezes the wording: the letter
             cannot be edited afterwards, only extended, withdrawn or answered.
           </p>
+          {detail.warnings.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="font-medium text-ink">Before it goes:</p>
+              {detail.warnings.map((warning) => (
+                <p
+                  key={warning.code + warning.message}
+                  className="text-warning-text"
+                >
+                  {warning.message}
+                </p>
+              ))}
+            </div>
+          )}
           {how === "IN_PRODUCT" && !noSignIn ? (
             <p>
               They are told that a letter from HR is waiting for them and when

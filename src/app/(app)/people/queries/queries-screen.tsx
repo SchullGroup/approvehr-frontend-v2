@@ -39,6 +39,7 @@ import {
   useQueryRegister,
 } from "@/lib/store/queries";
 import { useDebounced } from "@/lib/use-debounced";
+import { MyDrafts } from "./my-drafts";
 
 const ALL = "all";
 
@@ -77,12 +78,14 @@ const TABS: TabItem[] = [
 export function QueriesScreen({ subjectId }: { subjectId?: string }) {
   const canIssue = useCan("ISSUE_QUERIES");
   const canDecide = useCan("DECIDE_QUERIES");
+  const canDraft = useCan("DRAFT_QUERIES");
   const canSettings = useCan("MANAGE_SETTINGS");
   const queries = useQueriesSwitch();
 
   const [tab, setTab] = useState<string>(ALL);
   const [text, setText] = useState("");
   const [archived, setArchived] = useState(false);
+  const [byManagers, setByManagers] = useState(false);
   const q = useDebounced(text.trim(), 250);
 
   const works = canIssue || canDecide;
@@ -91,6 +94,7 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
       ...(tab !== ALL ? { state: tab as QueryRegisterState } : {}),
       ...(q ? { q } : {}),
       ...(subjectId ? { subjectId } : {}),
+      ...(byManagers ? { startedByManager: true } : {}),
       ...(archived || subjectId ? { includeArchived: true } : {}),
     },
     works && queries.on,
@@ -102,6 +106,13 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
         {DEMO_QUERY_REASON}
       </Callout>
     );
+  }
+
+  /* A line manager given the drafting permission and neither of the others: one route, a different
+     reader. Their screen is their own drafts and nothing of the company's register. */
+  if (!works && canDraft) {
+    if (queries.known && !queries.on) return <ModuleOff canSettings={false} />;
+    return <MyDrafts />;
   }
 
   if (!works) {
@@ -118,22 +129,7 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
   /* The server is the authority on the switch, and the sidebar's copy of it is a default until the
      read lands: a refusal that says `module_off` wins over a flag that has not arrived. */
   if (isModuleOff(register.error) || (queries.known && !queries.on)) {
-    return (
-      <EmptyState
-        icon={<MessageSquareText aria-hidden="true" className="size-5" />}
-        title="Queries are switched off for your company"
-        description="Nothing has been deleted. An administrator can turn them on under Settings, where the rules around them are also set."
-        {...(canSettings
-          ? {
-              action: (
-                <TextLink href="/settings/queries">
-                  Open Queries settings
-                </TextLink>
-              ),
-            }
-          : {})}
-      />
-    );
+    return <ModuleOff canSettings={canSettings} />;
   }
 
   return (
@@ -160,6 +156,12 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
           checked={archived}
           onChange={(event) => setArchived(event.target.checked)}
         />
+        <Checkbox
+          label="Drafted by managers"
+          checked={byManagers}
+          onChange={(event) => setByManagers(event.target.checked)}
+        />
+        <TextLink href="/people/queries/counts">Counts</TextLink>
       </div>
 
       <Card>
@@ -229,6 +231,9 @@ function RegisterRow({ row }: { row: ApiQuerySummary }) {
             {STATUS_LABEL[row.status]}
           </Badge>
           {row.archived && <Badge tone="neutral">Archived</Badge>}
+          {row.startedByManager && row.status === "DRAFT" && (
+            <Badge tone="neutral">A manager&apos;s draft</Badge>
+          )}
         </div>
       </TD>
       <TD>
@@ -251,5 +256,22 @@ function RegisterRow({ row }: { row: ApiQuerySummary }) {
         )}
       </TD>
     </TR>
+  );
+}
+
+function ModuleOff({ canSettings }: { canSettings: boolean }) {
+  return (
+    <EmptyState
+      icon={<MessageSquareText aria-hidden="true" className="size-5" />}
+      title="Queries are switched off for your company"
+      description="Nothing has been deleted. An administrator can turn them on under Settings, where the rules around them are also set."
+      {...(canSettings
+        ? {
+            action: (
+              <TextLink href="/settings/queries">Open Queries settings</TextLink>
+            ),
+          }
+        : {})}
+    />
   );
 }

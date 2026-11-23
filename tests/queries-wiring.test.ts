@@ -50,7 +50,11 @@ describe("the sidebar row", () => {
   it("is for either permission, and behind the switch", () => {
     const item = row();
     expect(item).toBeDefined();
-    expect(item?.anyPermission).toEqual(["ISSUE_QUERIES", "DECIDE_QUERIES"]);
+    expect(item?.anyPermission).toEqual([
+      "ISSUE_QUERIES",
+      "DECIDE_QUERIES",
+      "DRAFT_QUERIES",
+    ]);
     expect(item?.feature).toBe("queries");
     expect(item?.permission).toBeUndefined();
   });

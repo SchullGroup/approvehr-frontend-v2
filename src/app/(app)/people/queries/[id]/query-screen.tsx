@@ -12,10 +12,13 @@ import {
   useQueryDetail,
 } from "@/lib/store/queries";
 import { useSession } from "@/lib/store/session";
+import { CitedRecords } from "./cited-records";
+import { DocumentsAsked } from "./documents-asked";
 import { DraftEditor } from "./draft-editor";
 import { StatusCard, Timeline } from "./facts";
 import { LetterDocument } from "./letter-document";
 import { LetterView } from "./letter-view";
+import { LinkedRecords } from "./linked-records";
 import { OutcomeCard } from "./outcome-card";
 import { ReplyCard } from "./reply-card";
 import { StaffActions } from "./staff-actions";
@@ -140,6 +143,17 @@ export function QueryScreen({ id }: { id: string }) {
                 ) : (
                   <LetterView detail={detail} refresh={refresh} />
                 )}
+
+                {/* Each draws nothing when it has nothing to say and no control to offer, so a
+                    letter with no references, no documents asked for and no leads reads as
+                    it did before. They sit beside the letter and above the reply. */}
+                <CitedRecords detail={detail} refresh={refresh} />
+                <DocumentsAsked
+                  detail={detail}
+                  isSubject={isSubject}
+                  refresh={refresh}
+                />
+                {isStaff && <LinkedRecords detail={detail} />}
 
                 <ReplyCard
                   detail={detail}

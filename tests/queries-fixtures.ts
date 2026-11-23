@@ -56,6 +56,11 @@ export function detail(over: Partial<ApiQueryDetail> = {}): ApiQueryDetail {
     files: [],
     events: [],
     warnings: [],
+    startedByManager: false,
+    draftedByName: null,
+    citations: [],
+    documentRequests: [],
+    leads: null,
     can: CAN_NOTHING,
     ...over,
   };
@@ -76,6 +81,7 @@ export function summary(over: Partial<ApiQuerySummary> = {}): ApiQuerySummary {
     openedAt: null,
     receiptConfirmedAt: null,
     outcome: null,
+    startedByManager: false,
     updatedAt: "2026-11-18T09:00:00.000Z",
     ...over,
   };

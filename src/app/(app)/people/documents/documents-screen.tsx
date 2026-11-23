@@ -332,6 +332,7 @@ export function DocumentsScreen() {
                 <>
                   {register.requests.map((request) => (
                     <RequestRow
+                      showQuery
                       key={request.id}
                       request={request}
                       showPerson
