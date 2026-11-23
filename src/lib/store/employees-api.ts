@@ -888,6 +888,7 @@ export function useEmployeeMutations() {
            and says where to set one. */
         ...(draft.taxState ? { taxState: draft.taxState } : {}),
         ...(draft.middleName ? { middleName: draft.middleName } : {}),
+        ...(draft.gender ? { gender: draft.gender } : {}),
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
         ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),

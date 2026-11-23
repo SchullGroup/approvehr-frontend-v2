@@ -856,6 +856,7 @@ export function NewEmployeeForm() {
       ...(draft.email.trim() ? { email: draft.email.trim() } : {}),
       ...(draft.phone.trim() ? { phone: draft.phone.trim() } : {}),
       ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
+      ...(draft.gender ? { gender: draft.gender } : {}),
       ...(draft.middleName.trim()
         ? { middleName: draft.middleName.trim() }
         : {}),
@@ -905,6 +906,7 @@ export function NewEmployeeForm() {
       email: draft.email.trim() || null,
       phone: draft.phone.trim() || null,
       dateOfBirth: draft.dateOfBirth || null,
+      ...(draft.gender ? { gender: draft.gender } : {}),
       jobTitle: draft.jobTitle.trim(),
       /* The local store holds display names, so the id picked above is turned
          back into the name it belongs to. */
@@ -1199,6 +1201,23 @@ export function NewEmployeeForm() {
                       value={draft.dateOfBirth}
                       onChange={(e) => set("dateOfBirth", e.target.value)}
                     />
+                  </Field>
+                  {/* Optional, and it decides which leave they are offered:
+                      without it everybody was offered maternity and paternity
+                      leave alike (U55). */}
+                  <Field label="Gender" optional error={errorFor("gender")}>
+                    <Select
+                      data-employee-field="gender"
+                      value={draft.gender}
+                      onChange={(e) =>
+                        set("gender", e.target.value as EmployeeDraft["gender"])
+                      }
+                    >
+                      <option value="">Not said</option>
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                      <option value="other">Other</option>
+                    </Select>
                   </Field>
                   <Field
                     label="Home address"
