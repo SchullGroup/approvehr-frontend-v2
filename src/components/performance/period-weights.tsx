@@ -292,7 +292,7 @@ export function PeriodWeights({
           </p>
         ) : basis === "company" ? (
           <p className="text-meta text-muted">
-            Uses your company's weights as they are today.
+            Uses your company&apos;s weights as they are today.
           </p>
         ) : null
       ) : (
@@ -304,7 +304,7 @@ export function PeriodWeights({
             onClick={reset}
           >
             <RotateCcw aria-hidden="true" className="size-3.5" />
-            Use my company's weights
+            Use my company&apos;s weights
           </Button>
         </div>
       )}
