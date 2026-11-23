@@ -30,6 +30,7 @@ import {
   type EmployeePatch,
 } from "@/lib/store/employees-api";
 import { useCan } from "@/lib/permissions";
+import { isUuid } from "@/lib/api/audit";
 import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 import { EmployeeRecord } from "./record";
@@ -102,7 +103,43 @@ const PROFILE_TAB_FOR: Record<string, string> = {
   history: "history",
 };
 
+/**
+ * A mistyped address (`/people/leev`) is not a person (L22). Connected, an id
+ * that is not an id is answered "No such employee" here, before any of the
+ * record's reads run: it used to fire two 400s for that person's leave and
+ * say the link came from the demo. Demo ids (`p-08`) still reach the record,
+ * which knows what to say about them.
+ */
 export function EmployeeRecordPage({ id }: { id: string }) {
+  const { isConnected } = useSession();
+  const canSeeDirectory = useCan("EDIT_RECORDS");
+  if (isConnected && !isUuid(id) && !/^p-\d+$/.test(id)) {
+    return (
+      <PageBody>
+        <Card>
+          <EmptyState
+            plain
+            icon={<UserRoundX aria-hidden="true" />}
+            title="No such employee"
+            description="This record does not exist, or it belongs to another company."
+            action={
+              <ButtonLink
+                href={canSeeDirectory ? "/people" : "/dashboard"}
+                variant="accent"
+                size="sm"
+              >
+                {canSeeDirectory ? "Back to directory" : "Back to Home"}
+              </ButtonLink>
+            }
+          />
+        </Card>
+      </PageBody>
+    );
+  }
+  return <EmployeeRecordReader id={id} />;
+}
+
+function EmployeeRecordReader({ id }: { id: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
