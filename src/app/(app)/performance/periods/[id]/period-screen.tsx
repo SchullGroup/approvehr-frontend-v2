@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -74,7 +74,6 @@ import {
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
-import { SectionsDialog } from "../../sections-dialog";
 import { AskPeersButton } from "./ask-peers";
 import {
   anybodyToNudge,
@@ -176,13 +175,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const [sectionsOpen, setSectionsOpen] = useState(false);
-  /* Latches on the first open and never clears — see the mount below. */
-  const [sectionsEverOpened, setSectionsEverOpened] = useState(false);
-  const openSections = useCallback(() => {
-    setSectionsEverOpened(true);
-    setSectionsOpen(true);
-  }, []);
   const [publishing, setPublishing] = useState(false);
   const [periodTab, setPeriodTab] = useState<"overview" | "marks">("overview");
   const [advancing, setAdvancing] = useState(false);
@@ -417,21 +409,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 Rename
               </Button>
             )}
-            {/* The sections the whole company is appraised against, reachable
-                at every stage.
-
-                While the period is a draft this sits in the setup card beside
-                "Write the questions", which is where somebody writing a form
-                wants it. Once the period starts that card is gone — and the
-                framework is not the period's, so the way into it must not go
-                with it. A section outlives every period filed under it, and a
-                name typed wrongly on day one would otherwise be uncorrectable
-                the moment anybody started an appraisal. */}
-            {canManage && !draft && (
-              <Button size="sm" variant="secondary" onClick={openSections}>
-                Sections and subsections
-              </Button>
-            )}
             {/* The outcome is a different question from "who is not finished",
                 and a different screen. Linked from here because this is where
                 somebody is when they decide they want it. */}
@@ -566,15 +543,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => setQuestionsOpen(true)}>
                     Write the questions
-                  </Button>
-                  {/* Its own control rather than something inside the question
-                      form, because it is not this period's: sections and the
-                      subsections under them are the company's framework, shared
-                      by every period. Somebody comes here to read what an
-                      appraisal is made of and correct a name, which is a
-                      different errand from writing this period's questions. */}
-                  <Button variant="secondary" size="sm" onClick={openSections}>
-                    Sections and subsections
                   </Button>
                   <Button
                     variant="accent"
@@ -774,22 +742,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           </Tabs>
         </div>
       </PageBody>
-
-      {/* Framework-level, so it is not inside the `period` guard below: a
-          section exists whether or not this period has loaded.
-
-          Mounted from the first open rather than always, and kept mounted
-          afterwards. `useSections` and `useFramework` fetch on mount, and a
-          panel nobody has opened should not spend two requests on every load
-          of this page. Keeping it mounted after that is what lets `Modal` see
-          `open` go false and play its exit animation — the same reason
-          `QuestionsDialog` below takes `open` as a prop. */}
-      {sectionsEverOpened && (
-        <SectionsDialog
-          open={sectionsOpen}
-          onClose={() => setSectionsOpen(false)}
-        />
-      )}
 
       {period && (
         <RenamePeriodDialog

@@ -336,8 +336,7 @@ export function SectionsDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Sections and subsections"
-      description="What an appraisal is made of"
+      title="Competencies"
       size="lg"
       footer={<Button onClick={onClose}>Done</Button>}
     >
