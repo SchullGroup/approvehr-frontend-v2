@@ -146,7 +146,7 @@ export const FRONTEND_V2: ComponentsSpec = {
     {
       title: "Screens — public site, auth and setup",
       blurb:
-        "`src/app/(marketing)`, `src/app/(auth)`, `src/app/(setup)` and the root files.",
+        "`src/app/(marketing)`, `src/app/(careers)`, `src/app/(auth)`, `src/app/(setup)` and the root files.",
       has: under("src/app/"),
     },
     {
