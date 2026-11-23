@@ -218,6 +218,12 @@ export type ApiQueryDetail = {
   events: ApiQueryEvent[];
   /** A draft, for staff: "This gives 6 hours to reply …". Nothing blocks. */
   warnings: QueryWarning[];
+  /**
+   * When the draft last changed, as the server holds it. Sent back on issue as `expectedUpdatedAt`
+   * so a draft that moved while somebody was issuing it is refused and not served. `null` is a
+   * server that does not send it, and then nothing is sent.
+   */
+  updatedAt: string | null;
   /** A manager drafted it. Fixed when the draft was made; HR editing it does not change it. */
   startedByManager: boolean;
   /** The manager whose words these are. Staff and the drafter only; `null` for anybody else. */
@@ -283,6 +289,14 @@ export type IssueResult = {
 };
 
 /* ----------------------------------------------------------------- limits and words */
+
+/**
+ * The days the server accepts for a letter's own dates (the incident, the reply-by day and the
+ * hand-over day). A date picker is given the same bounds; the server still refuses anything else in
+ * its own sentence, which is shown as it comes.
+ */
+export const QUERY_DATE_MIN = "2000-01-01";
+export const QUERY_DATE_MAX = "2100-12-31";
 
 /** The server's own bounds. It still refuses, and its sentence is what is shown if they drift. */
 export const QUERY_LIMITS = {
@@ -586,6 +600,7 @@ export function toDetail(raw: unknown): ApiQueryDetail {
       return kind && at ? [{ kind, at }] : [];
     }),
     warnings: toWarnings(r["warnings"]),
+    updatedAt: text(r["updatedAt"]),
     startedByManager: bool(r["startedByManager"]),
     draftedByName: text(r["draftedByName"]),
     citations: list(r["citations"]).flatMap((entry) => {
@@ -738,9 +753,18 @@ export const queriesApi = {
       await request<unknown>(`${base}/${id}`, { method: "PATCH", body }),
     ),
 
-  issue: async (id: string): Promise<IssueResult> => {
+  /**
+   * Issue a draft. `expectedUpdatedAt` is the `updatedAt` of the draft as the issuer last saw it:
+   * it is sent only when the server sent one, so a server that predates it is not sent a key it
+   * would refuse. A 409 means the draft changed meanwhile and is never retried from here.
+   */
+  issue: async (
+    id: string,
+    expectedUpdatedAt?: string,
+  ): Promise<IssueResult> => {
     const raw = await request<unknown>(`${base}/${id}/issue`, {
       method: "POST",
+      ...(expectedUpdatedAt ? { body: { expectedUpdatedAt } } : {}),
     });
     const r = isRecord(raw) ? raw : {};
     const optionalBool = (key: string): boolean | null =>

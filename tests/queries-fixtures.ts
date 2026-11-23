@@ -56,6 +56,7 @@ export function detail(over: Partial<ApiQueryDetail> = {}): ApiQueryDetail {
     files: [],
     events: [],
     warnings: [],
+    updatedAt: null,
     startedByManager: false,
     draftedByName: null,
     citations: [],

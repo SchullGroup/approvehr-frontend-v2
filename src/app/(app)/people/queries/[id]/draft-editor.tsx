@@ -15,7 +15,10 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
 import {
+  QUERY_DATE_MAX,
+  QUERY_DATE_MIN,
   QUERY_LIMITS,
   SERVED_HOW_HELP,
   SERVED_HOW_LABEL,
@@ -65,10 +68,13 @@ export function DraftEditor({
   detail,
   publish,
   refresh,
+  reread,
 }: {
   detail: ApiQueryDetail;
   publish: (detail: ApiQueryDetail) => void;
   refresh: () => Promise<void>;
+  /** Reads the query again and returns what the server holds, for after a refused issue. */
+  reread: () => Promise<ApiQueryDetail>;
 }) {
   const toast = useToast();
   const actions = useQueryActions();
@@ -103,21 +109,25 @@ export function DraftEditor({
     (warning) => !isDayWarning(warning.code),
   );
 
-  /** Saves what changed, and returns whether the draft now matches the page. */
-  async function save(): Promise<boolean> {
+  /**
+   * Saves what changed and returns the draft as the server now holds it (the one on the page when
+   * nothing needed saving), or `null` when it could not be saved. The return value is what the
+   * issue is measured against: `updatedAt` of the draft **as this person last saw it**.
+   */
+  async function save(): Promise<ApiQueryDetail | null> {
     if (!diff.ok) {
       setProblem(diff.problem);
-      return false;
+      return null;
     }
-    if (Object.keys(diff.body).length === 0) return true;
+    if (Object.keys(diff.body).length === 0) return detail;
     try {
       const next = await actions.update(detail.id, diff.body);
       publish(next);
       setSaved(draftFromDetail(next, timeZone));
-      return true;
+      return next;
     } catch (error) {
       setProblem(actionMessage(error, "the draft"));
-      return false;
+      return null;
     }
   }
 
@@ -132,35 +142,57 @@ export function DraftEditor({
     setBusy("issue");
     setProblem(null);
     try {
-      if (!(await save())) {
+      const seen = await save();
+      if (!seen) {
         setAsking(false);
         return;
       }
-      const result = await actions.issue(detail.id);
+      /* Sent only when the server sent one: a draft that changed while it was being issued is
+         refused by the server and never served. */
+      const result = await actions.issue(
+        detail.id,
+        seen.updatedAt ?? undefined,
+      );
       publish(result.detail);
       setAsking(false);
       /* An act, and a reference. Never the subject line, and never a warning's own words: they
          name dates of somebody's leave, and the issuer read them in the confirmation. */
+      const changed = result.detail.citations.filter(
+        (citation) => citation.changedSincePreview === true,
+      ).length;
+      const notes = [
+        result.nobodyToldInProduct === true
+          ? "Nobody was told in the product."
+          : null,
+        result.warnings.length > 0
+          ? `${result.warnings.length} ${result.warnings.length === 1 ? "thing" : "things"} to check were shown before it was sent.`
+          : null,
+        changed > 0
+          ? `${changed} ${changed === 1 ? "reference differs" : "references differ"} from the preview you saw.`
+          : null,
+      ].filter((note): note is string => note !== null);
       toast.push({
-        tone:
-          result.nobodyToldInProduct === true || result.warnings.length > 0
-            ? "warning"
-            : "success",
+        tone: notes.length > 0 ? "warning" : "success",
         title: result.detail.reference
           ? `${result.detail.reference} issued`
           : "Query issued",
-        ...(result.nobodyToldInProduct === true
-          ? { detail: "Nobody was told in the product." }
-          : result.warnings.length > 0
-            ? {
-                detail: `${result.warnings.length} ${result.warnings.length === 1 ? "thing" : "things"} to check were shown before it was sent.`,
-              }
-            : {}),
+        ...(notes.length > 0 ? { detail: notes.join(" ") } : {}),
       });
     } catch (error) {
-      /* The server's own sentence, which names everything the letter still needs. */
+      /* The server's own sentence, which names everything the letter still needs, or, for a 409,
+         that the draft changed while it was being issued. A 409 is never retried from here: the
+         draft is read again, shown as it now stands, and issuing it is a second decision. */
       setProblem(actionMessage(error, "the letter"));
       setAsking(false);
+      if (error instanceof ApiError && error.status === 409) {
+        try {
+          const fresh = draftFromDetail(await reread(), timeZone);
+          setSaved(fresh);
+          setDraft(fresh);
+        } catch {
+          /* The sentence above stands; the page's own reload will bring the draft. */
+        }
+      }
     } finally {
       setBusy(null);
     }
@@ -200,6 +232,8 @@ export function DraftEditor({
           <Field label="Date it happened" required>
             <Input
               type="date"
+              min={QUERY_DATE_MIN}
+              max={QUERY_DATE_MAX}
               value={draft.incidentOn}
               onChange={(event) => set("incidentOn", event.target.value)}
             />
@@ -211,6 +245,8 @@ export function DraftEditor({
           >
             <Input
               type="date"
+              min={QUERY_DATE_MIN}
+              max={QUERY_DATE_MAX}
               value={draft.incidentUntil}
               onChange={(event) => set("incidentUntil", event.target.value)}
             />
@@ -263,6 +299,8 @@ export function DraftEditor({
           >
             <Input
               type="date"
+              min={QUERY_DATE_MIN}
+              max={QUERY_DATE_MAX}
               value={draft.replyByDay}
               onChange={(event) => set("replyByDay", event.target.value)}
             />
@@ -285,92 +323,107 @@ export function DraftEditor({
           </p>
         ))}
 
-        <Field label="How it will be served" required>
-          <Select
-            value={how}
-            onChange={(event) =>
-              set("servedHow", event.target.value as QueryServedHow | "")
-            }
-          >
-            <option value="">Choose how it will be served</option>
-            {(Object.keys(SERVED_HOW_LABEL) as QueryServedHow[]).map((key) => (
-              <option key={key} value={key}>
-                {SERVED_HOW_LABEL[key]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {how !== "" && (
-          <p className="-mt-3 text-body-sm text-muted">
-            {SERVED_HOW_HELP[how]}
-          </p>
-        )}
-        {how === "IN_PRODUCT" && noSignIn && (
-          <p className="text-body-sm text-warning-text">
-            This person has no sign-in, so nobody can be told in the product.
-            You can still issue it, and the record will say so. If you are going
-            to hand them a printout, serve it in person instead.
-          </p>
-        )}
-
-        {how === "IN_PERSON" && (
+        {/* How a letter is served is the issuer's to say. A manager drafting is never offered
+            these boxes, because the server refuses them for a drafter. */}
+        {isIssuer && (
           <>
-            <FieldRow>
-              <Field label="Handed over on" required>
-                <Input
-                  type="date"
-                  value={draft.servedAtDay}
-                  onChange={(event) => set("servedAtDay", event.target.value)}
-                />
-              </Field>
-              <Field label="At" required>
-                <Input
-                  type="time"
-                  value={draft.servedAtTime}
-                  onChange={(event) => set("servedAtTime", event.target.value)}
-                />
-              </Field>
-            </FieldRow>
-            <FieldRow>
-              <Field label="Handed over by" required>
-                <Input
-                  value={draft.servedHandedByName}
+            <Field label="How it will be served" required>
+              <Select
+                value={how}
+                onChange={(event) =>
+                  set("servedHow", event.target.value as QueryServedHow | "")
+                }
+              >
+                <option value="">Choose how it will be served</option>
+                {(Object.keys(SERVED_HOW_LABEL) as QueryServedHow[]).map(
+                  (key) => (
+                    <option key={key} value={key}>
+                      {SERVED_HOW_LABEL[key]}
+                    </option>
+                  ),
+                )}
+              </Select>
+            </Field>
+            {how !== "" && (
+              <p className="-mt-3 text-body-sm text-muted">
+                {SERVED_HOW_HELP[how]}
+              </p>
+            )}
+            {how === "IN_PRODUCT" && noSignIn && (
+              <p className="text-body-sm text-warning-text">
+                This person has no sign-in, so nobody can be told in the
+                product. You can still issue it, and the record will say so. If
+                you are going to hand them a printout, serve it in person
+                instead.
+              </p>
+            )}
+
+            {how === "IN_PERSON" && (
+              <>
+                <FieldRow>
+                  <Field label="Handed over on" required>
+                    <Input
+                      type="date"
+                      min={QUERY_DATE_MIN}
+                      max={QUERY_DATE_MAX}
+                      value={draft.servedAtDay}
+                      onChange={(event) =>
+                        set("servedAtDay", event.target.value)
+                      }
+                    />
+                  </Field>
+                  <Field label="At" required>
+                    <Input
+                      type="time"
+                      value={draft.servedAtTime}
+                      onChange={(event) =>
+                        set("servedAtTime", event.target.value)
+                      }
+                    />
+                  </Field>
+                </FieldRow>
+                <FieldRow>
+                  <Field label="Handed over by" required>
+                    <Input
+                      value={draft.servedHandedByName}
+                      onChange={(event) =>
+                        set("servedHandedByName", event.target.value)
+                      }
+                    />
+                  </Field>
+                  <Field label="Witness" optional>
+                    <Input
+                      value={draft.servedWitnessName}
+                      onChange={(event) =>
+                        set("servedWitnessName", event.target.value)
+                      }
+                    />
+                  </Field>
+                </FieldRow>
+                <Checkbox
+                  label="They refused to receive it"
+                  description="A recorded fact about what happened at the hand-over. It is not a finding about them."
+                  checked={draft.servedRefusedToReceive}
                   onChange={(event) =>
-                    set("servedHandedByName", event.target.value)
+                    set("servedRefusedToReceive", event.target.checked)
                   }
                 />
-              </Field>
-              <Field label="Witness" optional>
-                <Input
-                  value={draft.servedWitnessName}
-                  onChange={(event) =>
-                    set("servedWitnessName", event.target.value)
-                  }
+              </>
+            )}
+            {how !== "" && (
+              <Field label="Note about how it was served" optional>
+                <Textarea
+                  rows={2}
+                  value={draft.servedNote}
+                  onChange={(event) => set("servedNote", event.target.value)}
+                />
+                <Counter
+                  value={draft.servedNote}
+                  max={QUERY_LIMITS.servedNote.max}
                 />
               </Field>
-            </FieldRow>
-            <Checkbox
-              label="They refused to receive it"
-              description="A recorded fact about what happened at the hand-over. It is not a finding about them."
-              checked={draft.servedRefusedToReceive}
-              onChange={(event) =>
-                set("servedRefusedToReceive", event.target.checked)
-              }
-            />
+            )}
           </>
-        )}
-        {how !== "" && (
-          <Field label="Note about how it was served" optional>
-            <Textarea
-              rows={2}
-              value={draft.servedNote}
-              onChange={(event) => set("servedNote", event.target.value)}
-            />
-            <Counter
-              value={draft.servedNote}
-              max={QUERY_LIMITS.servedNote.max}
-            />
-          </Field>
         )}
 
         {isIssuer ? (

@@ -174,6 +174,12 @@ export type ApiCitation = {
   takenAt: string | null;
   /** True from the moment the letter is issued. A draft's copy is a preview. */
   frozen: boolean;
+  /**
+   * On the answer to issuing: true when the copy frozen then differs from the last preview the
+   * issuer saw, because the record changed in between. `null` is a server that did not say, and
+   * is no claim: the mark is drawn for `true` only.
+   */
+  changedSincePreview: boolean | null;
   asItStood: AsItStood;
 };
 
@@ -270,6 +276,7 @@ export function toCitation(raw: unknown): ApiCitation | null {
     title,
     takenAt: text(raw["takenAt"]),
     frozen: raw["frozen"] === true,
+    changedSincePreview: flag(raw["changedSincePreview"]),
     asItStood: toAsItStood(kind, raw["asItStood"]),
   };
 }

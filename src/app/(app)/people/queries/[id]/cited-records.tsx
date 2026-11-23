@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
+  AttentionMark,
   Badge,
   Button,
   Card,
@@ -55,9 +56,12 @@ import { AddCitationDialog } from "./add-citation-dialog";
 export function CitedRecords({
   detail,
   refresh,
+  changedIds,
 }: {
   detail: ApiQueryDetail;
   refresh: () => Promise<void>;
+  /** Citations the server flagged, on issuing, as differing from the last preview. */
+  changedIds?: ReadonlySet<string>;
 }) {
   const timeZone = useOrgTimezone();
   const toast = useToast();
@@ -126,6 +130,10 @@ export function CitedRecords({
                 key={citation.id}
                 citation={citation}
                 format={format}
+                changed={
+                  citation.changedSincePreview === true ||
+                  (changedIds?.has(citation.id) ?? false)
+                }
                 {...(editable
                   ? {
                       onRemove: () => void remove(citation),
@@ -161,11 +169,14 @@ export function CitedRecords({
 export function CitationItem({
   citation,
   format,
+  changed = false,
   onRemove,
   removing = false,
 }: {
   citation: ApiCitation;
   format: Formatters;
+  /** The record changed after the preview the issuer saw, so this frozen copy differs from it. */
+  changed?: boolean;
   onRemove?: () => void;
   removing?: boolean;
 }) {
@@ -182,6 +193,11 @@ export function CitationItem({
             <span className="break-words text-body-sm font-medium text-ink">
               {citation.title}
             </span>
+            {/* A fact about this one copy, beside it: the issuer saw a preview, the record then
+                changed, and what was frozen is not what they read. A mark and not a banner. */}
+            {changed && (
+              <AttentionMark text="This copy differs from the preview shown before the letter was issued: the record changed in between." />
+            )}
           </p>
           <p className="mt-1 text-meta text-muted">{standing}</p>
         </div>

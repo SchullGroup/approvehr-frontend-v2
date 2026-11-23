@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CAN_NOTHING,
+  queriesApi,
   toDetail,
   toSettings,
   toSummary,
@@ -17,6 +18,14 @@ import {
   toTemplateList,
   toWarnings,
 } from "@/lib/api/query-ties";
+
+const request = vi.hoisted(() => vi.fn());
+const requestPaged = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/api/client", async (original) => ({
+  ...(await original<typeof import("@/lib/api/client")>()),
+  request,
+  requestPaged,
+}));
 
 /**
  * The wire layer for the ties between a query and the rest of the product.
@@ -431,5 +440,100 @@ describe("a document asked for", () => {
       requestId: null,
       notifiedPerson: null,
     });
+  });
+});
+
+describe("what is sent", () => {
+  beforeEach(() => {
+    request.mockReset();
+    request.mockResolvedValue({ detail: {}, warnings: [] });
+    requestPaged.mockReset();
+    requestPaged.mockResolvedValue({ data: [], meta: {} });
+  });
+
+  it("an issue carries the draft's updatedAt when the server sent one, and no body at all when it did not", async () => {
+    await queriesApi.issue("q-1", "2026-11-20T10:00:00.000Z");
+    expect(request).toHaveBeenLastCalledWith("/queries/q-1/issue", {
+      method: "POST",
+      body: { expectedUpdatedAt: "2026-11-20T10:00:00.000Z" },
+    });
+    await queriesApi.issue("q-1");
+    const options = request.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+    expect(options).toEqual({ method: "POST" });
+    expect(options).not.toHaveProperty("body");
+    await queriesApi.issue("q-1", "");
+    expect(request.mock.calls.at(-1)?.[1]).not.toHaveProperty("body");
+  });
+
+  it("the counts ask for a year and nothing else, because the server refuses any other key", async () => {
+    await queriesApi.counts(undefined);
+    expect(request).toHaveBeenLastCalledWith("/queries/counts", { query: {} });
+    await queriesApi.counts(2025);
+    expect(request).toHaveBeenLastCalledWith("/queries/counts", {
+      query: { year: 2025 },
+    });
+  });
+
+  it("the templates ask for archived ones only when told to, and the register for a manager's drafts only when told to", async () => {
+    await queriesApi.templates(false);
+    expect(requestPaged.mock.calls.at(-1)?.[1]).toMatchObject({ query: {} });
+    await queriesApi.templates(true);
+    expect(requestPaged.mock.calls.at(-1)?.[1]).toMatchObject({
+      query: { includeArchived: "true" },
+    });
+    await queriesApi.register({});
+    expect(
+      (requestPaged.mock.calls.at(-1)?.[1] as { query: object }).query,
+    ).not.toHaveProperty("startedByManager");
+    await queriesApi.register({ startedByManager: true });
+    expect(requestPaged.mock.calls.at(-1)?.[1]).toMatchObject({
+      query: { startedByManager: "true" },
+    });
+  });
+
+  it("a draft is started with only the keys the server's strict body takes", async () => {
+    request.mockResolvedValue({});
+    await queriesApi.create({ subjectId: "e-1", templateId: "t-1" });
+    expect(request).toHaveBeenLastCalledWith("/queries", {
+      method: "POST",
+      body: { subjectId: "e-1", templateId: "t-1" },
+    });
+  });
+});
+
+describe("the draft's own clock and the flag on a copy", () => {
+  it("reads updatedAt, and null for a server that does not send it", () => {
+    expect(toDetail({ updatedAt: "2026-11-20T10:00:00.000Z" }).updatedAt).toBe(
+      "2026-11-20T10:00:00.000Z",
+    );
+    expect(toDetail({}).updatedAt).toBeNull();
+    expect(toDetail({ updatedAt: 5 }).updatedAt).toBeNull();
+  });
+
+  it("reads whether a frozen copy differs from the preview as true, false or not said, and nothing is made of an absence", () => {
+    const read = (value: unknown) =>
+      toCitation({
+        id: "c",
+        kind: "POLICY",
+        title: "t",
+        changedSincePreview: value,
+      })?.changedSincePreview;
+    expect(read(true)).toBe(true);
+    expect(read(false)).toBe(false);
+    expect(read(undefined)).toBeNull();
+    expect(read("yes")).toBeNull();
+  });
+
+  it("an issued detail keeps the flag on the citation it belongs to", () => {
+    const issued = toDetail({
+      citations: [
+        { id: "c-1", kind: "POLICY", title: "A", changedSincePreview: true },
+        { id: "c-2", kind: "POLICY", title: "B" },
+      ],
+    });
+    expect(issued.citations.map((c) => [c.id, c.changedSincePreview])).toEqual([
+      ["c-1", true],
+      ["c-2", null],
+    ]);
   });
 });

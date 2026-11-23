@@ -268,6 +268,27 @@ describe("starting a draft", () => {
     ).toBe("");
   });
 
+  it("shows the server's refusal at the cap on a manager's drafts in its own words, and keeps what was typed", async () => {
+    const sentence =
+      "You already have the most drafts you can keep. Ask HR to issue or withdraw some.";
+    held = new Set(["DRAFT_QUERIES"]);
+    actions.create.mockRejectedValue(
+      new ApiError(422, "unprocessable", sentence),
+    );
+    await open("Draft a query");
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /Subject line/ }),
+      "Kept subject",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start the letter" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(sentence);
+    expect(screen.getByRole("textbox", { name: /Subject line/ })).toHaveValue(
+      "Kept subject",
+    );
+  });
+
   it("is for a manager who drafts, and says so: Draft a query, written for HR to issue", async () => {
     held = new Set(["DRAFT_QUERIES"]);
     await open("Draft a query");
@@ -370,6 +391,37 @@ describe("the templates card", () => {
     );
     expect(within(dialog).getByLabelText(/Subject line/)).toHaveValue(
       "About {{salary}}",
+    );
+  });
+
+  it("shows the server's refusal at the cap on templates in its own words, with the form open", async () => {
+    /* The sentence is a fixture standing for whatever the server says; the rule is that it is shown as it came. */
+    const sentence =
+      "Your company already has the most templates it can keep. Archive one first.";
+    actions.createTemplate.mockRejectedValue(
+      new ApiError(422, "unprocessable", sentence),
+    );
+    mount();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Add a template/ }),
+    );
+    const dialog = screen.getByRole("dialog");
+    await userEvent.type(
+      within(dialog).getByLabelText(/Template name/),
+      "One more",
+    );
+    await userEvent.type(
+      within(dialog).getByLabelText(/Subject line/),
+      "A subject",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add the template" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      sentence,
+    );
+    expect(within(dialog).getByLabelText(/Template name/)).toHaveValue(
+      "One more",
     );
   });
 

@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
 import type { ApiQueryDetail } from "@/lib/api/queries";
 import type { ApiCitation, ApiQueryLead } from "@/lib/api/query-ties";
 import { can, detail } from "./queries-fixtures";
@@ -114,6 +115,7 @@ const citation = (over: Partial<ApiCitation> = {}): ApiCitation => ({
   title: "Leave policy, version 1",
   takenAt: "2026-11-18T09:00:00.000Z",
   frozen: true,
+  changedSincePreview: null,
   asItStood: {
     kind: "POLICY",
     title: "Leave policy",
@@ -607,5 +609,291 @@ describe("warnings", () => {
     mount({ ...draft(), warnings: [] });
     await user.click(screen.getByRole("button", { name: "Issue the query" }));
     expect(screen.queryByText("Before it goes:")).not.toBeInTheDocument();
+  });
+});
+
+/* ----------------------------------------------------- issuing a draft that may have moved */
+
+describe("issuing", () => {
+  const T1 = "2026-11-20T10:00:00.000Z";
+  const T2 = "2026-11-20T10:05:00.000Z";
+  const draftWith = (over: Partial<ApiQueryDetail> = {}) =>
+    detail({
+      status: "DRAFT",
+      issuedAt: null,
+      reference: null,
+      updatedAt: T1,
+      served: {
+        ...detail().served,
+        how: "IN_PRODUCT",
+        subjectHasSignInNow: true,
+      },
+      can: can({ edit: true, issue: true, cite: true }),
+      ...over,
+    });
+  const issueIt = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole("button", { name: "Issue the query" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Issue it",
+      }),
+    );
+  };
+  const issued = (over: Partial<ApiQueryDetail> = {}) => ({
+    detail: detail({ reference: "Q-2026-030", ...over }),
+    warnings: [],
+    subjectHasSignIn: true,
+    toldInProduct: true,
+    nobodyToldInProduct: false,
+  });
+
+  beforeEach(() => {
+    held = new Set(["ISSUE_QUERIES"]);
+    employeeId = "e-9";
+  });
+
+  it("sends the updatedAt of the draft as the issuer last saw it, so a draft that moved is refused", async () => {
+    const user = userEvent.setup();
+    actions.issue.mockResolvedValue(issued());
+    mount(draftWith());
+    await issueIt(user);
+    await waitFor(() => expect(actions.issue).toHaveBeenCalledWith("q-1", T1));
+  });
+
+  it("measures against the draft as it stands after the save that the same press makes", async () => {
+    const user = userEvent.setup();
+    actions.update.mockResolvedValue(
+      draftWith({ updatedAt: T2, subjectLine: "A new subject" }),
+    );
+    actions.issue.mockResolvedValue(issued());
+    mount(draftWith());
+    const box = screen.getByLabelText(/Subject line/);
+    await user.clear(box);
+    await user.type(box, "A new subject");
+    await issueIt(user);
+    await waitFor(() => expect(actions.issue).toHaveBeenCalledWith("q-1", T2));
+    expect(actions.update).toHaveBeenCalled();
+  });
+
+  it("sends nothing for a server that does not send updatedAt, so an older server is not sent a key it would refuse", async () => {
+    const user = userEvent.setup();
+    actions.issue.mockResolvedValue(issued());
+    mount(draftWith({ updatedAt: null }));
+    await issueIt(user);
+    await waitFor(() =>
+      expect(actions.issue).toHaveBeenCalledWith("q-1", undefined),
+    );
+  });
+
+  it("shows a 409 in the server's own words beside the button, reads the draft again, and never retries", async () => {
+    const user = userEvent.setup();
+    const sentence =
+      "This draft changed while it was being issued. Read it again, then issue it again.";
+    actions.issue.mockRejectedValue(new ApiError(409, "conflict", sentence));
+    mount(draftWith());
+    /* After `mount`, which sets what a read answers: the draft as it now stands elsewhere. */
+    get.mockResolvedValue(
+      draftWith({ updatedAt: T2, subjectLine: "Changed elsewhere" }),
+    );
+    await issueIt(user);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(sentence);
+    /* Read again, and shown as it now stands. */
+    await waitFor(() => expect(get).toHaveBeenCalledWith("q-1"));
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Subject line/) as HTMLInputElement).value,
+      ).toBe("Changed elsewhere"),
+    );
+    /* Beside the Issue button, and issued once only: a second issue is a second decision. */
+    const button = screen.getByRole("button", { name: "Issue the query" });
+    expect(
+      alert.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(actions.issue).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads another refusal in its own words and does not re-read the draft for it", async () => {
+    const user = userEvent.setup();
+    actions.issue.mockRejectedValue(
+      new ApiError(
+        422,
+        "unprocessable",
+        "This letter cannot be sent yet. A reference can no longer be read.",
+      ),
+    );
+    mount(draftWith());
+    await issueIt(user);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /A reference can no longer be read/,
+    );
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("says plainly, beside a reference, that its frozen copy differs from the preview, and says how many in the toast", async () => {
+    const user = userEvent.setup();
+    const flagged = citation({ id: "c-1", frozen: false });
+    actions.issue.mockResolvedValue(
+      issued({
+        citations: [{ ...flagged, frozen: true, changedSincePreview: true }],
+      }),
+    );
+    mount(draftWith({ citations: [flagged] }));
+    await issueIt(user);
+    expect(
+      await screen.findByText(/1 reference differs from the preview you saw/),
+    ).toBeInTheDocument();
+    /* The toast carries the count, never which record. */
+    expect(screen.queryByText(/Leave policy, version 1 differs/)).toBeNull();
+    const mark = await screen.findByRole("button", {
+      name: /This copy differs from the preview shown before the letter was issued/,
+    });
+    /* An AttentionMark beside the citation's own title, not a banner. */
+    expect(mark.closest("li")?.textContent).toContain(
+      "Leave policy, version 1",
+    );
+    expect(mark.closest("[role=alert],[role=status]")).toBeNull();
+  });
+});
+
+describe("a flagged reference", () => {
+  const flagged = (over: Partial<ApiCitation> = {}) =>
+    citation({ changedSincePreview: true, ...over });
+
+  it("is marked only for a citation the server flagged, and not for null or false", () => {
+    employeeId = "e-9";
+    held = new Set(["ISSUE_QUERIES"]);
+    mount(
+      detail({
+        can: can(),
+        citations: [
+          flagged({ id: "c-a", title: "Flagged one" }),
+          citation({
+            id: "c-b",
+            title: "Quiet one",
+            changedSincePreview: false,
+          }),
+          citation({
+            id: "c-c",
+            title: "Silent one",
+            changedSincePreview: null,
+          }),
+        ],
+      }),
+    );
+    expect(
+      screen.getAllByRole("button", { name: /differs from the preview/ }),
+    ).toHaveLength(1);
+  });
+});
+
+/* -------------------------------------------------------------- a drafting manager's limits */
+
+describe("a manager drafting is shown nothing the server will refuse", () => {
+  const manager = () =>
+    detail({
+      status: "DRAFT",
+      issuedAt: null,
+      reference: null,
+      startedByManager: true,
+      draftedByName: "Adaeze Okonkwo",
+      citations: [],
+      files: [],
+      can: can({ edit: true }),
+    });
+
+  beforeEach(() => {
+    held = new Set(["DRAFT_QUERIES"]);
+    employeeId = "e-9";
+  });
+
+  it("draws no references section, no 'nothing cited' line and no files section", () => {
+    mount(manager());
+    expect(screen.queryByText("References")).toBeNull();
+    expect(screen.queryByText(/No records are cited yet/)).toBeNull();
+    expect(
+      screen.queryByText(/nothing cited|no references|no files/i),
+    ).toBeNull();
+    expect(screen.queryByText("Company letter or attachments")).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: /add a reference|choose a file|attach/i,
+      }),
+    ).toBeNull();
+  });
+
+  it("is offered no boxes for how the letter is served, which the server refuses for a drafter", () => {
+    mount(manager());
+    expect(screen.queryByLabelText(/How it will be served/)).toBeNull();
+    expect(screen.queryByLabelText(/Handed over on/)).toBeNull();
+    expect(screen.queryByLabelText(/Note about how it was served/)).toBeNull();
+    /* The letter itself is still theirs. */
+    expect(screen.getByLabelText(/Subject line/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/The question/)).toBeInTheDocument();
+  });
+
+  it("sends no served field when it saves, whatever the draft carried", async () => {
+    const user = userEvent.setup();
+    actions.update.mockResolvedValue(manager());
+    mount({ ...manager(), served: { ...manager().served, how: "IN_PRODUCT" } });
+    const box = screen.getByLabelText(/Subject line/);
+    await user.clear(box);
+    await user.type(box, "Another subject");
+    await user.click(screen.getByRole("button", { name: "Save the draft" }));
+    await waitFor(() => expect(actions.update).toHaveBeenCalled());
+    const sent = actions.update.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(Object.keys(sent).filter((key) => key.startsWith("served"))).toEqual(
+      [],
+    );
+  });
+
+  it("an issuer is offered them, so the hiding is the manager's and not a loss for everybody", () => {
+    held = new Set(["ISSUE_QUERIES"]);
+    mount({ ...manager(), can: can({ edit: true, issue: true, cite: true }) });
+    expect(screen.getByLabelText(/How it will be served/)).toBeInTheDocument();
+  });
+});
+
+describe("linked records when the server sent none", () => {
+  it("draws no section and never says nothing is linked, whether leads is absent or empty", () => {
+    held = new Set(["ISSUE_QUERIES"]);
+    employeeId = "e-9";
+    for (const leads of [null, [] as ApiQueryLead[]]) {
+      const view = mount(detail({ can: can(), leads }));
+      expect(screen.queryByText("Linked records")).toBeNull();
+      expect(
+        screen.queryByText(/nothing (is )?linked|no linked|not linked/i),
+      ).toBeNull();
+      view.unmount();
+    }
+  });
+});
+
+describe("the dates a letter takes", () => {
+  it("are bounded to 2000 to 2100 in every picker, the same as the server", async () => {
+    const user = userEvent.setup();
+    held = new Set(["ISSUE_QUERIES"]);
+    employeeId = "e-9";
+    mount(
+      detail({
+        status: "DRAFT",
+        issuedAt: null,
+        served: { ...detail().served, how: "IN_PERSON" },
+        can: can({ edit: true, issue: true, cite: true }),
+      }),
+    );
+    for (const label of [
+      "Date it happened",
+      "Until",
+      "Reply by (date)",
+      "Handed over on",
+    ]) {
+      const box = screen.getByLabelText(
+        new RegExp(`^${label.replace(/[()]/g, "\\$&")}`),
+      );
+      expect(box).toHaveAttribute("min", "2000-01-01");
+      expect(box).toHaveAttribute("max", "2100-12-31");
+    }
+    void user;
   });
 });

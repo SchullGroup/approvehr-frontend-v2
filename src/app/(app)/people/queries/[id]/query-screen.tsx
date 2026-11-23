@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { Callout, EmptyState, LoadState, TextLink } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { isModuleOff, queriesApi } from "@/lib/api/queries";
+import {
+  isModuleOff,
+  queriesApi,
+  type ApiQueryDetail,
+} from "@/lib/api/queries";
 import { useCan } from "@/lib/permissions";
 import {
   DEMO_QUERY_HEADING,
@@ -44,17 +48,43 @@ import { StaffActions } from "./staff-actions";
  * Everything but the letter is `print:hidden`; the letter is `LetterDocument`, drawn only on paper.
  */
 export function QueryScreen({ id }: { id: string }) {
-  const { detail, loading, error, reload, publish, unavailable } =
-    useQueryDetail(id);
+  const {
+    detail,
+    loading,
+    error,
+    reload,
+    publish: publishRead,
+    unavailable,
+  } = useQueryDetail(id);
+  /* The citations the server flagged as differing from the last preview, kept for as long as this
+     screen is open. The flag arrives with the answer to issuing; a later read may not carry it, and
+     a mark that vanished when the window was refocused would be a fact that went away. */
+  const [changed, setChanged] = useState<ReadonlySet<string>>(new Set());
+  const publish = useCallback(
+    (next: ApiQueryDetail) => {
+      const flagged = next.citations
+        .filter((citation) => citation.changedSincePreview === true)
+        .map((citation) => citation.id);
+      if (flagged.length > 0)
+        setChanged((before) => new Set([...before, ...flagged]));
+      publishRead(next);
+    },
+    [publishRead],
+  );
   const { employeeId, user } = useSession();
   const canDecide = useCan("DECIDE_QUERIES");
   const canSettings = useCan("MANAGE_SETTINGS");
 
   /* A file write answers with the file, not the query, so the page reads the query again and
      shows the server's own answer with no loading flash. */
-  const refresh = useCallback(async () => {
-    publish(await queriesApi.get(id));
+  const reread = useCallback(async () => {
+    const fresh = await queriesApi.get(id);
+    publish(fresh);
+    return fresh;
   }, [id, publish]);
+  const refresh = useCallback(async () => {
+    await reread();
+  }, [reread]);
 
   const isSubject =
     detail !== null && employeeId !== null && detail.subject.id === employeeId;
@@ -139,6 +169,7 @@ export function QueryScreen({ id }: { id: string }) {
                     detail={detail}
                     publish={publish}
                     refresh={refresh}
+                    reread={reread}
                   />
                 ) : (
                   <LetterView detail={detail} refresh={refresh} />
@@ -147,7 +178,11 @@ export function QueryScreen({ id }: { id: string }) {
                 {/* Each draws nothing when it has nothing to say and no control to offer, so a
                     letter with no references, no documents asked for and no leads reads as
                     it did before. They sit beside the letter and above the reply. */}
-                <CitedRecords detail={detail} refresh={refresh} />
+                <CitedRecords
+                  detail={detail}
+                  refresh={refresh}
+                  changedIds={changed}
+                />
                 <DocumentsAsked
                   detail={detail}
                   isSubject={isSubject}

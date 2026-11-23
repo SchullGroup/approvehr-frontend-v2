@@ -250,9 +250,12 @@ export function useQueryActions() {
         guard();
         return queriesApi.update(id, body);
       },
-      issue: async (id: string): Promise<IssueResult> => {
+      issue: async (
+        id: string,
+        expectedUpdatedAt?: string,
+      ): Promise<IssueResult> => {
         guard();
-        return queriesApi.issue(id);
+        return queriesApi.issue(id, expectedUpdatedAt);
       },
       addFile: async (
         id: string,
