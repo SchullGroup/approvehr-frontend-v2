@@ -95,6 +95,9 @@ export const ADVANCED_FEATURE_KEYS = [
   /* One mark per person per day that the app was opened, so HR can see how many
      of the team use it each week. Off by default; see `lib/api/me.ts`. */
   "appOpenTracking",
+  /* A birthday email from the company and a greeting in the app, for the person
+     whose birthday it is and nobody else. Off by default; see `lib/api/me.ts`. */
+  "birthdayGreetings",
 ] as const;
 
 /**
@@ -315,6 +318,14 @@ export type ApiFeatures = {
    * that was never asked is a company without it.
    */
   smsDigest?: boolean;
+  /**
+   * Birthday greetings: an email from the company and a line in the app on each
+   * person's birthday. Off by default, for every company.
+   *
+   * Optional because an API one deploy behind does not send it, and a company
+   * that was never asked is a company without it.
+   */
+  birthdayGreetings?: boolean;
   /** The default length, in months. Only read when tracking is on. */
   probationMonths: number;
   /**
