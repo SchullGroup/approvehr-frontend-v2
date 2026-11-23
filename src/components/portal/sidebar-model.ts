@@ -422,7 +422,7 @@ const KEYWORDS: Record<string, string[]> = {
   /* The words the module speaks now, then the ones it used to: somebody who
      types "sprint" or "backlog" still finds it. See `lib/projects/terms.ts`. */
   projects: ["work"],
-  "projects/All projects": [
+  "projects/My projects": [
     "tasks",
     "kanban",
     "board",

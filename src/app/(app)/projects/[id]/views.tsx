@@ -104,3 +104,28 @@ export function viewById(id: string): ProjectViewDef {
     PROJECT_VIEWS.find((view) => view.id === DEFAULT_VIEW)!
   );
 }
+
+/**
+ * The tabs a project offers (UAT 23 Nov, U104 / PERF-25).
+ *
+ * A simple board is a board and a list: Plan, Timeline and Progress are about
+ * cycles, effort and burn-down, and a project gets them by being switched to a
+ * board with cycles in its Settings. Settings is for whoever manages the
+ * project. A link to a tab that is not offered opens the board.
+ */
+const SIMPLE_BOARD_VIEWS: ReadonlySet<string> = new Set([
+  "board",
+  "issues",
+  "settings",
+]);
+
+export function viewsFor(
+  projectType: string,
+  canManage: boolean,
+): readonly ProjectViewDef[] {
+  return PROJECT_VIEWS.filter(
+    (view) =>
+      (view.id !== "settings" || canManage) &&
+      (projectType !== "KANBAN" || SIMPLE_BOARD_VIEWS.has(view.id)),
+  );
+}

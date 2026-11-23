@@ -503,7 +503,10 @@ export const PROJECT_ITEMS: NavItem[] = [
        claim the Master view or the program pages, which are their own rows, so
        it never lights beside them. */
     href: "/projects",
-    label: "All projects",
+    /* "My projects": it lists the projects you are on, and "All projects"
+       read as the company's beside an Overview that counted more (UAT 23 Nov,
+       U104 / PERF-32). */
+    label: "My projects",
     icon: <FolderKanban aria-hidden="true" />,
     activeExcept: [
       "/projects/master",
