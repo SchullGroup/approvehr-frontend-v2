@@ -159,7 +159,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/payroll/pay-setup",
     "title": "Pay setup",
-    "description": "Allowances, deductions and salary grades in one place, with what each one does to tax, pension and take-home pay."
+    "description": "Allowances, deductions, payroll settings and salary grades in one place, with what each one does to tax, pension and take-home pay."
   },
   {
     "href": "/payroll/payments",
@@ -505,11 +505,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "href": "/settings/overtime",
     "title": "Overtime policy",
     "description": "Whether overtime is paid, the grace before it counts, the daily cap, and the weekday, weekend and public holiday rates."
-  },
-  {
-    "href": "/settings/payroll",
-    "title": "Payroll settings",
-    "description": "Working month, salary structure, statutory rates and the checks that stop payroll."
   },
   {
     "href": "/settings/performance",
