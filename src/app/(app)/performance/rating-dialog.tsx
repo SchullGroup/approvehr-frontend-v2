@@ -19,8 +19,13 @@ import {
 import {
   useAppraisals,
   useFramework,
+  useSections,
   useSkills,
 } from "@/lib/store/performance";
+import {
+  namesInWords,
+  splitScoredGroups,
+} from "@/lib/performance/scored-groups";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
@@ -128,6 +133,11 @@ export function RecordLevelDialog({
   const { employeeId } = useSession();
   const canRateAnyone = useCan("EDIT_RECORDS");
   const framework = useFramework();
+  const { sections } = useSections();
+  const { offered: scoredGroups, hidden: unscoredGroups } = useMemo(
+    () => splitScoredGroups(framework.groups, sections),
+    [framework.groups, sections],
+  );
   const { cycles } = useAppraisals();
   /* `rateCompetency` refuses a published period outright, so it is never
      offered rather than offered and then rejected. */
@@ -342,7 +352,7 @@ export function RecordLevelDialog({
               setTypedChoice(null);
             }}
           >
-            {framework.groups.map((group) => (
+            {scoredGroups.map((group) => (
               <optgroup key={group.sectionName} label={group.sectionName}>
                 {group.competencies.map((one) => (
                   <option key={one.id} value={one.id}>
@@ -353,6 +363,12 @@ export function RecordLevelDialog({
             ))}
           </Select>
         </Field>
+        {unscoredGroups.length > 0 && (
+          <p className="-mt-2 text-meta text-muted">
+            Not offered, because they count for nothing in the score:{" "}
+            {namesInWords(unscoredGroups)}.
+          </p>
+        )}
 
         {kind === "RATING" && (
           <div className="grid gap-4 sm:grid-cols-2">
