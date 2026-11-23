@@ -216,11 +216,23 @@ export const auth = {
    * The caller must show them and must not discard them silently — they are
    * ten live credentials and the only way in if the email never arrives.
    */
-  enrolTwoFactor: () =>
+  enrolTwoFactor: (challengeId: string, code: string) =>
     /* `/enrol`, not `/two-factor` — that path is the sign-in completion, and
-       mounting both on it made enrolment unreachable. */
+       mounting both on it made enrolment unreachable. A wrong code is a 401
+       about the code, not the session (`codeCheck`, U10). */
     request<{ recoveryCodes: string[]; enabledAt: string }>(
       "/auth/two-factor/enrol",
+      { method: "POST", body: { challengeId, code }, codeCheck: true },
+    ),
+
+  /**
+   * Email the code that turning two-factor on asks for (U10). Two-factor stays
+   * off until that code is typed, so somebody whose email does not arrive
+   * cannot lock themselves out. 409 if it is already on.
+   */
+  sendTwoFactorEnrolCode: () =>
+    request<{ challengeId: string; expiresAt: string; delivery: string }>(
+      "/auth/two-factor/enrol/code",
       { method: "POST" },
     ),
 
