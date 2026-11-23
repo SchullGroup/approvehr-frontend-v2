@@ -90,25 +90,17 @@ describe("BarChart", () => {
   });
 });
 
-describe("the nine-box", () => {
-  const nineBox = source(
+describe("the talent map", () => {
+  const map = source(
     "src/app/(app)/performance/periods/[id]/nine-box/nine-box-screen.tsx",
   );
 
-  it("is no wider than an iPad held upright, so its third column is not cut off mid-word", () => {
-    /* 768px less the page's padding leaves about 712px. At 52rem (832px) the
-       grid showed two and a half columns with nothing to say it scrolled. */
-    const width = /min-w-\[(\d+(?:\.\d+)?)rem\]/.exec(nineBox);
-    expect(width).not.toBeNull();
-    expect(Number(width?.[1])).toBeLessThanOrEqual(44);
-  });
-
-  it("keeps its row labels in view while the columns scroll on a phone", () => {
-    /* Both the empty corner and every row's label: lose either and a scrolled
-       grid is a set of boxes with no way to tell which row they belong to. */
-    expect(nineBox.match(/sticky left-0/g)?.length ?? 0).toBeGreaterThanOrEqual(
-      2,
-    );
+  it("fits the width it is given, so nothing is cut off and nothing scrolls sideways", () => {
+    /* Three columns share the row, and the row labels are part of the same grid,
+       so there is no wide inner box to scroll and no label to lose. */
+    expect(map).not.toMatch(/min-w-\[\d/);
+    expect(map).not.toMatch(/overflow-x-auto/);
+    expect(map).toMatch(/grid-cols-\[auto_repeat\(3,minmax\(0,1fr\)\)\]/);
   });
 });
 

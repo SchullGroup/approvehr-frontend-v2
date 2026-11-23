@@ -61,7 +61,12 @@ import {
   waitingOnDecision,
   type LeaveRowActions,
 } from "./leave-actions";
-import { useCan } from "@/lib/permissions";
+import {
+  hasAnyPermission,
+  useCan,
+  useIsManager,
+  usePermissions,
+} from "@/lib/permissions";
 import {
   useLeaveBalancesFor,
   useLeaveMutations,
@@ -82,7 +87,7 @@ const STATUS: Record<LeaveRowStatus, { tone: BadgeTone; label: string }> = {
      "approved" at this point. The label says who has it. */
   awaitingHr: { tone: "warning", label: "With HR" },
   approved: { tone: "success", label: "Approved" },
-  declined: { tone: "danger", label: "Sent back" },
+  declined: { tone: "danger", label: "Declined" },
   cancelled: { tone: "neutral", label: "Withdrawn" },
 };
 
@@ -171,6 +176,20 @@ export function LeaveScreen() {
   const [scope, setScope] = useState<Scope>("everyone");
   /* Somebody who cannot decide leave for everyone is only shown their own. */
   const onlyMine = !canDecide || scope === "mine";
+  /* Their own page, then: their balance, their requests, and none of the parts
+     that are about deciding other people's leave (UAT 23 Nov, U64: SELF-11). */
+  const personal = !canDecide;
+  /* Whether anything of anybody else's leave reaches this reader's inbox: a
+     manager decides their reports' requests there, not on this screen. */
+  const isManager = useIsManager();
+  const { permissions } = usePermissions();
+  const decidesLeave =
+    canDecide ||
+    isManager ||
+    hasAnyPermission(permissions, [
+      "APPROVE_LEAVE",
+      "APPROVE_LEAVE_DEPARTMENT",
+    ]);
 
   /**
    * The column the **server** orders by, and which way.
@@ -292,9 +311,11 @@ export function LeaveScreen() {
   }, [requests]);
 
   const balances = useLeaveBalancesFor(
-    shown.map((person) => person.id),
+    personal && employeeId ? [employeeId] : shown.map((person) => person.id),
     "Annual",
   );
+  /* The reader's own Annual balance, which is what their page leads with. */
+  const own = personal && employeeId ? balances.of(employeeId) : undefined;
 
   /* Annual leave taken against annual leave granted, for the people on screen.
      A low figure late in the year is a liability, not a saving: untaken leave
@@ -378,7 +399,7 @@ export function LeaveScreen() {
     }
     reload();
     toast.push({
-      title: `${request.employeeName}'s request went back to them`,
+      title: `${request.employeeName}'s request was declined`,
       tone: "success",
     });
   };
@@ -446,9 +467,11 @@ export function LeaveScreen() {
         }
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <ButtonLink href="/approvals" variant="secondary" size="sm">
-              Approvals inbox
-            </ButtonLink>
+            {decidesLeave && (
+              <ButtonLink href="/approvals" variant="secondary" size="sm">
+                Approvals inbox
+              </ButtonLink>
+            )}
             <Button variant="accent" size="sm" onClick={() => setBooking(true)}>
               <Plus aria-hidden="true" className="size-4" />
               Book leave
@@ -488,38 +511,61 @@ export function LeaveScreen() {
           hasData={answered}
           className="flex flex-col gap-6"
         >
-          <StatGrid>
-            <Stat
-              label="Waiting on a decision"
-              value={String(waiting.count)}
-              hint={
-                waiting.oldestDays !== null
-                  ? `oldest ${daysLabel(waiting.oldestDays)}`
-                  : undefined
-              }
-            />
-            <Stat
-              label="Away in the next month"
-              value={String(monthAhead.length)}
-              hint="approved, starting within 31 days"
-            />
-            {/* Not "Days approved" — read on a plain employee's own screen, that
-              sounds like an action they took ("did I approve my own leave?"),
-              when it is a fact about their leave: days of theirs an approver
-              has signed off this year. "Taken" matches "Annual leave used" /
-              "Annual days left" beside it, and cannot be misread either way. */}
-            <Stat label="Days taken this year" value={String(daysBooked)} />
-            <Stat
-              label="Annual leave used"
-              value={utilisation === null ? "—" : `${utilisation}%`}
-              trend={
-                utilisation !== null && utilisation < 50
-                  ? { direction: "down", label: "Accruing liability" }
-                  : undefined
-              }
-              hint="of entitlement, people shown below"
-            />
-          </StatGrid>
+          {personal ? (
+            /* One set of numbers, the balance's own (U64): the counts this used
+               to show were worked out from the request list, counted future
+               leave as taken and left out the days carried in. */
+            <StatGrid>
+              <Stat
+                label="Days left"
+                value={own ? String(own.remaining) : "—"}
+                hint={own ? `of ${own.entitled} annual leave` : undefined}
+              />
+              <Stat
+                label="Booked"
+                value={own ? String(own.taken) : "—"}
+                hint="approved this year"
+              />
+              <Stat
+                label="Waiting"
+                value={own ? String(own.pending) : "—"}
+                hint="days waiting on a decision"
+              />
+            </StatGrid>
+          ) : (
+            <StatGrid>
+              <Stat
+                label="Waiting on a decision"
+                value={String(waiting.count)}
+                hint={
+                  waiting.oldestDays !== null
+                    ? `oldest ${daysLabel(waiting.oldestDays)}`
+                    : undefined
+                }
+              />
+              <Stat
+                label="Away in the next month"
+                value={String(monthAhead.length)}
+                hint="approved, starting within 31 days"
+              />
+              {/* Not "Days approved" — read on a plain employee's own screen, that
+                sounds like an action they took ("did I approve my own leave?"),
+                when it is a fact about their leave: days of theirs an approver
+                has signed off this year. "Taken" matches "Annual leave used" /
+                "Annual days left" beside it, and cannot be misread either way. */}
+              <Stat label="Days taken this year" value={String(daysBooked)} />
+              <Stat
+                label="Annual leave used"
+                value={utilisation === null ? "—" : `${utilisation}%`}
+                trend={
+                  utilisation !== null && utilisation < 50
+                    ? { direction: "down", label: "Accruing liability" }
+                    : undefined
+                }
+                hint="of entitlement, people shown below"
+              />
+            </StatGrid>
+          )}
 
           <Card className="min-w-0">
             <CardHeader
@@ -576,7 +622,7 @@ export function LeaveScreen() {
                 <div className="hidden sm:block">
                   <TableWrap className="rounded-none border-0">
                     <THead>
-                      <TH>Employee</TH>
+                      {!personal && <TH>Employee</TH>}
                       <TH>Type</TH>
                       {/* `startDate` — the API's allow-list name, not the column's
                         label. A name it does not recognise falls back to the queue,
@@ -609,7 +655,7 @@ export function LeaveScreen() {
                       >
                         Status
                       </SortableTH>
-                      <TH align="right">Decision</TH>
+                      {!personal && <TH align="right">Decision</TH>}
                       <TH align="right">
                         <span className="sr-only">Open</span>
                       </TH>
@@ -617,15 +663,24 @@ export function LeaveScreen() {
                     <TBody>
                       {requests.map((r) => (
                         <TR key={r.id}>
-                          <TDPrimary
-                            title={
-                              <TextLink href={`/people/${r.employeeId}`}>
-                                {r.employeeName}
-                              </TextLink>
-                            }
-                            subtitle={r.reason ?? r.decisionNote ?? undefined}
-                          />
-                          <TD>{r.leaveType}</TD>
+                          {personal ? (
+                            <TDPrimary
+                              title={r.leaveType}
+                              subtitle={rowNote(r)}
+                            />
+                          ) : (
+                            <>
+                              <TDPrimary
+                                title={
+                                  <TextLink href={`/people/${r.employeeId}`}>
+                                    {r.employeeName}
+                                  </TextLink>
+                                }
+                                subtitle={rowNote(r)}
+                              />
+                              <TD>{r.leaveType}</TD>
+                            </>
+                          )}
                           <TD className="tabular whitespace-nowrap">
                             {r.from} → {r.to}
                           </TD>
@@ -659,19 +714,23 @@ export function LeaveScreen() {
                               </span>
                             )}
                           </TD>
-                          <TD align="right">
-                            <RowActions
-                              request={r}
-                              actions={actionsFor(r)}
-                              onApprove={approve}
-                              onSendBack={setDeclining}
-                              onUndo={undo}
-                              className="justify-end"
-                              empty={
-                                <span className="text-meta text-faint">—</span>
-                              }
-                            />
-                          </TD>
+                          {!personal && (
+                            <TD align="right">
+                              <RowActions
+                                request={r}
+                                actions={actionsFor(r)}
+                                onApprove={approve}
+                                onSendBack={setDeclining}
+                                onUndo={undo}
+                                className="justify-end"
+                                empty={
+                                  <span className="text-meta text-faint">
+                                    —
+                                  </span>
+                                }
+                              />
+                            </TD>
+                          )}
                           <TD align="right">
                             <IconButton
                               label={`Open ${r.employeeName}'s ${r.leaveType} request`}
@@ -696,12 +755,18 @@ export function LeaveScreen() {
                     <li key={r.id} className="flex flex-col gap-2 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <TextLink href={`/people/${r.employeeId}`}>
-                            {r.employeeName}
-                          </TextLink>
-                          {(r.reason ?? r.decisionNote) && (
+                          {personal ? (
+                            <span className="font-medium text-ink">
+                              {r.leaveType}
+                            </span>
+                          ) : (
+                            <TextLink href={`/people/${r.employeeId}`}>
+                              {r.employeeName}
+                            </TextLink>
+                          )}
+                          {rowNote(r) && (
                             <p className="mt-0.5 text-body-sm text-muted">
-                              {r.reason ?? r.decisionNote}
+                              {rowNote(r)}
                             </p>
                           )}
                         </div>
@@ -716,7 +781,7 @@ export function LeaveScreen() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-                        <span>{r.leaveType}</span>
+                        {!personal && <span>{r.leaveType}</span>}
                         <span className="tabular whitespace-nowrap">
                           {r.from} → {r.to}
                         </span>
@@ -762,11 +827,12 @@ export function LeaveScreen() {
             )}
           </Card>
 
-          <Card>
-            <CardHeader
-              title="Annual leave left"
-              description="Pending days are already held back."
-              /* The number on this card is a company setting — `entitledDays` on
+          {!personal && (
+            <Card>
+              <CardHeader
+                title="Annual leave left"
+                description="Pending days are already held back."
+                /* The number on this card is a company setting — `entitledDays` on
                the leave type — and until now nothing on the screen said so.
                Somebody looking at "20 left" and wondering where 20 came from
                had to already know `/settings/leave` exists.
@@ -775,60 +841,64 @@ export function LeaveScreen() {
                from the screen where somebody reads it. Behind `MANAGE_SETTINGS`
                because the API is: an employee reading their own balance is not
                being kept from anything they could act on. */
-              action={
-                canManageSettings ? (
-                  <ButtonLink href="/settings/leave" variant="ghost" size="sm">
-                    Set the entitlements
-                  </ButtonLink>
-                ) : undefined
-              }
-            />
-            <CardBody>
-              {/* Said, not skipped. When the balances read fails — the batch
+                action={
+                  canManageSettings ? (
+                    <ButtonLink
+                      href="/settings/leave"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Set the entitlements
+                    </ButtonLink>
+                  ) : undefined
+                }
+              />
+              <CardBody>
+                {/* Said, not skipped. When the balances read fails — the batch
                   route is one some API revisions do not have, and then every
                   row below used to vanish with no explanation — this is the
                   whole card, with a way to try again. `module` because a 404
                   here means the service has not been released with it, which is
                   a different sentence from "it was deleted". */}
-              <LoadState
-                loading={balances.loading}
-                error={balances.error}
-                subject="the leave balance panel"
-                missingMeans="module"
-                onRetry={balances.reload}
-                skeleton="list"
-              >
-                <div className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {shown.length === 0 && (
-                    <p className="text-body-sm text-muted">
-                      {onlyMine
-                        ? "You have not booked any annual leave yet."
-                        : "Nobody has booked leave yet."}
-                    </p>
-                  )}
-                  {shown.map((person) => {
-                    const balance = balances.of(person.id);
-                    if (!balance) return null;
-                    return (
-                      <div key={person.id}>
-                        <div className="mb-1 flex items-baseline justify-between gap-2">
-                          <span className="truncate text-body-sm text-body">
-                            {person.name}
-                          </span>
-                          <span
-                            className={cn(
-                              "tabular shrink-0 text-meta",
-                              balance.remaining <= 3
-                                ? "text-warning-text"
-                                : "text-muted",
-                            )}
-                          >
-                            {balance.remaining} left
-                            {balance.pending > 0 &&
-                              ` · ${balance.pending} pending`}
-                          </span>
-                        </div>
-                        {/* Taken **and** pending, on one track.
+                <LoadState
+                  loading={balances.loading}
+                  error={balances.error}
+                  subject="the leave balance panel"
+                  missingMeans="module"
+                  onRetry={balances.reload}
+                  skeleton="list"
+                >
+                  <div className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {shown.length === 0 && (
+                      <p className="text-body-sm text-muted">
+                        {onlyMine
+                          ? "You have not booked any annual leave yet."
+                          : "Nobody has booked leave yet."}
+                      </p>
+                    )}
+                    {shown.map((person) => {
+                      const balance = balances.of(person.id);
+                      if (!balance) return null;
+                      return (
+                        <div key={person.id}>
+                          <div className="mb-1 flex items-baseline justify-between gap-2">
+                            <span className="truncate text-body-sm text-body">
+                              {person.name}
+                            </span>
+                            <span
+                              className={cn(
+                                "tabular shrink-0 text-meta",
+                                balance.remaining <= 3
+                                  ? "text-warning-text"
+                                  : "text-muted",
+                              )}
+                            >
+                              {balance.remaining} left
+                              {balance.pending > 0 &&
+                                ` · ${balance.pending} pending`}
+                            </span>
+                          </div>
+                          {/* Taken **and** pending, on one track.
                       ------------------------------------
                       A `ProgressMeter` filled by `taken` alone said 12 of 20
                       while three more days were already held back — the bar and
@@ -844,34 +914,35 @@ export function LeaveScreen() {
                       `remaining` genuinely goes negative when somebody is
                       approved beyond their entitlement, and this screen already
                       has the sentence for it. */}
-                        <StackedBar
-                          total={balance.entitled}
-                          format={(n) => `${String(n)}`}
-                          segments={[
-                            {
-                              label: "Taken",
-                              value: balance.taken,
-                              color: "var(--color-accent)",
-                            },
-                            ...(balance.pending > 0
-                              ? [
-                                  {
-                                    label: "Pending",
-                                    value: balance.pending,
-                                    color: "var(--color-warning)",
-                                  },
-                                ]
-                              : []),
-                          ]}
-                          caption={`${person.name}: ${String(balance.taken)} days taken, ${String(balance.pending)} pending, of ${String(balance.entitled)} entitled.`}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </LoadState>
-            </CardBody>
-          </Card>
+                          <StackedBar
+                            total={balance.entitled}
+                            format={(n) => `${String(n)}`}
+                            segments={[
+                              {
+                                label: "Taken",
+                                value: balance.taken,
+                                color: "var(--color-accent)",
+                              },
+                              ...(balance.pending > 0
+                                ? [
+                                    {
+                                      label: "Pending",
+                                      value: balance.pending,
+                                      color: "var(--color-warning)",
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                            caption={`${person.name}: ${String(balance.taken)} days taken, ${String(balance.pending)} pending, of ${String(balance.entitled)} entitled.`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </LoadState>
+              </CardBody>
+            </Card>
+          )}
         </LoadState>
 
         {/* Full width rather than in the 340px column it used to hold a
@@ -925,6 +996,7 @@ export function LeaveScreen() {
 
       <DeclineDialog
         open={declining !== null}
+        reader="reject"
         maxLength={NOTE_MAX}
         what={
           declining
@@ -951,6 +1023,7 @@ export function LeaveScreen() {
         }}
         title="Withdraw this request?"
         confirmLabel="Withdraw it"
+        cancelLabel="Keep it"
         body={
           <div className="flex flex-col gap-2 text-body-sm text-body">
             <p>
@@ -1030,7 +1103,7 @@ function RowActions({
           variant="secondary"
           size="sm"
           onClick={() => onSendBack(request)}
-          aria-label={`Send back ${request.employeeName}'s request`}
+          aria-label={`Decline ${request.employeeName}'s request`}
         >
           <X aria-hidden="true" className="size-3.5" />
         </Button>
@@ -1191,7 +1264,7 @@ function RequestPanel({
                  */}
                 <Button variant="ghost" onClick={() => onSendBack(request)}>
                   <X aria-hidden="true" className="size-3.5" />
-                  Send back
+                  Decline
                 </Button>
                 <Button variant="approve" onClick={() => onApprove(request)}>
                   <Check aria-hidden="true" className="size-3.5" />
@@ -1273,7 +1346,7 @@ function RequestPanel({
                 ? request.status === "declined" && request.decisionNote
                   ? [
                       {
-                        term: "Why it was sent back",
+                        term: "Why it was declined",
                         value: request.decisionNote,
                       },
                     ]
@@ -1377,4 +1450,16 @@ function RequestPanel({
       )}
     </Drawer>
   );
+}
+
+/**
+ * The line under a request. Once it is decided, what the decider wrote (UAT 23
+ * Nov, U64: the refusal reason was only visible after opening the request);
+ * until then, the reason the person gave.
+ */
+function rowNote(request: LeaveRow): string | undefined {
+  if (request.status !== "pending" && request.decisionNote) {
+    return request.decisionNote;
+  }
+  return request.reason ?? undefined;
 }

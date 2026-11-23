@@ -137,7 +137,7 @@ function DraftWeights({
       <p className="text-meta text-muted">
         {weights.basis === "period"
           ? "Set for this period."
-          : "Following the weights in Settings, under Appraisal scoring."}
+          : "Same as your company's weights."}
       </p>
       <PeriodWeights
         value={value}
@@ -146,7 +146,7 @@ function DraftWeights({
         parts={weights.parts}
         disabled={saving}
         onUseDefaults={() =>
-          void run({ weights: null }, "Following the weights in Settings")
+          void run({ weights: null }, "Using your company's weights")
         }
       />
       {period.managerAppraisalNote && (

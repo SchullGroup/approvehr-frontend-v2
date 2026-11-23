@@ -602,6 +602,8 @@ export type ApiCycle = {
   remindDaysBefore: number | null;
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
   managersCanAddQuestions: boolean;
+  /** The manager's review also asks how far the person could go. On by default. */
+  askPotential?: boolean;
   /**
    * Whether the Owner is themselves appraised in this period.
    *
@@ -1029,6 +1031,8 @@ export type ApiReviewDetail = ApiReview & {
    */
   instructions: string | null;
   guideUrl: string | null;
+  /** The period asks a manager how far the person could go. Absent from an older API. */
+  askPotential?: boolean;
   questions: ApiFormQuestion[];
   /** Prompts, not ids: a refusal that names the questions is a refusal you can act on. */
   outstanding: string[];
@@ -2417,7 +2421,14 @@ export type AnswerBody = {
   };
 };
 
-export type SubmitReviewBody = { rating?: number; summary?: string };
+export type SubmitReviewBody = {
+  rating?: number;
+  summary?: string;
+  /** How far the person could go, on a manager's review in a period that asks it. */
+  potential?: "LOW" | "MEDIUM" | "HIGH";
+  /** Required, at least ten characters, for "HIGH". */
+  potentialReason?: string;
+};
 
 export type ApiRespondResult = {
   reviewId: string;
@@ -2895,6 +2906,7 @@ export const performanceApi = {
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
+      askPotential?: boolean;
       /**
        * The whole set, or `null` to go back to the weights in Settings. Refused
        * (409) once the period has started: the weights are fixed by then.
@@ -3310,7 +3322,7 @@ export const performanceApi = {
   setPotential: (
     cycleId: string,
     employeeId: string,
-    body: { level: ApiPotentialLevel; reason: string },
+    body: { level: ApiPotentialLevel; reason?: string },
   ) =>
     request<ApiNineBoxPerson>(
       `/performance/cycles/${cycleId}/potential/${employeeId}`,

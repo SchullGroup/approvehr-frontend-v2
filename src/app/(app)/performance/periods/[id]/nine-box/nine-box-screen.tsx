@@ -1,31 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Info, Lock, TriangleAlert } from "lucide-react";
+import { Lock, UserRound } from "lucide-react";
 import {
-  Badge,
   Button,
   Callout,
-  Card,
-  CardBody,
-  CardHeader,
+  Disclosure,
   EmptyState,
   Field,
   Modal,
-  Select,
-  Stat,
   Textarea,
   useToast,
   LoadState,
 } from "@/components/ui";
-import { NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { BigChoice, WizardShell } from "@/components/performance/wizard-shell";
 import { ApiError } from "@/lib/api/client";
 import {
   PERFORMANCE_AXIS_LABELS,
-  POTENTIAL_LABELS,
-  POTENTIAL_MEANING,
-  potentialReasonProblem,
+  POTENTIAL_REASON_MIN,
   scoreLabel,
   type ApiNineBox,
   type ApiNineBoxCell,
@@ -35,51 +28,101 @@ import {
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useCycleMutations, useNineBox } from "@/lib/store/performance";
+import { cn } from "@/lib/cn";
 
 /**
- * Performance against potential, for one appraisal period.
+ * The talent map: who is ready for more, who to grow, who needs a conversation.
  *
- * ## The tenth cell is the feature
+ * It crosses two things: across, how they did this period, from their mark; up,
+ * how far they could go, which is their manager's judgement and is asked at the
+ * end of the manager's review so the map fills itself as reviews are sent.
+ * Neither half is worked out from the other, and a person missing a half is not
+ * placed at the bottom: they are listed as not on the map yet.
  *
- * Nine boxes and a list of everybody the grid cannot place. A person nobody has
- * assessed is **not low potential**, and a person with no mark is **not a low
- * performer** — both are unplaced, named, with the missing half said out loud.
- *
- * Every other nine-box on the market draws nine boxes and quietly leaves the
- * rest out, which reads as a grid covering the company when it covers whoever
- * happened to be finished. The counts under the heading are the honest version:
- * how many the grid covers and how many it does not, never divided into each
- * other.
- *
- * ## Potential is a judgement, and the screen says whose
- *
- * The server will not compute it and neither will this. Every placement carries
- * a reason somebody typed, and the reason is on the card — a placement nobody
- * can explain should not be deciding a promotion, and this grid is read by the
- * people who decide promotions.
- *
- * ## "At their level" is not a euphemism, it is the accurate description
- *
- * The literature calls the bottom-left box "Deadwood". `POTENTIAL_MEANING.LOW`
- * is rendered wherever the level is offered, and it says in as many words that
- * this is not a judgement of somebody's value. Most people are here. If a future
- * edit shortens that sentence to fit a layout, the layout is what should change.
+ * The grid is the page. A cell shows its name, a count and the faces in it; a
+ * click opens who they are and the one thing worth doing about it.
  */
 
 const AXES: readonly ApiPerformanceAxis[] = ["BELOW", "MEETS", "EXCEEDS"];
 const LEVELS: readonly ApiPotentialLevel[] = ["HIGH", "MEDIUM", "LOW"];
 
-/** The row tone. The middle row is neutral on purpose — see `BAND_TONE`'s reasoning. */
-const ROW_TONE: Record<ApiPotentialLevel, "accent" | "neutral" | "info"> = {
-  HIGH: "accent",
-  MEDIUM: "info",
-  LOW: "neutral",
+const POTENTIAL_CHOICES: { level: ApiPotentialLevel; label: string }[] = [
+  { level: "HIGH", label: "Ready for a bigger role" },
+  { level: "MEDIUM", label: "Could grow in this role" },
+  { level: "LOW", label: "Happy where they are" },
+];
+
+const AXIS_WORDS: Record<ApiPerformanceAxis, string> = {
+  BELOW: "Below what was agreed",
+  MEETS: "Meets what was agreed",
+  EXCEEDS: "Above what was agreed",
 };
+
+const ROW_WORDS: Record<ApiPotentialLevel, string> = {
+  HIGH: "Ready for a bigger role",
+  MEDIUM: "Could grow here",
+  LOW: "Happy in their role",
+};
+
+/** One line on what the cell means, and the next step worth taking. */
+const CELL_GUIDE: Record<string, { line: string; next: string | null }> = {
+  HIGH_EXCEEDS: {
+    line: "Delivering and could go further.",
+    next: "Plan their next role",
+  },
+  HIGH_MEETS: {
+    line: "Delivering, with more in them.",
+    next: "Give them a stretch goal",
+  },
+  HIGH_BELOW: {
+    line: "The ability looks to be there; the results are not.",
+    next: "Find out what is in the way",
+  },
+  MEDIUM_EXCEEDS: {
+    line: "Delivering more than was agreed.",
+    next: "Talk about growth",
+  },
+  MEDIUM_MEETS: { line: "Doing the job as agreed.", next: null },
+  MEDIUM_BELOW: {
+    line: "Not delivering what was agreed.",
+    next: "Agree what changes",
+  },
+  LOW_EXCEEDS: {
+    line: "Deep in what they do, and delivering.",
+    next: "Make sure they stay",
+  },
+  LOW_MEETS: {
+    line: "Doing the job as agreed, where they want to be.",
+    next: null,
+  },
+  LOW_BELOW: {
+    line: "Not delivering, and not looking for more.",
+    next: "Book the conversation",
+  },
+};
+
+/** Soft tint by corner: the top right is the strongest, the bottom left a warm neutral. */
+const TINT: Record<string, string> = {
+  HIGH_EXCEEDS: "bg-success-soft",
+  HIGH_MEETS: "bg-accent-soft",
+  MEDIUM_EXCEEDS: "bg-accent-soft",
+  LOW_BELOW: "bg-sand",
+};
+
+const initials = (name: string) =>
+  name
+    .split(" ")
+    .map((part) => part.charAt(0))
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
 export function NineBoxScreen({ cycleId }: { cycleId: string }) {
   const canSeeCompany = useCan("EDIT_RECORDS");
   const detail = useNineBox(cycleId, canSeeCompany);
+  const [open, setOpen] = useState<ApiNineBoxCell | null>(null);
   const [placing, setPlacing] = useState<ApiNineBoxPerson | null>(null);
+  const [filling, setFilling] = useState(false);
 
   const cycle = detail.cycle;
   const grid = detail.grid;
@@ -94,12 +137,10 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
             label: cycle?.name ?? "Appraisal period",
           },
         ]}
-        title="Nine-box"
+        title="Talent map"
         meta={
           <span className="text-meta text-faint">
-            Where people are delivering, against how far they could go. Each
-            half is recorded on its own, and neither is worked out from the
-            other.
+            Who is ready for more, who to grow, and who needs a conversation.
           </span>
         }
       />
@@ -109,31 +150,99 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
             plain
             icon={<Lock aria-hidden="true" />}
             title="Not available to you"
-            description="The nine-box covers everyone in the company, so it is only open to people who can see every employee's record."
+            description="The talent map covers everyone in the company, so it is only open to people who can see every employee's record."
           />
         ) : !detail.available ? (
           <Callout tone="info" title="This needs a connection to the server">
             {detail.refusal}
           </Callout>
         ) : detail.error || detail.loading || !grid ? (
-          /* The one loading and failure rule, as a gate. */
           <LoadState
             loading={detail.loading}
             error={detail.error}
-            subject="the nine-box"
+            subject="the talent map"
             onRetry={detail.reload}
             skeleton="detail"
           >
             {null}
           </LoadState>
         ) : (
-          <Grid grid={grid} onPlace={setPlacing} />
+          <div className="flex flex-col gap-6">
+            {grid.unplaced.noPotential.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                <p className="text-body-sm text-ink">
+                  {grid.unplaced.noPotential.length === 1
+                    ? "1 person isn't on the map yet"
+                    : `${String(grid.unplaced.noPotential.length)} people aren't on the map yet`}
+                </p>
+                <Button size="sm" onClick={() => setFilling(true)}>
+                  Place them
+                </Button>
+              </div>
+            )}
+            <Map grid={grid} onOpen={setOpen} />
+            <NotOnTheMap grid={grid} />
+          </div>
         )}
       </PageBody>
+
+      {open && (
+        <Modal
+          open
+          onClose={() => setOpen(null)}
+          title={open.label}
+          size="md"
+          footer={<Button onClick={() => setOpen(null)}>Close</Button>}
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-body-sm text-muted">
+              {CELL_GUIDE[open.box]?.line ?? open.meaning}
+              {CELL_GUIDE[open.box]?.next
+                ? ` ${CELL_GUIDE[open.box]?.next}.`
+                : ""}
+            </p>
+            {open.people.length === 0 ? (
+              <p className="text-body-sm text-faint">Nobody here.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {open.people.map((person) => (
+                  <li
+                    key={person.employeeId}
+                    className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <Avatar name={person.employeeName} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-body-sm font-medium text-ink">
+                          {person.employeeName}
+                        </span>
+                        <span className="block truncate text-meta text-muted">
+                          {person.jobTitle}
+                          {person.scoreBp !== null &&
+                            ` · ${scoreLabel(person.scoreBp)}`}
+                        </span>
+                      </span>
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setOpen(null);
+                        setPlacing(person);
+                      }}
+                    >
+                      Change
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {placing && (
         <PlaceDialog
-          /* Keyed so placing a different person remounts with fresh state,
-             rather than deriving state from props during render. */
           key={placing.employeeId}
           cycleId={cycleId}
           person={placing}
@@ -144,270 +253,260 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
           }}
         />
       )}
+
+      {filling && grid && (
+        <PlaceThem
+          cycleId={cycleId}
+          people={grid.unplaced.noPotential}
+          onClose={() => {
+            setFilling(false);
+            detail.reload();
+          }}
+        />
+      )}
     </>
   );
 }
 
-function Grid({
+function Avatar({ name, className }: { name: string; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-sunken text-meta font-semibold text-body ring-2 ring-surface",
+        className,
+      )}
+    >
+      {initials(name) || <UserRound className="size-4" />}
+    </span>
+  );
+}
+
+function Map({
   grid,
-  onPlace,
+  onOpen,
 }: {
   grid: ApiNineBox;
-  onPlace: (person: ApiNineBoxPerson) => void;
+  onOpen: (cell: ApiNineBoxCell) => void;
 }) {
   const cellFor = useMemo(() => {
-    const map = new Map<string, ApiNineBoxCell>();
+    const map = new globalThis.Map<string, ApiNineBoxCell>();
     for (const cell of grid.cells) map.set(cell.box, cell);
     return map;
   }, [grid.cells]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat
-          label="On the grid"
-          value={String(grid.counts.placed)}
-          hint={`of ${String(grid.counts.people)} people in this period`}
-        />
-        <Stat
-          label="Not placed"
-          value={String(grid.counts.unplaced)}
-          hint={
-            grid.counts.unplaced === 0
-              ? "Everyone has both halves"
-              : "Listed below, with the half that is missing"
-          }
-        />
-        <Stat
-          label="People"
-          value={String(grid.counts.people)}
-          hint="Everyone in the period"
-        />
-      </div>
-
-      {/* Horizontal scroll rather than a card-per-row stack: a nine-box read one
-          box at a time is a list, and the whole point is seeing the spread.
-
-          44rem, not 52: at 52rem an iPad held upright (768, so about 712 of
-          content) showed two and a half columns and cut the third mid-word with
-          nothing to say it scrolled. 44rem fits that width exactly; below it the
-          grid scrolls, and the row labels stay put (`sticky`) so that what each
-          row is stays on screen while the columns move under it. */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[44rem]">
-          <div className="grid grid-cols-[8rem_repeat(3,minmax(0,1fr))] gap-2">
-            <div className="sticky left-0 z-10 bg-canvas" />
-            {AXES.map((axis) => (
-              <div key={axis} className="px-1 pb-1">
-                <p className="text-meta font-medium text-body">
-                  {PERFORMANCE_AXIS_LABELS[axis]}
-                </p>
-              </div>
-            ))}
-            {LEVELS.map((level) => (
-              <RowOfThree
-                key={level}
-                level={level}
-                cellFor={cellFor}
-                onPlace={onPlace}
-              />
-            ))}
-          </div>
-          <p className="mt-2 text-meta text-faint">
-            Performance, left to right. Potential, top to bottom.
-          </p>
-        </div>
-      </div>
-
-      <Unplaced grid={grid} onPlace={onPlace} />
+    <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-2 sm:gap-3">
+      <div />
+      {AXES.map((axis) => (
+        <p
+          key={axis}
+          className="px-1 text-center text-meta font-medium text-muted"
+          title={PERFORMANCE_AXIS_LABELS[axis]}
+        >
+          {AXIS_WORDS[axis]}
+        </p>
+      ))}
+      {LEVELS.map((level) => (
+        <Row key={level} level={level} cellFor={cellFor} onOpen={onOpen} />
+      ))}
     </div>
   );
 }
 
-function RowOfThree({
+function Row({
   level,
   cellFor,
-  onPlace,
+  onOpen,
 }: {
   level: ApiPotentialLevel;
-  cellFor: Map<string, ApiNineBoxCell>;
-  onPlace: (person: ApiNineBoxPerson) => void;
+  cellFor: globalThis.Map<string, ApiNineBoxCell>;
+  onOpen: (cell: ApiNineBoxCell) => void;
 }) {
   return (
     <>
-      <div className="sticky left-0 z-10 flex flex-col gap-1 bg-canvas py-2 pr-2">
-        <Badge tone={ROW_TONE[level]} size="sm">
-          {POTENTIAL_LABELS[level]}
-        </Badge>
-        {/* The sentence, not a tooltip. `LOW` is the one somebody misreads. */}
-        <p className="text-meta text-faint">{POTENTIAL_MEANING[level]}</p>
-      </div>
+      <p className="flex w-16 items-center text-meta font-medium text-muted sm:w-24">
+        {ROW_WORDS[level]}
+      </p>
       {AXES.map((axis) => {
         const cell = cellFor.get(`${level}_${axis}`);
         if (!cell) return <div key={axis} />;
-        return <Box key={axis} cell={cell} onPlace={onPlace} />;
+        return (
+          <button
+            key={axis}
+            type="button"
+            onClick={() => onOpen(cell)}
+            aria-label={`${cell.label}, ${String(cell.people.length)} ${cell.people.length === 1 ? "person" : "people"}`}
+            className={cn(
+              "flex min-h-28 flex-col justify-between gap-3 rounded-xl border border-line p-3 text-left transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2",
+              TINT[cell.box] ?? "bg-surface",
+            )}
+          >
+            <span className="text-body-sm font-medium text-ink">
+              {cell.label}
+            </span>
+            <span className="flex items-center justify-between gap-2">
+              <span className="flex -space-x-2">
+                {cell.people.slice(0, 5).map((person) => (
+                  <Avatar key={person.employeeId} name={person.employeeName} />
+                ))}
+              </span>
+              <span className="tabular text-body-sm font-semibold text-ink">
+                {cell.people.length > 5
+                  ? `+${String(cell.people.length - 5)}`
+                  : cell.people.length === 0
+                    ? ""
+                    : String(cell.people.length)}
+              </span>
+            </span>
+          </button>
+        );
       })}
     </>
   );
 }
 
-function Box({
-  cell,
-  onPlace,
-}: {
-  cell: ApiNineBoxCell;
-  onPlace: (person: ApiNineBoxPerson) => void;
-}) {
+/** People who cannot be placed yet because they have no mark, kept to one quiet line. */
+function NotOnTheMap({ grid }: { grid: ApiNineBox }) {
+  const waiting = [...grid.unplaced.noPerformance, ...grid.unplaced.neither];
+  if (waiting.length === 0) return null;
   return (
-    <div className="flex min-h-[8rem] flex-col gap-2 rounded-md border border-line bg-surface p-3">
-      <div>
-        <p className="text-meta font-medium text-body">{cell.label}</p>
-        <p className="text-meta text-faint">{cell.meaning}</p>
-      </div>
-      {cell.people.length === 0 ? (
-        <p className="text-meta text-faint">Nobody</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {cell.people.map((person) => (
-            <li key={person.employeeId}>
-              <button
-                type="button"
-                onClick={() => onPlace(person)}
-                className="text-left text-body-sm text-accent-text hover:underline underline-offset-4"
-              >
-                {person.employeeName}
-              </button>
-              {/* Never `?? 0`. A person in a cell has a band, so they have a
-                  score — but writing a zero fallback in the one file whose
-                  argument is that an absence is not a zero is how the next
-                  person copies it somewhere it can fire. */}
-              {person.scoreBp !== null && (
-                <span className="ml-1 text-meta text-faint">
-                  {scoreLabel(person.scoreBp)}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Disclosure
+      title="No mark yet"
+      meta={<span className="text-meta text-muted">{waiting.length}</span>}
+      level={2}
+    >
+      <ul className="flex flex-col gap-1 text-body-sm text-ink">
+        {waiting.map((person) => (
+          <li key={person.employeeId}>{person.employeeName}</li>
+        ))}
+      </ul>
+    </Disclosure>
   );
 }
 
 /**
- * Everybody the grid cannot place, and which half is missing.
+ * Place the people who are not on the map yet, one at a time.
  *
- * Three lists rather than one, because the fix differs: somebody with no
- * assessment needs a judgement, somebody with no mark needs a period finished,
- * and somebody with neither needs both. A single "unplaced" count would send a
- * reader to the wrong screen two thirds of the time.
+ * A name, how they did, and three large answers. Choosing one saves it and moves
+ * to the next person. "Ready for a bigger role" asks for a sentence first,
+ * because that is the answer a promotion is decided from.
  */
-function Unplaced({
-  grid,
-  onPlace,
+function PlaceThem({
+  cycleId,
+  people,
+  onClose,
 }: {
-  grid: ApiNineBox;
-  onPlace: (person: ApiNineBoxPerson) => void;
+  cycleId: string;
+  people: ApiNineBoxPerson[];
+  onClose: () => void;
 }) {
-  const groups: {
-    key: string;
-    title: string;
-    note: string;
-    people: ApiNineBoxPerson[];
-    placeable: boolean;
-  }[] = [
-    {
-      key: "noPotential",
-      title: "Potential not assessed yet",
-      note: "They have a mark for this period. Record their potential to put them on the grid.",
-      people: grid.unplaced.noPotential,
-      placeable: true,
-    },
-    {
-      key: "noPerformance",
-      title: "No mark in this period",
-      note: "Their potential is recorded but they have no mark yet, so there is no column to put them in.",
-      people: grid.unplaced.noPerformance,
-      placeable: false,
-    },
-    {
-      key: "neither",
-      title: "Neither half recorded",
-      note: "No mark and no assessment yet, so they are not on the grid at all.",
-      people: grid.unplaced.neither,
-      placeable: false,
-    },
-  ];
+  const mutations = useCycleMutations();
+  const [queue] = useState(people);
+  const [at, setAt] = useState(0);
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const anything = groups.some((group) => group.people.length > 0);
-  if (!anything) {
+  const person = queue[at];
+  if (!person) {
     return (
-      /* A line. This was a green panel with a heading, congratulating the
-         reader on the absence of a problem — the thing people learn to dismiss
-         without reading, and then the one that mattered goes with it. */
-      <NoticeLine tone="muted">
-        Everyone in this period has both a mark and a recorded potential.
-      </NoticeLine>
+      <WizardShell
+        open
+        onClose={onClose}
+        step={queue.length - 1}
+        total={queue.length}
+        title="Everyone is on the map"
+        hideNext
+      >
+        <div>
+          <Button variant="accent" onClick={onClose}>
+            See the map
+          </Button>
+        </div>
+      </WizardShell>
     );
   }
 
+  const place = async (level: ApiPotentialLevel, why?: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await mutations.setPotential(cycleId, person.employeeId, {
+        level,
+        ...(why?.trim() ? { reason: why.trim() } : {}),
+      });
+      setAsking(false);
+      setReason("");
+      setAt(at + 1);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Something went wrong. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader
-        level={2}
-        title="Not on the grid"
-        description="These people are left off rather than placed at the bottom, because having no mark is not the same as a low one."
-        action={
-          <Badge tone="warning" size="sm" dot>
-            {grid.counts.unplaced} of {grid.counts.people}
-          </Badge>
-        }
-      />
-      <CardBody className="flex flex-col gap-5">
-        {groups
-          .filter((group) => group.people.length > 0)
-          .map((group) => (
-            <div key={group.key} className="flex flex-col gap-2">
-              <div>
-                <p className="text-body-sm font-medium text-body">
-                  {group.title} ({group.people.length})
-                </p>
-                <p className="text-meta text-faint">{group.note}</p>
-              </div>
-              <ul className="flex flex-wrap gap-2">
-                {group.people.map((person) => (
-                  <li key={person.employeeId}>
-                    {group.placeable ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onPlace(person)}
-                      >
-                        {person.employeeName}
-                      </Button>
-                    ) : (
-                      <Badge tone="neutral" size="sm">
-                        {person.employeeName}
-                      </Badge>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
+    <WizardShell
+      open
+      onClose={onClose}
+      step={at}
+      total={queue.length}
+      title={`How far could ${person.employeeName} go?`}
+      error={error}
+      busy={busy}
+      hideNext={!asking}
+      canNext={reason.trim().length >= POTENTIAL_REASON_MIN}
+      nextLabel="Place them"
+      onNext={() => void place("HIGH", reason)}
+      {...(asking ? { onBack: () => setAsking(false) } : {})}
+    >
+      <p className="text-body-sm text-muted">
+        {person.jobTitle}
+        {person.bandLabel ? ` · ${person.bandLabel} this period` : ""}
+      </p>
+      {asking ? (
+        <Field label="Why">
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="What you have seen that puts them here."
+          />
+        </Field>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {POTENTIAL_CHOICES.map((choice) => (
+            <BigChoice
+              key={choice.level}
+              onClick={() =>
+                choice.level === "HIGH"
+                  ? setAsking(true)
+                  : void place(choice.level)
+              }
+            >
+              {choice.label}
+            </BigChoice>
           ))}
-      </CardBody>
-    </Card>
+          <button
+            type="button"
+            onClick={() => setAt(at + 1)}
+            className="self-start text-body-sm text-muted hover:text-ink"
+          >
+            Skip for now
+          </button>
+        </div>
+      )}
+    </WizardShell>
   );
 }
 
-/**
- * Record or move one person's potential.
- *
- * The reason is required and refused locally in the server's own words before
- * the press, as well as by the server. `Take it off` is offered only where
- * there is something to take off, and the copy says what happens: they return
- * to unplaced, which is not the bottom row.
- */
+/** Move or take off one person's placement, from the map. */
 function PlaceDialog({
   cycleId,
   person,
@@ -428,7 +527,8 @@ function PlaceDialog({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const problem = potentialReasonProblem(reason);
+  const needsReason =
+    level === "HIGH" && reason.trim().length < POTENTIAL_REASON_MIN;
 
   const run = async (work: () => Promise<unknown>, done: string) => {
     setBusy(true);
@@ -452,39 +552,38 @@ function PlaceDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Potential, ${person.employeeName}`}
-      description={person.jobTitle}
+      title={person.employeeName}
       footer={
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="accent"
             loading={busy}
-            disabled={problem !== null}
+            disabled={needsReason}
             onClick={() =>
               void run(
                 () =>
                   mutations.setPotential(cycleId, person.employeeId, {
                     level,
-                    reason,
+                    ...(reason.trim() ? { reason: reason.trim() } : {}),
                   }),
-                person.potential ? "Moved" : "Placed",
+                "Saved",
               )
             }
           >
-            {person.potential ? "Save the change" : "Place them"}
+            Save
           </Button>
           {person.potential && (
             <Button
-              variant="secondary"
+              variant="ghost"
               loading={busy}
               onClick={() =>
                 void run(
                   () => mutations.clearPotential(cycleId, person.employeeId),
-                  "Taken off the grid",
+                  "Taken off the map",
                 )
               }
             >
-              Take it off
+              Take off the map
             </Button>
           )}
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -494,60 +593,29 @@ function PlaceDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-body-sm text-muted">
-          {person.band
-            ? `Performance this period: ${person.bandLabel ?? ""}.`
-            : "No mark in this period yet. You can record potential now, and they will appear on the grid once they have a mark."}
-        </p>
-
-        <Field label="How far could they go?">
-          <Select
-            value={level}
-            onChange={(event) =>
-              setLevel(event.target.value as ApiPotentialLevel)
-            }
-          >
-            {LEVELS.map((each) => (
-              <option key={each} value={each}>
-                {POTENTIAL_LABELS[each]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Callout
-          tone="info"
-          title={POTENTIAL_LABELS[level]}
-          icon={<Info aria-hidden="true" />}
-        >
-          {POTENTIAL_MEANING[level]}
-        </Callout>
-
-        <Field
-          label="Why"
-          help="Read by whoever decides a promotion from this grid, possibly years from now."
-          {...(problem && reason.length > 0 ? { error: problem } : {})}
-        >
-          <Textarea
-            rows={3}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="What you have seen that puts them here."
-          />
-        </Field>
-
-        {person.potential && (
-          <p className="text-meta text-faint">
-            Taking them off the grid puts them back on the not-placed list. It
-            does not move them to the bottom row.
-          </p>
+        <div className="flex flex-col gap-2">
+          {POTENTIAL_CHOICES.map((choice) => (
+            <BigChoice
+              key={choice.level}
+              selected={level === choice.level}
+              onClick={() => setLevel(choice.level)}
+            >
+              {choice.label}
+            </BigChoice>
+          ))}
+        </div>
+        {level === "HIGH" && (
+          <Field label="Why">
+            <Textarea
+              rows={3}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="What you have seen that puts them here."
+            />
+          </Field>
         )}
-
         {failure && (
-          <Callout
-            tone="danger"
-            title="That was refused"
-            icon={<TriangleAlert aria-hidden="true" />}
-          >
+          <Callout tone="danger" title="That was refused">
             {failure}
           </Callout>
         )}

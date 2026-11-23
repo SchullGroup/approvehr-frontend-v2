@@ -109,7 +109,7 @@ describe("the weights helpers", () => {
     });
   });
 
-  it("is happy at any total above zero, and refuses only all zeros", () => {
+  it("accepts exactly 100% and nothing else", () => {
     const ok = weightsToText({
       OBJECTIVES: 4000,
       TASKS: 0,
@@ -119,13 +119,14 @@ describe("the weights helpers", () => {
       SELF_ASSESSMENT: 0,
     });
     expect(periodWeightsProblem(ok)).toBeNull();
-    /* 105% is fine: weights are proportional. */
-    expect(periodWeightsProblem({ ...ok, TASKS: "5" })).toBeNull();
+    expect(periodWeightsProblem({ ...ok, TASKS: "5" })).toBe(
+      "The weights have to add up to 100%.",
+    );
     const zeros = Object.fromEntries(
       Object.keys(ok).map((key) => [key, "0"]),
     ) as typeof ok;
     expect(periodWeightsProblem(zeros)).toBe(
-      "Give at least one part a weight above 0%.",
+      "The weights have to add up to 100%.",
     );
   });
 
@@ -166,16 +167,15 @@ describe("<PeriodWeights />", () => {
     expect(screen.getByText("How the mark is made up")).toBeInTheDocument();
   });
 
-  it("shows the running total, and warns without refusing for a total over 100", async () => {
+  it("shows the running total in the pie, and says how much to take off when over 100", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    expect(screen.getByTestId("weights-total")).toHaveTextContent("100%");
+    expect(screen.getByTestId("pie-total")).toHaveTextContent("100%");
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
-    expect(screen.getByTestId("weights-total")).toHaveTextContent("110%");
-    /* Over 100% is a warning, not a refusal: it is said in words and Save stays open. */
+    expect(screen.getByTestId("pie-total")).toHaveTextContent("110%");
     expect(screen.getByRole("status")).toHaveTextContent(
-      "These add up to 110%, which is more than 100%.",
+      "Take 10% off somewhere",
     );
   });
 
@@ -199,14 +199,14 @@ describe("<PeriodWeights />", () => {
     ).toBeInTheDocument();
   });
 
-  it("'Use the weights in Settings' resets the rows", async () => {
+  it("'Use my company's weights' resets the rows", async () => {
     const user = userEvent.setup();
     const seen = vi.fn();
     render(<Harness onValue={seen} />);
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "20");
     await user.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     expect(screen.getByLabelText("Weekly tasks")).toHaveValue(0);
     expect(screen.getByLabelText("Delivery against objectives")).toHaveValue(
@@ -218,10 +218,10 @@ describe("<PeriodWeights />", () => {
     render(<Harness readOnly basis="frozen" />);
     expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
     expect(
-      screen.queryByRole("button", { name: "Use the weights in Settings" }),
+      screen.queryByRole("button", { name: "Use my company's weights" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("Fixed when this period started."),
+      screen.getByText("Locked when this period started."),
     ).toBeInTheDocument();
     const row = screen
       .getByText("Weekly tasks")
@@ -236,12 +236,10 @@ describe("<PeriodWeights />", () => {
   it("does not claim a started period was fixed when it follows the company", () => {
     render(<Harness readOnly basis="company" />);
     expect(
-      screen.queryByText("Fixed when this period started."),
+      screen.queryByText("Locked when this period started."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "This period follows the weights in Settings as they are today.",
-      ),
+      screen.getByText("Uses your company's weights as they are today."),
     ).toBeInTheDocument();
   });
 });
@@ -252,16 +250,16 @@ describe("a company that wrote its own parts in Settings", () => {
     source: "saved",
     rows: defaults.rows.map((row) =>
       row.component === "CORE_COMPETENCY"
-        ? { ...row, label: "A", weightBp: 5000, isPart: true }
+        ? { ...row, label: "A", weightBp: 10000, isPart: true }
         : { ...row, weightBp: 0, isPart: false },
     ),
-    totalBp: 5000,
+    totalBp: 10000,
     selfAssessmentNote: "",
   };
   const text = weightsToText({
     OBJECTIVES: 0,
     TASKS: 0,
-    CORE_COMPETENCY: 5000,
+    CORE_COMPETENCY: 10000,
     BEHAVIOURAL_COMPETENCY: 0,
     LEADERSHIP: 0,
     SELF_ASSESSMENT: 0,
@@ -271,7 +269,7 @@ describe("a company that wrote its own parts in Settings", () => {
     render(
       <PeriodWeights value={text} onChange={() => {}} companyDefaults={own} />,
     );
-    expect(screen.getByLabelText("A")).toHaveValue(50);
+    expect(screen.getByLabelText("A")).toHaveValue(100);
     for (const builtIn of [
       "Delivery against objectives",
       "Weekly tasks",
@@ -282,7 +280,7 @@ describe("a company that wrote its own parts in Settings", () => {
       expect(screen.queryByText(builtIn)).not.toBeInTheDocument();
     }
     expect(screen.queryByText(/weekly tasks share/i)).not.toBeInTheDocument();
-    expect(screen.getByTestId("weights-total")).toHaveTextContent("50%");
+    expect(screen.getByTestId("pie-total")).toHaveTextContent("100%");
   });
 
   it("follows the parts the period names, over the company's", () => {
@@ -306,6 +304,6 @@ describe("a company that wrote its own parts in Settings", () => {
       periodWeightsProblem({ ...text, CORE_COMPETENCY: "0" }, [
         "CORE_COMPETENCY",
       ]),
-    ).toMatch(/at least one part/i);
+    ).toMatch(/add up to 100/i);
   });
 });
