@@ -178,6 +178,34 @@ describe("the person the review is about", () => {
   });
 });
 
+describe("what the person reads about their own sign-off", () => {
+  it("is in the second person", () => {
+    state.actingId = "emp-subject";
+    state.review = review({
+      finalised: true,
+      outcome: OUTCOME,
+      acknowledged: true,
+      acknowledgedAt: "2026-11-23T10:00:00.000Z",
+    });
+    mount();
+    expect(screen.getByText(/^You acknowledged this on/)).toBeInTheDocument();
+    expect(screen.getByText("You did not add a comment.")).toBeInTheDocument();
+    expect(screen.queryByText(/Emeka Anyanwu acknowledged this/)).toBeNull();
+  });
+
+  it("names them to anybody else", () => {
+    state.review = review({
+      finalised: true,
+      acknowledged: true,
+      acknowledgedAt: "2026-11-23T10:00:00.000Z",
+    });
+    mount();
+    expect(
+      screen.getByText(/^Emeka Anyanwu acknowledged this on/),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("whoever decides", () => {
   it("reads the same rating, and still has the breakdown", () => {
     mount();

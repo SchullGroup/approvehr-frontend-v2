@@ -508,12 +508,16 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 description={
                   review.disputed
                     ? "The rating stays as it is and the dispute is recorded beside it."
-                    : "This shows the person has seen their rating. It does not mean they agree with it."
+                    : isSubject
+                      ? "This shows you have seen your rating. It does not mean you agree with it."
+                      : "This shows the person has seen their rating. It does not mean they agree with it."
                 }
               />
               <CardBody className="flex flex-col gap-2">
+                {/* To the person themselves in the second person (U36 /
+                    PERF-2: Halima read her own name back about herself). */}
                 <p className="text-body-sm text-body">
-                  {review.subjectName}{" "}
+                  {isSubject ? "You" : review.subjectName}{" "}
                   {review.disputed ? "disputed this" : "acknowledged this"} on{" "}
                   {dayOf(
                     (review.disputedAt ?? review.acknowledgedAt) as string,
@@ -526,7 +530,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   </p>
                 ) : (
                   <p className="text-body-sm text-muted">
-                    They did not add a comment.
+                    {isSubject
+                      ? "You did not add a comment."
+                      : "They did not add a comment."}
                   </p>
                 )}
               </CardBody>
