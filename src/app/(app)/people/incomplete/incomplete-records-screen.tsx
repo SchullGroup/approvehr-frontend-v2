@@ -108,6 +108,7 @@ export function IncompleteRecordsScreen() {
         {rows.length === 0 ? (
           <Card>
             <EmptyState
+              mood="all-clear"
               icon={<ShieldAlert aria-hidden="true" />}
               title="Nothing missing"
               description="Every record has a bank account, pension PIN and TIN on file."

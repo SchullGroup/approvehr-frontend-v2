@@ -70,6 +70,7 @@ export {
   Spinner,
   ThinkingState,
 } from "./feedback";
+export type { EmptyMood } from "./feedback";
 
 export {
   LoadState,

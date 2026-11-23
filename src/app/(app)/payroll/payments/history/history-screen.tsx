@@ -157,6 +157,7 @@ export function PaymentHistoryScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<History aria-hidden="true" />}
               title="Payment history is not part of your access"
               description="Seeing what everybody was paid needs either the “Run payroll” or the “Approve payroll” permission. Your own payslips are on the payslips screen."
@@ -321,6 +322,7 @@ export function PaymentHistoryScreen() {
           >
             {history.rows.length === 0 ? (
               <EmptyState
+                mood={filtered ? "search" : "nothing"}
                 icon={<Banknote aria-hidden="true" />}
                 title={filtered ? "No payments match that" : "No payments yet"}
                 description={

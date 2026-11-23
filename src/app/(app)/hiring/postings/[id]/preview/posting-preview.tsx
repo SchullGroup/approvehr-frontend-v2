@@ -125,6 +125,7 @@ export function PostingPreview({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot preview this advert"
               description="Ask whoever manages access to add hiring to your role."
@@ -149,6 +150,7 @@ export function PostingPreview({ id }: { id: string }) {
           ) : (
             <Card>
               <EmptyState
+                plain
                 icon={<Lock aria-hidden="true" />}
                 title="That advert is not here"
                 action={

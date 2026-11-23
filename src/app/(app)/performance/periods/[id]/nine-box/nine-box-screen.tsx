@@ -106,6 +106,7 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
       <PageBody>
         {!canSeeCompany ? (
           <EmptyState
+            plain
             icon={<Lock aria-hidden="true" />}
             title="Not available to you"
             description="The nine-box covers everyone in the company, so it is only open to people who can see every employee's record."

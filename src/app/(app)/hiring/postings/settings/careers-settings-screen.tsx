@@ -174,6 +174,7 @@ export function CareersSettingsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot change these"
               description="They decide what strangers are told and asked to accept in your company's name, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."

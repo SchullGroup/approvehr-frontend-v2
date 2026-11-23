@@ -132,6 +132,7 @@ export function CandidateScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see candidates"
               description="This record holds a stranger's phone number and salary expectation, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
@@ -1280,6 +1281,7 @@ function NotFoundHere({
       <PageBody>
         <Card>
           <EmptyState
+            plain
             icon={<Inbox aria-hidden="true" />}
             title={
               error

@@ -95,6 +95,7 @@ export function PayslipView({ id }: { id: string }) {
   if (!record.payslip || !record.run) {
     return (
       <EmptyState
+        plain
         icon={<FileQuestion aria-hidden="true" />}
         title="No payslip here"
         description={

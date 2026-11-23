@@ -194,6 +194,7 @@ function RunningPanel({
       >
         {state.surveys.length === 0 ? (
           <EmptyState
+            mood="documents"
             icon={<ClipboardList aria-hidden="true" className="size-5" />}
             title="None yet"
             description="A survey is a set of questions, a list of people to ask, and a decision about whether the answers carry a name."

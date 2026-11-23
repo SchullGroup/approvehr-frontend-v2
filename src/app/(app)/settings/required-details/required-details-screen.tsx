@@ -71,6 +71,7 @@ export function RequiredDetailsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<ClipboardCheck aria-hidden="true" />}
               title="Choosing required details is not part of your access"
               description="It applies to everybody in the company, so it needs the settings permission."

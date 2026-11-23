@@ -88,6 +88,7 @@ export function WebhookDetailScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Webhook aria-hidden="true" />}
               title="You cannot manage webhooks"
               /* The sibling screen (`webhooks-screen.tsx`) has said who to ask
@@ -173,6 +174,7 @@ function Endpoint({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Webhook aria-hidden="true" />}
               title="This endpoint is not here"
               description={

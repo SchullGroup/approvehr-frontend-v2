@@ -98,6 +98,7 @@ export function HiringScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see hiring"
               description="Applications hold a stranger's phone number and salary expectation, so they are kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."

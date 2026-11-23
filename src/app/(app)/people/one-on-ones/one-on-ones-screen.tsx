@@ -234,6 +234,7 @@ function Mine({
       />
     ) : (
       <EmptyState
+        mood="waiting"
         icon={<MessagesSquare aria-hidden="true" />}
         title="You are not in any one-to-ones yet"
         description="A one-to-one follows the reporting line, and the manager starts it. If you would find a regular check-in useful, ask yours to set one up. It will appear here, and only the two of you will ever read it."

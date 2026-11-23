@@ -327,6 +327,7 @@ export function LeavePolicyForm({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot manage leave policies"
               description="Entitlement here is what every balance in the product measures against, so changing it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."

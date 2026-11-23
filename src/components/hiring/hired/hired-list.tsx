@@ -797,6 +797,7 @@ export function HiredList({ initialJob = "" }: { initialJob?: string }) {
         {list.rows.length === 0 && !stale ? (
           <Card>
             <EmptyState
+              mood={narrowed ? "search" : "nothing"}
               icon={<UserCheck aria-hidden="true" />}
               title={narrowed ? "Nobody matches" : "Nobody has been hired yet"}
               description={

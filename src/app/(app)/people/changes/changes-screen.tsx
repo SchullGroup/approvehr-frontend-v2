@@ -125,6 +125,7 @@ export function ChangesScreen() {
           <CardBody className="text-body-sm text-muted">Loading…</CardBody>
         ) : waiting.length === 0 ? (
           <EmptyState
+            mood="caught-up"
             icon={<TrendingUp aria-hidden="true" className="size-5" />}
             title="Nothing waiting"
             description={

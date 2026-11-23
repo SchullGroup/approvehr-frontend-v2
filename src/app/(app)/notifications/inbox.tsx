@@ -14,9 +14,8 @@ import {
   Skeleton,
   useToast,
   type BadgeTone,
-  Illustration,
+  type EmptyMood,
 } from "@/components/ui";
-import type { PeepName } from "@/lib/peeps";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { dayHeading, dayKey, fullStamp, timeLabel } from "@/lib/audit/language";
@@ -112,22 +111,23 @@ const FALLBACK_VERB = { decisive: "Open", neutral: "Open" };
 
 const EMPTY_COPY: Record<
   InboxTab,
-  { title: string; description: string; art?: PeepName }
+  { title: string; description: string; mood: EmptyMood }
 > = {
   all: {
     title: "Nothing here yet",
     description:
       "Approvals, payslips and filing reminders will appear here as they happen.",
+    mood: "nothing",
   },
   action: {
     title: "Nothing needs you",
     description: "Anything waiting on your decision will appear here.",
-    art: "coffee-break",
+    mood: "caught-up",
   },
   unread: {
     title: "All read",
     description: "New messages will appear here as they arrive.",
-    art: "coffee-break",
+    mood: "caught-up",
   },
 };
 
@@ -222,9 +222,7 @@ export function NotificationsInbox() {
             <div className="rounded-xl border border-line bg-surface">
               <EmptyState
                 icon={<BellOff aria-hidden="true" />}
-                {...(EMPTY_COPY[tab].art
-                  ? { art: <Illustration name={EMPTY_COPY[tab].art} /> }
-                  : {})}
+                mood={EMPTY_COPY[tab].mood}
                 title={EMPTY_COPY[tab].title}
                 description={EMPTY_COPY[tab].description}
               />

@@ -641,6 +641,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                to the one that is. */
             <Card>
               <EmptyState
+                plain
                 icon={<Users aria-hidden="true" />}
                 title="This page covers the whole company"
                 description="Your own review and objectives are on your Performance page."

@@ -208,6 +208,7 @@ export function SignaturesScreen() {
              exactly that reason; this one hadn't been. */
           <Card>
             <EmptyState
+              mood={tab === "mine" ? "caught-up" : "nothing"}
               icon={<FileSignature aria-hidden="true" />}
               title={
                 tab === "mine"

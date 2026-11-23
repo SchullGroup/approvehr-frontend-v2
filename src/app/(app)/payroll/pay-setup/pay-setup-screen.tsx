@@ -120,6 +120,7 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
         <PageHeader title="Pay setup" />
         <PageBody>
           <EmptyState
+            plain
             icon={<ShieldAlert aria-hidden="true" />}
             title="You cannot view pay setup"
             description={

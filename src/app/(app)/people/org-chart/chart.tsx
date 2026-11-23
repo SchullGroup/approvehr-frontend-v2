@@ -346,6 +346,7 @@ export function OrgChartScreen() {
         <PageHeader title="Org chart" />
         <PageBody>
           <EmptyState
+            plain
             icon={<Users aria-hidden="true" />}
             title="The org chart needs the API"
             description="It is built from the departments and the reporting line on everybody's record, which only exist on a server."

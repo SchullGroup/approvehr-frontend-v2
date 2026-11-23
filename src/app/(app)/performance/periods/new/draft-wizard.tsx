@@ -371,6 +371,7 @@ export function DraftPeriodWizard() {
         />
         <PageBody>
           <EmptyState
+            plain
             title="Not yours to run"
             description="Starting an appraisal period is done by whoever runs them. Ask them to open one."
           />
@@ -405,6 +406,7 @@ export function DraftPeriodWizard() {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<Sparkles aria-hidden="true" />}
             title="No assistant is connected"
             description={

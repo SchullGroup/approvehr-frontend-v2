@@ -167,6 +167,7 @@ export function ClaimsRegister({
         >
           {claims.length === 0 ? (
             <EmptyState
+              mood="documents"
               icon={<ReceiptText aria-hidden="true" />}
               title="No claims here"
               description="Nothing matches. Claims appear here the moment they are sent."

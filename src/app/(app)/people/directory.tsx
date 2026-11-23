@@ -386,6 +386,7 @@ export function Directory({
     return (
       <div className="flex flex-col gap-6">
         <EmptyState
+          plain
           icon={<ShieldAlert aria-hidden="true" />}
           title="You do not have access to the employee directory"
           description="This needs Edit records, which your role does not hold. Ask whoever manages your company's roles if you need it."
@@ -594,6 +595,7 @@ export function Directory({
         {rows.length === 0 ? (
           <Card>
             <EmptyState
+              mood={applied.length > 0 ? "search" : "nothing"}
               icon={<Search aria-hidden="true" />}
               title={
                 view === "archived"

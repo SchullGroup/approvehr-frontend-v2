@@ -103,6 +103,7 @@ export function IntegrationsList({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Plug aria-hidden="true" />}
               title="You cannot manage integrations"
               description="Requesting or withdrawing an integration is a settings decision. Ask whoever manages settings to add that permission to your role."

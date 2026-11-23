@@ -116,6 +116,7 @@ function RealProgram({ id }: { id: string }) {
         <PageHeader title="Program" breadcrumb={CRUMBS} />
         <PageBody>
           <EmptyState
+            plain
             icon={<FolderTree />}
             title="This program is not here"
             description={`It may have been deleted, or it is not part of your access. You see the ${PROGRAM.many} you have been given, and the ones that hold a project you are on.`}

@@ -388,6 +388,7 @@ export function PayrollSettingsForm() {
     return (
       <Card>
         <EmptyState
+          plain
           icon={<Lock aria-hidden="true" />}
           title="Payroll settings are not part of your access"
           description="The pension rate and the salary split are information about what people earn, so this is kept to whoever can see salaries. Ask whoever manages access to add that permission to your role."

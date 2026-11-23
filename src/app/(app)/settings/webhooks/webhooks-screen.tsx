@@ -81,6 +81,7 @@ export function WebhooksScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Webhook aria-hidden="true" />}
               title="You cannot manage webhooks"
               description="A webhook sends a copy of payroll data to another server, so it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
@@ -209,6 +210,7 @@ function Endpoints() {
           {list.rows.length === 0 ? (
             <Card>
               <EmptyState
+                mood={search || state !== "all" ? "search" : "start"}
                 icon={<Webhook aria-hidden="true" />}
                 title={
                   search || state !== "all"

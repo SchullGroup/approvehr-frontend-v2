@@ -145,6 +145,7 @@ export function ExitDetailScreen({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<DoorOpen aria-hidden="true" />}
               title="We could not find that exit"
               action={

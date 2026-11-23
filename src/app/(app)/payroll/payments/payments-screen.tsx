@@ -87,6 +87,7 @@ export function PaymentsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Banknote aria-hidden="true" />}
               title="The wallet is not part of your access"
               description="Seeing what the company holds needs either the “Run payroll” or the “Approve payroll” permission. Ask somebody who manages roles."

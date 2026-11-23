@@ -149,6 +149,7 @@ export function WalletStatement({
           </CardBody>
         ) : held.transactions.length === 0 ? (
           <EmptyState
+            plain
             icon={<Wallet aria-hidden="true" />}
             title="Nothing has moved yet"
             description="Transfer into one of the accounts above and the credit shows up here, with the balance before and after it. Paying a payroll from the wallet appears the same way, as money out."

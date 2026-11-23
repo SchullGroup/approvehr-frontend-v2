@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `7315c9cb` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `3c4114fd` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -17,7 +17,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       40 |         95 |       6 |        12 |
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       45 |         44 |       1 |        18 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       22 |         49 |       0 |         6 |
-| [Module components — `src/components/*`](#module-components--srccomponents)                        |      166 |        243 |      11 |        53 |
+| [Module components — `src/components/*`](#module-components--srccomponents)                        |      167 |        244 |      11 |        53 |
 | [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       76 |          0 |       0 |       275 |
 | [Data hooks — `src/lib/store`](#data-hooks--srclibstore)                                           |      102 |          0 |     376 |        97 |
 | [Seed data — `src/lib/mock`](#seed-data--srclibmock)                                               |       10 |          0 |       0 |        21 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       46 |         51 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1334** |   **1102** | **465** |  **1699** |
+| **Total**                                                                                          | **1335** |   **1103** | **465** |  **1699** |
 
 ---
 
@@ -58,7 +58,7 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 | `src/components/ui/choice.tsx`               | `Checkbox`, `Radio`, `RadioCard`, `Switch`                                                     | —                                    | —                                                                                             | 3 types            |
 | `src/components/ui/disclosure.tsx`           | `Disclosure`                                                                                   | —                                    | —                                                                                             | —                  |
 | `src/components/ui/drag-into.tsx`            | `DragGhost`                                                                                    | `useDragInto`                        | `scrollParent`                                                                                | 1 type             |
-| `src/components/ui/feedback.tsx`             | `EmptyState`, `Skeleton`, `SkeletonText`, `Spinner`, `ThinkingState`                           | —                                    | —                                                                                             | —                  |
+| `src/components/ui/feedback.tsx`             | `EmptyState`, `Skeleton`, `SkeletonText`, `Spinner`, `ThinkingState`                           | —                                    | —                                                                                             | 1 const · 1 type   |
 | `src/components/ui/field.tsx`                | `InfoTooltip`, `Field`, `FieldRow`, `FieldSet`                                                 | `useFieldContext`, `useFieldControl` | —                                                                                             | 1 type             |
 | `src/components/ui/file-field.tsx`           | `FileField`                                                                                    | —                                    | —                                                                                             | —                  |
 | `src/components/ui/filter-bar.tsx`           | `FilterBar`                                                                                    | —                                    | —                                                                                             | 1 type             |
@@ -280,6 +280,7 @@ Shared pieces owned by one module but used from more than one screen.
 | `src/components/people/bulk-assign-bar.tsx`                | `BulkAssignBar`                                                                                                                         | —                                 | —                                                                                                                    | —                 |
 | `src/components/people/editable-section.tsx`               | `EditableSection`                                                                                                                       | —                                 | —                                                                                                                    | 2 types           |
 | `src/components/people/missing-details-dialog.tsx`         | `MissingDetailsDialog`                                                                                                                  | —                                 | —                                                                                                                    | —                 |
+| `src/components/people/payroll-status-card.tsx`            | `PayrollStatusCard`                                                                                                                     | —                                 | —                                                                                                                    | —                 |
 | `src/components/performance/answer-pins.tsx`               | `AnswerPins`                                                                                                                            | —                                 | —                                                                                                                    | 1 type            |
 | `src/components/performance/calibrate-dialog.tsx`          | `CalibrateDialog`                                                                                                                       | —                                 | —                                                                                                                    | —                 |
 | `src/components/performance/completed-item.tsx`            | `CompletedItem`                                                                                                                         | —                                 | `linkLine`                                                                                                           | 1 type            |

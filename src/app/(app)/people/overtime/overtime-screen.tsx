@@ -110,6 +110,7 @@ function OwnOvertime() {
           fallback={
             <Card>
               <EmptyState
+                plain
                 icon={<AlarmClock aria-hidden="true" />}
                 title="No overtime on this sign-in"
                 description="This account has no staff record, so there are no clock-outs to work overtime out from."
@@ -280,6 +281,7 @@ function AllOvertime() {
         {overtime.policyKnown && !policy.enabled && (
           <Card>
             <EmptyState
+              plain
               icon={<AlarmClock aria-hidden="true" />}
               title="Overtime is switched off"
               description="Nothing is worked out from the clock, and nothing reaches payroll."
@@ -339,6 +341,7 @@ function AllOvertime() {
           >
             {overtime.rows.length === 0 ? (
               <EmptyState
+                mood={status === "ALL" ? "nothing" : "search"}
                 icon={<Clock aria-hidden="true" />}
                 title={
                   status === "ALL"
