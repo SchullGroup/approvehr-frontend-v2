@@ -1,5 +1,6 @@
 "use client";
 
+import { isSimpleBoard } from "@/lib/projects/terms";
 import {
   Kanban,
   ListChecks,
@@ -126,6 +127,6 @@ export function viewsFor(
   return PROJECT_VIEWS.filter(
     (view) =>
       (view.id !== "settings" || canManage) &&
-      (projectType !== "KANBAN" || SIMPLE_BOARD_VIEWS.has(view.id)),
+      (!isSimpleBoard(projectType) || SIMPLE_BOARD_VIEWS.has(view.id)),
   );
 }

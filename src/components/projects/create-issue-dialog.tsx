@@ -27,6 +27,7 @@ import {
   NEW_TASK,
   TYPE_LABEL,
   displayType,
+  isSimpleBoard,
 } from "@/lib/projects/terms";
 import {
   PICKABLE_ISSUE_TYPES,
@@ -173,6 +174,8 @@ export function CreateIssueDialog({
 
   const isEpic = draft.type === "EPIC";
   const scrum = project.type === "SCRUM";
+  /* A simple board asks for no effort (U104): it has no cycles to plan with it. */
+  const askEffort = !isEpic && !isSimpleBoard(project.type);
   const choices = openSprints(sprints);
   const canAssignMe = meId !== null && project.memberIds.includes(meId);
 
@@ -191,7 +194,7 @@ export function CreateIssueDialog({
       title,
       description: draft.description,
       priority: draft.priority,
-      points: isEpic ? null : parsePoints(draft.points),
+      points: askEffort ? parsePoints(draft.points) : null,
       epicId: isEpic ? null : draft.epicId || null,
       sprintId: isEpic || !scrum ? null : draft.sprintId || null,
       startDate: isEpic ? draft.startDate || null : null,
@@ -373,7 +376,7 @@ export function CreateIssueDialog({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {!isEpic && (
+          {askEffort && (
             <Field label={EFFORT.One} optional>
               <Input
                 type="number"
