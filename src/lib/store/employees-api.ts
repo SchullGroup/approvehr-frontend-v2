@@ -465,6 +465,14 @@ function sortLocally(rows: Employee[], params: EmployeeListParams): Employee[] {
 export type DirectorySummary = {
   /** People matching the filter. Absent — not zero — until the server answers. */
   total: number | undefined;
+  /**
+   * Of those, how many are paid through payroll and how many are not (the company's administrator,
+   * a director who draws nothing). `total` stays the number of rows in the table; a headline
+   * "Employees" reads `onPayroll`. Absent until the server answers, and from an API that predates
+   * the flag.
+   */
+  onPayroll: number | undefined;
+  notOnPayroll: number | undefined;
   departments: number | undefined;
   /** Integer kobo. Summed by the database, or over the demo's own array. */
   grossMonthlyKobo: number | undefined;
@@ -554,8 +562,11 @@ export function useDirectorySummary(
       parsed,
       archivedIds,
     );
+    const unpaid = rows.filter((e) => e.notOnPayroll === true).length;
     return {
       total: rows.length,
+      onPayroll: rows.length - unpaid,
+      notOnPayroll: unpaid,
       departments: new Set(
         rows.map((e) => e.department).filter((name) => Boolean(name)),
       ).size,
@@ -595,6 +606,8 @@ export function useDirectorySummary(
      way to tell it from a request in flight. */
   return {
     total: row?.total,
+    onPayroll: row?.onPayroll,
+    notOnPayroll: row?.notOnPayroll,
     departments: row?.departments,
     grossMonthlyKobo: row?.grossMonthlyKobo,
     incomplete: row?.payrollBlockedInFilter,

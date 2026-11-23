@@ -439,11 +439,17 @@ export function Directory({
       <StatGrid>
         <Stat
           label="Employees"
-          value={count(summary.total)}
+          /* Paid through payroll. The table below still lists everybody, with a
+             tag on the ones who are not, and the hint says how many that is. */
+          value={count(summary.onPayroll ?? summary.total)}
           icon={<Users aria-hidden="true" />}
           {...(applied.length > 0 || view !== "active"
             ? { hint: "matching what is filtered below" }
-            : {})}
+            : summary.notOnPayroll
+              ? {
+                  hint: `${String(summary.notOnPayroll)} more not paid through payroll`,
+                }
+              : {})}
         />
         <Stat
           label="Departments"
@@ -743,6 +749,17 @@ export function Directory({
                             <Badge tone={STATUS[e.status].tone} size="sm" dot>
                               {STATUS[e.status].label}
                             </Badge>
+                            {e.notOnPayroll && (
+                              <Badge
+                                tone="neutral"
+                                size="sm"
+                                {...(e.notOnPayrollReason
+                                  ? { title: e.notOnPayrollReason }
+                                  : {})}
+                              >
+                                Not on payroll
+                              </Badge>
+                            )}
                           </div>
                         </TD>
                         <TD align="right">
@@ -812,6 +829,11 @@ export function Directory({
                       <Badge tone={STATUS[e.status].tone} size="sm" dot>
                         {STATUS[e.status].label}
                       </Badge>
+                      {e.notOnPayroll && (
+                        <Badge tone="neutral" size="sm">
+                          Not on payroll
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">

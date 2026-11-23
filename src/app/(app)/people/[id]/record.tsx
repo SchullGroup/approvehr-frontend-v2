@@ -72,6 +72,7 @@ import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
 import { useSession } from "@/lib/store/session";
+import { PayrollStatusCard } from "@/components/people/payroll-status-card";
 import { fullName, payrollGapsFor, type Employee } from "@/lib/types";
 import { shortDate } from "@/lib/today";
 import { EditableSection } from "@/components/people/editable-section";
@@ -1151,6 +1152,11 @@ export function EmployeeRecord({
         {tab === "pay" && (
           <div className="flex flex-col gap-5">
             <Compensation employee={employee} connected={connected} />
+
+            {/* Whether payroll reads this person at all. Renders nothing for
+                somebody who is paid through it, unless the reader may edit
+                records and so may change that. */}
+            <PayrollStatusCard employee={employee} onSave={onSave} />
 
             <EditableSection
               /* Arrive editing when a payroll exception sent us here naming the
