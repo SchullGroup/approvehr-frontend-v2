@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { Lock } from "lucide-react";
 import {
   AreaChart,
@@ -388,9 +389,7 @@ function Reports() {
                 <BarChart
                   caption="Gross pay by department for the period"
                   colorBy="series"
-                  format={(n) =>
-                    `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
+                  format={(n) => formatMoney(n, "NGN", { decimals: true })}
                   points={payrollByDepartment.map((d) => ({
                     label: d.department,
                     value: naira(d.grossKobo),
@@ -419,9 +418,7 @@ function Reports() {
                   <DonutChart
                     caption="How gross pay divides for the period"
                     centreLabel="Gross"
-                    format={(n) =>
-                      `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    }
+                    format={(n) => formatMoney(n, "NGN", { decimals: true })}
                     points={[
                       {
                         label: "Basic",
@@ -479,9 +476,7 @@ function Reports() {
                 <BarChart
                   caption="Average gross pay per person, by department, for the period"
                   colorBy="series"
-                  format={(n) =>
-                    `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
+                  format={(n) => formatMoney(n, "NGN", { decimals: true })}
                   points={[...payrollByDepartment]
                     .map((d) => ({
                       label: d.department,

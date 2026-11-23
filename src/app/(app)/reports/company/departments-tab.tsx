@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { useMemo, useState } from "react";
 import { Building2 } from "lucide-react";
 import {
@@ -378,8 +379,7 @@ const WITHHELD: Record<"small" | "protects", string> = {
  * The table and every bubble's own description carry the exact figure with its
  * kobo; two decimals on every tick of an axis is noise nobody is reconciling.
  */
-const wholeNaira = (naira: number): string =>
-  `₦${Math.round(naira).toLocaleString("en-NG")}`;
+const wholeNaira = (naira: number): string => formatMoney(Math.round(naira));
 
 function DepartmentTable({
   rows,

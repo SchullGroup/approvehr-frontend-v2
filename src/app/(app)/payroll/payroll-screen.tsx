@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -366,9 +367,7 @@ export function PayrollScreen() {
               <AreaChart
                 height={160}
                 points={netByMonth}
-                format={(n) =>
-                  `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                }
+                format={(n) => formatMoney(n, "NGN", { decimals: true })}
                 caption="Net pay by month, over the runs that were approved or paid"
               />
             </CardBody>

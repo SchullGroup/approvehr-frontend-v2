@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { request, requestPaged } from "./client";
 
 /**
@@ -80,10 +81,7 @@ export const naira = (kobo: number): number => Math.round(kobo) / 100;
  * total matches the bank.
  */
 export const formatKobo = (kobo: number): string =>
-  `₦${naira(kobo).toLocaleString("en-NG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  formatMoney(naira(kobo), "NGN", { decimals: true });
 
 /* ------------------------------------------------------------------ periods */
 
