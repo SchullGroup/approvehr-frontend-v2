@@ -337,8 +337,11 @@ export function AppraiserMapTab() {
           </Select>
         </Field>
 
+        {/* A basis, so on a phone the bar takes a line of its own under the
+            period rather than squeezing beside it and spilling 170px off the
+            screen (UAT 23 Nov, U106: PERF-24, CRAWL-1). */}
         <FilterBar
-          className="min-w-0 flex-1"
+          className="min-w-0 flex-1 basis-80"
           search={query}
           onSearchChange={setQuery}
           searchPlaceholder="Search people"
@@ -474,7 +477,11 @@ export function AppraiserMapTab() {
               <THead>
                 <TH>Person</TH>
                 <TH>Appraiser</TH>
-                <TH align="right">Rating</TH>
+                {/* Off a phone: the person and their appraiser are what the
+                    page is for (U106). */}
+                <TH align="right" className="hidden sm:table-cell">
+                  Rating
+                </TH>
                 <TH align="right">
                   <span className="sr-only">Split</span>
                 </TH>
@@ -618,7 +625,7 @@ function PersonTableRow({
           </span>
         ) : (
           <div
-            className="w-64 max-w-full"
+            className="w-36 max-w-full sm:w-64"
             onPointerEnter={() => {
               if (touched || dwell.current !== null) return;
               dwell.current = window.setTimeout(() => {
@@ -676,7 +683,7 @@ function PersonTableRow({
           </div>
         )}
       </TD>
-      <TD align="right" className="tabular">
+      <TD align="right" className="tabular hidden sm:table-cell">
         {row.weightedRating ?? ""}
       </TD>
       <TD align="right">
