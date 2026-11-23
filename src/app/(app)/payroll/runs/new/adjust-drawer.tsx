@@ -1,6 +1,7 @@
 "use client";
 
 import { isLoanLine, loanLinesFor } from "./loan-lines";
+import { useSession } from "@/lib/store/session";
 import { useEffect, useState } from "react";
 import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -101,8 +102,8 @@ export function AdjustDrawer({
   slip,
   runId,
   periodLabel,
-  editable,
-  readOnlyReason,
+  editable: mayEdit,
+  readOnlyReason: whyNot,
   refreshing,
   employees,
   warnings,
@@ -143,6 +144,7 @@ export function AdjustDrawer({
   onAdjusted: (summary: string) => void;
 }) {
   const actions = usePayrollActions();
+  const { employeeId: me } = useSession();
   const overtimePolicy = useOvertimePolicy();
   const { settings: paySettings } = usePayrollSettings();
 
@@ -228,6 +230,13 @@ export function AdjustDrawer({
   }
 
   const person = shown;
+  /* Nobody adjusts their own payslip: hand-setting your own PAYE, pension or
+     bonus is the one change nobody else would see (U13). */
+  const own = person !== null && me !== null && person.employeeId === me;
+  const editable = mayEdit && !own;
+  const readOnlyReason = own
+    ? "This is your own payslip. Somebody else on the payroll team adjusts it."
+    : whyNot;
 
   if (!person) {
     return (
@@ -717,9 +726,14 @@ export function AdjustDrawer({
           saving={busy}
           error={error}
           onBack={() => go("overview")}
-          onSave={(payeKobo) =>
+          reasonLabel="Why it is entered by hand"
+          onSave={(payeKobo, reason) =>
             void perform(() =>
-              actions.setTaxOverride(runId, { employeeId, payeKobo }),
+              actions.setTaxOverride(runId, {
+                employeeId,
+                payeKobo,
+                reason,
+              }),
             )
           }
           onUndo={() =>
