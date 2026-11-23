@@ -1158,9 +1158,10 @@ const SETTINGS_ITEMS: NavItem[] = [
     icon: <Settings aria-hidden="true" />,
     permission: "MANAGE_SETTINGS",
   },
+  /* "Access", not "Roles": "role" also means a job and a vacancy (U58). */
   {
     href: "/settings/roles",
-    label: "Roles",
+    label: "Access",
     icon: <ShieldCheck aria-hidden="true" />,
     permission: "MANAGE_ROLES",
   },

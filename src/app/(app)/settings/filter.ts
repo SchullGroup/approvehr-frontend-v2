@@ -189,7 +189,7 @@ export const PAGE_WORDS: Readonly<Record<string, readonly string[]>> = {
   ],
   "/settings/bank-accounts": ["bank", "salary account", "payout"],
   "/payroll/pay-setup": ["allowances", "deductions", "grades", "salary bands"],
-  "/settings/roles": ["permissions", "access", "admin", "approver", "who can"],
+  "/settings/roles": ["permissions", "roles", "admin", "approver", "who can"],
   "/people/departments": ["department", "teams", "org structure", "head"],
 };
 
@@ -454,7 +454,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   },
   {
     href: "/settings/roles",
-    title: "Roles and permissions",
+    title: "Access",
     description:
       "Who can see salaries, approve payroll, change settings or export staff data.",
     group: "access",

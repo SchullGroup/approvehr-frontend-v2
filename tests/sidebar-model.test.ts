@@ -597,7 +597,7 @@ describe("Find", () => {
     expect(names("hire")[0]).toMatch(/^Recruitment ›/);
     expect(names("laptop")[0]).toBe("Core HR › Equipment");
     expect(names("paye")[0]).toBe("Payroll › Statutory filings");
-    expect(names("permissions")[0]).toBe("Settings › Roles");
+    expect(names("permissions")[0]).toBe("Settings › Access");
   });
 
   it("still finds Projects by the words the module used to speak", () => {
