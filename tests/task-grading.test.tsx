@@ -297,11 +297,12 @@ describe("the reviewer's queue", () => {
     expect(reload).toHaveBeenCalled();
   });
 
-  it("says Week closed and offers no marks for a closed week", () => {
+  it("folds a task nobody can grade any more under Not graded in time, with no marks", () => {
     queue = [forGrading("t-1", { weekClosed: true })];
     render(<ReviewTasksTab />);
 
-    expect(screen.getAllByText("Week closed").length).toBeGreaterThan(0);
+    expect(screen.getByText("Not graded in time (1)")).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting on a grade/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
     expect(
@@ -312,7 +313,56 @@ describe("the reviewer's queue", () => {
   it("treats an API with no weekClosed field as open", () => {
     queue = [forGrading("t-1")];
     render(<ReviewTasksTab />);
-    expect(screen.queryByText("Week closed")).toBeNull();
+    expect(screen.queryByText(/Not graded in time/)).toBeNull();
+    expect(screen.getByText("Waiting on a grade (1)")).toBeInTheDocument();
+  });
+
+  /* U38 / PERF-5: a grade is taken until the period's due date, not only in
+     the task's own week, and the gradeable ones are the queue. */
+  it("offers marks on a closed week the API still takes a grade for, and says until when", () => {
+    queue = [
+      forGrading("t-1", {
+        weekClosed: true,
+        gradeable: true,
+        gradeableUntil: "2026-12-15",
+      }),
+    ];
+    render(<ReviewTasksTab />);
+    expect(screen.getByText("Waiting on a grade (1)")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Done" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Grade by 15 Dec 2026").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText(/Not graded in time/)).toBeNull();
+  });
+
+  it("goes by the API's gradeable over the week, both ways", () => {
+    queue = [
+      forGrading("t-1", { weekClosed: false, gradeable: false }),
+      forGrading("t-2", { weekClosed: true, gradeable: true }),
+    ];
+    render(<ReviewTasksTab />);
+    expect(screen.getByText("Waiting on a grade (1)")).toBeInTheDocument();
+    expect(screen.getByText("Not graded in time (1)")).toBeInTheDocument();
+  });
+
+  it("counts only the gradeable ones as waiting, and keeps them in the queue", () => {
+    queue = [
+      forGrading("t-1", { gradeable: true }),
+      forGrading("t-2", { weekClosed: true, gradeable: false }),
+      forGrading("t-3", { weekClosed: true, gradeable: false }),
+    ];
+    render(<ReviewTasksTab />);
+    expect(screen.getByText("Waiting on a grade (1)")).toBeInTheDocument();
+    expect(screen.getByText("Not graded in time (2)")).toBeInTheDocument();
+  });
+
+  it("says nothing about a deadline inside the task's own week", () => {
+    queue = [forGrading("t-1", { gradeable: true, gradeableUntil: null })];
+    render(<ReviewTasksTab />);
+    expect(screen.queryByText(/Grade by/)).toBeNull();
   });
 });
 

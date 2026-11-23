@@ -7,6 +7,7 @@ import {
   CardBody,
   CardHeader,
   ConfirmDialog,
+  Disclosure,
   LinkedText,
   Spinner,
   TBody,
@@ -24,7 +25,7 @@ import { TaskSource } from "@/components/performance/task-source";
 import { ProjectSourceTag } from "@/components/projects/project-source-tag";
 import { ApiError } from "@/lib/api/client";
 import type { ApiTaskForGrading, ApiTaskGrade } from "@/lib/api/performance";
-import { dayOf } from "@/lib/api/performance";
+import { dayLabel, dayOf, taskGradeable } from "@/lib/api/performance";
 import { cn } from "@/lib/cn";
 import { confirmInBatches, workTrackersApi } from "@/lib/api/work-trackers";
 import { useTaskActions, useTasksForGrading } from "@/lib/store/performance";
@@ -77,7 +78,17 @@ export function ReviewTasksTab() {
   /* Synced from a work tracker and still gradeable. A finished ticket is a
      strong hint of Done, so these can be confirmed together; the API still
      runs each one through the same who-may and open-week checks. */
-  const imported = tasks.filter((t) => t.source && !t.weekClosed);
+  const imported = tasks.filter((t) => t.source && taskGradeable(t));
+
+  /* The ones a grade is still taken for, and the ones it is not (U38 /
+     PERF-5). The queue used to be all "Week closed" with the one task that
+     could be graded at the bottom; now the gradeable ones are the queue and
+     the rest are folded under "Not graded in time". */
+  const open = useMemo(() => tasks.filter(taskGradeable), [tasks]);
+  const late = useMemo(
+    () => tasks.filter((task) => !taskGradeable(task)),
+    [tasks],
+  );
 
   /**
    * Tasks by the day they were logged, oldest day first.
@@ -98,7 +109,7 @@ export function ReviewTasksTab() {
       string,
       { day: string; at: number; tasks: typeof tasks }
     >();
-    for (const task of tasks) {
+    for (const task of open) {
       const at = new Date(task.createdAt).getTime();
       /* Bucket on the calendar day, not the instant. */
       const key = task.createdAt.slice(0, 10);
@@ -115,7 +126,7 @@ export function ReviewTasksTab() {
       }
     }
     return [...byDay.values()].sort((a, b) => a.at - b.at);
-  }, [tasks]);
+  }, [open]);
 
   const save = async (id: string, value: ApiTaskGrade, note?: string) => {
     await actions.gradeTask(id, value, note);
@@ -168,10 +179,11 @@ export function ReviewTasksTab() {
         onRetry={reload}
       />
 
-      <Card>
-        <CardHeader
-          title={`Waiting on a grade (${tasks.length})`}
-          /* Says which date this is, because there are two and they are not
+      {(loading || open.length > 0) && (
+        <Card>
+          <CardHeader
+            title={`Waiting on a grade (${open.length})`}
+            /* Says which date this is, because there are two and they are not
              the same one. The employee's own screen groups by the week a task
              is *for* — "7 Sep 2026 – 13 Sep 2026" — and this groups by the day
              it was **logged**, oldest first, so the longest wait is at the
@@ -183,40 +195,40 @@ export function ReviewTasksTab() {
              `createdAt` and no `weekStart`/`weekEnd`, and deriving one from
              the other would be a guess — a task logged on Monday can be for
              the week before. See BE-38. */
-          description="Grouped by the day each task was logged, longest wait first. This is not the week the task covers."
-          action={
-            imported.length > 0 ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                loading={confirming.pending}
-                onClick={() => setConfirmOpen(true)}
-              >
-                Mark {imported.length} synced{" "}
-                {imported.length === 1 ? "task" : "tasks"} done
-              </Button>
-            ) : undefined
-          }
-        />
-        {loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap>
-                <THead>
-                  <TH>Person</TH>
-                  <TH>Objective</TH>
-                  <TH>What they logged</TH>
-                  <TH align="right">Grade</TH>
-                </THead>
-                <TBody>
-                  {grouped.map((group) => (
-                    <Fragment key={group.day}>
-                      {/* The day is a heading rather than a column.
+            description="Grouped by the day each task was logged, longest wait first. This is not the week the task covers. A task can be graded until its appraisal period's due date."
+            action={
+              imported.length > 0 ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={confirming.pending}
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  Mark {imported.length} synced{" "}
+                  {imported.length === 1 ? "task" : "tasks"} done
+                </Button>
+              ) : undefined
+            }
+          />
+          {loading ? (
+            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+              <Spinner size="sm" />
+              Loading
+            </CardBody>
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap>
+                  <THead>
+                    <TH>Person</TH>
+                    <TH>Objective</TH>
+                    <TH>What they logged</TH>
+                    <TH align="right">Grade</TH>
+                  </THead>
+                  <TBody>
+                    {grouped.map((group) => (
+                      <Fragment key={group.day}>
+                        {/* The day is a heading rather than a column.
                           -----------------------------------------------
                           It was a cell on every row, which put the one
                           thing that orders this queue — how long somebody
@@ -225,96 +237,101 @@ export function ReviewTasksTab() {
                           fifteen dates to find the oldest. Oldest group
                           first, because a task logged nine days ago is the
                           one that has been ignored. */}
-                      <TR>
-                        <TD
-                          colSpan={4}
-                          className="bg-sunken py-2 text-meta font-semibold text-muted"
-                        >
-                          Logged {group.day}
-                          <span className="ml-2 font-normal">
-                            {group.tasks.length === 1
-                              ? "1 task"
-                              : `${group.tasks.length} tasks`}
-                          </span>
-                        </TD>
-                      </TR>
-                      {group.tasks.map((task) => (
-                        <TR key={task.id}>
-                          <TDPrimary title={task.employeeName} />
-                          <TD>{task.goalTitle}</TD>
-                          <TD className="max-w-xs">
-                            <LinkedText>{task.description}</LinkedText>
-                            {task.projectSource && (
-                              <div className="mt-1.5">
-                                <ProjectSourceTag source={task.projectSource} />
-                              </div>
-                            )}
-                            <TaskSource source={task.source} />
-                          </TD>
-                          <TD align="right">
-                            <GradeActions
-                              task={task}
-                              busy={grading === task.id}
-                              align="end"
-                              onGrade={(value) => void grade(task.id, value)}
-                              onAsk={(value) => ask(task, value)}
-                            />
+                        <TR>
+                          <TD
+                            colSpan={4}
+                            className="bg-sunken py-2 text-meta font-semibold text-muted"
+                          >
+                            Logged {group.day}
+                            <span className="ml-2 font-normal">
+                              {group.tasks.length === 1
+                                ? "1 task"
+                                : `${group.tasks.length} tasks`}
+                            </span>
                           </TD>
                         </TR>
-                      ))}
-                    </Fragment>
-                  ))}
-                </TBody>
-              </TableWrap>
-            </div>
-
-            <div className="flex flex-col gap-4 sm:hidden">
-              {grouped.map((group) => (
-                <div key={group.day}>
-                  <p className="mb-2 px-1 text-meta font-semibold text-muted">
-                    Logged {group.day}
-                    <span className="ml-2 font-normal">
-                      {group.tasks.length === 1
-                        ? "1 task"
-                        : `${group.tasks.length} tasks`}
-                    </span>
-                  </p>
-                  <ul className="divide-y divide-line">
-                    {group.tasks.map((task) => (
-                      <li key={task.id} className="flex flex-col gap-2 p-4">
-                        <div>
-                          <p className="text-body-sm font-medium text-ink">
-                            {task.employeeName}
-                          </p>
-                          <p className="mt-0.5 text-meta text-muted">
-                            {task.goalTitle}
-                          </p>
-                        </div>
-                        <p className="text-body-sm text-body">
-                          <LinkedText>{task.description}</LinkedText>
-                        </p>
-                        {task.projectSource && (
-                          <div>
-                            <ProjectSourceTag source={task.projectSource} />
-                          </div>
-                        )}
-                        <TaskSource source={task.source} />
-                        <GradeActions
-                          task={task}
-                          busy={grading === task.id}
-                          align="start"
-                          onGrade={(value) => void grade(task.id, value)}
-                          onAsk={(value) => ask(task, value)}
-                        />
-                      </li>
+                        {group.tasks.map((task) => (
+                          <TR key={task.id}>
+                            <TDPrimary title={task.employeeName} />
+                            <TD>{task.goalTitle}</TD>
+                            <TD className="max-w-xs">
+                              <LinkedText>{task.description}</LinkedText>
+                              {task.projectSource && (
+                                <div className="mt-1.5">
+                                  <ProjectSourceTag
+                                    source={task.projectSource}
+                                  />
+                                </div>
+                              )}
+                              <TaskSource source={task.source} />
+                            </TD>
+                            <TD align="right">
+                              <GradeActions
+                                task={task}
+                                busy={grading === task.id}
+                                align="end"
+                                onGrade={(value) => void grade(task.id, value)}
+                                onAsk={(value) => ask(task, value)}
+                              />
+                            </TD>
+                          </TR>
+                        ))}
+                      </Fragment>
                     ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </Card>
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <div className="flex flex-col gap-4 sm:hidden">
+                {grouped.map((group) => (
+                  <div key={group.day}>
+                    <p className="mb-2 px-1 text-meta font-semibold text-muted">
+                      Logged {group.day}
+                      <span className="ml-2 font-normal">
+                        {group.tasks.length === 1
+                          ? "1 task"
+                          : `${group.tasks.length} tasks`}
+                      </span>
+                    </p>
+                    <ul className="divide-y divide-line">
+                      {group.tasks.map((task) => (
+                        <li key={task.id} className="flex flex-col gap-2 p-4">
+                          <div>
+                            <p className="text-body-sm font-medium text-ink">
+                              {task.employeeName}
+                            </p>
+                            <p className="mt-0.5 text-meta text-muted">
+                              {task.goalTitle}
+                            </p>
+                          </div>
+                          <p className="text-body-sm text-body">
+                            <LinkedText>{task.description}</LinkedText>
+                          </p>
+                          {task.projectSource && (
+                            <div>
+                              <ProjectSourceTag source={task.projectSource} />
+                            </div>
+                          )}
+                          <TaskSource source={task.source} />
+                          <GradeActions
+                            task={task}
+                            busy={grading === task.id}
+                            align="start"
+                            onGrade={(value) => void grade(task.id, value)}
+                            onAsk={(value) => ask(task, value)}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+
+      {late.length > 0 && <NotGradedInTime tasks={late} />}
 
       {/* One click grades every synced task on the page, so it asks first and
           says what it will do. They are all finished tickets (only a Done
@@ -383,6 +400,39 @@ export function ReviewTasksTab() {
 }
 
 /**
+ * Tasks a grade is no longer taken for: their week has closed and their
+ * appraisal period's due date has passed, or they count towards no period.
+ * Folded, because there is nothing to do on them (U38 / PERF-5).
+ */
+function NotGradedInTime({ tasks }: { tasks: ApiTaskForGrading[] }) {
+  return (
+    <Disclosure
+      title={`Not graded in time (${tasks.length})`}
+      hint="Their appraisal period's due date has passed, or their week has closed and they count towards no period, so they can no longer be graded."
+    >
+      <ul className="divide-y divide-line">
+        {tasks.map((task) => (
+          <li key={task.id} className="flex flex-col gap-1 py-3">
+            <p className="text-body-sm font-medium text-ink">
+              {task.employeeName}
+              <span className="ml-2 font-normal text-muted">
+                {task.goalTitle}
+              </span>
+            </p>
+            <p className="text-body-sm text-body">
+              <LinkedText>{task.description}</LinkedText>
+            </p>
+            <p className="text-meta text-muted">
+              Logged {dayOf(task.createdAt)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Disclosure>
+  );
+}
+
+/**
  * The marks on one row.
  *
  * Not done · Partly done · Reject · Done — in that order, the worst to the
@@ -410,7 +460,7 @@ function GradeActions({
   onGrade: (grade: ApiTaskGrade) => void;
   onAsk: (grade: ApiTaskGrade | null) => void;
 }) {
-  if (task.weekClosed) {
+  if (!taskGradeable(task)) {
     return (
       <span
         className={cn(
@@ -418,10 +468,19 @@ function GradeActions({
           align === "end" && "block text-right",
         )}
       >
-        Week closed
+        Not graded in time
       </span>
     );
   }
+
+  /* Past its own week, a grade is taken until the period's due date: said
+     beside the buttons, because it is the deadline for pressing them. */
+  const until =
+    task.gradeableUntil && task.weekClosed ? (
+      <span className="text-meta text-muted">
+        Grade by {dayLabel(task.gradeableUntil)}
+      </span>
+    ) : null;
 
   /* In the table: Done, the common mark, and a menu with the rest. Four
      buttons and a link ran every row to three lines (UAT 23 Nov, L13:
@@ -429,6 +488,7 @@ function GradeActions({
   if (align === "end") {
     return (
       <div className="flex items-center justify-end gap-1.5">
+        {until}
         <Button
           size="sm"
           variant="accent"
@@ -491,6 +551,7 @@ function GradeActions({
           Done
         </Button>
       </div>
+      {until}
       <button
         type="button"
         disabled={busy}

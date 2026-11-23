@@ -2185,8 +2185,28 @@ export type ApiTaskForGrading = {
    * that predates the field simply leaves it out, and absent means open.
    */
   weekClosed?: boolean;
+  /**
+   * Whether a grade is still taken: until the due date of the period its
+   * objective counts towards, not only in its own week (UAT 23 Nov, U38 /
+   * PERF-5). Absent from an older API, where the week rule decides
+   * (`taskGradeable`).
+   */
+  gradeable?: boolean;
+  /** The last day it can be graded (`YYYY-MM-DD`), only where the period carries grading past the week. */
+  gradeableUntil?: string | null;
   projectSource?: ApiProjectSource | null;
 };
+
+/**
+ * Whether a task in the grading queue can still be graded: the API's
+ * `gradeable` where it says, and otherwise the week rule it used to apply.
+ */
+export function taskGradeable(task: {
+  gradeable?: boolean;
+  weekClosed?: boolean;
+}): boolean {
+  return task.gradeable ?? !task.weekClosed;
+}
 
 /* -------------------------------------------------------------------- bodies */
 
