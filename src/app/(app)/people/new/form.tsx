@@ -56,6 +56,8 @@ import {
 import { useWorkLocations } from "@/lib/store/attendance";
 import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
+import { useJobRoles } from "@/lib/store/job-roles";
+import { titleForRole } from "./job-role";
 import { useRoles } from "@/lib/store/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
 import { AccountVerificationHint } from "@/components/payments/account-verification";
@@ -295,6 +297,10 @@ export function NewEmployeeForm() {
   /* Both modes, so the manager picker offers real colleagues either way. */
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const departments = useDepartments();
+  /* The Job roles catalogue, offered as a choice beside the free-text title
+     (U47). Live ones only: an archived role is not one to hire into. */
+  const jobRoles = useJobRoles();
+  const liveJobRoles = jobRoles.roles.filter((role) => !role.archived);
   const accessRoles = useRoles();
   const locations = useWorkLocations();
 
@@ -808,6 +814,7 @@ export function NewEmployeeForm() {
       firstName: draft.firstName.trim(),
       lastName: draft.lastName.trim(),
       jobTitle: draft.jobTitle.trim(),
+      ...(draft.jobRoleId ? { jobRoleId: draft.jobRoleId } : {}),
       startDate: draft.startDate,
       /* Omitted, not zeroed, when nobody has agreed a figure. */
       ...(gross === null ? {} : { grossMonthly: gross }),
@@ -1323,6 +1330,42 @@ export function NewEmployeeForm() {
                   description="With this and their name, payroll can pay them. Everything after this step is optional."
                 />
                 <CardBody className="grid gap-5 sm:grid-cols-2">
+                  {connected && liveJobRoles.length > 0 && (
+                    <Field
+                      label="Job role"
+                      optional
+                      help="From your Job roles. It fills the job title, which you can still change."
+                    >
+                      <Select
+                        data-employee-field="jobRoleId"
+                        value={draft.jobRoleId}
+                        onChange={(e) => {
+                          const nextId = e.target.value;
+                          const title = (id: string) =>
+                            liveJobRoles.find((role) => role.id === id)
+                              ?.title ?? "";
+                          setDraft((d) => ({
+                            ...d,
+                            jobRoleId: nextId,
+                            jobTitle: nextId
+                              ? titleForRole(
+                                  d.jobTitle,
+                                  title(d.jobRoleId),
+                                  title(nextId),
+                                )
+                              : d.jobTitle,
+                          }));
+                        }}
+                      >
+                        <option value="">None</option>
+                        {liveJobRoles.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.title}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
                   <Field
                     label="Job title"
                     required

@@ -861,6 +861,8 @@ export function useEmployeeMutations() {
         invite?: boolean;
         /** The access the invitation carries. Omitted means the Employee role. */
         accessRoleId?: string;
+        /** The Job roles catalogue row somebody chose (U47). */
+        jobRoleId?: string;
       },
     ) => {
       if (!isConnected) {
@@ -889,6 +891,7 @@ export function useEmployeeMutations() {
         ...(draft.taxState ? { taxState: draft.taxState } : {}),
         ...(draft.middleName ? { middleName: draft.middleName } : {}),
         ...(draft.gender ? { gender: draft.gender } : {}),
+        ...(draft.jobRoleId ? { jobRoleId: draft.jobRoleId } : {}),
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
         ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
