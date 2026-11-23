@@ -50,6 +50,10 @@ import {
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
 import { StartExitDialog } from "@/app/(app)/people/offboarding";
+import {
+  ProposeChangeDialog,
+  type Kind as ChangeKind,
+} from "@/app/(app)/people/changes/propose-dialog";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
@@ -292,6 +296,27 @@ export function EmployeeRecord({
   };
   const [fileOpen, setFileOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+  /**
+   * Pay, job title and department are changed by proposal, not typed over
+   * (U14). Editing them straight onto the record skipped the approval a
+   * promotion or a rise needs. A field that is still empty can be filled in
+   * directly: that is completing the record, not changing it. Connected only,
+   * because a proposal needs the API.
+   */
+  const [proposing, setProposing] = useState<ChangeKind | null>(null);
+  const proposeLink = (kind: ChangeKind) =>
+    connected ? (
+      <span className="text-meta text-muted">
+        Changes need approval.{" "}
+        <button
+          type="button"
+          className="font-medium text-accent-text underline-offset-2 hover:underline"
+          onClick={() => setProposing(kind)}
+        >
+          Propose a change
+        </button>
+      </span>
+    ) : undefined;
   const departments = useDepartments();
   const locations = useWorkLocations();
   const grades = useGrades({ pageSize: 100 });
@@ -900,9 +925,19 @@ export function EmployeeRecord({
                   required: true,
                   help: "Unique in the company.",
                 },
-                { key: "jobTitle", label: "Job title", required: true },
+                {
+                  key: "jobTitle",
+                  label: "Job title",
+                  required: true,
+                  ...(connected && employee.jobTitle
+                    ? { locked: proposeLink("PROMOTION") }
+                    : {}),
+                },
                 {
                   key: "departmentId",
+                  ...(connected && currentDepartment
+                    ? { locked: proposeLink("TRANSFER") }
+                    : {}),
                   clearsToNull: true,
                   label: "Department",
                   type: "select",
@@ -973,6 +1008,9 @@ export function EmployeeRecord({
                 {
                   key: "grossMonthly",
                   label: "Gross monthly",
+                  ...(connected && employee.grossMonthly !== null
+                    ? { locked: proposeLink("PAY_CHANGE") }
+                    : {}),
                   optional: true,
                   type: "number",
                   /* Emptied is "not agreed", which is null. Zero and negative
@@ -1661,6 +1699,16 @@ export function EmployeeRecord({
           named — nobody should have to pick out of two hundred the one whose
           record they are standing on. It navigates to the new checklist itself,
           so there is nothing to reload here. */}
+      {proposing && (
+        <ProposeChangeDialog
+          onClose={() => setProposing(null)}
+          person={{
+            id: employee.id,
+            name: `${employee.firstName} ${employee.lastName}`,
+          }}
+          kind={proposing}
+        />
+      )}
       <StartExitDialog
         open={exitOpen}
         employeeId={employee.id}
