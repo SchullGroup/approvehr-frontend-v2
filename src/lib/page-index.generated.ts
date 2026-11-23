@@ -287,6 +287,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Whose probation is ending, who is overdue a decision, and who is on one nobody has dated."
   },
   {
+    "href": "/people/queries",
+    "title": "Queries",
+    "description": "Written queries to staff, their one written reply, and the outcome recorded on each."
+  },
+  {
     "href": "/people/shifts",
     "title": "Shifts",
     "description": "Who works when: nights, earlies and weekend cover, and the cover requests waiting on an answer."
@@ -515,6 +520,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "href": "/settings/policies",
     "title": "Handbook",
     "description": "Your company policies, the version in force, and who has accepted each one."
+  },
+  {
+    "href": "/settings/queries",
+    "title": "Queries",
+    "description": "Whether queries are switched on, the usual reply time, and who may decide a query they issued."
   },
   {
     "href": "/settings/required-details",

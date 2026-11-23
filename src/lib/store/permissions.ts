@@ -334,6 +334,20 @@ const DEMO_COPY: Record<
     section: "people",
     sensitive: true,
   },
+  ISSUE_QUERIES: {
+    label: "Issue queries",
+    description:
+      "Write a query to a member of staff, attach files to it, serve it and read every query in the company. A query asks one named person to explain something by a stated time; it changes no pay, no status and no exit.",
+    section: "people",
+    sensitive: true,
+  },
+  DECIDE_QUERIES: {
+    label: "Decide queries",
+    description:
+      "Read the reply to a query and record its outcome with written reasons. Held apart from issuing one: whoever writes the letter should not also be the one who judges the answer, unless nobody else could.",
+    section: "people",
+    sensitive: true,
+  },
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
@@ -349,6 +363,11 @@ const DEMO_SOD: {
   {
     permissions: ["EDIT_RECORDS", "APPROVE_PAYROLL"],
     message: "Editing pay and approving the run means a rise nobody else saw.",
+  },
+  {
+    permissions: ["ISSUE_QUERIES", "DECIDE_QUERIES"],
+    message:
+      "Whoever writes a query should not also judge the answer, unless nobody else could.",
   },
 ];
 
@@ -378,6 +397,7 @@ const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   records: "Data in and out",
   audit: "Audit trail",
   projects: "Projects",
+  queries: "Queries",
 };
 
 /** Narrowest first, so a scope control reads left to right as it widens. */

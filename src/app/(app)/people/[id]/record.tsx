@@ -1,5 +1,6 @@
 "use client";
 
+import { QueriesAboutPerson } from "@/app/(app)/people/queries/entries";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -529,6 +530,9 @@ export function EmployeeRecord({
               fact about somebody else and a fact restating your own current
               session read very differently on the same line. */}
           {!isSelf && <AccessLine employee={employee} />}
+
+          {/* For the people who work queries: only that there are some, and the way to them. */}
+          {!isSelf && <QueriesAboutPerson employeeId={employee.id} />}
 
           {/* A small checklist, not the page's main focus. These never hold
               back a payslip — `payrollGapsFor` says so in `consequence` — so a
