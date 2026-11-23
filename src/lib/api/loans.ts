@@ -51,7 +51,13 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * fine. Handle it anyway — a status a screen cannot render is a blank cell.
  */
 export type LoanStatus =
-  "PENDING" | "APPROVED" | "ACTIVE" | "SETTLED" | "DECLINED";
+  | "PENDING"
+  | "APPROVED"
+  | "ACTIVE"
+  | "SETTLED"
+  | "DECLINED"
+  /** Folded into another loan, which now carries what was still owed on it. Lists leave it out unless asked. */
+  | "CONSOLIDATED";
 
 /** Mirrors `LoanRepaymentStatus`. `WAIVED` means forgiven, not paid. */
 export type LoanRepaymentStatus = "SCHEDULED" | "PARTIAL" | "PAID" | "WAIVED";
@@ -69,6 +75,14 @@ export type ApiLoan = {
   principalKobo: number;
   /** Repaid before it was entered here. Zero or absent for a loan that started here. */
   alreadyRepaidKobo?: number;
+  /**
+   * What was still owed on earlier loans when they were folded into this one. Part of `principalKobo` and
+   * earning no new interest. Zero or absent for a loan that never took another in.
+   */
+  carriedForwardKobo?: number;
+  /** On a loan that was folded into another: which one took it over, and when. */
+  consolidatedIntoId?: string | null;
+  consolidatedAt?: string | null;
   /** Flat annual rate as a fraction: 0.05 is 5% a year. 0 is the common case. */
   interestRate: number;
   interestKobo: number;
@@ -137,6 +151,13 @@ export type ApiLoanProgress = {
  * assume a loan has instalments.
  */
 export type ApiLoanDetail = ApiLoan & {
+  /**
+   * On a loan waiting for a decision: how many of the person's other live loans approving it will fold in, and
+   * what is still owed on them. Null or absent when there are none.
+   */
+  combinesWith?: { count: number; owedKobo: number } | null;
+  /** The loans this one took in. Empty or absent when it took none. */
+  foldedLoans?: ApiLoan[];
   schedule: ApiRepayment[];
   progress: ApiLoanProgress;
 };
@@ -281,6 +302,17 @@ export const loansApi = {
    */
   approve: (id: string, body: ApproveLoanBody = {}) =>
     request<ApiLoanDetail>(`/loans/${id}/approve`, { method: "POST", body }),
+
+  /**
+   * Fold a person's loans that are still being repaid into one. What is owed is read from their schedules, so
+   * the only choices are the term and the first month. Needs `APPROVE_LOANS`; never for your own.
+   */
+  consolidate: (body: {
+    employeeId: string;
+    termMonths: number;
+    startPeriod: string;
+    note?: string;
+  }) => request<ApiLoanDetail>("/loans/consolidate", { method: "POST", body }),
 
   /** Move the first deduction of a loan nothing has come off yet. */
   reschedule: (id: string, startPeriod: string) =>
