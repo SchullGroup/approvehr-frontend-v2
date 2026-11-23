@@ -170,7 +170,7 @@ describe("what the row says before anything is opened", () => {
     );
     expect(
       within(duplicate).getByRole("link", { name: "See the earlier one" }),
-    ).toHaveAttribute("href", "/hiring/candidates/earlier-1");
+    ).toHaveAttribute("href", "/hiring/candidates/earlier-1?kind=applicant");
 
     const plain = rowOf("Applicant 1");
     expect(within(plain).queryByText("Needs a look")).not.toBeInTheDocument();

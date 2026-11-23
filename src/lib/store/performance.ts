@@ -3762,6 +3762,12 @@ export type CycleRegister = {
 export function useCycleRegister(
   cycleId: string | null,
   enabled: boolean,
+  /**
+   * Whether to ask for the revision requests, which need `MANAGE_SETTINGS`:
+   * HR without it got a 403 on every load of the period page (UAT 23 Nov, L11 /
+   * CRAWL-6). Not asked is no list, and the screen offers no revision column.
+   */
+  withRevisions = false,
 ): CycleRegister {
   const { isConnected } = useSession();
   const active = cycleId !== null && enabled && isConnected;
@@ -3780,7 +3786,11 @@ export function useCycleRegister(
          cannot take the other four with it. An abort is not a failure — the
          key changed or the screen went away, and `useFetched` discards the
          answer anyway — so it is re-thrown to keep that path unchanged. */
-      const extra = performanceApi.revisionRequests(id, signal).then(
+      const extra = (
+        withRevisions
+          ? performanceApi.revisionRequests(id, signal)
+          : Promise.resolve([] as ApiRevisionRequest[])
+      ).then(
         (rows) => ({ rows, failed: false }),
         (error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") {
@@ -3800,7 +3810,7 @@ export function useCycleRegister(
         revisionsUnavailable: revisions.failed,
       };
     },
-    [cycleId],
+    [cycleId, withRevisions],
   );
 
   const fetched = useFetched<{
@@ -3810,7 +3820,11 @@ export function useCycleRegister(
     exceptions: ApiAppraiserMap;
     revisionRequests: ApiRevisionRequest[];
     revisionsUnavailable: boolean;
-  }>(`cycle-register|${cycleId ?? "none"}`, active, load);
+  }>(
+    `cycle-register|${cycleId ?? "none"}|${withRevisions ? "r" : "-"}`,
+    active,
+    load,
+  );
 
   /* Nothing is derived offline — see the refusal above — so this is a stable
      constant rather than a computed value, and it never touches state. */

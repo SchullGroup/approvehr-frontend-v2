@@ -17,6 +17,7 @@ import {
   type AnswerRow,
   type ApplicationExtras,
 } from "@/lib/hiring/answers-view";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /**
  * What an applicant answered, what they agreed to, and what to look at twice.
@@ -93,7 +94,7 @@ export function ApplicationAnswers({
             {DUPLICATE_REASON[extras.duplicate.reason]}.
           </span>
           <TextLink
-            href={`/hiring/candidates/${extras.duplicate.ofId}`}
+            href={candidateHref(extras.duplicate.ofId, "applicant")}
             className="text-body-sm"
           >
             See the earlier one

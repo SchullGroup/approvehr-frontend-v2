@@ -1040,7 +1040,15 @@ export function useProjectList(
  * ones they are on. Read again when the window comes back and after a project is
  * archived or brought back.
  */
-export function useArchivedProjects(enabled = true): {
+export function useArchivedProjects(
+  enabled = true,
+  /**
+   * Whether this reader may list the whole company's (`EDIT_RECORDS`). Asked
+   * by the screen: asking everybody for "all" and falling back on the 403 put
+   * a refused call on every manager's Archive (UAT 23 Nov, L11 / PERF-33).
+   */
+  seesAll = true,
+): {
   status: ViewStatus;
   error: unknown;
   projects: Project[];
@@ -1068,12 +1076,20 @@ export function useArchivedProjects(enabled = true): {
     void (async () => {
       try {
         let projects: Project[];
-        try {
-          projects = await projectsApi.listArchived("all", controller.signal);
-        } catch (error) {
-          /* Not somebody who may list the whole company: their own, then. */
-          if (!(error instanceof ApiError) || error.status !== 403) throw error;
+        if (!seesAll) {
           projects = await projectsApi.listArchived("mine", controller.signal);
+        } else {
+          try {
+            projects = await projectsApi.listArchived("all", controller.signal);
+          } catch (error) {
+            /* Not somebody who may list the whole company: their own, then. */
+            if (!(error instanceof ApiError) || error.status !== 403)
+              throw error;
+            projects = await projectsApi.listArchived(
+              "mine",
+              controller.signal,
+            );
+          }
         }
         if (controller.signal.aborted) return;
         setState({ owner, status: "ready", error: null, projects });
@@ -1087,7 +1103,7 @@ export function useArchivedProjects(enabled = true): {
       }
     })();
     return () => controller.abort();
-  }, [owner, enabled, tick, revalidation]);
+  }, [owner, enabled, seesAll, tick, revalidation]);
 
   return useMemo(() => {
     if (!mode.connected) {

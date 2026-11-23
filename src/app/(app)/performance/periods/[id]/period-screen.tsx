@@ -164,7 +164,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const canManage = useCan("MANAGE_SETTINGS");
   const canSeeFairness = useCan("VIEW_FAIRNESS");
   const review = useReviewFlags(cycleId, canSeeFairness);
-  const detail = useCycleRegister(cycleId, canSeeCompany);
+  const detail = useCycleRegister(cycleId, canSeeCompany, canManage);
   const periods = useCycleMutations();
   const toast = useToast();
 
@@ -805,7 +805,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           real signal, threaded through so `QuestionsDialog`'s `Modal` can see
           it go false and play its exit animation instead of the whole dialog
           vanishing with `questionsOpen` itself. */}
-      {period && (
+      {/* Only for whoever may write the questions: mounted, it reads them, and
+          that read is refused without the settings permission (L11). */}
+      {period && canManage && (
         <QuestionsDialog
           open={questionsOpen}
           cycleId={cycleId}

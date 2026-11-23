@@ -91,6 +91,7 @@ import {
 } from "@/lib/hiring/pipeline/queue-bulk";
 import { useBulkSelection } from "@/lib/hiring/pipeline/use-bulk-selection";
 import { useRejectionReasons } from "@/lib/hiring/pipeline/use-pipeline";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /**
  * The screening queue.
@@ -614,7 +615,7 @@ function Queue({
             /* Land on their record rather than leaving the reader on a queue
                that just lost a row — this is where Schedule interview lives,
                and it is the thing screening somebody in is usually for. */
-            router.push(`/hiring/candidates/${result.candidateId}`);
+            router.push(candidateHref(result.candidateId, "candidate"));
           } catch (error) {
             fail(error);
           }
@@ -1044,7 +1045,7 @@ function ApplicationRow({
                 Gave {DUPLICATE_REASON[summary.duplicate.reason]} as an earlier
                 application.{" "}
                 <TextLink
-                  href={`/hiring/candidates/${summary.duplicate.ofId}`}
+                  href={candidateHref(summary.duplicate.ofId, "applicant")}
                   className="text-body-sm"
                 >
                   See the earlier one
@@ -1069,7 +1070,7 @@ function ApplicationRow({
             )}
           {application.status === "ADVANCED" && application.candidateId && (
             <TextLink
-              href={`/hiring/candidates/${application.candidateId}`}
+              href={candidateHref(application.candidateId, "candidate")}
               className="inline-flex items-center gap-1 text-body-sm"
             >
               See them in the pipeline

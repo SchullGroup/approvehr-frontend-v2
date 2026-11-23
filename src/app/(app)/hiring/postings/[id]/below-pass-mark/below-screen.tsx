@@ -62,6 +62,7 @@ import { usePermissions } from "@/lib/permissions";
 import { usePosting } from "@/lib/store/careers-form";
 import { formatDateShort } from "@/lib/time";
 import { useDebounced } from "@/lib/use-debounced";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /**
  * The people below the pass mark, for a person to confirm.
@@ -610,7 +611,7 @@ function BelowRowView({
           />
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-              <TextLink href={`/hiring/candidates/${row.id}`}>
+              <TextLink href={candidateHref(row.id, "applicant")}>
                 {row.name}
               </TextLink>
               {!row.fitHidden && <FitBadge fit={row.summary.fit} />}

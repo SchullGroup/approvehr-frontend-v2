@@ -302,7 +302,7 @@ describe("a possible duplicate", () => {
     );
     expect(
       within(marker).getByRole("link", { name: "See the earlier one" }),
-    ).toHaveAttribute("href", "/hiring/candidates/earlier-1");
+    ).toHaveAttribute("href", "/hiring/candidates/earlier-1?kind=applicant");
   });
 
   it("copes with not knowing the name", () => {

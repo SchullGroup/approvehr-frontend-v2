@@ -29,6 +29,7 @@ import { careersApi, careersPath } from "@/lib/api/careers";
 import type { ScreeningRow } from "@/lib/api/hiring";
 import { useRoleQueue, type RoleQueue } from "@/lib/store/hiring";
 import { RowMenu, type RowMenuEntry } from "./row-menu";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /**
  * Everybody who applied for this role through the careers page.
@@ -216,7 +217,7 @@ export function ScreeningCard({
                this queue and the pipeline board on the same page are separate
                reads with no shared reload, so staying here would show a
                success toast against an apparently unchanged screen. */
-            router.push(`/hiring/candidates/${result.candidateId}`);
+            router.push(candidateHref(result.candidateId, "candidate"));
           } catch (error) {
             fail(error);
           }
@@ -405,7 +406,7 @@ function ApplicantRow({
           )}
           {!row.waiting && row.candidateId && (
             <ButtonLink
-              href={`/hiring/candidates/${row.candidateId}`}
+              href={candidateHref(row.candidateId, "candidate")}
               variant="secondary"
               size="sm"
               className="max-sm:h-11"
