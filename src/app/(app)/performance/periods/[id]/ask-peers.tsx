@@ -76,7 +76,9 @@ export function AskPeersDialog({
   onAsked: () => void;
 }) {
   const toast = useToast();
-  const { employees, loading } = useEmployeeDirectory({ pageSize: 200 });
+  /* `people`, not `employees`: a line manager is sent lookup rows only, and the
+     full rows left their list empty (UAT 23 Nov, U101 / PERF-21). */
+  const { people, loading } = useEmployeeDirectory({ pageSize: 200 });
   const { workInAnswers } = useFeatureSettings();
   const shared = useSharedProjects(subjectId, open && workInAnswers === true);
   const colleagues = useHeldWhileOpen(shared.colleagues, open);
@@ -90,18 +92,16 @@ export function AskPeersDialog({
      nothing. */
   const candidates = useMemo(() => {
     const term = query.trim().toLowerCase();
-    const listed = employees
+    const listed = people
       .filter((person) => person.id !== subjectId)
       .filter(
         (person) =>
           !term ||
-          `${person.firstName} ${person.lastName} ${person.jobTitle}`
-            .toLowerCase()
-            .includes(term),
+          `${person.fullName} ${person.jobTitle}`.toLowerCase().includes(term),
       );
     /* Those who shared a project first, when the server said who; otherwise the list as it came. */
     return orderBySharedProjects(listed, colleagues.shown);
-  }, [employees, subjectId, query, colleagues.shown]);
+  }, [people, subjectId, query, colleagues.shown]);
   const anyShared = candidates.some((one) => one.shared > 0);
 
   const toggle = (id: string) =>
@@ -227,7 +227,7 @@ export function AskPeersDialog({
               return (
                 <li key={person.id} className="px-3 py-2.5">
                   <Checkbox
-                    label={`${person.firstName} ${person.lastName}`}
+                    label={person.fullName}
                     {...(detail ? { description: detail } : {})}
                     checked={picked.has(person.id)}
                     disabled={busy}
@@ -256,23 +256,30 @@ export function AskPeersButton({
   onAsked: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  /* Nothing is read until it is first opened: the dialog reads the staff list,
+     and a review page or a table of sixty rows should not, for a button that is
+     usually not pressed. It stays mounted after, so it can animate out. */
+  const [everOpened, setEverOpened] = useState(false);
+  if (open && !everOpened) setEverOpened(true);
   return (
     <>
       <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
         <Users aria-hidden="true" className="size-3.5" />
         Ask colleagues
       </Button>
-      <AskPeersDialog
-        open={open}
-        cycleId={cycleId}
-        subjectId={subjectId}
-        subjectName={subjectName}
-        onClose={() => setOpen(false)}
-        onAsked={() => {
-          setOpen(false);
-          onAsked();
-        }}
-      />
+      {everOpened && (
+        <AskPeersDialog
+          open={open}
+          cycleId={cycleId}
+          subjectId={subjectId}
+          subjectName={subjectName}
+          onClose={() => setOpen(false)}
+          onAsked={() => {
+            setOpen(false);
+            onAsked();
+          }}
+        />
+      )}
     </>
   );
 }

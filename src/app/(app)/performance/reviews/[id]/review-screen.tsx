@@ -18,6 +18,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { AskPeersButton } from "../../periods/[id]/ask-peers";
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
@@ -274,14 +275,32 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
            somebody is actually deciding a rating was the one place that did
            not, which is exactly where the previous periods matter most. */
         action={
-          <ButtonLink
-            href={`/performance/history/${review.subjectId}`}
-            variant="secondary"
-            size="sm"
-          >
-            <LineChart aria-hidden="true" className="size-3.5" />
-            {isSubject ? "My previous marks" : "Previous marks"}
-          </ButtonLink>
+          <>
+            {/* The manager writing this review can ask the person's colleagues
+                for feedback from here (UAT 23 Nov, U101 / PERF-21): it used to
+                be one of three buttons on each row of HR's Marks table, and a
+                line manager cannot open that page. The API lets the manager
+                ask. Only while the period is running. */}
+            {review.kind === "MANAGER" &&
+              review.mine &&
+              review.cycleStage !== "PUBLISHED" &&
+              review.cycleStage !== "DRAFT" && (
+                <AskPeersButton
+                  cycleId={review.cycleId}
+                  subjectId={review.subjectId}
+                  subjectName={review.subjectName}
+                  onAsked={() => undefined}
+                />
+              )}
+            <ButtonLink
+              href={`/performance/history/${review.subjectId}`}
+              variant="secondary"
+              size="sm"
+            >
+              <LineChart aria-hidden="true" className="size-3.5" />
+              {isSubject ? "My previous marks" : "Previous marks"}
+            </ButtonLink>
+          </>
         }
       />
 
