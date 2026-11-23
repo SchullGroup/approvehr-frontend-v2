@@ -90,6 +90,7 @@ export function PostingScreen({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot open this advert"
               description="The form decides what strangers are asked, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -136,6 +137,7 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
           ) : (
             <Card>
               <EmptyState
+                plain
                 icon={<Lock aria-hidden="true" />}
                 title="That advert is not here"
                 description="It may have been removed, or belong to another company."

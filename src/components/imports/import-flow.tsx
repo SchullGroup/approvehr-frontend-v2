@@ -234,6 +234,7 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title={
                 surface.noAccess?.title ??

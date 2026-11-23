@@ -126,6 +126,7 @@ function ArchivedProjects() {
       >
         {shown.length === 0 ? (
           <EmptyState
+            mood={search.trim() ? "search" : "nothing"}
             icon={<FolderKanban />}
             title={
               search.trim()
@@ -211,6 +212,7 @@ function ArchivedPrograms() {
       >
         {shown.length === 0 ? (
           <EmptyState
+            mood={search.trim() ? "search" : "nothing"}
             icon={search.trim() ? <Archive /> : <FolderTree />}
             title={
               search.trim()

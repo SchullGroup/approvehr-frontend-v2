@@ -479,6 +479,7 @@ export function ApprovalInbox() {
            something" rather than answering "this is not part of your role." */
           <Card>
             <EmptyState
+              plain
               icon={<Check aria-hidden="true" />}
               title="Nothing for you to approve"
               description="Approving requests is not part of your role here. If that changes, anything routed to you will appear on this screen."

@@ -788,6 +788,7 @@ export function KpisTab({
              somebody who mistyped a name would answer a question they did not
              ask. */
           <EmptyState
+            mood="search"
             icon={<Target aria-hidden="true" />}
             title="Nothing matches that"
             description={`None of the ${String(kpis.goals.length)} objectives match your filters.`}

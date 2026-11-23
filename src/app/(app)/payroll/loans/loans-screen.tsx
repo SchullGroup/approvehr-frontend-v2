@@ -441,6 +441,7 @@ export function LoansScreen() {
         >
           {list.loans.length === 0 ? (
             <EmptyState
+              mood={filter !== "ALL" ? "search" : "start"}
               icon={<CreditCard aria-hidden="true" />}
               title={
                 filter !== "ALL"

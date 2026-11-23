@@ -193,6 +193,7 @@ export function RolesScreen({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<ShieldCheck aria-hidden="true" />}
               title="Roles are not part of your access"
               description="Who can do what (and who can change it) is kept to the people who manage access, because it decides who is able to move money. Ask whoever set up your account if you need something you cannot reach."
@@ -314,6 +315,7 @@ export function RolesScreen({
                     <CardHeader title="Roles" />
                     {roles.roles.length === 0 ? (
                       <EmptyState
+                        plain
                         icon={<ShieldCheck aria-hidden="true" />}
                         title="No roles yet"
                         description="Every company gets four to start with. If this is empty, the workspace was not set up."
@@ -729,6 +731,7 @@ export function InvitationsCard({
         </CardBody>
       ) : invites.invites.length === 0 ? (
         <EmptyState
+          plain
           icon={<Mail aria-hidden="true" />}
           title="No pending invitations"
           description="Everybody entitled to sign in either already has an account, or has not been invited yet."

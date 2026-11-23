@@ -92,6 +92,7 @@ export function SchedulesTable() {
         <CardHeader title="Remittance schedules" />
         <CardBody>
           <EmptyState
+            plain
             icon={<Landmark aria-hidden="true" />}
             title="Nothing to file yet"
             description={

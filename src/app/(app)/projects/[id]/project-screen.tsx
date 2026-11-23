@@ -118,6 +118,7 @@ export function ProjectScreen({ id }: { id: string }) {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<FolderKanban />}
             title="This project is not here"
             description="It may have been deleted, or it may not be part of your access. You see the projects you are on, and the ones in programs you have been given."

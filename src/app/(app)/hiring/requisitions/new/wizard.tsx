@@ -222,6 +222,7 @@ export function RequisitionWizard() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot open a new role"
               description="Opening a role sets its salary band and picks a hiring team from the full employee roster, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."

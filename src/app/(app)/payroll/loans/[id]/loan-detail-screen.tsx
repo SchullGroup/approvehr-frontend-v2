@@ -323,6 +323,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<CreditCard aria-hidden="true" />}
             title="That loan is not here"
             description={

@@ -359,6 +359,7 @@ function PartsPanel({
                 {view.parts.length === 0 ? (
                   <div className="p-6">
                     <EmptyState
+                      plain
                       title="No parts yet"
                       description="Add the parts your appraisals are marked on: a name, what it is scored from, its weight and a description. An appraisal period cannot start until at least one part has a weight."
                       {...(manage

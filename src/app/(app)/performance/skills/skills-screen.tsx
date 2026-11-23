@@ -40,6 +40,7 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<ToggleRight aria-hidden="true" />}
             title="Appraisals are switched off"
             description="Scored reviews inside an appraisal period, and skills against their targets, on top of shared KPIs."

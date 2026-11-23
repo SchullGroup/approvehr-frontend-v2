@@ -63,6 +63,7 @@ export function HiringSettingsShell({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot change these"
               description="They shape every role's pipeline and what applicants are told, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."

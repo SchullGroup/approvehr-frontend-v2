@@ -168,6 +168,7 @@ export function CompanyReportScreen({
         {!canSee ? (
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="This report covers the whole company"
               description="It compares everyone's marks, so it is only open to people who can see every employee's record."
@@ -181,6 +182,7 @@ export function CompanyReportScreen({
         ) : !detail.available ? (
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="Company reports need the live system"
               description="Every figure in them is counted over the whole company by the server, so there is nothing to show without it."

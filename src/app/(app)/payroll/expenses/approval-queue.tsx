@@ -106,6 +106,8 @@ export function ApprovalQueue({
 
         {claims.length === 0 ? (
           <EmptyState
+            plain={loading}
+            mood="caught-up"
             icon={<Inbox aria-hidden="true" />}
             title={loading ? "Loading…" : "Nothing waiting"}
             description={

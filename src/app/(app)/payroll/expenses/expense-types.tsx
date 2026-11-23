@@ -99,6 +99,7 @@ export function ExpenseTypes({
 
         {types.length === 0 ? (
           <EmptyState
+            plain={loading}
             icon={<Tags aria-hidden="true" />}
             title={loading ? "Loading…" : "No expense types yet"}
             description={

@@ -413,6 +413,7 @@ function Results({
     >
       {!hasRows ? (
         <EmptyState
+          mood={narrowed ? "search" : "nothing"}
           icon={<ListChecks />}
           title={
             narrowed

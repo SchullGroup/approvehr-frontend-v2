@@ -293,6 +293,7 @@ export function PayScreen({
     body = (
       <Card>
         <EmptyState
+          plain
           icon={<CreditCard aria-hidden="true" />}
           title="Ask your administrator to subscribe."
         />
@@ -302,6 +303,7 @@ export function PayScreen({
     body = (
       <Card>
         <EmptyState
+          plain
           icon={<CreditCard aria-hidden="true" />}
           title="Online payment isn't available yet, contact support to subscribe."
           action={
@@ -577,6 +579,7 @@ function DoneStep({
   return (
     <Card className="max-w-2xl p-5">
       <EmptyState
+        plain
         icon={<CheckCircle2 aria-hidden="true" />}
         title={`Payment received, you're on ${planName} until ${formatDate(
           billing.currentPeriodEnd,

@@ -209,6 +209,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
       <PageBody>
         <Card>
           <EmptyState
+            plain
             icon={<UserRoundX aria-hidden="true" />}
             title={failure.title}
             description={failure.detail}

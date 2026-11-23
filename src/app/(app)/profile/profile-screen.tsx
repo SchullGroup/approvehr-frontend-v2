@@ -208,6 +208,7 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
         <PageHeader title="My profile" />
         <PageBody>
           <EmptyState
+            plain
             icon={<UserRound aria-hidden="true" />}
             title="No employee record"
             description="This account is not linked to anyone on the payroll."

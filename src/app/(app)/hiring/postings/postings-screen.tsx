@@ -104,6 +104,7 @@ export function PostingsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the adverts"
               description="Applications hold a stranger's phone number and salary expectation, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -383,6 +384,7 @@ function Adverts() {
           >
             {rows.length === 0 ? (
               <EmptyState
+                mood={postings.postings.length === 0 ? "start" : "search"}
                 icon={<Megaphone aria-hidden="true" />}
                 title={
                   postings.postings.length === 0

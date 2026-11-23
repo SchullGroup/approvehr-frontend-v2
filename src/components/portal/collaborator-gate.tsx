@@ -34,6 +34,7 @@ export function CollaboratorGate({ children }: { children: React.ReactNode }) {
       <PageBody>
         <Card>
           <EmptyState
+            plain
             icon={<Lock aria-hidden="true" />}
             title="This page is not part of your access"
             description="You were invited to help hire for a job, so My interviews is the page that is yours. Whoever invited you can tell you more."
