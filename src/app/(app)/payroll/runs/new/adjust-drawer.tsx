@@ -1,5 +1,6 @@
 "use client";
 
+import { isLoanLine, loanLinesFor } from "./loan-lines";
 import { useEffect, useState } from "react";
 import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -240,11 +241,13 @@ export function AdjustDrawer({
   const overridden = person.overriddenDeductions ?? [];
   /* Loan instalments are their own lines above; what is left is everything else. */
   const loanKobo = person.lines
-    .filter(
-      (line) =>
-        line.kind === "DEDUCTION" && line.label.startsWith("Staff loan"),
-    )
+    .filter(isLoanLine)
     .reduce((sum, line) => sum + line.amountKobo, 0);
+  /* From the payslip's own lines, so the panel adds up to net pay (U8). */
+  const loanRows = loanLinesFor(
+    person.lines,
+    loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ?? [],
+  );
   const otherKobo = Math.max(0, person.otherDeductionsKobo - loanKobo);
   const overtimeKobo = overtimeOn(person);
   const manualOvertime = hasManualOvertime(person);
@@ -509,19 +512,20 @@ export function AdjustDrawer({
                 }
               />
             )}
-            {(
-              loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ??
-              []
-            ).map((loan) => (
+            {loanRows.map(({ key, label, amountKobo, loan }) => (
               <Line
-                key={loan.loanId}
+                key={key}
                 editColumn={editable}
-                label="Loan"
-                note={`Borrowed ${formatKobo(loan.accumulatedKobo)} · owed ${formatKobo(loan.balanceBeforeKobo)} before this month · ${formatKobo(loan.balanceAfterKobo)} left after`}
-                value={minus(loan.deductionKobo)}
-                marked={loan.overridden === true}
+                label={label}
+                note={
+                  loan
+                    ? `Borrowed ${formatKobo(loan.accumulatedKobo)} · owed ${formatKobo(loan.balanceBeforeKobo)} before this month · ${formatKobo(loan.balanceAfterKobo)} left after`
+                    : "As deducted on the payslip"
+                }
+                value={minus(amountKobo)}
+                marked={loan?.overridden === true}
                 edit={
-                  editable
+                  editable && loan
                     ? {
                         label: `Change this month's loan deduction for ${person.name}`,
                         disabled: refreshing,
