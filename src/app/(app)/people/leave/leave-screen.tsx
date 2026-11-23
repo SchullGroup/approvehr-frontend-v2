@@ -74,7 +74,7 @@ import {
   useLeaveRequests,
 } from "@/lib/store/leave-api";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDayRange, todayIn } from "@/lib/time";
 import { TODAY, shortDate } from "@/lib/today";
 import { BookLeaveDialog } from "./book-leave";
 import { HolidayCalendarCard } from "./holiday-calendar";
@@ -682,7 +682,7 @@ export function LeaveScreen() {
                             </>
                           )}
                           <TD className="tabular whitespace-nowrap">
-                            {r.from} → {r.to}
+                            {formatDayRange(r.from, r.to)}
                           </TD>
                           <TD
                             align="right"
@@ -783,7 +783,7 @@ export function LeaveScreen() {
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
                         {!personal && <span>{r.leaveType}</span>}
                         <span className="tabular whitespace-nowrap">
-                          {r.from} → {r.to}
+                          {formatDayRange(r.from, r.to)}
                         </span>
                         <span className="tabular">{daysLabel(r.days)}</span>
                       </div>
@@ -1028,7 +1028,7 @@ export function LeaveScreen() {
           <div className="flex flex-col gap-2 text-body-sm text-body">
             <p>
               {withdrawing
-                ? `${leaveLabel(withdrawing.leaveType)}, ${withdrawing.from} to ${withdrawing.to} · ${daysLabel(withdrawing.days)}.`
+                ? `${leaveLabel(withdrawing.leaveType)}, ${formatDayRange(withdrawing.from, withdrawing.to)} · ${daysLabel(withdrawing.days)}.`
                 : ""}
             </p>
             <p>
@@ -1208,7 +1208,7 @@ function RequestPanel({
       }
       description={
         request
-          ? `${request.from} to ${request.to} · ${daysLabel(request.days)}`
+          ? `${formatDayRange(request.from, request.to)} · ${daysLabel(request.days)}`
           : undefined
       }
       /* Six short facts and two buttons. Anything wider is a decision panel
@@ -1452,7 +1452,7 @@ function RequestPanel({
                       </TextLink>
                     )}
                     <span className="tabular text-meta text-muted">
-                      {clash.from} → {clash.to}
+                      {formatDayRange(clash.from, clash.to)}
                     </span>
                     <Badge tone={STATUS[clash.status].tone} size="sm">
                       {STATUS[clash.status].label}

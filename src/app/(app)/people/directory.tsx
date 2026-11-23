@@ -57,7 +57,7 @@ import {
   type EmploymentStatus,
 } from "@/lib/types";
 import { useOrgTimezone } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDay, todayIn } from "@/lib/time";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
@@ -666,7 +666,9 @@ export function Directory({
                         >
                           <Money amount={e.grossMonthly} />
                         </TD>
-                        <TD className="tabular text-muted">{e.startDate}</TD>
+                        <TD className="tabular text-muted">
+                          {formatDay(e.startDate)}
+                        </TD>
                         <TD>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <Badge tone={STATUS[e.status].tone} size="sm" dot>
@@ -770,7 +772,7 @@ export function Directory({
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
                       <span>{e.department}</span>
                       <span>{e.location}</span>
-                      <span className="tabular">{e.startDate}</span>
+                      <span className="tabular">{formatDay(e.startDate)}</span>
                     </div>
 
                     <div className="tabular font-medium text-ink">

@@ -346,7 +346,7 @@ describe("consent, source and reference", () => {
     );
     const record = screen.getByTestId("consent-record");
     expect(record).toHaveTextContent(
-      "Agreed to the privacy notice on 2026-10-15",
+      "Agreed to the privacy notice on 15 Oct 2026",
     );
     await user.click(
       within(record).getByRole("button", {

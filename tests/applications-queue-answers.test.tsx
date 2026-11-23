@@ -361,7 +361,7 @@ describe("the answers behind a row", () => {
       screen.getByText('Answered No to "Right to work in Nigeria?"'),
     ).toBeInTheDocument();
     expect(screen.getByTestId("consent-record")).toHaveTextContent(
-      "Agreed to the privacy notice on 2026-10-01",
+      "Agreed to the privacy notice on 1 Oct 2026",
     );
 
     await user.click(screen.getByRole("button", { name: /Open file/ }));

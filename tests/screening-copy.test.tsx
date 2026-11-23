@@ -255,7 +255,9 @@ describe("what is drawn", () => {
       </ToastProvider>,
     );
     await waitFor(() =>
-      expect(screen.getAllByText(/^Applied 2026-/).length).toBeGreaterThan(0),
+      expect(
+        screen.getAllByText(/^Applied \d{1,2} [A-Z][a-z]{2} 2026/).length,
+      ).toBeGreaterThan(0),
     );
     for (const button of screen.getAllByRole("button", {
       name: "How this score was worked out",

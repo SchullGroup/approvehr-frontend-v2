@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -681,7 +682,7 @@ function AdvertRow(props: AdvertProps) {
 
       <TD>
         <span className="tabular whitespace-nowrap text-body-sm text-body">
-          {posting.closesOn ?? "Open"}
+          {posting.closesOn ? formatDay(posting.closesOn) : "Open"}
         </span>
       </TD>
 

@@ -52,7 +52,7 @@ import {
 } from "@/lib/store/payroll";
 import { useOrgTimezone } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
-import { todayIn } from "@/lib/time";
+import { formatDay, todayIn } from "@/lib/time";
 
 /**
  * The payroll home.
@@ -269,7 +269,7 @@ export function PayrollScreen() {
                 <CardHeader
                   title={`${periodLabel(current.period)} payroll`}
                   mark={[
-                    `Pays ${current.payDate}. ${
+                    `Pays ${formatDay(current.payDate)}. ${
                       current.status === "PAID"
                         ? "Paid. The money has left the account."
                         : current.status === "APPROVED"
@@ -440,7 +440,9 @@ export function PayrollScreen() {
                       <TD>
                         <RunStatusBadge status={run.status} />
                       </TD>
-                      <TD className="tabular text-muted">{run.payDate}</TD>
+                      <TD className="tabular text-muted">
+                        {formatDay(run.payDate)}
+                      </TD>
                     </TR>
                   ))}
                 </TBody>
@@ -479,7 +481,7 @@ export function PayrollScreen() {
                         {run.excludedCount} excluded
                       </span>
                     )}
-                    <span className="tabular">{run.payDate}</span>
+                    <span className="tabular">{formatDay(run.payDate)}</span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm">

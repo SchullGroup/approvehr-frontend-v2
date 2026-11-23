@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import {
   forwardRef,
   useCallback,
@@ -1013,7 +1014,7 @@ export function PayrollRunWizard() {
                   title={`${periodLabel(period)}, paying ${payDate}`}
                   description={
                     run
-                      ? `Prepared${run.preparedAt ? ` ${run.preparedAt.slice(0, 10)}` : ""}. Preparing again replaces the payslips and settles nothing.`
+                      ? `Prepared${run.preparedAt ? ` ${formatDay(run.preparedAt)}` : ""}. Preparing again replaces the payslips and settles nothing.`
                       : "Nothing has been worked out for this period yet."
                   }
                   action={

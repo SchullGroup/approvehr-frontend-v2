@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -1031,7 +1032,7 @@ function ApplicationRow({
                 </TextLink>
               )}
               <span className="tabular">
-                Applied {application.appliedAt.slice(0, 10)}
+                Applied {formatDay(application.appliedAt)}
               </span>
               {application.source && (
                 <span>Heard: {sourceLabel(application.source)}</span>

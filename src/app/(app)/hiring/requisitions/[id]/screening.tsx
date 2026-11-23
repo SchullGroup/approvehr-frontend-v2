@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Inbox, Mail, Megaphone, Phone, UserX } from "lucide-react";
@@ -392,7 +393,7 @@ function ApplicantRow({
                 {row.phone}
               </span>
             )}
-            <span className="tabular">Applied {row.appliedOn}</span>
+            <span className="tabular">Applied {formatDay(row.appliedOn)}</span>
             {row.source && <span>Heard: {row.source}</span>}
           </p>
         </div>
