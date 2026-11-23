@@ -68,6 +68,12 @@ describe("My team", () => {
     expect(screen.queryByText(/₦/)).toBeNull();
   });
 
+  it("draws one table, not a table inside a table", () => {
+    read.data = [member()];
+    const { container } = render(<MyTeamScreen />);
+    expect(container.querySelectorAll("table")).toHaveLength(1);
+  });
+
   it("opens a person's details from their row", async () => {
     read.data = [member()];
     render(<MyTeamScreen />);
