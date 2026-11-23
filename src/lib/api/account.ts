@@ -160,6 +160,25 @@ export const account = {
     return result;
   },
 
+  /**
+   * Sets the password with the six-digit code from the reset email (U111),
+   * for somebody on a phone who would rather not copy a link out of Mail. Ends
+   * every session, this browser's included, exactly as the link does. A wrong,
+   * expired or used code, or an unknown address, is one 401 with one sentence.
+   */
+  async resetPasswordWithCode(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<ResetPasswordResult> {
+    const result = await request<ResetPasswordResult>(
+      "/auth/reset-password/code",
+      { method: "POST", body: { email, code, newPassword }, anonymous: true },
+    );
+    tokens.clear();
+    return result;
+  },
+
   /** Same idea as `requirementsForReset`, for an invitation instead of a reset. */
   requirementsForInvite: (
     token: string,
