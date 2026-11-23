@@ -583,7 +583,7 @@ const KEYWORDS: Record<string, string[]> = {
   ],
 
   "settings/Settings": ["configuration", "company", "preferences", "features"],
-  "settings/Roles": ["permissions", "access", "admins", "security"],
+  "settings/Access": ["permissions", "roles", "admins", "security"],
 };
 
 /** Exposed so a test can hold every key to a door that exists. */

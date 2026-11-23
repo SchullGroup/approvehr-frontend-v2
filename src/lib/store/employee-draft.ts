@@ -57,6 +57,8 @@ export type EmployeeDraft = {
   email: string;
   phone: string;
   dateOfBirth: string;
+  /** Optional. Decides which leave types they are offered (U55). */
+  gender: "" | "female" | "male" | "other";
   /** Where they live, one line. Not the office, and not the tax state. */
   addressLine: string;
   /** National Identification Number, 11 digits as typed. */
@@ -130,6 +132,7 @@ export const BLANK_DRAFT: EmployeeDraft = {
   email: "",
   phone: "",
   dateOfBirth: "",
+  gender: "",
   workLocationId: "",
   jobTitle: "",
   departmentId: "",
@@ -185,11 +188,13 @@ const EMPTY: Stored = {
  * 2 adds `middleName`. A version-1 payload predates the field entirely rather
  * than merely lacking a value for it, so `draft.middleName.trim()` would throw
  * on `undefined` if it were half-restored instead of dropped.
+ *
+ * 3 adds `gender`, for the same reason.
  */
 const store = createPersistedState<Stored>({
   key: "approvehr.employee-draft.store",
   empty: EMPTY,
-  version: 2,
+  version: 3,
 });
 
 /* --------------------------------------------------------------------- hook */

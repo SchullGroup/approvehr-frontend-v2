@@ -100,8 +100,10 @@ const ACTIONS: readonly Action[] = [
   },
   {
     href: "/people/leave",
-    label: "Book time off",
-    detail: "Yours, or somebody else's",
+    label: "Book your time off",
+    /* It said "Yours, or somebody else's", and the form has no "who is this
+       for" field for most people (UAT 23 Nov, U65, SELF-23). */
+    detail: "Days off, sick leave and the rest",
     icon: <CalendarPlus aria-hidden="true" />,
     /* No permission: everybody has leave, including an account with no staff
        record behind it, which simply sees an empty list rather than a refusal. */

@@ -120,7 +120,8 @@ async function open(rows: LeaveTypeRow[]) {
       <LeavePolicyForm />
     </ToastProvider>,
   );
-  await screen.findAllByLabelText(FILE_SWITCH);
+  /* The type's name is on every row, whichever switches it carries. */
+  await screen.findAllByText(rows[0]?.name ?? "");
 }
 
 /** Opens the phone card for a type: it mounts its fields only once open. */
@@ -262,16 +263,13 @@ describe("the supporting-file switch", () => {
 });
 
 describe("where a file cannot be attached at all", () => {
-  it("does not let it be switched on, and says why beside the switch, in words", async () => {
+  it("is not offered at all, and the column goes (UAT 23 Nov, U5)", async () => {
     mocks.limits = limits({ storage: false });
     await open([type()]);
-    expect(table(FILE_SWITCH).disabled).toBe(true);
-    /* Plain text on the row, not behind an icon. */
+    expect(screen.queryByRole("switch", { name: FILE_SWITCH })).toBeNull();
     expect(
-      screen.getAllByText(
-        "This server cannot store files yet, so a file cannot be required.",
-      ).length,
-    ).toBeGreaterThan(0);
+      screen.queryByRole("columnheader", { name: "Supporting file" }),
+    ).toBeNull();
   });
 
   it("keeps showing a type that is already required as on, and lets it be switched off", async () => {
@@ -302,11 +300,11 @@ describe("where a file cannot be attached at all", () => {
     expect(screen.queryByText(/cannot store files yet/)).toBeNull();
   });
 
-  it("does not allow it where the server takes links and this build has nowhere to send them", async () => {
+  it("is not offered where the server takes links and this build has nowhere to send them", async () => {
     vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", "");
     mocks.limits = limits({ storage: false, links: true });
     await open([type()]);
-    expect(table(FILE_SWITCH).disabled).toBe(true);
+    expect(screen.queryByRole("switch", { name: FILE_SWITCH })).toBeNull();
   });
 });
 

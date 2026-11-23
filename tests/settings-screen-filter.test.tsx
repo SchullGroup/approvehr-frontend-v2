@@ -120,7 +120,7 @@ describe("one Settings page in six groups (U43)", () => {
       ["Time and leave", "Leave policies", "/settings/leave"],
       ["Pay", "Payroll settings", "/settings/payroll"],
       ["Pay", "Bank accounts", "/settings/bank-accounts"],
-      ["Access", "Roles and permissions", "/settings/roles"],
+      ["Access", "Access", "/settings/roles"],
     ] as const) {
       const link = within(group(where)).getByRole("link", {
         name: new RegExp(title),

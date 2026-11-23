@@ -22,6 +22,7 @@ import { useCompanySettings } from "./company";
 import { useLeaveStore } from "./leave";
 import { useLeaveBalances } from "./leave-balances";
 import { useSession } from "./session";
+import { useCan } from "@/lib/permissions";
 import { useRevalidation } from "@/lib/revalidate";
 import { announceApprovalChange, useApprovalGeneration } from "./approval-bus";
 
@@ -490,8 +491,13 @@ export function useLeaveBalancesFor(
   employeeIds: readonly string[],
   leaveType = "Annual",
 ): BalanceLookup {
-  const { isConnected } = useSession();
+  const { isConnected, employeeId: me } = useSession();
   const local = useLeaveBalances();
+  /* The many-people read needs See salaries outright. Somebody without it may
+     still read their own balance through the single-id route, which is what an
+     employee's Leave page and booking form need (UAT 23 Nov, U19: SELF-3,
+     NC-5, they were shown "You need See salaries" in red). */
+  const seesSalaries = useCan("VIEW_SALARIES");
 
   /* Sorted and de-duplicated so the same set of people in a different order is
      the same key, and does not refetch. */
@@ -514,7 +520,18 @@ export function useLeaveBalancesFor(
     let cancelled = false;
     void (async () => {
       const ids = key.split(",");
+      const onlyOwn = !seesSalaries || (ids.length === 1 && ids[0] === me);
       try {
+        if (onlyOwn) {
+          /* Everybody else's balance is not this reader's to see: their rows
+             stay empty, which reads as "no balance to show", not as zero. */
+          const rows: Record<string, LeaveBalanceRow[]> = Object.fromEntries(
+            ids.map((id) => [id, [] as LeaveBalanceRow[]]),
+          );
+          if (me && ids.includes(me)) rows[me] = await leaveApi.balances(me);
+          if (!cancelled) setFetched({ key, rows, error: null });
+          return;
+        }
         /* One request for everybody on screen, not one per row. This used to
            be a `Promise.all` over `leaveApi.balances(id)`, which is the same
            answer at eleven people and a request per employee at eleven
@@ -540,7 +557,7 @@ export function useLeaveBalancesFor(
     return () => {
       cancelled = true;
     };
-  }, [isConnected, key, revalidation, attempt]);
+  }, [isConnected, key, revalidation, attempt, seesSalaries, me]);
 
   const matched = fetched !== null && fetched.key === key;
 

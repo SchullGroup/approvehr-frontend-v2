@@ -128,7 +128,7 @@ function decidedCopy(
         detail: "The request and the balance behind it are updated.",
       }
     : {
-        title: `${item.title} rejected`,
+        title: `${item.title} declined`,
         detail: "Your reason is kept with the decision.",
       };
 }
@@ -447,9 +447,7 @@ export function ApprovalInbox() {
                             ? "With HR"
                             : decision === "approved"
                               ? "Approved"
-                              : item.kind === "holiday"
-                                ? "Declined"
-                                : "Rejected"}
+                              : "Declined"}
                         </Badge>
                         <span className="min-w-0 flex-1 truncate text-body">
                           {item.title}
@@ -932,13 +930,17 @@ function ApprovalRow({
             </Button>
             <Button variant="secondary" size="sm" onClick={onReject}>
               <X aria-hidden="true" className="size-3.5" />
-              {item.kind === "holiday" ? "Decline" : "Reject"}
+              Decline
             </Button>
-            <ArchiveButton
-              item={item}
-              archived={archived}
-              onClick={onArchive}
-            />
+            {/* Not on undecided leave (UAT 23 Nov, U65): archiving one took it
+                out of the inbox without telling the person who asked. */}
+            {(item.kind !== "leave" || archived) && (
+              <ArchiveButton
+                item={item}
+                archived={archived}
+                onClick={onArchive}
+              />
+            )}
           </div>
         ) : (
           <div className="flex w-full shrink-0 gap-2 sm:w-auto">
@@ -948,7 +950,9 @@ function ApprovalRow({
               size="sm"
               className="flex-1 sm:flex-none"
             >
-              Open {item.kindLabel.toLowerCase()}
+              {item.kind === "employment_change"
+                ? "Decide"
+                : `Open ${item.kindLabel.toLowerCase()}`}
             </ButtonLink>
             <ArchiveButton
               item={item}

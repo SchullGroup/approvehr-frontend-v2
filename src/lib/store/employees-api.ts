@@ -859,6 +859,8 @@ export function useEmployeeMutations() {
         workLocationId?: string;
         /** Email them an invitation. See `EmployeePatch.invite`. */
         invite?: boolean;
+        /** The access the invitation carries. Omitted means the Employee role. */
+        accessRoleId?: string;
       },
     ) => {
       if (!isConnected) {
@@ -885,7 +887,8 @@ export function useEmployeeMutations() {
            a decision. The API refuses only if the company has no state either,
            and says where to set one. */
         ...(draft.taxState ? { taxState: draft.taxState } : {}),
-        ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
+        ...(draft.middleName ? { middleName: draft.middleName } : {}),
+        ...(draft.gender ? { gender: draft.gender } : {}),
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
         ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
@@ -914,6 +917,10 @@ export function useEmployeeMutations() {
           : {}),
         ...(draft.managerId ? { managerId: draft.managerId } : {}),
         ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
+        /* The form asked for these and they used to be dropped here, so no
+           invitation went out and the chosen access was ignored (U15). */
+        ...(draft.invite ? { invite: true } : {}),
+        ...(draft.accessRoleId ? { accessRoleId: draft.accessRoleId } : {}),
         /* Upper case on the wire, lower case in `Employee` — the same seam as
            `update` below. */
         ...(draft.status ? { status: draft.status.toUpperCase() } : {}),
