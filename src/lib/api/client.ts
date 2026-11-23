@@ -178,6 +178,17 @@ type RequestOptions = {
   signal?: AbortSignal;
   /** Set for sign-in and refresh, which must not attach or retry a token. */
   anonymous?: boolean;
+  /**
+   * The request checks a code, and the API answers a wrong one with 401 (U10).
+   *
+   * On any other request a 401 means the session expired, so the client
+   * refreshes and sends it again. Here that resend would spend a second
+   * attempt on the same code and end in a sign-out for a typo. So a 401 is
+   * read as the answer about the code: the session is still refreshed, so an
+   * expired one is put right for the next press, but the request is not
+   * resent, and the person is signed out only if the refresh itself fails.
+   */
+  codeCheck?: boolean;
 };
 
 /** The paging half of a list envelope. Identical to the API's `PageMeta`. */
@@ -288,7 +299,7 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { method = "GET", body, query, signal, anonymous } = options;
+  const { method = "GET", body, query, signal, anonymous, codeCheck } = options;
 
   const send = async (): Promise<Response> => {
     const headers: Record<string, string> = {};
@@ -321,6 +332,16 @@ export async function request<T>(
 
   /* One refresh, one retry. A second 401 after a successful refresh means the
      new token is not being accepted either, and retrying again would loop. */
+  if (response.status === 401 && !anonymous && codeCheck) {
+    const answer = await toApiError(response);
+    const refreshed = await refreshTokens();
+    if (!refreshed) {
+      tokens.clear();
+      throw new SessionExpiredError();
+    }
+    throw answer;
+  }
+
   if (response.status === 401 && !anonymous) {
     const refreshed = await refreshTokens();
     if (!refreshed) {
