@@ -107,6 +107,11 @@ export function SchedulesTable() {
   }
 
   const unconfirmed = state.schedules.filter((row) => !row.dueDateConfirmed);
+  /* An earlier month's schedule still not filed is listed too, and says which
+     month it is for (U33). */
+  const earlier = (row: { period: string }) =>
+    state.period !== null && row.period !== state.period;
+  const anyEarlier = state.schedules.some(earlier);
 
   return (
     <Card>
@@ -114,7 +119,7 @@ export function SchedulesTable() {
         title="Remittance schedules"
         description={
           state.period
-            ? `From the ${periodLabel(state.period)} payroll, computed from its own payslips.`
+            ? `From the ${periodLabel(state.period)} payroll, computed from its own payslips${anyEarlier ? ", and earlier payrolls' schedules not filed yet" : ""}.`
             : undefined
         }
       />
@@ -142,7 +147,12 @@ export function SchedulesTable() {
             <TBody>
               {state.schedules.map((row) => (
                 <TR key={row.id}>
-                  <TDPrimary title={KIND_LABEL[row.kind]} />
+                  <TDPrimary
+                    title={KIND_LABEL[row.kind]}
+                    {...(earlier(row)
+                      ? { subtitle: periodLabel(row.period) }
+                      : {})}
+                  />
                   <TD>{row.recipient}</TD>
                   <TD align="right" className="tabular">
                     {row.employeeCount}
@@ -193,6 +203,7 @@ export function SchedulesTable() {
               <div>
                 <p className="text-body-sm font-medium text-ink">
                   {KIND_LABEL[row.kind]}
+                  {earlier(row) ? `, ${periodLabel(row.period)}` : ""}
                 </p>
                 <p className="mt-0.5 text-meta text-muted">{row.recipient}</p>
               </div>
