@@ -25,6 +25,12 @@ vi.mock("@/lib/permissions", () => ({
 }));
 vi.mock("@/lib/store/performance", () => ({
   outstandingIn: () => [],
+  useCycleQuestions: () => ({
+    questions: [],
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+  }),
   useRatingScale: () => ({ scale: { levels: [], max: 5, source: "default" } }),
   useReviewFlags: () => ({
     flags: null,
@@ -102,6 +108,7 @@ const nameBox = () => screen.getByRole("textbox", { name: /Period name/ });
 async function openRename() {
   const user = userEvent.setup();
   mount();
+  await user.click(screen.getByRole("tab", { name: "Settings" }));
   await user.click(screen.getByRole("button", { name: "Rename" }));
   return user;
 }
@@ -113,14 +120,20 @@ beforeEach(() => {
 });
 
 describe("renaming a period", () => {
-  it("offers Rename to somebody who manages settings", () => {
+  it("offers Rename, under Settings, to somebody who manages settings", async () => {
     mount();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("tab", { name: "Settings" }));
     expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
   });
 
   it("does not offer it without the permission", () => {
     canManage = false;
     mount();
+    expect(
+      screen.queryByRole("tab", { name: "Settings" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Rename" }),
     ).not.toBeInTheDocument();
