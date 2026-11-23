@@ -574,7 +574,8 @@ function ComponentRow({
             )}
           </span>
         }
-        subtitle={row.code}
+        /* No subtitle: the code (LEAVE_ALLOWANCE) is the system's name for
+           it, not the reader's (U80, NC-30). */
       />
 
       <TD>
@@ -689,7 +690,6 @@ function ComponentCard({
               </span>
             )}
           </span>
-          <p className="mt-0.5 text-meta text-muted">{row.code}</p>
         </div>
         {row.archived ? (
           <Badge size="sm" tone="warning">

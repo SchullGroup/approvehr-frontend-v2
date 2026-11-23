@@ -62,8 +62,8 @@ import { PAY_SETUP_TABS, isPaySetupTab, type PaySetupTab } from "./tabs";
 const META: Record<PaySetupTab, { label: string; icon: React.ReactNode }> = {
   allowances: { label: "Allowances", icon: <Coins aria-hidden="true" /> },
   deductions: { label: "Deductions", icon: <Scissors aria-hidden="true" /> },
-  extras: {
-    label: "Extras",
+  settings: {
+    label: "Settings",
     icon: <SlidersHorizontal aria-hidden="true" />,
   },
   grades: { label: "Grades", icon: <Layers aria-hidden="true" /> },
@@ -142,10 +142,8 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
         <Tabs items={visible} value={shown} onChange={change}>
           {shown === "allowances" && <ComponentsPanel kind="ALLOWANCE" />}
           {shown === "deductions" && <ComponentsPanel kind="DEDUCTION" />}
-          {/* Overtime and bonuses: the two things a payroll run can carry that
-              nobody had ever decided, offered to every company on every row of
-              every month. See `extras-panel.tsx`. */}
-          {shown === "extras" && <ExtrasPanel />}
+          {/* The one home for payroll settings (U80). See `extras-panel.tsx`. */}
+          {shown === "settings" && <ExtrasPanel />}
           {/* Slot: owned by the grades agent. Do not edit grades-panel.tsx here. */}
           {shown === "grades" && <GradesPanel />}
           {shown === "benefits" && <BenefitsPanel />}
