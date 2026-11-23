@@ -99,7 +99,9 @@ const sendMessage = () =>
 
 describe("the Send message button on a record", () => {
   it("is offered to somebody who can post notices, against a live API", () => {
-    renderInToasts(<EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />);
+    renderInToasts(
+      <EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />,
+    );
     expect(sendMessage()).toBeInTheDocument();
   });
 
@@ -111,7 +113,9 @@ describe("the Send message button on a record", () => {
       "APPROVE_PAYROLL",
       "MANAGE_ROLES",
     ]);
-    renderInToasts(<EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />);
+    renderInToasts(
+      <EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />,
+    );
     expect(sendMessage()).toBeNull();
     /* The rest of the page is still there: this is about one button. */
     expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
@@ -119,20 +123,26 @@ describe("the Send message button on a record", () => {
 
   it("is not offered with no API, where there is nowhere to send it", () => {
     state.connected = false;
-    renderInToasts(<EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />);
+    renderInToasts(
+      <EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />,
+    );
     expect(sendMessage()).toBeNull();
   });
 
   it("is not offered on an archived record", () => {
     state.archived = true;
-    renderInToasts(<EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />);
+    renderInToasts(
+      <EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />,
+    );
     expect(sendMessage()).toBeNull();
   });
 
   it("opens the dialog for this person, with where their account stands", async () => {
     state.access = { state: "NONE", expiresAt: null, roles: [] };
     const user = userEvent.setup();
-    renderInToasts(<EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />);
+    renderInToasts(
+      <EmployeeRecordPage id="01a15d35-2e09-721e-90c2-df532f05d9d7" />,
+    );
 
     await user.click(sendMessage() as HTMLElement);
 
