@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-backend` · _Generated from_ `src/**/*.ts` (tests excluded)
 
-_Snapshot:_ `origin/staging` at `67ad2d0` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ `origin/staging` at `aa32fea` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 This platform has no pages. It is Express 5 + Prisma, arranged as one folder per module, each with the
 same three files: `router.ts` (the HTTP surface), `schemas.ts` (what a request may contain) and
