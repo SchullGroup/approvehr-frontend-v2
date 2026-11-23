@@ -14,7 +14,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Ban,
-  Check,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
@@ -74,7 +73,9 @@ import { SheetPanel } from "./sheet-panel";
 import { blockerPerson } from "./blocker-person";
 import { periodFromParam } from "./period-param";
 import type { ApprovedRunFacts } from "./approved-moment";
+import { ApproveActions, sentForApprovalDetail } from "./approve-actions";
 import { ApproveStep } from "./approve-step";
+import { opensOnApprove } from "./opening-step";
 import { BankRegisterCard } from "./bank-register-card";
 import { RUN_BREADCRUMB } from "./breadcrumb";
 import { OverflowMenu } from "./overflow-menu";
@@ -252,9 +253,9 @@ export function PayrollRunWizard() {
    * be re-prepared, so the callout below was a dead end rather than a choice.
    */
   const [offCycle, setOffCycle] = useState(false);
-  const [busy, setBusy] = useState<"prepare" | "approve" | "cancel" | null>(
-    null,
-  );
+  const [busy, setBusy] = useState<
+    "prepare" | "approve" | "cancel" | "send" | null
+  >(null);
   /**
    * Why approving produced no payment, when it produced none.
    *
@@ -505,21 +506,54 @@ export function PayrollRunWizard() {
   const blocked = counts.blockers > 0 || discrepancies.length > 0;
   const canContinue = [Boolean(run) && !blocked, false][stepper.index];
 
-  /* The approvers are told once, when the maker moves on to Approve: not on every
-     calculation, which used to email them about a run still being worked. The
-     server refuses while anything blocks the run and sends nothing the second
-     time, so this can run as often as the step is entered; a refusal is not the
-     maker's problem and is left unsaid. */
-  const submittedRef = useRef<string | null>(null);
-  const runIdNow = run?.id ?? null;
-  useEffect(() => {
-    if (stepper.index !== 1 || !runIdNow || settled || !canPrepare) return;
-    if (submittedRef.current === runIdNow) return;
-    submittedRef.current = runIdNow;
-    void payrollApi.submitForApproval(runIdNow).catch(() => {
-      submittedRef.current = null;
-    });
-  }, [stepper.index, runIdNow, settled, canPrepare]);
+  /* The approvers are told when the maker presses "Send for approval" (U78):
+     entering the Approve step used to email them on its own, so looking was
+     asking, and the maker was never told. The server refuses while anything
+     blocks the run and emails each approver once; a second press refreshes the
+     line in their bell with these figures. */
+  async function sendForApproval() {
+    if (!run) return;
+    setBusy("send");
+    try {
+      const result = await payrollApi.submitForApproval(run.id);
+      toast.push({
+        title: "Sent for approval",
+        tone: "success",
+        detail: sentForApprovalDetail(result.told),
+      });
+    } catch (caught) {
+      toast.push({
+        title: "Not sent for approval",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "The approvers were not told. Try again.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* An approver, and anybody opening an approved run, lands on Approve once the
+     run is known (U79). Decided once, so changing the month on the first step
+     never moves somebody off the screen they are working on. */
+  const [landed, setLanded] = useState(requested >= 0);
+  if (!landed && !loading && (runId === null || run)) {
+    setLanded(true);
+    if (
+      run &&
+      stepper.index === 0 &&
+      opensOnApprove({
+        stepRequested: false,
+        approved: approvedAlready,
+        canPrepare,
+        canApprove,
+      })
+    ) {
+      stepper.goTo(1);
+    }
+  }
 
   const doneFlags = [Boolean(run) && !blocked, settled];
   const displaySteps = stepper.steps.map((step, i) => ({
@@ -1192,20 +1226,16 @@ export function PayrollRunWizard() {
                disabled "Already approved" button: a control that does nothing,
                beside the two that do (the pay card above carries what happens
                next). */
-                settled ? null : (
-                  <Button
-                    variant="approve"
-                    className="max-sm:min-h-11"
-                    onClick={() => setConfirming(true)}
-                    loading={busy === "approve"}
-                    disabled={!run || blocked || !canApprove}
-                  >
-                    {busy !== "approve" && (
-                      <Check aria-hidden="true" className="size-4" />
-                    )}
-                    Approve this run
-                  </Button>
-                )
+                <ApproveActions
+                  settled={settled}
+                  canApprove={canApprove}
+                  canPrepare={canPrepare}
+                  canSend={connected}
+                  ready={Boolean(run) && !blocked}
+                  busy={busy === "approve" || busy === "send" ? busy : null}
+                  onApprove={() => setConfirming(true)}
+                  onSend={() => void sendForApproval()}
+                />
               ) : missingPayStatus ? (
                 <Button
                   variant="accent"
