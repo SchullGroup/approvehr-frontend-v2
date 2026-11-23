@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 let canManage = true;
 const registerCalls: unknown[][] = [];
 const questionsMounted = vi.hoisted(() => ({ count: 0 }));
+const questionsRead = vi.hoisted(() => ({ count: 0 }));
 let updateCycle: Mock<(...args: unknown[]) => Promise<unknown>>;
 const reload = vi.fn();
 
@@ -59,6 +60,11 @@ vi.mock("@/lib/store/performance", () => ({
       reload,
     }
   ),
+  /* The Questions tab reads them, and `GET .../questions` needs MANAGE_SETTINGS. */
+  useCycleQuestions: () => (
+    (questionsRead.count += 1),
+    { questions: [], loading: false, error: null, reload: vi.fn() }
+  ),
   useCycleMutations: () => ({
     updateCycle: (...args: unknown[]) => updateCycle(...args),
   }),
@@ -104,6 +110,7 @@ const mount = () =>
 beforeEach(() => {
   registerCalls.length = 0;
   questionsMounted.count = 0;
+  questionsRead.count = 0;
   updateCycle = vi.fn();
 });
 
@@ -112,6 +119,7 @@ describe("what the period page asks for", () => {
     canManage = false;
     mount();
     expect(questionsMounted.count).toBe(0);
+    expect(questionsRead.count).toBe(0);
     expect(registerCalls.at(-1)?.[2]).toBe(false);
   });
 
@@ -119,6 +127,7 @@ describe("what the period page asks for", () => {
     canManage = true;
     mount();
     expect(questionsMounted.count).toBeGreaterThan(0);
+    expect(questionsRead.count).toBeGreaterThan(0);
     expect(registerCalls.at(-1)?.[2]).toBe(true);
   });
 });

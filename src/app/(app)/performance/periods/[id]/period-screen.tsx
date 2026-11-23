@@ -234,9 +234,13 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const draft = period?.stage === "DRAFT";
   const published = period?.stage === "PUBLISHED";
   const running = period !== null && !draft && !published;
-  /* A draft has nothing to measure yet, so it opens on its questions. */
+  /* A draft has nothing to measure yet, so it opens on its questions for
+     whoever may write them. The questions are read with MANAGE_SETTINGS only
+     (`GET .../questions`), so nobody else is offered the tab (UAT 23 Nov, L11):
+     it would load into a refusal. */
+  const questionsTab = draft && canManage;
   const periodTab: PeriodTabId =
-    chosenTab ?? (draft ? "questions" : "overview");
+    chosenTab ?? (questionsTab ? "questions" : "overview");
   const flagged = review.flags ? flaggedCount(review.flags) : 0;
 
   /* Only while it is actually running: a draft has not started and a
@@ -582,23 +586,12 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           )}
 
           <Tabs
-            items={
-              draft
-                ? [
-                    { id: "questions", label: "Questions" },
-                    ...(canManage
-                      ? [{ id: "settings", label: "Settings" }]
-                      : []),
-                  ]
-                : [
-                    { id: "overview", label: "Overview" },
-                    { id: "questions", label: "Questions" },
-                    { id: "marks", label: "Marks" },
-                    ...(canManage
-                      ? [{ id: "settings", label: "Settings" }]
-                      : []),
-                  ]
-            }
+            items={[
+              ...(questionsTab ? [] : [{ id: "overview", label: "Overview" }]),
+              ...(canManage ? [{ id: "questions", label: "Questions" }] : []),
+              ...(draft ? [] : [{ id: "marks", label: "Marks" }]),
+              ...(canManage ? [{ id: "settings", label: "Settings" }] : []),
+            ]}
             value={periodTab}
             onChange={(next) => setPeriodTab(next as PeriodTabId)}
           >
@@ -625,7 +618,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 </LoadState>
               </div>
             )}
-            {periodTab === "questions" && period && (
+            {periodTab === "questions" && period && canManage && (
               <QuestionsPanel
                 cycleId={cycleId}
                 editable={canManage && period.stage !== "PUBLISHED"}
