@@ -96,7 +96,7 @@ export function OnboardingScreen() {
         action={
           <ButtonLink href="/people/new" variant="accent" size="sm">
             <Plus aria-hidden="true" className="size-4" />
-            Add a new staff
+            Add an employee
           </ButtonLink>
         }
       />
