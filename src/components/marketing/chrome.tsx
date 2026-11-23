@@ -11,6 +11,7 @@ import {
   internalNavLinks,
   newTabIfApp,
   noPrefetchIfOffSite,
+  SIGN_IN_URL,
 } from "@/lib/marketing/links";
 import { LEGAL_LINKS } from "@/lib/marketing/legal";
 import { SOCIAL_PROFILES } from "@/lib/marketing/site";
@@ -29,8 +30,10 @@ export function AnnouncementBar() {
   return (
     <div className="relative bg-accent px-4 py-2.5 text-center text-white">
       <p className="inline text-body-sm font-medium">
-        <span className="font-bold">First month free. Migration on us.</span>{" "}
-        Start with your full team, move your data, pay nothing until month two.
+        {/* "Migration on us" is gone: the pricing FAQ says migration is
+            quoted separately (UAT 23 Nov, U59 / NC-18). */}
+        <span className="font-bold">First month free.</span> Start with your
+        full team and pay nothing until month two.
       </p>
       <Link
         href="/demo"
@@ -60,9 +63,8 @@ export function MarketingNav() {
   const [open, setOpen] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
 
-  /* Empty in the standalone marketing build, where there is no app to sign
-     into — see lib/marketing/links.ts. */
-  const appLinks = appNavLinks();
+  /* Sign in is `SIGN_IN_URL`: null in the standalone marketing build, where
+     there is no app to sign into — see lib/marketing/links.ts. */
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -160,18 +162,15 @@ export function MarketingNav() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {appLinks
-            .filter(([, label]) => label === "Sign in")
-            .map(([href, label]) => (
-              <Link
-                key={label}
-                href={href}
-                {...newTabIfApp(href)}
-                className="hidden rounded-full px-3 py-2 text-body-sm text-slate-soft transition-colors hover:text-slate sm:block"
-              >
-                {label}
-              </Link>
-            ))}
+          {SIGN_IN_URL && (
+            <Link
+              href={SIGN_IN_URL}
+              {...newTabIfApp(SIGN_IN_URL)}
+              className="hidden rounded-full px-3 py-2 text-body-sm text-slate-soft transition-colors hover:text-slate sm:block"
+            >
+              Sign in
+            </Link>
+          )}
           <Pill
             href="/demo"
             prefetch={false}
@@ -216,7 +215,7 @@ export function MarketingNav() {
               [
                 ["/pricing", "Pricing"],
                 ["/paye-calculator", "PAYE calculator"],
-                ...appLinks.filter(([, label]) => label !== "Live demo"),
+                ...(SIGN_IN_URL ? [[SIGN_IN_URL, "Sign in"]] : []),
               ] as [string, string][]
             ).map(([href, label], i) => (
               <Link
