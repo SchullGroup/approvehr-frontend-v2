@@ -1513,20 +1513,20 @@ export function useAttendanceMutations() {
       /* On the click, not on page load, and only where the answer matters. */
       const position = location?.geofenceEnforced ? await readPosition() : null;
 
-      let recorded: Awaited<ReturnType<typeof attendanceApi.clockIn>>;
-      try {
-        recorded = await attendanceApi.clockIn({
+      const recorded = await attendanceApi
+        .clockIn({
           ...(location ? { workLocationId: location.id } : {}),
           ...(position ? { position } : {}),
+        })
+        .catch((error: unknown) => {
+          /* Where the device was, carried on a refusal, so the widget can name
+             the office that would have accepted it (U27). Never sent anywhere. */
+          if (position && error instanceof ApiError) {
+            (error as ApiError & { position?: PositionFix }).position =
+              position;
+          }
+          throw error;
         });
-      } catch (error) {
-        /* Where the device was, carried on a refusal, so the widget can name
-           the office that would have accepted it (U27). Never sent anywhere. */
-        if (position && error instanceof ApiError) {
-          (error as ApiError & { position?: PositionFix }).position = position;
-        }
-        throw error;
-      }
       /* After the server confirmed it, never beside the attempt — a refetch
          triggered by a clock that was refused would re-render the same rows
          and read as the refusal having worked. */
