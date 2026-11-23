@@ -453,9 +453,10 @@ describe("a manager drafting", () => {
     expect(
       screen.getByRole("button", { name: "Save the draft" }),
     ).toBeInTheDocument();
+    /* No dead button: issuing is the issuer's, so for a manager there is none to press. */
     expect(
-      screen.getByRole("button", { name: "Issue the query" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Issue the query" }),
+    ).toBeNull();
     expect(
       screen.queryByText("Company letter or attachments"),
     ).not.toBeInTheDocument();

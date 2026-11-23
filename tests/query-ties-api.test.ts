@@ -105,6 +105,42 @@ describe("a citation", () => {
     }
   });
 
+  it("reads a copy that held nothing as nothing: no number is made up for what is absent", () => {
+    const empty = toCitation({
+      id: "c",
+      kind: "ATTENDANCE_DAY",
+      title: "t",
+      asItStood: {},
+    });
+    if (empty?.asItStood.kind !== "ATTENDANCE_DAY")
+      throw new Error("wrong kind");
+    expect(empty.asItStood.lateByMinutes).toBeNull();
+    expect(empty.asItStood.earlyByMinutes).toBeNull();
+    expect(empty.asItStood.clockOutFilledBySystem).toBeNull();
+    expect(empty.asItStood.correctedByAdministrator).toBeNull();
+    const leave = toCitation({
+      id: "c",
+      kind: "LEAVE_REQUEST",
+      title: "t",
+      asItStood: {},
+    });
+    if (leave?.asItStood.kind !== "LEAVE_REQUEST")
+      throw new Error("wrong kind");
+    expect(leave.asItStood.days).toBeNull();
+    expect(leave.asItStood.status).toBeNull();
+    /* A zero the server did send is a zero, and a string is not a number. */
+    const sent = toCitation({
+      id: "c",
+      kind: "ATTENDANCE_DAY",
+      title: "t",
+      asItStood: { lateByMinutes: 0, earlyByMinutes: "5" },
+    });
+    if (sent?.asItStood.kind !== "ATTENDANCE_DAY")
+      throw new Error("wrong kind");
+    expect(sent.asItStood.lateByMinutes).toBe(0);
+    expect(sent.asItStood.earlyByMinutes).toBeNull();
+  });
+
   it("carries the warnings of the day on the answer to adding one", () => {
     const added = toCitationAdded({
       ...policy,

@@ -418,12 +418,16 @@ export function DraftEditor({
           >
             Save the draft
           </Button>
-          <Button
-            onClick={() => setAsking(true)}
-            disabled={!detail.can.issue || refusal !== null || busy !== null}
-          >
-            Issue the query
-          </Button>
+          {/* Only for the issuer. A manager drafting has no button whose one outcome is a
+              refusal: `can.issue` is the server's word for who may send it. */}
+          {isIssuer && (
+            <Button
+              onClick={() => setAsking(true)}
+              disabled={refusal !== null || busy !== null}
+            >
+              Issue the query
+            </Button>
+          )}
           {dirty && (
             <span className="text-body-sm text-muted">
               You have changes that are not saved yet.
