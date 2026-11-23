@@ -58,6 +58,18 @@ describe("a citation", () => {
     });
   });
 
+  it("reads whether the policy's wording was cut, and null when the server did not say", () => {
+    const cut = toCitation({
+      ...policy,
+      asItStood: { ...policy.asItStood, bodyTruncated: true },
+    });
+    const none = toCitation(policy);
+    if (cut?.asItStood.kind !== "POLICY" || none?.asItStood.kind !== "POLICY")
+      throw new Error("wrong kind");
+    expect(cut.asItStood.bodyTruncated).toBe(true);
+    expect(none.asItStood.bodyTruncated).toBeNull();
+  });
+
   it("leaves a field the copy did not hold as null, never a nought or a none", () => {
     const citation = toCitation(policy);
     if (citation?.asItStood.kind !== "POLICY") throw new Error("wrong kind");

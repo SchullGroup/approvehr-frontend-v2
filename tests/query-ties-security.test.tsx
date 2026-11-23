@@ -284,6 +284,7 @@ const hostileDetail = () =>
           requiresAcknowledgement: null,
           withdrawn: null,
           body: HOSTILE,
+          bodyTruncated: null,
           personAcknowledged: null,
           acknowledgedAt: null,
           publishedAfterIncident: null,

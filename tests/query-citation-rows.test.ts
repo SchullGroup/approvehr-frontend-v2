@@ -33,6 +33,7 @@ describe("a policy", () => {
     requiresAcknowledgement: null,
     withdrawn: null,
     body: "Be on time.",
+    bodyTruncated: null,
     personAcknowledged: null,
     acknowledgedAt: null,
     publishedAfterIncident: null,
@@ -90,6 +91,22 @@ describe("a policy", () => {
     expect(
       citationRendering({ ...base, withdrawn: true }, format).notes.join(" "),
     ).toMatch(/withdrawn from the handbook/);
+  });
+
+  it("says the wording was cut only when the server says it was, and never claims it from an absence", () => {
+    const cut = citationRendering({ ...base, bodyTruncated: true }, format);
+    expect(cut.notes.join(" ")).toMatch(
+      /Only the start of the wording is shown here/,
+    );
+    expect(cut.notes.join(" ")).toMatch(
+      /fingerprint kept with the letter covers all of it/,
+    );
+    for (const flag of [false, null]) {
+      const whole = citationRendering({ ...base, bodyTruncated: flag }, format);
+      expect(whole.notes.join(" ")).not.toMatch(
+        /Only the start of the wording/,
+      );
+    }
   });
 
   it("carries the wording as text and nothing when the body is empty", () => {

@@ -110,6 +110,8 @@ export type AsItStood =
       requiresAcknowledgement: boolean | null;
       withdrawn: boolean | null;
       body: string | null;
+      /** True when the wording was longer than the server keeps in the copy. Absent is no claim. */
+      bodyTruncated: boolean | null;
       personAcknowledged: boolean | null;
       acknowledgedAt: string | null;
       publishedAfterIncident: boolean | null;
@@ -192,6 +194,7 @@ function toAsItStood(kind: CitationKind, raw: unknown): AsItStood {
         requiresAcknowledgement: flag(r["requiresAcknowledgement"]),
         withdrawn: flag(r["withdrawn"]),
         body: text(r["body"]),
+        bodyTruncated: flag(r["bodyTruncated"]),
         personAcknowledged: flag(r["personAcknowledged"]),
         acknowledgedAt: text(r["acknowledgedAt"]),
         publishedAfterIncident: flag(r["publishedAfterIncident"]),

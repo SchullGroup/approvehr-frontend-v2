@@ -41,6 +41,10 @@ export type CitationRendering = {
   wording: string | null;
 };
 
+/** The server cuts a policy's wording in the copy at 10,000 characters and says so; its fingerprint covers all of it. */
+const POLICY_CUT_NOTE =
+  "Only the start of the wording is shown here (it is cut at 10,000 characters). The fingerprint kept with the letter covers all of it.";
+
 const POLICY_HISTORY_NOTE =
   "The handbook keeps no earlier versions, so this is the version in force at that time and not necessarily the wording that applied on the day of the incident.";
 
@@ -78,6 +82,7 @@ export function citationRendering(
       if (copy.withdrawn === true) {
         notes.push("This section has since been withdrawn from the handbook.");
       }
+      if (copy.bodyTruncated === true) notes.push(POLICY_CUT_NOTE);
       notes.push(POLICY_HISTORY_NOTE);
       wording = copy.body && copy.body.trim() !== "" ? copy.body : null;
       break;
