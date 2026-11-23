@@ -533,7 +533,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   },
   {
     "href": "/settings/roles",
-    "title": "Roles and permissions",
+    "title": "Access",
     "description": "Who can see salaries, approve payroll, or export employee data."
   },
   {

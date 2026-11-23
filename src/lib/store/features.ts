@@ -354,11 +354,11 @@ export const FEATURE_COPY: Record<
      the question somebody switching one off is actually asking. */
   taxSetup: {
     label: "Tax details",
-    line: "Ask for a PAYE state, a TIN and declared rent. Off means payslips show no PAYE.",
+    line: "Ask for a PAYE state, a TIN and declared rent. Off only stops asking: PAYE is set under Payroll settings.",
   },
   pensionSetup: {
     label: "Pension and NHF",
-    line: "Ask for an RSA PIN, a pension provider and an NHF number. Off means no pension is deducted or remitted.",
+    line: "Ask for an RSA PIN, a pension provider and an NHF number. Off only stops asking: pension and NHF are set under Payroll settings.",
   },
   bankDetails: {
     label: "Bank accounts",
@@ -436,9 +436,9 @@ export const SKIP_CONSEQUENCE: Record<
   string
 > = {
   taxSetup:
-    "Skip this and their payslip will not show PAYE, and nothing is filed to a state revenue service until you add it.",
+    "PAYE is still deducted, using the company's state. Their tax filing is incomplete until you add a TIN.",
   pensionSetup:
-    "Skip this and no pension is deducted or remitted for them, and the payroll run will hold them back until an RSA PIN is added.",
+    "Pension is still deducted. Their pension schedule is incomplete until you add an RSA PIN, but it does not hold back their pay.",
   bankDetails:
     "Skip this and payroll has nowhere to send the money: you can add the account before the run.",
 };

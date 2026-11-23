@@ -187,7 +187,7 @@ export function RolesScreen({
     return (
       <>
         <PageHeader
-          title="Roles and permissions"
+          title="Access"
           breadcrumb={[{ href: "/settings", label: "Settings" }]}
         />
         <PageBody>
@@ -212,7 +212,7 @@ export function RolesScreen({
   return (
     <>
       <PageHeader
-        title="Roles and permissions"
+        title="Access"
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           sourceNote(roles.connected) ? (

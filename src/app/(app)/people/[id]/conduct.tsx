@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { AlertTriangle, Check, Plus, ShieldAlert } from "lucide-react";
 import {
@@ -25,8 +26,9 @@ import { useCan } from "@/lib/permissions";
 import {
   LEVEL_HINT,
   LEVEL_LABEL,
-  LEVEL_ORDER,
   LEVEL_TONE,
+  OFFERED_LEVELS,
+  levelsToOffer,
   actionStatus,
   dayLabel,
   lapseLabel,
@@ -70,9 +72,12 @@ import { formatDateShort, todayIn } from "@/lib/time";
 export function ConductPanel({
   employeeId,
   className,
+  onStartExit,
 }: {
   employeeId: string;
   className?: string;
+  /** Opens the record's own "Record their exit", where it is offered. */
+  onStartExit?: (() => void) | undefined;
 }) {
   const { employeeId: me } = useSession();
   const canEdit = useCan("EDIT_RECORDS");
@@ -214,6 +219,14 @@ export function ConductPanel({
         employeeId={employeeId}
         employeeName={conduct.record.employee.name || "this person"}
         onClose={() => setRecording(false)}
+        onStartExit={
+          onStartExit
+            ? () => {
+                setRecording(false);
+                onStartExit();
+              }
+            : undefined
+        }
         onSave={async (body) => {
           let told: boolean | null = null;
           const ok = await run(async () => {
@@ -392,6 +405,7 @@ function RecordWarningModal({
   employeeName,
   onClose,
   onSave,
+  onStartExit,
 }: {
   /* Controlled by `ConductPanel`, which owns the "Record a warning" button.
      This modal now stays mounted at all times so its own exit animation can
@@ -400,6 +414,7 @@ function RecordWarningModal({
   employeeId: string;
   employeeName: string;
   onClose: () => void;
+  onStartExit?: (() => void) | undefined;
   onSave: (body: {
     employeeId: string;
     level: DisciplinaryLevel;
@@ -484,7 +499,7 @@ function RecordWarningModal({
             How serious is it?
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
-            {LEVEL_ORDER.map((option) => (
+            {OFFERED_LEVELS.map((option) => (
               <RadioCard
                 key={option}
                 name="conduct-level"
@@ -496,6 +511,27 @@ function RecordWarningModal({
               />
             ))}
           </div>
+          {/* Dismissal is not a level here (U48): ending employment is an
+              exit, with its final pay and checklist. */}
+          <p className="mt-1 text-meta text-muted">
+            Ending their employment?{" "}
+            {onStartExit ? (
+              <button
+                type="button"
+                className="font-medium text-accent-text underline-offset-2 hover:underline"
+                onClick={onStartExit}
+              >
+                Start an exit
+              </button>
+            ) : (
+              <Link
+                href="/people/offboarding"
+                className="font-medium text-accent-text underline-offset-2 hover:underline"
+              >
+                Start an exit
+              </Link>
+            )}
+          </p>
         </fieldset>
 
         <Field
@@ -779,7 +815,7 @@ function EditActionModal({
                 How serious is it?
               </legend>
               <div className="grid gap-2 sm:grid-cols-2">
-                {LEVEL_ORDER.map((option) => (
+                {levelsToOffer(level).map((option) => (
                   <RadioCard
                     key={option}
                     name="conduct-level-edit"

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ChangesScreen } from "./changes-screen";
@@ -19,7 +20,10 @@ export default function ChangesPage() {
         ]}
       />
       <PageBody>
-        <ChangesScreen />
+        {/* Required: the screen reads `?change=` with useSearchParams. */}
+        <Suspense fallback={null}>
+          <ChangesScreen />
+        </Suspense>
       </PageBody>
     </>
   );
