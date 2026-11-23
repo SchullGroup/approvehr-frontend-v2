@@ -130,6 +130,7 @@ const detailOf = (
   clashes: [],
   balance: null,
   reduced: false,
+  clashesAmong: "company",
   history,
   ...over,
 });

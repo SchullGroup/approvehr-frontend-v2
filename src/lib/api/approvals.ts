@@ -92,6 +92,23 @@ type WireKind =
   | "EMPLOYMENT_CHANGE"
   | "HOLIDAY";
 
+/**
+ * The facts a person deciding leave needs, on a leave row (U22, SELF-6).
+ *
+ * `daysLeft` is the balance before this request and `daysLeftAfter` once it is
+ * taken; both `null` when the type keeps no balance for them. Absent on a row
+ * from a server that predates it, which then reads exactly as it did.
+ */
+export type ApprovalLeaveFacts = {
+  reason: string | null;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  daysLeft: number | null;
+  daysLeftAfter: number | null;
+};
+
 type WireStatus = "PENDING" | "APPROVED" | "DECLINED" | "WITHDRAWN";
 
 type WireApproval = {
@@ -114,6 +131,7 @@ type WireApproval = {
    *  specific; a role sentence ("anyone who can approve payroll") when it
    *  was not, which today is every payroll run, loan and expense claim. */
   sentTo?: string;
+  leave?: ApprovalLeaveFacts;
 };
 
 type WireSummary = {
@@ -166,6 +184,8 @@ export type ApprovalRow = {
   /** Present only on rows from `approvalsApi.sentByMe` — see the note on
    *  the wire type this is copied from. */
   sentTo?: string;
+  /** On a leave row from a server that sends it (U22). */
+  leave?: ApprovalLeaveFacts;
 };
 
 export type ApprovalSummary = {
@@ -238,6 +258,7 @@ function toRow(wire: WireApproval): ApprovalRow {
     decidedAt: wire.decidedAt,
     decisionNote: wire.decisionNote,
     ...(wire.sentTo ? { sentTo: wire.sentTo } : {}),
+    ...(wire.leave ? { leave: wire.leave } : {}),
   };
 }
 
