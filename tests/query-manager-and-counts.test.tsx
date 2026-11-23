@@ -265,8 +265,10 @@ describe("the counts", () => {
   it("adds nothing up: no total row, no total column, no sum, no ranking, no chart", () => {
     const { container } = render(<CountsScreen />);
     const text = (container.textContent ?? "").toLowerCase();
-    /* The server's own "There are no totals" is the plural and is allowed; the word itself is not. */
-    expect(text).not.toMatch(/\btotal\b/);
+    /* The server's own "There are no totals" is the plural and is allowed; the word itself is not.
+       No word boundary in front: `textContent` joins cells with no space, so a "Total" drawn after
+       a cell reads as "withheldtotal" and a `\b` would let it through. */
+    expect(text).not.toMatch(/total(?!s\b)/);
     for (const table of screen.getAllByRole("table")) {
       expect(
         within(table).queryByRole("columnheader", { name: /total/i }),
