@@ -3,6 +3,7 @@
 import {
   EMPLOYMENT_TYPE_LABEL,
   kobo,
+  liveOf,
   naira,
   type AdvanceBody,
   type ApiApplication,
@@ -13,6 +14,7 @@ import {
   type ApplicationStatus,
   type CreatePostingBody,
   type EmploymentType,
+  type LiveState,
   type PostingStatus,
   type RequisitionStatus,
 } from "@/lib/api/careers";
@@ -100,6 +102,8 @@ export type RoleRow = {
   employmentType: EmploymentType;
   employmentTypeLabel: string;
   status: PostingStatus;
+  /** Whether it is live, from `liveOf`: never `status`, which says "Live" past the closing date. */
+  liveState: LiveState;
   statusLabel: string;
   live: boolean;
   /** Naira. Null when the advert quotes no band, which is common here. */
@@ -117,12 +121,6 @@ export type RoleRow = {
   requisitionStatus: RequisitionStatus | null;
   /** `/careers/{orgSlug}/{slug}` once prefixed — see `careersPath`. */
   publicPath: string;
-};
-
-const STATUS_LABEL: Record<PostingStatus, string> = {
-  DRAFT: "Draft",
-  PUBLISHED: "Live",
-  CLOSED: "Closed",
 };
 
 /**
@@ -147,8 +145,9 @@ export function toRoleRow(
     employmentType: posting.employmentType,
     employmentTypeLabel: EMPLOYMENT_TYPE_LABEL[posting.employmentType],
     status: posting.status,
-    statusLabel: STATUS_LABEL[posting.status],
-    live: posting.status === "PUBLISHED" && posting.acceptingApplications,
+    liveState: liveOf(posting).state,
+    statusLabel: liveOf(posting).label,
+    live: liveOf(posting).state === "LIVE",
     salaryMin:
       posting.salaryMinKobo === null ? null : naira(posting.salaryMinKobo),
     salaryMax:

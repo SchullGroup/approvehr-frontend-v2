@@ -49,6 +49,8 @@ import {
   EMPLOYMENT_TYPE_LABEL,
   careersPath,
   careersUrl,
+  LIVE_TONE,
+  liveOf,
   naira,
   requisitionClosedNote,
   type ApiPosting,
@@ -122,24 +124,15 @@ export function PostingsScreen() {
 
 /* -------------------------------------------------------------------------- */
 
+/* A filter on the stored status, so "Published" and not "Live": a published
+   advert past its closing date is in it, and its row says "Closed on …"
+   (U90 / PERF-10). */
 const STATUS_FILTERS: { value: PostingStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
-  { value: "PUBLISHED", label: "Live" },
+  { value: "PUBLISHED", label: "Published" },
   { value: "DRAFT", label: "Drafts" },
   { value: "CLOSED", label: "Closed" },
 ];
-
-const STATUS_LABEL: Record<PostingStatus, string> = {
-  DRAFT: "Draft",
-  PUBLISHED: "Live",
-  CLOSED: "Closed",
-};
-
-const STATUS_TONE: Record<PostingStatus, "neutral" | "success" | "warning"> = {
-  DRAFT: "neutral",
-  PUBLISHED: "success",
-  CLOSED: "warning",
-};
 
 /**
  * A pay range, written out in full.
@@ -581,7 +574,10 @@ function advertActions({
   onPublish,
   onClose,
 }: AdvertProps): RowActionItem[] {
-  const isLive = posting.status === "PUBLISHED";
+  /* Copying a link and opening the page follow whether it is live; closing
+     follows the stored status, which is what Close changes. */
+  const isLive = liveOf(posting).state === "LIVE";
+  const published = posting.status === "PUBLISHED";
   return [
     {
       label: "Form and links",
@@ -617,7 +613,7 @@ function advertActions({
           ...(posting.status === "CLOSED"
             ? [{ label: "Publish again", onSelect: onPublish }]
             : []),
-          ...(isLive ? [{ label: "Close", onSelect: onClose }] : []),
+          ...(published ? [{ label: "Close", onSelect: onClose }] : []),
         ]
       : []),
   ];
@@ -646,8 +642,8 @@ function AdvertRow(props: AdvertProps) {
       <TDPrimary title={posting.title} subtitle={advertSubtitle(posting)} />
 
       <TD>
-        <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
-          {STATUS_LABEL[posting.status]}
+        <Badge tone={LIVE_TONE[liveOf(posting).state]} size="sm" dot>
+          {liveOf(posting).label}
         </Badge>
       </TD>
 
@@ -706,8 +702,8 @@ function AdvertCard(props: AdvertProps) {
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           {posting.title}
-          <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
-            {STATUS_LABEL[posting.status]}
+          <Badge tone={LIVE_TONE[liveOf(posting).state]} size="sm" dot>
+            {liveOf(posting).label}
           </Badge>
         </p>
         <p className="mt-0.5 text-meta text-muted">

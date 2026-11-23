@@ -38,7 +38,7 @@ import { SourceBadge } from "@/components/hiring/source-badge";
 import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { usePermissions } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/api/hiring";
-import { requisitionClosedNote } from "@/lib/api/careers";
+import { LIVE_TONE, requisitionClosedNote } from "@/lib/api/careers";
 import {
   countOrDash,
   pipelineSnapshot,
@@ -450,12 +450,6 @@ function payRange(min: number | null, max: number | null): string {
   return "Not quoted";
 }
 
-const STATUS_TONE = {
-  DRAFT: "neutral",
-  PUBLISHED: "success",
-  CLOSED: "warning",
-} as const;
-
 /**
  * One advertised role.
  *
@@ -501,7 +495,7 @@ function RoleTableRow({ role }: { role: RoleRow }) {
         }
       />
       <TD>
-        <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
+        <Badge tone={LIVE_TONE[role.liveState]} size="sm" dot>
           {role.statusLabel}
         </Badge>
       </TD>
@@ -567,7 +561,7 @@ function RoleCard({ role }: { role: RoleRow }) {
             </p>
           )}
         </div>
-        <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
+        <Badge tone={LIVE_TONE[role.liveState]} size="sm" dot>
           {role.statusLabel}
         </Badge>
       </div>

@@ -22,7 +22,7 @@ import { SourceBadge } from "@/components/hiring/source-badge";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ExportButton } from "@/components/portal/export-button";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { careersApi, careersPath, type PostingStatus } from "@/lib/api/careers";
+import { LIVE_TONE, careersApi, careersPath, liveOf } from "@/lib/api/careers";
 import { actionMessage } from "@/lib/use-action";
 import { fetchFile } from "@/lib/api/download";
 import { usePermissions } from "@/lib/permissions";
@@ -44,18 +44,6 @@ import {
  * Gated on `MANAGE_HIRING`, like every sibling: the form decides what strangers
  * are asked, and the links are the way their applications are attributed.
  */
-
-const STATUS_LABEL: Record<PostingStatus, string> = {
-  DRAFT: "Draft",
-  PUBLISHED: "Live",
-  CLOSED: "Closed",
-};
-
-const STATUS_TONE: Record<PostingStatus, "neutral" | "success" | "warning"> = {
-  DRAFT: "neutral",
-  PUBLISHED: "success",
-  CLOSED: "warning",
-};
 
 const CRUMBS = [
   { href: "/hiring", label: "Hiring" },
@@ -188,7 +176,12 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
 
   const company =
     settings.settings?.branding.name ?? DEMO_SETTINGS.branding.name;
-  const live = posting.status === "PUBLISHED";
+  /* What is shown follows whether it is live (U90 / PERF-10): a published
+     advert past its closing date is closed. Publish follows the stored status,
+     which is what it changes. */
+  const shown = liveOf(posting);
+  const live = shown.state === "LIVE";
+  const published = posting.status === "PUBLISHED";
 
   return (
     <>
@@ -200,15 +193,15 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
         ]}
         meta={
           <span className="inline-flex flex-wrap items-center gap-2">
-            <Badge tone={STATUS_TONE[posting.status]} dot>
-              {STATUS_LABEL[posting.status]}
+            <Badge tone={LIVE_TONE[shown.state]} dot>
+              {shown.label}
             </Badge>
             <SourceBadge live={advert.live} />
           </span>
         }
         action={
           <>
-            {!live && advert.live && (
+            {!published && advert.live && (
               <Button size="sm" onClick={() => setPublishOpen(true)}>
                 <Send aria-hidden="true" className="size-3.5" />
                 {posting.status === "CLOSED" ? "Publish again" : "Publish"}
@@ -257,9 +250,17 @@ function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
         {!live && (
           <Callout
             tone="info"
-            title={`${posting.title} is ${STATUS_LABEL[posting.status].toLowerCase()}`}
+            title={
+              shown.state === "DRAFT"
+                ? `${posting.title} is a draft`
+                : `${posting.title}: ${shown.label}`
+            }
           >
-            Set the form up, then publish it. Nobody can apply until then.
+            {shown.state === "DRAFT"
+              ? "Set the form up, then publish it. Nobody can apply until then."
+              : published
+                ? "Its closing date has passed, so nobody can apply. Change the closing date to take applications again."
+                : "Nobody can apply. Publish it again to take applications."}
           </Callout>
         )}
 
