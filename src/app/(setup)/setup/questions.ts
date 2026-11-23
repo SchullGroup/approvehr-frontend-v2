@@ -38,7 +38,7 @@ export function resumeIndex(
  * because four grey lines under each "No" slowed a new owner down.
  */
 export function firstSentence(text: string): { first: string; rest: string } {
-  const match = /^(.+?[.!?])\s+(.+)$/s.exec(text.trim());
+  const match = /^([^]+?[.!?])\s+([^]+)$/.exec(text.trim());
   return match
     ? { first: match[1]!, rest: match[2]! }
     : { first: text.trim(), rest: "" };
