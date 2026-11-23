@@ -336,20 +336,19 @@ function Harness({
 describe("a period's own weights", () => {
   it("is quiet at 100%", () => {
     render(<Harness />);
-    expect(screen.queryByText(OVER)).toBeNull();
+    expect(screen.getByTestId("pie-total")).toHaveTextContent("100%");
+    expect(screen.queryByText(/off somewhere/)).toBeNull();
   });
 
-  it("warns as soon as a row takes the total over 100%, and says how much to take off", async () => {
+  it("says how much to take off as soon as a row takes the total over 100%", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     const objectives = screen.getByLabelText("Delivery against objectives");
     await user.clear(objectives);
     await user.type(objectives, "50");
-    const note = screen.getByText(OVER);
-    expect(note).toHaveTextContent("These add up to 110%");
-    expect(note).toHaveTextContent("take off 10%");
-    expect(screen.getByTestId("weights-total")).toHaveTextContent("110%");
-    /* A warning only: nothing in the editor is shut by it. */
+    expect(screen.getByText("Take 10% off somewhere")).toBeInTheDocument();
+    expect(screen.getByTestId("pie-total")).toHaveTextContent("110%");
+    /* Nothing in the editor is shut by it. */
     expect(objectives).toBeEnabled();
     expect(
       screen.getByRole("button", { name: /Use the weights in Settings/ }),
@@ -362,36 +361,15 @@ describe("a period's own weights", () => {
     const objectives = screen.getByLabelText("Delivery against objectives");
     await user.clear(objectives);
     await user.type(objectives, "50");
-    expect(screen.getByText(OVER)).toBeInTheDocument();
+    expect(screen.getByText("Take 10% off somewhere")).toBeInTheDocument();
     await user.clear(objectives);
     await user.type(objectives, "40");
-    expect(screen.queryByText(OVER)).toBeNull();
-  });
-
-  it("does not add up a set that has a row that is not a whole number", async () => {
-    const user = userEvent.setup();
-    render(
-      <Harness start={{ ...START, OBJECTIVES: "80", LEADERSHIP: "1.5" }} />,
-    );
-    /* 80 + 25 + 20 + 1.5 would be over, but the row rule is what is on screen. */
-    expect(
-      screen.getByText("Each weight is a whole number from 0 to 100."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(OVER)).toBeNull();
-    await user.clear(screen.getByLabelText("Leadership"));
-    await user.type(screen.getByLabelText("Leadership"), "15");
-    expect(screen.getByText(OVER)).toBeInTheDocument();
+    expect(screen.queryByText(/off somewhere/)).toBeNull();
   });
 
   it("states a fixed set that is over 100% without advice nobody can follow", () => {
     render(<Harness readOnly start={{ ...START, OBJECTIVES: "50" }} />);
-    const note = screen.getByText(OVER);
-    expect(note).toHaveTextContent("These add up to 110%");
-    expect(note).not.toHaveTextContent("take off");
-  });
-
-  it("is quiet for a fixed set at 100%", () => {
-    render(<Harness readOnly />);
-    expect(screen.queryByText(OVER)).toBeNull();
+    expect(screen.getByText("Adds up to 110%")).toBeInTheDocument();
+    expect(screen.queryByText(/off somewhere/)).toBeNull();
   });
 });

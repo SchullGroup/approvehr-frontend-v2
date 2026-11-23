@@ -117,7 +117,7 @@ describe("the text a period's weights are typed as", () => {
       CORE_COMPETENCY: 0,
       BEHAVIOURAL_COMPETENCY: 0,
       LEADERSHIP: 0,
-      MANAGER_APPRAISAL: 100,
+      MANAGER_APPRAISAL: 10000,
       SELF_ASSESSMENT: 0,
     });
     expect(periodWeightsProblem(text)).toBeNull();
@@ -135,10 +135,10 @@ describe("the text a period's weights are typed as", () => {
         SELF_ASSESSMENT: 0,
       });
     expect(periodWeightsProblem(zero(true))).toBe(
-      "Give at least one part a weight above 0%.",
+      "The weights have to add up to 100%.",
     );
     expect(periodWeightsProblem(zero(false))).toBe(
-      "Give at least one part a weight above 0%.",
+      "The weights have to add up to 100%.",
     );
   });
 
@@ -171,13 +171,13 @@ describe("the editor", () => {
   it("counts the new row in the total as it is typed", async () => {
     render(<Harness start={weightsToText(SEVEN)} company={defaults(true)} />);
     expect(
-      within(screen.getByTestId("weights-total")).getByText("100%"),
+      within(screen.getByTestId("pie-total")).getByText("100%"),
     ).toBeInTheDocument();
     const field = screen.getByRole("spinbutton", { name: "Manager appraisal" });
     await userEvent.clear(field);
     await userEvent.type(field, "30");
     expect(
-      within(screen.getByTestId("weights-total")).getByText("130%"),
+      within(screen.getByTestId("pie-total")).getByText("130%"),
     ).toBeInTheDocument();
   });
 
