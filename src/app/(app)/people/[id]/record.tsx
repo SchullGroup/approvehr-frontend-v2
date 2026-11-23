@@ -799,6 +799,21 @@ export function EmployeeRecord({
                   emptyLabel: "Not recorded",
                   help: "Payslips and approvals are sent here.",
                 },
+                /* Their own address (U16): a hire from recruitment arrives
+                   with this and no work email. Only where the API sends it,
+                   so an older server shows no field it cannot save. */
+                ...(employee.personalEmail === undefined
+                  ? []
+                  : [
+                      {
+                        key: "personalEmail" as const,
+                        label: "Personal email",
+                        type: "email" as const,
+                        optional: true,
+                        emptyLabel: "Not recorded",
+                        help: "Their own address, for reaching them before a work email is set up.",
+                      },
+                    ]),
                 { key: "phone", label: "Phone", type: "tel" },
                 {
                   key: "dateOfBirth",

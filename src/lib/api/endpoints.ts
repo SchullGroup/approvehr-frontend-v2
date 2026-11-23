@@ -334,6 +334,8 @@ export type ApiEmployee = {
   middleName: string | null;
   fullName: string;
   email: string | null;
+  /** Absent from an API that predates it (U16). */
+  personalEmail?: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   gender: string | null;
@@ -1423,6 +1425,9 @@ export function toEmployee(api: ApiEmployee): Employee {
     lastName: api.lastName,
     middleName: api.middleName,
     email: api.email,
+    ...(api.personalEmail === undefined
+      ? {}
+      : { personalEmail: api.personalEmail }),
     phone: api.phone,
     dateOfBirth: api.dateOfBirth,
     ...(api.gender ? { gender: api.gender as Employee["gender"] } : {}),
