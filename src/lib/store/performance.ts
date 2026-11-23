@@ -3197,7 +3197,7 @@ export function useCycleMutations() {
       async (
         cycleId: string,
         employeeId: string,
-        body: { level: ApiPotentialLevel; reason: string },
+        body: { level: ApiPotentialLevel; reason?: string },
       ) => {
         guard("Recording potential needs the API.");
         return performanceApi.setPotential(cycleId, employeeId, body);
@@ -3275,6 +3275,7 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;
+          askPotential?: boolean;
           /** Sent independently: one can change without restating the other. */
           appraiseOwner?: boolean;
           appraiseHrManager?: boolean;

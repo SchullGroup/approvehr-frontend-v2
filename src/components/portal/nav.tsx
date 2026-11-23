@@ -358,6 +358,13 @@ export type NavItem = {
    * was never built.
    */
   locked?: boolean;
+
+  /**
+   * Greyed out and not a link until the company has run its first appraisal
+   * period: the page is about a period, and with none it would open on nothing.
+   * It stays in the list so it can be found, and says when it opens.
+   */
+  needsPeriod?: boolean;
 };
 
 export type NavGroup = {
@@ -1086,6 +1093,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Network aria-hidden="true" />,
       feature: "multiAppraiser",
       permission: "EDIT_RECORDS",
+      needsPeriod: true,
     },
     {
       /* Was reachable only from inside one appraisal period. A module of its
@@ -1095,6 +1103,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Scale aria-hidden="true" />,
       feature: "appraisals",
       permission: "VIEW_FAIRNESS",
+      needsPeriod: true,
     },
   ],
 

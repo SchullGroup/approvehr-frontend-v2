@@ -38,7 +38,33 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
 vi.mock("@/lib/store/performance", () => ({
-  outstandingIn: () => [],
+  outstandingIn: (p: ApiCycleParticipants | null) =>
+    (p?.rows ?? []).flatMap((r) => [
+      ...(r.self && !r.self.submitted
+        ? [
+            {
+              employeeId: r.employeeId,
+              employeeName: r.employeeName,
+              what: `${r.employeeName} self`,
+              reviewId: r.self.reviewId,
+            },
+          ]
+        : []),
+      ...r.managers
+        .filter((m) => !m.submitted)
+        .map((m) => ({
+          employeeId: r.employeeId,
+          employeeName: r.employeeName,
+          what: `${r.employeeName} manager`,
+          reviewId: m.reviewId,
+        })),
+    ]),
+  useCycleQuestions: () => ({
+    questions: [],
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+  }),
   useRatingScale: () => ({ scale: { levels: [], max: 5, source: "default" } }),
   useReviewFlags: () => ({
     flags: null,
@@ -146,11 +172,17 @@ beforeEach(() => {
   ]);
 });
 
-describe("Nudge who is late", () => {
+/** Reminders now sit behind the "still to come in" link on the Overview. */
+async function openReminder(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /still to come in/ }));
+  await user.click(screen.getByRole("button", { name: "Remind everyone" }));
+}
+
+describe("Reminding people who are late", () => {
   it("sends nothing on the first press, and names who it will reach", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(screen.getByRole("button", { name: "Nudge who is late" }));
+    await openReminder(user);
 
     expect(remindCycle).not.toHaveBeenCalled();
     const dialog = screen.getByRole("dialog");
@@ -172,7 +204,7 @@ describe("Nudge who is late", () => {
   it("sends the reminders only when confirmed", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(screen.getByRole("button", { name: "Nudge who is late" }));
+    await openReminder(user);
     await user.click(
       screen.getByRole("button", { name: "Send the reminders" }),
     );
@@ -188,7 +220,7 @@ describe("Nudge who is late", () => {
     });
     const user = userEvent.setup();
     mount();
-    await user.click(screen.getByRole("button", { name: "Nudge who is late" }));
+    await openReminder(user);
     await user.click(
       screen.getByRole("button", { name: "Send the reminders" }),
     );
@@ -196,7 +228,7 @@ describe("Nudge who is late", () => {
     expect(screen.queryByText(/No emails are sent/)).not.toBeInTheDocument();
   });
 
-  it("is off when nobody owes a review", () => {
+  it("offers nothing when nobody owes a review", () => {
     participants = withRows([
       person("Tunde Bakare", true, [
         { name: "Adaeze Okonkwo", submitted: true },
@@ -204,18 +236,8 @@ describe("Nudge who is late", () => {
     ]);
     mount();
     expect(
-      screen.getByRole("button", { name: "Nudge who is late" }),
-    ).toBeDisabled();
-  });
-
-  it("says who it reaches in general terms when the people are not known", async () => {
-    participants = null;
-    const user = userEvent.setup();
-    mount();
-    await user.click(screen.getByRole("button", { name: "Nudge who is late" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent(
-      /everybody who still owes a review/,
-    );
+      screen.queryByRole("button", { name: /still to come in/ }),
+    ).not.toBeInTheDocument();
   });
 });
 

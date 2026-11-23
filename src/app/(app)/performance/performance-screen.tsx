@@ -1,37 +1,181 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { LoadState } from "@/components/ui";
 import { useCan, useIsManager } from "@/lib/permissions";
+import { useAppraisals, useScoringWeights } from "@/lib/store/performance";
 import { WhatNeedsYouTab } from "./now";
-import { StartPeriodButton } from "./start-period";
+import { PeriodCard } from "./periods";
+import { SetupWizard } from "./setup/setup-wizard";
+import { StartPeriodButton, StartPeriodDialog } from "./start-period";
+import { useRouter } from "next/navigation";
 
 /**
- * Overview: what is open, what is waiting on you, what is waiting on
- * somebody else.
+ * Performance, opening on the one thing it is for: the appraisal.
  *
- * This used to be one of six tabs on this same route, switched with a
- * `?tab=` query string. It is the only one left here — the other five
- * (`kpis`, `review-tasks`, `skills`, `periods`, `appraisers`) and the
- * previously tab-less `approvals` queue all have their own route now, listed
- * in `nav.tsx`'s `performance` group. Splitting the doors did not change what
- * is behind any of them: `WhatNeedsYouTab` is the exact component the
- * `dashboard` tab rendered.
+ * What somebody sees depends on where the company is.
  *
- * `canSeeCompany`/`isManager` are computed here and nowhere else on this
- * page, because nothing else on it needs them — the KPI scope switcher that
- * used to share this state moved to `/performance/kpis` with the tab it
- * belonged to.
+ * | | |
+ * |---|---|
+ * | Never set up | One very large card that starts the set-up. |
+ * | Set up, no period yet | One very large card that starts the first period. |
+ * | A period exists | A card for each open period. |
+ *
+ * That is for whoever runs appraisals. Everybody else keeps their own list of
+ * what is waiting on them. KPIs and weekly tasks have their own pages.
  */
 export function PerformanceScreen() {
   const canSeeCompany = useCan("EDIT_RECORDS");
+  const canManage = useCan("MANAGE_SETTINGS");
   const isManager = useIsManager();
 
   return (
     <>
       <PageHeader title="Performance" action={<StartPeriodButton withIcon />} />
       <PageBody>
-        <WhatNeedsYouTab canSeeCompany={canSeeCompany} isManager={isManager} />
+        {canManage ? (
+          <AppraisalHome />
+        ) : (
+          <WhatNeedsYouTab
+            canSeeCompany={canSeeCompany}
+            isManager={isManager}
+          />
+        )}
       </PageBody>
     </>
+  );
+}
+
+function AppraisalHome() {
+  const router = useRouter();
+  const appraisals = useAppraisals();
+  const scoring = useScoringWeights();
+  const [setting, setSetting] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const periods = appraisals.cycles;
+  const open = periods.filter((period) => period.stage !== "PUBLISHED");
+  const setUp = periods.length > 0 || scoring.weights?.source === "saved";
+
+  return (
+    <LoadState
+      loading={appraisals.loading || scoring.loading}
+      error={appraisals.error}
+      subject="the appraisals"
+      onRetry={appraisals.reload}
+      hasData={periods.length > 0}
+      skeleton="list"
+    >
+      {!setUp ? (
+        <BigCard
+          title="Set up appraisals"
+          action="Get started"
+          onClick={() => setSetting(true)}
+        />
+      ) : periods.length === 0 ? (
+        <BigCard
+          title="Start your first appraisal"
+          action="Start an appraisal"
+          onClick={() => setStarting(true)}
+          secondary={<ChangeMarks onClick={() => setSetting(true)} />}
+        />
+      ) : open.length === 0 ? (
+        <BigCard
+          title="Start the next appraisal"
+          action="Start an appraisal"
+          onClick={() => setStarting(true)}
+          secondary={
+            <Link
+              href="/performance/periods"
+              className="text-body-sm text-accent-text hover:underline"
+            >
+              See past appraisals
+            </Link>
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {open.map((period) => (
+              <li key={period.id}>
+                <PeriodCard period={period} />
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <Link
+              href="/performance/periods"
+              className="text-body-sm text-accent-text hover:underline"
+            >
+              All appraisal periods
+            </Link>
+            <ChangeMarks onClick={() => setSetting(true)} />
+          </div>
+        </div>
+      )}
+
+      {setting && (
+        <SetupWizard
+          open
+          onClose={() => setSetting(false)}
+          onDone={(start) => {
+            setSetting(false);
+            scoring.reload();
+            appraisals.reload();
+            if (start) setStarting(true);
+          }}
+        />
+      )}
+      {starting && (
+        <StartPeriodDialog
+          open
+          onClose={() => setStarting(false)}
+          onCreated={(period) => {
+            setStarting(false);
+            router.push(`/performance/periods/${period.id}`);
+          }}
+        />
+      )}
+    </LoadState>
+  );
+}
+
+function ChangeMarks({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-body-sm text-accent-text hover:underline"
+    >
+      Change how marks are made up
+    </button>
+  );
+}
+
+function BigCard({
+  title,
+  action,
+  onClick,
+  secondary,
+}: {
+  title: string;
+  action: string;
+  onClick: () => void;
+  secondary?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-72 flex-col items-center justify-center gap-5 rounded-2xl border border-line bg-surface p-8 text-center">
+      <h2 className="text-h2 font-semibold text-ink">{title}</h2>
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex min-h-12 items-center justify-center rounded-xl bg-accent px-8 text-body font-semibold text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        {action}
+      </button>
+      {secondary}
+    </div>
   );
 }

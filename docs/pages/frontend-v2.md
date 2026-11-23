@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `a00b7a3e` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `e63ea30c` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
-**170 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**171 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   149 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   150 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    10 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(careers)`   |     2 | **A company's careers pages.** Public, no sign-in. The employer's own frame: its brand header and a one-line footer, none of the product's sales chrome.                                                             |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
@@ -57,10 +57,11 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Billing
 
-`/billing` — 1 page
+`/billing` — 2 pages
 
 | Route          | Title     | What it is                                         | File                                 |
 | -------------- | --------- | -------------------------------------------------- | ------------------------------------ |
+| `/billing`     | —         | —                                                  | `src/app/(app)/billing/page.tsx`     |
 | `/billing/pay` | Subscribe | Choose a plan and pay into your company's account. | `src/app/(app)/billing/pay/page.tsx` |
 
 ### Dashboard

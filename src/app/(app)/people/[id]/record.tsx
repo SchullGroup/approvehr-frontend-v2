@@ -56,7 +56,6 @@ import {
 } from "@/app/(app)/people/changes/propose-dialog";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
-import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira } from "@/lib/api/pay-components";
 import { koboFromDecimal, wasDeducted } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
@@ -603,15 +602,19 @@ export function EmployeeRecord({
 
         <Card>
           <CardBody className="flex flex-col gap-2">
-            <ButtonLink
-              href={`/payroll/payslips/${employee.id}`}
-              variant="secondary"
-              size="sm"
-              block
-            >
-              <FileText aria-hidden="true" className="size-3.5" />
-              View latest payslip
-            </ButtonLink>
+            {/* Demo only: there a payslip's id is the person's id. Connected
+                it is not, so this always opened "No payslip here" (L23). */}
+            {!connected && (
+              <ButtonLink
+                href={`/payroll/payslips/${employee.id}`}
+                variant="secondary"
+                size="sm"
+                block
+              >
+                <FileText aria-hidden="true" className="size-3.5" />
+                View latest payslip
+              </ButtonLink>
+            )}
             {/* The HR register's own file, opened on this person specifically —
                 gated the same as "Record their exit" below: the backend only
                 lets `EDIT_RECORDS` verify or remove a document (self-checking
@@ -645,11 +648,6 @@ export function EmployeeRecord({
               <TrendingUp aria-hidden="true" className="size-3.5" />
               {isSelf ? "My appraisal history" : "Their appraisal history"}
             </ButtonLink>
-            {/* The third door on one dialog. Starting a period covers the whole
-                company rather than this person — the dialog says so — and it is
-                here because looking at somebody's record is one of the moments
-                the thought arrives. Secondary, like its neighbours. */}
-            <StartPeriodButton block />
             {/* The fourth and last way a company brings somebody's email in:
                 the directory and attendance screens invite in a batch, the
                 importer does one per row that carries a role, the new-role

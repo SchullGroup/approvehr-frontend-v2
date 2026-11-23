@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ToastProvider } from "@/components/ui";
 import { AuthGate } from "@/components/portal/auth-gate";
 import { Logo } from "@/components/brand/logo";
@@ -38,8 +39,16 @@ export default function SetupLayout({
         <AuthGate>
           <div className="flex min-h-dvh flex-col bg-canvas">
             <header className="border-b border-line bg-surface">
-              <div className="mx-auto flex h-14 max-w-5xl items-center px-5">
+              <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
                 <Logo size={24} showWordmark={false} />
+                {/* A way out (L36). Every answer is saved as it is given, so
+                    the wizard picks up where it was left. */}
+                <Link
+                  href="/dashboard"
+                  className="text-body-sm font-medium text-accent-text underline-offset-4 hover:underline"
+                >
+                  Finish later
+                </Link>
               </div>
             </header>
             <main id="main" className="flex flex-1 flex-col">

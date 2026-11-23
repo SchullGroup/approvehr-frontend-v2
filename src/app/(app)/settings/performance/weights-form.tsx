@@ -39,6 +39,7 @@ import {
 } from "@/lib/api/performance";
 import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
 import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
+import { WeightsPie } from "@/components/performance/weights-pie";
 import { useCan } from "@/lib/permissions";
 import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
@@ -356,6 +357,17 @@ function PartsPanel({
                   >
                     {overFullWeightNote(view.totalBp)}
                   </p>
+                )}
+                {view.parts.length > 0 && (
+                  <div className="flex justify-center border-b border-line px-5 py-5">
+                    <WeightsPie
+                      slices={view.parts.map((part) => ({
+                        id: part.id,
+                        label: part.name,
+                        percent: Math.round(part.weightBp / 100),
+                      }))}
+                    />
+                  </div>
                 )}
                 {view.parts.length === 0 ? (
                   <div className="p-6">

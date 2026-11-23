@@ -27,6 +27,12 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
 vi.mock("@/lib/store/performance", () => ({
   outstandingIn: () => [],
+  useCycleQuestions: () => ({
+    questions: [],
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+  }),
   useRatingScale: () => ({ scale: { levels: [], max: 5, source: "default" } }),
   useReviewFlags: () => ({
     flags: null,

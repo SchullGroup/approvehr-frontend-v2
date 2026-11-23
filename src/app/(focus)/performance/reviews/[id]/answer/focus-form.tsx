@@ -10,6 +10,7 @@ import type {
   AnswerBody,
   ApiFormQuestion,
   ApiReviewDetail,
+  SubmitReviewBody,
 } from "@/lib/api/performance";
 import { useDevelopmentSuggestions } from "@/lib/store/ai";
 import { useRatingScale, useReviewMutations } from "@/lib/store/performance";
@@ -43,6 +44,8 @@ import {
   CheckStep,
   IntroStep,
   MarkStep,
+  POTENTIAL_REASON_MIN,
+  PotentialStep,
   QuestionStep,
   SummaryStep,
   sendLabel,
@@ -119,6 +122,7 @@ type Step =
   | { kind: "intro" }
   | { kind: "question"; question: ApiFormQuestion; position: number }
   | { kind: "mark" }
+  | { kind: "potential" }
   | { kind: "summary" }
   | { kind: "check" };
 
@@ -152,6 +156,12 @@ export function FocusForm({
   const [withMark] = useState(() => asksOverallMark(review));
   const [markRequired] = useState(() => needsOverallMark(review));
 
+  /* How far could they go: asked at the end of a manager's review, in a period
+     that asks it. It fills the talent map as reviews are sent. */
+  const [withPotential] = useState(
+    () => review.kind === "MANAGER" && review.askPotential !== false,
+  );
+
   const steps = useMemo<Step[]>(
     () => [
       { kind: "intro" },
@@ -161,10 +171,11 @@ export function FocusForm({
         position: at + 1,
       })),
       ...(withMark ? [{ kind: "mark" } as Step] : []),
+      ...(withPotential ? [{ kind: "potential" } as Step] : []),
       { kind: "summary" },
       { kind: "check" },
     ],
-    [review.questions, withMark],
+    [review.questions, withMark, withPotential],
   );
 
   const [local] = useState(() => readLocalDraft(review.id));
@@ -181,6 +192,8 @@ export function FocusForm({
     startingMark({ asks: withMark, local: local.mark, held: review.rating }),
   );
   const [summary, setSummary] = useState(local.summary);
+  const [potential, setPotential] = useState("");
+  const [potentialReason, setPotentialReason] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [failed, setFailed] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -442,9 +455,14 @@ export function FocusForm({
     setSending(true);
     try {
       if (!(await flush(draft))) return;
-      const body: { rating?: number; summary?: string } = {};
+      const body: SubmitReviewBody = {};
       if (withMark && mark) body.rating = Number(mark);
       if (summary.trim()) body.summary = summary.trim();
+      if (withPotential && potential) {
+        body.potential = potential as "LOW" | "MEDIUM" | "HIGH";
+        if (potentialReason.trim())
+          body.potentialReason = potentialReason.trim();
+      }
       onSending(true);
       await send(review.id, body, []);
       clearLocalDraft(review.id);
@@ -566,16 +584,26 @@ export function FocusForm({
         ? "Before you start"
         : current.kind === "mark"
           ? "Overall mark"
-          : current.kind === "summary"
-            ? closingNoteWords(review.kind).row
-            : "Preview";
+          : current.kind === "potential"
+            ? "Potential"
+            : current.kind === "summary"
+              ? closingNoteWords(review.kind).row
+              : "Preview";
 
   const optionalAndEmpty =
     (current.kind === "question" &&
       !current.question.required &&
       !filled(current.question, onRecord(current.question))) ||
     (current.kind === "mark" && !mark && !markRequired) ||
+    (current.kind === "potential" && !potential) ||
     (current.kind === "summary" && !summary.trim());
+
+  /* "Ready for a bigger role" is read by whoever decides a promotion, so it has
+     to say why. The other two answers need nothing more. */
+  const potentialBlocked =
+    current.kind === "potential" &&
+    potential === "HIGH" &&
+    potentialReason.trim().length < POTENTIAL_REASON_MIN;
 
   const nextLabel =
     current.kind === "intro"
@@ -745,6 +773,19 @@ export function FocusForm({
               nudged={nudged}
             />
           )}
+          {current.kind === "potential" && (
+            <PotentialStep
+              firstName={firstName}
+              potential={potential}
+              reason={potentialReason}
+              onPick={setPotential}
+              onClear={() => {
+                setPotential("");
+                setPotentialReason("");
+              }}
+              onReason={setPotentialReason}
+            />
+          )}
           {current.kind === "summary" && (
             <SummaryStep
               review={review}
@@ -772,7 +813,10 @@ export function FocusForm({
                   where === "mark"
                     ? 1 + review.questions.length
                     : where === "summary"
-                      ? 1 + review.questions.length + (withMark ? 1 : 0)
+                      ? 1 +
+                        review.questions.length +
+                        (withMark ? 1 : 0) +
+                        (withPotential ? 1 : 0)
                       : 1 + review.questions.indexOf(where),
                 )
               }
@@ -794,7 +838,11 @@ export function FocusForm({
           variant="accent"
           size="lg"
           loading={sending}
-          disabled={reading || (current.kind === "check" && sendClosed)}
+          disabled={
+            reading ||
+            potentialBlocked ||
+            (current.kind === "check" && sendClosed)
+          }
           onClick={() => advance()}
         >
           {nextLabel}
