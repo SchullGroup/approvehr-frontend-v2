@@ -977,19 +977,28 @@ function ProgressStats({
     );
   }
 
-  /* Both halves of each ratio come off the same rows. A manager review is a
-     review and not a person: somebody with two appraisers owes two and somebody
-     with none owes none, so the denominator is how many exist. */
-  const managerTotal = participants.rows.reduce(
-    (total, row) => total + row.managers.length,
-    0,
-  );
-  const managerIn = participants.rows.reduce(
-    (total, row) => total + row.managers.filter((one) => one.submitted).length,
-    0,
-  );
-  const selfTotal = participants.rows.filter((row) => row.self !== null).length;
-  const selfIn = participants.rows.filter((row) => row.self?.submitted).length;
+  /* The API's counts, which the report's `progress` and the dashboard read too
+     (U103 / CRAWL-2): people, out of the people each applies to. An API that
+     predates `selfTotal` is counted off the same rows, as before. */
+  const { counts } = participants;
+  const fromApi =
+    counts.selfTotal !== undefined && counts.managerTotal !== undefined;
+  const managerTotal = fromApi
+    ? counts.managerTotal!
+    : participants.rows.reduce((total, row) => total + row.managers.length, 0);
+  const managerIn = fromApi
+    ? counts.managerDone
+    : participants.rows.reduce(
+        (total, row) =>
+          total + row.managers.filter((one) => one.submitted).length,
+        0,
+      );
+  const selfTotal = fromApi
+    ? counts.selfTotal!
+    : participants.rows.filter((row) => row.self !== null).length;
+  const selfIn = fromApi
+    ? counts.selfDone
+    : participants.rows.filter((row) => row.self?.submitted).length;
   const ratio = (done: number, total: number) =>
     total === 0 ? <span className="text-faint">—</span> : `${done} of ${total}`;
 

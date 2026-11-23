@@ -705,12 +705,26 @@ export type ApiParticipant = {
   peers: { asked: number; answered: number };
 };
 
+/** "9 of 13": how many are done out of how many it applies to. */
+export type ApiProgressCount = { done: number; of: number };
+
 export type ApiCycleParticipants = {
   cycleId: string;
   cycleName: string;
   stage: ReviewCycleStage;
   rows: ApiParticipant[];
-  counts: { people: number; selfDone: number; managerDone: number };
+  counts: {
+    people: number;
+    selfDone: number;
+    managerDone: number;
+    /**
+     * People with a self-review form, and people with a manager review: what
+     * `selfDone` and `managerDone` are out of (UAT 23 Nov, U103). The same
+     * figures as the report's `progress`. Absent from an older API.
+     */
+    selfTotal?: number;
+    managerTotal?: number;
+  };
 };
 
 /**
@@ -1974,6 +1988,20 @@ export type ApiCycleReport = {
     awaitingAnswer: number;
     /** No manager review row at all — a different fact from an unwritten one. */
     noReview: number;
+  };
+  /**
+   * The one set of progress counts every screen shows (UAT 23 Nov, U103 /
+   * CRAWL-2: "Self 9 of 29" on the dashboard and "9 of 13" on the period page).
+   * Each is people out of the people it applies to: self-reviews out of people
+   * with a self form, manager reviews out of people with a manager review,
+   * final scores out of the period's people, sign-off out of the scores made
+   * final. Absent from an older API.
+   */
+  progress?: {
+    self: ApiProgressCount;
+    manager: ApiProgressCount;
+    finalised: ApiProgressCount;
+    acknowledged: ApiProgressCount;
   };
   components: ApiReportComponent[];
   /** Who finishes with no mark, by name. */

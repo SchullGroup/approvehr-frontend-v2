@@ -16,7 +16,10 @@ const questionsMounted = vi.hoisted(() => ({ count: 0 }));
 const questionsRead = vi.hoisted(() => ({ count: 0 }));
 const updateCycle: Mock<(...args: unknown[]) => Promise<unknown>> = vi.fn();
 const reload = vi.fn();
-const state = vi.hoisted(() => ({ exceptions: null as unknown }));
+const state = vi.hoisted(() => ({
+  exceptions: null as unknown,
+  participants: null as unknown,
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
@@ -53,7 +56,7 @@ vi.mock("@/lib/store/performance", () => ({
         questionCount: 0,
         reviewCount: 0,
       },
-      participants: {
+      participants: state.participants ?? {
         counts: { people: 3 },
         rows: [],
       },
@@ -126,6 +129,27 @@ const person = (name: string, code = "NO_APPRAISER") => ({
 beforeEach(() => {
   canManage = true;
   state.exceptions = null;
+  state.participants = null;
+});
+
+/* U103 / CRAWL-2: the page reads the API's counts, which the report's
+   progress and the dashboard read too. */
+describe("the period's progress", () => {
+  it("reads self-reviews and manager reviews from the API's counts", () => {
+    state.participants = {
+      counts: {
+        people: 29,
+        selfDone: 10,
+        managerDone: 9,
+        selfTotal: 13,
+        managerTotal: 13,
+      },
+      rows: [],
+    };
+    mount();
+    expect(screen.getByText("10 of 13")).toBeInTheDocument();
+    expect(screen.getByText("9 of 13")).toBeInTheDocument();
+  });
 });
 
 describe("the people nobody is appraising", () => {
