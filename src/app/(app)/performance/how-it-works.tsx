@@ -9,6 +9,7 @@ import {
   TextLink,
 } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
+import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 import { useFramework, useScoringWeights } from "@/lib/store/performance";
 
 /**
@@ -116,10 +117,7 @@ export function HowItWorksBody() {
         <p className="text-body-sm font-semibold text-ink">
           Objectives and competencies make up the mark
         </p>
-        <p className="mt-1">
-          Each part counts for a share of the mark, and the shares always add up
-          to 100%.
-        </p>
+        <p className="mt-1">{WEIGHTS_RULE}</p>
 
         {loading ? (
           <p className="mt-2 flex items-center gap-2 text-muted">
@@ -238,10 +236,10 @@ export function HowItWorksBody() {
           Then the person is told, and replies
         </p>
         <p className="mt-1">
-          The appraiser makes the mark final and the employee reads it. They
-          either acknowledge it or formally disagree, and both are recorded with
-          a date. Acknowledging is not agreeing, and the screen says so before
-          they do it.
+          The appraiser makes the mark final and the employee reads it, then
+          acknowledges that they have seen it, which is recorded with a date.
+          Acknowledging is not agreeing, and the screen says so before they do
+          it. Somebody who does not accept their rating tells HR.
         </p>
       </div>
     </div>

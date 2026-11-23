@@ -19,6 +19,10 @@ import {
   LoadState,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import {
+  HIRING_SETTINGS_CRUMBS,
+  HiringSettingsTabs,
+} from "../../settings/settings-shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import type {
   ApiCareersSettings,
@@ -146,11 +150,11 @@ export function problemsWith(
   return found;
 }
 
-const CRUMBS = [
-  { href: "/hiring", label: "Hiring" },
-  { href: "/hiring/postings", label: "Job adverts" },
-  { href: "/hiring/postings/settings", label: "Careers page settings" },
-];
+/* A tab of Hiring settings (UAT 23 Nov, U99 / PERF-19): same heading, same
+   tabs, same breadcrumb as the other hiring settings pages. */
+const CRUMBS = HIRING_SETTINGS_CRUMBS;
+const ACTIVE = "/hiring/postings/settings";
+const TITLE = "Hiring settings";
 
 export function CareersSettingsScreen() {
   const { can, loading } = usePermissions();
@@ -158,7 +162,11 @@ export function CareersSettingsScreen() {
   if (loading) {
     return (
       <>
-        <PageHeader title="Careers page settings" breadcrumb={CRUMBS} />
+        <PageHeader
+          title={TITLE}
+          breadcrumb={CRUMBS}
+          tabs={<HiringSettingsTabs active={ACTIVE} />}
+        />
         <PageBody>
           <Skeleton className="h-40 w-full" />
           <span className="sr-only-focusable">Loading the settings</span>
@@ -170,10 +178,15 @@ export function CareersSettingsScreen() {
   if (!can("MANAGE_HIRING")) {
     return (
       <>
-        <PageHeader title="Careers page settings" breadcrumb={CRUMBS} />
+        <PageHeader
+          title={TITLE}
+          breadcrumb={CRUMBS}
+          tabs={<HiringSettingsTabs active={ACTIVE} />}
+        />
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot change these"
               description="They decide what strangers are told and asked to accept in your company's name, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -209,7 +222,11 @@ function Settings() {
   if (!settings) {
     return (
       <>
-        <PageHeader title="Careers page settings" breadcrumb={CRUMBS} />
+        <PageHeader
+          title={TITLE}
+          breadcrumb={CRUMBS}
+          tabs={<HiringSettingsTabs active={ACTIVE} />}
+        />
         <PageBody>
           <LoadState
             loading={!store.error}
@@ -287,8 +304,9 @@ function Settings() {
   return (
     <>
       <PageHeader
-        title="Careers page settings"
+        title={TITLE}
         breadcrumb={CRUMBS}
+        tabs={<HiringSettingsTabs active={ACTIVE} />}
         meta={<SourceBadge live={store.editable} />}
         action={
           <>
@@ -328,6 +346,13 @@ function Settings() {
             of the page column rather than in its middle so it lines up with the
             title above it on a wide screen. */}
         <div className="flex max-w-3xl flex-col gap-6">
+          <div>
+            <h2 className="text-h4 text-ink">Careers page</h2>
+            <p className="mt-1 max-w-2xl text-body-sm text-muted">
+              How your company appears to applicants, what they are asked to
+              accept, and the confirmation email they get.
+            </p>
+          </div>
           {DEMO_ENABLED && !store.editable && (
             <Callout tone="warning" title="Read-only in demo mode">
               These stand for what your company has already told applicants. A

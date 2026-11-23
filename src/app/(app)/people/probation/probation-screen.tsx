@@ -94,6 +94,7 @@ export function ProbationScreen() {
           <CardBody className="text-body-sm text-muted">Loading…</CardBody>
         ) : due.length === 0 ? (
           <EmptyState
+            mood="all-clear"
             icon={<CalendarClock aria-hidden="true" className="size-5" />}
             title="No probations ending"
             description="Nobody's probation ends in the next 30 days, and none have been missed."

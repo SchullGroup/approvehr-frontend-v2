@@ -533,18 +533,13 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   },
   {
     "href": "/settings/roles",
-    "title": "Roles and permissions",
+    "title": "Access",
     "description": "Who can see salaries, approve payroll, or export employee data."
   },
   {
     "href": "/settings/security",
     "title": "Sign-in security",
     "description": "Two-factor sign-in, the actions that need a code, and your recovery codes."
-  },
-  {
-    "href": "/settings/setup",
-    "title": "Setting up your company",
-    "description": "What is still to set up, and what each step changes in the product."
   },
   {
     "href": "/settings/sms",

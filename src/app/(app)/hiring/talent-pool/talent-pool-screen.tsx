@@ -92,6 +92,7 @@ export function TalentPoolScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the talent pool"
               description="It holds people's contact details and notes from applications they made, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -188,11 +189,7 @@ function Pool() {
 
   return (
     <>
-      <PageHeader
-        title="Talent pool"
-        breadcrumb={CRUMBS}
-        description="People the company decided to keep on file for another role, across every job."
-      />
+      <PageHeader title="Talent pool" breadcrumb={CRUMBS} />
       <PageBody className="flex flex-col gap-5">
         <FilterBar
           search={search}
@@ -246,6 +243,7 @@ function Pool() {
           {list.rows.length === 0 && !stale ? (
             <Card>
               <EmptyState
+                mood={narrowed ? "search" : "nothing"}
                 icon={<Star aria-hidden="true" />}
                 title={
                   narrowed ? "Nobody matches" : "Nobody is kept on file yet"

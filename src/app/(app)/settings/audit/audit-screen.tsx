@@ -120,6 +120,7 @@ export function AuditScreen(props: ScreenProps = {}) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the audit log"
               description="It shows who looked at whose pay, so it is kept to specific people. Ask whoever manages access to add the audit permission to your role."
@@ -432,6 +433,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
           {trail.entries.length === 0 ? (
             <Card>
               <EmptyState
+                mood={filtered ? "search" : "nothing"}
                 icon={<ShieldCheck aria-hidden="true" />}
                 title={
                   filtered

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { TrendingUp } from "lucide-react";
 import {
   Badge,
@@ -51,6 +52,12 @@ export function ChangesScreen() {
   const { rows, loading, error, unavailable, reload } = useEmploymentChanges();
   const [proposing, setProposing] = useState(false);
   const [deciding, setDeciding] = useState<ApiEmploymentChangeRow | null>(null);
+  /* `?change=<id>` is where My approvals sends somebody to decide a promotion
+     or pay change (U17): the change opens in its decide dialog. Derived, not
+     copied into state, so it opens on the first paint once the rows are in;
+     closing it is remembered so it does not open again. */
+  const linked = useSearchParams().get("change");
+  const [linkClosed, setLinkClosed] = useState(false);
 
   /* Two separate calls rather than `canEdit && canApprove`: `&&`
      short-circuits, which makes the second a conditional hook and changes the
@@ -76,6 +83,11 @@ export function ChangesScreen() {
   }
 
   const waiting = rows.filter((row) => row.status === "PENDING_APPROVAL");
+  const fromLink =
+    linked && !linkClosed && canApprove
+      ? (waiting.find((row) => row.id === linked) ?? null)
+      : null;
+  const open = deciding ?? fromLink;
   const agreed = rows.filter((row) => row.status === "SCHEDULED");
   /* A scheduled change whose date has passed means the sweep has not run. Worth
      seeing, because the alternative is inferring it from two timestamps. */
@@ -125,6 +137,7 @@ export function ChangesScreen() {
           <CardBody className="text-body-sm text-muted">Loading…</CardBody>
         ) : waiting.length === 0 ? (
           <EmptyState
+            mood="caught-up"
             icon={<TrendingUp aria-hidden="true" className="size-5" />}
             title="Nothing waiting"
             description={
@@ -258,8 +271,14 @@ export function ChangesScreen() {
       )}
 
       {proposing && <ProposeChangeDialog onClose={() => setProposing(false)} />}
-      {deciding && (
-        <DecideChangeDialog row={deciding} onClose={() => setDeciding(null)} />
+      {open && (
+        <DecideChangeDialog
+          row={open}
+          onClose={() => {
+            setDeciding(null);
+            setLinkClosed(true);
+          }}
+        />
       )}
     </div>
   );

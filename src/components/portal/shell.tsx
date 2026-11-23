@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -19,12 +19,22 @@ import { Logo } from "@/components/brand/logo";
 import { Avatar, Badge } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
-import { NAV, visibleNav, type BadgeSource, type NavFacts } from "./nav";
+import {
+  DECIDING_PERMISSIONS,
+  NAV,
+  backTarget,
+  navRouteReachable,
+  visibleNav,
+  type NavGroup,
+  type BadgeSource,
+  type NavFacts,
+} from "./nav";
 import { SidebarNav } from "./sidebar";
 import { SessionRoleBadge } from "./role-badge";
 import {
   hasAnyPermission,
   hasPermission,
+  useCan,
   useIsManager,
   usePermissions,
 } from "@/lib/permissions";
@@ -60,6 +70,13 @@ import { useDismiss } from "@/hooks/use-dismiss";
  * The active route is marked with a soft accent tint plus aria-current, so the
  * position is available to assistive technology and not only to the eye.
  */
+/**
+ * The sidebar's answer for the signed-in reader, for the page headers under it:
+ * a "Back to …" link must not point at a page the sidebar hides from them.
+ * `null` outside the shell, which leaves every link as written.
+ */
+const VisibleNavContext = createContext<readonly NavGroup[] | null>(null);
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   /* Desktop only: hide the sidebar for a full-width page. Remembered per browser. */
@@ -228,6 +245,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
            row that opened a page saying "not part of your access". */
         "master-view":
           programsNav.seesAll && hasPermission(permissions, "SEE_ALL_WORK"),
+        approvals:
+          isManager || hasAnyPermission(permissions, DECIDING_PERMISSIONS),
+        "agrees-objectives":
+          isManager || hasPermission(permissions, "EDIT_RECORDS"),
+        exits:
+          isManager ||
+          hasPermission(permissions, "EDIT_RECORDS") ||
+          hasPermission(permissions, "START_EXIT_DEPARTMENT"),
       },
       collaborator,
     }),
@@ -545,7 +570,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <HolidayBanner />
           </div>
           <CollaboratorGate>
-            <BillingGate>{children}</BillingGate>
+            <VisibleNavContext.Provider value={groups}>
+              <BillingGate>{children}</BillingGate>
+            </VisibleNavContext.Provider>
           </CollaboratorGate>
         </main>
       </div>
@@ -670,6 +697,11 @@ function UserMenu() {
   /* Invited to help hire: no personnel file, so no profile and no documents of their
      own to open, and no sidebar to take a tour of. */
   const collaborator = useIsCollaborator();
+  /* The company's Settings hub is the administrator's. Everybody else is sent to
+     the two pages under it that are theirs (UAT 23 Nov, SELF-12: "Settings" in
+     the account menu opened onto "You cannot open Settings"). */
+  const managesSettings = useCan("MANAGE_SETTINGS");
+  const ownSettingsOnly = collaborator || !managesSettings;
 
   /* No seed fallback. `UserMenu` only renders behind `AuthGate`, so a missing
      name means the session is mid-load rather than absent — and borrowing a
@@ -796,13 +828,23 @@ function UserMenu() {
               </>
             )}
             <Link
-              href={collaborator ? "/settings/security" : "/settings"}
+              href={ownSettingsOnly ? "/settings/security" : "/settings"}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
             >
-              {collaborator ? "Password and security" : "Settings"}
+              {ownSettingsOnly ? "Password and security" : "Settings"}
             </Link>
+            {ownSettingsOnly && !collaborator && (
+              <Link
+                href="/settings/appearance"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+              >
+                Appearance
+              </Link>
+            )}
             {/* Dismissing the tour is not a decision anybody should be stuck
                 with, and this is the only way back to it. */}
             {!collaborator && (
@@ -974,13 +1016,15 @@ export function PageHeader({
    * Comparing the last crumb's href against the current path is what tells
    * the two apart without asking every call site to say which shape it used.
    */
-  const backCrumb =
+  const visible = useContext(VisibleNavContext);
+  const parentCrumb =
     breadcrumb && breadcrumb.length > 0
       ? breadcrumb[breadcrumb.length - 1]!.href === pathname &&
         breadcrumb.length > 1
         ? breadcrumb[breadcrumb.length - 2]!
         : breadcrumb[breadcrumb.length - 1]!
       : null;
+  const backCrumb = parentCrumb ? backTarget(parentCrumb, visible) : null;
 
   /*
    * One way back and one trail, never two saying the same thing.
@@ -1073,9 +1117,13 @@ export function PageHeader({
                               /
                             </span>
                           )}
-                          <Link href={crumb.href} className="hover:text-ink">
-                            {crumb.label}
-                          </Link>
+                          {navRouteReachable(crumb.href, visible) ? (
+                            <Link href={crumb.href} className="hover:text-ink">
+                              {crumb.label}
+                            </Link>
+                          ) : (
+                            <span>{crumb.label}</span>
+                          )}
                         </li>
                       ))}
                     </ol>

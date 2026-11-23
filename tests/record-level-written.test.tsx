@@ -526,6 +526,11 @@ describe("the appraisal period", () => {
   it("says, with none chosen, that it is a snapshot, and promises nothing about a mark", async () => {
     mount();
     await pickSkill("Communication");
+    /* It starts in the running period (U93), so choose none. */
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Appraisal period/),
+      "",
+    );
     expect(
       screen.getByText("A snapshot of where they are now."),
     ).toBeInTheDocument();

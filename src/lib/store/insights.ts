@@ -95,16 +95,18 @@ export function useDashboard(): DashboardState & { reload: () => void } {
       ...(seesCompanyOverview
         ? {
             headcount: {
-              /* `directory` already excludes archived records. */
-              active: directory.length,
-              startingThisMonth: directory.filter((e) =>
-                e.startDate.startsWith(month),
+              /* `directory` already excludes archived records. Somebody not
+                 paid through payroll is not on the payroll, so they are left
+                 out of all three, as the API leaves them out. */
+              active: directory.filter((e) => !e.notOnPayroll).length,
+              startingThisMonth: directory.filter(
+                (e) => !e.notOnPayroll && e.startDate.startsWith(month),
               ).length,
               leavingThisMonth: 0,
               /* The same test payroll blocks on, so the demo figure means
                  what the connected one means. */
               incomplete: directory.filter(
-                (e) => !e.bankAccount || !e.pensionPin,
+                (e) => !e.notOnPayroll && (!e.bankAccount || !e.pensionPin),
               ).length,
             },
             /* Zero rather than a guess. The approvals queue belongs to

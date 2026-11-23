@@ -191,6 +191,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
         <PageHeader title="Shifts" />
         <PageBody>
           <EmptyState
+            plain
             icon={<ToggleRight aria-hidden="true" />}
             title="Shifts are switched off"
             description="Rotas, night duty and weekend cover instead of one working pattern."

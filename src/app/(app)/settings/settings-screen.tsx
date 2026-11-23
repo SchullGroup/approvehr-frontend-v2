@@ -3,185 +3,186 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  ArrowRight,
   Bell,
   BookOpen,
+  Building2,
   Clock,
   Cpu,
+  Landmark,
   LifeBuoy,
+  MapPin,
   MessageSquare,
+  Network,
   Search,
   ShieldCheck,
-  Check,
   FileText,
   Gauge,
-  ListChecks,
   BriefcaseBusiness,
+  CalendarDays,
   ClipboardCheck,
+  KeyRound,
   Megaphone,
   ScrollText,
+  SlidersHorizontal,
   Sparkles,
   SunMoon,
   Timer,
-  Users,
+  Banknote,
   Plug,
-  /* Webhook — with the Webhooks card below, commented out for now. */
   ToggleRight,
 } from "lucide-react";
-import { Callout, Input, LinkCard, ProgressMeter } from "@/components/ui";
+import { Callout, Input } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useSettingsSearchHistory } from "@/lib/store/settings-search-history";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { useFeatures } from "@/lib/store/features";
+import { useAssistantAvailable } from "@/lib/store/ai";
+import { useSmsStatus } from "@/lib/store/sms";
+import { useWorkTrackerProviders } from "@/lib/store/work-trackers";
 import { BillingCard, useBillingStatus } from "./billing-card";
-import { Row } from "./setup-row";
-import { checklistProgress, checklistRows } from "./checklist";
+import { STATUS } from "./setup-row";
+import { checklistRows, type ChecklistRow } from "./checklist";
 import {
   BILLING,
-  PAGE_MODULE,
   PAGE_WORDS,
+  SETTINGS_GROUPS,
   SETTINGS_PAGES,
-  ROW_MODULE,
-  ROW_WORDS,
   firstSentence,
   matches,
   termsOf,
+  type SettingsNeeds,
+  type SettingsPage,
 } from "./filter";
 
 /**
- * Settings — one place to set the company up.
+ * Settings: one page, six titled groups, every setting once.
  *
- * ## What this page used to be, and why it changed
+ * UAT 23 Nov (U43: HR-9, NC-17). The page used to be 19 unsorted cards whose
+ * names did not match the pages behind them, and the setup pages (company
+ * profile, work locations, leave, payroll, bank accounts) were reachable only
+ * through a small "Setting up" chip that opened a separate checklist page.
+ * Every page is now listed under the title it carries, in one of six groups,
+ * and the five setup pages say where they stand beside their name. What is
+ * still to set up is also on the dashboard, as a card the owner can hide.
  *
- * Eight `LinkCard`s in four groups. Every card was a real link and none of them
- * said whether there was anything behind it, so the page answered "here are
- * eight pages" and the question people arrive with is "what do I still need to
- * set up". The parameters of a company — how many offices, which employee fields
- * are asked for, leave types, holidays, pay setup — sit on a dozen screens, and
- * nothing presented them as one job.
- *
- * So the seven that constitute *setting the company up* are a checklist, each
- * row carrying its own state and what it affects, and the rest — the noticeboard,
- * the knowledge base, notifications, integrations, webhooks, the audit trail —
- * are below it as an index, which is the right shape for things that are ongoing
- * rather than a task with an end.
- *
- * The judgement about what "done" means is in `./checklist.ts`, deliberately
- * apart from the layout: it is a page of sentences and conditions, and mixing it
- * into JSX is how a sentence ends up written twice.
- *
- * ## Every row links somewhere real
- *
- * There are no "not built yet" cards on this page and there must never be. The
- * project's own rule is that nothing links at a page that is not there, and a
- * checklist is the worst place to break it — a row somebody cannot act on is
- * worse than a row that does not exist, because it looks like their fault.
+ * A page that cannot be used yet on this server (the assistant, text messages,
+ * integrations) is not listed until it can (U52).
  */
 
-/**
- * The things that are not setup.
- *
- * Kept as plain links on purpose: none of them has a finished state. A company
- * does not complete its noticeboard. Putting them in the checklist would give
- * the count a denominator that never falls to zero, which is how a checklist
- * stops being read.
- */
 const ICONS: Record<string, React.ReactNode> = {
+  "/settings/company": <Building2 aria-hidden="true" />,
+  "/settings/locations": <MapPin aria-hidden="true" />,
+  "/people/departments": <Network aria-hidden="true" />,
   "/settings/features": <ToggleRight aria-hidden="true" />,
-  "/settings/job-roles": <BriefcaseBusiness aria-hidden="true" />,
-  "/settings/queries": <MessageSquare aria-hidden="true" />,
-  "/settings/required-details": <ClipboardCheck aria-hidden="true" />,
   "/settings/announcements": <Megaphone aria-hidden="true" />,
-  "/settings/security": <ShieldCheck aria-hidden="true" />,
+  "/settings/policies": <ScrollText aria-hidden="true" />,
+  "/settings/job-roles": <BriefcaseBusiness aria-hidden="true" />,
+  "/settings/required-details": <ClipboardCheck aria-hidden="true" />,
+  "/settings/queries": <MessageSquare aria-hidden="true" />,
+  "/settings/performance": <Gauge aria-hidden="true" />,
   "/settings/helpdesk": <LifeBuoy aria-hidden="true" />,
   "/settings/knowledge": <BookOpen aria-hidden="true" />,
-  "/settings/policies": <ScrollText aria-hidden="true" />,
+  "/settings/leave": <CalendarDays aria-hidden="true" />,
   "/settings/attendance": <Clock aria-hidden="true" />,
-  "/settings/devices": <Cpu aria-hidden="true" />,
   "/settings/overtime": <Timer aria-hidden="true" />,
-  "/settings/performance": <Gauge aria-hidden="true" />,
+  "/settings/devices": <Cpu aria-hidden="true" />,
+  "/settings/payroll": <Banknote aria-hidden="true" />,
+  "/settings/bank-accounts": <Landmark aria-hidden="true" />,
+  "/payroll/pay-setup": <SlidersHorizontal aria-hidden="true" />,
+  "/settings/roles": <KeyRound aria-hidden="true" />,
+  "/settings/security": <ShieldCheck aria-hidden="true" />,
+  "/settings/audit": <FileText aria-hidden="true" />,
   "/settings/notifications": <Bell aria-hidden="true" />,
   "/settings/sms": <MessageSquare aria-hidden="true" />,
-  "/settings/appearance": <SunMoon aria-hidden="true" />,
   "/settings/ai": <Sparkles aria-hidden="true" />,
   "/settings/integrations": <Plug aria-hidden="true" />,
-  "/settings/audit": <FileText aria-hidden="true" />,
-  "/people": <Users aria-hidden="true" />,
+  "/settings/appearance": <SunMoon aria-hidden="true" />,
 };
 
-/* The settings pages are data in `./filter` (the global search reads them too);
-   this adds the icon. Comments about individual pages moved with their data
-   to git history, not to the file. */
-const ONGOING = SETTINGS_PAGES.map((page) => ({
-  ...page,
-  icon: ICONS[page.href],
-}));
-
 /**
- * The setup checklist, as one small link beside the search box.
+ * Which of the pages that need something on the server have it.
  *
- * It used to be a full-width card above everything else, open while anything
- * was outstanding, and it pushed the page the owner came for below the fold.
- * The count and the bar stay, because they are what makes the link worth
- * pressing; the rows moved to their own page (`/settings/setup`), which is
- * where "what is still to set up" gets answered in full.
- *
- * Drawn only once the checklist has answered: a bar beside a number nobody has
- * worked out yet would be a figure with nothing under it.
+ * Each answer is `false` until it is known, so a page appears a moment late
+ * rather than appearing and then going.
  */
-function SetupLink({
-  loading,
-  progress,
-  complete,
+function useServerHas(): Record<SettingsNeeds, boolean> {
+  const { available: assistant } = useAssistantAvailable();
+  const sms = useSmsStatus();
+  const trackers = useWorkTrackerProviders();
+  return {
+    assistant,
+    sms: sms.data?.transport.sends === true,
+    integrations: trackers.providers.some(
+      (provider) =>
+        (provider.available && provider.configured) ||
+        provider.connections.length > 0,
+    ),
+  };
+}
+
+/** The pages this company can use, before any search. */
+export function listedPages(
+  pages: readonly SettingsPage[],
+  features: Partial<Record<"departments" | "appraisals", boolean>>,
+  has: Record<SettingsNeeds, boolean>,
+): SettingsPage[] {
+  return pages.filter(
+    (page) =>
+      (page.feature === undefined || features[page.feature] !== false) &&
+      (page.needs === undefined || has[page.needs]),
+  );
+}
+
+function PageRow({
+  page,
+  row,
 }: {
-  loading: boolean;
-  progress: ReturnType<typeof checklistProgress>;
-  complete: boolean;
+  page: SettingsPage;
+  row: ChecklistRow | undefined;
 }) {
-  if (loading || progress.total === 0) return null;
+  const status = row ? STATUS[row.status] : null;
   return (
-    <Link
-      href="/settings/setup"
-      className="inline-flex min-h-10 items-center gap-3 rounded-md border border-line bg-surface px-3 py-1.5 hover:border-line-strong"
-    >
-      {complete ? (
-        <Check aria-hidden="true" className="size-4 text-success-text" />
-      ) : (
-        <ListChecks aria-hidden="true" className="size-4 text-muted" />
-      )}
-      <span className="flex flex-col gap-1">
-        <span className="text-meta font-semibold text-ink">
-          {complete
-            ? "Company set up"
-            : `Setting up: ${progress.done} of ${progress.total} done`}
+    <li>
+      <Link
+        href={page.href}
+        className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+      >
+        <span
+          aria-hidden="true"
+          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text [&>svg]:size-4"
+        >
+          {ICONS[page.href]}
         </span>
-        <ProgressMeter
-          value={progress.done}
-          max={progress.total}
-          tone={complete ? "success" : "accent"}
-          size="sm"
-          showValue={false}
-        />
-      </span>
-      <ArrowRight aria-hidden="true" className="size-3.5 text-muted" />
-    </Link>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span className="font-semibold text-ink">{page.title}</span>
+            {status && row && row.status !== "unknown" && (
+              <span className="text-meta text-muted">{status.label}</span>
+            )}
+          </span>
+          <span className="truncate text-body-sm text-muted">
+            {firstSentence(page.description)}
+          </span>
+        </span>
+      </Link>
+    </li>
   );
 }
 
 export function SettingsScreen() {
   /* No year argument. Connected, the API answers from its own clock and says
-     which year it used; offline the hook uses the demo's fixed date. Either way
-     the figure the row renders comes back with the facts rather than being
-     assumed here — see `lib/store/setup-checklist.ts`. */
-  const { facts, loading, error, source, reload } = useSetupChecklist();
-
+     which year it used; offline the hook uses the demo's fixed date. */
+  const { facts, loading, error, reload } = useSetupChecklist();
   const rows = facts === null ? [] : checklistRows(facts);
-  const progress = checklistProgress(rows);
-  const complete = progress.total > 0 && progress.done === progress.total;
+  const rowById = new Map(rows.map((row) => [row.id, row]));
+
+  const features = useFeatures();
+  const has = useServerHas();
+  const listed = listedPages(SETTINGS_PAGES, features, has);
 
   /* The filter. It narrows what is already on the page and changes nothing
-     about what the page reads: the checklist is still one request, made once.
-     Held in state and not in the address because there is nothing to share or
-     come back to, and nothing is stored. See `./filter.ts`. */
+     about what the page reads. Held in state and not in the address because
+     there is nothing to share or come back to, and nothing is stored. */
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
   const history = useSettingsSearchHistory();
@@ -189,28 +190,17 @@ export function SettingsScreen() {
   const filtering = terms.length > 0;
   const hasBillingCard = useBillingStatus() !== null;
 
-  const shownRows = rows.filter((row) =>
+  const shown = listed.filter((page) =>
     matches(terms, {
-      title: row.title,
-      description: row.affects,
-      words: [
-        ...(ROW_WORDS[row.id] ?? []),
-        ...(row.also ? [row.also.label] : []),
-      ],
-    }),
-  );
-  const shownOngoing = ONGOING.filter((item) =>
-    matches(terms, {
-      title: item.title,
-      description: item.description,
-      words: PAGE_WORDS[item.href] ?? [],
+      title: page.title,
+      description: page.description,
+      words: PAGE_WORDS[page.href] ?? [],
     }),
   );
   /* The card is a status and not a page, so it answers only to its own words,
      and only where it is on this person's screen at all. */
   const showBilling = hasBillingCard && matches(terms, BILLING);
-  const matchCount =
-    shownRows.length + shownOngoing.length + (showBilling ? 1 : 0);
+  const matchCount = shown.length + (showBilling ? 1 : 0);
 
   return (
     <>
@@ -218,73 +208,63 @@ export function SettingsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         <div role="search" className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-start gap-3">
-            <div className="w-full max-w-md">
-              <Input
-                type="search"
-                value={query}
-                placeholder="Search settings: leave, pension, overtime"
-                aria-label="Search settings"
-                icon={<Search aria-hidden="true" />}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => {
-                  setFocused(false);
-                  if (matchCount > 0) history.add(query);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") history.add(query);
-                }}
-              />
-              {/* Offered when the box is clicked into and still empty. A press
+          <div className="w-full max-w-md">
+            <Input
+              type="search"
+              value={query}
+              placeholder="Search settings: leave, pension, overtime"
+              aria-label="Search settings"
+              icon={<Search aria-hidden="true" />}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => {
+                setFocused(false);
+                if (matchCount > 0) history.add(query);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") history.add(query);
+              }}
+            />
+            {/* Offered when the box is clicked into and still empty. A press
                 on the list must not take focus from the box, or the list would
                 close before the press landed. */}
-              {focused && !filtering && history.recent.length > 0 && (
-                <div
-                  className="mt-2 rounded-md border border-line bg-surface p-2"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <div className="flex items-center justify-between px-2 pb-1">
-                    <span className="text-meta font-semibold text-muted">
-                      Recent searches
-                    </span>
-                    <button
-                      type="button"
-                      onClick={history.clear}
-                      className="text-meta text-muted underline hover:text-ink"
-                    >
-                      Clear history
-                    </button>
-                  </div>
-                  <ul>
-                    {history.recent.map((item) => (
-                      <li key={item}>
-                        <button
-                          type="button"
-                          onClick={() => setQuery(item)}
-                          className="w-full rounded px-2 py-1.5 text-left text-body-sm text-ink hover:bg-canvas"
-                        >
-                          {item}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="px-2 pt-1 text-meta text-muted">
-                    Saved in this browser, not on your account.
-                  </p>
+            {focused && !filtering && history.recent.length > 0 && (
+              <div
+                className="mt-2 rounded-md border border-line bg-surface p-2"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <div className="flex items-center justify-between px-2 pb-1">
+                  <span className="text-meta font-semibold text-muted">
+                    Recent searches
+                  </span>
+                  <button
+                    type="button"
+                    onClick={history.clear}
+                    className="text-meta text-muted underline hover:text-ink"
+                  >
+                    Clear history
+                  </button>
                 </div>
-              )}
-            </div>
-            <SetupLink
-              loading={loading}
-              progress={progress}
-              complete={complete}
-            />
+                <ul>
+                  {history.recent.map((item) => (
+                    <li key={item}>
+                      <button
+                        type="button"
+                        onClick={() => setQuery(item)}
+                        className="w-full rounded px-2 py-1.5 text-left text-body-sm text-ink hover:bg-canvas"
+                      >
+                        {item}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="px-2 pt-1 text-meta text-muted">
+                  Saved in this browser, not on your account.
+                </p>
+              </div>
+            )}
           </div>
-          {/* Said only once the checklist has been read: while it loads, its
-              rows are not there to match, and a count taken now would be a
-              count of half the page. */}
-          {filtering && !loading && (
+          {filtering && (
             <p role="status" className="text-body-sm text-muted">
               {matchCount === 0 ? (
                 <>
@@ -307,12 +287,8 @@ export function SettingsScreen() {
         </div>
 
         {error && (
-          <Callout
-            tone="danger"
-            title="Could not work out what is still to be set up"
-          >
-            {error.message} The pages below all still work: only the checklist
-            needs this read.{" "}
+          <Callout tone="danger" title="Could not read what is set up">
+            {error.message} Every page below still works.{" "}
             <button
               type="button"
               onClick={reload}
@@ -324,77 +300,39 @@ export function SettingsScreen() {
           </Callout>
         )}
 
-        {/* The checklist itself lives on `/settings/setup`. While a word is
-            typed the rows that match are listed here instead, so the answer is
-            on screen and not one click away. */}
-        {filtering && shownRows.length > 0 && (
-          <section aria-labelledby="setup-matches">
-            <h2
-              id="setup-matches"
-              className="mb-4 text-meta font-semibold text-muted"
-            >
-              Setting up your company
-            </h2>
-            <ul className="divide-y divide-line rounded-md border border-line">
-              {shownRows.map((row) => (
-                <Row key={row.id} row={row} module={ROW_MODULE[row.id]} />
-              ))}
-            </ul>
-          </section>
-        )}
+        {showBilling && <BillingCard />}
 
-        {DEMO_ENABLED &&
-          source === "demo" &&
-          (!filtering || shownRows.length > 0) && (
-            <Callout tone="warning" title="Demo data, this browser only">
-              This checklist is worked out from the seeded company in this
-              browser. Two rows cannot be answered offline at all (whether a
-              bank account is on file, and how many pay components and salary
-              bands exist) and they say so rather than reporting nothing as
-              zero.
-            </Callout>
-          )}
-
-        {(shownOngoing.length > 0 || showBilling) && (
-          <section>
-            <h2 className="mb-4 text-meta font-semibold text-muted">Ongoing</h2>
-            {(!filtering || showBilling) && <BillingCard />}
-            {filtering ? (
-              <ul className="grid gap-3 md:grid-cols-2">
-                {shownOngoing.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className="flex h-full flex-col gap-1 rounded-lg border border-line bg-surface px-4 py-3 hover:border-line-strong"
-                    >
-                      <span className="text-meta font-semibold text-muted">
-                        {PAGE_MODULE[item.href]}
-                      </span>
-                      <span className="font-semibold text-ink">
-                        {item.title}
-                      </span>
-                      <span className="text-body-sm text-body">
-                        {firstSentence(item.description)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {shownOngoing.map((item) => (
-                  <LinkCard
-                    key={item.href}
-                    href={item.href}
-                    title={item.title}
-                    description={item.description}
-                    icon={item.icon}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          {SETTINGS_GROUPS.map((group) => {
+            const pages = shown.filter((page) => page.group === group.id);
+            if (pages.length === 0) return null;
+            return (
+              <section
+                key={group.id}
+                aria-labelledby={`settings-group-${group.id}`}
+                className="min-w-0"
+              >
+                <h2
+                  id={`settings-group-${group.id}`}
+                  className="mb-2 text-h4 text-ink"
+                >
+                  {group.title}
+                </h2>
+                <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+                  {pages.map((page) => (
+                    <PageRow
+                      key={page.href}
+                      page={page}
+                      row={
+                        page.row && !loading ? rowById.get(page.row) : undefined
+                      }
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       </PageBody>
     </>
   );

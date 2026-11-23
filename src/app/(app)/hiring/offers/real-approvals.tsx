@@ -44,6 +44,7 @@ export function RealApprovals() {
     return (
       <Card>
         <EmptyState
+          plain
           icon={<TriangleAlert aria-hidden="true" />}
           title="Could not load offers"
           description={error.message}
@@ -61,6 +62,7 @@ export function RealApprovals() {
     return (
       <Card>
         <EmptyState
+          mood="caught-up"
           icon={<Check aria-hidden="true" />}
           title="No offers waiting on you"
           description="Offers appear here once a recruiter has prepared one and needs sign-off."

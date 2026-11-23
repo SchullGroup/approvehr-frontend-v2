@@ -168,6 +168,7 @@ export function PayrollScreen() {
         <PageHeader title="Payroll" />
         <PageBody>
           <EmptyState
+            plain
             icon={<ShieldAlert aria-hidden="true" />}
             title="You cannot view payroll"
             description={

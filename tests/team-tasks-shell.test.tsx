@@ -29,6 +29,8 @@ vi.mock("@/lib/permissions", () => ({
     (key === "SEE_ALL_WORK" && state.confirmed) ||
     (key === "EDIT_RECORDS" && state.editRecords),
   useIsManager: () => false,
+  /* The account menu asks it since U57 (Settings is the administrator's). */
+  useCan: () => false,
   usePermissions: () => ({ permissions: new Set(), can: () => false }),
 }));
 vi.mock("@/lib/store/features", () => ({

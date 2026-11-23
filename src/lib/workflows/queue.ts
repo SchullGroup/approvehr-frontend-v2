@@ -290,7 +290,10 @@ export function queueItemFromApproval(
           `/people/offboarding/${row.subjectId}`
         : row.subjectType === "requisitions"
           ? `/hiring/requisitions/${row.subjectId}`
-          : HREF[row.kind];
+          : row.subjectType === "employment_changes"
+            ? /* Opens that change's decide dialog (U17). */
+              `/people/changes?change=${row.subjectId}`
+            : HREF[row.kind];
 
   return {
     id: row.id,

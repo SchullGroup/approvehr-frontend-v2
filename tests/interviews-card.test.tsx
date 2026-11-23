@@ -464,6 +464,23 @@ describe("a change shows at once, and is put back when it is refused", () => {
     await waitFor(() => expect(screen.queryByText(/Cancelled/)).toBeNull());
   });
 
+  /* UAT 23 Nov, U91 / PERF-30: an interview two days away was marked
+     complete. */
+  it("does not offer Mark complete before the interview has started", () => {
+    gateway.current = fake();
+    show([view()]);
+    expect(screen.queryByRole("button", { name: "Mark complete" })).toBeNull();
+    expect(screen.getByRole("button", { name: "No-show" })).toBeInTheDocument();
+  });
+
+  it("offers it once the start time has come", () => {
+    gateway.current = fake({ now: () => "2026-10-20T09:05:00.000Z" });
+    show([view()]);
+    expect(
+      screen.getByRole("button", { name: "Mark complete" }),
+    ).toBeInTheDocument();
+  });
+
   it("puts a refused 'Mark complete' back and says the API's sentence", async () => {
     const user = userEvent.setup();
     const complete = vi.fn(async () => {
@@ -473,7 +490,8 @@ describe("a change shows at once, and is put back when it is refused", () => {
         "You need the following to do that: Hire.",
       );
     });
-    gateway.current = fake({ complete });
+    /* After its start time: before it, Complete is not offered (U91). */
+    gateway.current = fake({ complete, now: () => "2026-10-20T10:30:00.000Z" });
     const onNotice = vi.fn();
     show([view()], { onNotice });
     await user.click(screen.getByRole("button", { name: "Mark complete" }));

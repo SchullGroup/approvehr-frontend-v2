@@ -84,18 +84,19 @@ beforeEach(() => {
 });
 
 describe("the reject button", () => {
-  it("says Reject, not Send back", () => {
+  it("says Decline, not Reject or Send back (UAT 23 Nov, U62)", () => {
     show();
     expect(
-      screen.getByRole("button", { name: /^reject$/i }),
+      screen.getByRole("button", { name: /^decline$/i }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /send back/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^reject$/i })).toBeNull();
   });
 
   it("asks for a reason and sends it with the decision", async () => {
     decide.mockResolvedValue({ subjectMoved: true });
     show();
-    await userEvent.click(screen.getByRole("button", { name: /^reject$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^decline$/i }));
 
     const dialog = await screen.findByRole("dialog");
     expect(
@@ -104,7 +105,7 @@ describe("the reject button", () => {
 
     /* No reason, no rejection. */
     await userEvent.click(
-      within(dialog).getByRole("button", { name: /^reject$/i }),
+      within(dialog).getByRole("button", { name: /^decline$/i }),
     );
     expect(
       await within(dialog).findByText(/write a line so they know why/i),
@@ -116,7 +117,7 @@ describe("the reject button", () => {
       "Not on your bank statement.",
     );
     await userEvent.click(
-      within(dialog).getByRole("button", { name: /^reject$/i }),
+      within(dialog).getByRole("button", { name: /^decline$/i }),
     );
 
     await waitFor(() => expect(decide).toHaveBeenCalledTimes(1));
@@ -135,14 +136,14 @@ describe("when the rejection fails", () => {
       new ApiError(409, "conflict", "That was already withdrawn."),
     );
     show();
-    await userEvent.click(screen.getByRole("button", { name: /^reject$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^decline$/i }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.type(
       within(dialog).getByRole("textbox"),
       "Not on your bank statement.",
     );
     await userEvent.click(
-      within(dialog).getByRole("button", { name: /^reject$/i }),
+      within(dialog).getByRole("button", { name: /^decline$/i }),
     );
 
     expect(
@@ -159,11 +160,11 @@ describe("when the rejection fails", () => {
       new ApiError(409, "conflict", "That was already withdrawn."),
     );
     show();
-    await userEvent.click(screen.getByRole("button", { name: /^reject$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^decline$/i }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.type(within(dialog).getByRole("textbox"), "x");
     await userEvent.click(
-      within(dialog).getByRole("button", { name: /^reject$/i }),
+      within(dialog).getByRole("button", { name: /^decline$/i }),
     );
     await waitFor(() => expect(reload).toHaveBeenCalled());
   });
@@ -171,11 +172,11 @@ describe("when the rejection fails", () => {
   it("does not refresh for a failure that says nothing about the row", async () => {
     decide.mockRejectedValue(new ApiError(500, "internal", "Something broke."));
     show();
-    await userEvent.click(screen.getByRole("button", { name: /^reject$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^decline$/i }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.type(within(dialog).getByRole("textbox"), "x");
     await userEvent.click(
-      within(dialog).getByRole("button", { name: /^reject$/i }),
+      within(dialog).getByRole("button", { name: /^decline$/i }),
     );
     await within(dialog).findByText("Something broke.");
     expect(reload).not.toHaveBeenCalled();

@@ -109,6 +109,7 @@ export function ReportsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see reports"
               description="Reports show company-wide headcount and operational figures, so it is kept to specific people. Ask whoever manages access to add the export permission to your role."

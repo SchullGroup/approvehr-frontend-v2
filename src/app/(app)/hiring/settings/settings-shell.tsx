@@ -14,7 +14,14 @@ import { usePermissions } from "@/lib/permissions";
  * rather than copied into each page where one copy would eventually go missing.
  */
 
-const TABS = [
+/**
+ * Every tab, in order. The careers page settings keep their own address,
+ * `/hiring/postings/settings`, because candidate emails, interview invitations
+ * and the adverts screen all link there, and they sit in this strip so hiring
+ * has one settings area rather than two (UAT 23 Nov, U99 / PERF-19).
+ */
+export const HIRING_SETTINGS_TABS = [
+  { href: "/hiring/postings/settings", label: "Careers page" },
   { href: "/hiring/settings/pipelines", label: "Pipelines" },
   { href: "/hiring/settings/rejection-reasons", label: "Rejection reasons" },
   { href: "/hiring/settings/tags", label: "Tags" },
@@ -24,7 +31,13 @@ const TABS = [
   { href: "/hiring/settings/retention", label: "Data retention" },
 ];
 
-const CRUMBS = [{ href: "/hiring", label: "Hiring" }];
+export const HIRING_SETTINGS_CRUMBS = [{ href: "/hiring", label: "Hiring" }];
+const CRUMBS = HIRING_SETTINGS_CRUMBS;
+
+/** The tab strip, for a settings page that draws its own header. */
+export function HiringSettingsTabs({ active }: { active: string }) {
+  return <LinkTabs items={HIRING_SETTINGS_TABS} activeHref={active} />;
+}
 
 export function HiringSettingsShell({
   active,
@@ -42,7 +55,7 @@ export function HiringSettingsShell({
 }) {
   const { can, loading } = usePermissions();
 
-  const tabs = <LinkTabs items={TABS} activeHref={active} />;
+  const tabs = <HiringSettingsTabs active={active} />;
 
   if (loading) {
     return (
@@ -63,6 +76,7 @@ export function HiringSettingsShell({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot change these"
               description="They shape every role's pipeline and what applicants are told, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."

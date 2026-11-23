@@ -233,8 +233,9 @@ describe("the catalogue and the components agree", () => {
     expect(widgetById("my-clock")?.leadFor).toContain("staff");
   });
 
-  it("gives the owner appraisals as a card rather than a header button", () => {
-    expect(widgetById("appraisals")?.defaultFor).toContain("owner");
+  it("keeps the appraisals card in the catalogue but off everybody's home page", () => {
+    /* Taken off on request, 23 Nov 2026. */
+    expect(widgetById("appraisals")?.defaultFor).toEqual([]);
     expect(widgetById("appraisals")?.feature).toBe("appraisals");
   });
 });

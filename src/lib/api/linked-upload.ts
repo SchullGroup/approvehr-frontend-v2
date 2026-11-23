@@ -25,13 +25,12 @@ import { megabytes } from "@/lib/file-size";
  *
  * ## Where the uploader is
  *
- * `LINKED_UPLOAD_DEFAULT`, the same address `s3.service.ts` has built in, which is
- * what "use it the same way" means: this path is **on** with nothing set. It used
- * to be off until a deployment supplied the address, and the result was that no
- * deployment ever showed an attachment area. `NEXT_PUBLIC_LINKED_UPLOAD_URL`
- * overrides it, and **blank, or anything that is not an https address (`off`), is
- * off**: unset and switched off are different answers, as they are for the API's
- * `LINKED_FILE_HOSTS`, which has to agree or the picker is never offered.
+ * Nowhere, unless `NEXT_PUBLIC_LINKED_UPLOAD_URL` names it. It was on by default,
+ * with the old platform's address built in, and the UAT of 23 Nov (U5: HR-7,
+ * SELF-5, NC-10) found medical certificates being offered to a public uploader
+ * with a warning beside the picker. With nothing set the path is **off**, and a
+ * company whose API has no private file storage is offered no supporting file at
+ * all. Blank, `off`, or anything that is not an https address is off too.
  *
  * The tests never send a request to it. `tests/setup` pins the variable blank for
  * the whole suite, and the tests that exercise an upload stub `fetch` and an
@@ -181,14 +180,12 @@ const MAX_URL_LENGTH = 500;
  * cannot import this file (it is outside the `@/` alias), so it holds the same
  * string, and `tests/linked-upload-default.test.ts` fails if the two differ.
  */
-export const LINKED_UPLOAD_DEFAULT =
-  "https://qerhd0lxje.execute-api.us-east-1.amazonaws.com/prod";
 
 /**
  * Where the uploader is, or null.
  *
- * `NEXT_PUBLIC_LINKED_UPLOAD_URL` when it is set, the default when it is not, and
- * null when it is blank or is not an address this accepts. Read from the
+ * `NEXT_PUBLIC_LINKED_UPLOAD_URL` when it is set to an address this accepts,
+ * and null otherwise, unset included. Read from the
  * environment on every call and written out in full so that Next can substitute
  * it at build time. Only `https:` is accepted, and `http` for
  * `localhost` and `127.0.0.1` outside production: anything else is dropped
@@ -199,7 +196,7 @@ export const LINKED_UPLOAD_DEFAULT =
  */
 function configuredBase(): string | null {
   const set = process.env.NEXT_PUBLIC_LINKED_UPLOAD_URL;
-  const raw = set === undefined ? LINKED_UPLOAD_DEFAULT : set.trim();
+  const raw = (set ?? "").trim();
   if (!raw) return null;
   try {
     const url = new URL(raw);

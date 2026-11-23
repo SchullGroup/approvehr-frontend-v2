@@ -37,6 +37,7 @@ export function NotFoundState({
   const router = useRouter();
   return (
     <EmptyState
+      plain
       {...(className ? { className } : {})}
       icon={<Compass aria-hidden="true" />}
       title={`We could not find ${subject}`}

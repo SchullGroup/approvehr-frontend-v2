@@ -176,6 +176,7 @@ export function ApplicationsScreen({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see applications"
               description="Each one holds a stranger's phone number and salary expectation, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -524,6 +525,13 @@ function Queue({
             >
               {applications.applications.length === 0 && !stale ? (
                 <EmptyState
+                  mood={
+                    narrowed
+                      ? "search"
+                      : status === "RECEIVED"
+                        ? "waiting"
+                        : "nothing"
+                  }
                   icon={<Inbox aria-hidden="true" />}
                   title={
                     narrowed

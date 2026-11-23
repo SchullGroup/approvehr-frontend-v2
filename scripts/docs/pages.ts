@@ -41,6 +41,12 @@ const GROUPS: RouteGroup[] = [
     rest: "Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which.",
   },
   {
+    key: "(careers)",
+    heading: "(careers) — A company's careers pages",
+    lead: "A company's careers pages.",
+    rest: "Public, no sign-in. The employer's own frame: its brand header and a one-line footer, none of the product's sales chrome.",
+  },
+  {
     key: "(auth)",
     heading: "(auth) — Sign-in and account recovery",
     lead: "Sign-in and account recovery.",

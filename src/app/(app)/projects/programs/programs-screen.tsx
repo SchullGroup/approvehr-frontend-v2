@@ -193,6 +193,7 @@ function Index() {
 
           {programs.length > 0 && shown.length === 0 && !showLoose && (
             <EmptyState
+              mood="search"
               icon={<FolderTree />}
               title="No programs match"
               description="Try another name, or clear the search."

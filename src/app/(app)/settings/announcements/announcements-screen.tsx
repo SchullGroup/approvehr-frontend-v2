@@ -206,6 +206,7 @@ export function AnnouncementsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Megaphone aria-hidden="true" />}
               title="Managing the noticeboard is not part of your access"
               description="A notice speaks for the whole company, so writing one and seeing the drafts behind it needs the settings permission. The notices themselves are on your home page: everybody can read those."
@@ -327,6 +328,7 @@ export function AnnouncementsScreen() {
           >
             {board.announcements.length === 0 ? (
               <EmptyState
+                mood={search.trim() ? "search" : "start"}
                 icon={<Megaphone aria-hidden="true" />}
                 title={
                   search.trim()

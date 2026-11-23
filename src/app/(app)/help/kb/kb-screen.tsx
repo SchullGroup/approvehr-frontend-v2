@@ -139,6 +139,7 @@ export function KbScreen() {
               </CardBody>
             ) : articles.articles.length === 0 ? (
               <EmptyState
+                mood="nothing"
                 icon={<BookOpen aria-hidden="true" />}
                 title="Nothing here yet"
                 description={

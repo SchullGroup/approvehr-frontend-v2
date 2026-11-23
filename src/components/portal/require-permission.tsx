@@ -92,6 +92,7 @@ export function NoAccess({
     : [permission as PermissionKey];
   return (
     <EmptyState
+      plain
       icon={<ShieldAlert aria-hidden="true" />}
       title={title}
       description={`${what} needs ${permissionPhrase(needed)}. Ask somebody who holds it.`}

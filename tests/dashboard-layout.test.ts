@@ -108,12 +108,15 @@ describe("what moved off the page", () => {
     ).toContain("noticeboard");
   });
 
-  it("does not offer the owner or an administrator a queue tile beside Needs you", () => {
+  it("leaves Needs you, Today, Appraisals and the assistant off the home of the people who run the company", () => {
+    /* Taken off on request (23 Nov 2026). The widgets are still in the catalogue; only the default is empty. */
     for (const tier of ["owner", "admin"] as const) {
       const ids = sectionsFor(tier, EVERYTHING).flatMap((row) =>
         row.widgets.map((widget) => widget.id),
       );
-      expect(ids).toContain("needs-you");
+      for (const gone of ["needs-you", "today", "appraisals", "assistant"]) {
+        expect(ids).not.toContain(gone);
+      }
       expect(ids).not.toContain("my-queue");
     }
   });

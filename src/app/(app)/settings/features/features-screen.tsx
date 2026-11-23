@@ -185,10 +185,25 @@ export function FeaturesScreen({
     },
   };
 
+  /**
+   * What a switch does on the server and nowhere else, and the sentence for when
+   * there is no server.
+   *
+   * A switch that saved locally and moved nothing would read as on while nobody
+   * was emailed, which is the same failure as a "Paid" over money nobody moved.
+   * So with no API the row says why it cannot be switched, and stays off.
+   */
+  const NEEDS_SERVER: Partial<Record<FeatureKey, string>> = {
+    birthdayGreetings:
+      "Email is sent by the server, so this can only be switched on for a live company.",
+  };
+
   /** One switch row, so the groups cannot drift apart visually. */
   const row = (key: FeatureKey) => {
     const needs = REQUIRES[key];
     const blocked = needs !== undefined && !features.flags[needs.key];
+    const offlineReason = connected ? undefined : NEEDS_SERVER[key];
+    const reason = blocked ? needs.why : offlineReason;
     return (
       <div key={key} className="py-4">
         <Switch
@@ -198,13 +213,17 @@ export function FeaturesScreen({
               : FEATURE_COPY[key].label
           }
           description={
-            blocked
-              ? `${FEATURE_COPY[key].line} ${needs.why}`
+            reason
+              ? `${FEATURE_COPY[key].line} ${reason}`
               : FEATURE_COPY[key].line
           }
           checked={features.flags[key]}
           disabled={
-            !features.editable || features.loading || pending === key || blocked
+            !features.editable ||
+            features.loading ||
+            pending === key ||
+            blocked ||
+            offlineReason !== undefined
           }
           onChange={(event) => {
             void toggle(key, event.target.checked);

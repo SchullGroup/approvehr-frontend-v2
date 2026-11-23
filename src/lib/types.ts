@@ -102,6 +102,20 @@ export type Employee = {
   canLogin?: boolean;
 
   /**
+   * Never paid through payroll: the company's own administrator, a director who draws nothing, a
+   * consultant paid elsewhere. Set by hand on the record, never automatically.
+   *
+   * Payroll leaves them out of every run without an exception, and they are not counted as staff on
+   * the payroll or as "missing details" anywhere: `missingForPayroll`, `payrollGapsFor` and the
+   * directory's counts all answer "nothing" for them. They stay in the directory, with a tag.
+   * Optional because a source that predates the field (the demo seed, an older API) carries none,
+   * and absent reads as paid.
+   */
+  notOnPayroll?: boolean;
+  /** Why, in the company's own words. Optional; null or absent both mean nobody said. */
+  notOnPayrollReason?: string | null;
+
+  /**
    * Contractual monthly gross in naira, or **null** where nobody has set one.
    *
    * Nullable because the API's column is: somebody can be on the staff list
@@ -191,6 +205,8 @@ export const REQUIRED_FOR_PAYROLL = [
 ] as const satisfies readonly (keyof Employee)[];
 
 export function missingForPayroll(e: Employee): string[] {
+  /* Payroll never reads somebody who is not paid through it, so nothing is "missing". */
+  if (e.notOnPayroll) return [];
   const labels: Record<string, string> = {
     bankAccount: "Bank account",
     pensionPin: "Pension PIN",
@@ -240,10 +256,13 @@ export function payrollGapsFor(
     bankAccount: string | null;
     pensionPin: string | null;
     tin: string | null;
+    /** Not paid through payroll: there is nothing payroll needs from them. */
+    notOnPayroll?: boolean | undefined;
   },
   pensionOperated = true,
 ): PayrollGap[] {
   const gaps: PayrollGap[] = [];
+  if (e.notOnPayroll) return gaps;
   if (!e.bankAccount) {
     gaps.push({
       field: "bankAccount",
@@ -299,11 +318,13 @@ export function payrollFieldsForDisplay(
     | "hasBankAccount"
     | "hasPensionPin"
     | "hasTin"
+    | "notOnPayroll"
   >,
 ): {
   bankAccount: string | null;
   pensionPin: string | null;
   tin: string | null;
+  notOnPayroll?: boolean | undefined;
 } {
   const has = (flag: boolean | undefined, real: string | null) =>
     (flag ?? real !== null) ? "•" : null;
@@ -311,6 +332,9 @@ export function payrollFieldsForDisplay(
     bankAccount: has(e.hasBankAccount, e.bankAccount),
     pensionPin: has(e.hasPensionPin, e.pensionPin),
     tin: has(e.hasTin, e.tin),
+    /* Carried through so every caller that spreads this into `payrollGapsFor` gets the
+       "nothing is missing" answer for somebody not paid through payroll without asking. */
+    notOnPayroll: e.notOnPayroll,
   };
 }
 
@@ -336,6 +360,22 @@ export const fullName = (p: { firstName: string; lastName: string }) =>
  * the lookup row). Anything deciding who somebody leads must treat the second
  * as *unknown*, never as *no*.
  */
+/**
+ * Gender in words, whatever case it was stored in (L19). The import, the seed
+ * and the record wrote "female", "Male" and "male" for the same thing.
+ */
+export function genderWord(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const key = value.trim().toLowerCase();
+  return key === "female"
+    ? "Female"
+    : key === "male"
+      ? "Male"
+      : key === "other"
+        ? "Other"
+        : value;
+}
+
 export type DirectoryPerson = {
   id: Uuid;
   fullName: string;

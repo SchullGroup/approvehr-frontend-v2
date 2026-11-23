@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiGoal } from "@/lib/api/performance";
 import {
   goalFacts,
+  defaultPeriodId,
   objectiveWhoseChoices,
   rungLabel,
 } from "@/app/(app)/performance/goal-facts";
@@ -29,6 +30,7 @@ const state = vi.hoisted(() => ({
   permissions: new Set<string>(),
   employeeId: "emp-head" as string | null,
   departments: [] as { id: string; name: string; headId: string | null }[],
+  cycles: [] as { id: string; name: string; stage: string }[],
 }));
 
 vi.mock("@/lib/permissions", () => ({
@@ -51,7 +53,7 @@ vi.mock("@/lib/store/employees-api", () => ({
   useEmployeeDirectory: () => ({ employees: [], people: [] }),
 }));
 vi.mock("@/lib/store/performance", () => ({
-  useAppraisals: () => ({ cycles: [] }),
+  useAppraisals: () => ({ cycles: state.cycles }),
 }));
 vi.mock("@/lib/store/ai", () => ({
   /* No assistant wired, so the suggestion button under a parent is absent. */
@@ -72,6 +74,7 @@ beforeEach(() => {
   state.permissions = new Set();
   state.employeeId = "emp-head";
   state.departments = [ENGINEERING, FINANCE];
+  state.cycles = [];
 });
 
 const whoseSelect = () =>
@@ -102,7 +105,9 @@ describe("the objective form", () => {
     expect(within(dialog).queryByText(/create kpi/i)).not.toBeInTheDocument();
   });
 
-  it("offers a department head the department they head, and starts there", () => {
+  /* UAT 23 Nov, U93 / PERF-13: it used to start on the department somebody
+     heads, which filed an employee's own objective as a shared target. */
+  it("offers a department head the department they head, and starts on Mine", () => {
     render(
       <NewKpiDialog
         open
@@ -112,10 +117,10 @@ describe("the objective form", () => {
       />,
     );
     expect(options()).toEqual(["dept:d-eng", "me"]);
-    expect(whoseSelect()).toHaveValue("dept:d-eng");
+    expect(whoseSelect()).toHaveValue("me");
   });
 
-  it("offers HR the company and every department, starting on the company", () => {
+  it("offers HR the company and every department, starting on Mine", () => {
     state.permissions = new Set(["EDIT_RECORDS"]);
     state.employeeId = "emp-hr";
     render(
@@ -127,7 +132,7 @@ describe("the objective form", () => {
       />,
     );
     expect(options()).toEqual(["company", "dept:d-eng", "dept:d-fin", "me"]);
-    expect(whoseSelect()).toHaveValue("company");
+    expect(whoseSelect()).toHaveValue("me");
   });
 
   it("offers a plain employee only themselves", () => {
@@ -158,6 +163,7 @@ describe("the objective form", () => {
       screen.getByRole("textbox", { name: /objective title/i }),
       "Ship the payments rebuild",
     );
+    await userEvent.selectOptions(whoseSelect(), "dept:d-eng");
     await userEvent.click(
       screen.getByRole("button", { name: "Create objective" }),
     );
@@ -182,7 +188,7 @@ describe("the objective form", () => {
       screen.getByRole("textbox", { name: /objective title/i }),
       "Ship the payments rebuild",
     );
-    await userEvent.selectOptions(whoseSelect(), "me");
+    await userEvent.selectOptions(whoseSelect(), "dept:d-eng");
 
     /* Closed, then opened again — what "Add a KPI under this" does to the very
        same mounted dialog straight after an objective was made. */
@@ -253,25 +259,25 @@ describe("whose objective, as a pure choice", () => {
     ]);
   });
 
-  it("starts on a headed department, then the company, then yourself", () => {
+  it("starts on Mine for anybody with a staff record", () => {
     const start = (input: {
       employeeId: string | null;
       canSetCompanyWide: boolean;
     }) => objectiveWhoseChoices({ departments, ...input }).fallback;
 
     expect(start({ employeeId: "emp-head", canSetCompanyWide: false })).toBe(
-      "dept:d-eng",
+      "me",
     );
-    /* HR who also heads a department: the department is the narrower, more
-       likely meaning. */
     expect(start({ employeeId: "emp-head", canSetCompanyWide: true })).toBe(
-      "dept:d-eng",
+      "me",
     );
-    expect(start({ employeeId: "emp-hr", canSetCompanyWide: true })).toBe(
-      "company",
-    );
+    expect(start({ employeeId: "emp-hr", canSetCompanyWide: true })).toBe("me");
     expect(start({ employeeId: "emp-plain", canSetCompanyWide: false })).toBe(
       "me",
+    );
+    /* Nobody to own it: the widest thing they may set. */
+    expect(start({ employeeId: null, canSetCompanyWide: true })).toBe(
+      "company",
     );
     expect(start({ employeeId: null, canSetCompanyWide: false })).toBe("me");
   });
@@ -291,7 +297,83 @@ describe("whose objective, as a pure choice", () => {
       "dept:d-prod",
       "me",
     ]);
-    expect(two.fallback).toBe("dept:d-eng");
+    expect(two.fallback).toBe("me");
+  });
+});
+
+describe("the appraisal period a new objective starts in (U93)", () => {
+  const H2 = { id: "c-h2", name: "H2 2026 Appraisal", stage: "SELF" };
+  const DRAFT = { id: "c-q1", name: "Q1 2027 Appraisal", stage: "DRAFT" };
+  const DONE = { id: "c-h1", name: "H1 2026 Appraisal", stage: "PUBLISHED" };
+  const periodSelect = () =>
+    screen.getByRole("combobox", { name: /appraisal period/i });
+
+  it("starts a personal objective in the running period", () => {
+    state.cycles = [DONE, H2, DRAFT];
+    render(
+      <NewKpiDialog
+        open
+        mode="objective"
+        onClose={vi.fn()}
+        onCreate={vi.fn()}
+      />,
+    );
+    expect(whoseSelect()).toHaveValue("me");
+    expect(periodSelect()).toHaveValue("c-h2");
+  });
+
+  it("files it in that period when created as it opened", async () => {
+    state.cycles = [H2];
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <NewKpiDialog
+        open
+        mode="objective"
+        onClose={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /objective title/i }),
+      "Cut supplier invoice queries by half",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create objective" }),
+    );
+    expect(onCreate.mock.calls[0]?.[0]).toMatchObject({
+      reviewCycleId: "c-h2",
+    });
+  });
+
+  it("leaves a shared objective out of a period until somebody picks one", async () => {
+    state.cycles = [H2];
+    render(
+      <NewKpiDialog
+        open
+        mode="objective"
+        onClose={vi.fn()}
+        onCreate={vi.fn()}
+      />,
+    );
+    await userEvent.selectOptions(whoseSelect(), "dept:d-eng");
+    expect(periodSelect()).toHaveValue("");
+  });
+
+  it("chooses nothing when several periods are open and none is running", () => {
+    expect(
+      defaultPeriodId([
+        { id: "a", stage: "DRAFT" },
+        { id: "b", stage: "DRAFT" },
+      ]),
+    ).toBe("");
+    expect(defaultPeriodId([{ id: "a", stage: "DRAFT" }])).toBe("a");
+    expect(
+      defaultPeriodId([
+        { id: "a", stage: "MANAGER" },
+        { id: "b", stage: "DRAFT" },
+      ]),
+    ).toBe("a");
+    expect(defaultPeriodId([{ id: "a", stage: "PUBLISHED" }])).toBe("");
   });
 });
 

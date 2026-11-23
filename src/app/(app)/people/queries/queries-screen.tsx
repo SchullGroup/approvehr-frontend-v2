@@ -107,6 +107,7 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
   if (!works) {
     return (
       <EmptyState
+        plain
         icon={<ShieldAlert aria-hidden="true" className="size-5" />}
         title="You cannot open the queries register"
         description="Writing, reading and deciding queries is held by the people given the Issue queries or Decide queries permission."

@@ -109,6 +109,7 @@ export function MyApplicationScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<UserRoundX aria-hidden="true" />}
               title="That is not a candidate you can see"
               description="You can see the candidates in a stage you sit on, or in a role you hire for."
@@ -213,6 +214,7 @@ export function MyApplicationScreen({ id }: { id: string }) {
         {application.interviews.length === 0 ? (
           <Card>
             <EmptyState
+              plain
               icon={<CalendarClock aria-hidden="true" />}
               title="No interviews yet"
               description="There is nothing for you to score on this candidate until one is booked."

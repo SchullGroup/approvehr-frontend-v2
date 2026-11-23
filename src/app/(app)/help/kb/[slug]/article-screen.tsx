@@ -91,6 +91,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<BookOpen aria-hidden="true" />}
               title={
                 notFound ? "That article is not here" : "Could not open that"

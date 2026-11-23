@@ -100,6 +100,7 @@ export function AssessmentImportScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot import scores"
               description="Scores feed who is shown to a person first, so importing them is kept to whoever hires. Ask whoever manages access to add hiring to your role."

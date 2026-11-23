@@ -163,9 +163,12 @@ describe("the new-period wizard", () => {
     await toReview(user);
     const draftIt = screen.getByRole("button", { name: /Draft it/ });
     expect(draftIt).toBeEnabled();
-    /* A total other than 100% is fine: weights are proportional. */
+    /* A total other than 100% is refused: the weights have to add up. */
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
+    expect(draftIt).toBeDisabled();
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "0");
     expect(draftIt).toBeEnabled();
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "150");
@@ -268,14 +271,14 @@ describe("a period's own settings", () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it("allows a total other than 100, and keeps Save off for a bad row", async () => {
+  it("keeps Save off for a total other than 100 and for a bad row", async () => {
     const user = userEvent.setup();
     render(<PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />);
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "5");
     expect(
       screen.getByRole("button", { name: "Save the weights" }),
-    ).toBeEnabled();
+    ).toBeDisabled();
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "2.5");
     expect(
@@ -283,7 +286,7 @@ describe("a period's own settings", () => {
     ).toBeDisabled();
   });
 
-  it("'Use the weights in Settings' sends weights: null", async () => {
+  it("'Use my company's weights' sends weights: null", async () => {
     const user = userEvent.setup();
     render(
       <PeriodWeightsSection
@@ -292,7 +295,7 @@ describe("a period's own settings", () => {
       />,
     );
     await user.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     await waitFor(() =>
       expect(updateCycle).toHaveBeenCalledWith("c-9", { weights: null }),
@@ -305,7 +308,7 @@ describe("a period's own settings", () => {
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
     await user.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     await waitFor(() => expect(updateCycle).toHaveBeenCalled());
     await waitFor(() =>
@@ -321,9 +324,7 @@ describe("a period's own settings", () => {
       <PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />,
     );
     expect(
-      screen.getByText(
-        "Following the weights in Settings, under Appraisal scoring.",
-      ),
+      screen.getByText("Same as your company's weights."),
     ).toBeInTheDocument();
     unmount();
     render(
@@ -370,7 +371,7 @@ describe("a period's own settings", () => {
     );
     expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
     expect(
-      screen.getByText("Fixed when this period started."),
+      screen.getByText("Locked when this period started."),
     ).toBeInTheDocument();
     const row = screen
       .getByText("Weekly tasks")
@@ -392,12 +393,10 @@ describe("a period's own settings", () => {
       />,
     );
     expect(
-      screen.queryByText("Fixed when this period started."),
+      screen.queryByText("Locked when this period started."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "This period follows the weights in Settings as they are today.",
-      ),
+      screen.getByText("Uses your company's weights as they are today."),
     ).toBeInTheDocument();
   });
 
@@ -459,7 +458,9 @@ describe("with the Manager appraisal part", () => {
     await user.clear(screen.getByLabelText("Delivery against objectives"));
     await user.type(screen.getByLabelText("Delivery against objectives"), "25");
     await user.clear(screen.getByLabelText("Weekly tasks"));
-    await user.type(screen.getByLabelText("Weekly tasks"), "15");
+    await user.type(screen.getByLabelText("Weekly tasks"), "0");
+    await user.clear(screen.getByLabelText("Core competencies"));
+    await user.type(screen.getByLabelText("Core competencies"), "10");
     await user.clear(screen.getByLabelText("Manager appraisal"));
     await user.type(screen.getByLabelText("Manager appraisal"), "30");
     await user.click(screen.getByRole("button", { name: /Draft it/ }));
@@ -471,7 +472,12 @@ describe("with the Manager appraisal part", () => {
     );
     await waitFor(() => expect(createCycle).toHaveBeenCalledTimes(1));
     expect(createCycle.mock.calls[0]![2]).toMatchObject({
-      weights: { ...BP, MANAGER_APPRAISAL: 3000 },
+      weights: {
+        ...BP,
+        TASKS: 0,
+        CORE_COMPETENCY: 1000,
+        MANAGER_APPRAISAL: 3000,
+      },
     });
   });
 
@@ -484,12 +490,21 @@ describe("with the Manager appraisal part", () => {
       />,
     );
     expect(screen.getByLabelText("Manager appraisal")).toHaveValue(0);
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "0");
+    await user.clear(screen.getByLabelText("Core competencies"));
+    await user.type(screen.getByLabelText("Core competencies"), "10");
     await user.clear(screen.getByLabelText("Manager appraisal"));
     await user.type(screen.getByLabelText("Manager appraisal"), "30");
     await user.click(screen.getByRole("button", { name: "Save the weights" }));
     await waitFor(() =>
       expect(updateCycle).toHaveBeenCalledWith("c-9", {
-        weights: { ...SEVEN, MANAGER_APPRAISAL: 3000 },
+        weights: {
+          ...SEVEN,
+          TASKS: 0,
+          CORE_COMPETENCY: 1000,
+          MANAGER_APPRAISAL: 3000,
+        },
       }),
     );
   });
@@ -507,6 +522,8 @@ describe("with the Manager appraisal part", () => {
     /* Different from what the period holds, or there is nothing to save. */
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
+    await user.clear(screen.getByLabelText("Delivery against objectives"));
+    await user.type(screen.getByLabelText("Delivery against objectives"), "30");
     await user.click(screen.getByRole("button", { name: "Save the weights" }));
     await waitFor(() => expect(updateCycle).toHaveBeenCalledTimes(1));
     const sent = updateCycle.mock.calls[0]![1] as { weights: object };

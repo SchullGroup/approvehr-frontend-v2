@@ -1,11 +1,11 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
-import { Badge, Button, Field, Input } from "@/components/ui";
+import { Button, Field, Input } from "@/components/ui";
+import { WeightsPie, sliceColour } from "./weights-pie";
 import {
   SCORE_COMPONENT_ORDER,
   isLaterComponent,
-  overFullWeightNote,
   weightLabel,
   weightSetFromRows,
   type ApiScoringWeights,
@@ -95,7 +95,7 @@ const shownOf = (
   partsOf(text).filter((component) => !parts || parts.includes(component));
 
 const ROW_RULE = "Each weight is a whole number from 0 to 100.";
-const ZERO_RULE = "Give at least one part a weight above 0%.";
+const TOTAL_RULE = "The weights have to add up to 100%.";
 
 /** Basis points to the text a field shows. 2500 becomes "25". */
 export function weightsToText(weights: WeightSet): WeightText {
@@ -136,17 +136,7 @@ export function periodWeightsProblem(
     return ROW_RULE;
   }
   const total = parts.reduce((sum, c) => sum + Number(text[c]), 0);
-  return total > 0 ? null : ZERO_RULE;
-}
-
-function totalBp(
-  text: WeightText,
-  only: readonly ScoreComponent[] | null,
-): number {
-  return shownOf(text, only).reduce((sum, c) => {
-    const n = Number(text[c]);
-    return sum + (Number.isFinite(n) ? Math.round(n * 100) : 0);
-  }, 0);
+  return total === 100 ? null : TOTAL_RULE;
 }
 
 export function PeriodWeights({
@@ -186,16 +176,7 @@ export function PeriodWeights({
 
   const only = givenParts ?? companyPartsOf(companyDefaults);
   const parts = shownOf(value, only);
-  const total = totalBp(value, only);
   const problem = readOnly ? null : periodWeightsProblem(value, only);
-  /* Said only for a set that can be read: a row that is not a whole number has
-     no figure to add up. Where the set is fixed (the period has started) it
-     says what is so and gives no advice nobody could follow. */
-  const overNote =
-    problem === null
-      ? overFullWeightNote(total, { canChange: !readOnly })
-      : null;
-
   const reset = () => {
     if (onUseDefaults) {
       onUseDefaults();
@@ -209,29 +190,26 @@ export function PeriodWeights({
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="weights-heading">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="weights-heading" className="text-body-sm font-medium text-ink">
-          How the mark is made up
-        </h3>
-        <span className="flex items-center gap-2">
-          <span className="text-meta text-muted">Total</span>
-          <span data-testid="weights-total">
-            <Badge tone={total > 0 ? "neutral" : "danger"} size="md" dot>
-              {weightLabel(total)}
-            </Badge>
-          </span>
-        </span>
-      </div>
+      <h3 id="weights-heading" className="text-body-sm font-medium text-ink">
+        How the mark is made up
+      </h3>
+      <WeightsPie
+        fixed={readOnly}
+        slices={parts.map((component) => ({
+          id: component,
+          label: labelOf(component),
+          percent: Math.max(0, Math.round(Number(value[component]) || 0)),
+        }))}
+      />
 
       {parts.length === 0 && (
         <p role="status" className="text-body-sm text-warning-text">
-          There are no scoring parts yet. Add them in Settings, under Appraisal
-          scoring, and they appear here.
+          No parts yet. Add them in Settings.
         </p>
       )}
 
       <div className="flex flex-col gap-3">
-        {parts.map((component) => {
+        {parts.map((component, index) => {
           const text = value[component] ?? "";
           const bad = !readOnly && !wholePercent(text);
           return (
@@ -242,7 +220,10 @@ export function PeriodWeights({
             >
               {readOnly ? (
                 <>
-                  <p className="text-body-sm text-ink">{labelOf(component)}</p>
+                  <p className="flex items-center gap-2 text-body-sm text-ink">
+                    <Dot index={index} />
+                    {labelOf(component)}
+                  </p>
                   <p className="tabular text-body-sm font-medium text-ink sm:text-right">
                     {weightLabel(Math.round(Number(text) * 100))}
                   </p>
@@ -251,8 +232,9 @@ export function PeriodWeights({
                 <>
                   <p
                     aria-hidden="true"
-                    className="text-body-sm text-ink sm:pt-2"
+                    className="flex items-center gap-2 text-body-sm text-ink sm:pt-2"
                   >
+                    <Dot index={index} />
                     {labelOf(component)}
                   </p>
                   <Field
@@ -282,22 +264,11 @@ export function PeriodWeights({
         })}
       </div>
 
-      {problem && (
+      {problem && problem !== TOTAL_RULE && (
         <p role="status" className="text-body-sm text-warning-text">
           {problem}
         </p>
       )}
-
-      {overNote && (
-        <p role="status" className="text-body-sm text-warning-text">
-          {overNote}
-        </p>
-      )}
-
-      <p className="text-meta text-muted">
-        Each part counts in proportion to the total, so the weights do not have
-        to make 100%.
-      </p>
 
       {parts.includes("TASKS") && (
         <p className="text-meta text-muted">
@@ -317,11 +288,11 @@ export function PeriodWeights({
       {readOnly ? (
         basis === "frozen" ? (
           <p className="text-meta text-muted">
-            Fixed when this period started.
+            Locked when this period started.
           </p>
         ) : basis === "company" ? (
           <p className="text-meta text-muted">
-            This period follows the weights in Settings as they are today.
+            Uses your company&apos;s weights as they are today.
           </p>
         ) : null
       ) : (
@@ -333,10 +304,20 @@ export function PeriodWeights({
             onClick={reset}
           >
             <RotateCcw aria-hidden="true" className="size-3.5" />
-            Use the weights in Settings
+            Use my company&apos;s weights
           </Button>
         </div>
       )}
     </section>
+  );
+}
+
+function Dot({ index }: { index: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="size-2.5 shrink-0 rounded-full"
+      style={{ background: sliceColour(index) }}
+    />
   );
 }

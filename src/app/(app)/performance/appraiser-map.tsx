@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Network, Plus, Settings2, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -115,7 +116,10 @@ export function AppraiserMapTab() {
       (cycle) => cycle.stage !== "PUBLISHED" && cycle.stage !== "DRAFT",
     ) ?? cycles[0];
 
-  const [chosen, setChosen] = useState<string | null>(null);
+  /* A period's own page links here with `?period=`, so it opens on that one. */
+  const [chosen, setChosen] = useState<string | null>(
+    useSearchParams()?.get("period") ?? null,
+  );
   const [show, setShow] = useState<AppraiserShow>("all");
   const [department, setDepartment] = useState("");
   const [query, setQuery] = useState("");

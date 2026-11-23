@@ -38,15 +38,32 @@ const EVERYTHING_ANSWERED: NavFacts = {
     interviews: true,
     "team-tasks": false,
     "master-view": false,
+    approvals: false,
+    "agrees-objectives": false,
+    exits: false,
   },
 };
+
+/* What the shell answers for HR, who works exits and decides requests. */
+const HR_ANSWERED: NavFacts = {
+  ...EVERYTHING_ANSWERED,
+  rows: {
+    ...EVERYTHING_ANSWERED.rows,
+    approvals: true,
+    "agrees-objectives": true,
+    exits: true,
+  },
+};
+
+const factsFor = (permissions: ReadonlySet<PermissionKey>) =>
+  permissions.has("EDIT_RECORDS") ? HR_ANSWERED : EVERYTHING_ANSWERED;
 
 const hrefFor = (label: string, permissions: ReadonlySet<PermissionKey>) => {
   for (const group of visibleNav(
     NAV,
     permissions,
     ALL_FEATURES,
-    EVERYTHING_ANSWERED,
+    factsFor(permissions),
   )) {
     const item = group.items.find((candidate) => candidate.label === label);
     if (item) return item.href;
@@ -68,17 +85,12 @@ describe("one label, the destination that belongs to the reader", () => {
     expect(hrefFor("Equipment", EMPLOYEE)).toBe("/equipment");
   });
 
-  it("gives an employee Exit management, which this file's own header names", () => {
-    /* The header above lists Documents, Equipment **and Exit management** as
-       the three that left an employee with no sidebar entry, and this file
-       then fixed and tested two of them. The third kept `permission:
-       "EDIT_RECORDS"` and a tester opening staging as an employee reported
-       "there is no exit management at the employee view" — which was true.
-
-       Same route for both readers, not a `personalHref`: the screen narrows by
-       who is asking (see `offboarding-screen.test.tsx`), so there is no
-       separate employee page to point at. */
-    expect(hrefFor("Exit management", EMPLOYEE)).toBe("/people/offboarding");
+  it("keeps Exit management for the people who work exits, and not an employee", () => {
+    /* It was given to everybody once, so an employee could find where to hand
+       in their notice. UAT 23 Nov (SELF-12, NC-37) found the same resignation
+       form twice, here and as "Leaving" on their profile. The profile is the one
+       place now, and this row is for HR, a manager and a department head. */
+    expect(hrefFor("Exit management", EMPLOYEE)).toBeNull();
     expect(hrefFor("Exit management", HR)).toBe("/people/offboarding");
   });
 
@@ -86,12 +98,9 @@ describe("one label, the destination that belongs to the reader", () => {
     /* The obvious alternative — a second "My documents" entry — grows a
        sidebar this product deliberately keeps short, which is the argument
        that moved these into the account menu in the first place. */
-    const labels = visibleNav(
-      NAV,
-      HR,
-      ALL_FEATURES,
-      EVERYTHING_ANSWERED,
-    ).flatMap((group) => group.items.map((item) => item.label));
+    const labels = visibleNav(NAV, HR, ALL_FEATURES, HR_ANSWERED).flatMap(
+      (group) => group.items.map((item) => item.label),
+    );
     expect(labels.filter((l) => l === "Documents")).toHaveLength(1);
     expect(labels.filter((l) => l === "Equipment")).toHaveLength(1);
     expect(labels.filter((l) => l === "Exit management")).toHaveLength(1);

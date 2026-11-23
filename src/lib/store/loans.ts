@@ -477,6 +477,7 @@ const STATUS_RANK: Record<LoanStatus, number> = {
   ACTIVE: 2,
   SETTLED: 3,
   DECLINED: 4,
+  CONSOLIDATED: 5,
 };
 
 export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
@@ -883,6 +884,16 @@ export type LoanActions = {
   decline: (id: string, reason: string) => Promise<ApiLoanDetail>;
   /** Move the first deduction. Needs the API: a demo book has nothing to move. */
   reschedule: (id: string, startPeriod: string) => Promise<ApiLoanDetail>;
+  /**
+   * Fold a person's live loans into one. Needs the API: the demo book allows one live loan a person, so it never
+   * holds two to combine.
+   */
+  consolidate: (body: {
+    employeeId: string;
+    termMonths: number;
+    startPeriod: string;
+    note?: string;
+  }) => Promise<ApiLoanDetail>;
   pay: (
     id: string,
     sequence: number,
@@ -1242,7 +1253,37 @@ export function useLoanActions(): LoanActions {
     [isConnected],
   );
 
-  return { apply, approve, decline, reschedule, pay, waive, live: isConnected };
+  const consolidate = useCallback(
+    async (body: {
+      employeeId: string;
+      termMonths: number;
+      startPeriod: string;
+      note?: string;
+    }): Promise<ApiLoanDetail> => {
+      if (!isConnected) {
+        throw new ApiError(
+          0,
+          "offline",
+          "Combining loans needs the API: the demo allows one live loan a person, so there is nothing to combine.",
+        );
+      }
+      const loan = await loansApi.consolidate(body);
+      bumpRevision();
+      return loan;
+    },
+    [isConnected],
+  );
+
+  return {
+    apply,
+    approve,
+    decline,
+    reschedule,
+    consolidate,
+    pay,
+    waive,
+    live: isConnected,
+  };
 }
 
 /* ------------------------------------------------------------------- labels */
@@ -1254,6 +1295,7 @@ export const LOAN_STATUS_LABEL: Record<LoanStatus, string> = {
   ACTIVE: "Being repaid",
   SETTLED: "Fully repaid",
   DECLINED: "Declined",
+  CONSOLIDATED: "Combined into one loan",
 };
 
 export const REPAYMENT_STATUS_LABEL: Record<LoanRepaymentStatus, string> = {

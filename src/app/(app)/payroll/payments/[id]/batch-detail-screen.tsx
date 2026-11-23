@@ -101,6 +101,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Banknote aria-hidden="true" />}
               title="Payments are not part of your access"
               description="Only people who run payroll can see payment batches."
@@ -125,6 +126,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Banknote aria-hidden="true" />}
               title="That batch is not here"
               description={

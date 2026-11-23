@@ -40,6 +40,7 @@ export function PeriodsListScreen() {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<ToggleRight aria-hidden="true" />}
             title="Appraisals are switched off"
             description="Scored reviews inside an appraisal period, and skills against their targets, on top of shared KPIs."
@@ -63,6 +64,7 @@ export function PeriodsListScreen() {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<Lock aria-hidden="true" />}
             title="Not yours to run"
             description="Appraisal periods are managed by whoever runs them or reads across the company. Ask them to start or open one."

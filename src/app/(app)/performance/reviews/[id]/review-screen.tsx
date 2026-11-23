@@ -174,6 +174,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               exists in this period, which is most of what a curious colleague
               wanted to know. So this cannot say "you are not allowed". */}
           <EmptyState
+            plain
             icon={<FileQuestion aria-hidden="true" />}
             title="That appraisal is not available to you"
             description={

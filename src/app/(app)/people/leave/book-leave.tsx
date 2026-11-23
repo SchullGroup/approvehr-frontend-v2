@@ -170,6 +170,20 @@ export function BookLeaveDialog({
   /* Their own record, for the prefilled case. */
   const me = session.employeeId ?? "";
 
+  /**
+   * The gender a type's "Who" is checked against.
+   *
+   * Your own from your own record: an employee reading the directory gets
+   * name-only rows with no gender, so filtering on the directory offered a man
+   * Maternity leave when he booked his own (U55). Somebody else's from the
+   * directory, which the people who may book for others can read in full.
+   */
+  const genderOf = (employeeId: string) =>
+    employeeId !== "" && employeeId === me
+      ? (mine.employee?.gender ??
+        employees.find((person) => person.id === employeeId)?.gender)
+      : employees.find((person) => person.id === employeeId)?.gender;
+
   const [draft, setDraft] = useState<Draft>(() =>
     /* Prefilled from the start rather than on first render or in an effect. An
        employee who may only book for themselves has exactly one valid answer to
@@ -254,12 +268,11 @@ export function BookLeaveDialog({
    * side means no restriction: an employee with no gender on file, or a type
    * with none set, is never the reason a type is hidden.
    */
-  const bookingFor = employees.find((person) => person.id === draft.employeeId);
   const availableTypes = types.filter(
     (type) =>
       !type.eligibleGender ||
-      !bookingFor?.gender ||
-      type.eligibleGender === bookingFor.gender,
+      !genderOf(draft.employeeId) ||
+      type.eligibleGender === genderOf(draft.employeeId),
   );
 
   const chosenType = availableTypes.find((type) => type.name === draft.type);
@@ -322,8 +335,28 @@ export function BookLeaveDialog({
   const balance = draft.employeeId ? balances.of(draft.employeeId) : undefined;
   const remaining = balance?.remaining;
 
+  /* The dates are checked as they are typed (UAT 23 Nov, U65: SELF-23): a range
+     that ends before it starts showed nothing at all, and an overlap with leave
+     already booked was refused only on Send. The same rule Send runs, on the
+     two date fields only, once both are filled in. */
+  const live =
+    draft.from && draft.to
+      ? validateLeave(
+          {
+            employeeId: draft.employeeId,
+            type: draft.type,
+            from: draft.from,
+            to: draft.to,
+          },
+          requests,
+          remaining,
+          days,
+        ).filter((e) => e.field === "from" || e.field === "to")
+      : [];
+
   const errorFor = (field: keyof NewLeaveRequest) =>
-    errors.find((e) => e.field === field)?.message;
+    errors.find((e) => e.field === field)?.message ??
+    live.find((e) => e.field === field)?.message;
 
   const employeeOptions = useMemo(
     () =>
@@ -524,9 +557,7 @@ export function BookLeaveDialog({
                      a value not among its own options. Falls back to the
                      first type this person can actually take, so the field
                      is never left pointing at one they cannot. */
-                  const nextGender = employees.find(
-                    (person) => person.id === employeeId,
-                  )?.gender;
+                  const nextGender = genderOf(employeeId);
                   const takeable = (type: LeaveTypeRow) =>
                     !type.eligibleGender ||
                     !nextGender ||

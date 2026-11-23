@@ -67,6 +67,9 @@ const facts = (has: boolean): NavFacts => ({
     interviews: true,
     "team-tasks": false,
     "master-view": false,
+    approvals: false,
+    "agrees-objectives": false,
+    exits: false,
   },
 });
 
@@ -245,10 +248,13 @@ describe("the styling", () => {
     expect(signDialog).not.toMatch(/<Disclosure/);
   });
 
-  it("says what the module is for, to each audience", () => {
-    /* The feedback opened with "why did we add signatures". A screen whose own
-       name is the only explanation is a screen people click once. */
-    expect(screen).toMatch(/description=\{\s*canManage/);
+  it("carries no subtitle under the title", () => {
+    /* Taken off on request (23 Nov 2026): "Send a document to someone and
+       record that they signed it..." said what the page already says. The rule
+       it stated, that nobody signs in somebody's place, is the dialog's and
+       the document's to say, not the header's. */
+    expect(screen).not.toMatch(/description=\{\s*canManage/);
+    expect(screen).not.toMatch(/Send a document to someone/);
   });
 
   it("keeps the sentence that stops it overclaiming", () => {

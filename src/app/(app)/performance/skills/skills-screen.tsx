@@ -6,6 +6,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { SkillsTab } from "../skills";
+import { EditCompetenciesButton } from "./edit-competencies-button";
 import { StartPeriodButton } from "../start-period";
 import type { SkillsTabId } from "./tabs";
 
@@ -40,6 +41,7 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<ToggleRight aria-hidden="true" />}
             title="Appraisals are switched off"
             description="Scored reviews inside an appraisal period, and skills against their targets, on top of shared KPIs."
@@ -59,7 +61,12 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Competency ratings"
-        action={<StartPeriodButton withIcon />}
+        action={
+          <>
+            <EditCompetenciesButton />
+            <StartPeriodButton withIcon />
+          </>
+        }
       />
       <PageBody>
         <SkillsTab

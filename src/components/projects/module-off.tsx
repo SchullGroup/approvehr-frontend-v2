@@ -20,6 +20,7 @@ export function ProjectsOff() {
       <PageHeader title="Projects" />
       <PageBody>
         <EmptyState
+          plain
           icon={<FolderKanban />}
           title="Projects is not switched on"
           description={

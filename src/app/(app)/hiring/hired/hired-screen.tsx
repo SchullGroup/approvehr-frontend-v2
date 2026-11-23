@@ -45,6 +45,7 @@ export function HiredScreen({ initialJob = "" }: { initialJob?: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the Hired list"
               description="It holds the names and contact details of people who accepted an offer, and it is where employee records are made, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
@@ -64,11 +65,7 @@ export function HiredScreen({ initialJob = "" }: { initialJob?: string }) {
 
   return (
     <>
-      <PageHeader
-        title="Hired"
-        breadcrumb={CRUMBS}
-        description="People whose offer was accepted. Making somebody an employee is a separate step."
-      />
+      <PageHeader title="Hired" breadcrumb={CRUMBS} />
       <PageBody className="flex flex-col gap-5">
         {words && (
           <p className="max-w-3xl text-body-sm text-muted">
