@@ -203,7 +203,7 @@ describe("Ask colleagues on a manager's own review", () => {
     state.permissions = new Set();
     state.review = review({
       mine: true,
-      cycleStage: "IN_REVIEW",
+      cycleStage: "MANAGER",
       submitted: false,
     });
     mount();
@@ -211,7 +211,7 @@ describe("Ask colleagues on a manager's own review", () => {
   });
 
   it("is not offered on somebody else's review, a self-review, a draft or a published period", () => {
-    state.review = review({ mine: false, cycleStage: "IN_REVIEW" });
+    state.review = review({ mine: false, cycleStage: "MANAGER" });
     mount();
     expect(askButton()).toBeNull();
     cleanup();
