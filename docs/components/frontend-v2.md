@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `33d70f5f` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `dcc61ffb` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -24,7 +24,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Domain helpers — `src/lib/*`](#domain-helpers--srclib)                                            |      246 |          0 |      59 |      1057 |
 | [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        6 |          0 |       6 |         1 |
 | [Screens — `/dashboard`](#screens--dashboard)                                                      |       13 |         11 |       0 |         6 |
-| [Screens — `/people`](#screens--people)                                                            |      135 |        144 |       0 |        31 |
+| [Screens — `/people`](#screens--people)                                                            |      136 |        145 |       0 |        31 |
 | [Screens — `/payroll`](#screens--payroll)                                                          |       82 |         83 |       2 |        46 |
 | [Screens — `/performance`](#screens--performance)                                                  |       94 |        106 |       3 |        69 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1389** |   **1146** | **475** |  **1776** |
+| **Total**                                                                                          | **1390** |   **1147** | **475** |  **1776** |
 
 ---
 
@@ -964,6 +964,7 @@ Screen components for the people module, including its dialogs and panels.
 | `src/app/(app)/people/offboarding/checklist/page.tsx`               | `ExitChecklistPage`                                                                           | —     | —                                                                      | 1 const            |
 | `src/app/(app)/people/onboarding/onboarding-screen.tsx`             | `OnboardingScreen`                                                                            | —     | —                                                                      | —                  |
 | `src/app/(app)/people/onboarding/page.tsx`                          | `OnboardingPage`                                                                              | —     | —                                                                      | 1 const            |
+| `src/app/(app)/people/onboarding/server-onboarding.tsx`             | `ServerOnboarding`                                                                            | —     | —                                                                      | —                  |
 | `src/app/(app)/people/one-on-ones/one-on-ones-screen.tsx`           | `OneOnOnesScreen`                                                                             | —     | —                                                                      | —                  |
 | `src/app/(app)/people/one-on-ones/page.tsx`                         | `OneOnOnesPage`                                                                               | —     | —                                                                      | 1 const            |
 | `src/app/(app)/people/one-on-ones/[id]/one-on-one-screen.tsx`       | `OneOnOneScreen`                                                                              | —     | —                                                                      | —                  |
