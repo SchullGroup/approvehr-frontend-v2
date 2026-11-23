@@ -238,10 +238,10 @@ export function HowItWorksBody() {
           Then the person is told, and replies
         </p>
         <p className="mt-1">
-          The appraiser makes the mark final and the employee reads it. They
-          either acknowledge it or formally disagree, and both are recorded with
-          a date. Acknowledging is not agreeing, and the screen says so before
-          they do it.
+          The appraiser makes the mark final and the employee reads it, then
+          acknowledges that they have seen it, which is recorded with a date.
+          Acknowledging is not agreeing, and the screen says so before they do
+          it. Somebody who does not accept their rating tells HR.
         </p>
       </div>
     </div>
