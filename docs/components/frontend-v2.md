@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `767c7d2e` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `dc3a975f` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -22,11 +22,11 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Data hooks — `src/lib/store`](#data-hooks--srclibstore)                                           |      104 |          0 |     384 |       101 |
 | [Seed data — `src/lib/mock`](#seed-data--srclibmock)                                               |       10 |          0 |       0 |        21 |
 | [Domain helpers — `src/lib/*`](#domain-helpers--srclib)                                            |      246 |          0 |      59 |      1053 |
-| [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        5 |          0 |       5 |         1 |
+| [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        6 |          0 |       6 |         1 |
 | [Screens — `/dashboard`](#screens--dashboard)                                                      |       13 |         11 |       0 |         6 |
 | [Screens — `/people`](#screens--people)                                                            |      133 |        142 |       0 |        31 |
 | [Screens — `/payroll`](#screens--payroll)                                                          |       82 |         83 |       2 |        46 |
-| [Screens — `/performance`](#screens--performance)                                                  |       94 |        105 |       3 |        69 |
+| [Screens — `/performance`](#screens--performance)                                                  |       94 |        106 |       3 |        69 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
 | [Screens — `/projects`](#screens--projects)                                                        |       38 |         37 |       0 |         4 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1384** |   **1143** | **473** |  **1768** |
+| **Total**                                                                                          | **1385** |   **1144** | **474** |  **1768** |
 
 ---
 
@@ -836,6 +836,7 @@ Generic hooks not tied to one data source.
 
 | File                               | Components | Hooks               | Functions           | Also   |
 | ---------------------------------- | ---------- | ------------------- | ------------------- | ------ |
+| `src/hooks/use-close-on-escape.ts` | —          | `useCloseOnEscape`  | —                   | —      |
 | `src/hooks/use-dismiss.ts`         | —          | `useDismiss`        | —                   | 1 type |
 | `src/hooks/use-focus-trap.ts`      | —          | `useFocusTrap`      | `__scrollLockDepth` | —      |
 | `src/hooks/use-is-client.ts`       | —          | `useIsClient`       | —                   | —      |
@@ -1165,7 +1166,7 @@ Screen components for the performance module, including its dialogs and panels.
 | `src/app/(app)/performance/periods/[id]/nudge.ts`                       | —                                                                                                            | —                           | `nudgeAudience`, `anybodyToNudge`, `nudgeMessage`, `nudgeTitle`, `peerLine`                                                                                                                                                                                                                                                                               | 1 type            |
 | `src/app/(app)/performance/periods/[id]/outstanding-rows.ts`            | —                                                                                                            | —                           | `outstandingFormsFrom`, `visibleForms`, `progressOf`                                                                                                                                                                                                                                                                                                      | 2 const · 2 types |
 | `src/app/(app)/performance/periods/[id]/page.tsx`                       | `PeriodPage`                                                                                                 | —                           | —                                                                                                                                                                                                                                                                                                                                                         | 1 const           |
-| `src/app/(app)/performance/periods/[id]/period-screen.tsx`              | `PeriodScreen`                                                                                               | —                           | `breakdownSentence`                                                                                                                                                                                                                                                                                                                                       | —                 |
+| `src/app/(app)/performance/periods/[id]/period-screen.tsx`              | `PeriodScreen`, `RegisterRow`                                                                                | —                           | `breakdownSentence`                                                                                                                                                                                                                                                                                                                                       | —                 |
 | `src/app/(app)/performance/periods/[id]/period-stage.ts`                | —                                                                                                            | —                           | `stageIndex`, `primaryActionFor`, `menuFor`, `tabsFor`, `resolveTab`, `publishFacts`                                                                                                                                                                                                                                                                      | 5 const · 3 types |
 | `src/app/(app)/performance/periods/[id]/period-weights-section.tsx`     | `PeriodWeightsSection`                                                                                       | —                           | —                                                                                                                                                                                                                                                                                                                                                         | —                 |
 | `src/app/(app)/performance/periods/[id]/rename-period.tsx`              | `RenamePeriodDialog`                                                                                         | —                           | —                                                                                                                                                                                                                                                                                                                                                         | —                 |
