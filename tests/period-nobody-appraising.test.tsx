@@ -14,7 +14,7 @@ let canManage = true;
 const registerCalls: unknown[][] = [];
 const questionsMounted = vi.hoisted(() => ({ count: 0 }));
 const questionsRead = vi.hoisted(() => ({ count: 0 }));
-let updateCycle: Mock<(...args: unknown[]) => Promise<unknown>>;
+const updateCycle: Mock<(...args: unknown[]) => Promise<unknown>> = vi.fn();
 const reload = vi.fn();
 const state = vi.hoisted(() => ({ exceptions: null as unknown }));
 
