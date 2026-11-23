@@ -134,7 +134,7 @@ const created = (over: Partial<LeaveRow> = {}) =>
 const pdf = (name = "certificate.pdf", size = 2000) =>
   new File([new Uint8Array(size)], name, { type: "application/pdf" });
 
-function mount() {
+function mount(requests: LeaveRow[] = []) {
   const onCreated = vi.fn();
   render(
     <ToastProvider>
@@ -142,7 +142,7 @@ function mount() {
         open
         onClose={vi.fn()}
         onCreated={onCreated}
-        requests={[]}
+        requests={requests}
       />
     </ToastProvider>,
   );
@@ -924,5 +924,63 @@ describe("files that go to the uploader and are linked by their address", () => 
     ).toBeInTheDocument();
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe("the dates, as they are typed (UAT 23 Nov, U65)", () => {
+  it("says at once when the end is before the start, before anything is sent", () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/^From/), {
+      target: { value: "2026-11-10" },
+    });
+    fireEvent.change(screen.getByLabelText(/^To/), {
+      target: { value: "2026-11-04" },
+    });
+    expect(
+      screen.getByText("The end date is before the start date."),
+    ).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("says at once when the dates overlap leave already booked", () => {
+    mount([
+      {
+        id: "r-old",
+        employeeId: "emp-1",
+        employeeName: "Chidi Nwosu",
+        employeeJobTitle: null,
+        leaveTypeId: "t-sick",
+        leaveType: "Annual",
+        from: "2026-11-03",
+        to: "2026-11-05",
+        days: 3,
+        status: "approved",
+        reason: null,
+        approverId: null,
+        approverName: null,
+        requestedAt: "2026-10-01",
+        decidedAt: "2026-10-02",
+        decidedById: null,
+        decidedByName: null,
+        decidedByJobTitle: null,
+        firstApprovedAt: null,
+        firstApprovedByName: null,
+        firstApprovedByJobTitle: null,
+        decisionNote: null,
+        firstApprovalNote: null,
+        attachmentCount: 0,
+      },
+    ]);
+    pickDates();
+    expect(
+      screen.getByText(/Overlaps an existing approved request/),
+    ).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("says nothing about dates that are fine", () => {
+    mount();
+    pickDates();
+    expect(screen.queryByText(/before the start date|Overlaps/)).toBeNull();
   });
 });

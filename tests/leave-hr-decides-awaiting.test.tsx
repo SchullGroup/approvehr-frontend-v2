@@ -169,7 +169,7 @@ describe("a request that is with HR", () => {
     ).toHaveLength(2);
     expect(
       screen.getAllByRole("button", {
-        name: "Send back Chidi Nwosu's request",
+        name: "Decline Chidi Nwosu's request",
       }),
     ).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
@@ -202,28 +202,22 @@ describe("a request that is with HR", () => {
 
     fireEvent.click(
       screen.getAllByRole("button", {
-        name: "Send back Chidi Nwosu's request",
+        name: "Decline Chidi Nwosu's request",
       })[0]!,
     );
     const dialog = await screen.findByRole("dialog");
 
     /* No reason, no decision. */
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: "Send it back" }),
-    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Decline" }));
     expect(
-      await within(dialog).findByText(
-        "Write a line so they know what to change.",
-      ),
+      await within(dialog).findByText("Write a line so they know why."),
     ).toBeInTheDocument();
     expect(decide).not.toHaveBeenCalled();
 
     fireEvent.change(within(dialog).getByRole("textbox"), {
       target: { value: "Cover is thin that week" },
     });
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: "Send it back" }),
-    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Decline" }));
 
     await waitFor(() =>
       expect(decide).toHaveBeenCalledWith(
@@ -246,7 +240,7 @@ describe("a request that is with HR", () => {
     expect(
       await screen.findByRole("button", { name: "Approve" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send back" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Decline" })).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Undo the decision" }),
     ).toBeNull();
@@ -294,7 +288,7 @@ describe("the approver's own request", () => {
       render(<LeaveScreen />);
 
       expect(screen.queryByRole("button", { name: /^Approve/ })).toBeNull();
-      expect(screen.queryByRole("button", { name: /^Send back/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Decline/ })).toBeNull();
       expect(screen.getAllByText("Somebody else decides")).toHaveLength(2);
     },
   );
@@ -365,15 +359,18 @@ describe("the Waiting on a decision tile", () => {
     expect(tile()).toHaveTextContent("5");
   });
 
-  it("is unchanged for somebody who cannot decide", () => {
+  it("is not shown to somebody who cannot decide: their own figures are (UAT 23 Nov, U64)", () => {
     held = new Set();
     me = "emp-ada";
     rows = queue();
     render(<LeaveScreen />);
 
-    expect(tile()).toHaveTextContent("3");
+    expect(screen.queryByText("Waiting on a decision")).toBeNull();
+    expect(screen.getByText("Days left")).toBeInTheDocument();
+    expect(screen.getByText("Booked")).toBeInTheDocument();
+    expect(screen.getAllByText("Waiting").length).toBeGreaterThan(0);
     expect(
-      screen.queryByRole("button", { name: /^(Approve|Send back|Undo)/ }),
+      screen.queryByRole("button", { name: /^(Approve|Decline|Undo)/ }),
     ).toBeNull();
   });
 });

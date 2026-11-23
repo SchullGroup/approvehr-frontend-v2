@@ -26,7 +26,7 @@ const LABEL: Record<LeaveHistoryKind, string> = {
   APPROVED: "Approved",
   /* The same word the status uses on this screen, so a request that "Sent
      back" in its status does not read "Declined" a paragraph below. */
-  DECLINED: "Sent back",
+  DECLINED: "Declined",
   REOPENED: "Reopened",
   CANCELLED: "Withdrawn",
 };
