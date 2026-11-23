@@ -226,11 +226,10 @@ export const TOUR_STEPS: readonly Step[] = [
   },
   {
     id: "settings",
-    title: "What is still to set up",
+    title: "Every setting in one place",
     body:
-      "Settings keeps a checklist of what a payroll needs before it can run: " +
-      "work locations, leave, pay, who can approve, and marks off what you " +
-      "have already done.",
+      "Settings lists every page in six groups, and says beside each setup " +
+      "page whether it is done.",
     /* Settings is its own link when it is all this person has under that name,
        and a row that opens Settings and Roles when they have both. */
     target: [
@@ -315,7 +314,10 @@ export function GuidedTour() {
   /* Auto-opens only for a real account that has not seen it. `features` is
      read so the sidebar has settled before anything points at it — a tour that
      opens mid-load points at a nav that is about to change size. */
-  const unseen = isConnected && !tourSeen && !features.loading;
+  /* Not for somebody who sets the company up (UAT 23 Nov, U43, NC-17): they
+     have just finished the setup wizard, and a tour on top of it was the second
+     of three layers. They can still take it from the account menu. */
+  const unseen = isConnected && !tourSeen && !features.loading && !canSettings;
   /* `steps.length === 0` can't happen today — welcome, nav, yours and search
      all carry `always: true` — but folding it into `useDismiss`'s
      input rather than a second early return keeps the "should this be open"
