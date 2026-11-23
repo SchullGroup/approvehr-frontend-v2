@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `e63ea30c` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `b5073582` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 **171 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -210,7 +210,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/performance/periods`               | Appraisal periods   | Every appraisal period, open ones first, and what each one needs next.                                                                                                                                           | `src/app/(app)/performance/periods/page.tsx`               |
 | `/performance/periods/[id]`          | Appraisal period    | Run an appraisal period: what is still needed, who is late, who has no appraiser, and where every mark stands.                                                                                                   | `src/app/(app)/performance/periods/[id]/page.tsx`          |
 | `/performance/periods/[id]/fairness` | Fairness check      | How an appraisal period's marks compare by gender, age, time at the company, location, contract type, department and manager.                                                                                    | `src/app/(app)/performance/periods/[id]/fairness/page.tsx` |
-| `/performance/periods/[id]/nine-box` | Nine-box            | Performance against potential for one appraisal period, with anyone the grid cannot place listed by name.                                                                                                        | `src/app/(app)/performance/periods/[id]/nine-box/page.tsx` |
+| `/performance/periods/[id]/nine-box` | Talent map          | Who is ready for more, who to grow, and who needs a conversation, for one appraisal period.                                                                                                                      | `src/app/(app)/performance/periods/[id]/nine-box/page.tsx` |
 | `/performance/periods/[id]/report`   | Period report       | How the period went: how marks are spread, what has come in, and who is still missing a mark or a final rating.                                                                                                  | `src/app/(app)/performance/periods/[id]/report/page.tsx`   |
 | `/performance/periods/new`           | Draft a period      | Describe an appraisal period in a sentence or two and edit the goals and questions that come back. Nothing is created until the last screen.                                                                     | `src/app/(app)/performance/periods/new/page.tsx`           |
 | `/performance/review-tasks`          | Weekly tasks        | Log what you did toward your objectives, and grade what your team did.                                                                                                                                           | `src/app/(app)/performance/review-tasks/page.tsx`          |
