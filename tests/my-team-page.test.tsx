@@ -63,7 +63,7 @@ describe("My team", () => {
     expect(screen.getByText("Emeka Anyanwu")).toBeInTheDocument();
     expect(screen.getByText("On leave today")).toBeInTheDocument();
     expect(
-      screen.getAllByText("8 of 20 Annual days left")[0],
+      screen.getAllByText("8 of 20 days of Annual leave left")[0],
     ).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).toBeNull();
   });

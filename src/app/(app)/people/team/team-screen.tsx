@@ -20,6 +20,7 @@ import type { ApiTeamMember } from "@/lib/api/team";
 import { useMyTeam } from "@/lib/store/team";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDate } from "@/lib/time";
+import { leaveLabel } from "@/lib/leave-label";
 
 /**
  * My team (U22, SELF-6, HR-13).
@@ -110,9 +111,10 @@ export function MyTeamScreen() {
 }
 
 function balanceLine(balance: ApiTeamMember["leaveBalances"][number]): string {
+  const type = leaveLabel(balance.leaveType);
   return balance.entitled === undefined
-    ? `${String(balance.remaining)} ${balance.leaveType} days left`
-    : `${String(balance.remaining)} of ${String(balance.entitled)} ${balance.leaveType} days left`;
+    ? `${String(balance.remaining)} days of ${type} left`
+    : `${String(balance.remaining)} of ${String(balance.entitled)} days of ${type} left`;
 }
 
 function LeaveSummary({ person }: { person: ApiTeamMember }) {
