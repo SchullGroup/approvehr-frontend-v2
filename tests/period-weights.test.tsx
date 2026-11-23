@@ -166,14 +166,17 @@ describe("<PeriodWeights />", () => {
     expect(screen.getByText("How the mark is made up")).toBeInTheDocument();
   });
 
-  it("shows the running total, and no refusal for a total other than 100", async () => {
+  it("shows the running total, and warns without refusing for a total over 100", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     expect(screen.getByTestId("weights-total")).toHaveTextContent("100%");
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
     expect(screen.getByTestId("weights-total")).toHaveTextContent("110%");
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    /* Over 100% is a warning, not a refusal: it is said in words and Save stays open. */
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "These add up to 110%, which is more than 100%.",
+    );
   });
 
   it("flags a decimal on its row", async () => {

@@ -84,11 +84,12 @@ describe("claims in the walkthrough", () => {
   });
 
   it("says when each weights Save is dead, as the two screens do: nothing changed, a box that is not a number, or every part at 0%", () => {
-    /* One for the company's set and one for a period's: the two cards disable
-       their button on `!dirty`, an invalid box, and a total of nothing. */
+    /* Only a period's card has a Save for the whole set now: the company's
+       parts are saved one at a time, so there is no second sentence for it. The
+       card disables its button on `!dirty`, an invalid box, and a total of nothing. */
     expect(
       walkthrough.match(/stays dead until something has changed/g),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(walkthrough).toContain("or every part is at 0%");
   });
 });
