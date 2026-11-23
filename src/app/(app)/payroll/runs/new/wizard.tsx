@@ -71,6 +71,8 @@ import {
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import { SheetPanel } from "./sheet-panel";
+import { blockerPerson } from "./blocker-person";
+import { periodFromParam } from "./period-param";
 import type { ApprovedRunFacts } from "./approved-moment";
 import { ApproveStep } from "./approve-step";
 import { BankRegisterCard } from "./bank-register-card";
@@ -94,7 +96,6 @@ import {
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
-import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
 
 /**
@@ -169,7 +170,7 @@ export function PayrollRunWizard() {
   /* A period in the URL means somebody came from the dashboard to look at a run
      that already exists, so the rail opens on the checks rather than on a form
      they have already filled in. Read at first render, not in an effect. */
-  const periodParam = params.get("period");
+  const periodParam = periodFromParam(params.get("period"));
 
   /**
    * Which step to open on.
@@ -454,23 +455,23 @@ export function PayrollRunWizard() {
      first time this was tried. `record-page.tsx` reaches for the same
      number for the same reason. */
   const directory = useEmployeeDirectory({ pageSize: 200 });
+  /* The full row where this reader is sent one, and the lookup row where
+     not: an analyst without Edit records is sent lookup rows only, and the
+     blocker used to vanish for her while the footer still counted it (U29). */
   const missingPayRows = useMemo(
     () =>
       missingPay
         .map((exception) => {
-          const person = directory.employees.find(
-            (e) => e.id === exception.employeeId,
+          const id = exception.employeeId as string;
+          const person = blockerPerson(
+            id,
+            directory.employees,
+            directory.people,
           );
-          if (!person) return null;
-          return {
-            employeeId: exception.employeeId as string,
-            name: fullName(person),
-            department: person.department,
-            salaryGradeId: person.salaryGradeId ?? null,
-          };
+          return person ? { employeeId: id, ...person } : null;
         })
         .filter((row): row is NonNullable<typeof row> => row !== null),
-    [missingPay, directory.employees],
+    [missingPay, directory.employees, directory.people],
   );
   /* `MissingPayTable` unmounts the moment this empties — a save just cleared
      the last of it — and an unmount reports nothing, so the raw state alone
@@ -483,18 +484,22 @@ export function PayrollRunWizard() {
     () =>
       missingTaxState
         .map((exception) => {
-          const person = directory.employees.find(
-            (e) => e.id === exception.employeeId,
+          const id = exception.employeeId as string;
+          const person = blockerPerson(
+            id,
+            directory.employees,
+            directory.people,
           );
-          if (!person) return null;
-          return {
-            employeeId: exception.employeeId as string,
-            name: fullName(person),
-            department: person.department,
-          };
+          return person
+            ? {
+                employeeId: id,
+                name: person.name,
+                department: person.department,
+              }
+            : null;
         })
         .filter((row): row is NonNullable<typeof row> => row !== null),
-    [missingTaxState, directory.employees],
+    [missingTaxState, directory.employees, directory.people],
   );
 
   const blocked = counts.blockers > 0 || discrepancies.length > 0;
