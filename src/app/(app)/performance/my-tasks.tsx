@@ -186,7 +186,7 @@ export function MyTasksPanel() {
                 maxLength={300}
                 value={description}
                 disabled={saving || !actions.editable}
-                placeholder="Shipped the pagination endpoint and got it reviewed."
+                placeholder="Sent the March payroll checks to Finance."
                 onChange={(event) => setDescription(event.target.value)}
               />
               {formError && (

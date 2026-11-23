@@ -533,7 +533,7 @@ export function BookLeaveDialog({
             onClick={() => void submit()}
             loading={saving}
           >
-            Raise request
+            Send request
           </Button>
         </div>
       }

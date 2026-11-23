@@ -1131,9 +1131,9 @@ export function EmployeeRecord({
                   clearsToNull: true,
                   label: "Reports to",
                   type: "picker",
-                  placeholder: "No manager (reports to the board)",
+                  placeholder: "No manager",
                   value: employee.managerId ?? "",
-                  emptyLabel: "No manager (reports to the board).",
+                  emptyLabel: "No manager.",
                   format: () =>
                     manager ? (
                       <PersonLink employee={manager} />
@@ -1141,7 +1141,7 @@ export function EmployeeRecord({
                       (managerName ?? "—")
                     ),
                   options: [
-                    { value: "", label: "No manager (reports to the board)" },
+                    { value: "", label: "No manager" },
                     /* Belt and braces: the picker's options come from the first
                        200 employees, connected. A company past that size could
                        have a manager sitting outside the slice, and without

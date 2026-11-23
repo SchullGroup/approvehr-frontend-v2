@@ -649,11 +649,20 @@ function ChooseFile({
                 explain the design is a sign the design needs no explaining: the
                 two chip lists above already say which columns matter, and a row
                 that is refused says why on the row. */}
-            <p className="text-meta text-muted">
-              The other{" "}
-              {dictionary.columns.length - required.length - recommended.length}{" "}
-              columns are optional.
-            </p>
+            {(() => {
+              /* "The other 1 columns" read as a typo (UAT 23 Nov, L15: NC-35). */
+              const others =
+                dictionary.columns.length -
+                required.length -
+                recommended.length;
+              return others > 0 ? (
+                <p className="text-meta text-muted">
+                  {others === 1
+                    ? "The other column is optional."
+                    : `The other ${others} columns are optional.`}
+                </p>
+              ) : null;
+            })()}
           </CardBody>
         </Card>
       </div>

@@ -690,7 +690,7 @@ export function NewEmployeeForm() {
       title: "Draft saved",
       tone: "success",
       detail:
-        "Come back to Add a new staff to pick it up. In this browser only. It will not be here on another device.",
+        "Come back to Add an employee to pick it up. In this browser only. It will not be here on another device.",
     });
   }
 

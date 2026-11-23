@@ -583,7 +583,7 @@ function PartsPanel({
             <Card>
               <CardHeader
                 title="A change here does not move a period that has started"
-                description="The same rule payroll uses for its settings snapshot."
+                description="A period keeps the weights it started with."
               />
               <CardBody className="flex flex-col gap-3 text-body-sm text-body">
                 <p>

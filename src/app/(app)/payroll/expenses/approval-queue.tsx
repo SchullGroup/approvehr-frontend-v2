@@ -329,12 +329,9 @@ export function ReceiptCell({
           aria-hidden="true"
           className="size-3.5 shrink-0 text-muted"
         />
-        <span
-          className="max-w-[10rem] truncate text-body-sm text-body"
-          title={claim.receiptKey ?? undefined}
-        >
-          {claim.receiptKey}
-        </span>
+        {/* "Attached", not the storage key it is filed under: that read as
+            "receipts/AHR-0003/2026-10-12.pdf" (UAT 23 Nov, L15: SELF-20). */}
+        <span className="text-body-sm text-body">Attached</span>
       </span>
     );
   }

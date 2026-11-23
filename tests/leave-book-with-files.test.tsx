@@ -170,7 +170,7 @@ function pickDates() {
 }
 
 const send = () =>
-  fireEvent.click(screen.getByRole("button", { name: "Raise request" }));
+  fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
 beforeEach(() => {
   mocks.create.mockReset().mockResolvedValue({

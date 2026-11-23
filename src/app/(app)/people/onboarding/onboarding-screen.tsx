@@ -148,7 +148,7 @@ export function OnboardingScreen() {
         action={
           <ButtonLink href="/people/new" variant="accent" size="sm">
             <Plus aria-hidden="true" className="size-4" />
-            Add a new staff
+            Add an employee
           </ButtonLink>
         }
       />
@@ -241,7 +241,7 @@ export function OnboardingScreen() {
                 description="Somebody appears here while their status is Onboarding, and drops off it the moment you finish them."
                 action={
                   <ButtonLink href="/people/new" variant="accent" size="sm">
-                    Add a new staff
+                    Add an employee
                   </ButtonLink>
                 }
               />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileQuestion, LineChart, ShieldCheck } from "lucide-react";
+import { FileQuestion, LineChart } from "lucide-react";
 import {
   Badge,
   Button,
@@ -518,7 +518,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             <ScorePanel
               score={score.score}
               loading={score.loading}
-              subjectName={review.subjectName}
               overallMark={review.overallMark}
               message={score.available ? score.error?.message : score.refusal}
             />
@@ -643,13 +642,11 @@ function ScorePanel({
   score,
   loading,
   message,
-  subjectName,
   overallMark,
 }: {
   score: ApiEmployeeScore | null;
   loading: boolean;
   message: string | undefined;
-  subjectName: string;
   /** The company's setting, from the review. See `showsOverallMark`. */
   overallMark: boolean | undefined;
 }) {
@@ -791,7 +788,7 @@ function ScorePanel({
           level={4}
           dense
           title="How this score is put together"
-          hint="The weights used, and why the figures are whole numbers."
+          hint="The weights used."
         >
           <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
             <p>
@@ -800,16 +797,6 @@ function ScorePanel({
                 : score.weightsFrom === "snapshot"
                   ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this score."
                   : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this score, even though it has already been given."}
-            </p>
-            <p className="flex items-start gap-2 text-muted">
-              <ShieldCheck
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0"
-              />
-              <span>
-                Scores are worked out in whole numbers, so {subjectName}&apos;s
-                score comes out exactly the same every time it is worked out.
-              </span>
             </p>
           </div>
         </Disclosure>

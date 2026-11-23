@@ -123,7 +123,7 @@ export function HolidayForm({
           description={
             confirmed
               ? "Everything that reads the calendar treats it as a settled holiday."
-              : "Marked as awaiting proclamation. Payroll proration and overtime rates act on it straight away; the attendance timesheet and the help desk's response clock wait until it is confirmed."
+              : "Not confirmed yet. Pay already counts it as a holiday; attendance treats it as a working day until it is confirmed."
           }
           checked={confirmed}
           onChange={(e) => {

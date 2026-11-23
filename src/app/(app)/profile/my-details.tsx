@@ -261,12 +261,6 @@ const CHOICES: Record<ChoiceField, readonly (readonly [string, string])[]> = {
   ],
 };
 
-const TIER_NOTE = {
-  immediate: "Saved as soon as you press save.",
-  approval:
-    "Payroll checks these before they change: your salary is paid on them.",
-};
-
 export function MyDetails({
   me,
   only,
@@ -568,7 +562,10 @@ export function MyDetails({
                     )}
                   </span>
                 }
-                hint={group.hint ?? TIER_NOTE[group.tier]}
+                /* The card's own description says once which details payroll
+                   checks; it is not repeated on every section (UAT 23 Nov,
+                   L15: SELF-20). */
+                hint={group.hint}
               >
                 <div className="grid gap-3 sm:grid-cols-2">
                   {group.fields.flatMap((key) => {
