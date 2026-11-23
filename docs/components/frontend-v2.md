@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `b3d6e2a0` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `767c7d2e` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -25,7 +25,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        5 |          0 |       5 |         1 |
 | [Screens — `/dashboard`](#screens--dashboard)                                                      |       13 |         11 |       0 |         6 |
 | [Screens — `/people`](#screens--people)                                                            |      133 |        142 |       0 |        31 |
-| [Screens — `/payroll`](#screens--payroll)                                                          |       80 |         83 |       2 |        43 |
+| [Screens — `/payroll`](#screens--payroll)                                                          |       82 |         83 |       2 |        46 |
 | [Screens — `/performance`](#screens--performance)                                                  |       94 |        105 |       3 |        69 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
 | [Screens — `/projects`](#screens--projects)                                                        |       38 |         37 |       0 |         4 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1382** |   **1143** | **473** |  **1765** |
+| **Total**                                                                                          | **1384** |   **1143** | **473** |  **1768** |
 
 ---
 
@@ -1080,9 +1080,11 @@ Screen components for the payroll module, including its dialogs and panels.
 | `src/app/(app)/payroll/runs/new/drawer-parts.tsx`             | `BackToPayslip`, `FormFooter`                                                                                                     | —                 | —                                                                                                                                                                                                                       | 1 const           |
 | `src/app/(app)/payroll/runs/new/lines-editor.tsx`             | `LinesEditor`                                                                                                                     | —                 | —                                                                                                                                                                                                                       | —                 |
 | `src/app/(app)/payroll/runs/new/loan-lines.ts`                | —                                                                                                                                 | —                 | `isLoanLine`, `loanLinesFor`                                                                                                                                                                                            | 1 type            |
+| `src/app/(app)/payroll/runs/new/off-cycle.ts`                 | —                                                                                                                                 | —                 | `offCycleApplies`                                                                                                                                                                                                       | —                 |
 | `src/app/(app)/payroll/runs/new/opening-step.ts`              | —                                                                                                                                 | —                 | `opensOnApprove`                                                                                                                                                                                                        | —                 |
 | `src/app/(app)/payroll/runs/new/overflow-menu.tsx`            | `OverflowMenu`                                                                                                                    | —                 | —                                                                                                                                                                                                                       | 1 type            |
 | `src/app/(app)/payroll/runs/new/page.tsx`                     | `NewPayrollRunPage`                                                                                                               | —                 | —                                                                                                                                                                                                                       | 1 const           |
+| `src/app/(app)/payroll/runs/new/pay-date.ts`                  | —                                                                                                                                 | —                 | `defaultPayDate`, `payDateForMonth`                                                                                                                                                                                     | —                 |
 | `src/app/(app)/payroll/runs/new/pay-panel.tsx`                | `PayPanel`, `WalletStrip`, `WalletFigures`                                                                                        | —                 | —                                                                                                                                                                                                                       | 1 const           |
 | `src/app/(app)/payroll/runs/new/period-param.ts`              | —                                                                                                                                 | —                 | `periodFromParam`                                                                                                                                                                                                       | —                 |
 | `src/app/(app)/payroll/runs/new/preflight-checklist.tsx`      | `PreflightChecklist`                                                                                                              | —                 | —                                                                                                                                                                                                                       | —                 |

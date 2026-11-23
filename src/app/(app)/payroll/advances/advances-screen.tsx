@@ -10,6 +10,7 @@ import {
   CardBody,
   CardHeader,
   Checkbox,
+  ConfirmDialog,
   EmptyState,
   Field,
   Input,
@@ -42,6 +43,7 @@ import {
   useMyAdvance,
 } from "@/lib/store/advances";
 import { useCan } from "@/lib/permissions";
+import { useSession } from "@/lib/store/session";
 import {
   advanceApprovedCopy,
   advanceDeclinedToast,
@@ -450,8 +452,33 @@ function Waiting({
 function History({ read }: { read: ReturnType<typeof useAdvances> }) {
   const mutations = useAdvanceMutations();
   const canDecide = useCan("APPROVE_LOANS");
+  const { employeeId } = useSession();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  /* Your own request, while nobody has decided it, can be taken back (L3). The
+     API allows exactly that and nothing more, so the button is offered on
+     exactly those rows. */
+  const [withdrawing, setWithdrawing] = useState<ApiAdvance | null>(null);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
+
+  async function withdraw() {
+    if (!withdrawing) return;
+    setWithdrawBusy(true);
+    try {
+      await mutations.cancel(withdrawing.id);
+      toast.push({ tone: "success", title: "Request withdrawn" });
+      setWithdrawing(null);
+      read.reload();
+    } catch (error) {
+      toast.push({
+        tone: "danger",
+        title:
+          error instanceof ApiError ? error.message : "Could not withdraw it.",
+      });
+    } finally {
+      setWithdrawBusy(false);
+    }
+  }
 
   if (read.error || read.loading || !read.data) {
     return (
@@ -509,6 +536,17 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
             <Badge tone={TONE[advance.status]} size="sm" dot>
               {STATUS_LABELS[advance.status]}
             </Badge>
+            {advance.status === "REQUESTED" &&
+              employeeId !== null &&
+              advance.employeeId === employeeId && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setWithdrawing(advance)}
+                >
+                  Withdraw
+                </Button>
+              )}
             {/* Approved is not paid. Marking it paid is its own press, so a
                 signature cannot be mistaken for a transfer. */}
             {canDecide && advance.status === "APPROVED" && (
@@ -546,6 +584,21 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
           </div>
         ))}
       </CardBody>
+      <ConfirmDialog
+        open={withdrawing !== null}
+        onClose={() => setWithdrawing(null)}
+        onConfirm={() => void withdraw()}
+        tone="danger"
+        confirmLabel="Withdraw request"
+        loading={withdrawBusy}
+        title="Withdraw this request?"
+        body={
+          <p>
+            Nobody will decide it and nothing is paid early. You can ask again
+            while there is pay you have earned.
+          </p>
+        }
+      />
     </Card>
   );
 }
