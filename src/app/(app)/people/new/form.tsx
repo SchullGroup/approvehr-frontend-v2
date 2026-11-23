@@ -66,7 +66,7 @@ import {
   PENSION_PROVIDERS,
   isOtherPensionProvider,
 } from "@/lib/reference/lists";
-import { koboFromDecimal, naira } from "@/lib/api/payroll";
+import { koboFromDecimal, naira, wasDeducted } from "@/lib/api/payroll";
 import { QuoteWorkings } from "@/components/payroll/quote-workings";
 import { usePayslipQuote } from "@/lib/store/payslip-quote";
 import { RECORD_FIELD_KEYS, type RecordFieldKey } from "@/lib/api/setup";
@@ -2226,7 +2226,7 @@ function ReviewBlock({
  * and nothing on screen could have told you which one you were looking at. With
  * no API there is now no figure, which is the honest version of the same state.
  */
-function FirstPayslip({
+export function FirstPayslip({
   grossKobo,
   annualRentKobo,
 }: {
@@ -2276,9 +2276,17 @@ function FirstPayslip({
           <>
             <Row label="Gross" value={naira(slip.grossKobo)} strong />
             <div className="h-px bg-line" />
-            <Row label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
-            <Row label="NHF" value={-naira(slip.nhfKobo)} />
-            <Row label="PAYE" value={-naira(slip.payeKobo)} />
+            {/* A deduction the company does not operate has no row, rather
+                than a "₦0" that reads as a figure (U53). */}
+            {wasDeducted(slip.operates, "pension") && (
+              <Row label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
+            )}
+            {wasDeducted(slip.operates, "nhf") && (
+              <Row label="NHF" value={-naira(slip.nhfKobo)} />
+            )}
+            {wasDeducted(slip.operates, "paye") && (
+              <Row label="PAYE" value={-naira(slip.payeKobo)} />
+            )}
             <div className="h-px bg-line" />
             <Row label="Net monthly" value={naira(slip.netKobo)} strong />
             <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
@@ -2330,7 +2338,10 @@ function Row({
             : "tabular text-body-sm text-body"
         }
       >
-        <Money amount={Math.round(value)} />
+        {/* To the kobo, as the run computes it: rounding here made the
+            preview and the payslip disagree by 50 kobo (U53). */}
+        {value < 0 ? "−" : null}
+        <Money amount={Math.abs(value)} decimals />
       </span>
     </div>
   );
