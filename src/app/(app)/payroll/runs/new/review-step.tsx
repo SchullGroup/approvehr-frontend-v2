@@ -428,7 +428,6 @@ export function ReviewStep({
                   showOvertime={showOvertime}
                   showBonus={showBonus}
                   showLoans={showLoans}
-                  anyUnpaid={anyUnpaid}
                 />
                 <TBody>
                   {shown.map((slip) => (
@@ -543,19 +542,20 @@ function ReviewHead({
   showOvertime,
   showBonus,
   showLoans,
-  anyUnpaid,
 }: {
   view: ReviewView;
   onSort: (column: string, startDescending?: boolean) => void;
   showOvertime: boolean;
   showBonus: boolean;
   showLoans: boolean;
-  anyUnpaid: boolean;
 }) {
   const active = view.sort?.column;
   const order = view.sort?.order ?? "asc";
   const adjustable = 2 + (showOvertime ? 1 : 0) + (showBonus ? 1 : 0);
-  const leading = 2 + (anyUnpaid ? 1 : 0);
+  /* Employee and Gross. Unpaid days are a second line under Gross, not a
+     column of their own: the extra column is what pushed names onto three lines
+     and Adjust off the edge at 1440px (UAT 23 Nov, L6: PAY-27). */
+  const leading = 2;
 
   return (
     <thead className="border-b border-line bg-canvas">
@@ -574,18 +574,6 @@ function ReviewHead({
         <SortableTH column="name" active={active} order={order} onSort={onSort}>
           Employee
         </SortableTH>
-        {anyUnpaid && (
-          <SortableTH
-            column="unpaid"
-            active={active}
-            order={order}
-            onSort={onSort}
-            align="right"
-            startDescending
-          >
-            Unpaid days
-          </SortableTH>
-        )}
         <SortableTH
           column="gross"
           active={active}
@@ -703,6 +691,7 @@ function PayslipRow({
   return (
     <TR>
       <TDPrimary
+        className="whitespace-nowrap"
         title={
           <TextLink href={`/payroll/payslips/${slip.id}`}>{slip.name}</TextLink>
         }
@@ -713,17 +702,13 @@ function PayslipRow({
           </>
         }
       />
-      {anyUnpaid && (
-        <TD align="right" className="tabular text-body-sm">
-          {slip.unpaidDays > 0 ? (
-            <span className="text-warning-text">{slip.unpaidDays}</span>
-          ) : (
-            <span className="text-faint">—</span>
-          )}
-        </TD>
-      )}
       <TD align="right" className="tabular text-body-sm">
         {formatKobo(slip.grossKobo)}
+        {anyUnpaid && slip.unpaidDays > 0 && (
+          <span className="mt-0.5 block text-meta whitespace-nowrap text-warning-text">
+            {slip.unpaidDays} unpaid {slip.unpaidDays === 1 ? "day" : "days"}
+          </span>
+        )}
       </TD>
       {showOvertime && (
         <TD align="right" className="tabular text-body-sm">

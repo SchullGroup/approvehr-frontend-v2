@@ -29,6 +29,7 @@ import {
   Input,
   Modal,
   RowActions,
+  type RowAction,
   Select,
   Stat,
   TBody,
@@ -76,7 +77,7 @@ import {
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
-import { AskPeersButton } from "./ask-peers";
+import { AskPeersButton, AskPeersDialog } from "./ask-peers";
 import {
   anybodyToNudge,
   nudgeAudience,
@@ -1317,9 +1318,13 @@ function Register({
               <TH>Objectives agreed</TH>
               <TH align="right">Score</TH>
               <TH>Sign-off</TH>
-              {canAskPeers && <TH>Feedback</TH>}
-              {canCalibrate && <TH>Calibration</TH>}
-              {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
+              {(canAskPeers ||
+                canCalibrate ||
+                (canRequestRevision && !revisionsUnavailable)) && (
+                <TH align="right">
+                  <span className="sr-only">Actions</span>
+                </TH>
+              )}
             </THead>
             <TBody>
               {register.rows.map((row) => (
@@ -1363,7 +1368,7 @@ function Register({
   );
 }
 
-function RegisterRow({
+export function RegisterRow({
   row,
   cycleId,
   canAskPeers,
@@ -1443,47 +1448,130 @@ function RegisterRow({
       <TD>
         <SignOffCell row={row} />
       </TD>
-      {/* The 360 half, which had no door at all until now: the endpoint was
-          written, guarded and tested, and the product could render peer
-          answers it had no way of asking for. */}
-      {canAskPeers && (
-        <TD>
-          <AskPeersButton
-            cycleId={cycleId}
-            subjectId={row.employeeId}
-            subjectName={row.employeeName}
-            onAsked={onAsked}
-          />
-        </TD>
-      )}
-      {/* Only at the calibration stage, and only for somebody who has a mark.
-          Moving a figure that does not exist yet is not calibration, it is
-          inventing one — and the whole column is absent before the stage
-          because a mark still being written is not one anybody should be
-          adjusting. */}
-      {canCalibrate && (
-        <TD>
-          {row.scoreBp === null ? (
-            <span className="text-meta text-muted">No score yet</span>
-          ) : (
-            <CalibrateButton cycleId={cycleId} row={row} onChanged={onAsked} />
-          )}
-        </TD>
-      )}
-      {/* Same running window as calibration, but not restricted to it: a
-          review can need another pass at any stage while people are still
-          writing, not only once everybody has finished. */}
-      {canRequestRevision && (
-        <TD>
-          <RevisionButton
-            cycleId={cycleId}
+      {/* One menu for the acts on a person, not a column and a button each:
+          three buttons in three columns made every row three lines long
+          (UAT 23 Nov, L13: PERF-38). */}
+      {(canAskPeers || canCalibrate || canRequestRevision) && (
+        <TD align="right">
+          <MarkActions
             row={row}
-            existing={existingRevision}
+            cycleId={cycleId}
+            canAskPeers={canAskPeers}
+            canCalibrate={canCalibrate}
+            canRequestRevision={canRequestRevision}
+            existingRevision={existingRevision}
             onChanged={onAsked}
           />
         </TD>
       )}
     </TR>
+  );
+}
+
+/**
+ * Ask colleagues, change the mark and send back, behind one menu on a row of
+ * the Marks table. Each opens the same dialog its own button opens on the card
+ * a phone shows. The 360 half had no door at all until it was a button here;
+ * calibration is only at its stage and only for somebody with a mark; a review
+ * can be sent back at any running stage.
+ */
+function MarkActions({
+  row,
+  cycleId,
+  canAskPeers,
+  canCalibrate,
+  canRequestRevision,
+  existingRevision,
+  onChanged,
+}: {
+  row: ApiScoreRow;
+  cycleId: string;
+  canAskPeers: boolean;
+  canCalibrate: boolean;
+  canRequestRevision: boolean;
+  existingRevision: ApiRevisionRequest | undefined;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState<"peers" | "calibrate" | "revision" | null>(
+    null,
+  );
+  /* A new revision form each time it opens, so last time's reason is gone. */
+  const [revisionSession, setRevisionSession] = useState(0);
+  /* The colleagues dialog reads the staff list, so it is mounted only once
+     somebody has asked for it, and stays mounted after so it can animate out. */
+  const [peersOpened, setPeersOpened] = useState(false);
+
+  const items: RowAction[] = [];
+  if (canAskPeers) {
+    items.push({
+      label: "Ask colleagues",
+      onSelect: () => {
+        setPeersOpened(true);
+        setOpen("peers");
+      },
+    });
+  }
+  if (canCalibrate) {
+    items.push({
+      label: row.calibration ? "Change the moved score" : "Change the score",
+      disabled: row.scoreBp === null,
+      ...(row.scoreBp === null ? { hint: "No score yet" } : {}),
+      onSelect: () => setOpen("calibrate"),
+    });
+  }
+  if (canRequestRevision) {
+    items.push({
+      label: "Send back",
+      disabled: Boolean(existingRevision),
+      ...(existingRevision
+        ? { hint: "Sent back, waiting for them to send it again" }
+        : {}),
+      onSelect: () => {
+        setRevisionSession((n) => n + 1);
+        setOpen("revision");
+      },
+    });
+  }
+
+  return (
+    <>
+      <RowActions label={`More for ${row.employeeName}`} items={items} />
+      {peersOpened && (
+        <AskPeersDialog
+          open={open === "peers"}
+          cycleId={cycleId}
+          subjectId={row.employeeId}
+          subjectName={row.employeeName}
+          onClose={() => setOpen(null)}
+          onAsked={() => {
+            setOpen(null);
+            onChanged();
+          }}
+        />
+      )}
+      {canCalibrate && (
+        <CalibrateDialog
+          open={open === "calibrate"}
+          onClose={() => setOpen(null)}
+          onChanged={onChanged}
+          cycleId={cycleId}
+          employeeId={row.employeeId}
+          employeeName={row.employeeName}
+          computedBp={row.computedBp ?? row.scoreBp ?? 0}
+          existing={row.calibration}
+        />
+      )}
+      {canRequestRevision && (
+        <RevisionDialog
+          key={revisionSession}
+          open={open === "revision"}
+          onClose={() => setOpen(null)}
+          cycleId={cycleId}
+          row={row}
+          onChanged={onChanged}
+        />
+      )}
+    </>
   );
 }
 
@@ -2155,21 +2243,66 @@ function RevisionButton({
   existing: ApiRevisionRequest | undefined;
   onChanged: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  /* A new form each time it opens, so last time's reason is gone. */
+  const [session, setSession] = useState(0);
+
+  if (existing) {
+    return (
+      <span
+        className="text-meta text-muted"
+        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"}, ${existing.reason}`}
+      >
+        Sent back, waiting for them to send it again
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => {
+          setSession((n) => n + 1);
+          setOpen(true);
+        }}
+      >
+        Send back
+      </Button>
+      <RevisionDialog
+        key={session}
+        open={open}
+        onClose={() => setOpen(false)}
+        cycleId={cycleId}
+        row={row}
+        onChanged={onChanged}
+      />
+    </>
+  );
+}
+
+/** The form behind Send back, from a card's button or a row's menu. */
+function RevisionDialog({
+  open,
+  onClose,
+  cycleId,
+  row,
+  onChanged,
+}: {
+  open: boolean;
+  onClose: () => void;
+  cycleId: string;
+  row: ApiScoreRow;
+  onChanged: () => void;
+}) {
   const periods = useCycleMutations();
   const toast = useToast();
 
-  const [open, setOpen] = useState(false);
   const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">("MANAGER");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-
-  const start = () => {
-    setTargetStage("MANAGER");
-    setReason("");
-    setFailed(null);
-    setOpen(true);
-  };
 
   const save = async () => {
     if (reason.trim().length < 10) {
@@ -2192,7 +2325,7 @@ function RevisionButton({
             ? "Their self-appraisal is open for another pass."
             : "Their manager review is open for another pass.",
       });
-      setOpen(false);
+      onClose();
       onChanged();
     } catch (caught) {
       setFailed(
@@ -2205,35 +2338,20 @@ function RevisionButton({
     }
   };
 
-  if (existing) {
-    return (
-      <span
-        className="text-meta text-muted"
-        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"}, ${existing.reason}`}
-      >
-        Sent back, waiting for them to send it again
-      </span>
-    );
-  }
-
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={start}>
-        Send back
-      </Button>
-
-      {/* No open-gating here, matching `CalibrateButton` above: `Modal` reads
-          its own `useDismiss` state, so it has to stay mounted with the real
-          `open` passed through rather than being unmounted by this wrapper. */}
+      {/* No open-gating here, matching `CalibrateDialog`: `Modal` reads its own
+          `useDismiss` state, so it stays mounted with the real `open` passed
+          through rather than being unmounted by its caller. */}
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={onClose}
         title={`Send ${row.employeeName}'s review back`}
         description="Opens that one review again so they can redo it. Nobody else's review changes."
         size="sm"
         footer={
           <div className="flex justify-end gap-2">
-            <Button disabled={busy} onClick={() => setOpen(false)}>
+            <Button disabled={busy} onClick={onClose}>
               Cancel
             </Button>
             <Button variant="accent" loading={busy} onClick={() => void save()}>

@@ -551,6 +551,10 @@ export function useDepartment(id: string | null) {
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  /* Bumped after a change made from this page, so it reads the unit again
+     without the skeleton (the key below does not move). */
+  const [nonce, setNonce] = useState(0);
+  const reload = useCallback(() => setNonce((n) => n + 1), []);
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -569,7 +573,7 @@ export function useDepartment(id: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [id, active, revalidation]);
+  }, [id, active, revalidation, nonce]);
 
   const people = useMemo(() => structurePeople(directory), [directory]);
   const demoDetail = useMemo(
@@ -579,9 +583,10 @@ export function useDepartment(id: string | null) {
 
   const matched = active && fetched !== null && fetched.id === id;
 
-  if (!isConnected) return { detail: demoDetail, loading: false };
+  if (!isConnected) return { detail: demoDetail, loading: false, reload };
 
   return {
+    reload,
     detail: matched ? fetched.detail : null,
     /* Derived rather than tracked. We are loading exactly while an active id
        has no matching result yet, which is true from the moment `id` changes
