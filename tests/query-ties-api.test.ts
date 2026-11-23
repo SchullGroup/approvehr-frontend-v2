@@ -14,6 +14,7 @@ import {
   toCitationAdded,
   toCounts,
   toDocumentAsked,
+  toIssuedCitations,
   toLead,
   toTemplateList,
   toWarnings,
@@ -501,7 +502,7 @@ describe("what is sent", () => {
   });
 });
 
-describe("the draft's own clock and the flag on a copy", () => {
+describe("the draft's own clock and the flags on the answer to issuing", () => {
   it("reads updatedAt, and null for a server that does not send it", () => {
     expect(toDetail({ updatedAt: "2026-11-20T10:00:00.000Z" }).updatedAt).toBe(
       "2026-11-20T10:00:00.000Z",
@@ -510,30 +511,38 @@ describe("the draft's own clock and the flag on a copy", () => {
     expect(toDetail({ updatedAt: 5 }).updatedAt).toBeNull();
   });
 
-  it("reads whether a frozen copy differs from the preview as true, false or not said, and nothing is made of an absence", () => {
-    const read = (value: unknown) =>
-      toCitation({
-        id: "c",
-        kind: "POLICY",
-        title: "t",
-        changedSincePreview: value,
-      })?.changedSincePreview;
-    expect(read(true)).toBe(true);
-    expect(read(false)).toBe(false);
-    expect(read(undefined)).toBeNull();
-    expect(read("yes")).toBeNull();
+  it("reads which references changed since the preview, true only when the server said true", () => {
+    expect(
+      toIssuedCitations([
+        { id: "c-1", kind: "POLICY", title: "A", changedSincePreview: true },
+        { id: "c-2", kind: "POLICY", title: "B", changedSincePreview: false },
+        { id: "c-3", kind: "POLICY", title: "C" },
+        { id: "c-4", kind: "POLICY", title: "D", changedSincePreview: "yes" },
+        { title: "no id" },
+        "nope",
+      ]),
+    ).toEqual([
+      { id: "c-1", title: "A", changed: true },
+      { id: "c-2", title: "B", changed: false },
+      { id: "c-3", title: "C", changed: false },
+      { id: "c-4", title: "D", changed: false },
+    ]);
+    expect(toIssuedCitations(undefined)).toEqual([]);
   });
 
-  it("an issued detail keeps the flag on the citation it belongs to", () => {
-    const issued = toDetail({
+  it("an issue answer carries the list, and an older server's answer carries an empty one", async () => {
+    request.mockReset();
+    request.mockResolvedValue({
+      detail: {},
+      warnings: [],
       citations: [
         { id: "c-1", kind: "POLICY", title: "A", changedSincePreview: true },
-        { id: "c-2", kind: "POLICY", title: "B" },
       ],
     });
-    expect(issued.citations.map((c) => [c.id, c.changedSincePreview])).toEqual([
-      ["c-1", true],
-      ["c-2", null],
+    expect((await queriesApi.issue("q-1")).citations).toEqual([
+      { id: "c-1", title: "A", changed: true },
     ]);
+    request.mockResolvedValue({ detail: {}, warnings: [] });
+    expect((await queriesApi.issue("q-1")).citations).toEqual([]);
   });
 });

@@ -8,6 +8,7 @@ import {
   toDocumentAsked,
   toDocumentRequest,
   toCounts,
+  toIssuedCitations,
   toLead,
   toTemplate,
   toTemplateList,
@@ -21,6 +22,7 @@ import {
   type CitationAdded,
   type CiteBody,
   type DocumentAsked,
+  type IssuedCitation,
   type QueryWarning,
   type TemplateBody,
   type TemplateList,
@@ -283,6 +285,12 @@ export type LetterBody = {
 export type IssueResult = {
   detail: ApiQueryDetail;
   warnings: QueryWarning[];
+  /**
+   * Every reference as it was frozen, each saying whether it differs from the last preview. Empty
+   * for a server that does not send the list. Titles are for the issuer's own screen: they never
+   * go into a toast.
+   */
+  citations: IssuedCitation[];
   subjectHasSignIn: boolean | null;
   toldInProduct: boolean | null;
   nobodyToldInProduct: boolean | null;
@@ -772,6 +780,7 @@ export const queriesApi = {
     return {
       detail: toDetail(r["detail"]),
       warnings: toWarnings(r["warnings"]),
+      citations: toIssuedCitations(r["citations"]),
       subjectHasSignIn: optionalBool("subjectHasSignIn"),
       toldInProduct: optionalBool("toldInProduct"),
       nobodyToldInProduct: optionalBool("nobodyToldInProduct"),

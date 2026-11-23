@@ -174,12 +174,6 @@ export type ApiCitation = {
   takenAt: string | null;
   /** True from the moment the letter is issued. A draft's copy is a preview. */
   frozen: boolean;
-  /**
-   * On the answer to issuing: true when the copy frozen then differs from the last preview the
-   * issuer saw, because the record changed in between. `null` is a server that did not say, and
-   * is no claim: the mark is drawn for `true` only.
-   */
-  changedSincePreview: boolean | null;
   asItStood: AsItStood;
 };
 
@@ -276,7 +270,6 @@ export function toCitation(raw: unknown): ApiCitation | null {
     title,
     takenAt: text(raw["takenAt"]),
     frozen: raw["frozen"] === true,
-    changedSincePreview: flag(raw["changedSincePreview"]),
     asItStood: toAsItStood(kind, raw["asItStood"]),
   };
 }
@@ -331,6 +324,29 @@ export type CiteBody =
 
 /** The cap the server holds. It still refuses, and its sentence is what is shown if this drifts. */
 export const MAX_CITATIONS = 20;
+
+/**
+ * One reference as the answer to issuing reports it: the copy that was frozen, and whether it
+ * differs from the last preview the issuer saw while drafting (a policy republished, attendance
+ * corrected, a request dropped in between). `changed` is true only when the server said `true`:
+ * a missing or unreadable flag is no claim and draws nothing.
+ */
+export type IssuedCitation = { id: string; title: string; changed: boolean };
+
+export function toIssuedCitations(value: unknown): IssuedCitation[] {
+  return list(value).flatMap((entry) => {
+    if (!isRecord(entry)) return [];
+    const id = text(entry["id"]);
+    if (!id) return [];
+    return [
+      {
+        id,
+        title: text(entry["title"]) ?? "",
+        changed: entry["changedSincePreview"] === true,
+      },
+    ];
+  });
+}
 
 /** A citation just added: the citation, plus the warnings about the day it names. */
 export type CitationAdded = { citation: ApiCitation; warnings: QueryWarning[] };

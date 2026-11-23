@@ -23,6 +23,7 @@ import {
   SERVED_HOW_HELP,
   SERVED_HOW_LABEL,
   type ApiQueryDetail,
+  type IssueResult,
   type QueryServedHow,
 } from "@/lib/api/queries";
 import { isDayWarning } from "@/lib/api/query-ties";
@@ -69,9 +70,12 @@ export function DraftEditor({
   publish,
   refresh,
   reread,
+  onIssued,
 }: {
   detail: ApiQueryDetail;
   publish: (detail: ApiQueryDetail) => void;
+  /** Told the answer to issuing, so the screen can keep what it says about the references. */
+  onIssued?: (result: IssueResult) => void;
   refresh: () => Promise<void>;
   /** Reads the query again and returns what the server holds, for after a refused issue. */
   reread: () => Promise<ApiQueryDetail>;
@@ -154,11 +158,13 @@ export function DraftEditor({
         seen.updatedAt ?? undefined,
       );
       publish(result.detail);
+      onIssued?.(result);
       setAsking(false);
       /* An act, and a reference. Never the subject line, and never a warning's own words: they
          name dates of somebody's leave, and the issuer read them in the confirmation. */
-      const changed = result.detail.citations.filter(
-        (citation) => citation.changedSincePreview === true,
+      /* How many, never which: a reference's title is the issuer's to read on the page. */
+      const changed = result.citations.filter(
+        (citation) => citation.changed,
       ).length;
       const notes = [
         result.nobodyToldInProduct === true

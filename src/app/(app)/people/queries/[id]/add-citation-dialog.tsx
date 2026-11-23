@@ -10,6 +10,7 @@ import {
   Spinner,
   useToast,
 } from "@/components/ui";
+import { QUERY_DATE_MAX, QUERY_DATE_MIN } from "@/lib/api/queries";
 import {
   CITATION_KINDS,
   CITATION_KIND_LABEL,
@@ -184,6 +185,8 @@ function AddCitationForm({
           <Field label="Which day" required>
             <Input
               type="date"
+              min={QUERY_DATE_MIN}
+              max={QUERY_DATE_MAX}
               value={date}
               onChange={(event) => setDate(event.target.value)}
             />

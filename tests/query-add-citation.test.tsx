@@ -80,6 +80,16 @@ describe("each kind", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("bounds the day to 2000 to 2100, the same as the server", async () => {
+    mount();
+    for (const kind of ["ATTENDANCE_DAY", "ROTA_DAY"]) {
+      await choose(kind);
+      const day = screen.getByLabelText(/Which day/);
+      expect(day).toHaveAttribute("min", "2000-01-01");
+      expect(day).toHaveAttribute("max", "2100-12-31");
+    }
+  });
+
   it("sends a day for a rota day", async () => {
     mount();
     await choose("ROTA_DAY");

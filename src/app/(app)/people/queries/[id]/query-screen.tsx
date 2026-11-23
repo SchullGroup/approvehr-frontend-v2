@@ -4,11 +4,7 @@ import { useCallback, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { Callout, EmptyState, LoadState, TextLink } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import {
-  isModuleOff,
-  queriesApi,
-  type ApiQueryDetail,
-} from "@/lib/api/queries";
+import { isModuleOff, queriesApi, type IssueResult } from "@/lib/api/queries";
 import { useCan } from "@/lib/permissions";
 import {
   DEMO_QUERY_HEADING,
@@ -48,29 +44,19 @@ import { StaffActions } from "./staff-actions";
  * Everything but the letter is `print:hidden`; the letter is `LetterDocument`, drawn only on paper.
  */
 export function QueryScreen({ id }: { id: string }) {
-  const {
-    detail,
-    loading,
-    error,
-    reload,
-    publish: publishRead,
-    unavailable,
-  } = useQueryDetail(id);
-  /* The citations the server flagged as differing from the last preview, kept for as long as this
-     screen is open. The flag arrives with the answer to issuing; a later read may not carry it, and
-     a mark that vanished when the window was refocused would be a fact that went away. */
+  const { detail, loading, error, reload, publish, unavailable } =
+    useQueryDetail(id);
+  /* The references the server flagged, in the answer to issuing, as differing from the last preview,
+     kept for as long as this screen is open. Only that answer carries the flag, so a later read would
+     lose it, and a mark that vanished when the window was refocused would be a fact that went away. */
   const [changed, setChanged] = useState<ReadonlySet<string>>(new Set());
-  const publish = useCallback(
-    (next: ApiQueryDetail) => {
-      const flagged = next.citations
-        .filter((citation) => citation.changedSincePreview === true)
-        .map((citation) => citation.id);
-      if (flagged.length > 0)
-        setChanged((before) => new Set([...before, ...flagged]));
-      publishRead(next);
-    },
-    [publishRead],
-  );
+  const keepChanged = useCallback((result: IssueResult) => {
+    const flagged = result.citations
+      .filter((citation) => citation.changed)
+      .map((citation) => citation.id);
+    if (flagged.length > 0)
+      setChanged((before) => new Set([...before, ...flagged]));
+  }, []);
   const { employeeId, user } = useSession();
   const canDecide = useCan("DECIDE_QUERIES");
   const canSettings = useCan("MANAGE_SETTINGS");
@@ -170,6 +156,7 @@ export function QueryScreen({ id }: { id: string }) {
                     publish={publish}
                     refresh={refresh}
                     reread={reread}
+                    onIssued={keepChanged}
                   />
                 ) : (
                   <LetterView detail={detail} refresh={refresh} />

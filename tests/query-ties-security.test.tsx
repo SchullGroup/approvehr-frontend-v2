@@ -275,7 +275,6 @@ const hostileDetail = () =>
         title: HOSTILE,
         takenAt: null,
         frozen: true,
-        changedSincePreview: null,
         asItStood: {
           kind: "POLICY",
           title: HOSTILE,

@@ -14,7 +14,12 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
-import { QUERY_LIMITS, type ApiQueryDetail } from "@/lib/api/queries";
+import {
+  QUERY_DATE_MAX,
+  QUERY_DATE_MIN,
+  QUERY_LIMITS,
+  type ApiQueryDetail,
+} from "@/lib/api/queries";
 import { counter } from "@/lib/queries/draft";
 import { useQueryActions } from "@/lib/store/queries";
 import { useOrgTimezone } from "@/lib/store/session";
@@ -254,6 +259,8 @@ function ExtendForm({
           <Field label="New date" required help={`In ${zoneLabel(timeZone)}.`}>
             <Input
               type="date"
+              min={QUERY_DATE_MIN}
+              max={QUERY_DATE_MAX}
               value={day}
               onChange={(event) => setDay(event.target.value)}
             />

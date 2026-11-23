@@ -115,7 +115,6 @@ const citation = (over: Partial<ApiCitation> = {}): ApiCitation => ({
   title: "Leave policy, version 1",
   takenAt: "2026-11-18T09:00:00.000Z",
   frozen: true,
-  changedSincePreview: null,
   asItStood: {
     kind: "POLICY",
     title: "Leave policy",
@@ -578,6 +577,7 @@ describe("warnings", () => {
     actions.issue.mockResolvedValue({
       detail: issued,
       warnings,
+      citations: [],
       subjectHasSignIn: true,
       toldInProduct: true,
       nobodyToldInProduct: false,
@@ -642,6 +642,7 @@ describe("issuing", () => {
   const issued = (over: Partial<ApiQueryDetail> = {}) => ({
     detail: detail({ reference: "Q-2026-030", ...over }),
     warnings: [],
+    citations: [] as { id: string; title: string; changed: boolean }[],
     subjectHasSignIn: true,
     toldInProduct: true,
     nobodyToldInProduct: false,
@@ -732,58 +733,70 @@ describe("issuing", () => {
 
   it("says plainly, beside a reference, that its frozen copy differs from the preview, and says how many in the toast", async () => {
     const user = userEvent.setup();
+    const quiet = citation({
+      id: "c-2",
+      title: "Equipment, tag LAP-002",
+      frozen: false,
+    });
     const flagged = citation({ id: "c-1", frozen: false });
-    actions.issue.mockResolvedValue(
-      issued({
-        citations: [{ ...flagged, frozen: true, changedSincePreview: true }],
+    actions.issue.mockResolvedValue({
+      ...issued({
+        citations: [
+          { ...flagged, frozen: true },
+          { ...quiet, frozen: true },
+        ],
       }),
-    );
-    mount(draftWith({ citations: [flagged] }));
+      citations: [
+        { id: "c-1", title: "Leave policy, version 1", changed: true },
+        { id: "c-2", title: "Equipment, tag LAP-002", changed: false },
+      ],
+    });
+    mount(draftWith({ citations: [flagged, quiet] }));
     await issueIt(user);
     expect(
       await screen.findByText(/1 reference differs from the preview you saw/),
     ).toBeInTheDocument();
     /* The toast carries the count, never which record. */
-    expect(screen.queryByText(/Leave policy, version 1 differs/)).toBeNull();
-    const mark = await screen.findByRole("button", {
+    const toast = screen
+      .getByText(/1 reference differs from the preview you saw/)
+      .closest("div");
+    expect(toast?.textContent ?? "").not.toMatch(/Leave policy|Equipment/);
+    const marks = await screen.findAllByRole("button", {
       name: /This copy differs from the preview shown before the letter was issued/,
     });
-    /* An AttentionMark beside the citation's own title, not a banner. */
-    expect(mark.closest("li")?.textContent).toContain(
+    /* One mark, beside the flagged citation's own title, and not a banner. */
+    expect(marks).toHaveLength(1);
+    expect(marks[0]?.closest("li")?.textContent).toContain(
       "Leave policy, version 1",
     );
-    expect(mark.closest("[role=alert],[role=status]")).toBeNull();
-  });
-});
-
-describe("a flagged reference", () => {
-  const flagged = (over: Partial<ApiCitation> = {}) =>
-    citation({ changedSincePreview: true, ...over });
-
-  it("is marked only for a citation the server flagged, and not for null or false", () => {
-    employeeId = "e-9";
-    held = new Set(["ISSUE_QUERIES"]);
-    mount(
-      detail({
-        can: can(),
-        citations: [
-          flagged({ id: "c-a", title: "Flagged one" }),
-          citation({
-            id: "c-b",
-            title: "Quiet one",
-            changedSincePreview: false,
-          }),
-          citation({
-            id: "c-c",
-            title: "Silent one",
-            changedSincePreview: null,
-          }),
-        ],
-      }),
-    );
+    expect(marks[0]?.closest("[role=alert],[role=status]")).toBeNull();
+    /* And a plain count on the References header, from the same answer. */
     expect(
-      screen.getAllByRole("button", { name: /differs from the preview/ }),
-    ).toHaveLength(1);
+      screen.getByRole("button", {
+        name: /1 of 2 references changed since you looked at it/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("draws nothing for a server whose answer carries no list, or whose list says none changed", async () => {
+    const user = userEvent.setup();
+    const one = citation({ id: "c-1", frozen: false });
+    actions.issue.mockResolvedValue({
+      ...issued({ citations: [{ ...one, frozen: true }] }),
+      citations: [
+        { id: "c-1", title: "Leave policy, version 1", changed: false },
+      ],
+    });
+    mount(draftWith({ citations: [one] }));
+    await issueIt(user);
+    await screen.findByText("Q-2026-030 issued");
+    expect(screen.queryByText(/differs from the preview/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /differs from the preview/ }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /changed since you looked/ }),
+    ).toBeNull();
   });
 });
 

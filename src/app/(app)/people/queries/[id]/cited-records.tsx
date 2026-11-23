@@ -72,6 +72,9 @@ export function CitedRecords({
 
   const editable = detail.can.cite;
   const citations = detail.citations;
+  const changedCount = citations.filter((citation) =>
+    changedIds?.has(citation.id),
+  ).length;
   /* Nothing to say and nothing to do: no card, so a letter with no references reads as it did. */
   if (!editable && citations.length === 0) return null;
 
@@ -99,6 +102,11 @@ export function CitedRecords({
     <Card>
       <CardHeader
         title="References"
+        mark={
+          changedCount > 0
+            ? `${changedCount} of ${citations.length} ${citations.length === 1 ? "reference" : "references"} changed since you looked at ${changedCount === 1 ? "it" : "them"}. The letter was issued with the copies below.`
+            : null
+        }
         description={
           editable
             ? "Records about this person that the letter points to. Each is copied as it stands now and read again when the letter is issued."
@@ -130,10 +138,7 @@ export function CitedRecords({
                 key={citation.id}
                 citation={citation}
                 format={format}
-                changed={
-                  citation.changedSincePreview === true ||
-                  (changedIds?.has(citation.id) ?? false)
-                }
+                changed={changedIds?.has(citation.id) ?? false}
                 {...(editable
                   ? {
                       onRemove: () => void remove(citation),
