@@ -360,6 +360,22 @@ export const fullName = (p: { firstName: string; lastName: string }) =>
  * the lookup row). Anything deciding who somebody leads must treat the second
  * as *unknown*, never as *no*.
  */
+/**
+ * Gender in words, whatever case it was stored in (L19). The import, the seed
+ * and the record wrote "female", "Male" and "male" for the same thing.
+ */
+export function genderWord(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const key = value.trim().toLowerCase();
+  return key === "female"
+    ? "Female"
+    : key === "male"
+      ? "Male"
+      : key === "other"
+        ? "Other"
+        : value;
+}
+
 export type DirectoryPerson = {
   id: Uuid;
   fullName: string;

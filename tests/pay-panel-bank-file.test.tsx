@@ -20,6 +20,8 @@ import { PayPanel } from "@/app/(app)/payroll/runs/new/pay-panel";
 
 let held = new Set<PermissionKey>();
 let walletPayout = false;
+/* Whether the API says a payout could run. The wallet counts only then (U30). */
+let payoutAvailable: boolean | undefined = undefined;
 let summary: ApiPaymentsSummary | null = null;
 
 vi.mock("@/lib/permissions", async (original) => ({
@@ -102,6 +104,7 @@ function run(batchStatus: string | null): PayrollRunDetail {
     exceptions: [],
     exclusions: [],
     taxOverrides: [],
+    ...(payoutAvailable === undefined ? {} : { payoutAvailable }),
     batch:
       batchStatus === null
         ? null
@@ -121,6 +124,7 @@ function renderPanel(
 beforeEach(() => {
   held = new Set<PermissionKey>(["APPROVE_PAYROLL"]);
   walletPayout = false;
+  payoutAvailable = undefined;
   summary = summaryWith(account);
   actions.live = true;
   actions.check.mockReset().mockResolvedValue({ ok: true, discrepancies: [] });
@@ -261,9 +265,26 @@ describe("a company that pays by bank file", () => {
   });
 });
 
+describe("a company set to pay from the wallet with no payout possible", () => {
+  beforeEach(() => {
+    walletPayout = true;
+    payoutAvailable = undefined;
+  });
+
+  /* U30: no provider or funding account, so Pay did nothing. */
+  it("offers the bank file as the way, and no Pay button", () => {
+    renderPanel("APPROVED");
+    expect(screen.queryByRole("button", { name: /^Pay ₦/ })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Download the bank file" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("a company that pays from the wallet", () => {
   beforeEach(() => {
     walletPayout = true;
+    payoutAvailable = true;
   });
 
   it("keeps both ways out, and the quiet question under them", () => {
@@ -375,6 +396,7 @@ describe("an approved run with no payment behind it", () => {
 
   it("leaves a wallet company's card as it was", () => {
     walletPayout = true;
+    payoutAvailable = true;
     held = new Set<PermissionKey>(["APPROVE_PAYROLL", "MANAGE_SETTINGS"]);
     summary = summaryWith(null);
     renderPanel(null);

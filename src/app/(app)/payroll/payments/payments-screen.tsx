@@ -101,6 +101,7 @@ export function PaymentsScreen() {
 
   const held = wallet.wallet;
   const statementHeld = statement.statement;
+  const noFundingAccount = held !== null && held.fundingAccounts.length === 0;
   const primary = summary.summary?.primaryAccount;
 
   return (
@@ -147,13 +148,22 @@ export function PaymentsScreen() {
             account -- is deliberately not here: it is a settings fact, it is
             on the batch where a payment is checked, and next to this one it
             only invites money being sent to the wrong one of the two. */}
-        <WalletCard
-          balanceKobo={statementHeld ? statementHeld.balanceKobo : null}
-          accounts={held ? held.fundingAccounts : null}
-          loading={wallet.loading}
-          error={wallet.error}
-          onRetry={wallet.reload}
-        />
+        {/* No funding account means no wallet to show (U30): the card was a
+            large banner saying so, on a company paying by bank file. */}
+        {noFundingAccount ? (
+          <p className="text-body-sm text-muted">
+            Payroll is paid by bank file. Paying from a wallet needs a
+            collection account, which your ApproveHR contact can open.
+          </p>
+        ) : (
+          <WalletCard
+            balanceKobo={statementHeld ? statementHeld.balanceKobo : null}
+            accounts={held ? held.fundingAccounts : null}
+            loading={wallet.loading}
+            error={wallet.error}
+            onRetry={wallet.reload}
+          />
+        )}
         {/* "Already promised" was here, and it is gone on purpose: it rendered
             `committedKobo`, which counts instructions inside APPROVED or
             SUBMITTED batches, and approving a payroll debits the wallet at

@@ -514,7 +514,7 @@ export function EditableSection({
                     : "text-muted"
                 }
               >
-                {f.emptyLabel ?? "Not provided"}
+                {f.emptyLabel ?? "Not recorded"}
               </span>
             ) : f.type === "money" ? (
               <Money amount={naira(Number(value))} />

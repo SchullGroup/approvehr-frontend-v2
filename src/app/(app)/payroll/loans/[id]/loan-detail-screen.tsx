@@ -349,9 +349,15 @@ export function LoanDetailScreen({ id }: { id: string }) {
   /* A pending loan has no schedule — it is generated at approval. Pricing it
      here shows the approver the schedule they are about to create, which is the
      thing they are actually agreeing to. */
+  /* What approving will fold in from their other live loans. The API prices the new loan the same
+     way (`approve()`: borrowed less already repaid, plus what is still owed), so the schedule shown
+     here is the one that will be created. */
+  const carriedKobo = pending ? (loan.combinesWith?.owedKobo ?? 0) : 0;
+  const combinedCount = pending ? (loan.combinesWith?.count ?? 0) : 0;
   const proposed = pending
     ? priceLoan({
-        principalKobo: loan.principalKobo,
+        principalKobo:
+          loan.principalKobo - (loan.alreadyRepaidKobo ?? 0) + carriedKobo,
         termMonths: loan.termMonths,
         interestRate: loan.interestRate,
         startPeriod: loan.startPeriod ?? today,
@@ -393,11 +399,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
   /* A loan that costs nothing extra says nothing: no "Interest: None", no
      total that repeats the amount borrowed. */
-  const carriedKobo = loan.carriedForwardKobo ?? 0;
+  /* With a carry, the total and the monthly figure are the combined loan's, not the application's. */
+  const repayableKobo =
+    carriedKobo > 0 && proposed ? proposed.totalKobo : loan.totalRepayableKobo;
+  /* Two different carries, kept apart on purpose: `carriedKobo` above is what approving a pending
+     loan WILL fold in; this is what an approved loan HAS already carried from loans it replaced. */
+  const carriedForwardKobo = loan.carriedForwardKobo ?? 0;
   const foldedCount = loan.foldedLoans?.length ?? 0;
   const costLines = [
-    carriedKobo > 0
-      ? `Includes ${money(carriedKobo)} carried from ${
+    carriedForwardKobo > 0
+      ? `Includes ${money(carriedForwardKobo)} carried from ${
           foldedCount === 1
             ? "an earlier loan"
             : `${String(foldedCount)} earlier loans`
@@ -406,8 +417,8 @@ export function LoanDetailScreen({ id }: { id: string }) {
     loan.interestKobo > 0
       ? `${money(loan.interestKobo)} interest (${(loan.interestRate * 100).toFixed(2)}% a year)`
       : null,
-    loan.totalRepayableKobo !== loan.principalKobo
-      ? `${money(loan.totalRepayableKobo)} to repay in all`
+    repayableKobo !== loan.principalKobo
+      ? `${money(repayableKobo)} to repay in all`
       : null,
   ].filter((line): line is string => line !== null);
 
@@ -535,7 +546,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         {foldedCount > 0 && (
           <Callout tone="info" title="Combined from earlier loans">
             <span>
-              {money(carriedKobo)} that was still owed on{" "}
+              {money(carriedForwardKobo)} that was still owed on{" "}
               {foldedCount === 1
                 ? "an earlier loan"
                 : `${String(foldedCount)} earlier loans`}{" "}
@@ -606,7 +617,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
                 <>
                   <Figure term="A month">
                     <Money
-                      amount={naira(loan.monthlyRepaymentKobo)}
+                      amount={naira(
+                        carriedKobo > 0 && proposed
+                          ? proposed.instalmentKobo
+                          : loan.monthlyRepaymentKobo,
+                      )}
                       decimals
                       size="lg"
                     />
@@ -885,6 +900,20 @@ export function LoanDetailScreen({ id }: { id: string }) {
               starts taking them in{" "}
               {monthLabel(proposed.lines[0]?.dueDate ?? today)}.
             </p>
+            {carriedKobo > 0 && (
+              <div className="rounded-lg border border-line bg-canvas px-4 py-3">
+                <p className="text-meta font-medium text-muted">
+                  Combined on approval
+                </p>
+                <p className="mt-1 text-body-sm leading-relaxed text-ink">
+                  Approving also combines {combinedCount}{" "}
+                  {combinedCount === 1 ? "loan" : "loans"} still owing{" "}
+                  {money(carriedKobo)} into this one. Those stop coming off
+                  payroll as soon as this is approved. No interest is charged on
+                  the amount carried over, only on the new money.
+                </p>
+              </div>
+            )}
             <div className="hidden sm:block">
               <TableWrap caption="The schedule this loan would create if it were approved">
                 <THead>

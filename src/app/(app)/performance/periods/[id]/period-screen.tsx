@@ -189,7 +189,7 @@ function IconLink({
     >
       {children}
       {badge > 0 && (
-        <span className="absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-accent px-1 text-meta leading-5 text-white">
+        <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-meta leading-5 text-white">
           {badge}
         </span>
       )}
