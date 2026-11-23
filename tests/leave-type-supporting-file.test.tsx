@@ -36,6 +36,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/api/leave", async (original) => ({
   ...(await original<typeof import("@/lib/api/leave")>()),
   leaveApi: {
+    /* This screen also lists switched-off types (U46); none here. */
+    archivedTypes: async () => [],
     types: (...args: unknown[]) => mocks.types(...args),
     updateType: (...args: unknown[]) => mocks.updateType(...args),
   },
