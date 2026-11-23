@@ -116,7 +116,11 @@ const ONGOING = SETTINGS_PAGES.map((page) => ({
 }));
 
 /**
- * The setup checklist, as one small link beside the search box.
+ * The setup checklist, as one small link at the far right of the search row.
+ *
+ * No box around it (the product owner, 23 Nov 2026): a bordered card beside a bordered search field read as
+ * two inputs. It is a quiet link now: a round icon, the words and the count on one line, the bar under them,
+ * and an arrow that nudges on hover.
  *
  * It used to be a full-width card above everything else, open while anything
  * was outstanding, and it pushed the page the owner came for below the fold.
@@ -140,18 +144,25 @@ function SetupLink({
   return (
     <Link
       href="/settings/setup"
-      className="inline-flex min-h-10 items-center gap-3 rounded-md border border-line bg-surface px-3 py-1.5 hover:border-line-strong"
+      className="group inline-flex min-h-11 items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent-soft sm:ml-auto"
     >
-      {complete ? (
-        <Check aria-hidden="true" className="size-4 text-success-text" />
-      ) : (
-        <ListChecks aria-hidden="true" className="size-4 text-muted" />
-      )}
-      <span className="flex flex-col gap-1">
-        <span className="text-meta font-semibold text-ink">
-          {complete
-            ? "Company set up"
-            : `Setting up: ${progress.done} of ${progress.total} done`}
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-text group-hover:bg-white">
+        {complete ? (
+          <Check aria-hidden="true" className="size-4" />
+        ) : (
+          <ListChecks aria-hidden="true" className="size-4" />
+        )}
+      </span>
+      <span className="flex min-w-44 flex-col gap-1.5">
+        <span className="flex items-baseline justify-between gap-4">
+          <span className="text-body-sm font-semibold text-ink">
+            {complete ? "Company set up" : "Setting up"}
+          </span>
+          {!complete && (
+            <span className="tabular text-meta text-muted">
+              {progress.done} of {progress.total} done
+            </span>
+          )}
         </span>
         <ProgressMeter
           value={progress.done}
@@ -161,7 +172,10 @@ function SetupLink({
           showValue={false}
         />
       </span>
-      <ArrowRight aria-hidden="true" className="size-3.5 text-muted" />
+      <ArrowRight
+        aria-hidden="true"
+        className="size-4 text-muted transition-transform group-hover:translate-x-0.5"
+      />
     </Link>
   );
 }
