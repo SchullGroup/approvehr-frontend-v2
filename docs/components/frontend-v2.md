@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `8cbce0b9` (2026-11-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `b3d6e2a0` (2026-11-23) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -25,7 +25,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        5 |          0 |       5 |         1 |
 | [Screens — `/dashboard`](#screens--dashboard)                                                      |       13 |         11 |       0 |         6 |
 | [Screens — `/people`](#screens--people)                                                            |      133 |        142 |       0 |        31 |
-| [Screens — `/payroll`](#screens--payroll)                                                          |       80 |         83 |       2 |        42 |
+| [Screens — `/payroll`](#screens--payroll)                                                          |       80 |         83 |       2 |        43 |
 | [Screens — `/performance`](#screens--performance)                                                  |       94 |        105 |       3 |        69 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
 | [Screens — `/projects`](#screens--projects)                                                        |       38 |         37 |       0 |         4 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1382** |   **1143** | **473** |  **1764** |
+| **Total**                                                                                          | **1382** |   **1143** | **473** |  **1765** |
 
 ---
 
@@ -1051,7 +1051,7 @@ Screen components for the payroll module, including its dialogs and panels.
 | `src/app/(app)/payroll/pay-setup/pension-scheme-panel.tsx`    | `PensionSchemePanel`                                                                                                              | —                 | —                                                                                                                                                                                                                       | —                 |
 | `src/app/(app)/payroll/pay-setup/plan-provider-dialog.tsx`    | `PlanProviderDialog`                                                                                                              | —                 | —                                                                                                                                                                                                                       | —                 |
 | `src/app/(app)/payroll/pay-setup/schedule-fields.tsx`         | `ScheduleFields`                                                                                                                  | `useScheduleForm` | —                                                                                                                                                                                                                       | 1 type            |
-| `src/app/(app)/payroll/pay-setup/tabs.ts`                     | —                                                                                                                                 | —                 | `isPaySetupTab`                                                                                                                                                                                                         | 1 const · 1 type  |
+| `src/app/(app)/payroll/pay-setup/tabs.ts`                     | —                                                                                                                                 | —                 | `isPaySetupTab`, `paySetupTabFrom`                                                                                                                                                                                      | 1 const · 1 type  |
 | `src/app/(app)/payroll/payments/format.ts`                    | —                                                                                                                                 | —                 | `longDate`, `longDateTime`, `monthLabel`, `people`                                                                                                                                                                      | —                 |
 | `src/app/(app)/payroll/payments/page.tsx`                     | `PaymentsPage`                                                                                                                    | —                 | —                                                                                                                                                                                                                       | 1 const           |
 | `src/app/(app)/payroll/payments/payments-screen.tsx`          | `PaymentsScreen`                                                                                                                  | —                 | —                                                                                                                                                                                                                       | —                 |
@@ -1434,7 +1434,7 @@ Screen components for the settings module, including its dialogs and panels.
 | `src/app/(app)/settings/overtime/form.tsx`                                     | `OvertimePolicyForm`, `OvertimePolicyFields`, `OvertimeEnableSwitch` | —                  | —                                     | —                 |
 | `src/app/(app)/settings/overtime/page.tsx`                                     | `OvertimePolicyPage`                                                 | —                  | —                                     | 1 const           |
 | `src/app/(app)/settings/payroll/form.tsx`                                      | `PayrollSettingsForm`                                                | —                  | —                                     | —                 |
-| `src/app/(app)/settings/payroll/page.tsx`                                      | `PayrollSettingsPage`                                                | —                  | —                                     | 1 const           |
+| `src/app/(app)/settings/payroll/page.tsx`                                      | `PayrollSettingsPage`                                                | —                  | —                                     | —                 |
 | `src/app/(app)/settings/performance/overall-mark-card.tsx`                     | `OverallMarkCard`                                                    | —                  | —                                     | —                 |
 | `src/app/(app)/settings/performance/page.tsx`                                  | `PerformanceSettingsPage`                                            | —                  | —                                     | 1 const           |
 | `src/app/(app)/settings/performance/scale-form.tsx`                            | `RatingScaleForm`                                                    | —                  | `scaleProblem`                        | —                 |
