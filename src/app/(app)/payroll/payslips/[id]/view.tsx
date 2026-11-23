@@ -97,11 +97,13 @@ export function PayslipView({ id }: { id: string }) {
       <EmptyState
         plain
         icon={<FileQuestion aria-hidden="true" />}
-        title="No payslip here"
+        title={record.refused ? "Not your payslip" : "No payslip here"}
         description={
-          record.connected
-            ? "Nothing with this reference turned up in the last six runs. It may belong to an older period."
-            : "This payslip is not in the run this browser has. Records created in another browser do not travel with the link."
+          record.refused
+            ? record.refused
+            : record.connected
+              ? "Nothing with this reference turned up in the last six runs. It may belong to an older period."
+              : "This payslip is not in the run this browser has. Records created in another browser do not travel with the link."
         }
         action={
           <ButtonLink href="/payroll/payslips" variant="secondary">
