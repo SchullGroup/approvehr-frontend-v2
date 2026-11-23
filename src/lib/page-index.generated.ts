@@ -302,6 +302,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Documents waiting on your signature, and documents sent for signature, each identified by the fingerprint of its exact bytes."
   },
   {
+    "href": "/people/team",
+    "title": "My team",
+    "description": "The people you lead: who they are, how to reach them and their leave, with nothing about pay."
+  },
+  {
     "href": "/performance",
     "title": "Performance",
     "description": "What is waiting on you, and how the running appraisal period is going."
