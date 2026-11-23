@@ -464,8 +464,8 @@ function ManagersCard({
         <CardBody className="flex flex-col gap-4">
           {settings.managersMayDraft === null ? (
             <p className="text-body-sm text-muted">
-              This server has not been updated to offer manager drafting yet,
-              so there is no switch to show until it is.
+              This server has not been updated to offer manager drafting yet, so
+              there is no switch to show until it is.
             </p>
           ) : (
             <>
@@ -506,7 +506,12 @@ function ManagersCard({
         size="sm"
         footer={
           <>
-            <Button type="button" variant="ghost" onClick={close} disabled={busy}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={close}
+              disabled={busy}
+            >
               Cancel
             </Button>
             <Button

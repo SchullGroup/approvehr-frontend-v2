@@ -22,20 +22,31 @@ vi.mock("@/lib/permissions", () => ({
 }));
 const register = vi.fn();
 vi.mock("@/lib/store/queries", () => ({
-  useQueriesSwitch: () => ({ on: switchOn, known: true, said: true, editable: true, error: null }),
-  useQueryRegister: (params: unknown, enabled: boolean) => register(params, enabled),
+  useQueriesSwitch: () => ({
+    on: switchOn,
+    known: true,
+    said: true,
+    editable: true,
+    error: null,
+  }),
+  useQueryRegister: (params: unknown, enabled: boolean) =>
+    register(params, enabled),
 }));
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
   useSession: () => ({ isConnected: true, employeeId: "e-me" }),
 }));
 
-const { LinkedQueryField, LinkedQueryLine, QueryOriginLine } = await import(
-  "@/components/queries/linked-query"
-);
+const { LinkedQueryField, LinkedQueryLine, QueryOriginLine } =
+  await import("@/components/queries/linked-query");
 
 const rows = [
-  summary({ id: "q-issued", reference: "Q-2026-001", status: "ISSUED", subjectLine: "A SECRET SUBJECT LINE" }),
+  summary({
+    id: "q-issued",
+    reference: "Q-2026-001",
+    status: "ISSUED",
+    subjectLine: "A SECRET SUBJECT LINE",
+  }),
   summary({ id: "q-replied", reference: "Q-2026-002", status: "REPLIED" }),
   summary({ id: "q-closed", reference: "Q-2026-003", status: "CLOSED" }),
   summary({ id: "q-draft", reference: null, status: "DRAFT" }),
@@ -46,13 +57,18 @@ beforeEach(() => {
   held = new Set(["ISSUE_QUERIES"]);
   switchOn = true;
   register.mockReset();
-  register.mockReturnValue({ data: { rows, meta: {}, waiting: null }, loading: false });
+  register.mockReturnValue({
+    data: { rows, meta: {}, waiting: null },
+    loading: false,
+  });
 });
 
 describe("the choice", () => {
   it("lists the queries about the person that have been served and not withdrawn, by reference and standing", () => {
     render(<LinkedQueryField subjectId="e-1" value="" onChange={vi.fn()} />);
-    const options = screen.getAllByRole("option").map((option) => option.textContent);
+    const options = screen
+      .getAllByRole("option")
+      .map((option) => option.textContent);
     expect(options).toEqual([
       "None",
       "Q-2026-001, issued",
@@ -76,7 +92,9 @@ describe("the choice", () => {
   it("says in words that it changes nothing about the query and the query changes nothing there", () => {
     render(<LinkedQueryField subjectId="e-1" value="" onChange={vi.fn()} />);
     expect(
-      screen.getByText(/It changes nothing about the query, and the query changes nothing here/),
+      screen.getByText(
+        /It changes nothing about the query, and the query changes nothing here/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -90,7 +108,10 @@ describe("the choice", () => {
   });
 
   it.each([
-    ["somebody who does not work queries", () => (held = new Set(["EDIT_RECORDS_NOT_EXPANDED"]))],
+    [
+      "somebody who does not work queries",
+      () => (held = new Set(["EDIT_RECORDS_NOT_EXPANDED"])),
+    ],
     ["a company with queries off", () => (switchOn = false)],
   ])("is not offered to %s", (_name, setup) => {
     setup();
@@ -115,11 +136,18 @@ describe("the choice", () => {
   });
 
   it("draws nothing, not an empty choice, when there is nothing to link, or while it reads", () => {
-    register.mockReturnValue({ data: { rows: [rows[3], rows[4]], meta: {}, waiting: null }, loading: false });
-    const first = render(<LinkedQueryField subjectId="e-1" value="" onChange={vi.fn()} />);
+    register.mockReturnValue({
+      data: { rows: [rows[3], rows[4]], meta: {}, waiting: null },
+      loading: false,
+    });
+    const first = render(
+      <LinkedQueryField subjectId="e-1" value="" onChange={vi.fn()} />,
+    );
     expect(first.container).toBeEmptyDOMElement();
     register.mockReturnValue({ data: null, loading: true });
-    const second = render(<LinkedQueryField subjectId="e-1" value="" onChange={vi.fn()} />);
+    const second = render(
+      <LinkedQueryField subjectId="e-1" value="" onChange={vi.fn()} />,
+    );
     expect(second.container).toBeEmptyDOMElement();
   });
 });
@@ -134,9 +162,13 @@ describe("the link back", () => {
   });
 
   it("draws nothing for a record that followed no query", () => {
-    const { container } = render(<LinkedQueryLine queryId={null} reference={null} />);
+    const { container } = render(
+      <LinkedQueryLine queryId={null} reference={null} />,
+    );
     expect(container).toBeEmptyDOMElement();
-    const missing = render(<LinkedQueryLine queryId={undefined} reference="Q-1" />);
+    const missing = render(
+      <LinkedQueryLine queryId={undefined} reference="Q-1" />,
+    );
     expect(missing.container).toBeEmptyDOMElement();
   });
 
@@ -182,15 +214,16 @@ vi.mock("@/lib/store/employees-api", () => ({
     more: false,
     retry: vi.fn(),
   }),
-  useEmployee: () => ({ employee: { id: "e-1", jobTitle: "Engineer", grossMonthly: 300000 } }),
+  useEmployee: () => ({
+    employee: { id: "e-1", jobTitle: "Engineer", grossMonthly: 300000 },
+  }),
   useEmployeeDirectory: () => ({ employees: [], loading: false }),
 }));
 
 describe("an employment change", () => {
   const open = async () => {
-    const { ProposeChangeDialog } = await import(
-      "@/app/(app)/people/changes/propose-dialog"
-    );
+    const { ProposeChangeDialog } =
+      await import("@/app/(app)/people/changes/propose-dialog");
     render(
       <ProposeChangeDialog
         onClose={vi.fn()}
@@ -200,8 +233,12 @@ describe("an employment change", () => {
     );
   };
   const fill = () => {
-    fireEvent.change(screen.getByLabelText(/New job title/), { target: { value: "Lead" } });
-    fireEvent.change(screen.getByLabelText(/Why/), { target: { value: "Reorganised" } });
+    fireEvent.change(screen.getByLabelText(/New job title/), {
+      target: { value: "Lead" },
+    });
+    fireEvent.change(screen.getByLabelText(/Why/), {
+      target: { value: "Reorganised" },
+    });
   };
 
   beforeEach(() => {
@@ -212,11 +249,19 @@ describe("an employment change", () => {
   it("sends the chosen query beside a change that moves no pay", async () => {
     await open();
     fill();
-    await userEvent.selectOptions(screen.getByLabelText(/Linked query/), "q-closed");
-    await userEvent.click(screen.getByRole("button", { name: "Send for approval" }));
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Linked query/),
+      "q-closed",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Send for approval" }),
+    );
     await waitFor(() =>
       expect(propose).toHaveBeenCalledWith(
-        expect.objectContaining({ queryId: "q-closed", to: { jobTitle: "Lead" } }),
+        expect.objectContaining({
+          queryId: "q-closed",
+          to: { jobTitle: "Lead" },
+        }),
       ),
     );
   });
@@ -224,15 +269,22 @@ describe("an employment change", () => {
   it("says why there is no choice once pay is typed, in the server's own sentence, and never sends one", async () => {
     await open();
     fill();
-    await userEvent.selectOptions(screen.getByLabelText(/Linked query/), "q-closed");
-    fireEvent.change(screen.getByLabelText(/New monthly pay/), { target: { value: "320000" } });
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Linked query/),
+      "q-closed",
+    );
+    fireEvent.change(screen.getByLabelText(/New monthly pay/), {
+      target: { value: "320000" },
+    });
     expect(screen.queryByLabelText(/Linked query/)).toBeNull();
     expect(
       screen.getByText(
         "A query cannot be linked to a change of pay. Pay as a penalty needs counsel's advice first, so it is not offered.",
       ),
     ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Send for approval" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Send for approval" }),
+    );
     await waitFor(() => expect(propose).toHaveBeenCalled());
     expect(propose.mock.calls[0]?.[0]).not.toHaveProperty("queryId");
   });
@@ -240,7 +292,9 @@ describe("an employment change", () => {
   it("sends none when none was chosen", async () => {
     await open();
     fill();
-    await userEvent.click(screen.getByRole("button", { name: "Send for approval" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Send for approval" }),
+    );
     await waitFor(() => expect(propose).toHaveBeenCalled());
     expect(propose.mock.calls[0]?.[0]).not.toHaveProperty("queryId");
   });
@@ -255,9 +309,8 @@ vi.mock("@/lib/use-today", () => ({ useToday: () => "2026-11-23" }));
 
 describe("an exit", () => {
   const mount = async (open = true) => {
-    const { StartExitDialog } = await import(
-      "@/app/(app)/people/offboarding/start-exit"
-    );
+    const { StartExitDialog } =
+      await import("@/app/(app)/people/offboarding/start-exit");
     const props = {
       onClose: vi.fn(),
       onStarted: vi.fn(),
@@ -268,8 +321,12 @@ describe("an exit", () => {
     return { view, props, StartExitDialog };
   };
   const fill = () => {
-    fireEvent.change(screen.getByLabelText(/Last working day/), { target: { value: "2026-12-31" } });
-    fireEvent.change(screen.getByLabelText(/^Why/), { target: { value: "Ended" } });
+    fireEvent.change(screen.getByLabelText(/Last working day/), {
+      target: { value: "2026-12-31" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Why/), {
+      target: { value: "Ended" },
+    });
   };
 
   beforeEach(() => {
@@ -285,10 +342,18 @@ describe("an exit", () => {
   it("offers the choice for a termination only, and sends it only then", async () => {
     await mount();
     expect(screen.queryByLabelText(/Linked query/)).toBeNull();
-    await userEvent.selectOptions(screen.getByLabelText(/What happened/), "TERMINATION");
-    await userEvent.selectOptions(screen.getByLabelText(/Linked query/), "q-issued");
+    await userEvent.selectOptions(
+      screen.getByLabelText(/What happened/),
+      "TERMINATION",
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Linked query/),
+      "q-issued",
+    );
     fill();
-    await userEvent.click(screen.getByRole("button", { name: "Start the checklist" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start the checklist" }),
+    );
     await waitFor(() =>
       expect(start).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "TERMINATION", queryId: "q-issued" }),
@@ -298,23 +363,45 @@ describe("an exit", () => {
 
   it("does not send a query chosen before the kind was changed away from a termination", async () => {
     await mount();
-    await userEvent.selectOptions(screen.getByLabelText(/What happened/), "TERMINATION");
-    await userEvent.selectOptions(screen.getByLabelText(/Linked query/), "q-issued");
-    await userEvent.selectOptions(screen.getByLabelText(/What happened/), "RESIGNATION");
+    await userEvent.selectOptions(
+      screen.getByLabelText(/What happened/),
+      "TERMINATION",
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Linked query/),
+      "q-issued",
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/What happened/),
+      "RESIGNATION",
+    );
     fill();
-    await userEvent.click(screen.getByRole("button", { name: "Start the checklist" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start the checklist" }),
+    );
     await waitFor(() => expect(start).toHaveBeenCalled());
     expect(start.mock.calls[0]?.[0]).not.toHaveProperty("queryId");
   });
 
   it("starts with no query chosen each time it is opened", async () => {
     const { view, props, StartExitDialog } = await mount();
-    await userEvent.selectOptions(screen.getByLabelText(/What happened/), "TERMINATION");
-    await userEvent.selectOptions(screen.getByLabelText(/Linked query/), "q-issued");
+    await userEvent.selectOptions(
+      screen.getByLabelText(/What happened/),
+      "TERMINATION",
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Linked query/),
+      "q-issued",
+    );
     view.rerender(<StartExitDialog open={false} {...props} />);
     view.rerender(<StartExitDialog open {...props} />);
-    await userEvent.selectOptions(screen.getByLabelText(/What happened/), "TERMINATION");
-    expect((screen.getByLabelText(/Linked query/) as HTMLSelectElement).value).toBe("");
+    await userEvent.selectOptions(
+      screen.getByLabelText(/What happened/),
+      "TERMINATION",
+    );
+    expect(
+      (screen.getByLabelText(/Linked query/) as HTMLSelectElement).value,
+    ).toBe("");
   });
 });
 
@@ -325,8 +412,20 @@ vi.mock("@/lib/store/conduct", async (original) => ({
   ...(await original<typeof import("@/lib/store/conduct")>()),
   useConductRecord: () => ({
     record: {
-      employee: { id: "e-1", name: "Chidi Nwosu", employeeNo: "AHR-0003", jobTitle: "Engineer" },
-      summary: { active: 0, lapsed: 0, total: 0, awaitingConfirmation: 0, disputed: 0, activeByLevel: {} },
+      employee: {
+        id: "e-1",
+        name: "Chidi Nwosu",
+        employeeNo: "AHR-0003",
+        jobTitle: "Engineer",
+      },
+      summary: {
+        active: 0,
+        lapsed: 0,
+        total: 0,
+        awaitingConfirmation: 0,
+        disputed: 0,
+        activeByLevel: {},
+      },
       actions: [],
       total: 0,
       page: 1,
@@ -353,20 +452,37 @@ describe("a conduct warning", () => {
         <ConductPanel employeeId="e-1" />
       </ToastProvider>,
     );
-    await userEvent.click(screen.getByRole("button", { name: /Record a warning/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Record a warning/ }),
+    );
     await userEvent.click(screen.getByLabelText(/Verbal warning/));
-    fireEvent.change(screen.getByLabelText(/What happened/), { target: { value: "Left the site early" } });
-    await userEvent.selectOptions(screen.getByLabelText(/Linked query/), "q-replied");
+    fireEvent.change(screen.getByLabelText(/What happened/), {
+      target: { value: "Left the site early" },
+    });
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Linked query/),
+      "q-replied",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Record it" }));
     await waitFor(() =>
       expect(recordAction).toHaveBeenCalledWith(
-        expect.objectContaining({ employeeId: "e-1", level: "VERBAL", queryId: "q-replied" }),
+        expect.objectContaining({
+          employeeId: "e-1",
+          level: "VERBAL",
+          queryId: "q-replied",
+        }),
       ),
     );
     /* Opened again: nothing is left chosen or typed from the last warning. */
-    await userEvent.click(screen.getByRole("button", { name: /Record a warning/ }));
-    expect((screen.getByLabelText(/Linked query/) as HTMLSelectElement).value).toBe("");
-    expect((screen.getByLabelText(/What happened/) as HTMLInputElement).value).toBe("");
+    await userEvent.click(
+      screen.getByRole("button", { name: /Record a warning/ }),
+    );
+    expect(
+      (screen.getByLabelText(/Linked query/) as HTMLSelectElement).value,
+    ).toBe("");
+    expect(
+      (screen.getByLabelText(/What happened/) as HTMLInputElement).value,
+    ).toBe("");
   });
 
   it("draws the link back on a record only where the server sent the id", async () => {
@@ -396,7 +512,13 @@ describe("a conduct warning", () => {
       updatedAt: "2026-11-11T09:00:00.000Z",
     } satisfies ApiAction;
     const { rerender } = render(
-      <ActionRow action={action} canEdit={false} isSubject={false} onConfirm={vi.fn()} onEdit={vi.fn()} />,
+      <ActionRow
+        action={action}
+        canEdit={false}
+        isSubject={false}
+        onConfirm={vi.fn()}
+        onEdit={vi.fn()}
+      />,
     );
     expect(screen.queryByText(/Followed a query/)).toBeNull();
     rerender(

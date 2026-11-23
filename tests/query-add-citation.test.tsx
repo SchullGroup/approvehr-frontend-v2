@@ -27,9 +27,8 @@ vi.mock("@/lib/store/query-citation-options", () => ({
   useCitationOptions: (kind: string) => optionsFor(kind),
 }));
 
-const { AddCitationDialog } = await import(
-  "@/app/(app)/people/queries/[id]/add-citation-dialog"
-);
+const { AddCitationDialog } =
+  await import("@/app/(app)/people/queries/[id]/add-citation-dialog");
 
 const onAdded = vi.fn();
 const onClose = vi.fn();
@@ -52,7 +51,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   onAdded.mockResolvedValue(undefined);
   addCitation.mockResolvedValue({ citation: {}, warnings: [] });
-  optionsFor.mockReturnValue({ options: [], loading: false, error: null, cut: false });
+  optionsFor.mockReturnValue({
+    options: [],
+    loading: false,
+    error: null,
+    cut: false,
+  });
 });
 
 const choose = async (kind: string) =>
@@ -67,7 +71,10 @@ describe("each kind", () => {
     await userEvent.type(screen.getByLabelText(/Which day/), "2026-11-04");
     await userEvent.click(add);
     await waitFor(() =>
-      expect(addCitation).toHaveBeenCalledWith("q-1", { kind: "ATTENDANCE_DAY", date: "2026-11-04" }),
+      expect(addCitation).toHaveBeenCalledWith("q-1", {
+        kind: "ATTENDANCE_DAY",
+        date: "2026-11-04",
+      }),
     );
     expect(onAdded).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
@@ -77,9 +84,14 @@ describe("each kind", () => {
     mount();
     await choose("ROTA_DAY");
     await userEvent.type(screen.getByLabelText(/Which day/), "2026-11-10");
-    await userEvent.click(screen.getByRole("button", { name: "Add the reference" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add the reference" }),
+    );
     await waitFor(() =>
-      expect(addCitation).toHaveBeenCalledWith("q-1", { kind: "ROTA_DAY", date: "2026-11-10" }),
+      expect(addCitation).toHaveBeenCalledWith("q-1", {
+        kind: "ROTA_DAY",
+        date: "2026-11-10",
+      }),
     );
   });
 
@@ -87,7 +99,10 @@ describe("each kind", () => {
     ["POLICY", { kind: "POLICY", policyId: "r-1" }],
     ["EQUIPMENT", { kind: "EQUIPMENT", assignmentId: "r-1" }],
     ["LEAVE_REQUEST", { kind: "LEAVE_REQUEST", leaveRequestId: "r-1" }],
-    ["DOCUMENT_REQUEST", { kind: "DOCUMENT_REQUEST", documentRequestId: "r-1" }],
+    [
+      "DOCUMENT_REQUEST",
+      { kind: "DOCUMENT_REQUEST", documentRequestId: "r-1" },
+    ],
   ])("sends the id of the record chosen for %s", async (kind, body) => {
     optionsFor.mockReturnValue({
       options: [{ value: "r-1", label: "The first one" }],
@@ -110,14 +125,18 @@ describe("what is said about each kind", () => {
     mount();
     await choose("LEAVE_REQUEST");
     expect(
-      screen.getByText(/dates, the number of days and the status only.*Never the type of leave and never the reason/),
+      screen.getByText(
+        /dates, the number of days and the status only.*Never the type of leave and never the reason/,
+      ),
     ).toBeInTheDocument();
   });
 
   it("says a self clock-in is a claim and a system clock-out is not a recorded time", async () => {
     mount();
     await choose("ATTENDANCE_DAY");
-    expect(screen.getByText(/A time they clocked themselves is a claim/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/A time they clocked themselves is a claim/),
+    ).toBeInTheDocument();
   });
 
   it("says the handbook keeps no earlier versions of a policy", async () => {
@@ -129,23 +148,43 @@ describe("what is said about each kind", () => {
   it("says nothing is of this kind to cite, rather than showing an empty list, and says when it could not read them", async () => {
     mount();
     await choose("EQUIPMENT");
-    expect(screen.getByRole("option", { name: "There is nothing of this kind to cite" })).toBeInTheDocument();
-    optionsFor.mockReturnValue({ options: [], loading: false, error: new Error("x"), cut: false });
+    expect(
+      screen.getByRole("option", {
+        name: "There is nothing of this kind to cite",
+      }),
+    ).toBeInTheDocument();
+    optionsFor.mockReturnValue({
+      options: [],
+      loading: false,
+      error: new Error("x"),
+      cut: false,
+    });
     mount();
-    await userEvent.selectOptions(screen.getAllByLabelText(/What kind of record/)[1]!, "EQUIPMENT");
-    expect(screen.getByRole("option", { name: "Their records could not be read" })).toBeInTheDocument();
+    await userEvent.selectOptions(
+      screen.getAllByLabelText(/What kind of record/)[1]!,
+      "EQUIPMENT",
+    );
+    expect(
+      screen.getByRole("option", { name: "Their records could not be read" }),
+    ).toBeInTheDocument();
   });
 });
 
 describe("a refusal", () => {
   it("is the server's own sentence, with the choice still made and the dialog open", async () => {
     addCitation.mockRejectedValue(
-      new ApiError(422, "unprocessable", "Attendance was not recorded for that day, so there is nothing to cite."),
+      new ApiError(
+        422,
+        "unprocessable",
+        "Attendance was not recorded for that day, so there is nothing to cite.",
+      ),
     );
     mount();
     await choose("ATTENDANCE_DAY");
     await userEvent.type(screen.getByLabelText(/Which day/), "2026-11-30");
-    await userEvent.click(screen.getByRole("button", { name: "Add the reference" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add the reference" }),
+    );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Attendance was not recorded for that day, so there is nothing to cite.",
     );
@@ -166,7 +205,9 @@ describe("a toast", () => {
     mount();
     await choose("POLICY");
     await userEvent.selectOptions(screen.getByLabelText(/Which one/), "r-1");
-    await userEvent.click(screen.getByRole("button", { name: "Add the reference" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add the reference" }),
+    );
     expect(await screen.findByText("Reference added")).toBeInTheDocument();
     const toast = screen.getByText("Reference added").closest("div");
     expect(toast?.textContent ?? "").not.toMatch(/SECRET/);
@@ -188,9 +229,13 @@ describe("opened again", () => {
         <AddCitationDialog open {...props} />
       </ToastProvider>,
     );
-    expect((screen.getByLabelText(/What kind of record/) as HTMLSelectElement).value).toBe("");
+    expect(
+      (screen.getByLabelText(/What kind of record/) as HTMLSelectElement).value,
+    ).toBe("");
     expect(screen.queryByLabelText(/Which day/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Add the reference" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Add the reference" }),
+    ).toBeDisabled();
   });
 
   it("does not close while the request is out", async () => {
@@ -199,7 +244,9 @@ describe("opened again", () => {
     mount();
     await choose("ROTA_DAY");
     await userEvent.type(screen.getByLabelText(/Which day/), "2026-11-10");
-    await userEvent.click(screen.getByRole("button", { name: "Add the reference" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add the reference" }),
+    );
     await userEvent.keyboard("{Escape}");
     expect(onClose).not.toHaveBeenCalled();
     finish({ citation: {}, warnings: [] });

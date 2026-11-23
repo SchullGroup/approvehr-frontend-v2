@@ -863,7 +863,10 @@ export const queriesApi = {
         body,
       }),
     );
-    if (!added) throw new Error("The server answered with something that is not a reference.");
+    if (!added)
+      throw new Error(
+        "The server answered with something that is not a reference.",
+      );
     return added;
   },
 
@@ -947,7 +950,9 @@ export const queriesApi = {
 function readTemplate(raw: unknown): ApiQueryTemplate {
   const template = toTemplate(raw);
   if (!template)
-    throw new Error("The server answered with something that is not a template.");
+    throw new Error(
+      "The server answered with something that is not a template.",
+    );
   return template;
 }
 

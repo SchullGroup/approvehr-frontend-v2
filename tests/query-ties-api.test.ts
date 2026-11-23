@@ -130,12 +130,20 @@ describe("warnings", () => {
   it("keep the server's sentence and the days it is about, and drop what has no sentence", () => {
     expect(
       toWarnings([
-        { code: "reply_by_on_leave", message: "Inside leave.", dates: ["2026-11-20"] },
+        {
+          code: "reply_by_on_leave",
+          message: "Inside leave.",
+          dates: ["2026-11-20"],
+        },
         { code: "x" },
         "nope",
       ]),
     ).toEqual([
-      { code: "reply_by_on_leave", message: "Inside leave.", dates: ["2026-11-20"] },
+      {
+        code: "reply_by_on_leave",
+        message: "Inside leave.",
+        dates: ["2026-11-20"],
+      },
     ]);
   });
 
@@ -177,9 +185,9 @@ describe("a lead", () => {
       dateMeans: "recorded" as const,
     };
     expect(leadHref(hostile, "e-9")).toBe("/people/e-9?tab=conduct");
-    expect(
-      leadHref({ ...hostile, kind: "EMPLOYMENT_CHANGE" }, "e-9"),
-    ).toBe("/people/e-9?tab=history");
+    expect(leadHref({ ...hostile, kind: "EMPLOYMENT_CHANGE" }, "e-9")).toBe(
+      "/people/e-9?tab=history",
+    );
     expect(leadHref({ ...hostile, kind: "EXIT", id: "x-2" }, "e-9")).toBe(
       "/people/offboarding/x-2",
     );
@@ -188,7 +196,16 @@ describe("a lead", () => {
   it("encodes an id so it can never become another path", () => {
     expect(queryHref("a/../b")).toBe("/people/queries/a%2F..%2Fb");
     expect(
-      leadHref({ kind: "EXIT", id: "x/../y", subKind: null, date: null, dateMeans: null }, "e"),
+      leadHref(
+        {
+          kind: "EXIT",
+          id: "x/../y",
+          subKind: null,
+          date: null,
+          dateMeans: null,
+        },
+        "e",
+      ),
     ).toBe("/people/offboarding/x%2F..%2Fy");
   });
 });
@@ -209,8 +226,12 @@ describe("the detail", () => {
     expect(toDetail({ leads: [] }).leads).toEqual([]);
     expect(toDetail({}).leads).toBeNull();
     expect(
-      toDetail({ leads: [{ kind: "WARNING", id: "w", subKind: "WRITTEN" }, { kind: "?" }] })
-        .leads,
+      toDetail({
+        leads: [
+          { kind: "WARNING", id: "w", subKind: "WRITTEN" },
+          { kind: "?" },
+        ],
+      }).leads,
     ).toHaveLength(1);
   });
 
@@ -223,7 +244,12 @@ describe("the detail", () => {
   it("reads documents asked for, and a status it does not know as still open", () => {
     const read = toDetail({
       documentRequests: [
-        { id: "d-1", name: "Medical certificate", status: "FULFILLED", dueOn: "2026-11-30" },
+        {
+          id: "d-1",
+          name: "Medical certificate",
+          status: "FULFILLED",
+          dueOn: "2026-11-30",
+        },
         { id: "d-2", name: "Something", status: "WEIRD" },
         { name: "no id" },
       ],
@@ -235,7 +261,9 @@ describe("the detail", () => {
   });
 
   it("flags a manager's draft on a summary too", () => {
-    expect(toSummary({ id: "q", startedByManager: true })?.startedByManager).toBe(true);
+    expect(
+      toSummary({ id: "q", startedByManager: true })?.startedByManager,
+    ).toBe(true);
     expect(toSummary({ id: "q" })?.startedByManager).toBe(false);
   });
 });
@@ -244,10 +272,16 @@ describe("settings", () => {
   const base = { replyHours: 48, warnHours: 24, issuerMayDecideIfSole: true };
 
   it("reads whether managers may draft, and null when the server did not say", () => {
-    expect(toSettings({ ...base, managersMayDraft: true })?.managersMayDraft).toBe(true);
-    expect(toSettings({ ...base, managersMayDraft: false })?.managersMayDraft).toBe(false);
+    expect(
+      toSettings({ ...base, managersMayDraft: true })?.managersMayDraft,
+    ).toBe(true);
+    expect(
+      toSettings({ ...base, managersMayDraft: false })?.managersMayDraft,
+    ).toBe(false);
     expect(toSettings(base)?.managersMayDraft).toBeNull();
-    expect(toSettings({ ...base, managersMayDraft: "yes" })?.managersMayDraft).toBeNull();
+    expect(
+      toSettings({ ...base, managersMayDraft: "yes" })?.managersMayDraft,
+    ).toBeNull();
   });
 });
 
@@ -255,12 +289,20 @@ describe("templates", () => {
   it("are read with the server's merge fields and sentence, and none is invented", () => {
     const list = toTemplateList({
       data: [
-        { id: "t-1", name: "Absence", subjectLine: "About {{employee_first_name}}", archived: false },
+        {
+          id: "t-1",
+          name: "Absence",
+          subjectLine: "About {{employee_first_name}}",
+          archived: false,
+        },
         { name: "no id" },
       ],
       meta: {
         total: 1,
-        mergeFields: [{ token: "{{employee_name}}", label: "Their full name" }, { token: "x" }],
+        mergeFields: [
+          { token: "{{employee_name}}", label: "Their full name" },
+          { token: "x" },
+        ],
         note: "These are your company's own words.",
       },
     });
@@ -307,7 +349,13 @@ describe("counts", () => {
   });
 
   it("carries no total and no field a screen could add up into one", () => {
-    const counts = toCounts({ year: 2026, floor: 3, byStatus: [], byMonth: [], note: "n" });
+    const counts = toCounts({
+      year: 2026,
+      floor: 3,
+      byStatus: [],
+      byMonth: [],
+      note: "n",
+    });
     expect(Object.keys(counts ?? {}).sort()).toEqual([
       "byMonth",
       "byStatus",
@@ -328,7 +376,12 @@ describe("a document asked for", () => {
     expect(
       toDocumentAsked({ request: { id: "d-1" }, notifiedPerson: false }),
     ).toEqual({ requestId: "d-1", notifiedPerson: false });
-    expect(toDocumentAsked({ request: { id: "d-1" } }).notifiedPerson).toBeNull();
-    expect(toDocumentAsked(null)).toEqual({ requestId: null, notifiedPerson: null });
+    expect(
+      toDocumentAsked({ request: { id: "d-1" } }).notifiedPerson,
+    ).toBeNull();
+    expect(toDocumentAsked(null)).toEqual({
+      requestId: null,
+      notifiedPerson: null,
+    });
   });
 });

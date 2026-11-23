@@ -175,7 +175,9 @@ function AddCitationForm({
         </Field>
 
         {kind !== "" && (
-          <p className="-mt-2 text-body-sm text-muted">{WHAT_IS_COPIED[kind]}</p>
+          <p className="-mt-2 text-body-sm text-muted">
+            {WHAT_IS_COPIED[kind]}
+          </p>
         )}
 
         {isDate && (

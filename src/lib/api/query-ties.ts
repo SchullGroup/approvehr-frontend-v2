@@ -345,7 +345,9 @@ export type ApiQueryDocumentRequest = {
   waivedAt: string | null;
 };
 
-export function toDocumentRequest(raw: unknown): ApiQueryDocumentRequest | null {
+export function toDocumentRequest(
+  raw: unknown,
+): ApiQueryDocumentRequest | null {
   if (!isRecord(raw)) return null;
   const id = text(raw["id"]);
   const name = text(raw["name"]);
@@ -357,7 +359,11 @@ export function toDocumentRequest(raw: unknown): ApiQueryDocumentRequest | null 
     category: text(raw["category"]),
     dueOn: text(raw["dueOn"]),
     status:
-      status === "FULFILLED" ? "FULFILLED" : status === "WAIVED" ? "WAIVED" : "OPEN",
+      status === "FULFILLED"
+        ? "FULFILLED"
+        : status === "WAIVED"
+          ? "WAIVED"
+          : "OPEN",
     createdAt: text(raw["createdAt"]),
     fulfilledAt: text(raw["fulfilledAt"]),
     waivedAt: text(raw["waivedAt"]),
@@ -420,7 +426,9 @@ export function toLead(raw: unknown): ApiQueryLead | null {
     subKind: text(raw["subKind"]),
     date: text(raw["date"]),
     dateMeans:
-      means === "recorded" || means === "effective" || means === "last_working_day"
+      means === "recorded" ||
+      means === "effective" ||
+      means === "last_working_day"
         ? means
         : null,
   };
@@ -512,7 +520,10 @@ export type TemplateList = {
   note: string | null;
 };
 
-export function toTemplateList(page: { data: unknown[]; meta: unknown }): TemplateList {
+export function toTemplateList(page: {
+  data: unknown[];
+  meta: unknown;
+}): TemplateList {
   const meta = isRecord(page.meta) ? page.meta : {};
   return {
     rows: list(page.data).flatMap((row) => {

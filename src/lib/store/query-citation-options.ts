@@ -44,10 +44,16 @@ export function useCitationOptions(
   formatDay: (day: string) => string,
 ): CitationOptions {
   const { isConnected } = useSession();
-  const active = isConnected && kind !== "" && kind !== "ATTENDANCE_DAY" && kind !== "ROTA_DAY";
+  const active =
+    isConnected &&
+    kind !== "" &&
+    kind !== "ATTENDANCE_DAY" &&
+    kind !== "ROTA_DAY";
 
   const load = useCallback(
-    async (signal: AbortSignal): Promise<{ options: CitationOption[]; cut: boolean }> => {
+    async (
+      signal: AbortSignal,
+    ): Promise<{ options: CitationOption[]; cut: boolean }> => {
       switch (kind) {
         case "POLICY": {
           const page = await conductApi.policies(

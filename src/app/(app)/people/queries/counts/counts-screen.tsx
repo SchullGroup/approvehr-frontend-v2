@@ -89,7 +89,9 @@ export function CountsScreen() {
         {...(canSettings
           ? {
               action: (
-                <TextLink href="/settings/queries">Open Queries settings</TextLink>
+                <TextLink href="/settings/queries">
+                  Open Queries settings
+                </TextLink>
               ),
             }
           : {})}
@@ -104,8 +106,8 @@ export function CountsScreen() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <p className="max-w-2xl text-body-sm text-body">
-          How many queries were served in a year, by where they stand now and
-          by the month they were served. Drafts are not counted. There is no
+          How many queries were served in a year, by where they stand now and by
+          the month they were served. Drafts are not counted. There is no
           breakdown by person, manager or department.
         </p>
         {shownYear !== undefined && (

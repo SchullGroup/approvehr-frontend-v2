@@ -39,7 +39,8 @@ vi.mock("@/lib/store/employees-api", () => ({
   }),
 }));
 
-const NOTE = "These are your company's own words. Have counsel read them before they are used.";
+const NOTE =
+  "These are your company's own words. Have counsel read them before they are used.";
 const templateList = (rows: TemplateList["rows"] = []): TemplateList => ({
   rows,
   mergeFields: [
@@ -81,10 +82,22 @@ let queriesOn = true;
 let editable = true;
 vi.mock("@/lib/store/queries", async (original) => ({
   ...(await original<typeof import("@/lib/store/queries")>()),
-  useQueriesSwitch: () => ({ on: queriesOn, known: true, said: true, editable, error: null }),
+  useQueriesSwitch: () => ({
+    on: queriesOn,
+    known: true,
+    said: true,
+    editable,
+    error: null,
+  }),
   useQueryActions: () => actions,
   useQueryTemplates: () => ({ ...templates, reload: reloadTemplates }),
-  useQuerySettings: () => ({ data: settings, loading: false, error: null, unavailable: false, reload: vi.fn() }),
+  useQuerySettings: () => ({
+    data: settings,
+    loading: false,
+    error: null,
+    unavailable: false,
+    reload: vi.fn(),
+  }),
 }));
 vi.mock("@/lib/store/features", async (original) => ({
   ...(await original<typeof import("@/lib/store/features")>()),
@@ -100,19 +113,25 @@ vi.mock("@/lib/store/features", async (original) => ({
   }),
 }));
 
-const { StartQueryButton } = await import("@/app/(app)/people/queries/start-dialog");
-const { QueriesSettingsScreen } = await import(
-  "@/app/(app)/settings/queries/queries-settings-screen"
-);
+const { StartQueryButton } =
+  await import("@/app/(app)/people/queries/start-dialog");
+const { QueriesSettingsScreen } =
+  await import("@/app/(app)/settings/queries/queries-settings-screen");
 
-const wrap = (node: React.ReactNode) => render(<ToastProvider>{node}</ToastProvider>);
+const wrap = (node: React.ReactNode) =>
+  render(<ToastProvider>{node}</ToastProvider>);
 
 beforeEach(() => {
   vi.clearAllMocks();
   held = new Set(["ISSUE_QUERIES", "MANAGE_SETTINGS"]);
   queriesOn = true;
   editable = true;
-  templates = { data: templateList(), loading: false, error: null, unavailable: false };
+  templates = {
+    data: templateList(),
+    loading: false,
+    error: null,
+    unavailable: false,
+  };
   settings = {
     replyHours: 48,
     warnHours: 24,
@@ -126,37 +145,56 @@ describe("starting a draft", () => {
   const open = async (label = "Issue a query") => {
     wrap(<StartQueryButton />);
     await userEvent.click(screen.getByRole("button", { name: label }));
-    await userEvent.click(screen.getByRole("combobox", { name: "Who is it for" }));
-    await userEvent.click(await screen.findByRole("option", { name: /Chidi Nwosu/ }));
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "Who is it for" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("option", { name: /Chidi Nwosu/ }),
+    );
   };
 
   it("offers no template picker, not even an empty one, to a company with none", async () => {
     await open();
     expect(screen.queryByLabelText(/Start from a template/)).toBeNull();
-    expect(screen.getByRole("textbox", { name: /Subject line/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /Subject line/ }),
+    ).toBeInTheDocument();
   });
 
   it("starts blank by default, with a required subject line", async () => {
     templates = { ...templates, data: templateList([row()]) };
     actions.create.mockResolvedValue(detail());
     await open();
-    expect(screen.getByRole("button", { name: "Start the letter" })).toBeDisabled();
-    await userEvent.type(screen.getByRole("textbox", { name: /Subject line/ }), "A subject");
-    await userEvent.click(screen.getByRole("button", { name: "Start the letter" }));
+    expect(
+      screen.getByRole("button", { name: "Start the letter" }),
+    ).toBeDisabled();
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /Subject line/ }),
+      "A subject",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start the letter" }),
+    );
     await waitFor(() =>
-      expect(actions.create).toHaveBeenCalledWith({ subjectId: "e-1", subjectLine: "A subject" }),
+      expect(actions.create).toHaveBeenCalledWith({
+        subjectId: "e-1",
+        subjectLine: "A subject",
+      }),
     );
   });
 
   it("lists the company's own templates by name and says the server's line about counsel", async () => {
-    templates = { ...templates, data: templateList([row(), row({ id: "t-2", name: "Lateness" })]) };
+    templates = {
+      ...templates,
+      data: templateList([row(), row({ id: "t-2", name: "Lateness" })]),
+    };
     await open();
     const picker = screen.getByLabelText(/Start from a template/);
-    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "A blank draft",
-      "Absence",
-      "Lateness",
-    ]);
+    expect(
+      within(picker)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["A blank draft", "Absence", "Lateness"]);
     expect(screen.getByText(NOTE)).toBeInTheDocument();
   });
 
@@ -164,11 +202,21 @@ describe("starting a draft", () => {
     templates = { ...templates, data: templateList([row()]) };
     actions.create.mockResolvedValue(detail());
     await open();
-    await userEvent.selectOptions(screen.getByLabelText(/Start from a template/), "t-1");
-    expect(screen.getByText(/Leave it blank to use the template's own/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Start the letter" }));
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Start from a template/),
+      "t-1",
+    );
+    expect(
+      screen.getByText(/Leave it blank to use the template's own/),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start the letter" }),
+    );
     await waitFor(() =>
-      expect(actions.create).toHaveBeenCalledWith({ subjectId: "e-1", templateId: "t-1" }),
+      expect(actions.create).toHaveBeenCalledWith({
+        subjectId: "e-1",
+        templateId: "t-1",
+      }),
     );
   });
 
@@ -176,9 +224,17 @@ describe("starting a draft", () => {
     templates = { ...templates, data: templateList([row()]) };
     actions.create.mockResolvedValue(detail());
     await open();
-    await userEvent.selectOptions(screen.getByLabelText(/Start from a template/), "t-1");
-    await userEvent.type(screen.getByRole("textbox", { name: /Subject line/ }), "Mine instead");
-    await userEvent.click(screen.getByRole("button", { name: "Start the letter" }));
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Start from a template/),
+      "t-1",
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /Subject line/ }),
+      "Mine instead",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start the letter" }),
+    );
     await waitFor(() =>
       expect(actions.create).toHaveBeenCalledWith({
         subjectId: "e-1",
@@ -191,18 +247,33 @@ describe("starting a draft", () => {
   it("refuses a one-character subject line even with a template, and starts blank when opened again", async () => {
     templates = { ...templates, data: templateList([row()]) };
     await open();
-    await userEvent.selectOptions(screen.getByLabelText(/Start from a template/), "t-1");
-    await userEvent.type(screen.getByRole("textbox", { name: /Subject line/ }), "x");
-    expect(screen.getByRole("button", { name: "Start the letter" })).toBeDisabled();
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Start from a template/),
+      "t-1",
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /Subject line/ }),
+      "x",
+    );
+    expect(
+      screen.getByRole("button", { name: "Start the letter" }),
+    ).toBeDisabled();
     await userEvent.keyboard("{Escape}");
-    await userEvent.click(screen.getByRole("button", { name: "Issue a query" }));
-    expect((screen.getByLabelText(/Start from a template/) as HTMLSelectElement).value).toBe("");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Issue a query" }),
+    );
+    expect(
+      (screen.getByLabelText(/Start from a template/) as HTMLSelectElement)
+        .value,
+    ).toBe("");
   });
 
   it("is for a manager who drafts, and says so: Draft a query, written for HR to issue", async () => {
     held = new Set(["DRAFT_QUERIES"]);
     await open("Draft a query");
-    expect(screen.getByText(/You write the letter and HR reviews and issues it/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/You write the letter and HR reviews and issues it/),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Issue a query" })).toBeNull();
   });
 
@@ -226,10 +297,20 @@ describe("the templates card", () => {
 
   it("opens a blank form, with no example text anywhere in it, and lists the server's merge fields", async () => {
     mount();
-    await userEvent.click(screen.getByRole("button", { name: /Add a template/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Add a template/ }),
+    );
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText(/Have counsel read it before it is used with real staff/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/\{\{employee_name\}\} \(The person's full name\)/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /Have counsel read it before it is used with real staff/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /\{\{employee_name\}\} \(The person's full name\)/,
+      ),
+    ).toBeInTheDocument();
     for (const box of within(dialog).getAllByRole("textbox")) {
       expect(box).toHaveValue("");
       expect(box).not.toHaveAttribute("placeholder");
@@ -239,13 +320,20 @@ describe("the templates card", () => {
   it("adds a template with the words trimmed, and a blank rules box as null", async () => {
     actions.createTemplate.mockResolvedValue(row());
     mount();
-    await userEvent.click(screen.getByRole("button", { name: /Add a template/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Add a template/ }),
+    );
     const dialog = screen.getByRole("dialog");
-    await userEvent.type(within(dialog).getByLabelText(/Template name/), "  Absence  ");
+    await userEvent.type(
+      within(dialog).getByLabelText(/Template name/),
+      "  Absence  ",
+    );
     /* Pasted: `type` reads a brace as the start of a key name. */
     await userEvent.click(within(dialog).getByLabelText(/Subject line/));
     await userEvent.paste("About {{employee_first_name}}");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Add the template" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add the template" }),
+    );
     await waitFor(() =>
       expect(actions.createTemplate).toHaveBeenCalledWith({
         name: "Absence",
@@ -260,19 +348,29 @@ describe("the templates card", () => {
 
   it("keeps the server's refusal and what was typed when a field is unknown", async () => {
     actions.createTemplate.mockRejectedValue(
-      new ApiError(422, "unprocessable", "That template uses a field we do not know: {{salary}}. The fields it can use are: {{employee_name}}."),
+      new ApiError(
+        422,
+        "unprocessable",
+        "That template uses a field we do not know: {{salary}}. The fields it can use are: {{employee_name}}.",
+      ),
     );
     mount();
-    await userEvent.click(screen.getByRole("button", { name: /Add a template/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Add a template/ }),
+    );
     const dialog = screen.getByRole("dialog");
     await userEvent.type(within(dialog).getByLabelText(/Template name/), "Pay");
     await userEvent.click(within(dialog).getByLabelText(/Subject line/));
     await userEvent.paste("About {{salary}}");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Add the template" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add the template" }),
+    );
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "That template uses a field we do not know: {{salary}}.",
     );
-    expect(within(dialog).getByLabelText(/Subject line/)).toHaveValue("About {{salary}}");
+    expect(within(dialog).getByLabelText(/Subject line/)).toHaveValue(
+      "About {{salary}}",
+    );
   });
 
   it("archives and restores, says nothing was deleted, and never shows the wording in the list", async () => {
@@ -288,10 +386,14 @@ describe("the templates card", () => {
     const { container } = mount();
     expect(container.textContent).not.toMatch(/SECRET/);
     await userEvent.click(screen.getByRole("button", { name: "Archive" }));
-    await waitFor(() => expect(actions.archiveTemplate).toHaveBeenCalledWith("t-1"));
+    await waitFor(() =>
+      expect(actions.archiveTemplate).toHaveBeenCalledWith("t-1"),
+    );
     expect(await screen.findByText(/Nothing was deleted/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Restore" }));
-    await waitFor(() => expect(actions.restoreTemplate).toHaveBeenCalledWith("t-2"));
+    await waitFor(() =>
+      expect(actions.restoreTemplate).toHaveBeenCalledWith("t-2"),
+    );
   });
 
   it("is read-only without the permission to change settings", () => {
@@ -300,7 +402,11 @@ describe("the templates card", () => {
     mount();
     expect(screen.queryByRole("button", { name: /Add a template/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
-    expect(screen.getByText(/changing templates needs the Manage settings permission/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /changing templates needs the Manage settings permission/,
+      ),
+    ).toBeInTheDocument();
   });
 });
 
@@ -314,12 +420,28 @@ describe("managers drafting", () => {
     await userEvent.click(screen.getByRole("switch", { name: SWITCH }));
     expect(actions.updateSettings).not.toHaveBeenCalled();
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText(/cannot issue, extend, decide or withdraw one, cite a record,/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/never a query once it has been issued or withdrawn/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/have your counsel review it/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /cannot issue, extend, decide or withdraw one, cite a record,/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /never a query once it has been issued or withdrawn/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/have your counsel review it/),
+    ).toBeInTheDocument();
     actions.updateSettings.mockResolvedValue(null);
-    await userEvent.click(within(dialog).getByRole("button", { name: "Switch it on" }));
-    await waitFor(() => expect(actions.updateSettings).toHaveBeenCalledWith({ managersMayDraft: true }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Switch it on" }),
+    );
+    await waitFor(() =>
+      expect(actions.updateSettings).toHaveBeenCalledWith({
+        managersMayDraft: true,
+      }),
+    );
   });
 
   it("is turned off in one press, with nothing deleted", async () => {
@@ -327,7 +449,11 @@ describe("managers drafting", () => {
     actions.updateSettings.mockResolvedValue(null);
     mount();
     await userEvent.click(screen.getByRole("switch", { name: SWITCH }));
-    await waitFor(() => expect(actions.updateSettings).toHaveBeenCalledWith({ managersMayDraft: false }));
+    await waitFor(() =>
+      expect(actions.updateSettings).toHaveBeenCalledWith({
+        managersMayDraft: false,
+      }),
+    );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -335,7 +461,9 @@ describe("managers drafting", () => {
     settings = { ...settings, managersMayDraft: null };
     mount();
     expect(screen.queryByRole("switch", { name: SWITCH })).toBeNull();
-    expect(screen.getByText(/has not been updated to offer manager drafting/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/has not been updated to offer manager drafting/),
+    ).toBeInTheDocument();
   });
 
   it("can be read and not changed without the permission", () => {
@@ -346,16 +474,22 @@ describe("managers drafting", () => {
 
   it("says nobody holds the permission until it is given on Roles", () => {
     mount();
-    expect(screen.getByText(/Nobody holds it until you give it to them/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Nobody holds it until you give it to them/),
+    ).toBeInTheDocument();
     for (const link of screen.getAllByRole("link", { name: "Roles" }))
       expect(link).toHaveAttribute("href", "/settings/roles");
   });
 
   it("shows the server's refusal, in its words", async () => {
-    actions.updateSettings.mockRejectedValue(new ApiError(403, "forbidden", "You cannot change this."));
+    actions.updateSettings.mockRejectedValue(
+      new ApiError(403, "forbidden", "You cannot change this."),
+    );
     settings = { ...settings, managersMayDraft: true };
     mount();
     await userEvent.click(screen.getByRole("switch", { name: SWITCH }));
-    expect(await screen.findByText("You cannot change this.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("You cannot change this."),
+    ).toBeInTheDocument();
   });
 });

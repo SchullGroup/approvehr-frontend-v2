@@ -95,7 +95,11 @@ export function TemplatesCard({ editable }: { editable: boolean }) {
           description="Your company's own starting points for a letter. Start a draft from one and the person's name and number are filled in; the issuer then edits it like any draft."
           action={
             editable ? (
-              <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setEditing("new")}
+              >
                 <Plus aria-hidden="true" className="size-3.5" />
                 Add a template
               </Button>
@@ -233,7 +237,9 @@ function TemplateForm({
   const actions = useQueryActions();
   const [name, setName] = useState(template?.name ?? "");
   const [subjectLine, setSubjectLine] = useState(template?.subjectLine ?? "");
-  const [whatHappened, setWhatHappened] = useState(template?.whatHappened ?? "");
+  const [whatHappened, setWhatHappened] = useState(
+    template?.whatHappened ?? "",
+  );
   const [rulesRelied, setRulesRelied] = useState(template?.rulesRelied ?? "");
   const [question, setQuestion] = useState(template?.question ?? "");
   const [busy, setBusy] = useState(false);
@@ -312,8 +318,15 @@ function TemplateForm({
             .
           </p>
         )}
-        <Field label="Template name" required help="Only people choosing a template read this.">
-          <Input value={name} onChange={(event) => setName(event.target.value)} />
+        <Field
+          label="Template name"
+          required
+          help="Only people choosing a template read this."
+        >
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </Field>
         <Field label="Subject line" required>
           <Input
@@ -360,7 +373,9 @@ function CounterLine({ value, max }: { value: string; max: number }) {
   if (!text) return null;
   const over = value.trim().length > max;
   return (
-    <span className={over ? "text-meta text-danger-text" : "text-meta text-muted"}>
+    <span
+      className={over ? "text-meta text-danger-text" : "text-meta text-muted"}
+    >
       {text}
     </span>
   );

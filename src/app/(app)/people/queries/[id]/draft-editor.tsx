@@ -393,10 +393,10 @@ export function DraftEditor({
           </div>
         ) : (
           <p className="border-t border-line pt-4 text-body-sm text-muted">
-            You are writing the letter and nothing else. HR reviews it, adds
-            any records and files it refers to, and issues it. You cannot
-            attach files or cite records, and you will not see it again once
-            it is issued.
+            You are writing the letter and nothing else. HR reviews it, adds any
+            records and files it refers to, and issues it. You cannot attach
+            files or cite records, and you will not see it again once it is
+            issued.
           </p>
         )}
 

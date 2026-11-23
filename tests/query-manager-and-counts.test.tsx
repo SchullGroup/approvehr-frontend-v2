@@ -25,7 +25,13 @@ vi.mock("@/lib/store/session", () => ({
 const registerHook = vi.fn();
 const draftsHook = vi.fn();
 const countsHook = vi.fn();
-let switchState = { on: true, known: true, said: true, editable: true, error: null };
+let switchState = {
+  on: true,
+  known: true,
+  said: true,
+  editable: true,
+  error: null,
+};
 vi.mock("@/lib/store/queries", async (original) => ({
   ...(await original<typeof import("@/lib/store/queries")>()),
   useQueriesSwitch: () => switchState,
@@ -34,15 +40,23 @@ vi.mock("@/lib/store/queries", async (original) => ({
   useQueryCounts: (...args: unknown[]) => countsHook(...args),
 }));
 
-const { QueriesScreen } = await import(
-  "@/app/(app)/people/queries/queries-screen"
-);
-const { CountsScreen } = await import(
-  "@/app/(app)/people/queries/counts/counts-screen"
-);
+const { QueriesScreen } =
+  await import("@/app/(app)/people/queries/queries-screen");
+const { CountsScreen } =
+  await import("@/app/(app)/people/queries/counts/counts-screen");
 
 const page = (rows: ReturnType<typeof summary>[]) => ({
-  data: { rows, meta: { page: 1, pageSize: 50, total: rows.length, totalPages: 1, hasMore: false }, waiting: null },
+  data: {
+    rows,
+    meta: {
+      page: 1,
+      pageSize: 50,
+      total: rows.length,
+      totalPages: 1,
+      hasMore: false,
+    },
+    waiting: null,
+  },
   loading: false,
   error: null,
   reload: vi.fn(),
@@ -51,7 +65,13 @@ const page = (rows: ReturnType<typeof summary>[]) => ({
 
 beforeEach(() => {
   held = new Set();
-  switchState = { on: true, known: true, said: true, editable: true, error: null };
+  switchState = {
+    on: true,
+    known: true,
+    said: true,
+    editable: true,
+    error: null,
+  };
   registerHook.mockReset();
   registerHook.mockReturnValue(page([]));
   draftsHook.mockReset();
@@ -66,20 +86,33 @@ describe("a line manager", () => {
   it("meets one route that shows their own drafts, by person and last change, and nothing else", () => {
     draftsHook.mockReturnValue(
       page([
-        summary({ id: "q-d1", status: "DRAFT", reference: null, startedByManager: true, subject: { id: "e-1", name: "Chidi Nwosu", employeeNo: "AHR-0003" }, subjectLine: "A draft of mine", updatedAt: "2026-11-20T09:00:00.000Z" }),
+        summary({
+          id: "q-d1",
+          status: "DRAFT",
+          reference: null,
+          startedByManager: true,
+          subject: { id: "e-1", name: "Chidi Nwosu", employeeNo: "AHR-0003" },
+          subjectLine: "A draft of mine",
+          updatedAt: "2026-11-20T09:00:00.000Z",
+        }),
       ]),
     );
     render(<QueriesScreen />);
     expect(screen.getByText("Chidi Nwosu")).toBeInTheDocument();
     expect(screen.getByText("A draft of mine")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Chidi Nwosu" })).toHaveAttribute("href", "/people/queries/q-d1");
+    expect(screen.getByRole("link", { name: "Chidi Nwosu" })).toHaveAttribute(
+      "href",
+      "/people/queries/q-d1",
+    );
     /* Nothing of the company's register: no tabs, no search, no archive, no counts, no manager filter. */
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("searchbox")).toBeNull();
     expect(screen.queryByText("Show archived")).toBeNull();
     expect(screen.queryByText("Counts")).toBeNull();
     expect(screen.queryByText("Drafted by managers")).toBeNull();
-    expect(screen.getByText(/never a query once it has been issued/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/never a query once it has been issued/),
+    ).toBeInTheDocument();
   });
 
   it("asks only for its drafts, and never asks the register", () => {
@@ -100,14 +133,22 @@ describe("a line manager", () => {
     draftsHook.mockReturnValue({
       data: null,
       loading: false,
-      error: new ApiError(403, "forbidden", "Managers cannot draft queries at your company. Ask HR to write it."),
+      error: new ApiError(
+        403,
+        "forbidden",
+        "Managers cannot draft queries at your company. Ask HR to write it.",
+      ),
       reload: vi.fn(),
       unavailable: false,
     });
     render(<QueriesScreen />);
-    expect(screen.getByText("You cannot draft queries here")).toBeInTheDocument();
     expect(
-      screen.getByText("Managers cannot draft queries at your company. Ask HR to write it."),
+      screen.getByText("You cannot draft queries here"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Managers cannot draft queries at your company. Ask HR to write it.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/did not load/i)).toBeNull();
   });
@@ -116,13 +157,17 @@ describe("a line manager", () => {
     switchState = { ...switchState, on: false };
     draftsHook.mockReturnValue(page([]));
     render(<QueriesScreen />);
-    expect(screen.getByText("Queries are switched off for your company")).toBeInTheDocument();
+    expect(
+      screen.getByText("Queries are switched off for your company"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("You have no drafts")).toBeNull();
   });
 
   it("is not shown the register even when it also reads one for HR", () => {
     draftsHook.mockReturnValue(page([]));
-    registerHook.mockReturnValue(page([summary({ id: "q-hr", subjectLine: "AN ISSUED LETTER" })]));
+    registerHook.mockReturnValue(
+      page([summary({ id: "q-hr", subjectLine: "AN ISSUED LETTER" })]),
+    );
     render(<QueriesScreen />);
     expect(screen.queryByText("AN ISSUED LETTER")).toBeNull();
   });
@@ -132,11 +177,21 @@ describe("HR", () => {
   it("is offered a filter for managers' drafts, and a badge on one, and the way to the counts", async () => {
     held = new Set(["ISSUE_QUERIES"]);
     registerHook.mockReturnValue(
-      page([summary({ id: "q-m", status: "DRAFT", reference: null, startedByManager: true })]),
+      page([
+        summary({
+          id: "q-m",
+          status: "DRAFT",
+          reference: null,
+          startedByManager: true,
+        }),
+      ]),
     );
     render(<QueriesScreen />);
     expect(screen.getByText("A manager's draft")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Counts" })).toHaveAttribute("href", "/people/queries/counts");
+    expect(screen.getByRole("link", { name: "Counts" })).toHaveAttribute(
+      "href",
+      "/people/queries/counts",
+    );
     await userEvent.click(screen.getByLabelText("Drafted by managers"));
     expect(registerHook).toHaveBeenLastCalledWith(
       expect.objectContaining({ startedByManager: true }),
@@ -188,7 +243,9 @@ describe("the counts", () => {
       "Closed4",
       "WithdrawnWithheld",
     ]);
-    const months = screen.getByRole("table", { name: "The month they were served" });
+    const months = screen.getByRole("table", {
+      name: "The month they were served",
+    });
     expect(within(months).getAllByText("Withheld")).toHaveLength(1);
     expect(within(months).getByText("January 2026")).toBeInTheDocument();
     /* No cell anywhere reads 0 for a withheld figure. */
@@ -199,7 +256,9 @@ describe("the counts", () => {
   it("shows the server's sentence about the floor as it came", () => {
     render(<CountsScreen />);
     expect(
-      screen.getByText(/A figure under 3 is never shown, and where one is withheld another is withheld with it/),
+      screen.getByText(
+        /A figure under 3 is never shown, and where one is withheld another is withheld with it/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -209,14 +268,22 @@ describe("the counts", () => {
     /* The server's own "There are no totals" is the plural and is allowed; the word itself is not. */
     expect(text).not.toMatch(/\btotal\b/);
     for (const table of screen.getAllByRole("table")) {
-      expect(within(table).queryByRole("columnheader", { name: /total/i })).toBeNull();
-      expect(within(table).queryByRole("rowheader", { name: /total/i })).toBeNull();
+      expect(
+        within(table).queryByRole("columnheader", { name: /total/i }),
+      ).toBeNull();
+      expect(
+        within(table).queryByRole("rowheader", { name: /total/i }),
+      ).toBeNull();
     }
     /* Seven cells published or withheld, drawn as seven cells, and not one more number: 5+4+3+6 = 18
        is not on the page. */
     expect(container.textContent).not.toMatch(/\b18\b/);
-    expect(container.querySelector("svg[role=img], canvas, [class*=chart]")).toBeNull();
-    expect(screen.queryByText(/rank|per manager|per person|by department/i)).toBeNull();
+    expect(
+      container.querySelector("svg[role=img], canvas, [class*=chart]"),
+    ).toBeNull();
+    expect(
+      screen.queryByText(/rank|per manager|per person|by department/i),
+    ).toBeNull();
   });
 
   it("says that a withheld cell is hidden on purpose and may be three or more, only when one is", () => {
@@ -252,14 +319,18 @@ describe("the counts", () => {
   it("is told queries are off, and shows no figure", () => {
     switchState = { ...switchState, on: false };
     render(<CountsScreen />);
-    expect(screen.getByText("Queries are switched off for your company")).toBeInTheDocument();
+    expect(
+      screen.getByText("Queries are switched off for your company"),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("draws nothing for a server that sent no note but never invents a floor", () => {
     countsHook.mockReturnValue(countsPage(counts({ note: null, floor: null })));
     render(<CountsScreen />);
-    expect(screen.getByText(/A small figure is never shown/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/A small figure is never shown/),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/under 3/)).toBeNull();
   });
 });

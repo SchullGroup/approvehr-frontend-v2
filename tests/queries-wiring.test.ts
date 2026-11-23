@@ -30,6 +30,14 @@ describe("the permissions", () => {
       action: "approve",
     });
   });
+
+  it("include the manager's drafting one, in the Queries row of the matrix, as Edit", () => {
+    expect(PERMISSION_KEYS).toContain("DRAFT_QUERIES");
+    expect(PERMISSION_SHAPE.DRAFT_QUERIES).toEqual({
+      module: "queries",
+      action: "edit",
+    });
+  });
 });
 
 describe("the company switch", () => {
@@ -75,6 +83,15 @@ describe("the sidebar row", () => {
 
   it("shows for a decider too", () => {
     expect(shown(["DECIDE_QUERIES"], { queries: true })).toContain(
+      "/people/queries",
+    );
+  });
+
+  it("shows for a line manager given the drafting permission, and only that route", () => {
+    expect(shown(["DRAFT_QUERIES"], { queries: true })).toContain(
+      "/people/queries",
+    );
+    expect(shown(["DRAFT_QUERIES"], { queries: false })).not.toContain(
       "/people/queries",
     );
   });

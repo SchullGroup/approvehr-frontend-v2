@@ -149,7 +149,9 @@ describe("references", () => {
     expect(
       screen.getByText(/As it stood when this letter was issued, /),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /add a reference/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /add a reference/i }),
+    ).toBeNull();
     expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
   });
 
@@ -174,7 +176,9 @@ describe("references", () => {
         citations: [citation({ frozen: false })],
       }),
     );
-    expect(screen.getByText(/A preview of what the record says now/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/A preview of what the record says now/),
+    ).toBeInTheDocument();
   });
 
   it("are edited only where the server says `can.cite`: add and remove", async () => {
@@ -190,8 +194,12 @@ describe("references", () => {
         citations: [citation({ frozen: false })],
       }),
     );
-    expect(screen.getByRole("button", { name: /add a reference/i })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: /remove this policy reference/i }));
+    expect(
+      screen.getByRole("button", { name: /add a reference/i }),
+    ).toBeEnabled();
+    await user.click(
+      screen.getByRole("button", { name: /remove this policy reference/i }),
+    );
     await waitFor(() =>
       expect(actions.removeCitation).toHaveBeenCalledWith("q-1", "c-1"),
     );
@@ -206,7 +214,11 @@ describe("references", () => {
     held = new Set(["ISSUE_QUERIES"]);
     employeeId = "e-9";
     const many = Array.from({ length: 20 }, (_, index) =>
-      citation({ id: `c-${index}`, title: `Reference ${index}`, frozen: false }),
+      citation({
+        id: `c-${index}`,
+        title: `Reference ${index}`,
+        frozen: false,
+      }),
     );
     mount(
       detail({
@@ -216,7 +228,9 @@ describe("references", () => {
         citations: many,
       }),
     );
-    expect(screen.getByRole("button", { name: /add a reference/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /add a reference/i }),
+    ).toBeDisabled();
   });
 });
 
@@ -249,7 +263,9 @@ describe("typed text is text", () => {
       }),
     );
     expect(container.querySelector("img")).toBeNull();
-    expect(screen.getAllByText(payload, { exact: false }).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(payload, { exact: false }).length,
+    ).toBeGreaterThan(0);
     expect(container.querySelector('a[href*="evil.example"]')).toBeNull();
   });
 });
@@ -269,27 +285,43 @@ describe("documents asked for", () => {
   it("are listed for the person, who is sent to My documents, and who is not offered a button", () => {
     mount(detail({ documentRequests: [asked] }));
     expect(screen.getByText("Medical certificate")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open My documents" })).toHaveAttribute(
-      "href",
-      "/documents",
-    );
-    expect(screen.queryByRole("button", { name: /ask for a document/i })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Open My documents" }),
+    ).toHaveAttribute("href", "/documents");
+    expect(
+      screen.queryByRole("button", { name: /ask for a document/i }),
+    ).toBeNull();
   });
 
   it("offer the issuer the button while the letter is waiting, and send what was typed", async () => {
     const user = userEvent.setup();
     held = new Set(["ISSUE_QUERIES"]);
     employeeId = "e-9";
-    actions.askForDocument.mockResolvedValue({ requestId: "d-2", notifiedPerson: true });
+    actions.askForDocument.mockResolvedValue({
+      requestId: "d-2",
+      notifiedPerson: true,
+    });
     mount(detail({ can: can({ askForDocument: true }) }));
-    await user.click(screen.getByRole("button", { name: /ask for a document/i }));
+    await user.click(
+      screen.getByRole("button", { name: /ask for a document/i }),
+    );
     const dialog = screen.getByRole("dialog");
     expect(
-      within(dialog).getByText(/does not name the document, give the reason or mention the letter/),
+      within(dialog).getByText(
+        /does not name the document, give the reason or mention the letter/,
+      ),
     ).toBeInTheDocument();
-    await user.type(within(dialog).getByLabelText(/The document/), "  Fitness note  ");
-    await user.type(within(dialog).getByLabelText(/Why it is needed/), "For the file");
-    await user.click(within(dialog).getByRole("button", { name: "Ask for it" }));
+    await user.type(
+      within(dialog).getByLabelText(/The document/),
+      "  Fitness note  ",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/Why it is needed/),
+      "For the file",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Ask for it" }),
+    );
     await waitFor(() =>
       expect(actions.askForDocument).toHaveBeenCalledWith("q-1", {
         name: "Fitness note",
@@ -305,12 +337,19 @@ describe("documents asked for", () => {
     const user = userEvent.setup();
     held = new Set(["ISSUE_QUERIES"]);
     employeeId = "e-9";
-    actions.askForDocument.mockResolvedValue({ requestId: "d-2", notifiedPerson: false });
+    actions.askForDocument.mockResolvedValue({
+      requestId: "d-2",
+      notifiedPerson: false,
+    });
     mount(detail({ can: can({ askForDocument: true }) }));
-    await user.click(screen.getByRole("button", { name: /ask for a document/i }));
+    await user.click(
+      screen.getByRole("button", { name: /ask for a document/i }),
+    );
     await user.type(screen.getByLabelText(/The document/), "ID card");
     await user.click(screen.getByRole("button", { name: "Ask for it" }));
-    expect(await screen.findByText(/Nobody was told in the product/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Nobody was told in the product/),
+    ).toBeInTheDocument();
   });
 
   it("keep the server's refusal in the dialog, with what was typed", async () => {
@@ -323,7 +362,9 @@ describe("documents asked for", () => {
       }),
     );
     mount(detail({ can: can({ askForDocument: true }) }));
-    await user.click(screen.getByRole("button", { name: /ask for a document/i }));
+    await user.click(
+      screen.getByRole("button", { name: /ask for a document/i }),
+    );
     await user.type(screen.getByLabelText(/The document/), "ID card");
     await user.click(screen.getByRole("button", { name: "Ask for it" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/./);
@@ -338,9 +379,27 @@ describe("documents asked for", () => {
 
 describe("linked records", () => {
   const leads: ApiQueryLead[] = [
-    { kind: "WARNING", id: "w-1", subKind: "WRITTEN", date: "2026-11-25", dateMeans: "recorded" },
-    { kind: "EXIT", id: "x-1", subKind: "TERMINATION", date: "2026-12-31", dateMeans: "last_working_day" },
-    { kind: "EMPLOYMENT_CHANGE", id: "ec-1", subKind: "TRANSFER", date: "2027-01-01", dateMeans: "effective" },
+    {
+      kind: "WARNING",
+      id: "w-1",
+      subKind: "WRITTEN",
+      date: "2026-11-25",
+      dateMeans: "recorded",
+    },
+    {
+      kind: "EXIT",
+      id: "x-1",
+      subKind: "TERMINATION",
+      date: "2026-12-31",
+      dateMeans: "last_working_day",
+    },
+    {
+      kind: "EMPLOYMENT_CHANGE",
+      id: "ec-1",
+      subKind: "TRANSFER",
+      date: "2027-01-01",
+      dateMeans: "effective",
+    },
   ];
 
   it("are links built from ids, and say a query makes none of them", () => {
@@ -355,7 +414,9 @@ describe("linked records", () => {
       "/people/e-1?tab=history",
     ]);
     expect(screen.getByText(/A query makes none of them/)).toBeInTheDocument();
-    expect(screen.getByText(/written warning, recorded D\(2026-11-25\)/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/written warning, recorded D\(2026-11-25\)/),
+    ).toBeInTheDocument();
   });
 
   it("are not drawn for the person, whose detail carries none, nor for an empty list", () => {
@@ -389,14 +450,24 @@ describe("a manager drafting", () => {
     held = new Set(["DRAFT_QUERIES"]);
     employeeId = "e-9";
     mount(draftAsManager());
-    expect(screen.getByRole("button", { name: "Save the draft" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Issue the query" })).toBeDisabled();
-    expect(screen.queryByText("Company letter or attachments")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save the draft" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Issue the query" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByText("Company letter or attachments"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("References")).not.toBeInTheDocument();
     expect(screen.queryByText("Documents asked for")).not.toBeInTheDocument();
     expect(screen.queryByText("Linked records")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /withdraw|extend|archive/i })).toBeNull();
-    expect(screen.getByText(/You are writing the letter and nothing else/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /withdraw|extend|archive/i }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/You are writing the letter and nothing else/),
+    ).toBeInTheDocument();
   });
 
   it("is told whose words a manager's draft are, when HR reads it", () => {
@@ -410,7 +481,9 @@ describe("a manager drafting", () => {
     expect(screen.getByText("Adaeze Okonkwo")).toBeInTheDocument();
     expect(screen.getByText(/A manager wrote this draft/)).toBeInTheDocument();
     /* The issuer still has the files and the references. */
-    expect(screen.getByText("Company letter or attachments")).toBeInTheDocument();
+    expect(
+      screen.getByText("Company letter or attachments"),
+    ).toBeInTheDocument();
     expect(screen.getByText("References")).toBeInTheDocument();
   });
 });
@@ -419,12 +492,14 @@ describe("warnings", () => {
   const warnings = [
     {
       code: "cited_day_on_leave",
-      message: "12 Nov 2026 is inside approved leave. Nothing stops you sending it.",
+      message:
+        "12 Nov 2026 is inside approved leave. Nothing stops you sending it.",
       dates: ["2026-11-12"],
     },
     {
       code: "reply_by_on_leave",
-      message: "The reply-by time falls inside approved leave. Nothing stops you sending it.",
+      message:
+        "The reply-by time falls inside approved leave. Nothing stops you sending it.",
       dates: [],
     },
   ];
@@ -447,18 +522,23 @@ describe("warnings", () => {
     employeeId = "e-9";
     const { container } = mount(draft());
     const dayWarning = screen.getByText(/12 Nov 2026 is inside approved leave/);
-    const replyWarning = screen.getByText(/reply-by time falls inside approved leave/);
+    const replyWarning = screen.getByText(
+      /reply-by time falls inside approved leave/,
+    );
     const dateLabel = screen.getByText("Date it happened");
     const replyLabel = screen.getByText("Reply by (date)");
     /* The day warning follows the dates; the reply-by warning follows the reply-by boxes. */
     expect(
-      dateLabel.compareDocumentPosition(dayWarning) & Node.DOCUMENT_POSITION_FOLLOWING,
+      dateLabel.compareDocumentPosition(dayWarning) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      replyLabel.compareDocumentPosition(replyWarning) & Node.DOCUMENT_POSITION_FOLLOWING,
+      replyLabel.compareDocumentPosition(replyWarning) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      dayWarning.compareDocumentPosition(replyLabel) & Node.DOCUMENT_POSITION_FOLLOWING,
+      dayWarning.compareDocumentPosition(replyLabel) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     for (const warning of [dayWarning, replyWarning]) {
       expect(warning.tagName).toBe("P");
@@ -477,8 +557,12 @@ describe("warnings", () => {
     await user.click(screen.getByRole("button", { name: "Issue the query" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Before it goes:")).toBeInTheDocument();
-    expect(within(dialog).getByText(/12 Nov 2026 is inside approved leave/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/reply-by time falls inside approved leave/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/12 Nov 2026 is inside approved leave/),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/reply-by time falls inside approved leave/),
+    ).toBeInTheDocument();
   });
 
   it("are not repeated in the toast after issuing, which only says how many were shown", async () => {
@@ -496,13 +580,21 @@ describe("warnings", () => {
     mount(draft());
     await user.click(screen.getByRole("button", { name: "Issue the query" }));
     await user.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Issue it" }),
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Issue it",
+      }),
     );
     expect(await screen.findByText("Q-2026-020 issued")).toBeInTheDocument();
-    expect(screen.getByText(/2 things to check were shown before it was sent/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 things to check were shown before it was sent/),
+    ).toBeInTheDocument();
     /* The toast carries no warning sentence, which names dates of somebody's leave. */
-    const stillThere = screen.queryAllByText(/12 Nov 2026 is inside approved leave/);
-    expect(stillThere.every((node) => !node.closest("[data-toast]"))).toBe(true);
+    const stillThere = screen.queryAllByText(
+      /12 Nov 2026 is inside approved leave/,
+    );
+    expect(stillThere.every((node) => !node.closest("[data-toast]"))).toBe(
+      true,
+    );
   });
 
   it("a letter with no warnings has no 'before it goes' line", async () => {

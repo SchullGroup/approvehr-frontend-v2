@@ -83,7 +83,12 @@ export function citationRendering(
       break;
     }
     case "EQUIPMENT": {
-      add("Item", [copy.item, copy.tag ? `(${copy.tag})` : null].filter(Boolean).join(" ") || null);
+      add(
+        "Item",
+        [copy.item, copy.tag ? `(${copy.tag})` : null]
+          .filter(Boolean)
+          .join(" ") || null,
+      );
       add("Category", copy.category);
       if (copy.assignedOn) add("Given to them on", format.day(copy.assignedOn));
       add("Condition when given", copy.conditionOut);
@@ -103,7 +108,10 @@ export function citationRendering(
     }
     case "ATTENDANCE_DAY": {
       if (copy.date) add("Day", format.day(copy.date));
-      add("The day showed", copy.status ? (ATTENDANCE_STATUS_WORD[copy.status] ?? null) : null);
+      add(
+        "The day showed",
+        copy.status ? (ATTENDANCE_STATUS_WORD[copy.status] ?? null) : null,
+      );
       add("Clocked in", copy.clockIn);
       if (copy.clockOut) {
         add(
@@ -117,7 +125,10 @@ export function citationRendering(
         add("Late by", minutes(copy.lateByMinutes));
       if (copy.earlyByMinutes !== null && copy.earlyByMinutes > 0)
         add("Left early by", minutes(copy.earlyByMinutes));
-      add("How it was recorded", copy.source ? (ATTENDANCE_SOURCE_WORD[copy.source] ?? null) : null);
+      add(
+        "How it was recorded",
+        copy.source ? (ATTENDANCE_SOURCE_WORD[copy.source] ?? null) : null,
+      );
       if (copy.correctedByAdministrator === true)
         add("Corrected", "An administrator corrected this entry");
       add("Where", copy.workLocation);
@@ -133,22 +144,35 @@ export function citationRendering(
         );
       }
       if (copy.days !== null) add("Days", String(copy.days));
-      add("Status", copy.status ? (LEAVE_STATUS_WORD[copy.status] ?? null) : null);
+      add(
+        "Status",
+        copy.status ? (LEAVE_STATUS_WORD[copy.status] ?? null) : null,
+      );
       break;
     }
     case "ROTA_DAY": {
       if (copy.date) add("Day", format.day(copy.date));
       const times =
-        copy.startTime && copy.endTime ? `${copy.startTime} to ${copy.endTime}` : null;
+        copy.startTime && copy.endTime
+          ? `${copy.startTime} to ${copy.endTime}`
+          : null;
       add("Shift", [copy.shiftName, times].filter(Boolean).join(", ") || null);
-      add("Status", copy.status ? (ROTA_STATUS_WORD[copy.status] ?? null) : null);
+      add(
+        "Status",
+        copy.status ? (ROTA_STATUS_WORD[copy.status] ?? null) : null,
+      );
       break;
     }
     case "DOCUMENT_REQUEST": {
       add("Document", copy.name);
       add("Kind", categoryWord(copy.category));
       if (copy.dueOn) add("Due", format.day(copy.dueOn));
-      add("Status", copy.status ? (DOCUMENT_REQUEST_STATUS_WORD[copy.status] ?? null) : null);
+      add(
+        "Status",
+        copy.status
+          ? (DOCUMENT_REQUEST_STATUS_WORD[copy.status] ?? null)
+          : null,
+      );
       if (copy.requestedAt) add("Asked on", format.at(copy.requestedAt));
       break;
     }

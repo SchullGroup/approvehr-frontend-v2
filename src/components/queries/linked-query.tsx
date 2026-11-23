@@ -70,7 +70,8 @@ export function LinkedQueryField({
         <option value="">None</option>
         {rows.map((row) => (
           <option key={row.id} value={row.id}>
-            {row.reference ?? "A query"}, {STATUS_LABEL[row.status].toLowerCase()}
+            {row.reference ?? "A query"},{" "}
+            {STATUS_LABEL[row.status].toLowerCase()}
           </option>
         ))}
       </Select>

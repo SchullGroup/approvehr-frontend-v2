@@ -83,7 +83,11 @@ export function DocumentsAsked({
         }
         action={
           canAsk ? (
-            <Button variant="secondary" size="sm" onClick={() => setAsking(true)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setAsking(true)}
+            >
               <FilePlus2 aria-hidden="true" className="size-3.5" />
               Ask for a document
             </Button>
@@ -92,7 +96,9 @@ export function DocumentsAsked({
       />
       <CardBody className="flex flex-col gap-3">
         {requests.length === 0 ? (
-          <p className="text-body-sm text-muted">Nothing has been asked for yet.</p>
+          <p className="text-body-sm text-muted">
+            Nothing has been asked for yet.
+          </p>
         ) : (
           <ul className="flex flex-col gap-2">
             {requests.map((request) => (
@@ -109,7 +115,8 @@ export function DocumentsAsked({
                   )}
                 </span>
                 <Badge tone="neutral" size="sm">
-                  {DOCUMENT_REQUEST_STATUS_WORD[request.status] ?? request.status}
+                  {DOCUMENT_REQUEST_STATUS_WORD[request.status] ??
+                    request.status}
                 </Badge>
               </li>
             ))}
@@ -231,12 +238,15 @@ function AskForm({
       <div className="flex flex-col gap-4">
         <p className="text-body-sm text-body">
           This is an ordinary document request: they answer it under My
-          documents. The notification they get says only that HR has asked for
-          a document. It does not name the document, give the reason or mention
+          documents. The notification they get says only that HR has asked for a
+          document. It does not name the document, give the reason or mention
           the letter.
         </p>
         <Field label="The document" required help="What they should send.">
-          <Input value={name} onChange={(event) => setName(event.target.value)} />
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </Field>
         <FieldRow>
           <Field label="Kind of document" optional>

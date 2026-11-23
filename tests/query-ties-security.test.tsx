@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { can, detail } from "./queries-fixtures";
@@ -68,14 +68,21 @@ describe("typed text is never markup", () => {
 });
 
 describe("nothing about a letter leaves the screen by a side door", () => {
-  it.each(QUERY_FILES)("%s has no console output, storage, beacon or title write", (path) => {
-    const source = code(path);
-    expect(source).not.toMatch(/\bconsole\.(log|info|warn|error|debug)/);
-    expect(source).not.toMatch(/localStorage|sessionStorage|indexedDB/);
-    expect(source).not.toMatch(/sendBeacon|reportError|trackEvent|analytics/i);
-    expect(source).not.toMatch(/document\.title\s*=/);
-    expect(source).not.toMatch(/window\.open\(|location\.(href|assign|replace)\s*=/);
-  });
+  it.each(QUERY_FILES)(
+    "%s has no console output, storage, beacon or title write",
+    (path) => {
+      const source = code(path);
+      expect(source).not.toMatch(/\bconsole\.(log|info|warn|error|debug)/);
+      expect(source).not.toMatch(/localStorage|sessionStorage|indexedDB/);
+      expect(source).not.toMatch(
+        /sendBeacon|reportError|trackEvent|analytics/i,
+      );
+      expect(source).not.toMatch(/document\.title\s*=/);
+      expect(source).not.toMatch(
+        /window\.open\(|location\.(href|assign|replace)\s*=/,
+      );
+    },
+  );
 
   it.each(QUERY_FILES)("%s puts no letter text into an address", (path) => {
     const source = code(path);
@@ -93,19 +100,30 @@ describe("nothing about a letter leaves the screen by a side door", () => {
   it("builds no query string or path from a subject line, a file name or a citation title", () => {
     for (const path of QUERY_FILES) {
       const source = code(path);
-      expect(source).not.toMatch(/\?[a-z]+=\$\{[^}]*(subjectLine|filename|title|whatHappened|question)/);
-      expect(source).not.toMatch(/encodeURIComponent\([^)]*(subjectLine|filename|title|whatHappened)/);
+      expect(source).not.toMatch(
+        /\?[a-z]+=\$\{[^}]*(subjectLine|filename|title|whatHappened|question)/,
+      );
+      expect(source).not.toMatch(
+        /encodeURIComponent\([^)]*(subjectLine|filename|title|whatHappened)/,
+      );
     }
   });
 });
 
 describe("a link out", () => {
-  it.each(QUERY_FILES)("%s opens no new tab without noreferrer and noopener", (path) => {
-    const source = code(path);
-    for (const tag of source.match(/<(a|Link|TextLink)\b[^>]*target="_blank"[^>]*>/g) ?? []) {
-      expect(tag).toMatch(/rel="noreferrer noopener"|rel="noopener noreferrer"/);
-    }
-  });
+  it.each(QUERY_FILES)(
+    "%s opens no new tab without noreferrer and noopener",
+    (path) => {
+      const source = code(path);
+      for (const tag of source.match(
+        /<(a|Link|TextLink)\b[^>]*target="_blank"[^>]*>/g,
+      ) ?? []) {
+        expect(tag).toMatch(
+          /rel="noreferrer noopener"|rel="noopener noreferrer"/,
+        );
+      }
+    },
+  );
 
   it("none of the new components takes an address from the API: a link is an id", () => {
     const linked = code("src/app/(app)/people/queries/[id]/linked-records.tsx");
@@ -118,11 +136,18 @@ describe("a link out", () => {
 
 describe("a file is a click and never a render", () => {
   it("the stage 3 and 4 files fetch no file at all", () => {
-    for (const path of QUERY_FILES.filter((file) => !file.endsWith("query-files.tsx"))) {
+    for (const path of QUERY_FILES.filter(
+      (file) => !file.endsWith("query-files.tsx"),
+    )) {
       const source = code(path);
-      if (path.endsWith("src/lib/api/queries.ts") || path.endsWith("src/lib/store/queries.ts"))
+      if (
+        path.endsWith("src/lib/api/queries.ts") ||
+        path.endsWith("src/lib/store/queries.ts")
+      )
         continue;
-      expect(source, path).not.toMatch(/fileContent|fetchBinary|createObjectURL/);
+      expect(source, path).not.toMatch(
+        /fileContent|fetchBinary|createObjectURL/,
+      );
     }
   });
 
@@ -148,15 +173,20 @@ describe("wire data is parsed, not cast", () => {
 
   it("the stage 4 additions to the detail reader add no cast", () => {
     const source = code("src/lib/api/queries.ts");
-    const after = source.slice(source.indexOf("citations: list(r[\"citations\"])"));
-    const block = after.slice(0, after.indexOf("can: toCan(r[\"can\"]),") + 30);
+    const after = source.slice(
+      source.indexOf('citations: list(r["citations"])'),
+    );
+    const block = after.slice(0, after.indexOf('can: toCan(r["can"]),') + 30);
     expect(block).not.toMatch(/\bas\s+[A-Za-z_{[]/);
   });
 });
 
 describe("no secret in a fixture", () => {
   const TESTS = readdirSync(join(ROOT, "tests")).filter(
-    (name) => /^quer(y|ies)-/.test(name) && /\.(ts|tsx)$/.test(name) && name !== "query-ties-security.test.tsx",
+    (name) =>
+      /^quer(y|ies)-/.test(name) &&
+      /\.(ts|tsx)$/.test(name) &&
+      name !== "query-ties-security.test.tsx",
   );
 
   it.each(TESTS)("%s carries no token, key or password", (name) => {
@@ -175,7 +205,13 @@ describe("no dependency was added for this", () => {
       dependencies?: Record<string, string>;
     };
     /* The screens use the repo's own components only: nothing for markdown, sanitising or charts. */
-    for (const name of ["dompurify", "marked", "react-markdown", "sanitize-html", "recharts"]) {
+    for (const name of [
+      "dompurify",
+      "marked",
+      "react-markdown",
+      "sanitize-html",
+      "recharts",
+    ]) {
       expect(Object.keys(manifest.dependencies ?? {})).not.toContain(name);
     }
   });
@@ -183,15 +219,26 @@ describe("no dependency was added for this", () => {
 
 /* ---------------------------------------------------------------- render checks */
 
-const HOSTILE = '<img src=x onerror="alert(1)"><script>alert(2)</script> https://evil.example/x www.evil.example javascript:alert(3)';
+const HOSTILE =
+  '<img src=x onerror="alert(1)"><script>alert(2)</script> https://evil.example/x www.evil.example javascript:alert(3)';
 
 vi.mock("@/lib/store/session", () => ({
-  useSession: () => ({ isConnected: true, employeeId: "e-1", user: { id: "u-me" } }),
+  useSession: () => ({
+    isConnected: true,
+    employeeId: "e-1",
+    user: { id: "u-me" },
+  }),
   useOrgTimezone: () => "Africa/Lagos",
 }));
 vi.mock("@/lib/store/company", () => ({
   useLiveCompanyProfile: () => ({
-    profile: { legalName: HOSTILE, rcNumber: HOSTILE, addressLine: HOSTILE, city: HOSTILE, logoUrl: null },
+    profile: {
+      legalName: HOSTILE,
+      rcNumber: HOSTILE,
+      addressLine: HOSTILE,
+      city: HOSTILE,
+      logoUrl: null,
+    },
     reload: () => undefined,
   }),
 }));
@@ -200,8 +247,10 @@ vi.mock("@/lib/store/conduct", () => ({
   LEVEL_LABEL: {},
 }));
 
-const { LetterDocument } = await import("@/app/(app)/people/queries/[id]/letter-document");
-const { LetterView } = await import("@/app/(app)/people/queries/[id]/letter-view");
+const { LetterDocument } =
+  await import("@/app/(app)/people/queries/[id]/letter-document");
+const { LetterView } =
+  await import("@/app/(app)/people/queries/[id]/letter-view");
 
 const hostileDetail = () =>
   detail({
@@ -247,8 +296,14 @@ describe("hostile text comes out as text, on screen and on paper", () => {
   const assertText = (container: HTMLElement) => {
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("script")).toBeNull();
-    expect(container.querySelector("[onerror], [onclick], [onload]")).toBeNull();
-    expect(container.querySelector('a[href*="evil.example"], a[href^="javascript:"]')).toBeNull();
+    expect(
+      container.querySelector("[onerror], [onclick], [onload]"),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        'a[href*="evil.example"], a[href^="javascript:"]',
+      ),
+    ).toBeNull();
     expect(container.textContent).toContain("<script>alert(2)</script>");
   };
 
@@ -260,7 +315,9 @@ describe("hostile text comes out as text, on screen and on paper", () => {
   });
 
   it("the letter on screen shows every typed field as text and makes no link from any", () => {
-    const { container } = render(<LetterView detail={hostileDetail()} refresh={async () => undefined} />);
+    const { container } = render(
+      <LetterView detail={hostileDetail()} refresh={async () => undefined} />,
+    );
     assertText(container);
   });
 });

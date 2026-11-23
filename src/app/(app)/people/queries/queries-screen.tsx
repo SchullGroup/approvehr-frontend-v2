@@ -268,7 +268,9 @@ function ModuleOff({ canSettings }: { canSettings: boolean }) {
       {...(canSettings
         ? {
             action: (
-              <TextLink href="/settings/queries">Open Queries settings</TextLink>
+              <TextLink href="/settings/queries">
+                Open Queries settings
+              </TextLink>
             ),
           }
         : {})}
