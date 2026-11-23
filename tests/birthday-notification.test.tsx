@@ -131,11 +131,14 @@ describe("the birthday row", () => {
   it("is still read and cleared like any other row", async () => {
     const user = userEvent.setup();
     render(<NotificationsInbox />);
-    await user.click(
-      screen.getByRole("button", { name: `Mark “${TITLE}” read` }),
-    );
+    /* Behind the row's "…" menu (UAT 23 Nov, L29). */
+    const more = () =>
+      screen.getByRole("button", { name: `More for “${TITLE}”` });
+    await user.click(more());
+    await user.click(screen.getByRole("menuitem", { name: /Mark read/ }));
     expect(state.notifications.markRead).toHaveBeenCalledWith("n-birthday");
-    await user.click(screen.getByRole("button", { name: `Remove “${TITLE}”` }));
+    await user.click(more());
+    await user.click(screen.getByRole("menuitem", { name: /Remove/ }));
     expect(state.notifications.remove).toHaveBeenCalledWith("n-birthday");
   });
 

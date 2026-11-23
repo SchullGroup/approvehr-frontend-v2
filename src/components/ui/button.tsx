@@ -125,9 +125,12 @@ const VARIANTS: Record<ButtonVariant, string> = {
  * variant's text colour on `size="lg"` (white-on-accent came out gray). The
  * 16px baseline it was reaching for is what a button inherits anyway.
  */
+/* Under a finger every button is at least 44px, the touch target WCAG asks
+   for; with a mouse the small sizes stay small (UAT 23 Nov, L29: SELF-22, the
+   32px Read and row buttons on a phone). */
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-body-sm gap-1.5 rounded-sm",
-  md: "h-10 px-4 text-body-sm gap-2 rounded-md",
+  sm: "h-8 pointer-coarse:h-11 px-3 text-body-sm gap-1.5 rounded-sm",
+  md: "h-10 pointer-coarse:h-11 px-4 text-body-sm gap-2 rounded-md",
   lg: "h-12 px-6 gap-2.5 rounded-md",
 };
 
@@ -282,7 +285,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
     { label, size = "md", variant = "ghost", className, children, ...props },
     ref,
   ) {
-    const square = { sm: "size-8", md: "size-10", lg: "size-12" }[size];
+    const square = {
+      sm: "size-8 pointer-coarse:size-11",
+      md: "size-10 pointer-coarse:size-11",
+      lg: "size-12",
+    }[size];
     return (
       <Button
         ref={ref}
