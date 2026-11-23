@@ -286,7 +286,7 @@ describe("a period's own settings", () => {
     ).toBeDisabled();
   });
 
-  it("'Use the weights in Settings' sends weights: null", async () => {
+  it("'Use my company's weights' sends weights: null", async () => {
     const user = userEvent.setup();
     render(
       <PeriodWeightsSection
@@ -295,7 +295,7 @@ describe("a period's own settings", () => {
       />,
     );
     await user.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     await waitFor(() =>
       expect(updateCycle).toHaveBeenCalledWith("c-9", { weights: null }),
@@ -308,7 +308,7 @@ describe("a period's own settings", () => {
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "10");
     await user.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     await waitFor(() => expect(updateCycle).toHaveBeenCalled());
     await waitFor(() =>
@@ -324,9 +324,7 @@ describe("a period's own settings", () => {
       <PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />,
     );
     expect(
-      screen.getByText(
-        "Following the weights in Settings, under Appraisal scoring.",
-      ),
+      screen.getByText("Same as your company's weights."),
     ).toBeInTheDocument();
     unmount();
     render(
@@ -373,7 +371,7 @@ describe("a period's own settings", () => {
     );
     expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
     expect(
-      screen.getByText("Fixed when this period started."),
+      screen.getByText("Locked when this period started."),
     ).toBeInTheDocument();
     const row = screen
       .getByText("Weekly tasks")
@@ -395,12 +393,10 @@ describe("a period's own settings", () => {
       />,
     );
     expect(
-      screen.queryByText("Fixed when this period started."),
+      screen.queryByText("Locked when this period started."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "This period follows the weights in Settings as they are today.",
-      ),
+      screen.getByText("Uses your company's weights as they are today."),
     ).toBeInTheDocument();
   });
 

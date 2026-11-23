@@ -1833,12 +1833,12 @@ function PeriodFramingEditor({
 
   return (
     <Disclosure
-      title="What this period covers, and what to tell people"
+      title="Message to staff"
       meta={
         periodWords(period.periodStart, period.periodEnd) ??
         (period.instructions ? "No dates set" : "Nothing set")
       }
-      hint="Shown above the first question on everybody's form."
+      hint="Shown above the first question."
     >
       <div className="flex flex-col gap-3">
         <div className="grid gap-3 sm:grid-cols-2">

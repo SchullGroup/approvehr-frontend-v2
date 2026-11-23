@@ -199,14 +199,14 @@ describe("<PeriodWeights />", () => {
     ).toBeInTheDocument();
   });
 
-  it("'Use the weights in Settings' resets the rows", async () => {
+  it("'Use my company's weights' resets the rows", async () => {
     const user = userEvent.setup();
     const seen = vi.fn();
     render(<Harness onValue={seen} />);
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "20");
     await user.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     expect(screen.getByLabelText("Weekly tasks")).toHaveValue(0);
     expect(screen.getByLabelText("Delivery against objectives")).toHaveValue(
@@ -218,10 +218,10 @@ describe("<PeriodWeights />", () => {
     render(<Harness readOnly basis="frozen" />);
     expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
     expect(
-      screen.queryByRole("button", { name: "Use the weights in Settings" }),
+      screen.queryByRole("button", { name: "Use my company's weights" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("Fixed when this period started."),
+      screen.getByText("Locked when this period started."),
     ).toBeInTheDocument();
     const row = screen
       .getByText("Weekly tasks")
@@ -236,12 +236,10 @@ describe("<PeriodWeights />", () => {
   it("does not claim a started period was fixed when it follows the company", () => {
     render(<Harness readOnly basis="company" />);
     expect(
-      screen.queryByText("Fixed when this period started."),
+      screen.queryByText("Locked when this period started."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "This period follows the weights in Settings as they are today.",
-      ),
+      screen.getByText("Uses your company's weights as they are today."),
     ).toBeInTheDocument();
   });
 });

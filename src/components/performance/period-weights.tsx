@@ -204,8 +204,7 @@ export function PeriodWeights({
 
       {parts.length === 0 && (
         <p role="status" className="text-body-sm text-warning-text">
-          There are no scoring parts yet. Add them in Settings, under Appraisal
-          scoring, and they appear here.
+          No parts yet. Add them in Settings.
         </p>
       )}
 
@@ -289,11 +288,11 @@ export function PeriodWeights({
       {readOnly ? (
         basis === "frozen" ? (
           <p className="text-meta text-muted">
-            Fixed when this period started.
+            Locked when this period started.
           </p>
         ) : basis === "company" ? (
           <p className="text-meta text-muted">
-            This period follows the weights in Settings as they are today.
+            Uses your company's weights as they are today.
           </p>
         ) : null
       ) : (
@@ -305,7 +304,7 @@ export function PeriodWeights({
             onClick={reset}
           >
             <RotateCcw aria-hidden="true" className="size-3.5" />
-            Use the weights in Settings
+            Use my company's weights
           </Button>
         </div>
       )}

@@ -344,10 +344,7 @@ export function SectionsDialog({
         {/* Said once, before anything is opened. This is not the period's own
             form — it is the framework every period is built from. */}
         <NoticeLine tone="muted">
-          <span>
-            These are shared across every appraisal period, past and future.
-            Renaming one here renames it everywhere.
-          </span>
+          <span>These apply to every appraisal, past and future.</span>
         </NoticeLine>
 
         {!actions.editable ? (
@@ -410,21 +407,19 @@ export function SectionsDialog({
                           </Badge>
                           <Badge tone="neutral" size="sm">
                             {subs.length === 1
-                              ? "1 subsection"
-                              : `${String(subs.length)} subsections`}
+                              ? "1 competency"
+                              : `${String(subs.length)} competencies`}
                           </Badge>
                         </span>
                       }
                       hint={
-                        editable
-                          ? "Open it to rename, describe or move it"
-                          : undefined
+                        editable ? "Open it to rename or move it" : undefined
                       }
                     >
                       <div className="flex flex-col gap-4">
                         {editable && (
                           <div className="flex flex-wrap items-end gap-2">
-                            <Field label="Section name" className="flex-1">
+                            <Field label="Group name" className="flex-1">
                               <Input
                                 value={nameDraft}
                                 onChange={(event) =>
@@ -533,7 +528,7 @@ export function SectionsDialog({
                             {addingSubTo === section.id ? (
                               <div className="flex flex-wrap items-end gap-2">
                                 <Field
-                                  label="New subsection"
+                                  label="New competency"
                                   className="flex-1"
                                 >
                                   <Input
@@ -575,7 +570,7 @@ export function SectionsDialog({
                                     aria-hidden="true"
                                     className="size-3.5"
                                   />
-                                  Add a subsection
+                                  Add a competency
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -610,12 +605,12 @@ export function SectionsDialog({
                 level={4}
                 open={openId === UNFILED}
                 onToggle={() => setOpenId(openId === UNFILED ? null : UNFILED)}
-                title="Not filed under a section"
+                title="Not in a group"
                 meta={
                   <Badge tone="warning" size="sm">
                     {unfiled.length === 1
-                      ? "1 subsection"
-                      : `${String(unfiled.length)} subsections`}
+                      ? "1 competency"
+                      : `${String(unfiled.length)} competencies`}
                   </Badge>
                 }
                 hint="A level recorded on these counts towards no part of the mark"
@@ -684,7 +679,7 @@ export function SectionsDialog({
                   }}
                 >
                   <Plus aria-hidden="true" className="size-3.5" />
-                  Add a section
+                  Add a group
                 </Button>
               ))}
 
@@ -694,9 +689,8 @@ export function SectionsDialog({
             {editable && (
               <NoticeLine tone="muted">
                 <span>
-                  A section you create counts towards no part of the mark until
-                  you choose which one under it. Its ratings are still recorded
-                  either way.
+                  A group you add counts towards nothing until you choose a part
+                  of the mark for it.
                 </span>
               </NoticeLine>
             )}
@@ -951,10 +945,7 @@ export function CountsTowards({
     });
   const known = offered.some((part) => part.value === value);
   return (
-    <Field
-      label="Counts towards"
-      help="The part of the mark this section's ratings feed, from your parts in Settings, under Appraisal scoring. Two sections that feed the same part are averaged together. Under a self-assessment part, the person's own answers are what count, so ask those questions of the person."
-    >
+    <Field label="Counts towards" help="The part of the mark this group feeds.">
       <Select
         value={value}
         disabled={disabled}
