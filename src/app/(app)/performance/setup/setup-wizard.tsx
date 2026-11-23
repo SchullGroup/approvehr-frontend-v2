@@ -290,7 +290,7 @@ function SetupWizardInner({
                 key={source}
                 className="flex items-center justify-between gap-3"
               >
-                <span className="flex items-center gap-2 text-body text-ink">
+                <span className="flex items-center gap-2 text-body-md text-ink">
                   <span
                     aria-hidden="true"
                     className="size-2.5 rounded-full"
