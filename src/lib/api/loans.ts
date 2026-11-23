@@ -85,6 +85,12 @@ export type ApiLoan = {
   startPeriod: string | null;
 
   /**
+   * For a PENDING application only, and only on the single-loan read: what approving it will
+   * fold in from the borrower's other live loans. Null when there is nothing to fold.
+   */
+  combinesWith?: { count: number; owedKobo: number } | null;
+
+  /**
    * Whoever **decided**, either way.
    *
    * The schema has no `declinedById`, so `approvedById` carries the decliner
