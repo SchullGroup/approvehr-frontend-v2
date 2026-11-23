@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useCloseOnEscape } from "@/hooks/use-close-on-escape";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -695,6 +703,8 @@ function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
   const [open, setOpen] = useState(false);
   const { mounted, closing } = useDismiss(open, 170);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useCloseOnEscape(open, () => setOpen(false), trigger);
   /* Invited to help hire: no personnel file, so no profile and no documents of their
      own to open, and no sidebar to take a tour of. */
   const collaborator = useIsCollaborator();
@@ -720,6 +730,7 @@ function UserMenu() {
   return (
     <div className="relative">
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

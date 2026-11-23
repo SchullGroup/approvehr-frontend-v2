@@ -17,6 +17,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  RowActions,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { TaskSource } from "@/components/performance/task-source";
@@ -422,19 +423,40 @@ function GradeActions({
     );
   }
 
+  /* In the table: Done, the common mark, and a menu with the rest. Four
+     buttons and a link ran every row to three lines (UAT 23 Nov, L13:
+     PERF-38). The phone list below keeps its buttons, which have the room. */
+  if (align === "end") {
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        <Button
+          size="sm"
+          variant="accent"
+          loading={busy}
+          onClick={() => onGrade("COMPLETED")}
+        >
+          Done
+        </Button>
+        <RowActions
+          label={`More for ${task.employeeName}`}
+          disabled={busy}
+          items={[
+            { label: "Not done", onSelect: () => onGrade("NOT_COMPLETED") },
+            {
+              label: "Partly done…",
+              onSelect: () => onAsk("PARTIALLY_COMPLETED"),
+            },
+            { label: "Reject…", onSelect: () => onAsk("REJECTED") },
+            { label: "Grade with a comment…", onSelect: () => onAsk(null) },
+          ]}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-1.5",
-        align === "end" ? "items-end" : "items-start",
-      )}
-    >
-      <div
-        className={cn(
-          "flex flex-wrap gap-1.5",
-          align === "end" && "justify-end",
-        )}
-      >
+    <div className="flex flex-col items-start gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         <Button
           size="sm"
           variant="ghost"

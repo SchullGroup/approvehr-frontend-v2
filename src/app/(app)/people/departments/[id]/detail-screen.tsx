@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Building2, Users } from "lucide-react";
 
 import {
   Badge,
+  Button,
   Card,
   CardBody,
   CardHeader,
@@ -19,9 +21,15 @@ import {
   TR,
   TableWrap,
   TextLink,
+  useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { useDepartment } from "@/lib/store/departments";
+import { ApiError } from "@/lib/api/client";
+import type { ApiDepartmentDetail } from "@/lib/api/endpoints";
+import { useCan } from "@/lib/permissions";
+import { useDepartment, useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { AssignHeadDialog } from "../assign-head-dialog";
 
 /**
  * One department or sub-department, in full.
@@ -37,7 +45,10 @@ import { useDepartment } from "@/lib/store/departments";
  * the API; it had simply never been rendered.
  */
 export function DepartmentDetailScreen({ id }: { id: string }) {
-  const { detail, loading } = useDepartment(id);
+  const { detail, loading, reload } = useDepartment(id);
+  /* The same permission the structure list asks before offering "Assign a
+     head" from its row menu. */
+  const canManage = useCan("MANAGE_SETTINGS");
 
   if (loading) {
     return (
@@ -263,7 +274,14 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
               columns={2}
               items={[
                 { term: "Cost centre", value: detail.costCentre ?? "Not set" },
-                { term: "Head", value: detail.headName ?? "Nobody assigned" },
+                {
+                  term: "Head",
+                  value: canManage ? (
+                    <HeadValue detail={detail} onChanged={reload} />
+                  ) : (
+                    (detail.headName ?? "Nobody assigned")
+                  ),
+                },
                 {
                   term: "Sits inside",
                   value:
@@ -281,5 +299,74 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
         </Card>
       </PageBody>
     </>
+  );
+}
+
+/**
+ * The head, and the way to set one, on the unit's own page (UAT 23 Nov, L33:
+ * NC-28). It said "Nobody assigned" with nothing to do about it; the only way
+ * was the row menu on the structure list. The dialog is that one. Mounted only
+ * for somebody who may change the structure, so nobody else reads the staff
+ * list for it.
+ */
+function HeadValue({
+  detail,
+  onChanged,
+}: {
+  detail: ApiDepartmentDetail;
+  onChanged: () => void;
+}) {
+  const departments = useDepartments(true);
+  const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span>{detail.headName ?? "Nobody assigned"}</span>
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        {detail.headName ? "Change the head" : "Assign a head"}
+      </Button>
+      {open && (
+        <AssignHeadDialog
+          departmentName={detail.name}
+          currentHeadId={detail.headId}
+          employees={employees.map((e) => ({
+            id: e.id,
+            name: `${e.firstName} ${e.lastName}`,
+            jobTitle: e.jobTitle,
+          }))}
+          busy={busy}
+          onClose={() => setOpen(false)}
+          onAssign={async (headId) => {
+            setBusy(true);
+            try {
+              await departments.update(detail.id, { headId });
+              toast.push({
+                title:
+                  headId === null
+                    ? `${detail.name} has no head now`
+                    : "Head assigned",
+                tone: "success",
+              });
+              setOpen(false);
+              onChanged();
+            } catch (error) {
+              toast.push({
+                title: "That did not work",
+                tone: "danger",
+                detail:
+                  error instanceof ApiError
+                    ? error.message
+                    : "Something went wrong. Try again.",
+              });
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      )}
+    </span>
   );
 }

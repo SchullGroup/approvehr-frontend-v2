@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useCloseOnEscape } from "@/hooks/use-close-on-escape";
 import Link from "next/link";
 import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -715,6 +716,8 @@ function RowActions({
 }) {
   const [open, setOpen] = useState(false);
   const { mounted, closing } = useDismiss(open, 170);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useCloseOnEscape(open, () => setOpen(false), trigger);
   const canApproveLeave = row.status === "ABSENT" && !off;
 
   if (!canApproveLeave && !canCorrect) return null;
@@ -722,6 +725,7 @@ function RowActions({
   return (
     <div className="relative inline-block text-left">
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
