@@ -335,8 +335,28 @@ export function BookLeaveDialog({
   const balance = draft.employeeId ? balances.of(draft.employeeId) : undefined;
   const remaining = balance?.remaining;
 
+  /* The dates are checked as they are typed (UAT 23 Nov, U65: SELF-23): a range
+     that ends before it starts showed nothing at all, and an overlap with leave
+     already booked was refused only on Send. The same rule Send runs, on the
+     two date fields only, once both are filled in. */
+  const live =
+    draft.from && draft.to
+      ? validateLeave(
+          {
+            employeeId: draft.employeeId,
+            type: draft.type,
+            from: draft.from,
+            to: draft.to,
+          },
+          requests,
+          remaining,
+          days,
+        ).filter((e) => e.field === "from" || e.field === "to")
+      : [];
+
   const errorFor = (field: keyof NewLeaveRequest) =>
-    errors.find((e) => e.field === field)?.message;
+    errors.find((e) => e.field === field)?.message ??
+    live.find((e) => e.field === field)?.message;
 
   const employeeOptions = useMemo(
     () =>

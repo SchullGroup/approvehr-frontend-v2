@@ -12,9 +12,9 @@ const COPY = {
     missing: "Write a line so they know what to change.",
   },
   reject: {
-    title: "Reject",
+    title: "Decline",
     description: (what: string) =>
-      `Rejecting “${what}”. They see what you write here.`,
+      `Declining “${what}”. They see what you write here.`,
     placeholder: "That account number does not match your bank statement.",
     missing: "Write a line so they know why.",
   },
@@ -40,9 +40,10 @@ const COPY = {
  * Shared by `/people/leave` and `/approvals` because it is the same decision in
  * two places — the same reason those two screens read one store.
  *
- * Three wordings. `requester` is "send it back": what leave and the other
- * screens that return something for revision say. `reject` is the approvals
- * inbox, where the answer is a plain no and the person is told why. `record`
+ * Three wordings. `requester` is "send it back": what the screens that return
+ * something for revision say. `reject` is a plain no, and the person is told
+ * why: the approvals inbox and leave, which say "Decline" and "Declined"
+ * everywhere (UAT 23 Nov, U62). `record`
  * is for rows nobody raised, where the note is kept rather than sent.
  */
 export function DeclineDialog({
