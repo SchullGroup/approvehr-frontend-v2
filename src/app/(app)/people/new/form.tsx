@@ -1082,6 +1082,7 @@ export function NewEmployeeForm() {
           </Card>
         ) : (
           <form
+            noValidate
             /* A real form, so Enter submits the step the way a keyboard user
                expects. Every control that is not the primary action therefore
                carries type="button" — `Button` sets no default type, and an
@@ -1151,7 +1152,7 @@ export function NewEmployeeForm() {
                       type="email"
                       value={draft.email}
                       onChange={(e) => set("email", e.target.value)}
-                      placeholder="name@schulltech.com"
+                      placeholder="e.g. name@yourcompany.com"
                     />
                   </Field>
 
@@ -1194,7 +1195,7 @@ export function NewEmployeeForm() {
                       type="tel"
                       value={draft.phone}
                       onChange={(e) => set("phone", e.target.value)}
-                      placeholder="+234 803 000 0000"
+                      placeholder="e.g. +234 803 000 0000"
                     />
                   </Field>
                   <Field
@@ -1235,7 +1236,7 @@ export function NewEmployeeForm() {
                       data-employee-field="addressLine"
                       value={draft.addressLine}
                       onChange={(e) => set("addressLine", e.target.value)}
-                      placeholder="14 Bishop Oluwole Street, Victoria Island, Lagos"
+                      placeholder="e.g. 14 Bishop Oluwole Street, Lagos"
                     />
                   </Field>
                   <Field label="NIN" optional error={errorFor("nin")}>
@@ -1245,7 +1246,7 @@ export function NewEmployeeForm() {
                       digits={11}
                       value={draft.nin}
                       onChange={(e) => set("nin", e.target.value)}
-                      placeholder="12345678901"
+                      placeholder="11 digits"
                     />
                   </Field>
                   <Field
@@ -1273,7 +1274,7 @@ export function NewEmployeeForm() {
                       data-employee-field="lgaOfOrigin"
                       value={draft.lgaOfOrigin}
                       onChange={(e) => set("lgaOfOrigin", e.target.value)}
-                      placeholder="Ikeduru"
+                      placeholder="e.g. Ikeduru"
                     />
                   </Field>
                   <Field label="Religion" optional error={errorFor("religion")}>
@@ -1281,7 +1282,7 @@ export function NewEmployeeForm() {
                       data-employee-field="religion"
                       value={draft.religion}
                       onChange={(e) => set("religion", e.target.value)}
-                      placeholder="Christianity"
+                      placeholder="e.g. Christianity"
                     />
                   </Field>
                   <Field
@@ -1375,7 +1376,7 @@ export function NewEmployeeForm() {
                       data-employee-field="jobTitle"
                       value={draft.jobTitle}
                       onChange={(e) => set("jobTitle", e.target.value)}
-                      placeholder="Software Engineer"
+                      placeholder="e.g. Software Engineer"
                       autoFocus
                     />
                   </Field>
@@ -1401,7 +1402,7 @@ export function NewEmployeeForm() {
                       data-employee-field="grossMonthly"
                       value={draft.grossMonthly}
                       onChange={(e) => set("grossMonthly", e.target.value)}
-                      placeholder="850,000"
+                      placeholder="e.g. 850,000"
                     />
                   </Field>
                   <Field
@@ -1563,7 +1564,7 @@ export function NewEmployeeForm() {
                             digits={10}
                             value={draft.bankAccount}
                             onChange={(e) => set("bankAccount", e.target.value)}
-                            placeholder="0123456789"
+                            placeholder="10 digits"
                           />
                         </Field>
                         <div className="sm:col-span-2">
@@ -1665,7 +1666,7 @@ export function NewEmployeeForm() {
                             digits={10}
                             value={draft.tin}
                             onChange={(e) => set("tin", e.target.value)}
-                            placeholder="1234567890"
+                            placeholder="10 digits"
                           />
                         </Field>
                         <Field
@@ -1679,7 +1680,7 @@ export function NewEmployeeForm() {
                             inputMode="numeric"
                             value={draft.annualRent}
                             onChange={(e) => set("annualRent", e.target.value)}
-                            placeholder="1,800,000"
+                            placeholder="e.g. 1,800,000"
                           />
                         </Field>
                       </div>
@@ -1715,7 +1716,7 @@ export function NewEmployeeForm() {
                             data-employee-field="pensionPin"
                             value={draft.pensionPin}
                             onChange={(e) => set("pensionPin", e.target.value)}
-                            placeholder="PEN000000000"
+                            placeholder="PEN and 12 digits"
                           />
                         </Field>
                         <Field label="Pension provider">
@@ -1831,6 +1832,20 @@ export function NewEmployeeForm() {
                         <Money key="gross" amount={gross} />,
                       ],
                       ["Department", departmentName ?? "Not assigned"],
+                      [
+                        "Reports to",
+                        (() => {
+                          const manager = directory.employees.find(
+                            (e) => e.id === draft.managerId,
+                          );
+                          return manager ? fullName(manager) : "No manager";
+                        })(),
+                      ],
+                      [
+                        "Employment type",
+                        types.find((t) => t.value === draft.employmentType)
+                          ?.label ?? "—",
+                      ],
                     ]}
                   />
                   {hasExtras && (
