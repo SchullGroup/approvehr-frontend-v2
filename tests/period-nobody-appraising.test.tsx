@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 /**
@@ -19,6 +20,8 @@ const reload = vi.fn();
 const state = vi.hoisted(() => ({
   exceptions: null as unknown,
   participants: null as unknown,
+  stage: "SELF",
+  register: null as unknown,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -44,8 +47,8 @@ vi.mock("@/lib/store/performance", () => ({
       cycle: {
         id: "cycle-1",
         name: "Q1-Q3 Appraisal",
-        stage: "SELF",
-        stageLabel: "self-review",
+        stage: state.stage,
+        stageLabel: state.stage === "PUBLISHED" ? "published" : "self-review",
         scoringFrozen: false,
         departmentIds: [],
         periodStart: null,
@@ -60,7 +63,7 @@ vi.mock("@/lib/store/performance", () => ({
         counts: { people: 3 },
         rows: [],
       },
-      register: { rows: [] },
+      register: state.register ?? { rows: [] },
       exceptions: state.exceptions,
       revisionRequests: [],
       revisionsUnavailable: false,
@@ -130,6 +133,47 @@ beforeEach(() => {
   canManage = true;
   state.exceptions = null;
   state.participants = null;
+  state.stage = "SELF";
+  state.register = null;
+});
+
+/* U96 / PERF-16: a published period is a fixed record, in the past tense. */
+describe("a published period", () => {
+  it("says nobody was in it only when its register has nobody", () => {
+    state.stage = "PUBLISHED";
+    state.participants = {
+      counts: { people: 0, selfDone: 0, managerDone: 0 },
+      rows: [],
+    };
+    state.register = { rows: [] };
+    mount();
+    expect(screen.getByText("Nobody was in this period.")).toBeInTheDocument();
+    expect(screen.queryByText("Nobody is in this period yet.")).toBeNull();
+  });
+
+  it("does not say nobody was in it over the people its register marked", () => {
+    state.stage = "PUBLISHED";
+    state.participants = {
+      counts: { people: 0, selfDone: 0, managerDone: 0 },
+      rows: [],
+    };
+    state.register = { rows: [{ employeeId: "a" }, { employeeId: "b" }] };
+    mount();
+    expect(screen.queryByText(/Nobody (was|is) in this period/)).toBeNull();
+  });
+
+  it("offers no Rename", async () => {
+    state.stage = "PUBLISHED";
+    mount();
+    await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    expect(screen.queryByRole("button", { name: "Rename" })).toBeNull();
+  });
+
+  it("a running one still offers Rename", async () => {
+    mount();
+    await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
+  });
 });
 
 /* U103 / CRAWL-2: the page reads the API's counts, which the report's

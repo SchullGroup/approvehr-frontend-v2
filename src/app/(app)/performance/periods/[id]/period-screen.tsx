@@ -615,6 +615,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                       <ProgressStats
                         rows={outstanding}
                         participants={detail.participants}
+                        published={period?.stage === "PUBLISHED"}
+                        marked={detail.register?.rows.length ?? null}
                         onShowLeft={() => setShowingLeft(true)}
                       />
                       <NobodyAppraising
@@ -964,14 +966,29 @@ function NobodyAppraising({
 function ProgressStats({
   rows,
   participants,
+  published,
+  marked,
   onShowLeft,
 }: {
   rows: { employeeId: string; reviewId: string; what: string }[];
   participants: ApiCycleParticipants | null;
+  /** A published period is a record, said in the past tense (U96 / PERF-16). */
+  published: boolean;
+  /** Who the period's register reads: for a published one, who was in it. */
+  marked: number | null;
   onShowLeft: () => void;
 }) {
   if (!participants) return null;
-  if (participants.counts.people === 0) {
+  /* Who was in a published period is the register's rows, not today's staff
+     (U96): the page said "Nobody is in this period yet" over 46 scores. */
+  if (published) {
+    const people = marked ?? participants.counts.people;
+    if (people === 0) {
+      return (
+        <p className="text-body-sm text-muted">Nobody was in this period.</p>
+      );
+    }
+  } else if (participants.counts.people === 0) {
     return (
       <p className="text-body-sm text-muted">Nobody is in this period yet.</p>
     );
@@ -1148,13 +1165,19 @@ function PeriodSettings({
   return (
     <div className="flex flex-col gap-6">
       <Card>
+        {/* A published period is a fixed record, and its name is part of it
+            (U96 / PERF-16). */}
         <CardHeader
           title="Name"
-          action={
-            <Button size="sm" variant="secondary" onClick={onRename}>
-              Rename
-            </Button>
-          }
+          {...(period.stage === "PUBLISHED"
+            ? {}
+            : {
+                action: (
+                  <Button size="sm" variant="secondary" onClick={onRename}>
+                    Rename
+                  </Button>
+                ),
+              })}
         />
         <CardBody>
           <p className="text-body-sm text-ink">{period.name}</p>

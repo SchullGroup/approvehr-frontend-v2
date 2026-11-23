@@ -84,3 +84,29 @@ describe("the period report, out of 5", () => {
     expect(screen.queryByText(/63\.75%/)).toBeNull();
   });
 });
+
+/* U96 / PERF-16: a published period is a record. */
+describe("the report of a published period", () => {
+  it("does not say its people are everyone currently employed", () => {
+    render(
+      <Headline report={{ ...report, published: true } as ApiCycleReport} />,
+    );
+    expect(screen.getByText("People it covered")).toBeInTheDocument();
+    expect(screen.queryByText("Everyone currently employed")).toBeNull();
+  });
+
+  it("a running one still says so", () => {
+    render(
+      <Headline report={{ ...report, published: false } as ApiCycleReport} />,
+    );
+    expect(screen.getByText("Everyone currently employed")).toBeInTheDocument();
+  });
+
+  it("does not call its highest scores the ones so far", () => {
+    render(<TopPerformers register={register} published />);
+    expect(
+      screen.getByText("The highest scores in this period."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/so far/)).toBeNull();
+  });
+});

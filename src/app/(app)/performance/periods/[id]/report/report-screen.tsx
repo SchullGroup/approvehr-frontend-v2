@@ -231,7 +231,10 @@ export function PeriodReportScreen({
                     <>
                       <div className="grid gap-4 lg:grid-cols-2">
                         <DepartmentPerformance register={register.register} />
-                        <TopPerformers register={register.register} />
+                        <TopPerformers
+                          register={register.register}
+                          published={report.published}
+                        />
                       </div>
                       <Distribution report={report} />
                     </>
@@ -289,10 +292,15 @@ export function Headline({ report }: { report: ApiCycleReport }) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* A published period is a fixed record (U96 / PERF-16): the API reads
+          the people it was published with, so it is not "everyone currently
+          employed". A period published before that still reads today's staff,
+          and nothing on the wire says which, so a published period gets no
+          hint rather than one that may be false. */}
       <Stat
-        label="People in this period"
+        label={report.published ? "People it covered" : "People in this period"}
         value={String(marks.people)}
-        hint="Everyone currently employed"
+        {...(report.published ? {} : { hint: "Everyone currently employed" })}
       />
       <Stat
         label="With a score"
@@ -482,8 +490,11 @@ export function DepartmentPerformance({
  */
 export function TopPerformers({
   register,
+  published = false,
 }: {
   register: ApiScoreRegister | null;
+  /** A published period is over: no "so far" (U96 / PERF-16). */
+  published?: boolean;
 }) {
   if (!register) return null;
   const ranked = register.rows
@@ -495,7 +506,11 @@ export function TopPerformers({
     <Card>
       <CardHeader
         title="Top performers"
-        description="The highest scores in this period so far."
+        description={
+          published
+            ? "The highest scores in this period."
+            : "The highest scores in this period so far."
+        }
       />
       <CardBody className="p-0">
         {ranked.length === 0 ? (
