@@ -188,11 +188,7 @@ function Pool() {
 
   return (
     <>
-      <PageHeader
-        title="Talent pool"
-        breadcrumb={CRUMBS}
-        description="People the company decided to keep on file for another role, across every job."
-      />
+      <PageHeader title="Talent pool" breadcrumb={CRUMBS} />
       <PageBody className="flex flex-col gap-5">
         <FilterBar
           search={search}

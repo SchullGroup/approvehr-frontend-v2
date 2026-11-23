@@ -122,15 +122,6 @@ export function OneOnOnesScreen() {
       <PageHeader
         breadcrumb={[{ href: "/people", label: "People" }]}
         title="One-to-ones"
-        /* Said on the screen, because the name does not say it.
-           ------------------------------------------------------------------
-           "One-to-ones" under Core HR, with a padlock reading "private to the
-           two people in them", tells somebody what the *permissions* are and
-           nothing about what the thing is or why it is theirs. That was the
-           feedback, verbatim: "I don't understand the flow and what it means."
-           A module whose own name is the only explanation is a module people
-           click once. */
-        description="A running record of the check-ins between one person and their manager, what was agreed, and what is still open from last time. Either of you can start one; only the two of you can read it."
         meta={
           <span className="inline-flex items-center gap-1 text-meta text-faint">
             <Lock aria-hidden="true" className="size-3.5" />

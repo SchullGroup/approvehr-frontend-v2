@@ -214,7 +214,6 @@ function Tasks() {
     <>
       <PageHeader
         title="My tasks"
-        description="Everything you have to do: your own list and the tasks you are on in projects."
         action={
           <SegmentedControl<Filter>
             label="Show"

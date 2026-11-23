@@ -26,7 +26,6 @@ export function SetupScreen() {
       <PageHeader
         title="Setting up your company"
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
-        description="Seven things decide how the product behaves. Each row says what it changes and takes you to where it is set."
       />
 
       <PageBody className="flex flex-col gap-6">

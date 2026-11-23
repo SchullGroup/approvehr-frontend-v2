@@ -344,10 +344,7 @@ export function PayScreen({
 
   return (
     <>
-      <PageHeader
-        title="Subscribe"
-        description="Choose a plan and pay into your company's account."
-      />
+      <PageHeader title="Subscribe" />
       <PageBody>{body}</PageBody>
     </>
   );
