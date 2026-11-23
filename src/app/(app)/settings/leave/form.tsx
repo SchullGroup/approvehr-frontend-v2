@@ -455,6 +455,30 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   const [switchedOff, setSwitchedOff] = useState<
     { id: string; name: string; total: number }[]
   >([]);
+  /**
+   * Every switched-off type, from the server (U46): it now lists them with
+   * `includeArchived`. `null` until it answers, and from a server that cannot,
+   * in which case this visit's list above is all there is.
+   */
+  const [serverOff, setServerOff] = useState<
+    { id: string; name: string }[] | null
+  >(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    leaveApi
+      .archivedTypes()
+      .then((rows) => {
+        if (!cancelled) setServerOff(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setServerOff(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, tick]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -685,6 +709,16 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
       setDeleteBusy(false);
     }
   }
+
+  /* The server's list when it has one, with the request count from a switch-off
+     made in this visit; otherwise this visit's list alone. */
+  const offList: { id: string; name: string; total: number }[] =
+    serverOff === null
+      ? switchedOff
+      : serverOff.map((row) => ({
+          ...row,
+          total: switchedOff.find((r) => r.id === row.id)?.total ?? 0,
+        }));
 
   async function restoreType(row: { id: string; name: string }) {
     try {
@@ -1165,15 +1199,19 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                 type list filters archived rows out with no way to ask for them, so
                 this is restore's whole reach — and the card says so rather than
                 letting the button's disappearance on reload read as a bug. */}
-                {switchedOff.length > 0 && (
+                {offList.length > 0 && (
                   <Card>
                     <CardHeader
-                      title="Switched off just now"
+                      title={
+                        serverOff === null
+                          ? "Switched off just now"
+                          : "Switched off"
+                      }
                       level={3}
                       description="Off, not deleted: every request already raised keeps its record. Turn one back on and it reappears in the booking form with its entitlement unchanged."
                     />
                     <CardBody className="flex flex-col gap-3">
-                      {switchedOff.map((row) => (
+                      {offList.map((row) => (
                         <div
                           key={row.id}
                           className="flex flex-wrap items-center justify-between gap-3"
@@ -1205,12 +1243,13 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                           </Button>
                         </div>
                       ))}
-                      <p className="text-meta leading-relaxed text-muted">
-                        This list lasts as long as this page: the server does
-                        not yet let the interface see switched-off types, so
-                        leaving here puts turning one back on out of reach until
-                        it does.
-                      </p>
+                      {serverOff === null && (
+                        <p className="text-meta leading-relaxed text-muted">
+                          This list lasts as long as this page: this server does
+                          not let the interface see switched-off types, so
+                          leaving here puts turning one back on out of reach.
+                        </p>
+                      )}
                     </CardBody>
                   </Card>
                 )}

@@ -745,6 +745,26 @@ export const leaveApi = {
       method: "DELETE",
     }),
 
+  /**
+   * The company's switched-off leave types (U46), so one can be turned back on
+   * after the page has been left. Manage settings only. `null` from a server
+   * that ignores `includeArchived` (it sends no `archivedAt` on any row), which
+   * can say nothing about what is switched off.
+   */
+  archivedTypes: async (
+    signal?: AbortSignal,
+  ): Promise<{ id: string; name: string }[] | null> => {
+    const rows = await request<(WireType & { archivedAt?: string | null })[]>(
+      "/leave/types",
+      { query: { includeArchived: true }, ...(signal ? { signal } : {}) },
+    );
+    if (rows.length > 0 && rows.every((row) => row.archivedAt === undefined))
+      return null;
+    return rows
+      .filter((row) => typeof row.archivedAt === "string")
+      .map((row) => ({ id: row.id, name: row.name }));
+  },
+
   restoreType: (id: string): Promise<{ name: string }> =>
     request<{ name: string }>(`/leave/types/${id}/restore`, { method: "POST" }),
 

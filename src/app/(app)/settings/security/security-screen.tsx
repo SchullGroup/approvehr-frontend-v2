@@ -11,6 +11,8 @@ import {
   CardHeader,
   Checkbox,
   ConfirmDialog,
+  Field,
+  Input,
   Modal,
   Spinner,
   Switch,
@@ -87,6 +89,13 @@ export function SecurityScreen() {
     emailWorks: boolean;
   } | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
+  /* Turning it on is two steps (U10): a code is emailed, and two-factor is
+     switched on only once that code is typed here. */
+  const [challenge, setChallenge] = useState<{ challengeId: string } | null>(
+    null,
+  );
+  const [enrolCode, setEnrolCode] = useState("");
+  const [enrolError, setEnrolError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [disabling, setDisabling] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -127,14 +136,13 @@ export function SecurityScreen() {
     );
   }
 
-  const enrol = async () => {
+  const sendCode = async () => {
     setBusy(true);
+    setEnrolError(null);
     try {
-      const result = await auth.enrolTwoFactor();
-      /* Held in state and rendered immediately. There is no second chance to
-         fetch these — the API stores only their hashes. */
-      setCodes(result.recoveryCodes);
-      setRevision((n) => n + 1);
+      const sent = await auth.sendTwoFactorEnrolCode();
+      setChallenge({ challengeId: sent.challengeId });
+      setEnrolCode("");
     } catch (caught) {
       toast.push({
         title: "That did not work",
@@ -144,6 +152,29 @@ export function SecurityScreen() {
             ? caught.message
             : "Try again in a moment.",
       });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const enrol = async () => {
+    if (!challenge) return;
+    setBusy(true);
+    setEnrolError(null);
+    try {
+      const result = await auth.enrolTwoFactor(
+        challenge.challengeId,
+        enrolCode.trim(),
+      );
+      /* Held in state and rendered immediately. There is no second chance to
+         fetch these — the API stores only their hashes. */
+      setCodes(result.recoveryCodes);
+      setChallenge(null);
+      setRevision((n) => n + 1);
+    } catch (caught) {
+      setEnrolError(
+        caught instanceof ApiError ? caught.message : "Try again in a moment.",
+      );
     } finally {
       setBusy(false);
     }
@@ -259,18 +290,57 @@ export function SecurityScreen() {
                   </Callout>
                 )}
                 <p className="text-body-sm text-body">
-                  Turning this on gives you ten recovery codes. They are shown
-                  once and cannot be looked up again.
+                  We email you a code first, and two-factor is on once you type
+                  it here. You then get ten recovery codes, shown once and never
+                  again.
                 </p>
-                <div>
-                  <Button
-                    variant="accent"
-                    loading={busy}
-                    onClick={() => void enrol()}
-                  >
-                    Turn on two-factor
-                  </Button>
-                </div>
+                {challenge ? (
+                  <div className="flex flex-col gap-3">
+                    <Field
+                      label="Code from the email"
+                      required
+                      error={enrolError ?? undefined}
+                    >
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={enrolCode}
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          setEnrolCode(next);
+                        }}
+                      />
+                    </Field>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="accent"
+                        loading={busy}
+                        disabled={!/^\d{6}$/.test(enrolCode.trim())}
+                        onClick={() => void enrol()}
+                      >
+                        Turn it on
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => void sendCode()}
+                      >
+                        Send a new code
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Button
+                      variant="accent"
+                      loading={busy}
+                      onClick={() => void sendCode()}
+                    >
+                      Turn on two-factor
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </CardBody>
@@ -280,13 +350,13 @@ export function SecurityScreen() {
         {canManage && (
           <Card>
             <CardHeader
-              title="For everybody"
-              description="Whether this company asks for a code at all. Off by default."
+              title="Codes for important actions"
+              description="Anybody who has turned two-factor on is asked for a code at sign-in, whatever this says. This decides whether some actions ask for one too. Off by default."
             />
             <CardBody className="flex flex-col gap-4">
               <Switch
-                label="Ask for a code at sign-in"
-                description="Only affects people who have set two-factor up on their own account. Anybody who has not is unaffected, so turning this on cannot lock anybody out."
+                label="Ask for a code before the actions below"
+                description="Choose the actions once this is on. Sign-in is not affected by it."
                 checked={features.flags.twoFactor}
                 disabled={features.loading || !features.editable}
                 onChange={(event) => {

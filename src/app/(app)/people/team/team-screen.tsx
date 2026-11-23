@@ -20,6 +20,7 @@ import type { ApiTeamMember } from "@/lib/api/team";
 import { useMyTeam } from "@/lib/store/team";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDate } from "@/lib/time";
+import { leaveLabel } from "@/lib/leave-label";
 
 /**
  * My team (U22, SELF-6, HR-13).
@@ -61,38 +62,39 @@ export function MyTeamScreen() {
         />
       ) : (
         <Card>
-          <TableWrap>
-            <table className="w-full">
-              <THead>
-                <TH>Name</TH>
-                <TH>Department</TH>
-                <TH>Leave</TH>
-              </THead>
-              <TBody>
-                {(team.data ?? []).map((person) => (
-                  <TR key={person.id}>
-                    <th scope="row" className="px-4 py-3 text-left font-normal">
-                      <button
-                        type="button"
-                        onClick={() => setOpen(person)}
-                        className="text-body-sm font-medium text-accent-text underline-offset-4 hover:underline"
-                      >
-                        {person.name}
-                      </button>
-                      {person.jobTitle && (
-                        <span className="block text-meta text-muted">
-                          {person.jobTitle}
-                        </span>
-                      )}
-                    </th>
-                    <TD>{person.department?.name ?? "No department"}</TD>
-                    <TD>
-                      <LeaveSummary person={person} />
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </table>
+          <TableWrap
+            className="border-0"
+            caption="The people you lead, with their department and leave"
+          >
+            <THead>
+              <TH>Name</TH>
+              <TH>Department</TH>
+              <TH>Leave</TH>
+            </THead>
+            <TBody>
+              {(team.data ?? []).map((person) => (
+                <TR key={person.id}>
+                  <th scope="row" className="px-4 py-3 text-left font-normal">
+                    <button
+                      type="button"
+                      onClick={() => setOpen(person)}
+                      className="text-body-sm font-medium text-accent-text underline-offset-4 hover:underline"
+                    >
+                      {person.name}
+                    </button>
+                    {person.jobTitle && (
+                      <span className="block text-meta text-muted">
+                        {person.jobTitle}
+                      </span>
+                    )}
+                  </th>
+                  <TD>{person.department?.name ?? "No department"}</TD>
+                  <TD>
+                    <LeaveSummary person={person} />
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
           </TableWrap>
         </Card>
       )}
@@ -109,9 +111,10 @@ export function MyTeamScreen() {
 }
 
 function balanceLine(balance: ApiTeamMember["leaveBalances"][number]): string {
+  const type = leaveLabel(balance.leaveType);
   return balance.entitled === undefined
-    ? `${String(balance.remaining)} ${balance.leaveType} days left`
-    : `${String(balance.remaining)} of ${String(balance.entitled)} ${balance.leaveType} days left`;
+    ? `${String(balance.remaining)} days of ${type} left`
+    : `${String(balance.remaining)} of ${String(balance.entitled)} days of ${type} left`;
 }
 
 function LeaveSummary({ person }: { person: ApiTeamMember }) {
