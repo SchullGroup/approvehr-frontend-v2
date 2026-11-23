@@ -1502,6 +1502,12 @@ export type ApiScoreRow = {
   /** The same integer as a percentage. Null for the same reason. */
   scorePercent: number | null;
   /**
+   * The same score on the forms' 1.0 to 5.0 scale, one decimal (UAT 23 Nov,
+   * U88 / PERF-17). Null with `scoreBp`; absent from an older API. Read it
+   * through `scoreWords`.
+   */
+  scoreOutOf5?: number | null;
+  /**
    * Which band the mark falls in, decided by the API.
    *
    * **Null when there is no mark**, and a screen must render that as an absence
@@ -1737,6 +1743,8 @@ export type ApiScoreDistribution = {
    * 3.9 rendered directly above "0 total criteria".
    */
   meanBp: number | null;
+  /** The mean on the 1.0 to 5.0 scale (U88). Null with `meanBp`; absent from an older API. */
+  meanOutOf5?: number | null;
 };
 
 /** One person on a named list, with the API's own reason for being on it. */
@@ -1982,6 +1990,8 @@ export type ApiHistoryPoint = {
   weightsFrom: WeightsFrom;
   scoreBp: number | null;
   scorePercent: number | null;
+  /** On the 1.0 to 5.0 scale (U88). Null with `scoreBp`; absent from an older API. */
+  scoreOutOf5?: number | null;
   band: ScoreBand | null;
   bandLabel: string | null;
   /**
@@ -4138,6 +4148,56 @@ function percentOfBp(bp: number): string {
  */
 export function scoreLabel(bp: number): string {
   return percentOfBp(bp);
+}
+
+/**
+ * A score on the forms' 1.0 to 5.0 scale, from basis points (UAT 23 Nov, U88 /
+ * PERF-17: a straight 3 read as 50%, which looks like a bare pass).
+ *
+ * The API's own `outOf5` in `modules/performance/scoring.ts`, line for line: 0
+ * is 1.0, the whole score is 5.0, one decimal. It is a change of unit, not a
+ * way of working a score out, and it is used only where the API sends a figure
+ * in basis points and no `scoreOutOf5` beside it (a department's average, which
+ * this side adds up from the register's rows; a calibrated score's original).
+ * Pinned against the API's values in `tests/score-out-of-5.test.ts`.
+ */
+export function outOf5FromBp(bp: number): number {
+  return Math.round((1 + (4 * bp) / 10_000) * 10) / 10;
+}
+
+/** "3.0": a 1.0 to 5.0 figure, always with its one decimal. */
+export function outOf5Label(value: number): string {
+  return value.toFixed(1);
+}
+
+/** A change on the 1.0 to 5.0 scale, signed: `2250` as "+0.9", `-1250` as "-0.5". */
+export function changeOutOf5Label(bp: number): string {
+  if (bp === 0) return "No change";
+  const value = Math.round(((4 * Math.abs(bp)) / 10_000) * 10) / 10;
+  return `${bp > 0 ? "+" : "-"}${value.toFixed(1)}`;
+}
+
+/**
+ * A score as a person reads it: the company's band word and the 1.0 to 5.0
+ * figure, "Meets Expectations · 3.0" (U88 / PERF-17), or null where there is no
+ * score. The API's `scoreOutOf5` where it sends one; an older API's basis
+ * points are changed to the same scale. Never a percentage.
+ */
+export function scoreWords(row: {
+  scoreBp: number | null;
+  scoreOutOf5?: number | null;
+  bandLabel?: string | null;
+}): string | null {
+  const figure =
+    typeof row.scoreOutOf5 === "number"
+      ? row.scoreOutOf5
+      : row.scoreBp === null
+        ? null
+        : outOf5FromBp(row.scoreBp);
+  if (figure === null) return null;
+  return row.bandLabel
+    ? `${row.bandLabel} · ${outOf5Label(figure)}`
+    : outOf5Label(figure);
 }
 
 /**

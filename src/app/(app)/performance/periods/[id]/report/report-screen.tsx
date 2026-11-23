@@ -33,7 +33,10 @@ import {
 import type { TabItem } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
+  outOf5FromBp,
+  outOf5Label,
   scoreLabel,
+  scoreWords,
   weightedParts,
   weightLabel,
   weightsFromNote,
@@ -281,7 +284,7 @@ export function PeriodReportScreen({
  * headcount it did not come from. With no marks at all it reads "No marks yet"
  * rather than 0%.
  */
-function Headline({ report }: { report: ApiCycleReport }) {
+export function Headline({ report }: { report: ApiCycleReport }) {
   const { distribution, marks } = report;
 
   return (
@@ -307,13 +310,15 @@ function Headline({ report }: { report: ApiCycleReport }) {
           distribution.meanBp === null ? (
             <span className="text-faint">—</span>
           ) : (
-            scoreLabel(distribution.meanBp)
+            outOf5Label(
+              distribution.meanOutOf5 ?? outOf5FromBp(distribution.meanBp),
+            )
           )
         }
         hint={
           distribution.meanBp === null
             ? "No scores yet, so there is no average"
-            : `Across the ${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"} given. People with no score are not counted.`
+            : `Out of 5, across the ${distribution.scored} ${distribution.scored === 1 ? "score" : "scores"} given. People with no score are not counted.`
         }
       />
       <Stat
@@ -378,7 +383,7 @@ function departmentRollups(register: ApiScoreRegister): DepartmentRollup[] {
     .sort((a, b) => (b.meanBp ?? -1) - (a.meanBp ?? -1));
 }
 
-function DepartmentPerformance({
+export function DepartmentPerformance({
   register,
 }: {
   register: ApiScoreRegister | null;
@@ -424,7 +429,7 @@ function DepartmentPerformance({
                           <span className="text-muted">No scores yet</span>
                         ) : (
                           <span className="tabular font-medium text-ink">
-                            {scoreLabel(department.meanBp)}
+                            {outOf5Label(outOf5FromBp(department.meanBp))}
                           </span>
                         )}
                       </TD>
@@ -453,7 +458,7 @@ function DepartmentPerformance({
                       </span>
                     ) : (
                       <span className="tabular font-medium text-ink">
-                        {scoreLabel(department.meanBp)}
+                        {outOf5Label(outOf5FromBp(department.meanBp))}
                       </span>
                     )}
                   </div>
@@ -475,7 +480,11 @@ function DepartmentPerformance({
  * than shown at the bottom: nobody wants to be read as "last" on a list
  * built for the other five names.
  */
-function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
+export function TopPerformers({
+  register,
+}: {
+  register: ApiScoreRegister | null;
+}) {
   if (!register) return null;
   const ranked = register.rows
     .filter((row) => row.scoreBp !== null)
@@ -514,7 +523,7 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
                       <TD>{row.departmentName ?? "—"}</TD>
                       <TD align="right">
                         <span className="tabular font-medium text-ink">
-                          {scoreLabel(row.scoreBp ?? 0)}
+                          {scoreWords(row)}
                         </span>
                       </TD>
                     </TR>
@@ -539,7 +548,7 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
                     </p>
                   </div>
                   <span className="tabular shrink-0 font-medium text-ink">
-                    {scoreLabel(row.scoreBp ?? 0)}
+                    {scoreWords(row)}
                   </span>
                 </li>
               ))}

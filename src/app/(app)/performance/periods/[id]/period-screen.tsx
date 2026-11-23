@@ -51,19 +51,22 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
+  dayLabel,
+  outOf5FromBp,
+  outOf5Label,
   ratingWordsFrom,
   scoreLabel,
+  scoreWords,
   visibleComponents,
   weightLabel,
   weightsFromNote,
-  dayLabel,
   type ApiComponentScore,
-  type ReviewCycleStage,
   type ApiCycle,
   type ApiCycleParticipants,
   type ApiRevisionRequest,
   type ApiScoreRegister,
   type ApiScoreRow,
+  type ReviewCycleStage,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import {
@@ -1418,7 +1421,7 @@ export function RegisterRow({
           <>
             <span className="inline-flex items-center justify-end gap-1.5">
               <span className="tabular font-medium text-ink">
-                {scoreLabel(row.scoreBp)}
+                {scoreWords(row)}
               </span>
               {row.components.length > 0 && (
                 <InfoTooltip
@@ -1439,7 +1442,8 @@ export function RegisterRow({
                 className="mt-0.5 block text-meta text-muted"
                 title={row.calibration.reason}
               >
-                Moved from {scoreLabel(row.calibration.originalBp)}
+                Moved from{" "}
+                {outOf5Label(outOf5FromBp(row.calibration.originalBp))}
               </span>
             )}
           </>
@@ -1613,7 +1617,7 @@ function RegisterCard({
             <span className="text-body-sm text-muted">No score</span>
           ) : (
             <span className="tabular font-medium text-ink">
-              {scoreLabel(row.scoreBp)}
+              {scoreWords(row)}
             </span>
           )}
         </div>
@@ -1623,7 +1627,7 @@ function RegisterCard({
         <div>
           {row.calibration && (
             <p className="text-meta text-muted" title={row.calibration.reason}>
-              Moved from {scoreLabel(row.calibration.originalBp)}
+              Moved from {outOf5Label(outOf5FromBp(row.calibration.originalBp))}
             </p>
           )}
           <ScoreParts components={row.components} />

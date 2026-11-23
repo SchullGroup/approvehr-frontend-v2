@@ -28,9 +28,12 @@ import { NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { WorkRecordPanel } from "@/components/performance/work-record";
 import {
-  changeLabel,
+  changeOutOf5Label,
   dayLabel,
+  outOf5FromBp,
+  outOf5Label,
   scoreLabel,
+  scoreWords,
   visibleComponents,
   weightLabel,
   type ApiComponentScore,
@@ -200,7 +203,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
           latest?.scoreBp === undefined || latest.scoreBp === null ? (
             <span className="text-faint">—</span>
           ) : (
-            scoreLabel(latest.scoreBp)
+            scoreWords(latest)
           )
         }
         hint={latest ? latest.cycleName : "No period has given a score yet"}
@@ -233,7 +236,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
           history.trend === null ? (
             <span className="text-faint">—</span>
           ) : (
-            changeLabel(history.trend.changeBp)
+            changeOutOf5Label(history.trend.changeBp)
           )
         }
         hint={
@@ -298,7 +301,7 @@ function Trend({ history }: { history: ApiScoreHistory }) {
           ? {
               action: (
                 <Badge tone={direction.tone} size="sm" icon={direction.icon}>
-                  {direction.words} · {changeLabel(trend?.changeBp ?? 0)}
+                  {direction.words} · {changeOutOf5Label(trend?.changeBp ?? 0)}
                 </Badge>
               ),
             }
@@ -309,15 +312,15 @@ function Trend({ history }: { history: ApiScoreHistory }) {
           <AreaChart
             points={scored.map((point) => ({
               label: point.cycleName,
-              value: point.scoreBp / 100,
+              value: point.scoreOutOf5 ?? outOf5FromBp(point.scoreBp),
             }))}
-            format={(value) => `${value}%`}
-            caption={`${history.employeeName}'s score by period, as a percentage`}
+            format={(value) => outOf5Label(value)}
+            caption={`${history.employeeName}'s score by period, out of 5`}
           />
         ) : (
           <p className="text-body-sm text-muted">
             {scored.length === 1
-              ? `One score so far: ${scoreLabel(scored[0]?.scoreBp ?? 0)} in ${scored[0]?.cycleName}.`
+              ? `One score so far: ${scored[0] ? scoreWords(scored[0]) : ""} in ${scored[0]?.cycleName}.`
               : "No scores yet, so there is nothing to chart."}
           </p>
         )}
@@ -390,7 +393,7 @@ function Point({ point }: { point: ApiHistoryPoint }) {
               {point.scoreBp === null ? (
                 <span className="text-body-lg text-muted">No score</span>
               ) : (
-                scoreLabel(point.scoreBp)
+                scoreWords(point)
               )}
             </p>
           </div>
@@ -404,7 +407,7 @@ function Point({ point }: { point: ApiHistoryPoint }) {
                     : "No earlier score to compare with"}
                 </span>
               ) : (
-                changeLabel(point.changeBp)
+                changeOutOf5Label(point.changeBp)
               )}
             </p>
           </div>
@@ -567,7 +570,7 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           value:
             point.appraiserMark.ratingBp === null
               ? "None yet"
-              : `${scoreLabel(point.appraiserMark.ratingBp)}, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
+              : `${outOf5Label(outOf5FromBp(point.appraiserMark.ratingBp))} out of 5, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
         },
       ]}
     />
