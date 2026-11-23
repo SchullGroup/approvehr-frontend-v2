@@ -77,6 +77,7 @@ import type { ApprovedRunFacts } from "./approved-moment";
 import { ApproveActions, sentForApprovalDetail } from "./approve-actions";
 import { ApproveStep } from "./approve-step";
 import { opensOnApprove } from "./opening-step";
+import { defaultPayDate, payDateForMonth } from "./pay-date";
 import { BankRegisterCard } from "./bank-register-card";
 import { RUN_BREADCRUMB } from "./breadcrumb";
 import { OverflowMenu } from "./overflow-menu";
@@ -216,7 +217,7 @@ export function PayrollRunWizard() {
     label: string;
   } | null>(null);
   const period = draft?.period ?? periodParam ?? currentPeriod;
-  const payDate = draft?.payDate ?? `${period}-28`;
+  const payDate = draft?.payDate ?? defaultPayDate(period);
   const label = draft?.label ?? "";
 
   const patch = (
@@ -224,28 +225,14 @@ export function PayrollRunWizard() {
   ) => setDraft({ period, payDate, label, ...next });
 
   /**
-   * Moving the month carries the pay date with it.
-   *
-   * Without this, stepping from August to September leaves the pay date on
-   * 2026-08-28 — a September payroll paying in August, which the form would
-   * show without complaint. The day of the month is what somebody chose and
-   * is kept; it is clamped to the new month's length, so the 31st becomes the
-   * 30th in September rather than silently rolling into October.
+   * Moving the month carries the pay date with it: the new month's default if
+   * the date was left alone, otherwise the chosen day clamped to the month. See
+   * `pay-date.ts`.
    */
-  const withPayDate = (nextPeriod: string) => {
-    const lastDay = new Date(
-      Date.UTC(
-        Number(nextPeriod.slice(0, 4)),
-        Number(nextPeriod.slice(5, 7)),
-        0,
-      ),
-    ).getUTCDate();
-    const day = Math.min(Number(payDate.slice(8, 10)) || 28, lastDay);
-    return {
-      period: nextPeriod,
-      payDate: `${nextPeriod}-${String(day).padStart(2, "0")}`,
-    };
-  };
+  const withPayDate = (nextPeriod: string) => ({
+    period: nextPeriod,
+    payDate: payDateForMonth(payDate, period, nextPeriod),
+  });
 
   const moveMonth = (months: number) =>
     patch(withPayDate(shiftPeriod(period, months)));
