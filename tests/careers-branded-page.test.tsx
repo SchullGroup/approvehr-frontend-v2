@@ -136,8 +136,8 @@ async function pages() {
   vi.stubEnv("NEXT_PUBLIC_API_URL", API);
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://approvehr.io");
   return {
-    one: await import("@/app/(marketing)/careers/[org]/[role]/page"),
-    list: await import("@/app/(marketing)/careers/[org]/page"),
+    one: await import("@/app/(careers)/careers/[org]/[role]/page"),
+    list: await import("@/app/(careers)/careers/[org]/page"),
   };
 }
 

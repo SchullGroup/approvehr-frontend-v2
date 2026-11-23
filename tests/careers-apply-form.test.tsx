@@ -44,7 +44,7 @@ async function mount(props: { captchaRequired?: boolean } = {}) {
   vi.stubEnv("NEXT_PUBLIC_API_URL", API);
   vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", SITE_KEY);
   const { ApplyForm } =
-    await import("@/app/(marketing)/careers/[org]/[role]/apply-form");
+    await import("@/app/(careers)/careers/[org]/[role]/apply-form");
   const user = userEvent.setup();
   render(
     <ApplyForm

@@ -96,6 +96,24 @@ beforeEach(() => {
   getSettings.mockResolvedValue(settings());
 });
 
+/* UAT 23 Nov, U99 / PERF-19: hiring settings were split in two, seven tabs
+   under Hiring settings and this page on its own under Job adverts. */
+describe("one hiring settings area", () => {
+  it("is a tab of Hiring settings, beside the pipeline and email tabs", async () => {
+    mount();
+    await screen.findByText("Not reviewed for your company");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Hiring settings" }),
+    ).toBeInTheDocument();
+    const current = screen.getByRole("link", { name: "Careers page" });
+    expect(current).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Pipelines" })).toHaveAttribute(
+      "href",
+      "/hiring/settings/pipelines",
+    );
+  });
+});
+
 describe("reading the settings", () => {
   it("says the standard notice has not been reviewed for this company, in the API's own words", async () => {
     mount();

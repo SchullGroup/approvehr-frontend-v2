@@ -53,6 +53,7 @@ const advert = (status: "DRAFT" | "PUBLISHED" | "CLOSED") => ({
   slug: "payroll-analyst",
   title: "Payroll Analyst",
   summary: "Run payroll.",
+  description: "Runs the monthly payroll and answers questions about pay.",
   location: "Lagos",
   employmentType: "FULL_TIME",
   showSalary: false,
@@ -123,6 +124,11 @@ describe("the stat cards after a write", () => {
     );
     await userEvent.click(
       await screen.findByRole("menuitem", { name: "Publish" }),
+    );
+    /* It asks first (U98), with the page a candidate will read. */
+    expect(publishPosting).not.toHaveBeenCalled();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Publish it" }),
     );
 
     await waitFor(() =>

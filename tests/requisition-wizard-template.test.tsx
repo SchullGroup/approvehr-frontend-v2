@@ -26,6 +26,18 @@ vi.mock("@/lib/store/session", () => ({
   useSession: () => ({ isConnected: true, isLoading: false }),
   useOrgTimezone: () => "Africa/Lagos",
 }));
+vi.mock("@/lib/store/work-locations", () => ({
+  useWorkLocations: () => ({
+    locations: [
+      { id: "loc-hq", name: "Lagos HQ" },
+      { id: "loc-abk", name: "Abeokuta site" },
+    ],
+    loading: false,
+    error: null,
+    source: "api",
+    create: vi.fn(),
+  }),
+}));
 vi.mock("@/lib/store/departments", () => ({
   useDepartments: () => ({
     flat: [{ id: "dept-1", name: "Finance" }],
@@ -121,9 +133,13 @@ const TEMPLATES: PipelineTemplate[] = [
 
 async function toProcess(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
+  await user.type(
+    screen.getByLabelText(/About the role/),
+    "Runs the monthly payroll and answers staff questions about pay.",
+  );
   await user.click(screen.getByRole("combobox", { name: /Department/ }));
   await user.click(await screen.findByRole("option", { name: /Finance/ }));
-  await user.selectOptions(screen.getByLabelText(/Location/), "Lagos, NG");
+  await user.selectOptions(screen.getByLabelText(/Location/), "Lagos HQ");
   await user.click(screen.getByRole("button", { name: /Continue/ }));
   await user.type(screen.getByLabelText(/Band minimum/), "650000");
   await user.type(screen.getByLabelText(/Band maximum/), "900000");

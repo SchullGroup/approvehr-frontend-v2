@@ -29,6 +29,18 @@ vi.mock("@/lib/store/session", () => ({
 const departments = vi.hoisted(() => ({
   flat: [] as { id: string; name: string }[],
 }));
+vi.mock("@/lib/store/work-locations", () => ({
+  useWorkLocations: () => ({
+    locations: [
+      { id: "loc-hq", name: "Lagos HQ" },
+      { id: "loc-abk", name: "Abeokuta site" },
+    ],
+    loading: false,
+    error: null,
+    source: "api",
+    create: vi.fn(),
+  }),
+}));
 vi.mock("@/lib/store/departments", () => ({
   useDepartments: () => ({
     flat: departments.flat,
@@ -105,11 +117,17 @@ describe("a company with no departments and no staff on file", () => {
     render(<RequisitionWizard />);
 
     await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
+
+    await user.type(
+      screen.getByLabelText(/About the role/),
+
+      "Runs the monthly payroll and answers staff questions about pay.",
+    );
     /* The help is on the label twice: once for a screen reader, once on hover. */
     expect(
       screen.getAllByText(/Your company has no departments set up/).length,
     ).toBeGreaterThan(0);
-    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos, NG");
+    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos HQ");
     await next(user);
     await user.type(screen.getByLabelText(/Band minimum/), "650000");
     await user.type(screen.getByLabelText(/Band maximum/), "900000");
@@ -146,7 +164,11 @@ describe("a company with no departments and no staff on file", () => {
     const user = userEvent.setup();
     render(<RequisitionWizard />);
     await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
-    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos, NG");
+    await user.type(
+      screen.getByLabelText(/About the role/),
+      "Runs the monthly payroll and answers staff questions about pay.",
+    );
+    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos HQ");
     expect(
       screen.queryByText(/Your company has no departments set up/),
     ).not.toBeInTheDocument();
@@ -160,7 +182,11 @@ describe("a confidential search", () => {
   const toTeamStep = async (user: ReturnType<typeof userEvent.setup>) => {
     render(<RequisitionWizard />);
     await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
-    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos, NG");
+    await user.type(
+      screen.getByLabelText(/About the role/),
+      "Runs the monthly payroll and answers staff questions about pay.",
+    );
+    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos HQ");
     await next(user);
     await user.type(screen.getByLabelText(/Band minimum/), "650000");
     await user.type(screen.getByLabelText(/Band maximum/), "900000");
