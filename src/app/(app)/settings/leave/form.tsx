@@ -191,8 +191,8 @@ function SupportingFileSwitch({
 }: {
   type: TypeRow;
   available: boolean | null;
-  /** "Required" under a column headed Supporting file; in words on a phone. */
-  label: string;
+  /** Hidden under a column headed File required; in words on a phone. */
+  label: React.ReactNode;
   onChange: (
     patch: Partial<
       Pick<TypeRow, "attachmentPolicy" | "attachmentRequiredOverDays">
@@ -265,7 +265,7 @@ function ReasonSwitch({
   onChange,
 }: {
   type: TypeRow;
-  label: string;
+  label: React.ReactNode;
   onChange: (reasonRequired: boolean) => void;
 }) {
   if (type.reasonRequired === null) return null;
@@ -794,8 +794,12 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                             <TH>Accrual</TH>
                             <TH align="right">Carry over</TH>
                             <TH align="right">Notice (days)</TH>
-                            {isConnected && <TH>Reason</TH>}
-                            {showFileColumn && <TH>Supporting file</TH>}
+                            {/* "Required" said once, here, rather than beside
+                                every switch: the word in each row is what took
+                                the table 25px past its card at 1440px (UAT 23
+                                Nov, L21: HR-25). */}
+                            {isConnected && <TH>Reason required</TH>}
+                            {showFileColumn && <TH>File required</TH>}
                             <TH>Who</TH>
                             {isConnected && (
                               <TH align="right">
@@ -816,7 +820,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={365}
                                     value={type.entitled}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} days per year`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -851,7 +855,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={type.entitled}
                                     value={type.carryOverMax}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} carry-over maximum`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -869,7 +873,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={90}
                                     value={type.minNoticeDays}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} minimum notice in days`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -894,7 +898,11 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     ) : (
                                       <ReasonSwitch
                                         type={type}
-                                        label="Required"
+                                        label={
+                                          <span className="sr-only">
+                                            Required
+                                          </span>
+                                        }
                                         onChange={(reasonRequired) =>
                                           void editType(type, {
                                             reasonRequired,
@@ -910,7 +918,11 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                       <SupportingFileSwitch
                                         type={type}
                                         available={available}
-                                        label="Required"
+                                        label={
+                                          <span className="sr-only">
+                                            Required
+                                          </span>
+                                        }
                                         onChange={(patch) =>
                                           void editType(type, patch)
                                         }

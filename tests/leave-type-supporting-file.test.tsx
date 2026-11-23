@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { ToastProvider } from "@/components/ui";
@@ -389,5 +395,43 @@ describe("in the demo", () => {
     expect(screen.queryAllByLabelText(/reason required/)).toHaveLength(0);
     expect(screen.queryByText("Reason")).toBeNull();
     expect(screen.queryByText("Supporting file")).toBeNull();
+  });
+});
+
+/**
+ * UAT 23 Nov, L21 (HR-25): at 1440px the types table was 1167px inside a
+ * 1142px card, so the row menu was cut off, and "Required" was written in
+ * every row. The headers say it once now, and the number fields are narrower.
+ */
+describe("the types table at desktop width", () => {
+  const typesTable = () =>
+    screen
+      .getAllByRole("table")
+      .find((t) => within(t).queryByText("Days a year"))!;
+
+  it("says Required once, in the column headers", async () => {
+    await open([type({ attachmentPolicy: "REQUIRED", reasonRequired: true })]);
+    const grid = typesTable();
+    expect(
+      within(grid).getByRole("columnheader", { name: "Reason required" }),
+    ).toBeInTheDocument();
+    expect(
+      within(grid).getByRole("columnheader", { name: "File required" }),
+    ).toBeInTheDocument();
+    const shown = within(grid)
+      .queryAllByText("Required")
+      .filter((node) => !node.closest(".sr-only"));
+    expect(shown).toEqual([]);
+  });
+
+  it("keeps the number fields narrow", async () => {
+    await open([type()]);
+    for (const label of [
+      "Sick days per year",
+      "Sick carry-over maximum",
+      "Sick minimum notice in days",
+    ]) {
+      expect(table(label).className).toContain("w-16");
+    }
   });
 });
