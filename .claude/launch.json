@@ -38,6 +38,21 @@
         "3200"
       ],
       "port": 3200
+    },
+    {
+      "name": "uat-perf-web",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_PUBLIC_API_URL=http://localhost:8600/api/v1",
+        "NEXT_PUBLIC_DEMO=off",
+        "npm",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3611"
+      ],
+      "port": 3611
     }
   ]
 }

@@ -278,3 +278,14 @@ describe("the appraiser mapping", () => {
     expect(line).not.toMatch(/share of the mark/);
   });
 });
+
+/* UAT 23 Nov, L14 / PERF-39: How it works said "the shares always add up to
+   100%" while the period page said the weights "do not have to make 100%". */
+describe("one rule about weights", () => {
+  it("is the sentence How it works and the period weights both say", async () => {
+    const { WEIGHTS_RULE } = await import("@/lib/performance/score-wording");
+    render(<HowItWorksBody />);
+    expect(screen.getByText(WEIGHTS_RULE)).toBeInTheDocument();
+    expect(screen.queryByText(/always add up/)).toBeNull();
+  });
+});

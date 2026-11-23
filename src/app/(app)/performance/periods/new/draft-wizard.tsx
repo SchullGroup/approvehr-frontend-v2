@@ -44,6 +44,7 @@ import {
   type WeightText,
 } from "@/components/performance/period-weights";
 import { weightSetFromRows } from "@/lib/api/performance";
+import { StartPeriodDialog } from "../../start-period";
 
 /**
  * A whole appraisal period, from a paragraph.
@@ -395,38 +396,33 @@ export function DraftPeriodWizard() {
     );
   }
 
-  /* Absent, not disabled. With no assistant there is nothing this screen can
-     do, and the dialog on `/performance` is the path that still works. */
+  /* With no assistant the page is the form by hand, open at once, with one line
+     saying why (UAT 23 Nov, L8 / PERF-27). It used to open on a full-page "No
+     assistant is connected" with a button to go and find the form elsewhere. */
   if (!assistant.available) {
     return (
       <>
         <PageHeader
           breadcrumb={[{ href: "/performance", label: "Performance" }]}
-          title="Draft a period"
+          title="Start an appraisal period"
         />
         <PageBody>
-          <EmptyState
-            plain
-            icon={<Sparkles aria-hidden="true" />}
-            title="No assistant is connected"
-            description={
-              assistant.reason ??
-              "This screen drafts a period from a description, which needs an assistant. Starting one by hand works exactly as it did."
-            }
-            action={
-              <div className="flex flex-wrap gap-2">
-                <ButtonLink href="/performance" variant="accent">
-                  Start one by hand
-                </ButtonLink>
-                {canManage && (
-                  <ButtonLink href="/settings/ai" variant="secondary">
-                    About the assistant
-                  </ButtonLink>
-                )}
-              </div>
-            }
-          />
+          <p className="text-body-sm text-muted">
+            No assistant is connected, so the period is set up by hand.
+          </p>
         </PageBody>
+        <StartPeriodDialog
+          open
+          onClose={() => router.push("/performance/periods")}
+          onCreated={(period) => {
+            toast.push({
+              title: `${period.name} created`,
+              tone: "success",
+              detail: "Add the questions, then start it.",
+            });
+            router.push(`/performance/periods/${period.id}`);
+          }}
+        />
       </>
     );
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
+import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 import { Badge, Button, Field, Input } from "@/components/ui";
 import {
   SCORE_COMPONENT_ORDER,
@@ -294,10 +295,7 @@ export function PeriodWeights({
         </p>
       )}
 
-      <p className="text-meta text-muted">
-        Each part counts in proportion to the total, so the weights do not have
-        to make 100%.
-      </p>
+      <p className="text-meta text-muted">{WEIGHTS_RULE}</p>
 
       {parts.includes("TASKS") && (
         <p className="text-meta text-muted">

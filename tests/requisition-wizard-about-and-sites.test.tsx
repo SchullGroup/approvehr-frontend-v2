@@ -180,3 +180,30 @@ describe("where the job is", () => {
     expect(box).toHaveValue("Ibadan");
   });
 });
+
+/* UAT 23 Nov, L17 / PERF-40: the wizard said the hiring manager approves the
+   role, which the API refuses while somebody else can, and offered a note "shown
+   in the approval request" that was saved nowhere. */
+describe("who approves the role", () => {
+  it("does not say the hiring manager approves it", async () => {
+    staff.employees = [
+      { id: "emp-1", firstName: "Halima", lastName: "Sani", jobTitle: "Lead" },
+    ];
+    const user = userEvent.setup();
+    render(<RequisitionWizard />);
+    await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
+    await user.type(screen.getByLabelText(/About the role/), ABOUT);
+    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos HQ");
+    await next(user);
+    await user.type(screen.getByLabelText(/Band minimum/), "650000");
+    await user.type(screen.getByLabelText(/Band maximum/), "900000");
+    await next(user);
+    await next(user);
+    expect(screen.queryByText(/Approves the requisition/)).toBeNull();
+    expect(
+      screen.getAllByText(/not the hiring manager when someone else can/)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/Note for approvers/)).toBeNull();
+  });
+});

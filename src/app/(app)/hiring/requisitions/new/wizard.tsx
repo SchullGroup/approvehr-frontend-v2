@@ -87,7 +87,6 @@ type Draft = {
   templateId: string;
   hiringManagerId: string;
   recruiterId: string;
-  notes: string;
   /** A confidential search: only the people on its list can see its applicants. */
   restricted: boolean;
 };
@@ -118,7 +117,6 @@ const EMPTY: Draft = {
   templateId: "",
   hiringManagerId: "",
   recruiterId: "",
-  notes: "",
   restricted: false,
 };
 
@@ -135,8 +133,9 @@ const ADVERT_TYPE = {
  * The advert this draft can actually become.
  *
  * The parts of a role that belong to the requisition — the pipeline stages and
- * the hiring manager — are written to it by `submit` when connected. The note for
- * approvers is collected and sent nowhere: nothing in the API stores it. What an
+ * the hiring manager — are written to it by `submit` when connected. There is no
+ * note for approvers: the API has nowhere to keep one, and a box whose words went
+ * nowhere said they were "shown in the approval request" (UAT 23 Nov, L17). What an
  * advert carries is the job itself, so that is what gets written, as a draft. Its
  * application form is set on the advert, and only there (UAT 23 Nov, U99), and
  * publishing is a separate press, because that is the moment the words go public.
@@ -763,10 +762,14 @@ function Wizard() {
                   </Callout>
                 ) : (
                   <>
+                    {/* It used to say the hiring manager approves the role.
+                        The API lets anybody who can approve hiring approve it,
+                        and refuses the hiring manager approving their own while
+                        somebody else could (UAT 23 Nov, L17 / PERF-40). */}
                     <Field
                       label="Hiring manager"
                       required
-                      help="Approves the requisition and makes the final call."
+                      help="Makes the final call on who is hired. Somebody who can approve hiring approves the role, and not the hiring manager when someone else can."
                     >
                       <Select
                         value={draft.hiringManagerId}
@@ -813,18 +816,6 @@ function Wizard() {
                     onChange={(e) => set("restricted", e.target.checked)}
                   />
                 )}
-
-                <Field
-                  label="Note for approvers"
-                  help="Why this role, why now. Shown in the approval request."
-                >
-                  <Textarea
-                    rows={3}
-                    value={draft.notes}
-                    onChange={(e) => set("notes", e.currentTarget.value)}
-                    placeholder="Backfill for Chidi, who moves to the platform team in September."
-                  />
-                </Field>
               </>
             )}
 
@@ -838,8 +829,7 @@ function Wizard() {
                       location, type, pay range, department, hiring manager and
                       its pipeline stages, plus a <strong>draft advert</strong>.
                       Set its application questions on the advert. Nothing is
-                      public until you publish it. The note for approvers stays
-                      on this screen; there is no field for it yet.
+                      public until you publish it.
                     </p>
                   ) : (
                     <p className="text-body-sm text-body">

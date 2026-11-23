@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Users } from "lucide-react";
+import { Printer, Users } from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -154,8 +154,11 @@ export function CompanyReportScreen({
                       void savePdf();
                     }}
                   >
-                    <Download aria-hidden="true" className="size-4" />
-                    Download PDF
+                    {/* It opens the browser's print dialog, where "Save as
+                        PDF" is one of the choices: it said "Download PDF" and
+                        downloaded nothing (UAT 23 Nov, L12 / PERF-34). */}
+                    <Printer aria-hidden="true" className="size-4" />
+                    Print or save as PDF
                   </Button>
                 )}
               </div>

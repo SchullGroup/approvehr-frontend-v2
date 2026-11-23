@@ -334,6 +334,18 @@ describe("what the employee reads back", () => {
     expect(screen.getByText("Comment:")).toBeInTheDocument();
   });
 
+  /* UAT 23 Nov, U86 / PERF-7: tasks count 0% unless a period weights them. */
+  it("does not promise that tasks build the mark", () => {
+    mine = [];
+    render(<MyTasksPanel />);
+    expect(screen.queryByText(/delivery score is built from/)).toBeNull();
+    expect(
+      screen.getByText(
+        /only if your appraisal period gives weekly tasks a weight/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows no comment line when there is none", () => {
     mine = [myTask("t-1", { grade: "COMPLETED", gradedAt: "2026-10-09" })];
     render(<MyTasksPanel />);
