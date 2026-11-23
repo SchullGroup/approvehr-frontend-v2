@@ -389,6 +389,19 @@ describe("the overall rating page in the answer flow", () => {
     ...(markShareBp === undefined ? {} : { markShareBp }),
   });
 
+  it("says an optional rating does not change the score where the period weights it at nothing (U36)", () => {
+    expect(markPageWords(false, alone(0)).lead).toBe(
+      "Optional, and it does not change the score. Leave it if the answers say enough.",
+    );
+    /* A share the server did not send, or one that counts, makes no such claim. */
+    expect(markPageWords(false, alone()).lead).toBe(
+      "Optional. Leave it if the answers say enough.",
+    );
+    expect(markPageWords(false, alone(2000)).lead).toBe(
+      "Optional. Leave it if the answers say enough.",
+    );
+  });
+
   it("asks whether there is one when it is optional, and says why it is needed when it is", () => {
     expect(markPageWords(false, undefined)).toEqual({
       title: "Is there an overall rating?",

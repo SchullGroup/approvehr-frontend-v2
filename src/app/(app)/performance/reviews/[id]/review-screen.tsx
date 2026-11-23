@@ -23,8 +23,12 @@ import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
   dayOf,
+  outcomeWords,
+  outOf5FromBp,
+  outOf5Label,
   ratingWordsFrom,
   scoreLabel,
+  scoreWords,
   showsOverallMark,
   visibleComponents,
   weightLabel,
@@ -232,6 +236,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
      setting says whether its forms end with one, and a mark already given is
      shown whatever the setting says now. See `showsOverallMark`. */
   const markShown = showsOverallMark(review);
+  /* The one answer the person is given, once there is one (U36). */
+  const outcomeLine =
+    review.kind === "MANAGER" ? outcomeWords(review.outcome) : null;
   /* With their self review in, the two overall marks are one row of the
      comparison below, side by side. Said again in this card they would be said
      twice, the manager's here and both there. */
@@ -367,13 +374,25 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             />
             <CardBody className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-3">
+                {/* The one answer (U36 / PERF-2). Once the review is final or
+                    the period published the API sends the score of record as
+                    the company's band word and out of 5, and the person it is
+                    about reads that and no other figure: the overall question's
+                    answer and the breakdown below are for whoever decides. */}
+                {outcomeLine && (
+                  <Stat
+                    label={isSubject ? "Your rating" : "Rating"}
+                    value={outcomeLine}
+                    hint="Out of 5, in your company's words for each level."
+                  />
+                )}
                 {/* Absent, never zero: a form the author chose not to put a
                     number on is not a form scored nought. And where the
                     company does not ask for an overall mark there is no row at
                     all: "None given" would read as something missing from a
                     form that never had a place for it. A mark somebody already
                     gave is shown whatever the setting says now. */}
-                {markShown && !comparing && (
+                {markShown && !comparing && !(isSubject && outcomeLine) && (
                   <Stat
                     label="Overall rating"
                     value={
@@ -514,7 +533,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           )}
 
           {/* ------------------------------------------- what the mark is made of */}
-          {review.kind === "MANAGER" && (
+          {review.kind === "MANAGER" && !(isSubject && outcomeLine) && (
             <ScorePanel
               score={score.score}
               loading={score.loading}
@@ -693,7 +712,7 @@ function ScorePanel({
               score.scoreBp === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                scoreLabel(score.scoreBp)
+                scoreWords(score)
               )
             }
             hint={
@@ -710,15 +729,15 @@ function ScorePanel({
             overallMark,
           }) && (
             <Stat
-              /* Read across the scale rather than out of five: it is a weighted
-               average across several appraisers, so it does not land on a whole
-               mark, and rounding it to one would throw a judgement away. */
+              /* Out of 5 with one decimal (U88): a weighted average across
+               several appraisers does not land on a whole level, and the
+               decimal keeps what rounding to one would throw away. */
               label="Appraisers' overall rating"
               value={
                 score.appraiserMark.ratingBp === null ? (
                   <span className="text-faint">—</span>
                 ) : (
-                  scoreLabel(score.appraiserMark.ratingBp)
+                  `${outOf5Label(outOf5FromBp(score.appraiserMark.ratingBp))} out of 5`
                 )
               }
               hint={appraiserMarkHint(score.appraiserMark, score.components)}

@@ -102,9 +102,16 @@ export function markPageWords(
   >,
 ): { title: string; lead: string } {
   if (!required) {
+    /* Where the period weights the part at nothing the answer moves no score,
+       and the page says so rather than leaving it to be guessed (U36 /
+       PERF-2: a question that counted 0% read as if it decided the rating).
+       A share the server did not send makes no claim. */
     return {
       title: "Is there an overall rating?",
-      lead: "Optional. Leave it if the answers say enough.",
+      lead:
+        appraiser?.markShareBp === 0
+          ? "Optional, and it does not change the score. Leave it if the answers say enough."
+          : "Optional. Leave it if the answers say enough.",
     };
   }
   const title = "Your overall rating";

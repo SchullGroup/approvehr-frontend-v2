@@ -961,6 +961,15 @@ export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
   /**
+   * The one answer a person is given (UAT 23 Nov, U36 / PERF-2: "Exceeds
+   * Expectations", "Overall score 41.94%" and "Meets expectations" on three
+   * screens). On a manager's review once it is final or the period is
+   * published: the score of record as the company's band word and on the 1.0 to
+   * 5.0 scale. Null before then and on any other form; absent from an older
+   * API. Read it through `outcomeWords`.
+   */
+  outcome?: { bandLabel: string | null; scoreOutOf5: number | null } | null;
+  /**
    * Whether the company's appraisal forms end with an overall mark: its setting
    * in Appraisal scoring, sent with the form so the page that draws it needs no
    * second request. **Absent from a server that predates the setting, and absent
@@ -4175,6 +4184,22 @@ export function changeOutOf5Label(bp: number): string {
   if (bp === 0) return "No change";
   const value = Math.round(((4 * Math.abs(bp)) / 10_000) * 10) / 10;
   return `${bp > 0 ? "+" : "-"}${value.toFixed(1)}`;
+}
+
+/**
+ * The outcome of a final review as one line, "Exceeds Expectations · 4.1", or
+ * null where the API sent none or sent nothing in it (U36 / PERF-2).
+ */
+export function outcomeWords(
+  outcome:
+    { bandLabel: string | null; scoreOutOf5: number | null } | null | undefined,
+): string | null {
+  if (!outcome) return null;
+  const parts = [
+    outcome.bandLabel,
+    outcome.scoreOutOf5 === null ? null : outOf5Label(outcome.scoreOutOf5),
+  ].filter((part): part is string => Boolean(part));
+  return parts.length === 0 ? null : parts.join(" · ");
 }
 
 /**
