@@ -77,6 +77,7 @@ import type { ApprovedRunFacts } from "./approved-moment";
 import { ApproveActions, sentForApprovalDetail } from "./approve-actions";
 import { ApproveStep } from "./approve-step";
 import { opensOnApprove } from "./opening-step";
+import { offCycleApplies } from "./off-cycle";
 import { defaultPayDate, payDateForMonth } from "./pay-date";
 import { BankRegisterCard } from "./bank-register-card";
 import { RUN_BREADCRUMB } from "./breadcrumb";
@@ -246,7 +247,7 @@ export function PayrollRunWizard() {
    * sequence` existed there was one row per month and an approved run could not
    * be re-prepared, so the callout below was a dead end rather than a choice.
    */
-  const [offCycle, setOffCycle] = useState(false);
+  const [offCycleTicked, setOffCycle] = useState(false);
   const [busy, setBusy] = useState<
     "prepare" | "approve" | "cancel" | "send" | null
   >(null);
@@ -316,6 +317,10 @@ export function PayrollRunWizard() {
     null;
   const runId = existing?.id ?? null;
   const detail = usePayrollRun(runId);
+  /* Offered, and in force, only on an approved month (L4). */
+  const existingApproved =
+    existing?.status === "APPROVED" || existing?.status === "PAID";
+  const offCycle = offCycleApplies(offCycleTicked, existing?.status);
   const run = detail.run;
 
   /**
@@ -974,15 +979,17 @@ export function PayrollRunWizard() {
                       {/* The way out of what used to be a dead end. An approved
                       payroll cannot be re-prepared — correctly — and before
                       `sequence` a leaver's final pay had nowhere to go. */}
-                      <span className="mt-3 flex">
-                        <Checkbox
-                          checked={offCycle}
-                          onChange={(event) =>
-                            setOffCycle(event.target.checked)
-                          }
-                          label="Pay somebody outside this payroll"
-                        />
-                      </span>
+                      {existingApproved && (
+                        <span className="mt-3 flex">
+                          <Checkbox
+                            checked={offCycle}
+                            onChange={(event) =>
+                              setOffCycle(event.target.checked)
+                            }
+                            label="Pay somebody outside this payroll"
+                          />
+                        </span>
+                      )}
                     </Callout>
                   </div>
                 )}
