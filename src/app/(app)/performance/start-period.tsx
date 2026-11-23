@@ -178,7 +178,7 @@ export function StartPeriodDialog({
             >
               <ChevronLeft aria-hidden="true" className="size-4" />
             </button>
-            <span className="min-w-12 text-center text-body font-medium text-ink">
+            <span className="min-w-12 text-center text-body-md font-medium text-ink">
               {year}
             </span>
             <button
