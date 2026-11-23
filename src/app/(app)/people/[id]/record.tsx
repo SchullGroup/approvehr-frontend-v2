@@ -1676,7 +1676,16 @@ export function EmployeeRecord({
             somebody chose to do — a panel that loaded with the record would
             fill the trail that answers "who has been looking at this person's
             warnings" with reads nobody made. */}
-        {tab === "conduct" && <ConductPanel employeeId={employee.id} />}
+        {tab === "conduct" && (
+          <ConductPanel
+            employeeId={employee.id}
+            onStartExit={
+              canRecordExit && !hasLeft && !isSelf
+                ? () => setExitOpen(true)
+                : undefined
+            }
+          />
+        )}
 
         {/* Its own tab rather than a section under Employment, because it
             answers a different question. Employment says what is true now and
