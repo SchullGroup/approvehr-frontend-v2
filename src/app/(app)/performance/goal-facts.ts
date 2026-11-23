@@ -116,15 +116,45 @@ export function objectiveWhoseChoices(input: {
   }
   choices.push({ value: "me", label: "Mine" });
 
+  /* "Mine" first, for everybody with a staff record (UAT 23 Nov, U93 /
+     PERF-13). It used to start on a department the person heads, so an
+     employee who also heads Operations opened "New objective" on
+     "Operations, the whole department": a shared target, outside any period,
+     that counted towards nobody's mark. A department or the company is still
+     one pick away. Somebody with no staff record cannot own one, so they start
+     on the widest thing they may set. */
   const headed = departments.find(heads);
   return {
     choices,
-    fallback: headed
-      ? `dept:${headed.id}`
-      : canSetCompanyWide
-        ? "company"
-        : "me",
+    fallback:
+      employeeId !== null
+        ? "me"
+        : canSetCompanyWide
+          ? "company"
+          : headed
+            ? `dept:${headed.id}`
+            : "me",
   };
+}
+
+/**
+ * The appraisal period a new objective or rating starts in (UAT 23 Nov, U93 /
+ * PERF-13).
+ *
+ * Both forms used to start on "Not part of an appraisal period", which is the
+ * one choice that makes the thing count for nothing. So they start on the
+ * period that is open: the one running, if exactly one is, otherwise the only
+ * one not yet published. With several open and none clearly current, nothing is
+ * chosen for the person, because a guess there files a mark in the wrong period.
+ */
+export function defaultPeriodId(
+  periods: readonly { id: string; stage: string }[],
+): string {
+  const open = periods.filter((period) => period.stage !== "PUBLISHED");
+  const running = open.filter((period) => period.stage !== "DRAFT");
+  if (running.length === 1) return running[0]?.id ?? "";
+  if (open.length === 1) return open[0]?.id ?? "";
+  return "";
 }
 
 /* -------------------------------------------------------------------------- */

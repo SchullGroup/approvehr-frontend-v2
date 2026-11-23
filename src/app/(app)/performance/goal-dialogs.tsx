@@ -40,6 +40,7 @@ import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
 import {
+  defaultPeriodId,
   objectiveWhoseChoices,
   peopleILead,
   type LeadReach,
@@ -279,8 +280,11 @@ export function NewKpiDialog({
   const owner = chosenOwner ?? (objective ? whose.fallback : "me");
   const personal = owner !== "company" && !owner.startsWith("dept:");
   const needsPeriod = !objective && personal && openPeriods.length > 0;
-  const onlyPeriod = openPeriods.length === 1 ? (openPeriods[0]?.id ?? "") : "";
-  const reviewCycleId = chosenPeriod ?? (needsPeriod ? onlyPeriod : "");
+  /* A personal objective or KPI starts in the open period; a shared one does
+     not, because it is scored through the people under it. See
+     `defaultPeriodId`. */
+  const reviewCycleId =
+    chosenPeriod ?? (personal ? defaultPeriodId(openPeriods) : "");
 
   /**
    * Suggestions, only under a parent.

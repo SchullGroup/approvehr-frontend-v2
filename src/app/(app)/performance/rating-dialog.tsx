@@ -24,6 +24,7 @@ import {
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
+import { defaultPeriodId } from "./goal-facts";
 
 /**
  * Recording somebody's level on one skill.
@@ -133,7 +134,12 @@ export function RecordLevelDialog({
   const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
 
   const [person, setPerson] = useState("");
-  const [reviewCycleId, setReviewCycleId] = useState("");
+  /* `null` until somebody picks: then the open period is the starting answer,
+     and it follows the periods as they arrive (UAT 23 Nov, U93). Starting on
+     "Not part of an appraisal period" made a level recorded from here count
+     towards nobody's mark. */
+  const [chosenPeriod, setReviewCycleId] = useState<string | null>(null);
+  const reviewCycleId = chosenPeriod ?? defaultPeriodId(openPeriods);
   const [competency, setCompetency] = useState("");
   const [level, setLevel] = useState("");
   const [target, setTarget] = useState("");
