@@ -315,6 +315,7 @@ function Trend({ history }: { history: ApiScoreHistory }) {
               value: point.scoreOutOf5 ?? outOf5FromBp(point.scoreBp),
             }))}
             format={(value) => outOf5Label(value)}
+            /* rating-scale-prose: the chart's unit, not a level somebody gave (U88). */
             caption={`${history.employeeName}'s score by period, out of 5`}
           />
         ) : (
@@ -570,7 +571,8 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           value:
             point.appraiserMark.ratingBp === null
               ? "None yet"
-              : `${outOf5Label(outOf5FromBp(point.appraiserMark.ratingBp))} out of 5, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
+              : /* rating-scale-prose: an average of appraisers' ratings has no word (U88). */
+                `${outOf5Label(outOf5FromBp(point.appraiserMark.ratingBp))} out of 5, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
         },
       ]}
     />

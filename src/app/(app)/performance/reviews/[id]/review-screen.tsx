@@ -383,6 +383,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   <Stat
                     label={isSubject ? "Your rating" : "Rating"}
                     value={outcomeLine}
+                    /* rating-scale-prose: says what the figure beside the word is (U36). */
                     hint="Out of 5, in your company's words for each level."
                   />
                 )}
@@ -737,6 +738,7 @@ function ScorePanel({
                 score.appraiserMark.ratingBp === null ? (
                   <span className="text-faint">—</span>
                 ) : (
+                  /* rating-scale-prose: an average of appraisers' ratings has no word (U88). */
                   `${outOf5Label(outOf5FromBp(score.appraiserMark.ratingBp))} out of 5`
                 )
               }

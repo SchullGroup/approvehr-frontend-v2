@@ -326,7 +326,8 @@ export function Headline({ report }: { report: ApiCycleReport }) {
         hint={
           distribution.meanBp === null
             ? "No scores yet, so there is no average"
-            : `Out of 5, across the ${distribution.scored} ${distribution.scored === 1 ? "score" : "scores"} given. People with no score are not counted.`
+            : /* rating-scale-prose: an average has no word, so it is a figure (U88). */
+              `Out of 5, across the ${distribution.scored} ${distribution.scored === 1 ? "score" : "scores"} given. People with no score are not counted.`
         }
       />
       <Stat
