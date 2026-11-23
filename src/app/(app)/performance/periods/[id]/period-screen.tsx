@@ -1120,6 +1120,11 @@ function PeriodSettings({
               value={period.managersCanAddQuestions}
               onChanged={onChanged}
             />
+            <AskPotentialToggle
+              cycleId={period.id}
+              value={period.askPotential !== false}
+              onChanged={onChanged}
+            />
           </CardBody>
         </Card>
       )}
@@ -1930,6 +1935,52 @@ function ManagerQuestionsToggle({
   return (
     <Checkbox
       label="Let managers add their own questions, scoped to their team"
+      checked={value}
+      disabled={busy}
+      onChange={(event) => void toggle(event.target.checked)}
+    />
+  );
+}
+
+/**
+ * Whether a manager's review ends with how far the person could go, which is what
+ * fills the talent map as reviews are sent.
+ */
+function AskPotentialToggle({
+  cycleId,
+  value,
+  onChanged,
+}: {
+  cycleId: string;
+  value: boolean;
+  onChanged: () => void;
+}) {
+  const periods = useCycleMutations();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const toggle = async (checked: boolean) => {
+    setBusy(true);
+    try {
+      await periods.updateCycle(cycleId, { askPotential: checked });
+      onChanged();
+    } catch (caught) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not change that setting.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Checkbox
+      label="Managers say how far each person could go"
       checked={value}
       disabled={busy}
       onChange={(event) => void toggle(event.target.checked)}
