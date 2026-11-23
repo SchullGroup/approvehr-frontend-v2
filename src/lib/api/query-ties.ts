@@ -605,7 +605,7 @@ export function toCounts(raw: unknown): ApiQueryCounts | null {
 }
 
 export const COUNT_STATUS_WORD: Record<CountStatus, string> = {
-  ISSUED: "Waiting or issued",
+  ISSUED: "Issued, not yet replied to",
   REPLIED: "Replied",
   CLOSED: "Closed",
   WITHDRAWN: "Withdrawn",

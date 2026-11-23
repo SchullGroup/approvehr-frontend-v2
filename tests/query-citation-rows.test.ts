@@ -241,6 +241,46 @@ describe("equipment, a rota day and a document request", () => {
     ).toBe("Laptop (AST-0001)");
   });
 
+  it("says a condition in words, not as the code the server keeps, and draws nothing for an absent one", () => {
+    const rows = citationRendering(
+      {
+        kind: "EQUIPMENT",
+        item: "Laptop",
+        tag: "T",
+        category: null,
+        assignedOn: null,
+        conditionOut: "LIKE_NEW",
+        returnedOn: "2026-02-01",
+        conditionBack: "GOOD",
+        personConfirmedReceipt: null,
+        confirmedAt: null,
+      },
+      format,
+    ).rows;
+    expect(rows).toContainEqual({
+      label: "Condition when given",
+      value: "Like new",
+    });
+    expect(rows).toContainEqual({
+      label: "Condition when handed back",
+      value: "Good",
+    });
+    expect(
+      labels({
+        kind: "EQUIPMENT",
+        item: "Laptop",
+        tag: null,
+        category: null,
+        assignedOn: null,
+        conditionOut: null,
+        returnedOn: null,
+        conditionBack: "",
+        personConfirmedReceipt: null,
+        confirmedAt: null,
+      }),
+    ).toEqual(["Item"]);
+  });
+
   it("draws a rota shift from its parts and a document request by its words", () => {
     expect(
       citationRendering(

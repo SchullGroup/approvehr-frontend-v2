@@ -96,9 +96,9 @@ export function citationRendering(
       );
       add("Category", copy.category);
       if (copy.assignedOn) add("Given to them on", format.day(copy.assignedOn));
-      add("Condition when given", copy.conditionOut);
+      add("Condition when given", plainEnum(copy.conditionOut));
       if (copy.returnedOn) add("Handed back on", format.day(copy.returnedOn));
-      add("Condition when handed back", copy.conditionBack);
+      add("Condition when handed back", plainEnum(copy.conditionBack));
       if (copy.personConfirmedReceipt === true) {
         add(
           "Their confirmation",
@@ -184,6 +184,15 @@ export function citationRendering(
   }
 
   return { rows, notes, wording };
+}
+
+/** An enum the server sent as a code ("LIKE_NEW") as words ("Like new"). Nothing is invented: absent stays absent. */
+function plainEnum(code: string | null): string | null {
+  if (!code) return null;
+  const spaced = code.replace(/_/g, " ").trim().toLowerCase();
+  return spaced === ""
+    ? null
+    : spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 /** The words for a document category, read without a cast from a string the server sent. */

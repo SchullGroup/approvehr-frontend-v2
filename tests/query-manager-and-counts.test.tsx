@@ -238,7 +238,7 @@ describe("the counts", () => {
     const status = screen.getByRole("table", { name: "Where they stand now" });
     const rows = within(status).getAllByRole("row").slice(1);
     expect(rows.map((row) => row.textContent)).toEqual([
-      "Waiting or issued5",
+      "Issued, not yet replied to5",
       "RepliedWithheld",
       "Closed4",
       "WithdrawnWithheld",
