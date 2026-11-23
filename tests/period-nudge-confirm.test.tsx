@@ -50,7 +50,7 @@ vi.mock("@/lib/store/performance", () => ({
     cycle: {
       id: "cycle-1",
       name: "H2 2026 Appraisal",
-      stage: "SELF_REVIEW",
+      stage: "SELF",
       stageLabel: "self-review",
       dueDate: "2026-11-30",
       scoringFrozen: true,
@@ -117,20 +117,18 @@ const mount = () =>
 const withRows = (rows: ReturnType<typeof person>[]): ApiCycleParticipants => ({
   cycleId: "cycle-1",
   cycleName: "H2 2026 Appraisal",
-  stage: "SELF_REVIEW",
+  stage: "SELF",
   rows,
   counts: { people: rows.length, selfDone: 0, managerDone: 0 },
 });
 
 beforeEach(() => {
-  remindCycle = vi
-    .fn()
-    .mockResolvedValue({
-      cycleId: "cycle-1",
-      outstanding: 3,
-      reminded: 3,
-      noAccount: 0,
-    });
+  remindCycle = vi.fn().mockResolvedValue({
+    cycleId: "cycle-1",
+    outstanding: 3,
+    reminded: 3,
+    noAccount: 0,
+  });
   participants = withRows([
     person("Halima Sani", false, [
       { name: "Adaeze Okonkwo", submitted: false },
