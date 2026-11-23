@@ -75,9 +75,15 @@ import { useGrades } from "@/lib/store/grades";
 import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDate } from "@/lib/time";
 import { PayrollStatusCard } from "@/components/people/payroll-status-card";
-import { fullName, payrollGapsFor, type Employee } from "@/lib/types";
+import {
+  fullName,
+  genderWord,
+  payrollGapsFor,
+  type Employee,
+} from "@/lib/types";
 import { shortDate } from "@/lib/today";
 import { EditableSection } from "@/components/people/editable-section";
 import { AccountVerificationHint } from "@/components/payments/account-verification";
@@ -320,6 +326,7 @@ export function EmployeeRecord({
   const locations = useWorkLocations();
   const grades = useGrades({ pageSize: 100 });
   const { employeeId: me } = useSession();
+  const timeZone = useOrgTimezone();
   const canSeeSalaries = useCan("VIEW_SALARIES");
   /* The same permission `POST /offboarding` demands to record somebody else's
      exit — `isHr` in `approvehr-api/src/modules/offboarding/service.ts`. Without
@@ -474,12 +481,12 @@ export function EmployeeRecord({
               <Contact
                 icon={<Mail aria-hidden="true" />}
                 value={employee.email}
-                missing="No email address"
+                missing="Not recorded"
               />
               <Contact
                 icon={<Phone aria-hidden="true" />}
                 value={employee.phone}
-                missing="No phone number"
+                missing="Not recorded"
               />
               <Contact
                 icon={<MapPin aria-hidden="true" />}
@@ -487,7 +494,7 @@ export function EmployeeRecord({
               />
               <Contact
                 icon={<CalendarDays aria-hidden="true" />}
-                value={`Started ${employee.startDate}`}
+                value={`Started ${formatDate(employee.startDate, timeZone)}`}
               />
             </ul>
           </CardBody>
@@ -789,7 +796,7 @@ export function EmployeeRecord({
                   key: "email",
                   label: "Work email",
                   type: "email",
-                  emptyLabel: "No email address",
+                  emptyLabel: "Not recorded",
                   help: "Payslips and approvals are sent here.",
                 },
                 { key: "phone", label: "Phone", type: "tel" },
@@ -801,6 +808,10 @@ export function EmployeeRecord({
                 },
                 {
                   key: "gender",
+                  /* Stored as "female", "Male" or "male" depending on where
+                     it came from: shown and chosen as one word (L19). */
+                  value: employee.gender?.toLowerCase() ?? "",
+                  format: (v) => genderWord(String(v)) ?? String(v),
                   /* "Prefer not to say" is `value: ""`, and the API takes
                      `z.enum([...]).nullable().optional()` — so `null` is how a
                      person returns to undeclared and `""` is still refused.
@@ -824,7 +835,7 @@ export function EmployeeRecord({
                   group: "identity",
                   label: "Home address",
                   optional: true,
-                  emptyLabel: "No address recorded",
+                  emptyLabel: "Not recorded",
                   help: "Where they live. Not the office they work at.",
                 },
                 {
@@ -833,7 +844,7 @@ export function EmployeeRecord({
                   label: "NIN",
                   optional: true,
                   digits: 11,
-                  emptyLabel: "No NIN recorded",
+                  emptyLabel: "Not recorded",
                   help: "National Identification Number, 11 digits.",
                 },
                 {
