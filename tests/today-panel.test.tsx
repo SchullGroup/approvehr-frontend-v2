@@ -836,3 +836,46 @@ describe("the copy", () => {
     expect(document.body.textContent).not.toContain("—");
   });
 });
+
+/* ---------------------------------------------------------------- birthday */
+
+describe("a birthday", () => {
+  const greeting = {
+    status: "ok" as const,
+    data: {
+      greeting: {
+        title: "Happy birthday, Ada",
+        message:
+          "Everyone at Schulltech wishes you a happy birthday. We hope today goes well for you.",
+      },
+    },
+  };
+
+  it("is not a task: the to-do count is what it was, and the panel does not carry it", async () => {
+    mountWith({ birthday: greeting });
+    await screen.findByText("Notice n1");
+    /* The same two as without it: one must-read notice and one policy. */
+    expect(screen.getByRole("tab", { name: /To do\s*2/ })).toBeInTheDocument();
+    /* The greeting is a line on the dashboard, not a row in this card. */
+    expect(screen.queryByText(/Happy birthday/)).toBeNull();
+    expect(screen.queryByText(/wishes you a happy birthday/)).toBeNull();
+  });
+
+  it("does not put a count on an otherwise empty day, and the day still says nothing needs them", async () => {
+    const user = userEvent.setup();
+    mountWith({
+      announcements: {
+        status: "ok",
+        data: { notices: [], unread: 0, mandatoryUnread: 0, total: 0 },
+      },
+      policies: { status: "ok", data: { outstanding: [], total: 0 } },
+      birthday: greeting,
+    });
+    expect(await screen.findByText(/Next payday/)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /To do/ }));
+    expect(screen.getByText("Nothing needs you today")).toBeInTheDocument();
+    /* No count: a birthday is not one thing to do. */
+    expect(screen.getByRole("tab", { name: "To do" })).toBeInTheDocument();
+    expect(screen.queryByText(/Happy birthday/)).toBeNull();
+  });
+});

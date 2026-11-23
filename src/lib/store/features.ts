@@ -231,6 +231,9 @@ const BASE_FLAGS: FeatureFlags = {
      until a company turns this on, and the app does not even send the event
      while it is off. */
   appOpenTracking: false,
+  /* Off, matching the schema. Switching it on emails every employee once a year,
+     which is the company's decision and nobody else's. */
+  birthdayGreetings: false,
 };
 
 /** The schema's own default, and what renders before the real row arrives. */
@@ -372,6 +375,15 @@ export const FEATURE_COPY: Record<
   appOpenTracking: {
     label: "Count days people open the app",
     line: "Keeps one mark per person per day, with no time or device. HR sees team totals only, never one person's days.",
+  },
+  /* Says who is told and who is not, because the first thing a person asks of a
+     switch that emails everyone is whether their manager sees their date of
+     birth. They do not: nothing about a birthday goes to anybody but the person.
+     It also says there is no opt-out yet, since that is true and a company
+     deciding should know it. */
+  birthdayGreetings: {
+    label: "Birthday greetings",
+    line: "On each person's birthday, they get an email from the company and a greeting in ApproveHR. Nobody else is told. It is off until you switch it on. Everyone with a date of birth and a work email is included, and nobody can opt out yet.",
   },
   /* Rendered on `/settings/leave` rather than `/settings/features` — see
      `WORKFLOW_FEATURE_KEYS`. The copy lives here anyway so the label and the
@@ -843,6 +855,9 @@ function fromApi(features: ApiFeatures): State {
       /* Optional on the wire, and a company that was never asked is a company
          without it. */
       smsDigest: features.smsDigest ?? false,
+      /* Optional on the wire, and a company that was never asked is a company
+         without it. */
+      birthdayGreetings: features.birthdayGreetings ?? false,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -1088,6 +1103,7 @@ export function useFeatureSettings() {
           probationTracking: features.probationTracking,
           appOpenTracking: features.appOpenTracking ?? false,
           smsDigest: features.smsDigest ?? false,
+          birthdayGreetings: features.birthdayGreetings ?? false,
           headcountBand: features.headcountBand,
         };
       } finally {
