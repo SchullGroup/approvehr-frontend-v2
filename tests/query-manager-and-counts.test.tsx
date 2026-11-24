@@ -14,6 +14,12 @@ import { summary } from "./queries-fixtures";
  * nought, and nothing on the counts screen adds up, subtracts, totals, ranks or cuts by anybody.
  */
 
+const replaceRoute = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: replaceRoute, push: vi.fn() }),
+  usePathname: () => "/people/queries",
+  useSearchParams: () => new URLSearchParams(),
+}));
 let held = new Set<string>();
 vi.mock("@/lib/permissions", () => ({
   useCan: (key: string) => held.has(key),
@@ -153,13 +159,14 @@ describe("a line manager", () => {
     expect(screen.queryByText(/did not load/i)).toBeNull();
   });
 
-  it("is told queries are off, not shown a list, while the company has them off", () => {
+  it("is sent home, not shown a list, while the company has them off", () => {
     switchState = { ...switchState, on: false };
     draftsHook.mockReturnValue(page([]));
     render(<QueriesScreen />);
+    expect(replaceRoute).toHaveBeenCalledWith("/dashboard");
     expect(
-      screen.getByText("Queries are switched off for your company"),
-    ).toBeInTheDocument();
+      screen.queryByText("Queries are switched off for your company"),
+    ).toBeNull();
     expect(screen.queryByText("You have no drafts")).toBeNull();
   });
 
@@ -318,12 +325,10 @@ describe("the counts", () => {
     expect(countsHook).toHaveBeenCalledWith(undefined, false);
   });
 
-  it("is told queries are off, and shows no figure", () => {
+  it("is sent home, and shows no figure", () => {
     switchState = { ...switchState, on: false };
     render(<CountsScreen />);
-    expect(
-      screen.getByText("Queries are switched off for your company"),
-    ).toBeInTheDocument();
+    expect(replaceRoute).toHaveBeenCalledWith("/dashboard");
     expect(screen.queryByRole("table")).toBeNull();
   });
 

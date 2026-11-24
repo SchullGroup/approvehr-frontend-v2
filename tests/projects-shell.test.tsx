@@ -107,10 +107,13 @@ beforeEach(() => {
 });
 
 describe("before there is a project", () => {
-  it("says Projects is not switched on, with nothing else", () => {
+  it("sends somebody who cannot switch it on to the dashboard, with nothing drawn", () => {
     gate = { enabled: false, loading: false };
     render(<ProjectScreen id="pj-chk" />);
-    expect(screen.getByText("Projects is not switched on")).toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith("/dashboard");
+    expect(
+      screen.queryByText("Projects is not switched on"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
@@ -150,7 +153,7 @@ describe("before there is a project", () => {
       }),
     };
     render(<ProjectScreen id="pj-chk" />);
-    expect(screen.getByText("Projects is not switched on")).toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith("/dashboard");
   });
 
   it("offers a retry for any other failure", async () => {
