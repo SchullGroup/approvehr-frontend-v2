@@ -129,6 +129,7 @@ type Finished =
 export function ObjectiveWizard({
   parent,
   edit = null,
+  period: askedPeriod = null,
   back,
 }: {
   /** The objective it goes under, from "Add an objective under this". */
@@ -138,6 +139,11 @@ export function ObjectiveWizard({
    * was declined. Null for a new one.
    */
   edit?: string | null;
+  /**
+   * An appraisal period to set objectives for, from the notification asking
+   * people to (`?period=`). Used only if it still takes objectives.
+   */
+  period?: string | null;
   /** Where Cancel and the X go: the Objectives address it was opened from. */
   back: string;
 }) {
@@ -296,8 +302,13 @@ export function ObjectiveWizard({
     personId,
   };
   const quarter = draft.quarter || quarters[1] || quarters[0] || "";
+  const askedOpen =
+    askedPeriod !== null && openPeriods.some((one) => one.id === askedPeriod)
+      ? askedPeriod
+      : null;
   const reviewCycleId =
-    draft.periodId ?? (level === "person" ? defaultPeriodId(openPeriods) : "");
+    draft.periodId ??
+    (level === "person" ? (askedOpen ?? defaultPeriodId(openPeriods)) : "");
   const context = { reviewCycleId, openPeriods: openPeriods.length };
   /* Until the company's periods arrive there is no knowing whether this has
      one to be filed in, and one written in that moment would be filed in
@@ -812,6 +823,13 @@ export function ObjectiveWizard({
         ) : undefined
       }
     >
+      {/* Arrived from "set your objectives": say which period, once. */}
+      {askedOpen && !editing && screen === "aim" && !later && (
+        <p className="text-body-sm text-muted">
+          Setting objectives for{" "}
+          {openPeriods.find((one) => one.id === askedOpen)?.name}
+        </p>
+      )}
       {/* On whichever screen they left from, until they move on. */}
       {resumed && (
         <p className="text-body-sm text-muted">

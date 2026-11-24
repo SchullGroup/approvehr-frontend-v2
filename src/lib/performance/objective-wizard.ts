@@ -322,9 +322,12 @@ export function safeBack(back: string | null | undefined): string {
 export function newObjectiveHref({
   parent,
   edit,
+  period,
   back,
 }: {
   parent?: string;
+  /** The appraisal period to set objectives for. */
+  period?: string;
   /** An objective to change and send again, rather than a new one. */
   edit?: string;
   back?: string;
@@ -332,6 +335,7 @@ export function newObjectiveHref({
   const query = new URLSearchParams();
   if (edit) query.set("edit", edit);
   if (parent) query.set("parent", parent);
+  if (period) query.set("period", period);
   if (back) query.set("back", back);
   const text = query.toString();
   return text ? `/performance/kpis/new?${text}` : "/performance/kpis/new";

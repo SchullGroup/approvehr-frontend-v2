@@ -320,6 +320,22 @@ describe("the questions, one to a screen", () => {
     expect(period).toHaveValue("c-h2");
   });
 
+  it("honours ?period= from the notification: preselected, and one welcome line", async () => {
+    state.cycles = [Q1, { ...Q1, id: "c-q2", name: "Q2 2027 Appraisal" }];
+    const user = userEvent.setup();
+    render(<ObjectiveWizard parent={null} period="c-q2" back={BACK} />);
+    expect(
+      screen.getByText("Setting objectives for Q2 2027 Appraisal"),
+    ).toBeVisible();
+    await throughTarget(user);
+    expect(screen.getByLabelText(/Appraisal period/)).toHaveValue("c-q2");
+  });
+
+  it("ignores a ?period= that no longer takes objectives, and says nothing", () => {
+    render(<ObjectiveWizard parent={null} period="gone" back={BACK} />);
+    expect(screen.queryByText(/Setting objectives for/)).toBeNull();
+  });
+
   it("holds a personal objective to a period when several are open and none is running", async () => {
     state.cycles = [Q1, { ...Q1, id: "c-q2", name: "Q2 2027 Appraisal" }];
     const { user } = open();

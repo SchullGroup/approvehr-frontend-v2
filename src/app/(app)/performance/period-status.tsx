@@ -282,7 +282,7 @@ export function PeriodExceptionNotice({
               ? "muted"
               : line.severity === "BLOCKER"
                 ? "accent"
-                : "warning"
+                : "muted"
           }
         >
           <span>{line.text}</span>
