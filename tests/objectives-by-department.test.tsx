@@ -126,7 +126,7 @@ describe("the cards", () => {
 
   it("are the company's first, then every department by name, then No department", () => {
     expect(cards.map((c) => c.name)).toEqual([
-      "Company objectives",
+      "Whole company",
       "Engineering",
       "Finance",
       "Sales",
@@ -280,7 +280,7 @@ describe("Whole company", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /Company objectives/ }),
+      screen.getByRole("link", { name: /Whole company/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /No department/ }),
@@ -315,20 +315,50 @@ describe("Whole company", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens one department's objectives under the company objective, with the way back", () => {
+  it("opens a department in two sections: its own objectives, then Team members, with the way back", () => {
     mount({ department: "fin" });
     expect(
       screen.getByRole("heading", { name: "Finance" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Reconcile the bank daily")).toBeInTheDocument();
+    const own = screen.getByRole("heading", { name: "Department objectives" });
+    const team = screen.getByRole("heading", { name: "Team members" });
     expect(
-      screen.getByText("Close the books in five days"),
+      own.compareDocumentPosition(team) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(own.closest("section") as HTMLElement).getByText(
+        "Close the books in five days",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Grow revenue")).toBeInTheDocument();
+    expect(
+      within(team.closest("section") as HTMLElement).getByText(
+        "Reconcile the bank daily",
+      ),
+    ).toBeInTheDocument();
+    /* Not the company objective above it, nor another department's. */
+    expect(screen.queryByText("Grow revenue")).toBeNull();
     expect(screen.queryByText("Call twenty customers")).toBeNull();
     expect(
       screen.getByRole("link", { name: /All departments/ }),
     ).toHaveAttribute("href", "/performance/kpis?scope=company");
+  });
+
+  it("leaves out the department section when it has none, and Team members leads", () => {
+    state.goals = GOALS.filter((g) => g.id !== "fin-close");
+    mount({ department: "fin" });
+    expect(
+      screen.queryByRole("heading", { name: "Department objectives" }),
+    ).toBeNull();
+    expect(screen.getByRole("heading", { name: "Team members" })).toBeVisible();
+  });
+
+  it("always has Whole company first, even with nothing on it", () => {
+    const none = departmentCards(
+      GOALS.filter((g) => g.level !== "company"),
+      DEPARTMENTS,
+      OWNERS,
+    );
+    expect(none[0]).toMatchObject({ name: "Whole company", count: 0 });
   });
 
   it("shows matching objectives across departments, not cards, while something is searched", async () => {

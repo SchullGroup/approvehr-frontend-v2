@@ -91,14 +91,12 @@ export function departmentCards(
     }
   }
 
-  const cards: DepartmentCard[] = [];
-  if (tally.has(COMPANY_KEY)) {
-    cards.push({
-      key: COMPANY_KEY,
-      name: "Company objectives",
-      ...of(COMPANY_KEY),
-    });
-  }
+  /* Always the first card, even with nothing on it: it is where a company
+     objective is written, and with none it says so (owner, 24 Nov 2026). It is
+     not counted inside any department's number. */
+  const cards: DepartmentCard[] = [
+    { key: COMPANY_KEY, name: "Whole company", ...of(COMPANY_KEY) },
+  ];
   for (const [id, name] of [...named].sort((a, b) =>
     a[1].localeCompare(b[1]),
   )) {
