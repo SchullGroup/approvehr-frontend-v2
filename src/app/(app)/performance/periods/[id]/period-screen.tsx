@@ -511,7 +511,7 @@ export function PeriodScreen({
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title={period?.name ?? "Appraisal period"}
-        meta={
+        subline={
           period ? (
             <>
               {periodWords(period.periodStart, period.periodEnd) && (

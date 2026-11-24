@@ -982,6 +982,7 @@ export function PageHeader({
   action,
   meta,
   description,
+  subline,
   tabs,
   width = "page",
 }: {
@@ -1006,6 +1007,12 @@ export function PageHeader({
    * the ones somebody clicks once and leaves.
    */
   description?: string;
+  /**
+   * Small facts about what the page is, in a quiet line *below* the title: dates,
+   * a due date. Where `meta` sits beside the title and competes with it, this
+   * reads as the title's own detail.
+   */
+  subline?: React.ReactNode;
   tabs?: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -1149,6 +1156,11 @@ export function PageHeader({
                 <h1 className="text-h3 text-ink">{title}</h1>
                 {meta}
               </div>
+              {subline && (
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-muted">
+                  {subline}
+                </p>
+              )}
               {description && (
                 /* `max-w-2xl` so a sentence does not run the full width of a
                  desktop — a line somebody has to track across 1600px is a line
