@@ -59,10 +59,10 @@ describe("claims about the manager's overall mark", () => {
 });
 
 describe("claims about the weights", () => {
-  it("the Settings search blurb does not say the weights must make 100% exactly", () => {
+  it("the Settings search blurb says the weights add up to 100%, the one rule (L14)", () => {
     const filter = read("app/(app)/settings/filter.ts");
-    expect(filter).not.toMatch(/100% exactly|must make 100%/);
-    expect(filter).toContain("in proportion to the total");
+    expect(filter).toContain("The weights add up to 100%");
+    expect(filter).not.toContain("in proportion to the total");
   });
 
   it("the report's comment does not count the parts, which a new part made wrong", () => {

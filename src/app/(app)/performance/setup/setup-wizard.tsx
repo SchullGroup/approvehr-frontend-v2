@@ -222,7 +222,7 @@ function SetupWizardInner({
 
   const title =
     kind === "parts"
-      ? "What counts towards someone's mark?"
+      ? "What counts towards someone's score?"
       : kind === "weights"
         ? "How much does each count?"
         : kind === "done"

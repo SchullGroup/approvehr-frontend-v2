@@ -22,6 +22,7 @@ import { splitScheduled } from "@/lib/hiring/interviews/timing";
 import { useInterviews } from "@/lib/store/recruitment";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDate, formatTime } from "@/lib/time";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /**
  * The real diary: scheduled interviews across every requisition, and
@@ -158,7 +159,9 @@ function Row({
       </div>
       <div className="order-3 min-w-0 basis-full break-words sm:order-none sm:basis-0 sm:flex-1">
         <p className="text-body-sm font-medium text-ink">
-          <TextLink href={`/hiring/candidates/${interview.applicationId}`}>
+          <TextLink
+            href={candidateHref(interview.applicationId, "application")}
+          >
             {interview.candidateName}
           </TextLink>
         </p>
@@ -193,7 +196,7 @@ function Row({
         {interview.status.replace("_", " ").toLowerCase()}
       </Badge>
       <ButtonLink
-        href={`/hiring/candidates/${interview.applicationId}`}
+        href={candidateHref(interview.applicationId, "application")}
         size="sm"
         variant="secondary"
         className="order-4 sm:order-none"

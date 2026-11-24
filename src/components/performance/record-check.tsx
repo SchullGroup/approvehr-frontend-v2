@@ -114,7 +114,7 @@ export function RecordCheck({
 
       <p className="flex flex-wrap gap-x-6 gap-y-1 text-body-sm text-muted">
         <span>
-          Mark{" "}
+          Score{" "}
           <span className="font-semibold text-ink">
             {exactPct(flag.markBp)}
           </span>
@@ -152,7 +152,7 @@ export function RecordCheck({
             </ul>
           ) : (
             <p className="text-body-sm text-body">
-              None. Their manager marks close to average and none of their
+              None. Their manager rates close to average and none of their
               groups is flagged.
             </p>
           )}

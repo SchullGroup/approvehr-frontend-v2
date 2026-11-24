@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import { sourceNote } from "@/lib/demo";
 import {
@@ -540,7 +541,7 @@ export function ExcludedList({
                   {exclusion.decidedBy
                     ? `Decided by ${exclusion.decidedBy}`
                     : "Decided by somebody with no employee record"}{" "}
-                  on {exclusion.excludedAt.slice(0, 10)}
+                  on {formatDay(exclusion.excludedAt)}
                 </p>
               </div>
               {onPutBack && (

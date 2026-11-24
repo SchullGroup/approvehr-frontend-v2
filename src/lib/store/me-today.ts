@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/me";
 import { useRevalidation } from "@/lib/revalidate";
 import { useSession } from "@/lib/store/session";
+import { useClockGeneration } from "@/lib/store/attendance";
 
 /**
  * The Today panel's data: `GET /me/today`, and the one-section refresh.
@@ -159,6 +160,39 @@ export function useMeToday(): MeToday {
     },
     [],
   );
+
+  /* A clock-in or clock-out anywhere in the app re-reads the clock section, so
+     the panel stops saying "Not clocked in" under a card that says the
+     opposite (UAT 23 Nov, U70: SELF-18). Only that section: the full read is
+     the heaviest on the screen. Zero is the first render, which has nothing to
+     catch up on. */
+  const clocked = useClockGeneration();
+  useEffect(() => {
+    if (!isConnected || clocked === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const next = await meApi.today(["clockIn"]);
+        if (cancelled || !alive.current) return;
+        setFetched((held) =>
+          held?.data
+            ? {
+                data: {
+                  asOf: next.asOf,
+                  sections: { ...held.data.sections, ...next.sections },
+                },
+                error: null,
+              }
+            : held,
+        );
+      } catch {
+        /* What is on screen stays; the next full read corrects it. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, clocked]);
 
   const markNoticeRead = useCallback((id: string, readAt: string) => {
     setFetched((held) => {

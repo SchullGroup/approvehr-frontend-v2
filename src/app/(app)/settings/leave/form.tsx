@@ -191,8 +191,8 @@ function SupportingFileSwitch({
 }: {
   type: TypeRow;
   available: boolean | null;
-  /** "Required" under a column headed Supporting file; in words on a phone. */
-  label: string;
+  /** Hidden under a column headed File required; in words on a phone. */
+  label: React.ReactNode;
   onChange: (
     patch: Partial<
       Pick<TypeRow, "attachmentPolicy" | "attachmentRequiredOverDays">
@@ -265,7 +265,7 @@ function ReasonSwitch({
   onChange,
 }: {
   type: TypeRow;
-  label: string;
+  label: React.ReactNode;
   onChange: (reasonRequired: boolean) => void;
 }) {
   if (type.reasonRequired === null) return null;
@@ -455,6 +455,30 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   const [switchedOff, setSwitchedOff] = useState<
     { id: string; name: string; total: number }[]
   >([]);
+  /**
+   * Every switched-off type, from the server (U46): it now lists them with
+   * `includeArchived`. `null` until it answers, and from a server that cannot,
+   * in which case this visit's list above is all there is.
+   */
+  const [serverOff, setServerOff] = useState<
+    { id: string; name: string }[] | null
+  >(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    leaveApi
+      .archivedTypes()
+      .then((rows) => {
+        if (!cancelled) setServerOff(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setServerOff(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, tick]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -686,6 +710,16 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     }
   }
 
+  /* The server's list when it has one, with the request count from a switch-off
+     made in this visit; otherwise this visit's list alone. */
+  const offList: { id: string; name: string; total: number }[] =
+    serverOff === null
+      ? switchedOff
+      : serverOff.map((row) => ({
+          ...row,
+          total: switchedOff.find((r) => r.id === row.id)?.total ?? 0,
+        }));
+
   async function restoreType(row: { id: string; name: string }) {
     try {
       await leaveApi.restoreType(row.id);
@@ -794,8 +828,12 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                             <TH>Accrual</TH>
                             <TH align="right">Carry over</TH>
                             <TH align="right">Notice (days)</TH>
-                            {isConnected && <TH>Reason</TH>}
-                            {showFileColumn && <TH>Supporting file</TH>}
+                            {/* "Required" said once, here, rather than beside
+                                every switch: the word in each row is what took
+                                the table 25px past its card at 1440px (UAT 23
+                                Nov, L21: HR-25). */}
+                            {isConnected && <TH>Reason required</TH>}
+                            {showFileColumn && <TH>File required</TH>}
                             <TH>Who</TH>
                             {isConnected && (
                               <TH align="right">
@@ -816,7 +854,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={365}
                                     value={type.entitled}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} days per year`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -851,7 +889,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={type.entitled}
                                     value={type.carryOverMax}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} carry-over maximum`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -869,7 +907,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={90}
                                     value={type.minNoticeDays}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} minimum notice in days`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -894,7 +932,11 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     ) : (
                                       <ReasonSwitch
                                         type={type}
-                                        label="Required"
+                                        label={
+                                          <span className="sr-only">
+                                            Required
+                                          </span>
+                                        }
                                         onChange={(reasonRequired) =>
                                           void editType(type, {
                                             reasonRequired,
@@ -910,7 +952,11 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                       <SupportingFileSwitch
                                         type={type}
                                         available={available}
-                                        label="Required"
+                                        label={
+                                          <span className="sr-only">
+                                            Required
+                                          </span>
+                                        }
                                         onChange={(patch) =>
                                           void editType(type, patch)
                                         }
@@ -1153,15 +1199,19 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                 type list filters archived rows out with no way to ask for them, so
                 this is restore's whole reach — and the card says so rather than
                 letting the button's disappearance on reload read as a bug. */}
-                {switchedOff.length > 0 && (
+                {offList.length > 0 && (
                   <Card>
                     <CardHeader
-                      title="Switched off just now"
+                      title={
+                        serverOff === null
+                          ? "Switched off just now"
+                          : "Switched off"
+                      }
                       level={3}
                       description="Off, not deleted: every request already raised keeps its record. Turn one back on and it reappears in the booking form with its entitlement unchanged."
                     />
                     <CardBody className="flex flex-col gap-3">
-                      {switchedOff.map((row) => (
+                      {offList.map((row) => (
                         <div
                           key={row.id}
                           className="flex flex-wrap items-center justify-between gap-3"
@@ -1193,12 +1243,13 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                           </Button>
                         </div>
                       ))}
-                      <p className="text-meta leading-relaxed text-muted">
-                        This list lasts as long as this page: the server does
-                        not yet let the interface see switched-off types, so
-                        leaving here puts turning one back on out of reach until
-                        it does.
-                      </p>
+                      {serverOff === null && (
+                        <p className="text-meta leading-relaxed text-muted">
+                          This list lasts as long as this page: this server does
+                          not let the interface see switched-off types, so
+                          leaving here puts turning one back on out of reach.
+                        </p>
+                      )}
                     </CardBody>
                   </Card>
                 )}

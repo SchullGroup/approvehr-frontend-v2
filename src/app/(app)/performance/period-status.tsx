@@ -77,6 +77,42 @@ type Segment = {
 };
 
 function segmentsFrom(report: ApiCycleReport | null): Segment[] {
+  /* The API's one set of counts, where it sends them (U103), so this card, the
+     dashboard's and the period page say the same "x of y". */
+  const progress = report?.progress;
+  if (progress) {
+    return [
+      {
+        label: "Self",
+        stage: "SELF",
+        done: progress.self.done,
+        total: progress.self.of,
+        notYet: "Nobody has a form yet",
+      },
+      {
+        label: "Manager",
+        stage: "MANAGER",
+        done: progress.manager.done,
+        total: progress.manager.of,
+        notYet: "No manager review is due yet",
+      },
+      {
+        label: "Scores final",
+        stage: "CALIBRATION",
+        done: progress.finalised.done,
+        total: progress.finalised.of,
+        notYet: "Nobody is in this period yet",
+      },
+      {
+        label: "Signed off",
+        stage: "PUBLISHED",
+        done: progress.acknowledged.done,
+        total: progress.acknowledged.of,
+        notYet: "No score is final yet",
+      },
+    ];
+  }
+  /* An API that predates `progress`. */
   return [
     {
       label: "Self",
@@ -96,7 +132,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       notYet: "No manager review is due yet",
     },
     {
-      label: "Marks final",
+      label: "Scores final",
       stage: "CALIBRATION",
       done: report?.marks.finalised ?? 0,
       total: report?.marks.people ?? 0,
@@ -109,7 +145,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       /* You can only answer a mark you have been told, so the denominator is
          what has been finalised — not the headcount. */
       total: report?.marks.finalised ?? 0,
-      notYet: "No mark is final yet",
+      notYet: "No score is final yet",
     },
   ];
 }

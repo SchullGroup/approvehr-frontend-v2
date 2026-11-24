@@ -247,7 +247,6 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
     await user.click(screen.getByRole("button", { name: "Add part" }));
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Name"), "Line view");
-    await user.type(within(dialog).getByLabelText("Weight"), "20");
     await user.selectOptions(
       within(dialog).getByLabelText("Scored from"),
       "MANAGER_APPRAISAL",
@@ -259,6 +258,11 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
 
   it("after a delete", async () => {
     const user = userEvent.setup();
+    /* At 0%: a part that still counts is not deleted (L14). */
+    view = viewOf([
+      { ...delivery, weightBp: 10000 },
+      { ...lineView, weightBp: 0 },
+    ]);
     mount();
     await user.click(screen.getByRole("button", { name: "Delete Line view" }));
     await user.click(
@@ -283,12 +287,13 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
   });
 });
 
-describe("what the form tells the overall-mark card about the part", () => {
+describe("what the form tells the overall-score card about the part", () => {
   const header = {
     has: (label: string) =>
-      `Forms do not ask for an overall mark, except a manager's form in a period that weights ${label}. Otherwise the answers stand on their own.`,
-    none: "Forms do not ask for an overall mark. The answers stand on their own.",
-    unknown: "Whether each form ends with a page asking for one overall mark.",
+      `Forms do not ask for an overall rating, except a manager's form in a period that weights ${label}. Otherwise the answers stand on their own.`,
+    none: "Forms do not ask for an overall rating. The answers stand on their own.",
+    unknown:
+      "Whether each form ends with a page asking for one overall rating.",
   };
 
   it("the company has a part scored from it: the card names the exception, in the company's own word", () => {
@@ -317,7 +322,7 @@ describe("what the form tells the overall-mark card about the part", () => {
     ["not in yet", "loading"],
     ["failed", "failed"],
   ] as const)(
-    "the parts %s: nothing is known, so the card says nothing about whether forms ask or the mark counts",
+    "the parts %s: nothing is known, so the card says nothing about whether forms ask or the score counts",
     (_name, state) => {
       read = state;
       mount("marks");
@@ -339,10 +344,10 @@ describe("the Records tab survives the parts form", () => {
   it("is still a tab, beside the other two", () => {
     mount();
     expect(
-      screen.getByRole("tab", { name: "Parts of a mark" }),
+      screen.getByRole("tab", { name: "Parts of the score" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("tab", { name: "Names of marks" }),
+      screen.getByRole("tab", { name: "Rating names" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Records" })).toBeInTheDocument();
   });
@@ -356,7 +361,7 @@ describe("what the parts list may say while it waits", () => {
     expect(
       screen.queryByRole("button", { name: /Add (the first )?part/ }),
     ).toBeNull();
-    expect(screen.queryByText(/\d%\s+of a mark/)).toBeNull();
+    expect(screen.queryByText(/\d%\s+of a score/)).toBeNull();
   });
 
   it("failed: says it did not load, and never that there are no parts, and offers no Add button", () => {

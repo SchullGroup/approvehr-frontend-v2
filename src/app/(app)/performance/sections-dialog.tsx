@@ -403,7 +403,7 @@ export function SectionsDialog({
                           >
                             {section.weightBp === null
                               ? "Not weighted"
-                              : `${weightLabel(section.weightBp)} of the mark`}
+                              : `${weightLabel(section.weightBp)} of the score`}
                           </Badge>
                           <Badge tone="neutral" size="sm">
                             {subs.length === 1
@@ -613,7 +613,7 @@ export function SectionsDialog({
                       : `${String(unfiled.length)} competencies`}
                   </Badge>
                 }
-                hint="A level recorded on these counts towards no part of the mark"
+                hint="A level recorded on these counts towards no part of the score"
               >
                 <Subsections
                   items={unfiled}
@@ -690,7 +690,7 @@ export function SectionsDialog({
               <NoticeLine tone="muted">
                 <span>
                   A group you add counts towards nothing until you choose a part
-                  of the mark for it.
+                  of the score for it.
                 </span>
               </NoticeLine>
             )}
@@ -719,7 +719,7 @@ export function SectionsDialog({
             </p>
             <p>
               While they are unfiled, a level recorded on them counts towards no
-              part of the mark.
+              part of the score.
             </p>
           </>
         }
@@ -916,7 +916,7 @@ const SECTION_SOURCES: readonly ScoreComponent[] = [
 const SCORED_FROM: Partial<Record<ScoreComponent, string>> = {
   OBJECTIVES: "scored from objectives",
   TASKS: "scored from graded weekly tasks",
-  MANAGER_APPRAISAL: "scored from the appraisers' overall mark",
+  MANAGER_APPRAISAL: "scored from the appraisers' overall rating",
 };
 
 export function CountsTowards({
@@ -945,7 +945,10 @@ export function CountsTowards({
     });
   const known = offered.some((part) => part.value === value);
   return (
-    <Field label="Counts towards" help="The part of the mark this group feeds.">
+    <Field
+      label="Counts towards"
+      help="The part of the score this group feeds."
+    >
       <Select
         value={value}
         disabled={disabled}
@@ -955,7 +958,7 @@ export function CountsTowards({
         }
       >
         <option value="">
-          No part of the mark (ratings are only recorded)
+          No part of the score (ratings are only recorded)
         </option>
         {offered.map((part) => (
           <option key={part.value} value={part.value} disabled={!part.rated}>

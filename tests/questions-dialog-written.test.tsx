@@ -202,7 +202,7 @@ describe("the Subsection picker a question is filed under", () => {
     mount();
     await userEvent.selectOptions(
       screen.getByLabelText("Section"),
-      "Behavioural competency, 30% of the mark",
+      "Behavioural competency, 30% of the score",
     );
     expect(pickerOptions()).toEqual([
       "None",
@@ -215,7 +215,7 @@ describe("the Subsection picker a question is filed under", () => {
     mount();
     await userEvent.selectOptions(
       screen.getByLabelText("Section"),
-      "Behavioural competency, 30% of the mark",
+      "Behavioural competency, 30% of the score",
     );
     const select = screen.getByLabelText("Subsection") as HTMLSelectElement;
     const option = Array.from(select.options).find(
@@ -225,19 +225,19 @@ describe("the Subsection picker a question is filed under", () => {
 
     expect(
       screen.getByText(
-        "Answers to questions written here do not count towards the mark. Nor does the written answer recorded on Communication.",
+        "Answers to questions written here do not count towards the score. Nor does the written answer recorded on Communication.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/Behavioural competency is 30% of the mark/),
+      screen.queryByText(/Behavioural competency is 30% of the score/),
     ).not.toBeInTheDocument();
   });
 
-  it("still says where the mark comes from for a level", async () => {
+  it("still says where the score comes from for a level", async () => {
     mount();
     await userEvent.selectOptions(
       screen.getByLabelText("Section"),
-      "Behavioural competency, 30% of the mark",
+      "Behavioural competency, 30% of the score",
     );
     const select = screen.getByLabelText("Subsection") as HTMLSelectElement;
     const option = Array.from(select.options).find(
@@ -246,7 +246,7 @@ describe("the Subsection picker a question is filed under", () => {
     await userEvent.selectOptions(select, option.value);
     expect(
       screen.getByText(
-        /Behavioural competency is 30% of the mark, and it comes from the level recorded on Adaptability/,
+        /Behavioural competency is 30% of the score, and it comes from the level recorded on Adaptability/,
       ),
     ).toBeInTheDocument();
   });

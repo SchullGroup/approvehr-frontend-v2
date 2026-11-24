@@ -620,7 +620,7 @@ describe("the one line under the title", () => {
     );
   });
 
-  it("says what was carried from a short month, when something was", () => {
+  it("says what was carried from months it was not taken, when something was", () => {
     world.summary = summary({
       thisMonth: {
         deductionKobo: N(622_857.12),
@@ -631,7 +631,7 @@ describe("the one line under the title", () => {
     show();
 
     expect(screen.getByText(/still owed across/)).toHaveTextContent(
-      "comes out of this month’s payroll, including ₦21,428.57 carried from a short month",
+      "comes out of this month’s payroll, including ₦21,428.57 carried from months it was not taken",
     );
   });
 

@@ -129,18 +129,18 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
       overallMark = value;
       mount();
       expect(
-        screen.getByText(/moves their own final mark by 10%/),
+        screen.getByText(/moves their own final score by 10%/),
       ).toBeInTheDocument();
       expect(screen.getByText("What we do instead")).toBeInTheDocument();
     },
   );
 
-  it("does not offer to switch overall marks on, because the part counts without it", () => {
+  it("does not offer to switch overall ratings on, because the part counts without it", () => {
     overallMark = false;
     mount();
     expect(
       screen.queryByRole("button", {
-        name: "Switch overall marks on under Names of marks",
+        name: "Switch overall ratings on under Rating names",
       }),
     ).toBeNull();
   });
@@ -168,10 +168,10 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
   });
 });
 
-describe("the Names of marks tab", () => {
+describe("the Rating names tab", () => {
   it("opens with the switch, ahead of the names it decides whether to offer", () => {
     mount("marks");
-    const card = screen.getByText("Overall mark on appraisals");
+    const card = screen.getByText("Overall rating on appraisals");
     const scale = screen.getByText("THE SCALE FORM");
     expect(
       card.compareDocumentPosition(scale) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -183,7 +183,7 @@ describe("the Names of marks tab", () => {
     mount("marks");
     await userEvent.click(screen.getByRole("switch"));
     expect(setOverallMark).toHaveBeenCalledWith(true);
-    await screen.findByText("Appraisal forms will end with an overall mark");
+    await screen.findByText("Appraisal forms will end with an overall rating");
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });

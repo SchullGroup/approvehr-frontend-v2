@@ -1,10 +1,11 @@
 import { formatMoney } from "@/components/ui";
 import type { AuditEntry } from "@/lib/api/audit";
 import {
-  daysBetweenIn,
   dayIn,
+  daysBetweenIn,
   formatDateShort,
   formatDateTimeShort,
+  formatDay,
   formatTime,
   isValidInstant,
   weekdayIn,
@@ -367,21 +368,6 @@ export type FormattedValue = {
   kind: "value" | "empty" | "hidden";
 };
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 /** Field names that hold integer kobo. The one place money crosses over. */
 const isKoboField = (field: string): boolean =>
   field
@@ -484,9 +470,7 @@ export function formatFieldValue(
 
 /** `2026-08-19` → `19 Aug 2026`. */
 export function readableDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) return iso;
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  return formatDay(iso);
 }
 
 /** The exact moment, in the company's zone. For a tooltip, and for anybody

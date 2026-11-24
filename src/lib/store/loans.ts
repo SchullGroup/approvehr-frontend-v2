@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import {
   useCallback,
   useEffect,
@@ -872,10 +873,7 @@ const LIVE: LoanStatus[] = ["PENDING", "APPROVED", "ACTIVE"];
 
 /** `₦1,234,567.89`. Local to the store, for error copy the API also writes. */
 const naira = (amountKobo: number): string =>
-  `₦${(Math.round(amountKobo) / 100).toLocaleString("en-NG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  formatMoney(Math.round(amountKobo) / 100, "NGN", { decimals: true });
 
 export type LoanActions = {
   apply: (body: ApplyLoanBody) => Promise<ApiLoanDetail>;

@@ -99,7 +99,7 @@ describe("sending an objective to be agreed", () => {
     );
     await user.click(screen.getByRole("button", { name: "Send it" }));
     expect(
-      await screen.findByText(/Once it is agreed the target is fixed/),
+      await screen.findByText(/Once it is agreed it is fixed/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Sent to \d/)).toBeNull();
   });
@@ -166,10 +166,10 @@ describe("an agreement", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Chidi Nwosu's objective for H1 2026, with 1 measure."),
+      screen.getByText("Chidi Nwosu's objective for H1 2026, with 1 target."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("The target is fixed. Progress still moves."),
+      screen.getByText("It is fixed. Progress still moves."),
     ).toBeInTheDocument();
     /* No Undo: the only way back through a frozen target is a recorded revision. */
     expect(screen.queryByRole("button", { name: /undo/i })).toBeNull();

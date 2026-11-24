@@ -4,7 +4,7 @@ import { PeriodScreen } from "./period-screen";
 export const metadata: Metadata = {
   title: "Appraisal period",
   description:
-    "Run an appraisal period: what is still needed, who is late, who has no appraiser, and where every mark stands.",
+    "Run an appraisal period: what is still needed, who is late, who has no appraiser, and where every score stands.",
 };
 
 /**

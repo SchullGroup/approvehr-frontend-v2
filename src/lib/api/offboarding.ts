@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { request, requestPaged } from "@/lib/api/client";
 
 /**
@@ -580,7 +581,7 @@ export const offboardingApi = {
  * loan balance is noise on a screen whose job is "there is money outstanding".
  */
 export function formatKobo(kobo: number): string {
-  return `₦${Math.round(kobo / 100).toLocaleString("en-NG")}`;
+  return formatMoney(Math.round(kobo / 100));
 }
 
 /**

@@ -84,6 +84,7 @@ vi.mock("@/lib/store/performance", () => ({
     loading: false,
     error: null,
   }),
+  useSections: () => ({ sections: [], loading: false, reload: () => {} }),
   useAppraisals: () => ({ cycles: [], loading: false }),
   useSkills: () => ({
     skills: null,

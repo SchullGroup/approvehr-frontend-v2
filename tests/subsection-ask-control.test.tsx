@@ -106,7 +106,7 @@ const ALL_ACTIONS = new RegExp(`^(${ADD}|${SAVE}|${TAKE_OFF})$`);
 
 const CONSEQUENCES = {
   manager: "Recorded when the manager sends their review.",
-  employee: "Their own answer counts towards the mark.",
+  employee: "Their own answer counts towards the score.",
   both: "The manager's answer counts. The employee's is shown beside it.",
 };
 

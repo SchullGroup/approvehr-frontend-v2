@@ -422,7 +422,7 @@ const KEYWORDS: Record<string, string[]> = {
   /* The words the module speaks now, then the ones it used to: somebody who
      types "sprint" or "backlog" still finds it. See `lib/projects/terms.ts`. */
   projects: ["work"],
-  "projects/All projects": [
+  "projects/My projects": [
     "tasks",
     "kanban",
     "board",
@@ -557,7 +557,14 @@ const KEYWORDS: Record<string, string[]> = {
   "time/Overtime": ["extra hours", "after hours"],
 
   "performance/Overview": ["performance", "appraisal"],
-  "performance/KPIs": ["goals", "okrs", "targets", "objectives", "metrics"],
+  "performance/Objectives": [
+    "goals",
+    "okrs",
+    "targets",
+    "kpis",
+    "kpi",
+    "metrics",
+  ],
   "performance/Weekly tasks": ["review tasks", "to do", "weekly"],
   "performance/Competency ratings": ["skills", "competencies", "scores"],
   "performance/Appraisal periods": [

@@ -1,5 +1,6 @@
 "use client";
 
+import { employmentTypeLabel } from "@/lib/api/insights";
 import { request } from "@/lib/api/client";
 import { fetchFile, type FileDownload } from "./download";
 
@@ -177,3 +178,16 @@ export const reportsApi = {
   download: (id: string, name: string): Promise<FileDownload> =>
     fetchFile(`/reports/${id}/run.csv`, name),
 };
+
+const INITIALISMS = new Set(["NYSC"]);
+
+/**
+ * A filter option the API sends as a code ("ON_LEAVE") read as words ("On
+ * leave"); anything else is shown as it came (UAT 23 Nov, L15: PERF-35).
+ */
+export function codeLabel(option: string): string {
+  if (!/^[A-Z][A-Z0-9_]*$/.test(option)) return option;
+  /* An initialism is a name, not a word to sentence-case. */
+  if (INITIALISMS.has(option)) return option;
+  return employmentTypeLabel(option);
+}

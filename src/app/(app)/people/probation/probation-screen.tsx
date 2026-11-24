@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import Link from "next/link";
 import { CalendarClock } from "lucide-react";
@@ -127,7 +128,9 @@ export function ProbationScreen() {
                     mark={row.daysRemaining < 0 ? ALREADY_ENDED : null}
                   />
                   <TD>{row.jobTitle}</TD>
-                  <TD className="tabular-nums">{row.probationEndsAt}</TD>
+                  <TD className="tabular-nums">
+                    {formatDay(row.probationEndsAt)}
+                  </TD>
                   <TD>
                     {row.daysRemaining < 0 ? (
                       <Badge tone="danger">
@@ -195,7 +198,7 @@ export function ProbationScreen() {
                     subtitle={row.employeeNo}
                   />
                   <TD>{row.jobTitle}</TD>
-                  <TD className="tabular-nums">{row.startDate}</TD>
+                  <TD className="tabular-nums">{formatDay(row.startDate)}</TD>
                   <TD className="tabular-nums">
                     {row.daysSinceStart >= 365 ? (
                       <Badge tone="danger">

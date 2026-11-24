@@ -171,7 +171,7 @@ function Index() {
               description={
                 canCreate
                   ? `A ${PROGRAM.one} groups the projects of a department or team, like Operations or Technology, and lets you give people read or read and write access to all of them at once.`
-                  : `Programs group projects by department or team. You will see the ones you have access to. Your projects are still under All projects.`
+                  : `Programs group projects by department or team. You will see the ones you have access to. Your projects are still under My projects.`
               }
               action={
                 canCreate ? (
@@ -239,7 +239,7 @@ function Index() {
               href="/projects"
               className="font-medium text-accent-text underline underline-offset-2"
             >
-              All projects
+              My projects
             </Link>
             .
           </p>

@@ -33,6 +33,7 @@
  * drift unless something holds them together.
  */
 
+import { formatMoney } from "@/components/ui/money-format";
 import type { LoanRepaymentStatus } from "@/lib/api/loans";
 
 /** One instalment, as kobo, as the split needs to see it. */
@@ -82,10 +83,7 @@ export type PaymentSplit =
 
 /** `₦1,234.50`. The same figure the API's `formatNaira` prints. */
 const nairaText = (amountKobo: number): string =>
-  `₦${(Math.round(amountKobo) / 100).toLocaleString("en-NG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  formatMoney(Math.round(amountKobo) / 100, "NGN", { decimals: true });
 
 const owingOn = (row: PayableInstalment): number =>
   Math.max(0, row.dueKobo - row.paidKobo);

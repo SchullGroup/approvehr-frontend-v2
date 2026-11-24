@@ -432,8 +432,8 @@ export function WhatNeedsYouTab({
             title="Appraisals are switched off"
             description={
               canManagePeriods
-                ? "KPIs work without them. Turn them on to add appraisal periods, a mark made from objectives and skills, and a record of what each person was told."
-                : "Your company does not run formal appraisals. KPIs still work."
+                ? "Objectives work without them. Turn them on to add appraisal periods, a score made from objectives and competencies, and a record of what each person was told."
+                : "Your company does not run formal appraisals. Objectives still work."
             }
             action={
               canManagePeriods ? (
@@ -484,7 +484,7 @@ export function WhatNeedsYouTab({
                     {review.cycleName}
                     {review.rating !== null
                       ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall mark"}
+                      : " · no overall rating"}
                   </p>
                   <p className="mt-1 text-meta text-muted">
                     {review.finalisedAt
@@ -681,7 +681,7 @@ export function WhatNeedsYouTab({
                     }
                     detail={objectiveNames(toSend)}
                     href="/performance/kpis"
-                    action="Open your KPIs"
+                    action="Open your objectives"
                   />
                 )}
 
@@ -802,7 +802,7 @@ export function WhatNeedsYouTab({
                         somebody records a rating, so the subject sees it when it is
                         final and not before — the API refuses it either way. */}
                       <span className="text-meta text-muted">
-                        You will see the mark when it is final
+                        You will see the score when it is final
                       </span>
                     </div>
                   ))}
@@ -837,7 +837,7 @@ export function WhatNeedsYouTab({
           score for these weights to describe. */}
       {scored && (
         <Disclosure
-          title="How a mark is made"
+          title="How a score is made"
           hint="How much each part counts for, and what each point on the scale means."
           level={2}
         >
@@ -930,7 +930,7 @@ export function WhatNeedsYouTab({
                     {review.subjectName}
                     {review.rating !== null
                       ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall mark"}
+                      : " · no overall rating"}
                   </p>
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
                     <span>{review.cycleName}</span>

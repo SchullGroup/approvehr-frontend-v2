@@ -145,21 +145,21 @@ export function SendForAgreementDialog({
               : "It goes to somebody who can agree it. Nobody agrees their own."}
           </p>
           <p className="mt-2">
-            Once it is agreed the target is fixed: the title, the period and
-            every measure&rsquo;s target stop moving, and no new measure can be
-            added. Progress still moves. Changing what was asked for after that
-            takes a recorded revision.
+            Once it is agreed it is fixed: the title, the period and every
+            target&rsquo;s figure stop moving, and no new target can be added.
+            Progress still moves. Changing what was asked for after that takes a
+            recorded revision.
           </p>
           {shown.keyResults.length === 0 && (
             <p className="mt-2 text-warning-text">
-              It has no measure on it, so it will be scored on a figure somebody
+              It has no target on it, so it will be scored on a figure somebody
               states by hand. Add one first if it should be measured.
             </p>
           )}
           {shown.reviewCycleId === null && (
             <p className="mt-2 text-warning-text">
               It is not in an appraisal period, so agreeing it counts towards
-              nobody&rsquo;s mark, and the period is one of the fields that
+              nobody&rsquo;s score, and the period is one of the fields that
               freezes, so it cannot be added afterwards.
             </p>
           )}

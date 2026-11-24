@@ -13948,3 +13948,67 @@ API with a real manager whose role lacks the permission, so the root cause is re
 tests, not reproduced on a running stack. The customer's actual roles were not read (no access); if the approver
 turns out to hold `APPROVE_LEAVE` and still be refused, the cause is something else (their record's manager is
 not the employee's manager, or a sign-in token from before the role was granted).
+
+---
+
+# One word per idea in Performance, and weights that add up to 100%
+
+Two decisions from the owner after the UAT of 23 November (U94 / PERF-14, L14 / PERF-39).
+
+## The words
+
+Performance had KPI, objective, goal, measure, key result and skill for a handful of ideas, and "mark"
+meant a 1–5 rating on one screen and a percentage on every other. It now uses one word per idea:
+
+| Idea | Word | Was |
+| ---- | ---- | --- |
+| What somebody aims at in a period | **Objective** | KPI, goal |
+| The number an objective is measured by (a key result) | **Target** | measure |
+| The number a target aims for | "aiming for" on the row, **Target value** in the form, **Figure** in the assistant's draft | target |
+| What is rated against a framework | **Competency** | skill |
+| A 1–5 level, including the overall one at the end of a form | **Rating**, **overall rating** | mark, overall mark |
+| The percentage a period works out | **Score** | mark |
+
+The Settings tabs are **Parts of the score**, **Rating names** and **Records**. The tab that was "Names of
+marks" names the five words of the 1–5 scale, so by the rule above it is **Rating names**, not "score".
+**Addresses did not change**: `/performance/kpis`, `/performance/skills`, `?tab=marks` and the
+`overall-mark-*` files keep their names, and so do the API's fields (`overallMark`, `keyResults`).
+
+The change was made only inside the text people read. `scratchpad`-style scripts read each `.ts`/`.tsx`
+file with the TypeScript parser and rewrote words in string literals, template text and JSX text only, so
+no identifier, key or comparison moved. Verbs were left alone (**Mark done**, **Mark as checked**), and
+so were "pass mark" in hiring and every "measured against" outside Performance.
+
+**What still says "mark" or "measure"**, on purpose:
+
+- **Sentences the API writes** (the self-assessment note, the Manager appraisal note, refusals, the
+  objectives import's column notes and warnings). They are shown as the API sends them. The API needs
+  its own pass.
+- **The objectives spreadsheet's headings** ("Measure", "Starting value", "Target value"). They are
+  matched against the API's dictionary by `verify-template` and by the API itself, so renaming one here
+  alone would make the API drop the column. Change the API's dictionary first, with the old heading as an
+  alias, then this side.
+- **Competency targets** ("Below target" in the gap table, "No target" in Record a level): the level a job
+  role expects is a different idea from an objective's target and kept its word.
+
+## The weights add up to 100%
+
+This reverses "Weights that add up to more than 100% say so, and still save", above. The owner's rule is
+that a part's weight is its share of the score, so the weights add up to exactly 100%, in Settings and on
+a period. `WEIGHTS_RULE` says it once for every screen.
+
+The company's parts are saved one at a time, and a total cannot be checked one part at a time: adding a
+part, or lowering one, moves the total off 100% on the way to the next save. So:
+
+- A part's own dialog has **no weight**. A new part is added at 0% and **Change the weights** opens next.
+- **Change the weights** has every part's weight, keeps **Save the weights** shut until they add up to
+  exactly 100%, says by how much they are off, and sends the whole set in one write
+  (`PUT /performance/scoring-weights`; the API skips a 0 for a source the company has no part for, so it
+  never brings a deleted part back).
+- A part that still counts is **not deleted**: the bin explains and opens the editor with that part at 0.
+- A set saved before the rule (110%, say) is listed with a line saying it has to come to 100% and that,
+  until it does, each part counts for its share of the total, which is what the API still does.
+
+A period's own weights already refused anything but 100% (`periodWeightsProblem`); only its comments
+changed. **The API still accepts any total** and scores in proportion: the rule is this side's until the
+API refuses too.

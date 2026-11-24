@@ -23,6 +23,7 @@ import {
 import { useEmployeeStore } from "./employees";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { createSharedResource } from "@/lib/shared-resource";
 
 /**
  * Departments, in both modes — and demo mode can now edit them.
@@ -170,50 +171,76 @@ function assertPersonExists(
 
 /* --------------------------------------------------------------- the read */
 
+/**
+ * The department tree, one request per screen (L31, SELF-26).
+ *
+ * Every component that showed departments fetched the tree for itself, so the
+ * KPIs screen asked seven times on one load. The value is the outcome, not the
+ * tree, for the reason `store/holidays.ts` gives: a shared resource caches what
+ * its fetcher resolves, so a rejection would come back as an empty company with
+ * no explanation instead of the API's own sentence.
+ */
+type DepartmentsOutcome = {
+  result: Awaited<ReturnType<typeof api.tree>> | null;
+  error: ApiError | null;
+};
+
+const departmentTrees = createSharedResource<DepartmentsOutcome>(
+  async (key, signal) => {
+    try {
+      return {
+        result: await api.tree(key === "archived", signal),
+        error: null,
+      };
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError")
+        throw error;
+      return {
+        result: null,
+        error: error instanceof ApiError ? error : null,
+      };
+    }
+  },
+);
+
+/* One revalidation in flight per key, however many components ask on focus. */
+const revalidating = new Set<string>();
+
+function revalidateDepartments(key: string): void {
+  if (revalidating.has(key)) return;
+  revalidating.add(key);
+  void api
+    .tree(key === "archived")
+    .then((result) => departmentTrees.set(key, { result, error: null }))
+    .catch(() => {
+      /* A failed refresh leaves the answer already on screen. */
+    })
+    .finally(() => revalidating.delete(key));
+}
+
 export function useDepartments(includeArchived = false) {
   const { isConnected } = useSession();
   const demo = useDemoStructure();
   const { directory, update: patchEmployee } = useEmployeeStore();
 
-  const [tick, setTick] = useState(0);
-  const [fetched, setFetched] = useState<{
-    key: string;
-    result: Awaited<ReturnType<typeof api.tree>> | null;
-    error: ApiError | null;
-  } | null>(null);
+  /* One shared answer per screen (L31): every component that showed
+     departments used to fetch the tree for itself, seven times on the KPIs
+     screen. See `departmentTrees` below. */
+  const sharedKey = includeArchived ? "archived" : "live";
+  const outcome = departmentTrees.use(isConnected ? sharedKey : null);
 
-  const key = `${String(includeArchived)}|${tick}`;
-
-  /* Re-ask when somebody comes back to the window. Not in the key below,
-     so the answer is replaced without the screen flashing a skeleton. */
+  /* Re-ask when somebody comes back to the window, in place, so the screen
+     does not flash a skeleton for an answer it already has. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const result = await api.tree(includeArchived, controller.signal);
-        if (!cancelled) setFetched({ key, result, error: null });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        if (!cancelled) {
-          setFetched({
-            key,
-            result: null,
-            error: error instanceof ApiError ? error : null,
-          });
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [isConnected, includeArchived, key, revalidation]);
+    if (!isConnected || revalidation === 0) return;
+    revalidateDepartments(sharedKey);
+  }, [isConnected, sharedKey, revalidation]);
 
-  const reload = useCallback(() => setTick((current) => current + 1), []);
+  const reload = useCallback(
+    () => departmentTrees.refresh(sharedKey),
+    [sharedKey],
+  );
 
   /* Both derived, never stored. `people` is the live directory rather than the
      `EMPLOYEES` seed for the reason `demo-structure.ts` gives: the seed is a
@@ -225,8 +252,6 @@ export function useDepartments(includeArchived = false) {
     [demo, people, includeArchived],
   );
 
-  const matched = fetched !== null && fetched.key === key;
-
   const state: DepartmentsState = !isConnected
     ? {
         ...demoValue,
@@ -236,13 +261,11 @@ export function useDepartments(includeArchived = false) {
         demoNote: DEMO_STRUCTURE_NOTE,
       }
     : {
-        tree: matched ? (fetched.result?.tree ?? []) : [],
-        flat: matched ? (fetched.result?.flat ?? []) : [],
-        counts: matched
-          ? (fetched.result?.counts ?? EMPTY_COUNTS)
-          : EMPTY_COUNTS,
-        loading: !matched,
-        error: matched ? fetched.error : null,
+        tree: outcome?.result?.tree ?? [],
+        flat: outcome?.result?.flat ?? [],
+        counts: outcome?.result?.counts ?? EMPTY_COUNTS,
+        loading: outcome === null,
+        error: outcome?.error ?? null,
         source: "api",
         demoNote: DEMO_STRUCTURE_NOTE,
       };
@@ -551,6 +574,10 @@ export function useDepartment(id: string | null) {
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  /* Bumped after a change made from this page, so it reads the unit again
+     without the skeleton (the key below does not move). */
+  const [nonce, setNonce] = useState(0);
+  const reload = useCallback(() => setNonce((n) => n + 1), []);
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -569,7 +596,7 @@ export function useDepartment(id: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [id, active, revalidation]);
+  }, [id, active, revalidation, nonce]);
 
   const people = useMemo(() => structurePeople(directory), [directory]);
   const demoDetail = useMemo(
@@ -579,9 +606,10 @@ export function useDepartment(id: string | null) {
 
   const matched = active && fetched !== null && fetched.id === id;
 
-  if (!isConnected) return { detail: demoDetail, loading: false };
+  if (!isConnected) return { detail: demoDetail, loading: false, reload };
 
   return {
+    reload,
     detail: matched ? fetched.detail : null,
     /* Derived rather than tracked. We are loading exactly while an active id
        has no matching result yet, which is true from the moment `id` changes

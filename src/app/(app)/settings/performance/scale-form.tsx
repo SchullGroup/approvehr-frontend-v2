@@ -174,7 +174,7 @@ export function RatingScaleForm() {
            awarded is re-worded under anybody. */
         detail:
           "Appraisal periods already running keep the words they started " +
-          "with, so no mark already given changes. This applies to the next " +
+          "with, so no rating already given changes. This applies to the next " +
           "period you start.",
       });
     } catch (caught) {
@@ -194,7 +194,7 @@ export function RatingScaleForm() {
   return (
     <Card>
       <CardHeader
-        title="What a mark is called"
+        title="What each rating is called"
         description="Every appraisal form shows these words instead of a bare number."
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -235,9 +235,9 @@ export function RatingScaleForm() {
                 title="Changing these needs settings permission"
               >
                 <p>
-                  The words a mark is given in sit behind the same permission as
-                  the rest of company configuration. Everybody can read them: a
-                  scale you are measured against and not allowed to read would
+                  The words a rating is given in sit behind the same permission
+                  as the rest of company configuration. Everybody can read them:
+                  a scale you are measured against and not allowed to read would
                   be an odd thing to ship.
                 </p>
               </Callout>
@@ -248,8 +248,8 @@ export function RatingScaleForm() {
               title="A period keeps the words it started with"
             >
               <p>
-                Renaming a level here does not re-word a mark already given. An
-                appraisal period freezes the scale when it starts, so a 4
+                Renaming a level here does not re-word a rating already given.
+                An appraisal period freezes the scale when it starts, so a 4
                 awarded last half still reads as whatever a 4 was called then.
               </p>
               <p className="mt-2">

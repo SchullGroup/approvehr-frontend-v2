@@ -86,7 +86,7 @@ export function MeasurePicker({
   return (
     <Select
       {...(id ? { id } : {})}
-      {...(labelled ? {} : { "aria-label": "Measure (optional)" })}
+      {...(labelled ? {} : { "aria-label": "Target (optional)" })}
       value={value ?? ""}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value || null)}

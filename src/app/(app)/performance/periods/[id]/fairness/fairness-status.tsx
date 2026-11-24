@@ -7,7 +7,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiReviewFlags, ReviewCycleStage } from "@/lib/api/performance";
 import { flaggedCount } from "./people-to-review";
 
-const marks = (n: number) => `${String(n)} ${n === 1 ? "mark" : "marks"}`;
+const marks = (n: number) => `${String(n)} ${n === 1 ? "score" : "scores"}`;
 
 /**
  * Why the period cannot be published yet, or null. Mirrors `publishBlocker` in
@@ -62,7 +62,7 @@ export function FairnessStatus({
     return loading ? (
       <div className="flex items-center gap-2 text-body-sm text-muted">
         <Spinner size="sm" />
-        Checking marks against the evidence
+        Checking scores against the evidence
       </div>
     ) : null;
   }
@@ -78,8 +78,8 @@ export function FairnessStatus({
     return (
       <Status
         tone="success"
-        headline="No marks are flagged by the fairness check."
-        detail={`Every mark is within ${String(flags.rules.gapBp / 100)} points of what the evidence suggests.${unchecked}`}
+        headline="No scores are flagged by the fairness check."
+        detail={`Every score is within ${String(flags.rules.gapBp / 100)} points of what the evidence suggests.${unchecked}`}
         action={
           <Link
             href={href}
@@ -107,7 +107,7 @@ export function FairnessStatus({
     return (
       <Status
         tone="success"
-        headline={`Every flagged mark has a decision (${String(decided)} of ${String(flagged)}).`}
+        headline={`Every flagged score has a decision (${String(decided)} of ${String(flagged)}).`}
         detail="You can publish the results."
         action={<Open href={href} label="See decisions" />}
       />
@@ -117,9 +117,9 @@ export function FairnessStatus({
   return (
     <Status
       tone="warning"
-      headline={`${String(decided)} of ${String(flagged)} flagged marks decided${waiting ? `, ${String(waiting)} waiting on a manager` : ""}${open ? `, ${String(open)} to go` : ""}.`}
-      detail="Publishing unlocks when every flagged mark has a decision. Their manager may have a good reason; the check flags, it doesn’t decide."
-      action={<Open href={href} label="Review flagged marks" />}
+      headline={`${String(decided)} of ${String(flagged)} flagged scores decided${waiting ? `, ${String(waiting)} waiting on a manager` : ""}${open ? `, ${String(open)} to go` : ""}.`}
+      detail="Publishing unlocks when every flagged score has a decision. Their manager may have a good reason; the check flags, it doesn’t decide."
+      action={<Open href={href} label="Review flagged scores" />}
     />
   );
 }

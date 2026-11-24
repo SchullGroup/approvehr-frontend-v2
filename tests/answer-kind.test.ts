@@ -251,7 +251,7 @@ describe("what an answer recorded on a subsection counts towards", () => {
   it("is a warning when the subsection is filed under no section", () => {
     expect(directCounts({ kind: "RATING", section: null })).toEqual({
       tone: "warning",
-      text: "This subsection is not filed under a section, so a level recorded on it counts towards no part of the mark.",
+      text: "This subsection is not filed under a section, so a level recorded on it counts towards no part of the score.",
     });
   });
 
@@ -262,7 +262,7 @@ describe("what an answer recorded on a subsection counts towards", () => {
     });
     expect(counts).toEqual({
       tone: "warning",
-      text: "Key result area is not weighted, so an answer recorded on this counts towards no part of the mark.",
+      text: "Key result area is not weighted, so an answer recorded on this counts towards no part of the score.",
     });
     expect(counts?.text).not.toMatch(/0%/);
   });
@@ -275,7 +275,7 @@ describe("what an answer recorded on a subsection counts towards", () => {
       }),
     ).toEqual({
       tone: "muted",
-      text: "Core competency is 40% of the mark, and an answer recorded here counts towards it.",
+      text: "Core competency is 40% of the score, and an answer recorded here counts towards it.",
     });
     expect(
       directCounts({

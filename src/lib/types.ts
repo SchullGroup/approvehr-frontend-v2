@@ -58,6 +58,11 @@ export type Employee = {
    */
   middleName?: string | null;
   email: string | null;
+  /**
+   * Their own address, apart from a work one (U16). A hire from recruitment
+   * arrives with this and no work email. Absent from an API that predates it.
+   */
+  personalEmail?: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   gender?: "female" | "male" | "other";

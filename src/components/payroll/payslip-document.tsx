@@ -677,11 +677,16 @@ function Detail({
   strong?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 sm:justify-start">
-      <dt className="w-28 shrink-0 text-meta text-muted">{label}</dt>
+    /* Stacked under 480px, label over value, so a long name or account is
+       read in full on a phone rather than cut to "Ibrahim M" (UAT 23 Nov, U85:
+       NC-23). Side by side from 480px, as before. */
+    <div className="flex min-w-0 flex-col gap-0.5 min-[480px]:flex-row min-[480px]:items-baseline min-[480px]:justify-between min-[480px]:gap-3 sm:justify-start">
+      <dt className="text-meta text-muted min-[480px]:w-28 min-[480px]:shrink-0">
+        {label}
+      </dt>
       <dd
         className={cn(
-          "min-w-0 truncate text-body-sm",
+          "min-w-0 text-body-sm break-words min-[480px]:truncate",
           strong ? "font-medium text-ink" : "text-body",
         )}
       >

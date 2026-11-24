@@ -29,6 +29,7 @@ import {
   Input,
   Modal,
   RowActions,
+  type RowAction,
   Select,
   Stat,
   TBody,
@@ -50,19 +51,25 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
+  dayLabel,
+  EXCEPTION_CODE_SUMMARY,
+  groupExceptionsByCode,
+  outOf5FromBp,
+  outOf5Label,
   ratingWordsFrom,
   scoreLabel,
+  scoreWords,
   visibleComponents,
   weightLabel,
   weightsFromNote,
-  dayLabel,
+  type ApiAppraiserMap,
   type ApiComponentScore,
-  type ReviewCycleStage,
   type ApiCycle,
   type ApiCycleParticipants,
   type ApiRevisionRequest,
   type ApiScoreRegister,
   type ApiScoreRow,
+  type ReviewCycleStage,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import {
@@ -76,7 +83,7 @@ import {
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
-import { AskPeersButton } from "./ask-peers";
+import { AskPeersButton, AskPeersDialog } from "./ask-peers";
 import {
   anybodyToNudge,
   nudgeAudience,
@@ -157,13 +164,13 @@ const STAGE_AFTER: Partial<Record<ReviewCycleStage, ReviewCycleStage>> = {
 
 const STAGE_NEXT_LABEL: Record<string, string> = {
   MANAGER: "manager reviews",
-  CALIBRATION: "checking marks",
+  CALIBRATION: "checking scores",
 };
 
 /** What the main button says for the move out of the current stage. */
 const NEXT_BUTTON: Record<string, string> = {
   MANAGER: "Open manager reviews",
-  CALIBRATION: "Check marks",
+  CALIBRATION: "Check scores",
 };
 
 type PeriodTabId = "overview" | "questions" | "marks" | "settings";
@@ -203,7 +210,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const canManage = useCan("MANAGE_SETTINGS");
   const canSeeFairness = useCan("VIEW_FAIRNESS");
   const review = useReviewFlags(cycleId, canSeeFairness);
-  const detail = useCycleRegister(cycleId, canSeeCompany);
+  const detail = useCycleRegister(cycleId, canSeeCompany, canManage);
   const periods = useCycleMutations();
   const toast = useToast();
 
@@ -234,9 +241,13 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const draft = period?.stage === "DRAFT";
   const published = period?.stage === "PUBLISHED";
   const running = period !== null && !draft && !published;
-  /* A draft has nothing to measure yet, so it opens on its questions. */
+  /* A draft has nothing to measure yet, so it opens on its questions for
+     whoever may write them. The questions are read with MANAGE_SETTINGS only
+     (`GET .../questions`), so nobody else is offered the tab (UAT 23 Nov, L11):
+     it would load into a refusal. */
+  const questionsTab = draft && canManage;
   const periodTab: PeriodTabId =
-    chosenTab ?? (draft ? "questions" : "overview");
+    chosenTab ?? (questionsTab ? "questions" : "overview");
   const flagged = review.flags ? flaggedCount(review.flags) : 0;
 
   /* Only while it is actually running: a draft has not started and a
@@ -327,7 +338,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         detail:
           nextStage === "MANAGER"
             ? "Managers write their reviews now. Self-reviews already in are kept."
-            : "Marks are in. Nothing more is asked of anyone until you publish.",
+            : "Scores are in. Nothing more is asked of anyone until you publish.",
       });
       detail.reload();
     } catch (error) {
@@ -346,7 +357,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         tone: "success",
         detail:
           result.unscored.length > 0
-            ? `${result.unscored.length} ${result.unscored.length === 1 ? "person finishes" : "people finish"} with no mark: ${result.unscored.join(", ")}.`
+            ? `${result.unscored.length} ${result.unscored.length === 1 ? "person finishes" : "people finish"} with no score: ${result.unscored.join(", ")}.`
             : "People can now read what their manager wrote about them.",
       });
       detail.reload();
@@ -582,23 +593,12 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           )}
 
           <Tabs
-            items={
-              draft
-                ? [
-                    { id: "questions", label: "Questions" },
-                    ...(canManage
-                      ? [{ id: "settings", label: "Settings" }]
-                      : []),
-                  ]
-                : [
-                    { id: "overview", label: "Overview" },
-                    { id: "questions", label: "Questions" },
-                    { id: "marks", label: "Marks" },
-                    ...(canManage
-                      ? [{ id: "settings", label: "Settings" }]
-                      : []),
-                  ]
-            }
+            items={[
+              ...(questionsTab ? [] : [{ id: "overview", label: "Overview" }]),
+              ...(canManage ? [{ id: "questions", label: "Questions" }] : []),
+              ...(draft ? [] : [{ id: "marks", label: "Scores" }]),
+              ...(canManage ? [{ id: "settings", label: "Settings" }] : []),
+            ]}
             value={periodTab}
             onChange={(next) => setPeriodTab(next as PeriodTabId)}
           >
@@ -615,8 +615,18 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                       <ProgressStats
                         rows={outstanding}
                         participants={detail.participants}
+                        published={period?.stage === "PUBLISHED"}
+                        marked={detail.register?.rows.length ?? null}
                         onShowLeft={() => setShowingLeft(true)}
                       />
+                      {/* Nobody can be given an appraiser once a period is
+                          published, so a published one lists nobody. */}
+                      {period?.stage !== "PUBLISHED" && (
+                        <NobodyAppraising
+                          cycleId={cycleId}
+                          exceptions={detail.exceptions}
+                        />
+                      )}
                       <MultiAppraiserReviews
                         participants={detail.participants}
                       />
@@ -625,7 +635,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 </LoadState>
               </div>
             )}
-            {periodTab === "questions" && period && (
+            {periodTab === "questions" && period && canManage && (
               <QuestionsPanel
                 cycleId={cycleId}
                 editable={canManage && period.stage !== "PUBLISHED"}
@@ -643,7 +653,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                       variant="ghost"
                       onClick={() => setShowingMakeup(true)}
                     >
-                      How the mark is made up
+                      How the score is made up
                     </Button>
                   </div>
                   <Register
@@ -722,7 +732,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         <Modal
           open
           onClose={() => setShowingMakeup(false)}
-          title="How the mark is made up"
+          title="How the score is made up"
           size="md"
           footer={
             <Button onClick={() => setShowingMakeup(false)}>Close</Button>
@@ -749,7 +759,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           real signal, threaded through so `QuestionsDialog`'s `Modal` can see
           it go false and play its exit animation instead of the whole dialog
           vanishing with `questionsOpen` itself. */}
-      {period && (
+      {/* Only for whoever may write the questions: mounted, it reads them, and
+          that read is refused without the settings permission (L11). */}
+      {period && canManage && (
         <QuestionsDialog
           open={questionsOpen}
           cycleId={cycleId}
@@ -812,7 +824,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           title="Share the results?"
           confirmLabel="Share them"
           tone="primary"
-          body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no mark finishes with none.`}
+          body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no score finishes with none.`}
         />
       )}
 
@@ -887,25 +899,68 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The people something is wrong with, by name, above everything else.
+ * The people something is wrong with, by name (UAT 23 Nov, U102 / PERF-23).
  *
- * `NO_APPRAISER` is a WARNING in a draft and a BLOCKER once the cycle is
- * running, which is the API's decision and the right one: colouring the whole
- * company red before anybody has started teaches people to ignore the colour.
+ * The period page said people nobody asked were "listed above" and listed
+ * nobody: the list had gone in a redesign and only its comment stayed. It is
+ * back, from the appraiser map's own exceptions (`NO_APPRAISER` and the rest),
+ * one line per kind of problem with the people named, and a link to Who
+ * appraises whom, where they are fixed. Nothing to fix draws nothing: the
+ * progress above already says what is in.
  *
- * An empty list is stated rather than left blank. "Everybody has an appraiser" is
- * a fact worth reading, and a card that simply disappears when the news is good
- * is a card nobody trusts when it comes back.
- *
- * ## One line per problem, not one line per person
- *
- * A company where nobody has been mapped yet can have thirty people sharing
- * the exact same `NO_APPRAISER` sentence, and thirty near-identical lines is
- * not thirty facts — it is one fact said thirty times. `groupExceptionsByCode`
- * collapses a repeated one to a count with a **Review and fix** button; a
- * genuinely different problem, or a lone occurrence of this one, still gets
- * its own full sentence. See its own header on `lib/api/performance.ts`.
+ * Named and not counted, because a count tells nobody who to go and look at;
+ * past eight names the rest are counted, and every one of them is on the page
+ * the link opens.
  */
+const NAMED = 8;
+
+function namesInLine(names: string[]): string {
+  if (names.length <= NAMED) {
+    return names.length === 1
+      ? names[0]!
+      : `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
+  }
+  const rest = names.length - NAMED;
+  return `${names.slice(0, NAMED).join(", ")} and ${rest} ${rest === 1 ? "other" : "others"}`;
+}
+
+function NobodyAppraising({
+  cycleId,
+  exceptions,
+}: {
+  cycleId: string;
+  exceptions: ApiAppraiserMap | null;
+}) {
+  if (!exceptions) return null;
+  const flat = exceptions.rows.flatMap((row) =>
+    row.exceptions.map((issue) => ({ ...issue, name: row.employeeName })),
+  );
+  if (flat.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {groupExceptionsByCode(flat).map((group) => {
+        const summary = EXCEPTION_CODE_SUMMARY[
+          group.code as keyof typeof EXCEPTION_CODE_SUMMARY
+        ](group.items.length);
+        return (
+          <NoticeLine key={`${group.code}-${group.severity}`}>
+            <span>
+              {`${summary.replace(/\.$/, "")}: ${namesInLine(group.items.map((item) => item.name))}.`}
+            </span>
+            <Link
+              href={`/performance/appraisers?period=${cycleId}`}
+              className={NOTICE_LINK}
+            >
+              Assign appraisers
+            </Link>
+          </NoticeLine>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Who has not sent a form yet, by name and by what is missing.
  *
@@ -915,32 +970,56 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 function ProgressStats({
   rows,
   participants,
+  published,
+  marked,
   onShowLeft,
 }: {
   rows: { employeeId: string; reviewId: string; what: string }[];
   participants: ApiCycleParticipants | null;
+  /** A published period is a record, said in the past tense (U96 / PERF-16). */
+  published: boolean;
+  /** Who the period's register reads: for a published one, who was in it. */
+  marked: number | null;
   onShowLeft: () => void;
 }) {
   if (!participants) return null;
-  if (participants.counts.people === 0) {
+  /* Who was in a published period is the register's rows, not today's staff
+     (U96): the page said "Nobody is in this period yet" over 46 scores. */
+  if (published) {
+    const people = marked ?? participants.counts.people;
+    if (people === 0) {
+      return (
+        <p className="text-body-sm text-muted">Nobody was in this period.</p>
+      );
+    }
+  } else if (participants.counts.people === 0) {
     return (
       <p className="text-body-sm text-muted">Nobody is in this period yet.</p>
     );
   }
 
-  /* Both halves of each ratio come off the same rows. A manager review is a
-     review and not a person: somebody with two appraisers owes two and somebody
-     with none owes none, so the denominator is how many exist. */
-  const managerTotal = participants.rows.reduce(
-    (total, row) => total + row.managers.length,
-    0,
-  );
-  const managerIn = participants.rows.reduce(
-    (total, row) => total + row.managers.filter((one) => one.submitted).length,
-    0,
-  );
-  const selfTotal = participants.rows.filter((row) => row.self !== null).length;
-  const selfIn = participants.rows.filter((row) => row.self?.submitted).length;
+  /* The API's counts, which the report's `progress` and the dashboard read too
+     (U103 / CRAWL-2): people, out of the people each applies to. An API that
+     predates `selfTotal` is counted off the same rows, as before. */
+  const { counts } = participants;
+  const fromApi =
+    counts.selfTotal !== undefined && counts.managerTotal !== undefined;
+  const managerTotal = fromApi
+    ? counts.managerTotal!
+    : participants.rows.reduce((total, row) => total + row.managers.length, 0);
+  const managerIn = fromApi
+    ? counts.managerDone
+    : participants.rows.reduce(
+        (total, row) =>
+          total + row.managers.filter((one) => one.submitted).length,
+        0,
+      );
+  const selfTotal = fromApi
+    ? counts.selfTotal!
+    : participants.rows.filter((row) => row.self !== null).length;
+  const selfIn = fromApi
+    ? counts.selfDone
+    : participants.rows.filter((row) => row.self?.submitted).length;
   const ratio = (done: number, total: number) =>
     total === 0 ? <span className="text-faint">—</span> : `${done} of ${total}`;
 
@@ -1037,7 +1116,7 @@ function QuestionsPanel({
             <CardHeader title="Questions" />
             <CardBody className="flex flex-col gap-3">
               <p className="text-meta text-muted">
-                Read by managers. Not part of the mark.
+                Read by managers. Not part of the score.
               </p>
               <ul className="flex flex-col gap-2">
                 {extra.map((q) => (
@@ -1090,13 +1169,19 @@ function PeriodSettings({
   return (
     <div className="flex flex-col gap-6">
       <Card>
+        {/* A published period is a fixed record, and its name is part of it
+            (U96 / PERF-16). */}
         <CardHeader
           title="Name"
-          action={
-            <Button size="sm" variant="secondary" onClick={onRename}>
-              Rename
-            </Button>
-          }
+          {...(period.stage === "PUBLISHED"
+            ? {}
+            : {
+                action: (
+                  <Button size="sm" variant="secondary" onClick={onRename}>
+                    Rename
+                  </Button>
+                ),
+              })}
         />
         <CardBody>
           <p className="text-body-sm text-ink">{period.name}</p>
@@ -1267,7 +1352,7 @@ function Register({
   if (register.rows.length === 0) {
     return (
       <Card>
-        <CardHeader title="Where the marks stand" />
+        <CardHeader title="Where the scores stand" />
         <EmptyState
           compact
           icon={<UserX aria-hidden="true" />}
@@ -1281,13 +1366,13 @@ function Register({
   return (
     <Card>
       <CardHeader
-        title="Where the marks stand"
+        title="Where the scores stand"
         description={
           register.weightsFrom === "period"
             ? `${weightsFromNote("period")} Totalling ${weightLabel(register.weightsTotalBp)}. They lock in when the period starts.`
             : register.weightsFrom === "snapshot"
-              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
-              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
+              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these scores.`
+              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -1322,9 +1407,13 @@ function Register({
               <TH>Objectives agreed</TH>
               <TH align="right">Score</TH>
               <TH>Sign-off</TH>
-              {canAskPeers && <TH>Feedback</TH>}
-              {canCalibrate && <TH>Calibration</TH>}
-              {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
+              {(canAskPeers ||
+                canCalibrate ||
+                (canRequestRevision && !revisionsUnavailable)) && (
+                <TH align="right">
+                  <span className="sr-only">Actions</span>
+                </TH>
+              )}
             </THead>
             <TBody>
               {register.rows.map((row) => (
@@ -1368,7 +1457,7 @@ function Register({
   );
 }
 
-function RegisterRow({
+export function RegisterRow({
   row,
   cycleId,
   canAskPeers,
@@ -1413,18 +1502,18 @@ function RegisterRow({
       <TD align="right">
         {/* Absent is absent. Nothing recorded is not a mark of nought. */}
         {row.scoreBp === null ? (
-          <span className="text-muted">No mark</span>
+          <span className="text-muted">No score</span>
         ) : (
           <>
             <span className="inline-flex items-center justify-end gap-1.5">
               <span className="tabular font-medium text-ink">
-                {scoreLabel(row.scoreBp)}
+                {scoreWords(row)}
               </span>
               {row.components.length > 0 && (
                 <InfoTooltip
                   id={`mark-parts-${row.employeeId}`}
                   text={breakdownSentence(row.components)}
-                  label={`How ${row.employeeName}’s mark is made up`}
+                  label={`How ${row.employeeName}’s score is made up`}
                 />
               )}
             </span>
@@ -1439,7 +1528,8 @@ function RegisterRow({
                 className="mt-0.5 block text-meta text-muted"
                 title={row.calibration.reason}
               >
-                Moved from {scoreLabel(row.calibration.originalBp)}
+                Moved from{" "}
+                {outOf5Label(outOf5FromBp(row.calibration.originalBp))}
               </span>
             )}
           </>
@@ -1448,47 +1538,130 @@ function RegisterRow({
       <TD>
         <SignOffCell row={row} />
       </TD>
-      {/* The 360 half, which had no door at all until now: the endpoint was
-          written, guarded and tested, and the product could render peer
-          answers it had no way of asking for. */}
-      {canAskPeers && (
-        <TD>
-          <AskPeersButton
-            cycleId={cycleId}
-            subjectId={row.employeeId}
-            subjectName={row.employeeName}
-            onAsked={onAsked}
-          />
-        </TD>
-      )}
-      {/* Only at the calibration stage, and only for somebody who has a mark.
-          Moving a figure that does not exist yet is not calibration, it is
-          inventing one — and the whole column is absent before the stage
-          because a mark still being written is not one anybody should be
-          adjusting. */}
-      {canCalibrate && (
-        <TD>
-          {row.scoreBp === null ? (
-            <span className="text-meta text-muted">No mark yet</span>
-          ) : (
-            <CalibrateButton cycleId={cycleId} row={row} onChanged={onAsked} />
-          )}
-        </TD>
-      )}
-      {/* Same running window as calibration, but not restricted to it: a
-          review can need another pass at any stage while people are still
-          writing, not only once everybody has finished. */}
-      {canRequestRevision && (
-        <TD>
-          <RevisionButton
-            cycleId={cycleId}
+      {/* One menu for the acts on a person, not a column and a button each:
+          three buttons in three columns made every row three lines long
+          (UAT 23 Nov, L13: PERF-38). */}
+      {(canAskPeers || canCalibrate || canRequestRevision) && (
+        <TD align="right">
+          <MarkActions
             row={row}
-            existing={existingRevision}
+            cycleId={cycleId}
+            canAskPeers={canAskPeers}
+            canCalibrate={canCalibrate}
+            canRequestRevision={canRequestRevision}
+            existingRevision={existingRevision}
             onChanged={onAsked}
           />
         </TD>
       )}
     </TR>
+  );
+}
+
+/**
+ * Ask colleagues, change the mark and send back, behind one menu on a row of
+ * the Marks table. Each opens the same dialog its own button opens on the card
+ * a phone shows. The 360 half had no door at all until it was a button here;
+ * calibration is only at its stage and only for somebody with a mark; a review
+ * can be sent back at any running stage.
+ */
+function MarkActions({
+  row,
+  cycleId,
+  canAskPeers,
+  canCalibrate,
+  canRequestRevision,
+  existingRevision,
+  onChanged,
+}: {
+  row: ApiScoreRow;
+  cycleId: string;
+  canAskPeers: boolean;
+  canCalibrate: boolean;
+  canRequestRevision: boolean;
+  existingRevision: ApiRevisionRequest | undefined;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState<"peers" | "calibrate" | "revision" | null>(
+    null,
+  );
+  /* A new revision form each time it opens, so last time's reason is gone. */
+  const [revisionSession, setRevisionSession] = useState(0);
+  /* The colleagues dialog reads the staff list, so it is mounted only once
+     somebody has asked for it, and stays mounted after so it can animate out. */
+  const [peersOpened, setPeersOpened] = useState(false);
+
+  const items: RowAction[] = [];
+  if (canAskPeers) {
+    items.push({
+      label: "Ask colleagues",
+      onSelect: () => {
+        setPeersOpened(true);
+        setOpen("peers");
+      },
+    });
+  }
+  if (canCalibrate) {
+    items.push({
+      label: row.calibration ? "Change the moved score" : "Change the score",
+      disabled: row.scoreBp === null,
+      ...(row.scoreBp === null ? { hint: "No score yet" } : {}),
+      onSelect: () => setOpen("calibrate"),
+    });
+  }
+  if (canRequestRevision) {
+    items.push({
+      label: "Send back",
+      disabled: Boolean(existingRevision),
+      ...(existingRevision
+        ? { hint: "Sent back, waiting for them to send it again" }
+        : {}),
+      onSelect: () => {
+        setRevisionSession((n) => n + 1);
+        setOpen("revision");
+      },
+    });
+  }
+
+  return (
+    <>
+      <RowActions label={`More for ${row.employeeName}`} items={items} />
+      {peersOpened && (
+        <AskPeersDialog
+          open={open === "peers"}
+          cycleId={cycleId}
+          subjectId={row.employeeId}
+          subjectName={row.employeeName}
+          onClose={() => setOpen(null)}
+          onAsked={() => {
+            setOpen(null);
+            onChanged();
+          }}
+        />
+      )}
+      {canCalibrate && (
+        <CalibrateDialog
+          open={open === "calibrate"}
+          onClose={() => setOpen(null)}
+          onChanged={onChanged}
+          cycleId={cycleId}
+          employeeId={row.employeeId}
+          employeeName={row.employeeName}
+          computedBp={row.computedBp ?? row.scoreBp ?? 0}
+          existing={row.calibration}
+        />
+      )}
+      {canRequestRevision && (
+        <RevisionDialog
+          key={revisionSession}
+          open={open === "revision"}
+          onClose={() => setOpen(null)}
+          cycleId={cycleId}
+          row={row}
+          onChanged={onChanged}
+        />
+      )}
+    </>
   );
 }
 
@@ -1527,10 +1700,10 @@ function RegisterCard({
         </div>
         <div className="shrink-0 text-right">
           {row.scoreBp === null ? (
-            <span className="text-body-sm text-muted">No mark</span>
+            <span className="text-body-sm text-muted">No score</span>
           ) : (
             <span className="tabular font-medium text-ink">
-              {scoreLabel(row.scoreBp)}
+              {scoreWords(row)}
             </span>
           )}
         </div>
@@ -1540,7 +1713,7 @@ function RegisterCard({
         <div>
           {row.calibration && (
             <p className="text-meta text-muted" title={row.calibration.reason}>
-              Moved from {scoreLabel(row.calibration.originalBp)}
+              Moved from {outOf5Label(outOf5FromBp(row.calibration.originalBp))}
             </p>
           )}
           <ScoreParts components={row.components} />
@@ -1572,7 +1745,7 @@ function RegisterCard({
           )}
           {canCalibrate &&
             (row.scoreBp === null ? (
-              <span className="text-meta text-muted">No mark yet</span>
+              <span className="text-meta text-muted">No score yet</span>
             ) : (
               <CalibrateButton
                 cycleId={cycleId}
@@ -2062,7 +2235,7 @@ function AppraiseLeadersToggle({
       <p className="text-meta text-muted">
         Off for both by default. Whoever is left out still appraises their own
         team. They just do not get a form of their own, so they are not left
-        with no mark.
+        with no score.
       </p>
     </div>
   );
@@ -2107,7 +2280,7 @@ function CalibrateButton({
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        {row.calibration ? "Change it" : "Change the mark"}
+        {row.calibration ? "Change it" : "Change the score"}
       </Button>
       <CalibrateDialog
         open={open}
@@ -2160,21 +2333,66 @@ function RevisionButton({
   existing: ApiRevisionRequest | undefined;
   onChanged: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  /* A new form each time it opens, so last time's reason is gone. */
+  const [session, setSession] = useState(0);
+
+  if (existing) {
+    return (
+      <span
+        className="text-meta text-muted"
+        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"}, ${existing.reason}`}
+      >
+        Sent back, waiting for them to send it again
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => {
+          setSession((n) => n + 1);
+          setOpen(true);
+        }}
+      >
+        Send back
+      </Button>
+      <RevisionDialog
+        key={session}
+        open={open}
+        onClose={() => setOpen(false)}
+        cycleId={cycleId}
+        row={row}
+        onChanged={onChanged}
+      />
+    </>
+  );
+}
+
+/** The form behind Send back, from a card's button or a row's menu. */
+function RevisionDialog({
+  open,
+  onClose,
+  cycleId,
+  row,
+  onChanged,
+}: {
+  open: boolean;
+  onClose: () => void;
+  cycleId: string;
+  row: ApiScoreRow;
+  onChanged: () => void;
+}) {
   const periods = useCycleMutations();
   const toast = useToast();
 
-  const [open, setOpen] = useState(false);
   const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">("MANAGER");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-
-  const start = () => {
-    setTargetStage("MANAGER");
-    setReason("");
-    setFailed(null);
-    setOpen(true);
-  };
 
   const save = async () => {
     if (reason.trim().length < 10) {
@@ -2197,7 +2415,7 @@ function RevisionButton({
             ? "Their self-appraisal is open for another pass."
             : "Their manager review is open for another pass.",
       });
-      setOpen(false);
+      onClose();
       onChanged();
     } catch (caught) {
       setFailed(
@@ -2210,35 +2428,20 @@ function RevisionButton({
     }
   };
 
-  if (existing) {
-    return (
-      <span
-        className="text-meta text-muted"
-        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"}, ${existing.reason}`}
-      >
-        Sent back, waiting for them to send it again
-      </span>
-    );
-  }
-
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={start}>
-        Send back
-      </Button>
-
-      {/* No open-gating here, matching `CalibrateButton` above: `Modal` reads
-          its own `useDismiss` state, so it has to stay mounted with the real
-          `open` passed through rather than being unmounted by this wrapper. */}
+      {/* No open-gating here, matching `CalibrateDialog`: `Modal` reads its own
+          `useDismiss` state, so it stays mounted with the real `open` passed
+          through rather than being unmounted by its caller. */}
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={onClose}
         title={`Send ${row.employeeName}'s review back`}
         description="Opens that one review again so they can redo it. Nobody else's review changes."
         size="sm"
         footer={
           <div className="flex justify-end gap-2">
-            <Button disabled={busy} onClick={() => setOpen(false)}>
+            <Button disabled={busy} onClick={onClose}>
               Cancel
             </Button>
             <Button variant="accent" loading={busy} onClick={() => void save()}>

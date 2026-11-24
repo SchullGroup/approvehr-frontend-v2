@@ -74,7 +74,7 @@ import {
   useLeaveRequests,
 } from "@/lib/store/leave-api";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDayRange, todayIn } from "@/lib/time";
 import { TODAY, shortDate } from "@/lib/today";
 import { BookLeaveDialog } from "./book-leave";
 import { HolidayCalendarCard } from "./holiday-calendar";
@@ -682,7 +682,7 @@ export function LeaveScreen() {
                             </>
                           )}
                           <TD className="tabular whitespace-nowrap">
-                            {r.from} → {r.to}
+                            {formatDayRange(r.from, r.to)}
                           </TD>
                           <TD
                             align="right"
@@ -783,7 +783,7 @@ export function LeaveScreen() {
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
                         {!personal && <span>{r.leaveType}</span>}
                         <span className="tabular whitespace-nowrap">
-                          {r.from} → {r.to}
+                          {formatDayRange(r.from, r.to)}
                         </span>
                         <span className="tabular">{daysLabel(r.days)}</span>
                       </div>
@@ -1028,7 +1028,7 @@ export function LeaveScreen() {
           <div className="flex flex-col gap-2 text-body-sm text-body">
             <p>
               {withdrawing
-                ? `${leaveLabel(withdrawing.leaveType)}, ${withdrawing.from} to ${withdrawing.to} · ${daysLabel(withdrawing.days)}.`
+                ? `${leaveLabel(withdrawing.leaveType)}, ${formatDayRange(withdrawing.from, withdrawing.to)} · ${daysLabel(withdrawing.days)}.`
                 : ""}
             </p>
             <p>
@@ -1208,7 +1208,7 @@ function RequestPanel({
       }
       description={
         request
-          ? `${request.from} to ${request.to} · ${daysLabel(request.days)}`
+          ? `${formatDayRange(request.from, request.to)} · ${daysLabel(request.days)}`
           : undefined
       }
       /* Six short facts and two buttons. Anything wider is a decision panel
@@ -1410,7 +1410,13 @@ function RequestPanel({
             </DrawerSection>
           )}
 
-          <DrawerSection title="Who else is off those days">
+          <DrawerSection
+            title={
+              detail?.clashesAmong === "team"
+                ? "Who else in your team is off those days"
+                : "Who else is off those days"
+            }
+          >
             {detail && detail.clashes === null ? (
               /* Withheld, not empty. A manager who decides the request gets the
                  reduced read, and "Nobody else" here would be a statement about
@@ -1420,7 +1426,9 @@ function RequestPanel({
               </p>
             ) : detail && detail.clashes?.length === 0 ? (
               <p className="text-body-sm text-body">
-                Nobody else. Cover is not a problem here.
+                {detail.clashesAmong === "team"
+                  ? "Nobody else in your team."
+                  : "Nobody else. Cover is not a problem here."}
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
@@ -1429,14 +1437,22 @@ function RequestPanel({
                     key={clash.id}
                     className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2.5 text-body-sm"
                   >
-                    <TextLink
-                      href={`/people/${clash.employeeId}`}
-                      className="min-w-0 flex-1 truncate font-normal"
-                    >
-                      {clash.employeeName}
-                    </TextLink>
+                    {/* A manager cannot open a teammate's full record, so
+                        their names are not links to one (U22). */}
+                    {detail?.clashesAmong === "team" ? (
+                      <span className="min-w-0 flex-1 truncate">
+                        {clash.employeeName}
+                      </span>
+                    ) : (
+                      <TextLink
+                        href={`/people/${clash.employeeId}`}
+                        className="min-w-0 flex-1 truncate font-normal"
+                      >
+                        {clash.employeeName}
+                      </TextLink>
+                    )}
                     <span className="tabular text-meta text-muted">
-                      {clash.from} → {clash.to}
+                      {formatDayRange(clash.from, clash.to)}
                     </span>
                     <Badge tone={STATUS[clash.status].tone} size="sm">
                       {STATUS[clash.status].label}

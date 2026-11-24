@@ -67,7 +67,7 @@ export type Filing = {
 };
 
 const NOT_COUNTED =
-  "Answers to questions written here do not count towards the mark.";
+  "Answers to questions written here do not count towards the score.";
 
 export function filingNote({
   sectionId,
@@ -88,24 +88,24 @@ export function filingNote({
     if (!section) {
       return {
         tone: "muted",
-        text: `${NOT_COUNTED} ${sub} is not filed under a section, so ${words.a} recorded on it counts towards no part of the mark either.`,
+        text: `${NOT_COUNTED} ${sub} is not filed under a section, so ${words.a} recorded on it counts towards no part of the score either.`,
       };
     }
     if (section.weightBp === null) {
       return {
         tone: "muted",
-        text: `${NOT_COUNTED} ${section.name} is not weighted, so ${words.a} recorded on ${sub} counts towards no part of the mark either.`,
+        text: `${NOT_COUNTED} ${section.name} is not weighted, so ${words.a} recorded on ${sub} counts towards no part of the score either.`,
       };
     }
     if (section.weightBp === undefined) {
       return {
         tone: "muted",
-        text: `${NOT_COUNTED} The mark comes from ${words.the} recorded on ${sub}, under Competency ratings.`,
+        text: `${NOT_COUNTED} The score comes from ${words.the} recorded on ${sub}, under Competency ratings.`,
       };
     }
     return {
       tone: "muted",
-      text: `${NOT_COUNTED} ${section.name} is ${weightLabel(section.weightBp)} of the mark, and it comes from ${words.the} recorded on ${sub}, under Competency ratings.`,
+      text: `${NOT_COUNTED} ${section.name} is ${weightLabel(section.weightBp)} of the score, and it comes from ${words.the} recorded on ${sub}, under Competency ratings.`,
     };
   }
 
@@ -122,6 +122,6 @@ export function filingNote({
      of a level, a yes or no and a pick alike. */
   return {
     tone: "muted",
-    text: `${NOT_COUNTED} The mark comes from what is recorded on each subsection, under Competency ratings.`,
+    text: `${NOT_COUNTED} The score comes from what is recorded on each subsection, under Competency ratings.`,
   };
 }

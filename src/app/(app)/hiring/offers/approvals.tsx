@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import { Check, Info, Lock, ThumbsDown } from "lucide-react";
 import {
@@ -372,7 +373,7 @@ function OfferCard({
           <DescriptionList
             columns={1}
             items={[
-              { term: "Start date", value: offer.startDate },
+              { term: "Start date", value: formatDay(offer.startDate) },
               {
                 term: "Interview average",
                 value: avg !== null ? `${avg.toFixed(1)} / 5` : "—",

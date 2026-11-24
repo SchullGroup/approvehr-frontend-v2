@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { PaySetupScreen } from "./pay-setup-screen";
-import { isPaySetupTab } from "./tabs";
+import { paySetupTabFrom } from "./tabs";
 
 export const metadata: Metadata = {
   title: "Pay setup",
   description:
-    "Allowances, deductions and salary grades in one place, with what each one does to tax, pension and take-home pay.",
+    "Allowances, deductions, payroll settings and salary grades in one place, with what each one does to tax, pension and take-home pay.",
 };
 
 /**
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
  * be forgotten — the same call the reset-password page makes, for the same
  * reason.
  *
- * `isPaySetupTab` comes from `./tabs`, not from the screen: the screen is a
+ * `paySetupTabFrom` comes from `./tabs`, not from the screen: the screen is a
  * client module, and calling a function exported from one inside a server
  * component throws at request time while passing `tsc` and `lint` cleanly.
  */
@@ -27,9 +27,5 @@ export default async function PaySetupPage({
 }) {
   const { tab } = await searchParams;
   const single = Array.isArray(tab) ? tab[0] : tab;
-  return (
-    <PaySetupScreen
-      initialTab={isPaySetupTab(single) ? single : "allowances"}
-    />
-  );
+  return <PaySetupScreen initialTab={paySetupTabFrom(single)} />;
 }

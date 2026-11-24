@@ -66,7 +66,7 @@ export function PeopleToReview({
     return loading ? (
       <p className="flex items-center gap-2 py-8 text-body-sm text-muted">
         <Spinner size="sm" />
-        Comparing marks with the evidence
+        Comparing scores with the evidence
       </p>
     ) : null;
   }
@@ -78,8 +78,8 @@ export function PeopleToReview({
   if (!queue.length) {
     return (
       <p className="py-8 text-body-md text-body">
-        Nobody to review. Every mark is within {gap} points of what the evidence
-        suggests, or there isn’t enough evidence to tell.
+        Nobody to review. Every score is within {gap} points of what the
+        evidence suggests, or there isn’t enough evidence to tell.
       </p>
     );
   }
@@ -337,7 +337,7 @@ function Figures({ person }: { person: ApiReviewFlag }) {
   return (
     <dl className="mt-6 grid grid-cols-3 gap-8">
       <div>
-        <dt className="text-meta text-muted">Mark</dt>
+        <dt className="text-meta text-muted">Score</dt>
         <dd className={cn(figure, "text-ink")}>{exactPct(person.markBp)}</dd>
       </div>
       <div>

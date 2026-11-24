@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -58,7 +59,11 @@ import {
   useSentApprovals,
   type QueueFilters,
 } from "@/lib/store/approvals-api";
-import type { QueueItem } from "@/lib/workflows/queue";
+import {
+  leaveFacts,
+  type QueueItem,
+  type QueueLeave,
+} from "@/lib/workflows/queue";
 import {
   hasAnyPermission,
   useIsManager,
@@ -763,13 +768,13 @@ function SentApprovalRow({
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
             <span>
-              {lead} {row.requestedAt}
+              {lead} {formatDay(row.requestedAt)}
             </span>
             {row.status === "pending" && row.sentTo && (
               <span>Waiting on {row.sentTo}</span>
             )}
             {row.status !== "pending" && row.decidedAt && (
-              <span>Decided {row.decidedAt.slice(0, 10)}</span>
+              <span>Decided {formatDay(row.decidedAt)}</span>
             )}
           </div>
           {row.status === "declined" && row.decisionNote && (
@@ -902,6 +907,8 @@ function ApprovalRow({
               item.summary
             )}
           </p>
+          {/* The reason and the balance, for whoever decides it (U22). */}
+          {item.leave && <LeaveFacts leave={item.leave} />}
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
             {requester && (
@@ -1010,5 +1017,21 @@ function ArchiveButton({
       <Icon aria-hidden="true" className="size-3.5" />
       {archived ? "Restore" : "Archive"}
     </Button>
+  );
+}
+
+function LeaveFacts({ leave }: { leave: QueueLeave }) {
+  const { reason, balance } = leaveFacts(leave);
+  if (!reason && !balance) return null;
+  return (
+    <div className="mt-1 flex flex-col gap-0.5 text-body-sm text-body">
+      {reason && (
+        <p className="break-words">
+          <span className="text-muted">Reason: </span>
+          {reason}
+        </p>
+      )}
+      {balance && <p className="text-muted">{balance}</p>}
+    </div>
   );
 }

@@ -89,6 +89,7 @@ vi.mock("@/lib/store/performance", () => ({
     loading: false,
     error: null,
   }),
+  useSections: () => ({ sections: [], loading: false, reload: () => {} }),
   useAppraisals: () => ({ cycles, loading: false }),
   /* Nobody has an answer on record here: these tests are about what is asked. */
   useSkills: () => ({
@@ -116,7 +117,7 @@ const mount = () => {
 const pickPerson = (id = "e-chidi") =>
   userEvent.selectOptions(screen.getByLabelText(/Employee/), id);
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(screen.getByLabelText(/Which skill/), name);
+  userEvent.selectOptions(screen.getByLabelText(/Which competency/), name);
 const save = () =>
   userEvent.click(screen.getByRole("button", { name: "Save it" }));
 const sent = (onSave: ReturnType<typeof mount>["onSave"]) => ({
@@ -402,7 +403,7 @@ describe("the appraisal period", () => {
       "",
     );
     expect(
-      screen.getByText(/it fills the skills gap table and heatmap/),
+      screen.getByText(/it fills the competency gap table and heatmap/),
     ).toBeInTheDocument();
   });
 
@@ -414,21 +415,21 @@ describe("the appraisal period", () => {
       "",
     );
     expect(
-      screen.queryByText(/it fills the skills gap table and heatmap/),
+      screen.queryByText(/it fills the competency gap table and heatmap/),
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        /does not appear in the skills gap table or heatmap, which are about levels/,
+        /does not appear in the competency gap table or heatmap, which are about levels/,
       ),
     ).toBeInTheDocument();
 
     await pickSkill("Customer feedback");
     expect(
-      screen.queryByText(/it fills the skills gap table and heatmap/),
+      screen.queryByText(/it fills the competency gap table and heatmap/),
     ).not.toBeInTheDocument();
   });
 
-  it("says, once one is chosen, that it counts towards the mark, for every kind", async () => {
+  it("says, once one is chosen, that it counts towards the score, for every kind", async () => {
     mount();
     await pickSkill("Customer feedback");
     await userEvent.selectOptions(
@@ -436,7 +437,7 @@ describe("the appraisal period", () => {
       "p-1",
     );
     expect(
-      screen.getByText(/Counts towards this person's mark for that period/),
+      screen.getByText(/Counts towards this person's score for that period/),
     ).toBeInTheDocument();
   });
 });

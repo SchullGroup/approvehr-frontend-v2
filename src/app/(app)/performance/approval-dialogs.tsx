@@ -55,10 +55,10 @@ const ACTS: Record<
   revise: {
     title: (title) => `Reopen "${title}"?`,
     consequence:
-      "The target can be changed again, but it has to be agreed again afterwards. Who reopened it, when and why is recorded.",
+      "The objective can be changed again, but it has to be agreed again afterwards. Who reopened it, when and why is recorded.",
     label: "Reopen it",
     tone: "accent",
-    help: "Say what changed. This is the only record of why the target moved.",
+    help: "Say what changed. This is the only record of why the objective changed.",
   },
 };
 

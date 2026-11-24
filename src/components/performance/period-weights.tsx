@@ -25,10 +25,10 @@ import {
  * are chosen by whoever is setting the period up, in a hurry, so here a weight
  * is a whole number from 0 to 100, and what is sent is that number times 100.
  *
- * ## Proportional
+ * ## They add up to 100%
  *
- * The weights need not make 100%: each part counts in proportion to the total.
- * The only set refused is every part at zero, which cannot make a mark.
+ * A part's weight is its share of the score, so the weights add up to exactly
+ * 100% here as in Settings (UAT 23 Nov, L14), and Save stays shut until they do.
  *
  * ## The value is what was typed
  *
@@ -124,8 +124,7 @@ function wholePercent(text: string): boolean {
 
 /**
  * What stops this set being saved, or null: a row that is not a whole number
- * from 0 to 100, or every part at zero. Any other total is fine, because the
- * weights are proportional.
+ * from 0 to 100, or a total other than 100%.
  */
 export function periodWeightsProblem(
   text: WeightText,
@@ -191,7 +190,7 @@ export function PeriodWeights({
   return (
     <section className="flex flex-col gap-3" aria-labelledby="weights-heading">
       <h3 id="weights-heading" className="text-body-sm font-medium text-ink">
-        How the mark is made up
+        How the score is made up
       </h3>
       <WeightsPie
         fixed={readOnly}
@@ -280,7 +279,7 @@ export function PeriodWeights({
 
       {parts.includes("MANAGER_APPRAISAL") && (
         <p className="text-meta text-muted">
-          If no appraiser has sent an overall mark for someone, the{" "}
+          If no appraiser has sent an overall rating for someone, the{" "}
           {labelOf("MANAGER_APPRAISAL")} share is spread over the other parts.
         </p>
       )}

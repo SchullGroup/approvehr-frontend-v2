@@ -159,7 +159,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/payroll/pay-setup",
     "title": "Pay setup",
-    "description": "Allowances, deductions and salary grades in one place, with what each one does to tax, pension and take-home pay."
+    "description": "Allowances, deductions, payroll settings and salary grades in one place, with what each one does to tax, pension and take-home pay."
   },
   {
     "href": "/payroll/payments",
@@ -307,6 +307,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Documents waiting on your signature, and documents sent for signature, each identified by the fingerprint of its exact bytes."
   },
   {
+    "href": "/people/team",
+    "title": "My team",
+    "description": "The people you lead: who they are, how to reach them and their leave, with nothing about pay."
+  },
+  {
     "href": "/performance",
     "title": "Performance",
     "description": "What is waiting on you, and how the running appraisal period is going."
@@ -324,16 +329,16 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/performance/fairness",
     "title": "Fairness check",
-    "description": "How an appraisal period's marks compare by gender, age, time at the company, location, contract type, department and manager."
+    "description": "How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager."
   },
   {
     "href": "/performance/how-it-works",
     "title": "How appraisals work",
-    "description": "What a period is, what a mark is made of, and what happens when one is given."
+    "description": "What a period is, what a score is made of, and what happens when one is given."
   },
   {
     "href": "/performance/kpis",
-    "title": "KPIs",
+    "title": "Objectives",
     "description": "What people are aiming at, and how far along it is, yours, your team's, or the company's."
   },
   {
@@ -512,14 +517,9 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Whether overtime is paid, the grace before it counts, the daily cap, and the weekday, weekend and public holiday rates."
   },
   {
-    "href": "/settings/payroll",
-    "title": "Payroll settings",
-    "description": "Working month, salary structure, statutory rates and the checks that stop payroll."
-  },
-  {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
+    "description": "The parts an appraisal score is made of, each with its own name, weight and source, what each rating is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
   },
   {
     "href": "/settings/policies",

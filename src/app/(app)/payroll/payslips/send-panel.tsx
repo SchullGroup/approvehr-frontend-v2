@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
-import { Badge, Button, Callout } from "@/components/ui";
+import { Badge, Button, Callout, ConfirmDialog } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { PayslipSendOutcome } from "@/lib/api/payroll";
 import { usePayrollActions } from "@/lib/store/payroll";
@@ -57,14 +57,28 @@ export function SendPayslips({
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<PayslipSendOutcome | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  /* Everybody a send has named as having no address (U77). The run's counts
+     cannot tell them apart from anybody else not yet sent, so without this the
+     button went on offering "Send 48 payslips" to 48 people it had just been
+     told it could not reach. Kept for the life of the screen: adding an
+     address happens on the person's record, and coming back starts afresh. */
+  const [noAddress, setNoAddress] = useState<ReadonlySet<string>>(new Set());
+  const reachable =
+    notSent === undefined ? undefined : Math.max(0, notSent - noAddress.size);
 
   async function send() {
+    setConfirming(false);
     setBusy(true);
     setFailed(null);
     setOutcome(null);
     try {
       const result = await actions.sendPayslips(runId);
       setOutcome(result);
+      setNoAddress(
+        (known) =>
+          new Set([...known, ...result.noEmail.map((p) => p.employeeNo)]),
+      );
       onSent();
     } catch (error) {
       setFailed(
@@ -92,15 +106,11 @@ export function SendPayslips({
         <Button
           variant="accent"
           loading={busy}
-          disabled={busy || notSent === 0}
-          onClick={() => void send()}
+          disabled={busy || reachable === 0}
+          onClick={() => setConfirming(true)}
         >
           {!busy && <Send aria-hidden="true" className="size-4" />}
-          {notSent === undefined
-            ? "Send the ones that have not gone"
-            : notSent === 0
-              ? "Everybody has theirs"
-              : `Send ${String(notSent)} ${notSent === 1 ? "payslip" : "payslips"}`}
+          {sendLabel(notSent, reachable)}
         </Button>
         {/* The count is on the button, so this says the thing the count does
             not: pressing it again is safe. */}
@@ -108,8 +118,39 @@ export function SendPayslips({
           Anybody who already has theirs is left alone.
         </span>
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onConfirm={() => void send()}
+        tone="primary"
+        confirmLabel="Send them"
+        title={
+          reachable === undefined
+            ? "Send the payslips that have not gone?"
+            : `Send ${String(reachable)} ${reachable === 1 ? "payslip" : "payslips"}?`
+        }
+        body={
+          <p>
+            Each person is emailed their net pay and a link to their payslip. An
+            email cannot be taken back. Anybody with no email address on their
+            record is named afterwards, and nothing is sent to them.
+          </p>
+        }
+      />
     </div>
   );
+}
+
+function sendLabel(
+  notSent: number | undefined,
+  reachable: number | undefined,
+): string {
+  if (notSent === undefined || reachable === undefined)
+    return "Send the ones that have not gone";
+  if (notSent === 0) return "Everybody has theirs";
+  if (reachable === 0) return "Nobody left to email";
+  return `Send ${String(reachable)} ${reachable === 1 ? "payslip" : "payslips"}`;
 }
 
 /**
@@ -162,7 +203,9 @@ function Outcome({ outcome }: { outcome: PayslipSendOutcome }) {
         >
           <p>
             Nothing was attempted for them, and nothing went wrong: there is
-            nowhere to send it. Add an address on their record and send again.
+            nowhere to send it. Add an address on their record and send again,
+            or open each one&rsquo;s payslip from the table and download the PDF
+            to print.
           </p>
           <ul className="mt-2 flex flex-col gap-1">
             {outcome.noEmail.map((person) => (

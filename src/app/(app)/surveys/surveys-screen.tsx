@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import { ClipboardList, EyeOff } from "lucide-react";
 import {
@@ -122,7 +123,7 @@ export function SurveysScreen() {
                       {invite.questionCount}{" "}
                       {invite.questionCount === 1 ? "question" : "questions"}
                       {invite.closesAt
-                        ? ` · closes ${invite.closesAt.slice(0, 10)}`
+                        ? ` · closes ${formatDay(invite.closesAt)}`
                         : ""}
                     </p>
                   </div>

@@ -21,13 +21,13 @@ import type { DirectoryPerson } from "@/lib/types";
  * because "Department objective" without saying which one is half a fact.
  */
 export function rungLabel(goal: ApiGoal): string {
-  if (goal.level === "company") return "Company KPI";
+  if (goal.level === "company") return "Company objective";
   if (goal.level === "department") {
     return goal.departmentName
       ? `${goal.departmentName} objective`
       : "Department objective";
   }
-  return "Personal KPI";
+  return "Personal objective";
 }
 
 export type GoalFacts = {

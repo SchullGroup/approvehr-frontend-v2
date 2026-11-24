@@ -18,6 +18,7 @@ import { WorkTasks } from "@/components/projects/work-list";
 import { PROGRAM, TASK } from "@/lib/projects/terms";
 import { useProgramList } from "@/lib/store/programs";
 import { useArchivedProjects } from "@/lib/store/projects";
+import { useCan } from "@/lib/permissions";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
@@ -100,7 +101,7 @@ const LIST_SKELETON = (
 /* ---------------------------------------------------------------- projects -- */
 
 function ArchivedProjects() {
-  const archived = useArchivedProjects();
+  const archived = useArchivedProjects(true, useCan("EDIT_RECORDS"));
   const timeZone = useOrgTimezone();
   const [search, setSearch] = useState("");
   const shown = archived.projects.filter((p) =>

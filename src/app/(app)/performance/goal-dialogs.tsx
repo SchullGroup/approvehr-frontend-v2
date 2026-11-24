@@ -160,7 +160,7 @@ export const quarterText = (quarter: string) => {
  * not the server's.
  */
 const NEEDS_PERIOD =
-  "Choose the appraisal period this is scored in. A KPI with none counts towards nobody's mark, even once it is agreed.";
+  "Choose the appraisal period this is scored in. An objective with none counts towards nobody's score, even once it is agreed.";
 
 /**
  * The form for a new KPI, and — in `objective` mode — for a new objective.
@@ -332,15 +332,11 @@ export function NewKpiDialog({
       open={open}
       onClose={onClose}
       title={
-        parentTitle
-          ? `${objective ? "New objective" : "New KPI"} under "${parentTitle}"`
-          : objective
-            ? "New objective"
-            : "New KPI"
+        parentTitle ? `New objective under "${parentTitle}"` : "New objective"
       }
       description={
         objective && !parentTitle
-          ? "Once it is made you can add KPIs under it, or give them to people."
+          ? "Once it is made you can add objectives under it, or give them to people."
           : undefined
       }
       size="md"
@@ -356,14 +352,14 @@ export function NewKpiDialog({
             disabled={periodsLoading === true && cycles.length === 0}
             onClick={() => void submit()}
           >
-            {objective ? "Create objective" : "Create KPI"}
+            Create objective
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <Field
-          label={objective ? "Objective title" : "KPI title"}
+          label="Objective title"
           required
           {...(error ? { error } : {})}
           help="Say it the way you would to the person doing it."
@@ -481,10 +477,10 @@ export function NewKpiDialog({
             {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
-                ? "Counts towards this person's mark for that period, once somebody agrees it."
+                ? "Counts towards this person's score for that period, once somebody agrees it."
                 : needsPeriod
                   ? "Pick the period this is scored in."
-                  : "Without an appraisal period, this objective will not count towards anyone's mark, even once it is agreed."
+                  : "Without an appraisal period, this objective will not count towards anyone's score, even once it is agreed."
             }
           >
             <Select
@@ -518,9 +514,9 @@ export function NewKpiDialog({
           openPeriods.length === 0 &&
           periodsLoading !== true && (
             <Callout tone="warning">
-              No appraisal period is open, so this KPI will count towards
-              nobody&apos;s mark. Start a period first, then edit the KPI to
-              file it in that period.
+              No appraisal period is open, so this objective will count towards
+              nobody&apos;s score. Start a period first, then edit the objective
+              to file it in that period.
             </Callout>
           )}
 
@@ -705,7 +701,7 @@ export function AssignKpiDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Give a KPI to people under "${parent.title}"`}
+      title={`Give an objective to people under "${parent.title}"`}
       size="md"
       footer={
         <>
@@ -724,10 +720,10 @@ export function AssignKpiDialog({
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="KPI title"
+          label="Objective title"
           required
           {...(error ? { error } : {})}
-          help="The same KPI, worded once. Each person gets their own copy to track."
+          help="The same objective, worded once. Each person gets their own copy to track."
         >
           <Input
             value={title}
@@ -792,8 +788,8 @@ export function AssignKpiDialog({
             KPIs should know they are drafts, or they will wonder why nothing is
             agreed. */}
         <p className="text-body-sm text-muted">
-          Each person gets their own KPI as a draft. They send it to be agreed —
-          assigning it is not the same as agreeing it.
+          Each person gets their own objective as a draft. They send it to be
+          agreed — assigning it is not the same as agreeing it.
         </p>
       </div>
     </Modal>
@@ -929,7 +925,7 @@ function AddMeasureForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Add a measure"
+      title="Add a target"
       description={goalTitle}
       size="md"
       footer={
@@ -948,14 +944,14 @@ function AddMeasureForm({
               loading={saving}
               onClick={() => void submit()}
             >
-              Add measure
+              Add target
             </Button>
           </>
         )
       }
     >
       {choosing ? (
-        <FieldSet legend="What kind of measure is this?">
+        <FieldSet legend="What kind of target is this?">
           <div className="grid gap-3 sm:grid-cols-2">
             <RadioCard
               name="measure-kind"
@@ -964,7 +960,7 @@ function AddMeasureForm({
               onChange={() => setPicked("NUMBER")}
               icon={<Target aria-hidden="true" />}
               label="A number to reach"
-              description="A figure that moves from where it is to a target: revenue of ₦40m, 12 hires, cost down to ₦300k."
+              description="From where it is now: revenue of ₦40m, 12 hires, cost down to ₦300k."
             />
             <RadioCard
               name="measure-kind"
@@ -995,7 +991,7 @@ function AddMeasureForm({
       ) : (
         <div className="flex flex-col gap-4">
           <Field
-            label="Measure"
+            label="Name"
             required
             {...(errors["label"] ? { error: errors["label"] } : {})}
           >
@@ -1027,7 +1023,7 @@ function AddMeasureForm({
             </Field>
             <Field
               label="Current value"
-              help="Leave blank if nothing has been measured yet. The measure then counts as unread and stays out of the objective's progress until a reading is entered."
+              help="Leave blank if nothing has been measured yet. The target then counts as unread and stays out of the objective's progress until a reading is entered."
             >
               <Input
                 inputMode="decimal"
@@ -1104,7 +1100,7 @@ export function StopKpiDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Stop this KPI"
+      title="Stop this objective"
       description={goalTitle}
       size="sm"
       footer={
@@ -1143,10 +1139,6 @@ export function StopKpiDialog({
 }
 
 /* -------------------------------------------------------------------------- */
-
-/** What the card calls this one: a person's own is a KPI, a shared one an objective. */
-const goalWord = (goal: ApiGoal) =>
-  goal.level === "personal" ? "KPI" : "objective";
 
 /**
  * Whether the words of this objective can still be changed.
@@ -1242,11 +1234,12 @@ export function EditGoalDialog({
   const periods = cycles.filter(
     (cycle) => cycle.stage !== "PUBLISHED" || cycle.id === goal?.reviewCycleId,
   );
-  const word = goal ? goalWord(goal) : "objective";
+  /* One word for every rung (UAT 23 Nov, U94): it was "KPI" for a person's own. */
+  const word = "objective";
   /* A KPI that is somebody's own has to be filed in a period, whenever there is
      one to file it in. Editing an old one that was never filed asks for it,
      which is the way out the upload's notes already point to. */
-  const needsPeriod = word === "KPI" && periods.length > 0;
+  const needsPeriod = goal?.level === "personal" && periods.length > 0;
 
   const body: UpdateGoalBody = {};
   if (goal) {
@@ -1304,11 +1297,7 @@ export function EditGoalDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field
-          label={`${word === "KPI" ? "KPI" : "Objective"} title`}
-          required
-          {...(error ? { error } : {})}
-        >
+        <Field label="Objective title" required {...(error ? { error } : {})}>
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -1336,10 +1325,10 @@ export function EditGoalDialog({
             {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
-                ? "Counts towards this person's mark for that period, once somebody agrees it."
+                ? "Counts towards this person's score for that period, once somebody agrees it."
                 : needsPeriod
                   ? "Pick the period this is scored in."
-                  : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+                  : "Nothing here reaches an appraisal score. A quarter alone lets the objective be agreed and still score nothing."
             }
           >
             <Select
@@ -1403,7 +1392,7 @@ export function DeleteGoalDialog({
   const [shown, setShown] = useState<ApiGoal | null>(goal);
   if (open && goal && goal !== shown) setShown(goal);
   const target = goal ?? shown;
-  const word = target ? goalWord(target) : "objective";
+  const word = "objective";
   const measures = target?.keyResults.length ?? 0;
 
   return (
@@ -1433,7 +1422,7 @@ export function DeleteGoalDialog({
       <p className="text-body-sm text-body">
         {measures > 0
           ? `This removes it for good, along with its ${String(measures)} ${
-              measures === 1 ? "measure" : "measures"
+              measures === 1 ? "target" : "targets"
             }. It cannot be undone.`
           : "This removes it for good. It cannot be undone."}
       </p>

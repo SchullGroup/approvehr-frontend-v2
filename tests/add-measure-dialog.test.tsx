@@ -59,17 +59,17 @@ const next = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole("button", { name: "Next" }));
 
 describe("the first step", () => {
-  it("asks what kind of measure it is, with a number already chosen", () => {
+  it("asks what kind of target it is, with a number already chosen", () => {
     open();
     expect(
-      screen.getByRole("group", { name: /What kind of measure is this/ }),
+      screen.getByRole("group", { name: /What kind of target is this/ }),
     ).toBeInTheDocument();
     expect(kind(/A number to reach/)).toBeChecked();
     expect(kind(/Done or not done/)).not.toBeChecked();
     /* The fields come after the question, not beside it. */
     expect(screen.queryByLabelText(/Target value/)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Add measure" }),
+      screen.queryByRole("button", { name: "Add target" }),
     ).not.toBeInTheDocument();
   });
 
@@ -90,9 +90,9 @@ describe("a number to reach", () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Measure/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
     await user.type(screen.getByLabelText(/Target value/), "10");
-    await user.click(screen.getByRole("button", { name: "Add measure" }));
+    await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     const body = onAdd.mock.calls[0]?.[0] as Record<string, unknown>;
@@ -109,9 +109,9 @@ describe("a number to reach", () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Measure/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
     await user.type(screen.getByLabelText(/Target value/), "10");
-    await user.click(screen.getByRole("button", { name: "Add measure" }));
+    await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(onAdd.mock.calls[0]?.[0]).not.toHaveProperty("currentValue");
   });
@@ -120,10 +120,10 @@ describe("a number to reach", () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Measure/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
     await user.type(screen.getByLabelText(/Target value/), "10");
     await user.type(screen.getByLabelText(/Current value/), "3");
-    await user.click(screen.getByRole("button", { name: "Add measure" }));
+    await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(onAdd.mock.calls[0]?.[0]).toMatchObject({ currentValue: "3" });
   });
@@ -135,12 +135,12 @@ describe("a number to reach", () => {
     expect(screen.getByText(/counts as unread/)).toBeInTheDocument();
   });
 
-  it("refuses a measure with no target, and sends nothing", async () => {
+  it("refuses a target with no target value, and sends nothing", async () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Measure/), "Offers accepted");
-    await user.click(screen.getByRole("button", { name: "Add measure" }));
+    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
+    await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(
       await screen.findByText("Set the number you are aiming at."),
@@ -174,7 +174,7 @@ describe("done or not done", () => {
       screen.getByLabelText(/What does done mean/),
       "Both engineers hired",
     );
-    await user.click(screen.getByRole("button", { name: "Add measure" }));
+    await user.click(screen.getByRole("button", { name: "Add target" }));
 
     /* The API refuses a number, a unit or a direction on this kind by name, so
        a body carrying any of them would be a refusal rather than a save. */
@@ -188,7 +188,7 @@ describe("done or not done", () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await choose(user);
-    await user.click(screen.getByRole("button", { name: "Add measure" }));
+    await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(
       await screen.findByText("Say what done means, in a few words."),
@@ -218,7 +218,7 @@ describe("opening it again", () => {
     const { rerender } = render(<AddMeasureDialog {...props} open />);
 
     await next(user);
-    await user.type(screen.getByLabelText(/^Measure/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
     await user.type(screen.getByLabelText(/Target value/), "10");
 
     rerender(<AddMeasureDialog {...props} open={false} />);
@@ -226,7 +226,7 @@ describe("opening it again", () => {
 
     expect(kind(/A number to reach/)).toBeChecked();
     await next(user);
-    expect(screen.getByLabelText(/^Measure/)).toHaveValue("");
+    expect(screen.getByLabelText(/^Name/)).toHaveValue("");
     expect(screen.getByLabelText(/Target value/)).toHaveValue("");
   });
 });

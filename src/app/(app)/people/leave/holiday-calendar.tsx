@@ -164,7 +164,7 @@ function MiniMonth({
                         {marked.map((row) => row.name).join(", ")},{" "}
                         {holiday.confirmed
                           ? "public holiday"
-                          : "public holiday awaiting proclamation"}
+                          : "public holiday, not confirmed yet"}
                       </span>
                     </span>
                   ) : (
@@ -278,7 +278,7 @@ export function HolidayCalendarCard({
               </Badge>
               {awaiting !== null && awaiting > 0 && (
                 <Badge tone="warning" size="sm">
-                  {awaiting} awaiting proclamation
+                  {awaiting} not confirmed yet
                 </Badge>
               )}
             </>
@@ -287,7 +287,7 @@ export function HolidayCalendarCard({
         hint={
           DEMO_ENABLED && calendar.source === "demo"
             ? "Demo calendar: Nigeria's 2026 dates, seeded into this browser. Not a company calendar."
-            : "Attendance, overtime, payroll proration and the help desk's response clock all read these dates."
+            : undefined
         }
         panelClassName="flex flex-col gap-5 p-5"
       >
@@ -335,7 +335,7 @@ export function HolidayCalendarCard({
             >
               1
             </span>
-            Awaiting proclamation
+            Not confirmed yet
             {awaiting !== null && awaiting > 0 && ` (${awaiting})`}
           </span>
         </div>
@@ -368,7 +368,7 @@ export function HolidayCalendarCard({
                  bearing. A grid with no explicit template gets one implicit
                  `auto` column, which sizes to the widest row rather than to the
                  container — at 375px the widest row is "Eid al-Fitr" plus a
-                 nowrap "Awaiting proclamation" badge, and 379px of it spilled 66px
+                 nowrap "Not confirmed yet" badge, and 379px of it spilled 66px
                  outside the card. `sm:grid-cols-2` and up were always fine:
                  Tailwind writes those as `minmax(0, 1fr)` already. Pre-dates the
                  disclosure; found measuring the collapsed version at 375. */
@@ -390,7 +390,7 @@ export function HolidayCalendarCard({
                     </span>
                     {!holiday.confirmed && (
                       <Badge tone="warning" size="sm">
-                        Awaiting proclamation
+                        Not confirmed yet
                       </Badge>
                     )}
                   </li>

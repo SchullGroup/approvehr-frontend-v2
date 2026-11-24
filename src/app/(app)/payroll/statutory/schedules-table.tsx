@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import { Landmark } from "lucide-react";
 import {
@@ -107,6 +108,11 @@ export function SchedulesTable() {
   }
 
   const unconfirmed = state.schedules.filter((row) => !row.dueDateConfirmed);
+  /* An earlier month's schedule still not filed is listed too, and says which
+     month it is for (U33). */
+  const earlier = (row: { period: string }) =>
+    state.period !== null && row.period !== state.period;
+  const anyEarlier = state.schedules.some(earlier);
 
   return (
     <Card>
@@ -114,7 +120,7 @@ export function SchedulesTable() {
         title="Remittance schedules"
         description={
           state.period
-            ? `From the ${periodLabel(state.period)} payroll, computed from its own payslips.`
+            ? `From the ${periodLabel(state.period)} payroll, computed from its own payslips${anyEarlier ? ", and earlier payrolls' schedules not filed yet" : ""}.`
             : undefined
         }
       />
@@ -142,7 +148,12 @@ export function SchedulesTable() {
             <TBody>
               {state.schedules.map((row) => (
                 <TR key={row.id}>
-                  <TDPrimary title={KIND_LABEL[row.kind]} />
+                  <TDPrimary
+                    title={KIND_LABEL[row.kind]}
+                    {...(earlier(row)
+                      ? { subtitle: periodLabel(row.period) }
+                      : {})}
+                  />
                   <TD>{row.recipient}</TD>
                   <TD align="right" className="tabular">
                     {row.employeeCount}
@@ -156,7 +167,9 @@ export function SchedulesTable() {
                           row: it is what somebody checks the date against,
                           and eight citations down a table is a wall nobody
                           reads. */}
-                      <span title={row.dueDateBasis}>{row.dueDate}</span>
+                      <span title={row.dueDateBasis}>
+                        {formatDay(row.dueDate)}
+                      </span>
                       {row.filedAt === null && (
                         <span className="text-meta text-faint">
                           {dueIn(row.dueDate, timeZone)}
@@ -193,6 +206,7 @@ export function SchedulesTable() {
               <div>
                 <p className="text-body-sm font-medium text-ink">
                   {KIND_LABEL[row.kind]}
+                  {earlier(row) ? `, ${periodLabel(row.period)}` : ""}
                 </p>
                 <p className="mt-0.5 text-meta text-muted">{row.recipient}</p>
               </div>
@@ -212,7 +226,7 @@ export function SchedulesTable() {
               <div className="flex items-start justify-between gap-3">
                 <span className="text-body-sm text-muted">Due</span>
                 <span className="text-right text-body-sm text-ink">
-                  <span title={row.dueDateBasis}>{row.dueDate}</span>
+                  <span title={row.dueDateBasis}>{formatDay(row.dueDate)}</span>
                   {row.filedAt === null && (
                     <span className="block text-meta text-faint">
                       {dueIn(row.dueDate, timeZone)}

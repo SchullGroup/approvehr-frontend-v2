@@ -97,7 +97,7 @@ export function evidenceLine(
       : part.component === "TASKS"
         ? ["graded task", "graded tasks"]
         : part.component === "MANAGER_APPRAISAL"
-          ? ["overall mark", "overall marks"]
+          ? ["overall rating", "overall ratings"]
           : ["rating", "ratings"];
   return `Based on ${String(n)} ${n === 1 ? unit[0] : unit[1]}`;
 }
@@ -188,13 +188,13 @@ export function appraiserStripLine(args: {
   const others = appraiser.appraiserCount - 1;
   const shared = others > 0;
   const alongside = `alongside ${String(others)} ${others === 1 ? "other" : "others"}`;
-  const whose = mine ? "Your overall mark" : "This overall mark";
+  const whose = mine ? "Your overall rating" : "This overall rating";
   const share = appraiser.markShareBp;
 
   if (share !== undefined && share > 0) {
     return shared
-      ? `${whose} counts for ${weightLabel(appraiser.weightBp)} of what the appraisers say, ${alongside}. What they say is ${weightLabel(share)} of the mark.`
-      : `${whose} counts for ${weightLabel(share)} of the mark.`;
+      ? `${whose} counts for ${weightLabel(appraiser.weightBp)} of what the appraisers say, ${alongside}. What they say is ${weightLabel(share)} of the score.`
+      : `${whose} counts for ${weightLabel(share)} of the score.`;
   }
   if (share === 0 && asksMark) {
     return `${whose} does not count towards the score${shared ? `, ${alongside}` : ""}.`;
@@ -207,10 +207,10 @@ export function appraiserStripLine(args: {
 /**
  * The one sentence about how weights become shares (UAT 23 Nov, L14 / PERF-39).
  *
- * How it works said "the shares always add up to 100%", the period page said the
- * weights "do not have to make 100%", and both were read as two rules. Both are
- * true of different numbers; this says it once, for every screen that explains a
- * weight.
+ * How it works said the shares add up to 100%, the period page said the weights
+ * do not have to, and Settings saved 110%. The owner chose one rule: the
+ * weights add up to 100% everywhere, so a part's weight is its share of the
+ * score. Every screen that explains a weight says it with this sentence.
  */
 export const WEIGHTS_RULE =
-  "Each part counts in proportion to its weight, so the weights do not have to add up to 100%.";
+  "A part's weight is its share of the score, so the weights add up to 100%.";

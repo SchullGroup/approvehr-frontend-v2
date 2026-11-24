@@ -36,6 +36,7 @@ import {
   TYPE_LABEL,
   WORK_TYPES,
   displayType,
+  isSimpleBoard,
 } from "@/lib/projects/terms";
 import {
   PRIORITIES,
@@ -857,33 +858,36 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             )}
           </Row>
 
-          {!isEpic && (
-            <Row
-              label={EFFORT.One}
-              htmlFor={canWork ? `${base}-points` : undefined}
-            >
-              {canWork ? (
-                <DraftInput
-                  id={`${base}-points`}
-                  type="number"
-                  min={0}
-                  step={1}
-                  inputMode="numeric"
-                  placeholder="None"
-                  value={issue.points === null ? "" : String(issue.points)}
-                  clean={(draft) => {
-                    if (draft.trim() === "") return "";
-                    const points = parsePoints(draft);
-                    return points === null ? null : String(points);
-                  }}
-                  onCommit={(next) => save({ points: parsePoints(next) })}
-                  className="h-9"
-                />
-              ) : (
-                <Value>{issue.points === null ? null : issue.points}</Value>
-              )}
-            </Row>
-          )}
+          {/* A simple board has no effort (U104), but a figure a task already
+              carries is still shown and can be cleared. */}
+          {!isEpic &&
+            (!isSimpleBoard(project.type) || issue.points !== null) && (
+              <Row
+                label={EFFORT.One}
+                htmlFor={canWork ? `${base}-points` : undefined}
+              >
+                {canWork ? (
+                  <DraftInput
+                    id={`${base}-points`}
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder="None"
+                    value={issue.points === null ? "" : String(issue.points)}
+                    clean={(draft) => {
+                      if (draft.trim() === "") return "";
+                      const points = parsePoints(draft);
+                      return points === null ? null : String(points);
+                    }}
+                    onCommit={(next) => save({ points: parsePoints(next) })}
+                    className="h-9"
+                  />
+                ) : (
+                  <Value>{issue.points === null ? null : issue.points}</Value>
+                )}
+              </Row>
+            )}
 
           {project.type === "SCRUM" && !isEpic && !isSubtask && (
             <Row

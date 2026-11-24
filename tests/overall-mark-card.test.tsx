@@ -69,7 +69,7 @@ describe("the switch", () => {
     expect(screen.getByRole("switch")).not.toBeChecked();
     expect(
       screen.getByText(
-        "Forms do not ask for an overall mark. The answers stand on their own.",
+        "Forms do not ask for an overall rating. The answers stand on their own.",
       ),
     ).toBeInTheDocument();
   });
@@ -79,12 +79,12 @@ describe("the switch", () => {
     expect(screen.getByRole("switch")).toBeChecked();
     expect(
       screen.getByText(
-        /Each form ends with a page asking for one overall mark/,
+        /Each form ends with a page asking for one overall rating/,
       ),
     ).toBeInTheDocument();
   });
 
-  it("says what it does not do: a mark is shown beside the score, and a given one is never touched", () => {
+  it("says what it does not do: an overall rating is shown beside the score, and a given one is never touched", () => {
     /* A server with no Manager appraisal part: a manager's overall mark is
        never counted there, and the card says what it always did. */
     mount();
@@ -92,7 +92,7 @@ describe("the switch", () => {
       screen.getByText(/shown beside the score and is not counted in it/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/A mark already given is never removed or changed/),
+      screen.getByText(/A rating already given is never removed or changed/),
     ).toBeInTheDocument();
   });
 
@@ -102,11 +102,13 @@ describe("the switch", () => {
     expect(setOverallMark).toHaveBeenCalledTimes(1);
     expect(setOverallMark).toHaveBeenCalledWith(true);
     expect(
-      await screen.findByText("Appraisal forms will end with an overall mark"),
+      await screen.findByText(
+        "Appraisal forms will end with an overall rating",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "It applies to the next form anybody opens. Marks already given are not touched.",
+        "It applies to the next form anybody opens. Ratings already given are not touched.",
       ),
     ).toBeInTheDocument();
     expect(onChanged).toHaveBeenCalledTimes(1);
@@ -118,7 +120,7 @@ describe("the switch", () => {
     expect(setOverallMark).toHaveBeenCalledWith(false);
     expect(
       await screen.findByText(
-        "Appraisal forms will not ask for an overall mark",
+        "Appraisal forms will not ask for an overall rating",
       ),
     ).toBeInTheDocument();
     expect(onChanged).toHaveBeenCalledTimes(1);
@@ -165,17 +167,17 @@ describe("where the server has the Manager appraisal part", () => {
     mount({ managerAppraisal: has });
     expect(
       screen.getByText(
-        "Forms do not ask for an overall mark, except a manager's form in a period that weights Line view. Otherwise the answers stand on their own.",
+        "Forms do not ask for an overall rating, except a manager's form in a period that weights Line view. Otherwise the answers stand on their own.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Forms do not ask for an overall mark. The answers stand on their own.",
+        "Forms do not ask for an overall rating. The answers stand on their own.",
       ),
     ).toBeNull();
   });
 
-  it("names it under the switch, in the company's own word, and stops saying the mark is not counted", () => {
+  it("names it under the switch, in the company's own word, and stops saying the score is not counted", () => {
     mount({ managerAppraisal: has });
     expect(
       screen.getByText(
@@ -195,11 +197,11 @@ describe("where the server has the Manager appraisal part", () => {
     expect(setOverallMark).toHaveBeenCalledWith(false);
     expect(
       await screen.findByText(
-        "Appraisal forms will not ask for an overall mark, except a manager's form in a period that weights Line view",
+        "Appraisal forms will not ask for an overall rating, except a manager's form in a period that weights Line view",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText("Appraisal forms will not ask for an overall mark"),
+      screen.queryByText("Appraisal forms will not ask for an overall rating"),
     ).toBeNull();
   });
 
@@ -207,7 +209,9 @@ describe("where the server has the Manager appraisal part", () => {
     mount({ managerAppraisal: has });
     await userEvent.click(screen.getByRole("switch"));
     expect(
-      await screen.findByText("Appraisal forms will end with an overall mark"),
+      await screen.findByText(
+        "Appraisal forms will end with an overall rating",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -215,7 +219,7 @@ describe("where the server has the Manager appraisal part", () => {
     mount({ managerAppraisal: has }, { overallMark: true });
     expect(
       screen.getByText(
-        "Each form ends with a page asking for one overall mark.",
+        "Each form ends with a page asking for one overall rating.",
       ),
     ).toBeInTheDocument();
   });
@@ -224,19 +228,19 @@ describe("where the server has the Manager appraisal part", () => {
 describe("where nothing is known about the part: the weights are not in, or could not be read", () => {
   const unknown = { state: "unknown" } as const;
 
-  it("says nothing about whether a form asks for a mark when it is off", () => {
+  it("says nothing about whether a form asks for a score when it is off", () => {
     mount({ managerAppraisal: unknown });
     expect(screen.getByRole("switch")).not.toBeChecked();
     expect(
       screen.getByText(
-        "Whether each form ends with a page asking for one overall mark.",
+        "Whether each form ends with a page asking for one overall rating.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/stand on their own/)).toBeNull();
-    expect(screen.queryByText(/do not ask for an overall mark/)).toBeNull();
+    expect(screen.queryByText(/do not ask for an overall rating/)).toBeNull();
   });
 
-  it("says nothing about the mark being optional or being counted, on a server that may well have the part", () => {
+  it("says nothing about the score being optional or being counted, on a server that may well have the part", () => {
     mount({ managerAppraisal: unknown });
     expect(
       screen.getByText(
@@ -253,7 +257,7 @@ describe("where nothing is known about the part: the weights are not in, or coul
     mount({ managerAppraisal: unknown }, { overallMark: true });
     await userEvent.click(screen.getByRole("switch"));
     expect(
-      await screen.findByText("Overall mark switched off"),
+      await screen.findByText("Overall rating switched off"),
     ).toBeInTheDocument();
     expect(screen.queryByText(/will not ask/)).toBeNull();
   });
@@ -309,7 +313,7 @@ describe("what it says about Self-assessment", () => {
     ["off", false],
     ["on", true],
     ["not said", null],
-  ] as const)("says nothing about it when the mark is %s", (_name, value) => {
+  ] as const)("says nothing about it when the score is %s", (_name, value) => {
     mount({}, { overallMark: value });
     expect(screen.queryByText(/Self-assessment/)).toBeNull();
     expect(screen.queryByText(/nothing to count/i)).toBeNull();
