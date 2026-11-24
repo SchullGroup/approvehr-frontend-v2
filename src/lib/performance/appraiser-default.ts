@@ -17,7 +17,13 @@ import type {
  * used, so the screen never presents a guess as a setting.
  */
 
-export type DefaultSource = "manager" | "department-head" | "none";
+/**
+ * `hr` is the last resort (owner, 24 Nov 2026: nobody is ever "No appraiser"):
+ * no manager and no head anywhere up their department tree, so HR looks after
+ * it. The API does not keep that fallback yet (it answers `null` there), so the
+ * screen says which it used and never presents it as a choice anybody made.
+ */
+export type DefaultSource = "manager" | "department-head" | "hr" | "none";
 
 export type DefaultAppraiser = {
   source: DefaultSource;
@@ -34,10 +40,29 @@ type Person = {
 };
 
 /** The appraiser the reporting line gives somebody. */
+/** The nearest head of a department, looking up the tree when it has none. */
+export function inheritedHeadOf(
+  departmentId: string | null | undefined,
+  heads: ReadonlyMap<string, string | null>,
+  parents: ReadonlyMap<string, string | null>,
+  not: string,
+): string | null {
+  const seen = new Set<string>();
+  let at = departmentId ?? null;
+  while (at && !seen.has(at)) {
+    seen.add(at);
+    const head = heads.get(at);
+    if (head && head !== not) return head;
+    at = parents.get(at) ?? null;
+  }
+  return null;
+}
+
 export function defaultAppraiserOf(
   person: Pick<Person, "id" | "managerId" | "departmentId">,
   names: ReadonlyMap<string, string>,
   heads: ReadonlyMap<string, string | null>,
+  parents: ReadonlyMap<string, string | null> = new Map(),
 ): DefaultAppraiser {
   if (person.managerId && person.managerId !== person.id) {
     return {
@@ -46,15 +71,15 @@ export function defaultAppraiserOf(
       name: names.get(person.managerId) ?? null,
     };
   }
-  const head = person.departmentId ? heads.get(person.departmentId) : null;
-  if (head && head !== person.id) {
+  const head = inheritedHeadOf(person.departmentId, heads, parents, person.id);
+  if (head) {
     return {
       source: "department-head",
       id: head,
       name: names.get(head) ?? null,
     };
   }
-  return { source: "none", id: null, name: null };
+  return { source: "hr", id: null, name: null };
 }
 
 /** One row of the "All appraisal periods" view. */
@@ -72,11 +97,21 @@ export function standingRows(
     jobTitle: string;
     department?: string | null;
   })[],
-  departments: readonly { id: string; headId: string | null }[],
+  departments: readonly {
+    id: string;
+    headId: string | null;
+    parentId?: string | null;
+  }[],
 ): StandingRow[] {
   const names = new Map(people.map((person) => [person.id, person.fullName]));
   const heads = new Map(
     departments.map((department) => [department.id, department.headId]),
+  );
+  const parents = new Map(
+    departments.map((department) => [
+      department.id,
+      department.parentId ?? null,
+    ]),
   );
   return people
     .map((person) => ({
@@ -84,14 +119,15 @@ export function standingRows(
       employeeName: person.fullName,
       jobTitle: person.jobTitle,
       department: person.department ?? null,
-      appraiser: defaultAppraiserOf(person, names, heads),
+      appraiser: defaultAppraiserOf(person, names, heads, parents),
     }))
     .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }
 
 /** The words for a default appraiser on a row. */
 export function defaultWords(appraiser: DefaultAppraiser): string {
-  if (appraiser.source === "none") return "No appraiser";
+  if (appraiser.source === "hr" || appraiser.source === "none")
+    return "HR (no manager or department head is recorded)";
   const name = appraiser.name ?? "Somebody no longer listed";
   return appraiser.source === "manager"
     ? `${name}, their line manager`
@@ -115,6 +151,7 @@ export function draftDefaultOf(
   >,
   stage: ReviewCycleStage | undefined,
   heads: ReadonlyMap<string, { id: string; name: string } | null>,
+  parents: ReadonlyMap<string, string | null> = new Map(),
 ): DefaultAppraiser | null {
   if (stage !== "DRAFT" || row.appraisers.length > 0) return null;
   if (row.lineManagerId && row.lineManagerId !== row.employeeId) {
@@ -124,25 +161,26 @@ export function draftDefaultOf(
       name: row.lineManagerName,
     };
   }
-  const head = row.departmentId ? heads.get(row.departmentId) : null;
-  if (head && head.id !== row.employeeId) {
-    return { source: "department-head", id: head.id, name: head.name };
+  const seen = new Set<string>();
+  let at = row.departmentId ?? null;
+  while (at && !seen.has(at)) {
+    seen.add(at);
+    const head = heads.get(at);
+    if (head && head.id !== row.employeeId) {
+      return { source: "department-head", id: head.id, name: head.name };
+    }
+    at = parents.get(at) ?? null;
   }
-  return { source: "none", id: null, name: null };
+  return { source: "hr", id: null, name: null };
 }
 
-/** "Ada Eze, Musa Bello and 3 others": who has no appraiser, in a line. */
-export function withoutLine(names: readonly string[]): string | null {
-  if (names.length === 0) return null;
-  const shown = names.slice(0, 8);
-  const rest = names.length - shown.length;
-  const list =
-    rest > 0
-      ? `${shown.join(", ")} and ${String(rest)} ${rest === 1 ? "other" : "others"}`
-      : shown.length === 1
-        ? shown[0]
-        : `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1] as string}`;
-  return names.length === 1
-    ? `1 person has no appraiser: ${list}.`
-    : `${String(names.length)} people have no appraiser: ${list}.`;
+/**
+ * A calm to-do, not an error (owner, 24 Nov 2026): people nobody above them is
+ * recorded for are appraised by HR, and the one fix is a department head.
+ */
+export function hrFallbackLine(count: number): string | null {
+  if (count === 0) return null;
+  return count === 1
+    ? "1 person has no manager or department head, so HR appraises them."
+    : `${String(count)} people have no manager or department head, so HR appraises them.`;
 }

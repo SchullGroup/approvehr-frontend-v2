@@ -3999,8 +3999,8 @@ export function useMyAppraisers(
                 "BLOCKER" | "WARNING",
               code: "NO_APPRAISER" as const,
               message: started
-                ? `Nobody is appraising ${name}. They will finish this period with no score.`
-                : `${name} has no appraiser yet. Starting the period will use their line manager, and they have none.`,
+                ? `${name} has no manager or department head recorded, so HR appraises them.`
+                : `${name} has no manager or department head recorded, so HR will appraise them.`,
             },
           ],
     };

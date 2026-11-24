@@ -1196,7 +1196,8 @@ export const EXCEPTION_CODE_SUMMARY: Record<
   ApiAppraiserException["code"],
   (count: number) => string
 > = {
-  NO_APPRAISER: (n) => `${people(n)} ${have(n)} no appraiser yet.`,
+  NO_APPRAISER: (n) =>
+    `${people(n)} ${have(n)} no manager or department head, so HR appraises them.`,
   NO_LINE_MANAGER: (n) =>
     `${people(n)} ${have(n)} no line manager on file, so there is nobody to fall back to.`,
   WEIGHTS_NOT_WHOLE: (n) =>
