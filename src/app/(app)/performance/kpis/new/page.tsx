@@ -25,15 +25,17 @@ export default async function NewObjectivePage({
     edit?: string | string[];
     period?: string | string[];
     back?: string | string[];
+    department?: string | string[];
   }>;
 }) {
-  const { parent, edit, period, back } = await searchParams;
+  const { parent, edit, period, back, department } = await searchParams;
   return (
     <ObjectiveWizard
       parent={one(parent)}
       edit={one(edit)}
       period={one(period)}
       back={safeBack(one(back))}
+      department={one(department)}
     />
   );
 }

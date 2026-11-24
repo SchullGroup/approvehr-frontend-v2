@@ -324,8 +324,11 @@ export function newObjectiveHref({
   edit,
   period,
   back,
+  department,
 }: {
   parent?: string;
+  /** Start it for this department. */
+  department?: string;
   /** The appraisal period to set objectives for. */
   period?: string;
   /** An objective to change and send again, rather than a new one. */
@@ -337,6 +340,7 @@ export function newObjectiveHref({
   if (parent) query.set("parent", parent);
   if (period) query.set("period", period);
   if (back) query.set("back", back);
+  if (department) query.set("department", department);
   const text = query.toString();
   return text ? `/performance/kpis/new?${text}` : "/performance/kpis/new";
 }

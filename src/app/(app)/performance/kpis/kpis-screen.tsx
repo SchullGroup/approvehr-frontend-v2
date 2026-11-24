@@ -99,11 +99,46 @@ export function KpisScreen({
     ? `/performance/kpis?department=${encodeURIComponent(department)}`
     : "/performance/kpis";
   const menu = [
-    { label: "New objective", href: newObjectiveHref({ back }) },
+    {
+      label: "New objective",
+      href: newObjectiveHref({
+        back,
+        ...(department ? { department } : {}),
+      }),
+    },
     ...(canUpload
       ? [{ label: "Upload objectives", href: "/performance/kpis/import" }]
       : []),
   ];
+
+  /* One department open: nothing but that department. No page title, back
+     link or tabs; its own back link and New objective sit with its name. */
+  const focused =
+    scope === "company" && department !== null && tab !== AGREE_TAB;
+
+  if (focused) {
+    return (
+      <PageBody>
+        <KpisTab
+          scope={scope}
+          department={department}
+          departmentHref={departmentHref}
+          {...(mutations.editable
+            ? {
+                headerAction: (
+                  <RowActions
+                    label="New objective, or upload objectives"
+                    triggerText="New objective"
+                    triggerIcon={<Plus aria-hidden="true" className="size-4" />}
+                    items={menu}
+                  />
+                ),
+              }
+            : {})}
+        />
+      </PageBody>
+    );
+  }
 
   return (
     <>

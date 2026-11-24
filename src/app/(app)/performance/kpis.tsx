@@ -288,8 +288,11 @@ export function KpisTab({
   department = null,
   departmentHref,
   strip,
+  headerAction,
 }: {
   scope: KpiScope;
+  /** Sits at the right of the open department's name row. */
+  headerAction?: React.ReactNode;
   /**
    * The page's tab strip, when the page draws one with more than whose
    * objectives in it (To agree). Left out, the scopes are drawn here.
@@ -761,19 +764,22 @@ export function KpisTab({
           )}
 
           {opened !== null && departmentHref && (
-            <div className="flex flex-col items-start gap-1">
-              <ButtonLink
-                variant="ghost"
-                size="sm"
-                href={departmentHref(null)}
-                className="-ml-2"
-              >
-                <ArrowLeft aria-hidden="true" className="size-4" />
-                All departments
-              </ButtonLink>
-              <h2 className="text-h4 font-semibold text-ink">
-                {openedName ?? "Objectives"}
-              </h2>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col items-start gap-1">
+                <ButtonLink
+                  variant="ghost"
+                  size="sm"
+                  href={departmentHref(null)}
+                  className="-ml-2"
+                >
+                  <ArrowLeft aria-hidden="true" className="size-4" />
+                  All departments
+                </ButtonLink>
+                <h2 className="text-h3 font-semibold text-ink">
+                  {openedName ?? "Objectives"}
+                </h2>
+              </div>
+              {headerAction}
             </div>
           )}
 

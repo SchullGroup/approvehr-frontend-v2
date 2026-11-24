@@ -131,6 +131,7 @@ export function ObjectiveWizard({
   edit = null,
   period: askedPeriod = null,
   back,
+  department: askedDepartment = null,
 }: {
   /** The objective it goes under, from "Add an objective under this". */
   parent: string | null;
@@ -146,6 +147,8 @@ export function ObjectiveWizard({
   period?: string | null;
   /** Where Cancel and the X go: the Objectives address it was opened from. */
   back: string;
+  /** A department to start the objective for, from its own page. */
+  department?: string | null;
 }) {
   const router = useRouter();
   const { employeeId, user, actingId, isConnected } = useSession();
@@ -280,7 +283,9 @@ export function ObjectiveWizard({
   const [finished, setFinished] = useState<Finished | null>(null);
 
   /* The starting answers follow what has loaded, until somebody chooses. */
-  const start = levelFromWhose(whose.fallback);
+  const start = askedDepartment
+    ? ({ level: "department", departmentId: askedDepartment } as const)
+    : levelFromWhose(whose.fallback);
   const level: ObjectiveLevel =
     draft.level ??
     (levels.includes(start.level) ? start.level : (levels[0] ?? "person"));
