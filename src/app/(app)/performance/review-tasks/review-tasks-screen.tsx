@@ -5,7 +5,6 @@ import { WorkEvidence } from "@/components/performance/work-evidence";
 import { useSession } from "@/lib/store/session";
 import { MyTasksPanel } from "../my-tasks";
 import { ReviewTasksTab } from "../review-tasks";
-import { StartPeriodButton } from "../start-period";
 
 /**
  * Weekly tasks: log your own, grade your team's.
@@ -32,7 +31,6 @@ export function ReviewTasksScreen() {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Weekly tasks"
-        action={<StartPeriodButton withIcon />}
       />
       <PageBody className="flex flex-col gap-6">
         <MyTasksPanel />
