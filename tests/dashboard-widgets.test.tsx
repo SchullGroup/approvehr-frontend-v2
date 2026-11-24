@@ -217,27 +217,21 @@ describe("the catalogue and the components agree", () => {
   });
 
   it("puts no leave balance on anybody's default dashboard", () => {
-    /* The product owner, 24 Nov 2026: no leave, hiring or app-use cards by
-       default; they are in the drawer for whoever wants them. */
+    /* The product owner, 24 Nov 2026: the home is three number tiles and
+       Start something; leave, hiring, app use and the rest are in the drawer
+       for whoever wants them. */
     expect(widgetById("my-leave")?.defaultFor).toEqual([]);
-    expect(widgetById("hiring")?.defaultFor).toEqual([]);
-    expect(widgetById("app-use")?.defaultFor).toEqual([]);
   });
 
-  it("opens the owner's home on what needs them, today, payroll, money owed, headcount and appraisals, with Start something", () => {
-    /* The home the owner asked to go back to on 24 Nov 2026 (Crafwell's view). */
-    for (const id of [
-      "needs-you",
-      "today",
-      "payroll-month",
-      "money-owed",
-      "chart-headcount-trend",
-      "chart-payroll-by-department",
-      "appraisals",
-      "quick-actions",
-    ]) {
-      expect(widgetById(id)?.defaultFor).toContain("owner");
+  it("keeps the default home for the people who run the company to three tiles and Start something", () => {
+    for (const id of ["app-use", "who-is-in", "payroll-month", "hiring"]) {
+      expect(widgetById(id)?.defaultFor).toEqual([]);
     }
+    expect(widgetById("quick-actions")?.defaultFor).toEqual([
+      "owner",
+      "admin",
+      "custom",
+    ]);
   });
 
   it("keeps the staff home to the day: no leave types, no last payslip", () => {
@@ -249,8 +243,9 @@ describe("the catalogue and the components agree", () => {
     expect(widgetById("my-clock")?.leadFor).toContain("staff");
   });
 
-  it("gives the owner appraisals as a card rather than a header button", () => {
-    expect(widgetById("appraisals")?.defaultFor).toContain("owner");
+  it("keeps the appraisals card in the catalogue but off everybody's home page", () => {
+    /* Taken off on request, 23 Nov 2026. */
+    expect(widgetById("appraisals")?.defaultFor).toEqual([]);
     expect(widgetById("appraisals")?.feature).toBe("appraisals");
   });
 });

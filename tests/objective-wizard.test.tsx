@@ -47,8 +47,22 @@ const state = vi.hoisted(() => ({
   push: vi.fn(),
   createGoal: vi.fn(),
   addKeyResult: vi.fn(),
+  updateGoal: vi.fn(),
+  updateKeyResult: vi.fn(),
   submit: vi.fn(),
+  fetchGoal: vi.fn(),
 }));
+
+vi.mock("@/lib/api/performance", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/api/performance")>();
+  return {
+    ...real,
+    performanceApi: {
+      ...real.performanceApi,
+      goal: (id: string) => state.fetchGoal(id),
+    },
+  };
+});
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: state.push, replace: vi.fn() }),
@@ -88,6 +102,8 @@ vi.mock("@/lib/store/performance", () => ({
     editable: true,
     createGoal: state.createGoal,
     addKeyResult: state.addKeyResult,
+    updateGoal: state.updateGoal,
+    updateKeyResult: state.updateKeyResult,
   }),
   useObjectiveMutations: () => ({ submit: state.submit }),
 }));
@@ -176,6 +192,9 @@ beforeEach(() => {
   state.push = vi.fn();
   state.createGoal = vi.fn().mockResolvedValue(madeGoal());
   state.addKeyResult = vi.fn().mockResolvedValue({});
+  state.updateGoal = vi.fn().mockResolvedValue({});
+  state.updateKeyResult = vi.fn().mockResolvedValue({});
+  state.fetchGoal = vi.fn();
   state.submit = vi.fn().mockResolvedValue({
     ...madeGoal(),
     approval: "AWAITING_APPROVAL",
@@ -631,6 +650,127 @@ describe("a draft carried on to the last screen", () => {
     expect(
       screen.getByText(/Choose the appraisal period this is scored in/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Edit and resend, for one that was declined", () => {
+  const declined = () =>
+    madeGoal({
+      id: "g-declined",
+      title: "Fill the two Lagos roles",
+      approval: "NEEDS_REVISION",
+      approvalLabel: "Sent back",
+      approvalNote: "Two is too few; the plan says three.",
+      keyResults: [
+        {
+          id: "kr-1",
+          label: "Offers accepted",
+          kind: "NUMBER",
+          unit: null,
+          startValue: "0",
+          targetValue: "2",
+          currentValue: "0",
+          lowerIsBetter: false,
+        } as unknown as ApiGoal["keyResults"][number],
+      ],
+    });
+  const openEdit = () => {
+    const user = userEvent.setup();
+    const view = render(
+      <ObjectiveWizard parent={null} edit="g-declined" back={BACK} />,
+    );
+    return { user, ...view };
+  };
+
+  it("opens on what was sent, with the feedback beside every question", async () => {
+    state.fetchGoal = vi.fn().mockResolvedValue(declined());
+    openEdit();
+    expect(
+      await screen.findByRole("textbox", { name: /objective title/i }),
+    ).toHaveValue("Fill the two Lagos roles");
+    expect(state.fetchGoal).toHaveBeenCalledWith("g-declined");
+    expect(
+      screen.getByText("Feedback when it was declined"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Two is too few; the plan says three."),
+    ).toBeInTheDocument();
+    /* Whose it is is not changed here. */
+    expect(
+      screen.queryByRole("group", { name: "Who is it for?" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sends only what changed, then sends it to be agreed again", async () => {
+    state.fetchGoal = vi.fn().mockResolvedValue(declined());
+    const { user } = openEdit();
+    await screen.findByRole("textbox", { name: /objective title/i });
+    await next(user);
+    expect(
+      screen.getByText("Two is too few; the plan says three."),
+    ).toBeInTheDocument();
+    const target = screen.getByRole("textbox", { name: /target value/i });
+    expect(target).toHaveValue("2");
+    await user.clear(target);
+    await user.type(target, "3");
+    await next(user);
+    await next(user);
+    await user.click(screen.getByRole("button", { name: "Send to be agreed" }));
+    expect(state.createGoal).not.toHaveBeenCalled();
+    expect(state.updateGoal).not.toHaveBeenCalled();
+    expect(state.updateKeyResult).toHaveBeenCalledWith("kr-1", {
+      targetValue: "3",
+    });
+    expect(state.submit).toHaveBeenCalledWith("g-declined");
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: '"Fill the two Lagos roles" is waiting to be agreed',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("saves the change without sending it, and says it stays declined", async () => {
+    state.fetchGoal = vi.fn().mockResolvedValue(declined());
+    const { user } = openEdit();
+    const title = await screen.findByRole("textbox", {
+      name: /objective title/i,
+    });
+    await user.clear(title);
+    await user.type(title, "Fill the three Lagos roles");
+    await next(user);
+    await next(user);
+    await next(user);
+    await user.click(
+      screen.getByRole("button", { name: "Save without sending" }),
+    );
+    expect(state.updateGoal).toHaveBeenCalledWith("g-declined", {
+      title: "Fill the three Lagos roles",
+    });
+    expect(state.submit).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/It stays declined until it is sent to be agreed again/),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer to change one that is agreed", async () => {
+    state.fetchGoal = vi.fn().mockResolvedValue(
+      madeGoal({
+        id: "g-declined",
+        approval: "AGREED",
+        approvalLabel: "Agreed",
+        targetFrozen: true,
+      }),
+    );
+    openEdit();
+    expect(
+      await screen.findByRole("heading", {
+        name: "This objective cannot be changed here",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: /objective title/i }),
+    ).not.toBeInTheDocument();
   });
 });
 

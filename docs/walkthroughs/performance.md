@@ -105,7 +105,7 @@ opens is empty, and says so in a sentence.
 | **Weekly tasks**        | `/performance/review-tasks` | Staff log what they did each week against an objective; managers grade it. This is the evidence a delivery score is built from. | Everyone                                                                                                   |
 | **Competency ratings**  | `/performance/skills`       | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                        | Everyone                                                                                                   |
 | **Appraisal periods**   | `/performance/periods`      | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                  | HR / Owner                                                                                                 |
-| **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it, send it back, or refuse it.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
+| **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it or decline it with feedback.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
 | **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who scores whom, and how much each one's overall rating weighs. | HR / Owner                                                                                                 |
 
 A further item, **My work record** (`/performance/work-record`), sits beside these for a company that has
@@ -955,32 +955,42 @@ be scored.
 
 #### 15. Agree it — as the other person
 
-Sign in as the manager. This is the queue screen, and it has one job.
+Sign in as the manager. This is the queue screen, and it has one job. It works like **My approvals**:
+no number cards, a search box and a filter button (person, department, period, level, shown as chips
+once chosen), a **Not grouped** / **By department** / **By person** choice, and one row per objective.
 
 |                |                                                                                |
 | -------------- | ------------------------------------------------------------------------------ |
 | **Where**      | `/performance/approvals`                                                       |
 | **Who**        | Line manager · HR / Owner                                                      |
-| **Click**      | **Agree it** on the row, then confirm                                          |
+| **Click**      | **Agree** on the row, then **Agree** on the confirmation                       |
 | **You'll see** | The row leaves the queue and the objective's badge becomes _Agreed_ everywhere |
 
-Each row lists its targets so you can see what you are agreeing to: **Offers accepted, 0 to 10 · now
-5**, or **Both engineers hired, done or not done · not done yet**. A number nobody has entered a
-figure for reads **· nothing recorded yet**, and one already at its target reads **· already at
-target**, which is worth stopping on: a target agreed after the work was done is the one this step
-exists to catch. A milestone somebody already confirmed reads **· already confirmed as done** for the
-same reason.
+Each row is one line: the title and its target (**Offers accepted: 0 to 10**, or **No target**), then
+whose it is and the period. Click the row to open it: what it says, every target with where it stands
+now, the work linked to it, and its history. A number nobody has entered a figure for reads **·
+nothing recorded yet**, and one already at its target reads **· already met**, which is worth
+stopping on: a target agreed after the work was done is the one this step exists to catch. A
+milestone somebody already confirmed reads **· already confirmed as done** for the same reason.
 
-There are three answers, and they end differently:
+There are two answers:
 
 ```mermaid
 flowchart TD
   S["Waiting to be agreed<br/>the target is out with whoever agrees it — nothing is fixed yet"]
-  S --> A["Agree it<br/>the target freezes. Nobody can change the title,<br/>the period or any target on it from here on.<br/>It is now scoreable."]
-  S --> B["Send it back<br/>needs a written reason, which the owner reads.<br/>They edit it and press “Send it again”.<br/>Nothing is agreed and nothing is refused."]
-  S --> C["Refuse it<br/>final. A refused objective cannot be sent again —<br/>the answer to one is a different objective,<br/>so the refusal stays on the record."]
-  B -. "send it again" .-> S
+  S --> A["Agree<br/>the target freezes. Nobody can change the title,<br/>the period or any target on it from here on.<br/>It is now scoreable."]
+  S --> B["Decline<br/>needs written feedback, which the owner reads.<br/>On Objectives it reads “Declined” with the feedback,<br/>and “Edit and resend” opens it in the New objective pages."]
+  B -. "Send to be agreed" .-> S
 ```
+
+> 💡 **Decline is a send-back, not a refusal.** The owner can change it and send it again, and it
+> comes back to this queue. The API also has a final refusal; this screen does not offer it.
+
+> 💡 **The owner's side.** The card says **Declined**, shows "Feedback when it was declined" and the
+> words, and offers **Edit and resend**. That opens the same pages as **New objective**, filled in,
+> with the feedback above every question; whose it is cannot be changed there. **Send to be agreed**
+> sends only what changed and puts it back in the queue; **Save without sending** keeps the change
+> and leaves it declined.
 
 > ⚠️ **Two rules worth saying out loud in a demo**
 >
@@ -1672,7 +1682,7 @@ agree. Never sees a period, a register or a report.
 Everything above, plus four things about other people. Not a role you are given — it follows from
 who reports to you.
 
-1. Agree your reports' objectives on **Objectives to agree**, or send them back with a reason.
+1. Agree your reports' objectives on **Objectives to agree**, or decline them with feedback.
 2. Set objectives _for_ your reports on **KPIs**.
 3. Write a review of each report when the period reaches manager review, and record their competency
    levels.

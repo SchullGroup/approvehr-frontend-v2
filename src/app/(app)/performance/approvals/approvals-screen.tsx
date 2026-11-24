@@ -1,22 +1,21 @@
 "use client";
 
+import { useId, useMemo, useState } from "react";
+import { ChevronRight, Inbox, Target } from "lucide-react";
 import { CompletedWork } from "@/components/performance/completed-work";
-import { useState } from "react";
-import { CheckCheck, Inbox, Target } from "lucide-react";
 import {
-  Avatar,
   Badge,
   Button,
   Card,
-  CardBody,
-  CardHeader,
   ConfirmDialog,
   EmptyState,
-  Stat,
-  StatGrid,
+  FilterBar,
+  Illustration,
+  Select,
   TextLink,
   useToast,
   LoadState,
+  type AppliedFilter,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -27,100 +26,105 @@ import {
   quarterLabel,
   type ApiGoal,
 } from "@/lib/api/performance";
+import {
+  NO_FILTERS,
+  filterQueue,
+  groupQueue,
+  narrowing as isNarrowing,
+  periodOf,
+  queueOptions,
+  targetLine,
+  whoseWords,
+  type ObjectiveLevelFilter,
+  type QueueFilters,
+  type QueueGrouping,
+} from "@/lib/performance/objective-queue";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useFeatures } from "@/lib/store/features";
 import {
-  APPROVAL_TONE,
   useObjectiveApprovals,
   useObjectiveMutations,
 } from "@/lib/store/performance";
-import { ApprovalReasonDialog, type ApprovalAct } from "../approval-dialogs";
-import { refusedSaid, sentBackSaid, type Said } from "../objective-copy";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
+import { ApprovalReasonDialog } from "../approval-dialogs";
+import { sentBackSaid } from "../objective-copy";
 import { AgreedMoment, type Agreement } from "./agreed-moment";
 
 /**
- * Objectives waiting to be agreed.
+ * Objectives waiting to be agreed, in the rhythm of My approvals (owner
+ * request, 24 Nov 2026).
  *
  * ## Why this screen exists at all
  *
  * An objective must be agreed **before** the period it covers. Otherwise a
  * manager can set the target after seeing the result, and every rating built on
- * it is an opinion wearing a number. This queue is the whole of that rule made
- * operable: the one place where somebody says yes, and the place a year later
- * that answers "who agreed this, and when".
+ * it is an opinion wearing a number. This queue is that rule made operable.
  *
- * ## Three answers, not one, and two of them need words
+ * ## Two answers
  *
- * Agree, send back, refuse. **Send back** returns it for another go and keeps
- * the fact that somebody looked; **refuse** is terminal, because the answer to a
- * refused objective is a different objective rather than the same one re-sent
- * with the refusal quietly attached. Both carry a required reason: a refusal
- * with no reason is not feedback, and it is not evidence either.
+ * **Agree** or **Decline**. Decline needs feedback, and sends it back to whoever
+ * wrote it (`POST /goals/:id/send-back`): they can change it and send it again,
+ * and it comes back here. The API's terminal refusal (`/reject`) is not offered:
+ * the owner asked for two actions, and a declined objective has to stay editable
+ * by its owner, which only a send-back does.
  *
- * Agree is the green control. Green in this design system is the approval act and
- * nothing else, so it belongs here and it is deliberately not the loudest thing
- * on the row — the guard on agreeing a target is reading the target, which is why
- * the measures are on the card rather than behind it.
+ * ## One line a row
+ *
+ * Each row is the title, its target, whose it is and the period, with the two
+ * answers beside it. The rest (what it says, every target with where it stands
+ * now, the work linked to it, what happened to it) opens under the row. Agreeing
+ * a target you have not read is what this lifecycle exists to prevent, which is
+ * why the target is on the row itself and not only behind it.
  *
  * ## An empty queue is two different facts
  *
- * "Nobody has anything waiting" and "you agree nobody's objectives" are opposite
- * states and both render as no rows. `couldHaveQueue` is which one it is, and
- * saying the wrong one sends somebody looking for a permission problem that is
- * not there.
- *
- * ## Nobody's own objectives are here
- *
- * Enforced by the API, and worth stating on screen rather than leaving somebody
- * to wonder where theirs went: a queue containing a row nobody in the world may
- * action is a queue with a permanently stuck row in it.
+ * "Nothing waiting" and "you agree nobody's objectives" both render as no rows.
+ * `couldHaveQueue` says which.
  */
 export function ApprovalsScreen() {
   const approvals = useObjectiveApprovals();
   const objectives = useObjectiveMutations();
   const features = useFeatures();
   const toast = useToast();
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const { flat: departmentList } = useDepartments();
 
+  const [filters, setFilters] = useState<QueueFilters>(NO_FILTERS);
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [agreeing, setAgreeing] = useState<ApiGoal | null>(null);
-  const [reasonFor, setReasonFor] = useState<{
-    goal: ApiGoal;
-    act: ApprovalAct;
-  } | null>(null);
-
-  /* The decision just made, shown above the queue until the next one or until
-     it is closed. Only an agreement has one: it is the act that fixes a target.
-     Sending back and refusing say what happened in a toast, which is the right
-     size for a decision that leaves the objective with somebody else to act on. */
+  const [declining, setDeclining] = useState<ApiGoal | null>(null);
+  /* The agreement just made, above the queue until the next decision. */
   const [agreed, setAgreed] = useState<Agreement | null>(null);
 
-  /* One write, one announcement. `said` is the toast for the decision, or null
-     when the caller shows something better; a failure is always a toast. */
-  const run = async (action: () => Promise<unknown>, said: Said | null) => {
-    try {
-      await action();
-      if (said) {
-        toast.push({
-          title: said.title,
-          tone: said.tone ?? "success",
-          ...(said.detail ? { detail: said.detail } : {}),
-        });
-      }
-      approvals.reload();
-      return true;
-    } catch (error) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-      return false;
-    }
-  };
+  /* Which department a personal objective belongs to is its owner's, and only
+     the staff list knows that (the same rule as the Objectives cards). */
+  const owners = useMemo(
+    () =>
+      new Map(
+        directory.people.map((person) => [person.id, person.departmentId]),
+      ),
+    [directory.people],
+  );
+  const departmentNames = useMemo(
+    () => new Map(departmentList.map((one) => [one.id, one.name])),
+    [departmentList],
+  );
+  const options = useMemo(
+    () => queueOptions(approvals.queue, owners, departmentList),
+    [approvals.queue, owners, departmentList],
+  );
+  const shown = useMemo(
+    () => filterQueue(approvals.queue, filters, owners),
+    [approvals.queue, filters, owners],
+  );
+  const groups = useMemo(
+    () => groupQueue(shown, filters.group, owners, departmentNames),
+    [shown, filters.group, owners, departmentNames],
+  );
+  const narrowing = isNarrowing(filters);
 
-  /* A link straight here with appraisals switched off gets the reason, not an
-     empty queue — the lifecycle is part of the appraisal module. */
   if (!features.loading && !features.appraisals) {
     return (
       <>
@@ -145,9 +149,63 @@ export function ApprovalsScreen() {
     );
   }
 
-  const measured = approvals.queue.filter(
-    (goal) => goal.keyResults.length > 0,
-  ).length;
+  const toggle = (id: string) =>
+    setOpen((was) => {
+      const next = new Set(was);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const set = (patch: Partial<QueueFilters>) =>
+    setFilters((was) => ({ ...was, ...patch }));
+  const label = (list: [string, string][], key: string) =>
+    list.find(([id]) => id === key)?.[1] ?? key;
+  const LEVEL_WORDS: Record<Exclude<ObjectiveLevelFilter, "">, string> = {
+    company: "The company's",
+    department: "A department's",
+    personal: "One person's",
+  };
+  const applied: AppliedFilter[] = [
+    ...(filters.person
+      ? [
+          {
+            label: "Person",
+            value: label(options.people, filters.person),
+            onClear: () => set({ person: "" }),
+          },
+        ]
+      : []),
+    ...(filters.department
+      ? [
+          {
+            label: "Department",
+            value: label(options.departments, filters.department),
+            onClear: () => set({ department: "" }),
+          },
+        ]
+      : []),
+    ...(filters.period
+      ? [
+          {
+            label: "Period",
+            value: label(options.periods, filters.period),
+            onClear: () => set({ period: "" }),
+          },
+        ]
+      : []),
+    ...(filters.level
+      ? [
+          {
+            label: "Level",
+            value: LEVEL_WORDS[filters.level],
+            onClear: () => set({ level: "" }),
+          },
+        ]
+      : []),
+  ];
+
+  const answered = !approvals.loading && !approvals.error;
 
   return (
     <>
@@ -165,35 +223,88 @@ export function ApprovalsScreen() {
 
       <PageBody>
         <div className="flex flex-col gap-6">
-          {/* Absent for somebody with no queue, not zeroed.
-              ---------------------------------------------------
-              An employee was given "Waiting on you 0" and "With a measure on
-              them 0 of 0" directly above the card saying *"You agree nobody's
-              objectives"* — a measurement of a queue the same screen says is
-              not theirs. `couldHaveQueue` is the flag that already tells
-              these two states apart; the card below used it and the stats did
-              not.
-
-              Also absent while loading, for the same reason one step
-              earlier: a 0 that is really "not known yet" is a figure somebody
-              can read and act on before it is true. The card underneath
-              carries the spinner. */}
-          {!approvals.loading &&
-            !approvals.error &&
-            approvals.couldHaveQueue && (
-              <StatGrid columns={2}>
-                <Stat
-                  label="Waiting on you"
-                  value={String(approvals.queue.length)}
-                  hint="Nobody agrees their own, so yours are not here"
-                />
-                <Stat
-                  label="With a target on them"
-                  value={`${measured} of ${approvals.queue.length}`}
-                  hint="An objective with no target is scored on a stated figure"
-                />
-              </StatGrid>
-            )}
+          {answered && approvals.queue.length > 0 && (
+            <FilterBar
+              search={filters.search}
+              onSearchChange={(search) => set({ search })}
+              searchLabel="Search the objectives waiting by title, person or department"
+              searchPlaceholder="Search objectives…"
+              applied={applied}
+              {...(narrowing || filters.group !== ""
+                ? { onClearAll: () => setFilters(NO_FILTERS) }
+                : {})}
+              count={narrowing ? shown.length : undefined}
+              noun={["objective", "objectives"]}
+              sort={
+                <Select
+                  aria-label="Group the list"
+                  value={filters.group}
+                  onChange={(event) =>
+                    set({ group: event.target.value as QueueGrouping })
+                  }
+                >
+                  <option value="">Not grouped</option>
+                  <option value="department">By department</option>
+                  <option value="person">By person</option>
+                </Select>
+              }
+            >
+              {options.people.length > 0 && (
+                <Select
+                  aria-label="Filter by person"
+                  value={filters.person}
+                  onChange={(event) => set({ person: event.target.value })}
+                >
+                  <option value="">Anybody</option>
+                  {options.people.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+              <Select
+                aria-label="Filter by department"
+                value={filters.department}
+                onChange={(event) => set({ department: event.target.value })}
+              >
+                <option value="">Any department</option>
+                {options.departments.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                aria-label="Filter by period"
+                value={filters.period}
+                onChange={(event) => set({ period: event.target.value })}
+              >
+                <option value="">Any period</option>
+                {options.periods.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                aria-label="Filter by level"
+                value={filters.level}
+                onChange={(event) =>
+                  set({ level: event.target.value as ObjectiveLevelFilter })
+                }
+              >
+                <option value="">Any level</option>
+                {options.levels.map((level) =>
+                  level === "" ? null : (
+                    <option key={level} value={level}>
+                      {LEVEL_WORDS[level]}
+                    </option>
+                  ),
+                )}
+              </Select>
+            </FilterBar>
+          )}
 
           {agreed && (
             <AgreedMoment
@@ -203,57 +314,79 @@ export function ApprovalsScreen() {
             />
           )}
 
-          <Card>
-            <CardHeader
-              title="Waiting to be agreed"
-              description="Once you agree it, it is fixed. Progress can still change, but changing the objective itself means reopening it with a recorded reason."
-            />
-            <LoadState
-              loading={approvals.loading}
-              error={approvals.error}
-              subject="the objectives waiting on you"
-              onRetry={approvals.reload}
-              hasData={approvals.queue.length > 0}
-              skeleton="list"
-            >
-              {approvals.queue.length === 0 ? (
+          <LoadState
+            loading={approvals.loading}
+            error={approvals.error}
+            subject="the objectives waiting on you"
+            onRetry={approvals.reload}
+            hasData={approvals.queue.length > 0}
+            skeleton="list"
+          >
+            {approvals.queue.length === 0 ? (
+              <Card>
+                {approvals.couldHaveQueue ? (
+                  <EmptyState
+                    art={<Illustration name="coffee-break" />}
+                    title="Nothing waiting to be agreed"
+                    description="New ones show up here when somebody sends an objective to be agreed."
+                  />
+                ) : (
+                  <EmptyState
+                    plain
+                    icon={<Inbox aria-hidden="true" />}
+                    title="You agree nobody's objectives"
+                    description="This fills up for whoever people report to. Yours are on the Objectives page, where you can send them to be agreed."
+                  />
+                )}
+              </Card>
+            ) : shown.length === 0 ? (
+              <Card>
                 <EmptyState
-                  compact
-                  icon={
-                    approvals.couldHaveQueue ? (
-                      <CheckCheck aria-hidden="true" />
-                    ) : (
-                      <Inbox aria-hidden="true" />
-                    )
-                  }
-                  title={
-                    approvals.couldHaveQueue
-                      ? "Nothing waiting"
-                      : "You agree nobody's objectives"
-                  }
-                  description={
-                    approvals.couldHaveQueue
-                      ? "Every objective sent to you has been answered. New ones turn up here."
-                      : "This queue fills up for whoever people report to. Yours are on the Objectives page, where you can send them to be agreed."
+                  mood="search"
+                  icon={<Target aria-hidden="true" />}
+                  title="Nothing matches that"
+                  description={`None of the ${String(approvals.queue.length)} waiting match your filters.`}
+                  action={
+                    <Button
+                      variant="ghost"
+                      onClick={() => setFilters(NO_FILTERS)}
+                    >
+                      Clear the filters
+                    </Button>
                   }
                 />
-              ) : (
-                <CardBody className="flex flex-col gap-3">
-                  {approvals.queue.map((goal) => (
-                    <ObjectiveCard
-                      key={goal.id}
-                      goal={goal}
-                      onAgree={() => setAgreeing(goal)}
-                      onSendBack={() =>
-                        setReasonFor({ goal, act: "send_back" })
-                      }
-                      onReject={() => setReasonFor({ goal, act: "reject" })}
-                    />
-                  ))}
-                </CardBody>
-              )}
-            </LoadState>
-          </Card>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {groups.map((group) => (
+                  <section
+                    key={group.key}
+                    aria-label={group.name || "Waiting to be agreed"}
+                    className="flex flex-col gap-3"
+                  >
+                    {group.name && (
+                      <h2 className="text-meta font-semibold text-muted">
+                        {group.name} · {group.goals.length}
+                      </h2>
+                    )}
+                    <ul className="flex flex-col gap-3">
+                      {group.goals.map((goal) => (
+                        <li key={goal.id}>
+                          <QueueRow
+                            goal={goal}
+                            open={open.has(goal.id)}
+                            onToggle={() => toggle(goal.id)}
+                            onAgree={() => setAgreeing(goal)}
+                            onDecline={() => setDeclining(goal)}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            )}
+          </LoadState>
         </div>
       </PageBody>
 
@@ -261,11 +394,12 @@ export function ApprovalsScreen() {
         open={agreeing !== null}
         onClose={() => setAgreeing(null)}
         title={`Agree "${agreeing?.title ?? ""}"?`}
-        confirmLabel="Agree it"
+        confirmLabel="Agree"
         tone="primary"
         body={
           <span>
-            {agreeing?.ownerName ?? "The owner"} will be judged on this for{" "}
+            {agreeing ? whoseWords(agreeing) : "The owner"} will be judged on
+            this for{" "}
             {agreeing?.reviewCycleName ??
               quarterLabel(agreeing?.dueQuarter ?? null)}
             . It is fixed from now on. Progress can still change, but changing
@@ -275,39 +409,46 @@ export function ApprovalsScreen() {
         }
         onConfirm={async () => {
           if (!agreeing) return;
-          /* No toast: the moment above the queue is the announcement. */
-          const ok = await run(() => objectives.agree(agreeing.id), null);
-          if (ok) {
+          try {
+            await objectives.agree(agreeing.id);
             setAgreed((previous) => ({
               goal: agreeing,
               n: (previous?.n ?? 0) + 1,
             }));
             setAgreeing(null);
+            approvals.reload();
+          } catch (error) {
+            toast.push({
+              title: "That did not work",
+              tone: "danger",
+              detail:
+                error instanceof ApiError
+                  ? error.message
+                  : "Something went wrong. Try again.",
+            });
           }
         }}
       />
 
       <ApprovalReasonDialog
-        act={reasonFor?.act ?? null}
-        goalTitle={reasonFor?.goal.title ?? null}
-        open={reasonFor !== null}
-        onClose={() => setReasonFor(null)}
+        act={declining ? "decline" : null}
+        goalTitle={declining?.title ?? null}
+        open={declining !== null}
+        onClose={() => setDeclining(null)}
         onConfirm={async (reason) => {
-          if (!reasonFor) return;
-          const { goal, act } = reasonFor;
-          const ok = await run(
-            () =>
-              act === "send_back"
-                ? objectives.sendBack(goal.id, reason)
-                : objectives.reject(goal.id, reason),
-            act === "send_back" ? sentBackSaid(goal) : refusedSaid(goal),
-          );
-          if (ok) {
-            /* A different decision now: an agreement above the queue would be
-               the previous one, left standing beside this one's toast. */
-            setAgreed(null);
-            setReasonFor(null);
-          }
+          if (!declining) return;
+          /* A refusal throws, so the dialog stays open with the feedback
+             still typed and the server's sentence under it. */
+          await objectives.sendBack(declining.id, reason);
+          const said = sentBackSaid(declining);
+          toast.push({
+            title: said.title,
+            tone: said.tone ?? "success",
+            ...(said.detail ? { detail: said.detail } : {}),
+          });
+          setAgreed(null);
+          setDeclining(null);
+          approvals.reload();
         }}
       />
     </>
@@ -317,173 +458,170 @@ export function ApprovalsScreen() {
 /* -------------------------------------------------------------------------- */
 
 /**
- * One objective, with enough of it on screen to answer without opening it.
+ * One objective: a line to decide on, and the rest under it.
  *
- * The measures are here rather than behind a link because agreeing is the act
- * this whole lifecycle exists to make meaningful, and agreeing a target you have
- * not read is the thing it is meant to prevent. An objective with **no** measure
- * says so, in words — it can still be agreed, and the score records that its
- * progress came from a stated figure rather than a measured one, which is weaker
- * evidence and should be visible rather than disguised.
+ * The toggle and the two answers are siblings, never one inside the other: a
+ * button inside a button is invalid, and pressing Agree must never also open
+ * the row.
  */
-function ObjectiveCard({
+export function QueueRow({
   goal,
+  open,
+  onToggle,
   onAgree,
-  onSendBack,
-  onReject,
+  onDecline,
 }: {
   goal: ApiGoal;
+  open: boolean;
+  onToggle: () => void;
   onAgree: () => void;
-  onSendBack: () => void;
-  onReject: () => void;
+  onDecline: () => void;
 }) {
+  const detailId = useId();
+  const period = periodOf(goal);
   return (
-    <div className="rounded-lg border border-line p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-body-sm font-medium text-ink">{goal.title}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-meta text-muted">
-            {goal.companyWide ? (
-              <Badge tone="accent" size="sm">
-                Company objective
-              </Badge>
-            ) : goal.level === "department" ? (
-              /* A department's shared target, which HR agrees — the approval
-                 step the cascade puts between it and the KPIs beneath it. So
-                 this queue has to say which department, not "No owner". */
-              <Badge tone="accent" size="sm">
-                {goal.departmentName
-                  ? `${goal.departmentName} objective`
-                  : "Department objective"}
-              </Badge>
-            ) : goal.ownerName ? (
-              <span className="flex items-center gap-1.5">
-                <Avatar name={goal.ownerName} size="xs" />
-                {goal.ownerName}
-              </span>
-            ) : (
-              <span>No owner</span>
-            )}
-            {/* The period, and which of the two kinds it is. An appraisal
-                period is what makes the objective scoreable; a bare quarter is
-                what companies typed before periods existed and is still
-                allowed. */}
-            <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
-            {goal.revisionCount > 0 && (
-              <span>
-                {goal.revisionCount === 1
-                  ? "Reopened once"
-                  : `Reopened ${goal.revisionCount} times`}
-              </span>
-            )}
-          </div>
+    <Card>
+      <div className="flex flex-wrap items-start gap-3 p-4">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={detailId}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 basis-64 items-start gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={
+              "mt-0.5 size-4 shrink-0 text-muted transition-transform motion-reduce:transition-none " +
+              (open ? "rotate-90" : "")
+            }
+          />
+          <span className="min-w-0">
+            <span className="block break-words text-body-sm text-ink">
+              <span className="font-medium">{goal.title}</span>
+              <span className="text-muted"> · {targetLine(goal)}</span>
+            </span>
+            <span className="mt-1 block text-meta text-muted">
+              {whoseWords(goal)} · {period.name}
+              {goal.revisionCount > 0 &&
+                ` · reopened ${goal.revisionCount === 1 ? "once" : `${String(goal.revisionCount)} times`}`}
+            </span>
+          </span>
+        </button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            variant="approve"
+            size="sm"
+            onClick={onAgree}
+            aria-label={`Agree, ${goal.title}`}
+          >
+            Agree
+          </Button>
+          <Button
+            size="sm"
+            onClick={onDecline}
+            aria-label={`Decline, ${goal.title}`}
+          >
+            Decline
+          </Button>
         </div>
-
-        <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
-          {goal.approvalLabel}
-        </Badge>
       </div>
+      {open && <RowDetail goal={goal} id={detailId} />}
+    </Card>
+  );
+}
 
+function RowDetail({ goal, id }: { goal: ApiGoal; id: string }) {
+  const timeZone = useOrgTimezone();
+  return (
+    <div
+      id={id}
+      className="flex flex-col gap-4 border-t border-line px-4 py-4 text-body-sm"
+    >
       {goal.description && (
-        <p className="mt-3 text-body-sm leading-relaxed text-body">
+        <p className="whitespace-pre-line leading-relaxed text-body">
           {goal.description}
         </p>
       )}
 
       {goal.keyResults.length === 0 ? (
-        <p className="mt-3 text-body-sm text-body">
+        <p className="text-body">
           No target on this one. It can be agreed, and its progress will be the
           figure the owner states rather than one that counts itself.
         </p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-1.5 border-t border-line pt-3">
-          {goal.keyResults.map((measure) => (
-            <li key={measure.id} className="text-body-sm text-body">
-              <span className="font-medium text-ink">{measure.label}</span>
-              {", "}
-              {/* A done-or-not-done measure has no range: the server keeps a 0
-                  and a 1 for it, and "0 to 1" would read as a target somebody
-                  chose. */}
-              {isDoneMeasure(measure) ? (
-                "done or not done"
-              ) : (
-                <span className="tabular">
-                  {formatMeasure(measure.startValue, measure.unit)} to{" "}
-                  {formatMeasure(measure.targetValue, measure.unit)}
-                </span>
-              )}
-              {measure.lowerIsBetter && " (counting down)"}
-              {/* Where it stands now, beside what is being asked for.
-                  ----------------------------------------------------------
-                  Not decoration on an approval screen. Somebody agreeing a
-                  target has to be able to see that the work is already done:
-                  an objective sitting at its target before anybody agreed it
-                  is the post-hoc target this whole lifecycle exists to catch,
-                  and the range alone cannot show it.
-
-                  Three readings, kept apart, because "no progress recorded"
-                  and "recorded as still at the starting figure" are the same
-                  number and not the same fact — the first is silence and the
-                  second is a measurement. The server says which
-                  (`lastReadAt`); on one that does not, a figure still equal to
-                  `startValue` is taken as silence, as it always was here, and
-                  is not dressed up as a reading.
-
-                  A done-or-not-done measure has no figure to compare: it is
-                  done once somebody has confirmed it, and a confirmation that
-                  already exists is the same post-hoc target as one already
-                  at its figure. */}
-              {isDoneMeasure(measure) ? (
-                measure.confirmedAt ? (
+        <div>
+          <h3 className="text-meta font-semibold text-muted">Targets</h3>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {goal.keyResults.map((measure) => (
+              <li key={measure.id} className="text-body">
+                <span className="font-medium text-ink">{measure.label}</span>
+                {", "}
+                {isDoneMeasure(measure) ? (
+                  "done or not done"
+                ) : (
+                  <span className="tabular">
+                    from {formatMeasure(measure.startValue, measure.unit)} to{" "}
+                    {formatMeasure(measure.targetValue, measure.unit)}
+                  </span>
+                )}
+                {measure.lowerIsBetter && " (counting down)"}
+                {/* Where it stands now. An objective already at its target
+                    before anybody agreed it is the post-hoc target this
+                    lifecycle exists to catch. */}
+                {isDoneMeasure(measure) ? (
+                  measure.confirmedAt ? (
+                    <span className="ml-1.5 font-medium text-warning-text">
+                      · already confirmed as done
+                    </span>
+                  ) : (
+                    <span className="ml-1.5 text-muted">· not done yet</span>
+                  )
+                ) : measure.met ? (
                   <span className="ml-1.5 font-medium text-warning-text">
-                    · already confirmed as done
+                    · already met
+                  </span>
+                ) : hasNoReading(measure) ? (
+                  <span className="ml-1.5 text-muted">
+                    · nothing recorded yet
                   </span>
                 ) : (
-                  <span className="ml-1.5 text-muted">· not done yet</span>
-                )
-              ) : measure.met ? (
-                <span className="ml-1.5 font-medium text-warning-text">
-                  · already met
-                </span>
-              ) : hasNoReading(measure) ? (
-                <span className="ml-1.5 text-muted">
-                  · nothing recorded yet
-                </span>
-              ) : (
-                <span className="ml-1.5 tabular text-muted">
-                  · now {formatMeasure(measure.currentValue, measure.unit)}
-                </span>
-              )}
+                  <span className="ml-1.5 tabular text-muted">
+                    · now {formatMeasure(measure.currentValue, measure.unit)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <CompletedWork goal={goal} lazy />
+
+      <div>
+        <h3 className="text-meta font-semibold text-muted">History</h3>
+        <ul className="mt-1.5 flex flex-col gap-1 text-body">
+          {goal.submittedAt && (
+            <li>
+              Sent to be agreed on {formatDateShort(goal.submittedAt, timeZone)}
             </li>
-          ))}
+          )}
+          {goal.revisionCount > 0 && (
+            <li>
+              {goal.revisionCount === 1
+                ? "Reopened once after it was agreed"
+                : `Reopened ${String(goal.revisionCount)} times after it was agreed`}
+            </li>
+          )}
+          {!goal.submittedAt && goal.revisionCount === 0 && (
+            <li className="text-muted">Nothing else recorded.</li>
+          )}
         </ul>
-      )}
-
-      {/* The finished tasks already linked to it, for anybody reading before they
-          agree. Asked for only when opened. */}
-      <div className="mt-3">
-        <CompletedWork goal={goal} lazy />
-      </div>
-
-      {/* The previous objection, if this has been round once. Kept visible while
-          it is waiting again, because the second version only makes sense beside
-          what was asked for. */}
-      {goal.approvalNote && (
-        <p className="mt-3 border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
-          {goal.approvalNote}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button variant="approve" size="sm" onClick={onAgree}>
-          Agree it
-        </Button>
-        <Button size="sm" onClick={onSendBack}>
-          Send it back
-        </Button>
-        <Button size="sm" onClick={onReject}>
-          Refuse it
-        </Button>
+        {goal.approvalNote && (
+          <p className="mt-2 border-l-2 border-line-strong pl-3 leading-relaxed text-body">
+            {goal.approvalNote}
+          </p>
+        )}
       </div>
     </div>
   );

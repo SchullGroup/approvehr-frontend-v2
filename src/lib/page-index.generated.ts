@@ -352,11 +352,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Write an objective one question at a time: the aim, the target, the period it counts in, then send it to be agreed."
   },
   {
-    "href": "/performance/periods",
-    "title": "Appraisal periods",
-    "description": "Every appraisal period, open ones first, and what each one needs next."
-  },
-  {
     "href": "/performance/periods/new",
     "title": "Draft a period",
     "description": "Describe an appraisal period in a sentence or two and edit the goals and questions that come back. Nothing is created until the last screen."

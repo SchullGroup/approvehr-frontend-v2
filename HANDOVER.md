@@ -14047,3 +14047,42 @@ Decisions worth not undoing:
 Not exercised in the browser: **Send to be agreed** end to end (it notifies real approvers on the demo
 company; the unit tests cover it). The empty-state screenshots answer the goals read with an empty page
 in that one browser context, because no seeded account has an empty list.
+
+---
+
+# Objectives to agree works like My approvals, and Decline sends it back to be edited
+
+Owner request, 24 Nov 2026. `/performance/approvals` (`approvals/approvals-screen.tsx`) lost its two
+number cards and its three buttons. It is a search box and a filter button (person, department, period,
+level, as chips), an optional grouping (by department or by person), and one row per objective: the
+title and its target on one line, whose it is and the period, **Agree** and **Decline**. A row opens to
+what it says, every target with where it stands now, the linked work and its history. The rules are
+data in `lib/performance/objective-queue.ts`; a personal objective's department is its owner's, read
+from the staff list, as on the Objectives cards.
+
+- **Decline is `POST /goals/:id/send-back`, not `/reject`.** The owner asked for two actions and for a
+  declined objective to stay editable by its owner, which only a send-back does (the API's reject is
+  terminal). Feedback is required (`ApprovalReasonDialog`, act `decline`, field "Feedback"), and a
+  refusal keeps the dialog open with the feedback and the server's sentence. The dialog is blank on
+  every open now (it kept the last reason).
+- **"Declined" is one word, written in one place** (`approvalWords`): the API's label for
+  `NEEDS_REVISION` is "Sent back". Every place Objectives prints an agreement state goes through it.
+- **The owner's side.** A declined card shows "Feedback when it was declined", the words, and **Edit and
+  resend**, which opens the New objective pages at `/performance/kpis/new?edit=<id>`: filled in from the
+  objective, the feedback above every question, whose it is read only. **Send to be agreed** sends only
+  what changed (`goalChangesOf`, `targetChangesOf`) and then submits; **Save without sending** keeps the
+  change and leaves it declined. An agreed or finished one says it cannot be changed there. The kept
+  draft has its own key per objective (`useObjectiveDraft(owner, "edit:<id>")`).
+
+## API gaps, not guessed at
+
+1. **The approver cannot tell a resent objective was declined before, or read the earlier feedback.**
+   `submitObjective` clears `approvalNote`, and `revisionCount` counts only reopenings of agreed ones.
+   Needed: the declines kept on the objective (for example `declines: [{ at, byName, reason }]` on the
+   goal and in `/goals/approvals`), or a per-objective approval history readable by its owner and its
+   approvers. The row's History shows only what the API sends today.
+2. **Who declined and when** is not on the objective; the owner sees the feedback only.
+3. **The API's label and notification say "Sent back"** (`APPROVAL_LABELS.NEEDS_REVISION`, and the
+   title `"X" was sent back`). The web maps the label; the notification is the API's.
+4. **Declining a company or department objective tells nobody**: `sendBackObjective` notifies the owner,
+   and those have none. The person who sent it (`submittedById`) is the one to tell.
