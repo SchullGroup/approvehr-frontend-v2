@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { ArrowLeftRight, ShieldCheck, Wifi, WifiOff } from "lucide-react";
-import { HERO_BLUE, HeroBackdrop } from "@/components/ui/hero-backdrop";
+import {
+  HERO_BLUE,
+  HERO_BLUE_DARK,
+  HeroBackdrop,
+} from "@/components/ui/hero-backdrop";
+import { THEME_INIT_SCRIPT } from "@/lib/theme-init-script";
 
 export const metadata: Metadata = { title: "No connection" };
 
@@ -33,8 +38,11 @@ export const metadata: Metadata = { title: "No connection" };
  * moment to look broken. So everything this page needs is in this file: a
  * `<style>` element with plain CSS (never below the 14px floor), inline SVG for
  * the symbol and the backdrop, and the system font stack as the fallback for
- * Geist. It follows the app's own dark theme through `data-theme`, which the
- * root layout's init script sets from the very same HTML.
+ * Geist. It follows the app's own dark theme through `data-theme`. The root
+ * layout does not set that (the theme script lives in the app-side layouts,
+ * which this route is outside of), so this page runs the same small script
+ * itself, first thing in its own HTML: before it did, somebody using the dark
+ * theme lost the connection and got a white page.
  *
  * ## It reopens the app when the connection returns
  *
@@ -51,6 +59,9 @@ export const metadata: Metadata = { title: "No connection" };
 export default function OfflinePage() {
   return (
     <main id="main" className="ahr-offline">
+      {/* Plain inline script, like the online listener below: it runs as the
+          HTML is read, before anything under it is drawn. */}
+      <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       <style>{CSS}</style>
 
       <header className="ahr-offline-hero">
@@ -155,6 +166,8 @@ const CSS = `
   --ahr-tile-ink: #aab8f5;
   --ahr-button: #ffffff;
   --ahr-button-ink: #1c2872;
+  --color-hero-from: ${HERO_BLUE_DARK.from};
+  --color-hero-to: ${HERO_BLUE_DARK.to};
 }
 .ahr-offline *, .ahr-offline *::before, .ahr-offline *::after { box-sizing: border-box; }
 /* The layout's skip link is hidden by a class from the stylesheet this page cannot rely on. Without it, it would
@@ -170,7 +183,7 @@ body:has(.ahr-offline) .skip-link:not(:focus) {
 .ahr-offline-hero {
   position: relative;
   overflow: hidden;
-  background: ${HERO_BLUE.from};
+  background: var(--color-hero-from, ${HERO_BLUE.from});
   color: #ffffff;
   padding: 4.5rem 1.5rem 3.5rem;
   flex: 0 0 auto;

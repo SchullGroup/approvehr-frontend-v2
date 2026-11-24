@@ -37,10 +37,15 @@ export function AuthVisual() {
   return (
     <div
       aria-hidden="true"
-      className="relative hidden overflow-hidden bg-accent lg:flex lg:flex-1 lg:flex-col lg:justify-start"
+      className="relative hidden overflow-hidden bg-accent lg:flex lg:flex-1 lg:flex-col lg:justify-start [[data-theme=dark]_&]:[--ahr-auth-glow:var(--color-hero-from)]"
       style={{
         backgroundImage: [
-          "radial-gradient(120% 100% at 0% 0%, var(--color-accent-hover) 0%, transparent 55%)",
+          /* `accent-hover` darkens the accent in the light theme and lightens it
+             in the dark one (a hover there has to lift off a dark page), so the
+             dark theme takes the deep end of the hero gradient instead: the
+             glow darkens in both, and the panel is not the brightest thing on
+             a dark screen. */
+          "radial-gradient(120% 100% at 0% 0%, var(--ahr-auth-glow, var(--color-accent-hover)) 0%, transparent 55%)",
           "radial-gradient(90% 80% at 100% 100%, var(--color-success-strong) 0%, transparent 50%)",
         ].join(", "),
       }}
@@ -98,7 +103,9 @@ export function AuthVisual() {
           checking what sits inside the region where they cross, and this is
           the second time that distinction mattered. A plain gap has nothing
           to get wrong. */}
-      <div className="relative mt-12 flex flex-col gap-4 px-14">
+      {/* `ahr-mockups-follow-theme`: in the dark theme the cards take the dark
+          surfaces (globals.css), so they are not two white boxes on a dark screen. */}
+      <div className="ahr-mockups-follow-theme relative mt-12 flex flex-col gap-4 px-14">
         <PipelineMockup className="w-[27rem] shrink-0 self-start rotate-2 shadow-2xl" />
         <PayrollCardMockup className="ml-14 w-96 shrink-0 self-start shadow-2xl" />
       </div>

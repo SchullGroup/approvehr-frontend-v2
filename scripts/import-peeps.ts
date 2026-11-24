@@ -13,9 +13,11 @@
  *    KEPT: these are used as `<img src>`, and an SVG without it does not draw there;
  * 3. crops each file's view box to where the drawing actually is (`INK`), and writes it to
  *    `public/illustrations/peeps/<name>.svg`;
- * 4. writes `src/lib/peeps.ts`, the name list and each figure's shape, which `Illustration` reads.
+ * 4. writes `src/lib/peeps.ts`, the name list and each figure's shape, which `Illustration` reads;
+ * 5. runs `scripts/dark-art.ts`, which writes each figure's dark-theme copy to `public/illustrations/peeps/dark/`.
  *
- * The figures keep Open Peeps' own colours (white fill, black line) on purpose: they are never recoloured.
+ * The figures keep Open Peeps' own colours (white fill, black line) in the light theme. The dark theme draws the
+ * copies in its own indigo, because black line work cannot be read on a dark page (docs/illustrations.md).
  * The same figures, with the same names, are in the mobile app (`approvehr-mobile`, `src/ui/art`).
  */
 import { execFileSync } from "node:child_process";
@@ -125,6 +127,7 @@ export type PeepName = keyof typeof PEEPS;
   execFileSync("npx", ["prettier", "--write", "src/lib/peeps.ts"], {
     stdio: "inherit",
   });
+  execFileSync("npx", ["tsx", "scripts/dark-art.ts"], { stdio: "inherit" });
   console.log(`Wrote ${FIGURES.length} figures to public/illustrations/peeps/`);
 }
 

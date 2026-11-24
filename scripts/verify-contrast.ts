@@ -376,6 +376,21 @@ const THEMES: Record<"light" | "dark", Theme> = {
         4.5,
         "light-mode logo lockup, header/sidebar",
       ],
+      /* The blue hero gradient (HeroBackdrop) carries white text at both ends. */
+      [
+        "white on hero-from",
+        "#ffffff",
+        "#1c2872",
+        4.5,
+        "clock card, wallet card, No connection: the deep end",
+      ],
+      [
+        "white on hero-to",
+        "#ffffff",
+        "#4059d3",
+        4.5,
+        "clock card, wallet card, No connection: the bright end",
+      ],
     ],
   },
   dark: {
@@ -677,6 +692,53 @@ const THEMES: Record<"light" | "dark", Theme> = {
         "#141e2a",
         4.5,
         "dark-mode logo lockup, header/sidebar",
+      ],
+      /* The blue hero gradient, a step deeper in the dark theme. */
+      [
+        "white on hero-from",
+        "#ffffff",
+        "#131b4f",
+        4.5,
+        "clock card, wallet card, No connection: the deep end",
+      ],
+      [
+        "white on hero-to",
+        "#ffffff",
+        "#2c3d98",
+        4.5,
+        "clock card, wallet card, No connection: the bright end",
+      ],
+      /* The dark copies of the line art (scripts/dark-art.ts): the line in
+         accent-text, on every ground a figure or a scene is drawn on, and
+         against the accent-soft fill inside the figure. A drawing is a
+         graphical object, so 3:1 (WCAG 1.4.11). */
+      ...(
+        [
+          "surface",
+          "canvas",
+          "sunken",
+          "accent-soft",
+          "well-peri-soft",
+        ] as const
+      ).map((ground): [string, string, string, number, string] => [
+        `dark line art (accent-text) on ${ground}`,
+        "#aab8f5",
+        {
+          surface: "#141e2a",
+          canvas: "#0b121b",
+          sunken: "#070c12",
+          "accent-soft": "#1b2242",
+          "well-peri-soft": "#1b2145",
+        }[ground],
+        3.0,
+        "Open Peeps figures and Wellness scenes in the dark theme",
+      ]),
+      [
+        "dark scene pink (well-pink-text) on well-peri-soft",
+        "#ff9fbd",
+        "#1b2145",
+        3.0,
+        "the pink in a Wellness scene, on its dark tile",
       ],
     ],
   },

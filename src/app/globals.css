@@ -133,9 +133,20 @@
   --color-well-sun: #ffd35c;
   --color-well-sun-soft: #fff4d0;
   --color-well-sun-text: #7d5200;
-  /* A fixed light sticker for black line art (the Open Doodles scenes): the
-     art is dark ink, so it sits on a light ground in both themes. */
+  /* A light sticker for black line art (the Open Doodles scenes) in the light
+     theme. The dark theme draws the scenes' dark copies on well-peri-soft
+     instead, so no light tile sits on a dark page (scripts/dark-art.ts). */
   --color-well-sticker: #f4f1ff;
+
+  /* ---- The blue hero gradient ---------------------------------------- */
+  /* `HeroBackdrop`: the clock card, the wallet card, the sign-in gate and the
+     No connection card. A deep indigo to the brighter brand blue, carrying
+     white text. The dark theme takes both a step deeper (below), so the
+     brightest thing on a dark page is not a decoration. `hero-backdrop.tsx`
+     repeats both pairs, because the offline page has no stylesheet;
+     `tests/dark-illustrations.test.ts` keeps them equal. */
+  --color-hero-from: #1c2872;
+  --color-hero-to: #4059d3;
 
   /* ---- Typography ---------------------------------------------------- */
   /* Geist is a neo grotesque in the same lineage as Stripe's Sohne. */
@@ -369,6 +380,9 @@
   --color-well-pink-text: #ff9fbd;
   --color-well-sun-soft: #2e2508;
   --color-well-sun-text: #ffd36a;
+
+  --color-hero-from: #131b4f;
+  --color-hero-to: #2c3d98;
 
   /* An ink-tinted shadow at 4-9% opacity is invisible on a near-black ground.
      Every Card/Modal/Drawer already carries `border border-line` unconditionally,
@@ -1444,6 +1458,16 @@
    free service to depend on. Only the tiles: the pin and circle keep their colour. */
 :root[data-theme="dark"] .geofence-map .leaflet-tile-pane {
   filter: brightness(0.8) contrast(1.1);
+}
+
+/* The two product mockups on the sign-in panel (`components/portal/auth-visual.tsx`, drawn by
+   `components/marketing/mockups.tsx` in the marketing palette: white cards, near-black slate ink). In the dark
+   theme they were two white boxes beside a dark form, so inside this wrapper the dark theme lends them its own
+   surface, ink and amber wash. Utilities read these through the variables, so nothing in the mockups changes. */
+:root[data-theme="dark"] .ahr-mockups-follow-theme {
+  --color-white: var(--color-surface);
+  --color-slate: var(--color-ink);
+  --color-wash-amber: var(--color-warning-soft);
 }
 
 /* The attribution is required and always visible; at Leaflet's default size it

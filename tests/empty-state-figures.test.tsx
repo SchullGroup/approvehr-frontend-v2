@@ -154,6 +154,8 @@ describe("EmptyState figure", () => {
     const { container } = render(
       <EmptyState mood="documents" title="Nothing" />,
     );
-    expect(container.querySelectorAll("img")).toHaveLength(1);
+    // One figure: a light file and its dark copy, of which a theme shows one.
+    expect(container.querySelectorAll("[data-illustration]")).toHaveLength(1);
+    expect(container.querySelectorAll("img")).toHaveLength(2);
   });
 });
