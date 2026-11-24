@@ -72,18 +72,30 @@ describe("NextStep", () => {
 });
 
 describe("GetReady", () => {
-  it("counts the steps that are needed, not the optional ones", () => {
+  const open = async () =>
+    userEvent
+      .setup()
+      .click(
+        screen.getByRole("button", { name: /Next:|Ready to start|All done/ }),
+      );
+
+  it("is one thin line that says what is next and how many are in", () => {
     render(<GetReady steps={steps()} />);
-    expect(screen.getByText("1 of 2 ready")).toBeVisible();
+    expect(screen.getByText("Next: Questions")).toBeVisible();
+    expect(screen.getByText("1 of 2")).toBeVisible();
+    expect(
+      screen.getByRole("progressbar", { name: "1 of 2 ready" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("list")).toBeNull();
   });
 
-  it("highlights the first step still to do and gives it the one primary button", () => {
+  it("opens the steps in a window, the first one still to do carrying the one primary button", async () => {
     render(<GetReady steps={steps()} />);
+    await open();
     expect(currentStep(steps())?.id).toBe("questions");
-    const items = screen.getAllByRole("listitem");
-    const current = items.find(
-      (li) => li.getAttribute("aria-current") === "step",
-    );
+    const current = screen
+      .getAllByRole("listitem")
+      .find((li) => li.getAttribute("aria-current") === "step");
     expect(within(current as HTMLElement).getByText("Questions")).toBeVisible();
     expect(
       within(current as HTMLElement).getByRole("link", {
@@ -96,27 +108,33 @@ describe("GetReady", () => {
     expect(currentStep(steps({ questions: { done: true } }))).toBeNull();
   });
 
-  it("offers the final action only when everything needed is done", () => {
+  it("offers the final action only when everything needed is done", async () => {
     const onClick = vi.fn();
-    const { rerender } = render(
+    const { unmount } = render(
       <GetReady steps={steps()} final={{ label: "Start period", onClick }} />,
     );
+    await open();
     expect(
       screen.queryByRole("button", { name: "Start period" }),
     ).not.toBeInTheDocument();
-    rerender(
+    unmount();
+    render(
       <GetReady
         steps={steps({ questions: { done: true } })}
         final={{ label: "Start period", onClick }}
       />,
     );
-    expect(
-      screen.getByRole("button", { name: "Start period" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Ready to start")).toBeVisible();
+    await open();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Start period" }));
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  it("says states in plain text, not as errors", () => {
+  it("says states in plain text, not as errors", async () => {
     const { container } = render(<GetReady steps={steps()} />);
+    await open();
     expect(screen.getByText("To do")).toBeVisible();
     expect(container.innerHTML).not.toMatch(/danger|text-warning/);
   });

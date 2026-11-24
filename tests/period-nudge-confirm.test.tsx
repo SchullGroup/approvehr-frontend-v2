@@ -38,6 +38,13 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
 vi.mock("@/lib/store/performance", () => ({
+  useKpis: () => ({
+    goals: [],
+    cascade: [],
+    loading: false,
+    error: null,
+    reload: () => {},
+  }),
   outstandingIn: (p: ApiCycleParticipants | null) =>
     (p?.rows ?? []).flatMap((r) => [
       ...(r.self && !r.self.submitted

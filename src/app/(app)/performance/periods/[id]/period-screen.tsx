@@ -81,6 +81,7 @@ import {
   useCycleMutations,
   useCycleQuestions,
   useCycleRegister,
+  useKpis,
   useRatingScale,
   useReviewFlags,
 } from "@/lib/store/performance";
@@ -343,6 +344,14 @@ export function PeriodScreen({
     }
   };
 
+  /* What delivery is worth in this period's score, and whether anything exists to
+     deliver against: the first step of a period that counts objectives. */
+  const objectivesWeight = Math.round(
+    (period?.weights?.values.OBJECTIVES ?? 0) / 100,
+  );
+  const companyObjectives = useKpis("company", draft && canManage);
+  const hasObjectives = companyObjectives.goals.length > 0;
+
   const askForObjectives = async () => {
     setAskingObjectives(true);
     try {
@@ -557,23 +566,34 @@ export function PeriodScreen({
                 {
                   id: "objectives",
                   label: "Objectives",
-                  optional: true,
-                  done: false,
-                  detail: askedObjectives
-                    ? [
-                        askedLine(askedObjectives),
-                        lastAskedLine(askedObjectives),
-                      ]
-                        .filter(Boolean)
-                        .join(" ")
-                    : "Optional. Add them if you want them in the score.",
-                  action: askUnavailable
-                    ? { label: "Set objectives", href: "/performance/kpis" }
-                    : {
-                        label: "Ask everyone to set objectives",
-                        onClick: () => void askForObjectives(),
-                        loading: askingObjectives,
-                      },
+                  /* Counted when delivery is part of the score: with no objective
+                     set there is nothing to deliver against. */
+                  optional: objectivesWeight === 0,
+                  done: hasObjectives,
+                  detail: !hasObjectives
+                    ? objectivesWeight > 0
+                      ? `Delivery is ${String(objectivesWeight)}% of the score, and nobody has set an objective yet.`
+                      : "Optional. Add them if you want them in the score."
+                    : askedObjectives
+                      ? [
+                          askedLine(askedObjectives),
+                          lastAskedLine(askedObjectives),
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                      : `Delivery is ${String(objectivesWeight)}% of the score.`,
+                  action: !hasObjectives
+                    ? {
+                        label: "Set company objectives",
+                        href: "/performance/kpis/new",
+                      }
+                    : askUnavailable
+                      ? { label: "Set objectives", href: "/performance/kpis" }
+                      : {
+                          label: "Ask everyone to set objectives",
+                          onClick: () => void askForObjectives(),
+                          loading: askingObjectives,
+                        },
                 },
                 {
                   id: "appraisers",

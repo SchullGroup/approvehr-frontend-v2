@@ -24,6 +24,13 @@ vi.mock("@/lib/permissions", () => ({
     permission === "MANAGE_SETTINGS" ? canManage : true,
 }));
 vi.mock("@/lib/store/performance", () => ({
+  useKpis: () => ({
+    goals: [],
+    cascade: [],
+    loading: false,
+    error: null,
+    reload: () => {},
+  }),
   outstandingIn: () => [],
   useCycleQuestions: () => ({
     questions: [],

@@ -68,9 +68,12 @@ import {
   GOAL_STATUS_LABEL,
   GOAL_STATUS_TONE,
   mayBeSubmitted,
+  useAppraisals,
+  useCycleMutations,
   useKpiMutations,
   useKpis,
   useObjectiveMutations,
+  useScoringWeights,
   type GoalNode,
   type KpiScope,
 } from "@/lib/store/performance";
@@ -184,20 +187,75 @@ export function EmptyObjectives({
   showUpload?: boolean;
   uploadHref?: string;
 }) {
+  const toast = useToast();
+  const appraisals = useAppraisals();
+  const periods = useCycleMutations();
+  const scoring = useScoringWeights();
+  const [asking, setAsking] = useState(false);
+  /* What objectives are worth in the score, so the page says why they matter. */
+  const weight = Math.round(
+    (scoring.weights?.rows.find((row) => row.component === "OBJECTIVES")
+      ?.weightBp ?? 0) / 100,
+  );
+  /* Somebody can only be asked in the name of a period, so the button waits for one. */
+  const period = appraisals.cycles.find((one) => one.stage !== "PUBLISHED");
+  const mayAsk = href !== null && scope === "company" && period !== undefined;
+
+  const ask = async () => {
+    if (!period) return;
+    setAsking(true);
+    try {
+      const result = await periods.notifyObjectives(period.id);
+      toast.push({
+        title: "Everyone has been asked",
+        tone: "success",
+        detail: `${String(result.notified)} ${result.notified === 1 ? "person was" : "people were"} told in the app.`,
+      });
+    } catch (caught) {
+      toast.push({
+        title: "That did not send",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setAsking(false);
+    }
+  };
+
   return (
     <Card>
       <EmptyState
         art={<Illustration name={href ? "welcome" : "shrug"} height={144} />}
         title={EMPTY_TITLE[scope]}
-        description="An objective is what somebody aims for, with a target to measure it, and it is agreed before the period it covers."
+        description={
+          weight > 0
+            ? scope === "company"
+              ? `Delivery against objectives is ${String(weight)}% of an appraisal score. Start with the company's objectives, then ask each department to set theirs.`
+              : `Delivery against objectives is ${String(weight)}% of your appraisal score. Set yours so it counts.`
+            : "An objective is what somebody aims for, with a target to measure it, and it is agreed before the period it covers."
+        }
         {...(href
           ? {
               action: (
                 <div className="flex flex-col items-center gap-3">
                   <ButtonLink variant="accent" href={href}>
                     <Plus aria-hidden="true" className="size-4" />
-                    New objective
+                    {scope === "company"
+                      ? "Set a company objective"
+                      : "New objective"}
                   </ButtonLink>
+                  {mayAsk && (
+                    <Button
+                      variant="secondary"
+                      loading={asking}
+                      onClick={() => void ask()}
+                    >
+                      Ask everyone to set theirs
+                    </Button>
+                  )}
                   {showUpload && (
                     <Link
                       href={uploadHref}

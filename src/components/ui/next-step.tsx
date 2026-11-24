@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Button, ButtonLink } from "./button";
-import { ProgressMeter } from "./progress";
+import { Modal } from "./modal";
 import { cn } from "@/lib/cn";
 
 /**
@@ -104,9 +108,15 @@ export function currentStep(steps: readonly ReadyStep[]): ReadyStep | null {
 }
 
 /**
- * "Get ready": the steps before something can start, with a progress bar. The
- * current step is highlighted and the one primary button goes straight to it;
- * the others are quiet text links.
+ * "Get ready": the steps before something can start, as one thin line at the
+ * top of the screen. A segment for each step that is needed (filled when done),
+ * what is next in a few words, and how many are in. Pressing it opens a window
+ * with the steps, what each is set to, and the buttons that go to them; the real
+ * start sits at the bottom of that window once everything needed is done.
+ *
+ * Owner direction, 24 Nov 2026: any progress or checklist on a screen is a thin
+ * horizontal line at the top that says what is next, and the detail is in a
+ * window, so the page below it stays for what the page is for.
  */
 export function GetReady({
   title = "Get ready",
@@ -118,68 +128,129 @@ export function GetReady({
   /** What the primary button says once every step is done: the real start. */
   final?: StepAction;
 }) {
+  const [open, setOpen] = useState(false);
   const counted = steps.filter((step) => !step.optional);
   const done = counted.filter((step) => step.done).length;
   const current = currentStep(steps);
+
+  /* An action done here closes the window first, so what it opens is not behind it. */
+  const run = (action: StepAction): StepAction =>
+    action.onClick
+      ? {
+          ...action,
+          onClick: () => {
+            setOpen(false);
+            action.onClick?.();
+          },
+        }
+      : action;
+
   return (
-    <section
-      aria-label={title}
-      className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4"
-    >
-      <div className="flex flex-col gap-2">
-        <h2 className="text-body-md font-semibold text-ink">{title}</h2>
-        <ProgressMeter
-          value={done}
-          max={Math.max(counted.length, 1)}
-          label={`${String(done)} of ${String(counted.length)} ready`}
-          showValue={false}
-          size="sm"
-        />
-      </div>
-      <ol className="flex flex-col divide-y divide-line">
-        {steps.map((step) => {
-          const isCurrent = current?.id === step.id;
-          return (
-            <li
+    <section aria-label={title}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-left transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        <span
+          role="progressbar"
+          aria-label={`${String(done)} of ${String(counted.length)} ready`}
+          aria-valuemin={0}
+          aria-valuemax={counted.length}
+          aria-valuenow={done}
+          className="flex min-w-0 flex-1 gap-1"
+        >
+          {counted.map((step) => (
+            <span
               key={step.id}
-              aria-current={isCurrent ? "step" : undefined}
               className={cn(
-                "flex flex-wrap items-center justify-between gap-2 py-2.5",
-                isCurrent && "-mx-2 rounded-md bg-accent-soft px-2",
+                "h-1.5 flex-1 rounded-full",
+                step.done
+                  ? "bg-accent"
+                  : current?.id === step.id
+                    ? "bg-accent/40"
+                    : "bg-sunken",
               )}
-            >
-              <div className="min-w-0">
-                <p
+            />
+          ))}
+        </span>
+        <span className="shrink-0 text-body-sm font-medium text-ink">
+          {current
+            ? `Next: ${current.label}`
+            : final
+              ? "Ready to start"
+              : "All done"}
+        </span>
+        <span className="shrink-0 text-meta text-muted">
+          {done} of {counted.length}
+        </span>
+        <ChevronRight
+          aria-hidden="true"
+          className="size-4 shrink-0 text-faint"
+        />
+      </button>
+
+      {open && (
+        <Modal
+          open
+          onClose={() => setOpen(false)}
+          title={title}
+          size="md"
+          footer={
+            current === null && final ? (
+              <ActionButton action={run(final)} />
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setOpen(false)}
+              >
+                Close
+              </Button>
+            )
+          }
+        >
+          <ol className="flex flex-col divide-y divide-line">
+            {steps.map((step) => {
+              const isCurrent = current?.id === step.id;
+              return (
+                <li
+                  key={step.id}
+                  aria-current={isCurrent ? "step" : undefined}
                   className={cn(
-                    "text-body-sm",
-                    isCurrent ? "font-medium text-ink" : "text-body",
+                    "flex flex-wrap items-center justify-between gap-2 py-2.5",
+                    isCurrent && "-mx-2 rounded-md bg-accent-soft px-2",
                   )}
                 >
-                  {step.label}
-                </p>
-                <p className="text-meta text-muted">
-                  {step.done
-                    ? (step.detail ?? "Done")
-                    : step.optional
-                      ? (step.detail ?? "Optional")
-                      : (step.detail ?? "To do")}
-                </p>
-              </div>
-              {isCurrent ? (
-                <ActionButton action={step.action} />
-              ) : (
-                !step.done && (
-                  <ActionButton action={step.action} variant="ghost" />
-                )
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      {current === null && final && (
-        <div className="flex justify-end">
-          <ActionButton action={final} />
-        </div>
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "text-body-sm",
+                        isCurrent ? "font-medium text-ink" : "text-body",
+                      )}
+                    >
+                      {step.label}
+                    </p>
+                    <p className="text-meta text-muted">
+                      {step.done
+                        ? (step.detail ?? "Done")
+                        : step.optional
+                          ? (step.detail ?? "Optional")
+                          : (step.detail ?? "To do")}
+                    </p>
+                  </div>
+                  {isCurrent ? (
+                    <ActionButton action={run(step.action)} />
+                  ) : (
+                    !step.done && (
+                      <ActionButton action={run(step.action)} variant="ghost" />
+                    )
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </Modal>
       )}
     </section>
   );
