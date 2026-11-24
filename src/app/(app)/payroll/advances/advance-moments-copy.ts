@@ -105,7 +105,7 @@ export function policySavedToast(policy: {
   if (!policy.enabled) {
     return {
       title: "Pay-early settings saved",
-      detail: "Staff cannot draw pay early.",
+      detail: "Pay early is off for staff.",
     };
   }
   const fee =

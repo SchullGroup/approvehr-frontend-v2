@@ -48,8 +48,8 @@ import { defaultPeriodId } from "./goal-facts";
  * no period is invisible to the score. This dialog had no period field at all
  * and was the only caller of `rate` in the app, which made the competency
  * components — 55% of every mark, core plus behavioural plus leadership —
- * permanently `NO_DATA`. Rating somebody saved, filled the gap table and the
- * heatmap, and moved no mark, with nothing on screen saying why.
+ * permanently `NO_DATA`. Rating somebody saved, filled the gap table
+ * and moved no mark, with nothing on screen saying why.
  *
  * Both readings are real, which is why this is a choice rather than a default:
  * a rating inside a period is the assessment of record for it, and one without
@@ -526,10 +526,10 @@ export function RecordLevelDialog({
                   ? "Filed under that period. Each person has one answer per period, so writing it again replaces this one."
                   : "Counts towards this person's score for that period. Each person has one rating per period, so rating them again corrects this one."
                 : kind === "RATING"
-                  ? "This will not affect any appraisal score. It is a snapshot of where they are now, and it fills the competency gap table and heatmap."
+                  ? "This will not affect any appraisal score. It is a snapshot of where they are now, and it fills the competency gap table."
                   : kind === "TEXT"
                     ? "A snapshot of where they are now."
-                    : "This will not affect any appraisal score. It is a snapshot of where they are now, and it does not appear in the competency gap table or heatmap, which are about levels."
+                    : "This will not affect any appraisal score. It is a snapshot of where they are now, and it does not appear in the competency gap table, which is about levels."
             }
           >
             <Select

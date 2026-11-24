@@ -14154,3 +14154,22 @@ frozen-weights note is behind an info icon. The four stat cards, the trend chart
 **The Work record tab is hidden, not deleted.** `WorkRecordPanel` stays in `components/performance/work-record.tsx` and
 returns when the owner says to pull the history from tasks and projects. The "appraisers' overall rating" line and the
 sign-off detail are no longer on this page; they are on the review page.
+
+# The department heatmap was removed from Competency ratings, on request
+
+The owner asked (24 Nov 2026) to remove the **Heatmap** tab from `/performance/skills` "for now". Competency ratings
+keeps **Your competencies** and **Below target** (the latter only for people who may see it). `?tab=heatmap` now falls
+back to the first tab like any unknown tab. If the page has one tab, the strip is not drawn (that rule was already there).
+
+**Removed, so it can come back** (find it in git history before this commit, `git log -S useHeatmap`):
+
+- `src/app/(app)/performance/skills.tsx`: the `heatmap` panel (a Department x competency table of averages, with the
+  count below target and a spoken count in each cell), `HeatRow`, `bandFor` and the `Legend` of four tints; the tab
+  item and the `useHeatmap(canSeeCompany)` read, and its reload after a level is recorded.
+- `src/app/(app)/performance/skills/tabs.ts`: `"heatmap"` in `SKILLS_TABS`.
+- `src/lib/store/performance.ts`: `useHeatmap` and its demo data (`demoHeatmap`).
+- `src/lib/api/performance.ts`: `performanceApi.heatmap` (`GET /performance/competencies/heatmap`, `EDIT_RECORDS`) and
+  the types `ApiHeatmap`, `ApiHeatmapRow`, `ApiHeatmapCell`. **The API route is untouched and still answers.**
+- Copy that mentioned it: the kind lines (`answer-kind.ts`), the Record a level dialog's help, and the walkthrough.
+- The design rule worth keeping if it returns: every cell printed its average as text, with the tint only a second
+  channel, and a cell with people below target carried an icon and a spoken count.

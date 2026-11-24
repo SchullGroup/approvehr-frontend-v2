@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, RefreshCw, Trash2, Webhook, XCircle } from "lucide-react";
@@ -96,6 +97,7 @@ export function WebhookDetailScreen({ id }: { id: string }) {
                  A refusal that explains itself and names nobody leaves the
                  reader exactly where an unexplained one does. */
               description="A delivery log contains payroll data that was sent to another server, so it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

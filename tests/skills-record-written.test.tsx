@@ -70,7 +70,6 @@ let mineRows: ApiCompetencyRow[];
 let rate: Mock<(id: string, body: RateBody) => Promise<unknown>>;
 let reloadMine: Mock<() => void>;
 let reloadGaps: Mock<() => void>;
-let reloadHeatmap: Mock<() => void>;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => {}, back: () => {}, replace: () => {} }),
@@ -137,12 +136,6 @@ vi.mock("@/lib/store/performance", () => ({
     error: null,
     reload: reloadGaps,
   }),
-  useHeatmap: () => ({
-    heatmap: null,
-    loading: false,
-    error: null,
-    reload: reloadHeatmap,
-  }),
   useRating: () => ({
     editable: true,
     rate: (id: string, body: RateBody) => rate(id, body),
@@ -174,7 +167,6 @@ beforeEach(() => {
   rate = vi.fn().mockResolvedValue({});
   reloadMine = vi.fn();
   reloadGaps = vi.fn();
-  reloadHeatmap = vi.fn();
 });
 
 describe("a written answer on somebody's own list", () => {
@@ -224,10 +216,9 @@ describe("recording a written answer", () => {
     });
     expect(await screen.findByText("Answer recorded")).toBeInTheDocument();
     expect(screen.queryByText("Level recorded")).not.toBeInTheDocument();
-    /* All three: the gap table and the heatmap are what a new answer moves. */
+    /* Both: the gap table is what a new answer moves. */
     expect(reloadMine).toHaveBeenCalledTimes(1);
     expect(reloadGaps).toHaveBeenCalledTimes(1);
-    expect(reloadHeatmap).toHaveBeenCalledTimes(1);
     await waitFor(() =>
       expect(
         screen.queryByRole("dialog", { name: "Record a level" }),

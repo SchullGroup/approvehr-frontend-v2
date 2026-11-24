@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { formatMoney } from "@/components/ui/money-format";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -177,6 +178,7 @@ export function PayrollScreen() {
               "Seeing what the company pays needs the “View salaries” " +
               "permission. Ask somebody who holds it."
             }
+            action={<BackHome />}
           />
         </PageBody>
       </>

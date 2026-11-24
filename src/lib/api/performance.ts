@@ -492,38 +492,6 @@ export type ApiGap = {
   ratedAt: string;
 };
 
-/**
- * Average level per competency per department.
- *
- * `average: null` means nobody in that department has been rated on that
- * competency — again not zero. `rated` is how many ratings the average is over,
- * and a grid that hides it invites somebody to trust a mean of one.
- */
-export type ApiHeatmapCell = {
-  competencyId: string;
-  average: number | null;
-  rated: number;
-  belowTarget: number;
-};
-
-export type ApiHeatmapRow = {
-  departmentId: string | null;
-  departmentName: string;
-  ratedPeople: number;
-  cells: ApiHeatmapCell[];
-};
-
-export type ApiHeatmap = {
-  competencies: {
-    id: string;
-    name: string;
-    scaleMax: number;
-    isCore: boolean;
-  }[];
-  rows: ApiHeatmapRow[];
-  ratedPeople: number;
-};
-
 export type ApiRating = {
   id: string;
   competencyId: string;
@@ -2944,10 +2912,6 @@ export const performanceApi = {
       query: listQuery(params),
       ...signalOf(signal),
     }),
-
-  /** An aggregate over everybody, so it needs `EDIT_RECORDS`. */
-  heatmap: (signal?: AbortSignal) =>
-    request<ApiHeatmap>("/performance/competencies/heatmap", signalOf(signal)),
 
   /** Self, direct report, or `EDIT_RECORDS`. Checked in the service. */
   employeeCompetencies: (employeeId: string, signal?: AbortSignal) =>

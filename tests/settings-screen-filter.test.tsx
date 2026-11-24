@@ -132,8 +132,10 @@ describe("one Settings page in six groups (U43)", () => {
 
   it("lists every page once", () => {
     render(<SettingsScreen />);
+    /* The one Next step card repeats a page's link on purpose. */
     const hrefs = screen
       .getAllByRole("link")
+      .filter((link) => !link.closest('section[aria-label="Next step"]'))
       .map((link) => link.getAttribute("href"));
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });

@@ -394,7 +394,7 @@ describe("the appraisal period", () => {
     expect(screen.getByLabelText(/Appraisal period/)).toHaveValue("p-1");
   });
 
-  it("says, with none chosen, that a level fills the gap table and the heatmap", async () => {
+  it("says, with none chosen, that a level fills the gap table", async () => {
     mount();
     await pickSkill("Punctuality");
     await userEvent.selectOptions(
@@ -402,7 +402,7 @@ describe("the appraisal period", () => {
       "",
     );
     expect(
-      screen.getByText(/it fills the competency gap table and heatmap/),
+      screen.getByText(/it fills the competency gap table/),
     ).toBeInTheDocument();
   });
 
@@ -414,17 +414,17 @@ describe("the appraisal period", () => {
       "",
     );
     expect(
-      screen.queryByText(/it fills the competency gap table and heatmap/),
+      screen.queryByText(/it fills the competency gap table/),
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        /does not appear in the competency gap table or heatmap, which are about levels/,
+        /does not appear in the competency gap table, which is about levels/,
       ),
     ).toBeInTheDocument();
 
     await pickSkill("Customer feedback");
     expect(
-      screen.queryByText(/it fills the competency gap table and heatmap/),
+      screen.queryByText(/it fills the competency gap table/),
     ).not.toBeInTheDocument();
   });
 

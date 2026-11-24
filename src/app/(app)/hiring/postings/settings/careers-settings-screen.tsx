@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import { Lock, Save } from "lucide-react";
 import {
@@ -190,6 +191,7 @@ export function CareersSettingsScreen() {
               icon={<Lock aria-hidden="true" />}
               title="You cannot change these"
               description="They decide what strangers are told and asked to accept in your company's name, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

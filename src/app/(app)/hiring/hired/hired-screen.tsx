@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { Lock } from "lucide-react";
 import { Card, EmptyState, Skeleton, TextLink } from "@/components/ui";
 import { HiredList } from "@/components/hiring/hired/hired-list";
@@ -49,6 +50,7 @@ export function HiredScreen({ initialJob = "" }: { initialJob?: string }) {
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the Hired list"
               description="It holds the names and contact details of people who accepted an offer, and it is where employee records are made, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

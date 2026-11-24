@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import { Building2, Check } from "lucide-react";
 import {
@@ -128,6 +129,7 @@ export function CompanyProfileForm() {
               icon={<Building2 aria-hidden="true" />}
               title="You cannot manage the company profile"
               description="Registered details feed contracts, payslips and statutory filings, so changing them is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

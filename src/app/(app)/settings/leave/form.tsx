@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -331,6 +332,7 @@ export function LeavePolicyForm({
               icon={<Lock aria-hidden="true" />}
               title="You cannot manage leave policies"
               description="Entitlement here is what every balance in the product measures against, so changing it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>
