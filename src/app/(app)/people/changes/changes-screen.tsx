@@ -29,6 +29,7 @@ import {
   useEmploymentChanges,
 } from "@/lib/store/employment-changes";
 import { money } from "@/lib/pay/flags";
+import { LinkedQueryLine } from "@/components/queries/linked-query";
 import { ProposeChangeDialog } from "./propose-dialog";
 import { DecideChangeDialog } from "./decide-dialog";
 
@@ -178,7 +179,15 @@ export function ChangesScreen() {
                     </div>
                   </TD>
                   <TD className="tabular-nums">{row.effectiveOn}</TD>
-                  <TD className="text-body-sm text-muted">{row.note}</TD>
+                  <TD className="text-body-sm text-muted">
+                    {row.note}
+                    {/* The query it followed, only where the server sent one. */}
+                    <LinkedQueryLine
+                      queryId={row.queryId}
+                      reference={row.queryReference}
+                      className="mt-1 text-meta text-muted"
+                    />
+                  </TD>
                   <TD className="text-right">
                     {canApprove && (
                       <Button

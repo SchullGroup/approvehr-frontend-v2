@@ -2,6 +2,31 @@
 
 import { request, requestPaged, type PageMeta } from "@/lib/api/client";
 import { fetchBinary } from "@/lib/api/download";
+import {
+  toCitation,
+  toCitationAdded,
+  toDocumentAsked,
+  toDocumentRequest,
+  toCounts,
+  toIssuedCitations,
+  toLead,
+  toTemplate,
+  toTemplateList,
+  toWarnings,
+  type ApiCitation,
+  type ApiQueryCounts,
+  type ApiQueryDocumentRequest,
+  type ApiQueryLead,
+  type ApiQueryTemplate,
+  type AskDocumentBody,
+  type CitationAdded,
+  type CiteBody,
+  type DocumentAsked,
+  type IssuedCitation,
+  type QueryWarning,
+  type TemplateBody,
+  type TemplateList,
+} from "@/lib/api/query-ties";
 
 /**
  * Queries: `/api/v1/queries`.
@@ -73,6 +98,8 @@ export type ApiQuerySummary = {
   openedAt: string | null;
   receiptConfirmedAt: string | null;
   outcome: QueryOutcome | null;
+  /** A manager drafted it and HR has yet to issue it. Fixed when the draft was made. */
+  startedByManager: boolean;
   updatedAt: string;
 };
 
@@ -135,6 +162,10 @@ export type ApiQueryCan = {
   decide: boolean;
   withdraw: boolean;
   archive: boolean;
+  /** Cite a record on a draft: the issuer, and nobody else. */
+  cite: boolean;
+  /** Ask for a document under a query that is waiting or answered: the issuer, and nobody else. */
+  askForDocument: boolean;
 };
 
 /** Everything false: what a server that sends no `can` is read as, so nothing is offered. */
@@ -148,6 +179,8 @@ export const CAN_NOTHING: ApiQueryCan = {
   decide: false,
   withdraw: false,
   archive: false,
+  cite: false,
+  askForDocument: false,
 };
 
 export type ApiQueryDetail = {
@@ -186,7 +219,27 @@ export type ApiQueryDetail = {
   files: ApiQueryFile[];
   events: ApiQueryEvent[];
   /** A draft, for staff: "This gives 6 hours to reply …". Nothing blocks. */
-  warnings: { code: string; message: string }[];
+  warnings: QueryWarning[];
+  /**
+   * When the draft last changed, as the server holds it. Sent back on issue as `expectedUpdatedAt`
+   * so a draft that moved while somebody was issuing it is refused and not served. `null` is a
+   * server that does not send it, and then nothing is sent.
+   */
+  updatedAt: string | null;
+  /** A manager drafted it. Fixed when the draft was made; HR editing it does not change it. */
+  startedByManager: boolean;
+  /** The manager whose words these are. Staff and the drafter only; `null` for anybody else. */
+  draftedByName: string | null;
+  /** Oldest first. The person sees them once the letter is issued, and nobody else does. */
+  citations: ApiCitation[];
+  /** Documents asked for under this query, newest first. Staff and the person. */
+  documentRequests: ApiQueryDocumentRequest[];
+  /**
+   * Staff only: the records this query led to, and only the kinds the reader may read in their
+   * own module. `null` where the server sent none (the person, a drafting manager, or a server a
+   * deploy behind), which draws nothing. An empty list also draws nothing.
+   */
+  leads: ApiQueryLead[] | null;
   can: ApiQueryCan;
 };
 
@@ -194,11 +247,18 @@ export type ApiQuerySettings = {
   replyHours: number;
   warnHours: number;
   issuerMayDecideIfSole: boolean;
+  /**
+   * Whether a line manager given the drafting permission may draft. **`null` is a server that did
+   * not say** (one a deploy behind): no switch is offered for it, and it is never read as off.
+   */
+  managersMayDraft: boolean | null;
   retention: "archive_only" | null;
 };
 
 export type RegisterParams = {
   state?: QueryRegisterState;
+  /** Only the drafts a manager started, for HR to find them. */
+  startedByManager?: boolean;
   subjectId?: string;
   q?: string;
   includeArchived?: boolean;
@@ -224,13 +284,27 @@ export type LetterBody = {
 
 export type IssueResult = {
   detail: ApiQueryDetail;
-  warnings: { code: string; message: string }[];
+  warnings: QueryWarning[];
+  /**
+   * Every reference as it was frozen, each saying whether it differs from the last preview. Empty
+   * for a server that does not send the list. Titles are for the issuer's own screen: they never
+   * go into a toast.
+   */
+  citations: IssuedCitation[];
   subjectHasSignIn: boolean | null;
   toldInProduct: boolean | null;
   nobodyToldInProduct: boolean | null;
 };
 
 /* ----------------------------------------------------------------- limits and words */
+
+/**
+ * The days the server accepts for a letter's own dates (the incident, the reply-by day and the
+ * hand-over day). A date picker is given the same bounds; the server still refuses anything else in
+ * its own sentence, which is shown as it comes.
+ */
+export const QUERY_DATE_MIN = "2000-01-01";
+export const QUERY_DATE_MAX = "2100-12-31";
 
 /** The server's own bounds. It still refuses, and its sentence is what is shown if they drift. */
 export const QUERY_LIMITS = {
@@ -344,6 +418,9 @@ export const EVENT_LABEL: Record<string, string> = {
   OUTCOME_RECORDED: "Outcome recorded",
   WITHDRAWN: "Withdrawn",
   ARCHIVED: "Archived",
+  DOCUMENT_REQUESTED: "A document was asked for",
+  RECORD_LINKED: "A record was linked",
+  REMINDER_SENT: "A reminder was sent",
 };
 
 /** The size of a file in words. Binary megabytes, as the rest of this product prints them. */
@@ -397,6 +474,8 @@ function toCan(value: unknown): ApiQueryCan {
     decide: bool(value["decide"]),
     withdraw: bool(value["withdraw"]),
     archive: bool(value["archive"]),
+    cite: bool(value["cite"]),
+    askForDocument: bool(value["askForDocument"]),
   };
 }
 
@@ -528,11 +607,24 @@ export function toDetail(raw: unknown): ApiQueryDetail {
       const at = text(entry["at"]);
       return kind && at ? [{ kind, at }] : [];
     }),
-    warnings: list(r["warnings"]).flatMap((entry) => {
-      if (!isRecord(entry)) return [];
-      const message = text(entry["message"]);
-      return message ? [{ code: text(entry["code"]) ?? "", message }] : [];
+    warnings: toWarnings(r["warnings"]),
+    updatedAt: text(r["updatedAt"]),
+    startedByManager: bool(r["startedByManager"]),
+    draftedByName: text(r["draftedByName"]),
+    citations: list(r["citations"]).flatMap((entry) => {
+      const citation = toCitation(entry);
+      return citation ? [citation] : [];
     }),
+    documentRequests: list(r["documentRequests"]).flatMap((entry) => {
+      const request = toDocumentRequest(entry);
+      return request ? [request] : [];
+    }),
+    leads: Array.isArray(r["leads"])
+      ? r["leads"].flatMap((entry) => {
+          const lead = toLead(entry);
+          return lead ? [lead] : [];
+        })
+      : null,
     can: toCan(r["can"]),
   };
 }
@@ -557,6 +649,7 @@ export function toSummary(raw: unknown): ApiQuerySummary | null {
     openedAt: text(raw["openedAt"]),
     receiptConfirmedAt: text(raw["receiptConfirmedAt"]),
     outcome: text(raw["outcome"]) as QueryOutcome | null,
+    startedByManager: bool(raw["startedByManager"]),
     updatedAt: text(raw["updatedAt"]) ?? "",
   };
 }
@@ -597,6 +690,10 @@ export function toSettings(raw: unknown): ApiQuerySettings | null {
     replyHours,
     warnHours,
     issuerMayDecideIfSole,
+    managersMayDraft:
+      typeof raw["managersMayDraft"] === "boolean"
+        ? raw["managersMayDraft"]
+        : null,
     retention: raw["retention"] === "archive_only" ? "archive_only" : null,
   };
 }
@@ -614,6 +711,7 @@ export const queriesApi = {
       await requestPaged<unknown>(base, {
         query: {
           ...(params.state ? { state: params.state } : {}),
+          ...(params.startedByManager ? { startedByManager: "true" } : {}),
           ...(params.subjectId ? { subjectId: params.subjectId } : {}),
           ...(params.q ? { q: params.q } : {}),
           ...(params.includeArchived ? { includeArchived: "true" } : {}),
@@ -639,10 +737,21 @@ export const queriesApi = {
       }),
     ),
 
-  create: async (
-    body: { subjectId: string; subjectLine: string } & LetterBody,
-  ): Promise<ApiQueryDetail> =>
+  create: async (body: CreateQueryBody): Promise<ApiQueryDetail> =>
     toDetail(await request<unknown>(base, { method: "POST", body })),
+
+  /**
+   * A manager's own drafts about their reports, newest first. **A 403 means the caller cannot
+   * draft** (no permission, or the company's setting is off) and its message is the server's own
+   * sentence, shown as it comes.
+   */
+  myDrafts: async (signal?: AbortSignal): Promise<QueryPage> =>
+    toPage(
+      await requestPaged<unknown>(`${base}/my-drafts`, {
+        query: { page: 1, pageSize: 50 },
+        ...(signal ? { signal } : {}),
+      }),
+    ),
 
   update: async (
     id: string,
@@ -652,20 +761,26 @@ export const queriesApi = {
       await request<unknown>(`${base}/${id}`, { method: "PATCH", body }),
     ),
 
-  issue: async (id: string): Promise<IssueResult> => {
+  /**
+   * Issue a draft. `expectedUpdatedAt` is the `updatedAt` of the draft as the issuer last saw it:
+   * it is sent only when the server sent one, so a server that predates it is not sent a key it
+   * would refuse. A 409 means the draft changed meanwhile and is never retried from here.
+   */
+  issue: async (
+    id: string,
+    expectedUpdatedAt?: string,
+  ): Promise<IssueResult> => {
     const raw = await request<unknown>(`${base}/${id}/issue`, {
       method: "POST",
+      ...(expectedUpdatedAt ? { body: { expectedUpdatedAt } } : {}),
     });
     const r = isRecord(raw) ? raw : {};
     const optionalBool = (key: string): boolean | null =>
       typeof r[key] === "boolean" ? (r[key] as boolean) : null;
     return {
       detail: toDetail(r["detail"]),
-      warnings: list(r["warnings"]).flatMap((entry) => {
-        if (!isRecord(entry)) return [];
-        const message = text(entry["message"]);
-        return message ? [{ code: text(entry["code"]) ?? "", message }] : [];
-      }),
+      warnings: toWarnings(r["warnings"]),
+      citations: toIssuedCitations(r["citations"]),
       subjectHasSignIn: optionalBool("subjectHasSignIn"),
       toldInProduct: optionalBool("toldInProduct"),
       nobodyToldInProduct: optionalBool("nobodyToldInProduct"),
@@ -765,17 +880,128 @@ export const queriesApi = {
     ),
 
   updateSettings: async (
-    body: Partial<
-      Pick<
-        ApiQuerySettings,
-        "replyHours" | "warnHours" | "issuerMayDecideIfSole"
-      >
-    >,
+    body: SettingsPatch,
   ): Promise<ApiQuerySettings | null> =>
     toSettings(
       await request<unknown>(`${base}/settings`, { method: "PATCH", body }),
     ),
+
+  /* ---------------------------------------------------------------- citations */
+
+  /** Cite a record on a draft. The server copies it as it stands; it is taken again at issue. */
+  addCitation: async (id: string, body: CiteBody): Promise<CitationAdded> => {
+    const added = toCitationAdded(
+      await request<unknown>(`${base}/${id}/citations`, {
+        method: "POST",
+        body,
+      }),
+    );
+    if (!added)
+      throw new Error(
+        "The server answered with something that is not a reference.",
+      );
+    return added;
+  },
+
+  removeCitation: (id: string, citationId: string) =>
+    request<void>(`${base}/${id}/citations/${citationId}`, {
+      method: "DELETE",
+    }),
+
+  /** Ask the person for a document, under this query. An ordinary request in the documents module. */
+  askForDocument: async (
+    id: string,
+    body: AskDocumentBody,
+  ): Promise<DocumentAsked> =>
+    toDocumentAsked(
+      await request<unknown>(`${base}/${id}/document-requests`, {
+        method: "POST",
+        body,
+      }),
+    ),
+
+  /* ---------------------------------------------------------------- templates */
+
+  templates: async (
+    includeArchived: boolean,
+    signal?: AbortSignal,
+  ): Promise<TemplateList> =>
+    toTemplateList(
+      await requestPaged<unknown>(`${base}/settings/templates`, {
+        query: includeArchived ? { includeArchived: "true" } : {},
+        ...(signal ? { signal } : {}),
+      }),
+    ),
+
+  createTemplate: async (body: TemplateBody): Promise<ApiQueryTemplate> =>
+    readTemplate(
+      await request<unknown>(`${base}/settings/templates`, {
+        method: "POST",
+        body,
+      }),
+    ),
+
+  updateTemplate: async (
+    id: string,
+    body: Partial<TemplateBody>,
+  ): Promise<ApiQueryTemplate> =>
+    readTemplate(
+      await request<unknown>(`${base}/settings/templates/${id}`, {
+        method: "PATCH",
+        body,
+      }),
+    ),
+
+  archiveTemplate: async (id: string): Promise<ApiQueryTemplate> =>
+    readTemplate(
+      await request<unknown>(`${base}/settings/templates/${id}/archive`, {
+        method: "POST",
+      }),
+    ),
+
+  restoreTemplate: async (id: string): Promise<ApiQueryTemplate> =>
+    readTemplate(
+      await request<unknown>(`${base}/settings/templates/${id}/restore`, {
+        method: "POST",
+      }),
+    ),
+
+  /* ------------------------------------------------------------------- counts */
+
+  counts: async (
+    year: number | undefined,
+    signal?: AbortSignal,
+  ): Promise<ApiQueryCounts | null> =>
+    toCounts(
+      await request<unknown>(`${base}/counts`, {
+        query: year === undefined ? {} : { year },
+        ...(signal ? { signal } : {}),
+      }),
+    ),
 };
+
+function readTemplate(raw: unknown): ApiQueryTemplate {
+  const template = toTemplate(raw);
+  if (!template)
+    throw new Error(
+      "The server answered with something that is not a template.",
+    );
+  return template;
+}
+
+/** What `PATCH /queries/settings` takes: any of these, at least one. */
+export type SettingsPatch = Partial<{
+  replyHours: number;
+  warnHours: number;
+  issuerMayDecideIfSole: boolean;
+  managersMayDraft: boolean;
+}>;
+
+/** What `POST /queries` takes. A `templateId` makes the subject line optional; what is sent wins over the template. */
+export type CreateQueryBody = { subjectId: string } & (
+  | ({ subjectLine: string } & LetterBody)
+  | ({ templateId: string; subjectLine?: string } & LetterBody)
+);
 
 /** The names the issue 422 gives for what a letter still needs, or an empty list. */
 export function missingFor(error: unknown): string[] {

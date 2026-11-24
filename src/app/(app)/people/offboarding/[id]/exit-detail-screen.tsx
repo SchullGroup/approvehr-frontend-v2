@@ -29,6 +29,7 @@ import {
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { LinkedQueryLine } from "@/components/queries/linked-query";
 import { ApiError } from "@/lib/api/client";
 import {
   formatKobo,
@@ -514,6 +515,13 @@ export function ExitDetailScreen({
                             value: exit.employee.employeeNo,
                           },
                         ]}
+                      />
+                      {/* The query it followed, as a note. Drawn only where the server sent it,
+                          which is to HR alone. */}
+                      <LinkedQueryLine
+                        queryId={exit.queryId}
+                        reference={exit.queryReference}
+                        className="mt-3 text-body-sm text-muted"
                       />
                     </CardBody>
                   </Card>

@@ -23,6 +23,11 @@ vi.mock("@/lib/store/departments", () => ({
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
 }));
+/* The optional "Linked query" choice has its own tests (`query-linked-field.test.tsx`); this file
+   is about who can be chosen, and the field asks the permissions and the queries register. */
+vi.mock("@/components/queries/linked-query", () => ({
+  LinkedQueryField: () => null,
+}));
 vi.mock("@/lib/store/employees-api", () => ({
   useEmployeeSearch: () => ({
     search,

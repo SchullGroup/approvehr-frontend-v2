@@ -11,6 +11,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { LinkedQueryField } from "@/components/queries/linked-query";
 import { ApiError } from "@/lib/api/client";
 import {
   EXIT_KINDS,
@@ -23,6 +24,7 @@ import { useOrgTimezone } from "@/lib/store/session";
 import { formatDate } from "@/lib/time";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useToday } from "@/lib/use-today";
+import { useOpenSession } from "@/lib/use-open-session";
 
 /**
  * Who this exit is about, when the caller already knows.
@@ -79,19 +81,29 @@ type Subject =
  * rather than letting somebody choose "We let them go" and find out from a
  * 403 after typing a reason.
  */
-export function StartExitDialog({
+export function StartExitDialog(props: StartExitProps) {
+  /* A new form each time it opens, keyed by whose exit it is. A query chosen for one person's exit
+     must never be left chosen for another's: the link is a note about why, and a wrong one is a
+     claim about somebody else's employment. */
+  const session = useOpenSession(props.open, props.employeeId ?? null);
+  return <StartExitForm key={session} {...props} />;
+}
+
+type StartExitProps = {
+  open: boolean;
+  onClose: () => void;
+  onStarted: (exitId: string) => void;
+  restrictKinds?: boolean;
+} & Subject;
+
+function StartExitForm({
   open,
   onClose,
   onStarted,
   restrictKinds = false,
   employeeId: fixedId,
   employeeName: fixedName,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onStarted: (exitId: string) => void;
-  restrictKinds?: boolean;
-} & Subject) {
+}: StartExitProps) {
   const router = useRouter();
   const toast = useToast();
   const { start } = useStartExit();
@@ -102,6 +114,7 @@ export function StartExitDialog({
   const [kind, setKind] = useState<ExitKind>("RESIGNATION");
   const [lastWorkingDay, setLastWorkingDay] = useState("");
   const [reason, setReason] = useState("");
+  const [queryId, setQueryId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,6 +134,8 @@ export function StartExitDialog({
         kind,
         reason: reason.trim(),
         lastWorkingDay,
+        /* Only a termination can follow a query; the server refuses any other kind. */
+        ...(kind === "TERMINATION" && queryId !== "" ? { queryId } : {}),
       });
       /* A toast and not a moment, deliberately. The page this lands on already
          says what is next — "{manager} has to release them", or "HR has to
@@ -222,6 +237,16 @@ export function StartExitDialog({
             placeholder="Resigned to join another company."
           />
         </Field>
+
+        {/* A note that a termination followed a query. Only for a termination, and only for
+            somebody who works queries; a query never opens an exit, and this opens nothing in it. */}
+        {kind === "TERMINATION" && (
+          <LinkedQueryField
+            subjectId={employeeId}
+            value={queryId}
+            onChange={setQueryId}
+          />
+        )}
       </div>
     </Modal>
   );

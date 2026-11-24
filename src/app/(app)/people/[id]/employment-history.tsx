@@ -1,6 +1,7 @@
 "use client";
 
 import { History } from "lucide-react";
+import { LinkedQueryLine } from "@/components/queries/linked-query";
 import {
   Badge,
   Card,
@@ -108,6 +109,11 @@ export function EmploymentHistoryPanel({ employeeId }: { employeeId: string }) {
                       {change.note}
                     </p>
                   )}
+                  <LinkedQueryLine
+                    queryId={change.queryId}
+                    reference={change.queryReference}
+                    className="mt-2 text-meta text-muted"
+                  />
                 </li>
               ))}
             </ol>

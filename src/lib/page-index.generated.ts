@@ -292,6 +292,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Written queries to staff, their one written reply, and the outcome recorded on each."
   },
   {
+    "href": "/people/queries/counts",
+    "title": "Query counts",
+    "description": "How many queries were served in a year, by where they stand and by month, with small figures withheld."
+  },
+  {
     "href": "/people/shifts",
     "title": "Shifts",
     "description": "Who works when: nights, earlies and weekend cover, and the cover requests waiting on an answer."
@@ -524,7 +529,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/queries",
     "title": "Queries",
-    "description": "Whether queries are switched on, the usual reply time, and who may decide a query they issued."
+    "description": "Whether queries are switched on, the usual reply time, who may decide a query they issued, whether managers may draft, and the company's own letter templates."
   },
   {
     "href": "/settings/required-details",

@@ -5,13 +5,22 @@ import {
   queriesApi,
   type ApiQueryDetail,
   type ApiQuerySettings,
+  type CreateQueryBody,
   type IssueResult,
   type LetterBody,
   type QueryFileRole,
   type QueryOutcome,
   type QueryPage,
   type RegisterParams,
+  type SettingsPatch,
 } from "@/lib/api/queries";
+import type {
+  ApiQueryCounts,
+  AskDocumentBody,
+  CiteBody,
+  TemplateBody,
+  TemplateList,
+} from "@/lib/api/query-ties";
 import { useFeatureSettings } from "@/lib/store/features";
 import { useFetched } from "@/lib/use-fetched";
 import { useSession } from "./session";
@@ -80,6 +89,59 @@ export function useQueryRegister(params: RegisterParams, enabled = true) {
   );
   const result = useFetched<QueryPage>(
     `queries.register:${key}`,
+    isConnected && enabled,
+    load,
+  );
+  return { ...result, unavailable: !isConnected };
+}
+
+/**
+ * A line manager's own drafts about their reports. Asked for only while `enabled`.
+ *
+ * **A 403 is the server saying the caller cannot draft** (no permission, or the company's setting
+ * is off) and is an answer and not a failure: the screen shows the server's own sentence for it.
+ */
+export function useMyDrafts(enabled: boolean) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => queriesApi.myDrafts(signal),
+    [],
+  );
+  const result = useFetched<QueryPage>(
+    "queries.drafts",
+    isConnected && enabled,
+    load,
+  );
+  return { ...result, unavailable: !isConnected };
+}
+
+/**
+ * The company's letter templates. `includeArchived` is honoured by the server only for somebody
+ * who may manage settings. Works while the switch is off.
+ */
+export function useQueryTemplates(includeArchived: boolean, enabled = true) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => queriesApi.templates(includeArchived, signal),
+    [includeArchived],
+  );
+  const result = useFetched<TemplateList>(
+    `queries.templates:${includeArchived}`,
+    isConnected && enabled,
+    load,
+  );
+  return { ...result, unavailable: !isConnected };
+}
+
+/** Counts of queries served in a year: statuses and months, above a floor, and nothing else. */
+export function useQueryCounts(year: number | undefined, enabled = true) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => queriesApi.counts(year, signal),
+    [year],
+  );
+  const result = useFetched<ApiQueryCounts | null>(
+    `queries.counts:${year ?? "now"}`,
     isConnected && enabled,
     load,
   );
@@ -180,9 +242,7 @@ export function useQueryActions() {
   return useMemo(
     () => ({
       readOnly: !isConnected,
-      create: async (
-        body: { subjectId: string; subjectLine: string } & LetterBody,
-      ): Promise<ApiQueryDetail> => {
+      create: async (body: CreateQueryBody): Promise<ApiQueryDetail> => {
         guard();
         return queriesApi.create(body);
       },
@@ -190,9 +250,12 @@ export function useQueryActions() {
         guard();
         return queriesApi.update(id, body);
       },
-      issue: async (id: string): Promise<IssueResult> => {
+      issue: async (
+        id: string,
+        expectedUpdatedAt?: string,
+      ): Promise<IssueResult> => {
         guard();
-        return queriesApi.issue(id);
+        return queriesApi.issue(id, expectedUpdatedAt);
       },
       addFile: async (
         id: string,
@@ -252,16 +315,37 @@ export function useQueryActions() {
         guard();
         return queriesApi.archive(id);
       },
-      updateSettings: async (
-        body: Partial<
-          Pick<
-            ApiQuerySettings,
-            "replyHours" | "warnHours" | "issuerMayDecideIfSole"
-          >
-        >,
-      ) => {
+      updateSettings: async (body: SettingsPatch) => {
         guard();
         return queriesApi.updateSettings(body);
+      },
+      addCitation: async (id: string, body: CiteBody) => {
+        guard();
+        return queriesApi.addCitation(id, body);
+      },
+      removeCitation: async (id: string, citationId: string) => {
+        guard();
+        return queriesApi.removeCitation(id, citationId);
+      },
+      askForDocument: async (id: string, body: AskDocumentBody) => {
+        guard();
+        return queriesApi.askForDocument(id, body);
+      },
+      createTemplate: async (body: TemplateBody) => {
+        guard();
+        return queriesApi.createTemplate(body);
+      },
+      updateTemplate: async (id: string, body: Partial<TemplateBody>) => {
+        guard();
+        return queriesApi.updateTemplate(id, body);
+      },
+      archiveTemplate: async (id: string) => {
+        guard();
+        return queriesApi.archiveTemplate(id);
+      },
+      restoreTemplate: async (id: string) => {
+        guard();
+        return queriesApi.restoreTemplate(id);
       },
     }),
     [guard, isConnected],

@@ -144,6 +144,8 @@ describe("settings", () => {
       replyHours: 48,
       warnHours: 24,
       issuerMayDecideIfSole: true,
+      /* A server that does not say is not a server that said off. */
+      managersMayDraft: null,
       retention: "archive_only",
     });
   });

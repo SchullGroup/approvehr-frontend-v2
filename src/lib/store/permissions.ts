@@ -341,6 +341,13 @@ const DEMO_COPY: Record<
     section: "people",
     sensitive: true,
   },
+  DRAFT_QUERIES: {
+    label: "Draft queries",
+    description:
+      "Write the letter of a query about somebody who reports to you, and nothing else: never issue it, extend it, decide it, withdraw it, attach a file or cite a record. HR reviews and issues it. Works only while the company's setting for managers drafting is on.",
+    section: "people",
+    sensitive: true,
+  },
   DECIDE_QUERIES: {
     label: "Decide queries",
     description:
