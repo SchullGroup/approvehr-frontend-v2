@@ -1965,6 +1965,13 @@ export type ApiCycleReport = {
   stage: ReviewCycleStage;
   started: boolean;
   published: boolean;
+  /**
+   * Whether the period reads the people it was published with (UAT 23 Nov,
+   * U96): true once it has been published since that rule; false while it runs
+   * and for a period published before it, which still reads today's staff.
+   * Absent from an older API.
+   */
+  participantsFrozen?: boolean;
   /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
   weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];

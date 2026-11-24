@@ -292,15 +292,27 @@ export function Headline({ report }: { report: ApiCycleReport }) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {/* A published period is a fixed record (U96 / PERF-16): the API reads
-          the people it was published with, so it is not "everyone currently
-          employed". A period published before that still reads today's staff,
-          and nothing on the wire says which, so a published period gets no
-          hint rather than one that may be false. */}
+      {/* Who the figure counts (U96 / PERF-16). A period published since
+          the rule reads the people it was published with (`participantsFrozen`);
+          a running one, and one published before the rule, reads today's
+          staff, and says so. An API that does not say gets no hint on a
+          published period rather than one that may be false. */}
       <Stat
-        label={report.published ? "People it covered" : "People in this period"}
+        label={
+          report.participantsFrozen === true
+            ? "People it covered"
+            : "People in this period"
+        }
         value={String(marks.people)}
-        {...(report.published ? {} : { hint: "Everyone currently employed" })}
+        {...(report.participantsFrozen === true
+          ? { hint: "Frozen when it was published" }
+          : !report.published
+            ? { hint: "Everyone currently employed" }
+            : report.participantsFrozen === false
+              ? {
+                  hint: "Everyone currently employed: it was published before a period kept its own list",
+                }
+              : {})}
       />
       <Stat
         label="With a score"

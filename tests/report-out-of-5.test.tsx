@@ -87,17 +87,65 @@ describe("the period report, out of 5", () => {
 
 /* U96 / PERF-16: a published period is a record. */
 describe("the report of a published period", () => {
-  it("does not say its people are everyone currently employed", () => {
+  it("says it covered the people frozen when it was published, where the API says it did", () => {
+    render(
+      <Headline
+        report={
+          {
+            ...report,
+            published: true,
+            participantsFrozen: true,
+          } as ApiCycleReport
+        }
+      />,
+    );
+    expect(screen.getByText("People it covered")).toBeInTheDocument();
+    expect(
+      screen.getByText("Frozen when it was published"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Everyone currently employed/)).toBeNull();
+  });
+
+  it("says a period published before the rule still counts today's staff", () => {
+    render(
+      <Headline
+        report={
+          {
+            ...report,
+            published: true,
+            participantsFrozen: false,
+          } as ApiCycleReport
+        }
+      />,
+    );
+    expect(screen.getByText("People in this period")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Everyone currently employed: it was published before a period kept its own list",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Frozen/)).toBeNull();
+  });
+
+  it("makes no claim on a published period from an API that does not say", () => {
     render(
       <Headline report={{ ...report, published: true } as ApiCycleReport} />,
     );
-    expect(screen.getByText("People it covered")).toBeInTheDocument();
-    expect(screen.queryByText("Everyone currently employed")).toBeNull();
+    expect(screen.queryByText(/Everyone currently employed/)).toBeNull();
+    expect(screen.queryByText(/Frozen/)).toBeNull();
   });
 
-  it("a running one still says so", () => {
+  it("a running one says it counts everyone currently employed", () => {
     render(
-      <Headline report={{ ...report, published: false } as ApiCycleReport} />,
+      <Headline
+        report={
+          {
+            ...report,
+            published: false,
+            participantsFrozen: false,
+          } as ApiCycleReport
+        }
+      />,
     );
     expect(screen.getByText("Everyone currently employed")).toBeInTheDocument();
   });
