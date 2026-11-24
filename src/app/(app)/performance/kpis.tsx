@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowLeft,
   Check,
   CornerDownRight,
   ListPlus,
@@ -37,6 +38,14 @@ import {
   type AppliedFilter,
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import {
+  departmentCards,
+  departmentName,
+  goalsForDepartment,
+  type DepartmentCard,
+} from "@/lib/performance/objectives-by-department";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useAction } from "@/lib/use-action";
 import {
@@ -178,12 +187,52 @@ export function KpisTab({
   scope,
   scopes,
   onScopeChange,
+  department = null,
+  departmentHref,
 }: {
   scope: KpiScope;
   scopes: KpiScope[];
   onScopeChange: (scope: KpiScope) => void;
+  /** The department open on "Whole company", from the address. Null: the cards. */
+  department?: string | null;
+  /** Where a department card goes, and where "All departments" goes back to. */
+  departmentHref?: (key: string | null) => string;
 }) {
   const kpis = useKpis(scope);
+  /* The whole company opens on one card per department (owner request, 24
+     Nov). A personal objective belongs to its owner's department, which only
+     the staff list knows, so the cards wait for it rather than counting
+     everybody's under "No department" for a moment. */
+  const grouping = scope === "company" && departmentHref !== undefined;
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const { flat: departmentList } = useDepartments();
+  const owners = useMemo(
+    () =>
+      new Map(
+        directory.people.map((person) => [person.id, person.departmentId]),
+      ),
+    [directory.people],
+  );
+  const cards = useMemo(
+    () =>
+      grouping
+        ? departmentCards(
+            kpis.goals,
+            departmentList.filter((one) => !one.archived),
+            owners,
+          )
+        : [],
+    [grouping, kpis.goals, departmentList, owners],
+  );
+  const opened = grouping && department !== null ? department : null;
+  const openedGoals = useMemo(
+    () =>
+      opened === null ? null : goalsForDepartment(kpis.goals, opened, owners),
+    [opened, kpis.goals, owners],
+  );
+  /* What the list, the search and the filters work over: the open
+     department's objectives, or everybody's. */
+  const pool = openedGoals ?? kpis.goals;
   const mutations = useKpiMutations();
   const objectives = useObjectiveMutations();
   const canUpload = useCanUploadObjectives();
@@ -392,8 +441,8 @@ export function KpisTab({
     period !== "";
 
   const matching = useMemo(() => {
-    if (!narrowing) return kpis.goals;
-    return kpis.goals.filter((goal) => {
+    if (!narrowing) return pool;
+    return pool.filter((goal) => {
       /* Title and description — the same two columns the API's own `q` covers,
          so searching here and searching there cannot come to mean different
          things. */
@@ -420,7 +469,7 @@ export function KpisTab({
       }
       return true;
     });
-  }, [kpis.goals, narrowing, term, approval, progress, owner, period]);
+  }, [pool, narrowing, term, approval, progress, owner, period]);
 
   const cascade = useMemo(() => {
     if (order !== "") {
@@ -439,8 +488,14 @@ export function KpisTab({
        rather than dropping it — the documented behaviour, and exactly what a
        search result wants: every match visible, with `parentTitle` to say what
        it sits under. */
-    return narrowing ? toCascade(matching) : kpis.cascade;
-  }, [order, narrowing, matching, kpis.cascade]);
+    if (narrowing) return toCascade(matching);
+    return openedGoals ? toCascade(openedGoals) : kpis.cascade;
+  }, [order, narrowing, matching, kpis.cascade, openedGoals]);
+
+  /* The cards stand in for the list until a department is opened, or a
+     search or a filter asks across all of them. */
+  const showCards = grouping && opened === null && !narrowing && order === "";
+  const openedName = opened === null ? null : departmentName(cards, opened);
 
   const clearFilters = () => {
     setSearch("");
@@ -668,8 +723,34 @@ export function KpisTab({
 
       <Card>
         <CardHeader
-          title="All objectives"
-          description="The company objective is at the top. Team and personal objectives sit under the one they support."
+          title={
+            showCards
+              ? "By department"
+              : opened !== null
+                ? (openedName ?? "Objectives")
+                : "All objectives"
+          }
+          description={
+            showCards
+              ? "Open a department to see its objectives. Search to find one across all of them."
+              : opened !== null
+                ? "Its objectives, under the company objective they support."
+                : "The company objective is at the top. Team and personal objectives sit under the one they support."
+          }
+          {...(opened !== null && departmentHref
+            ? {
+                action: (
+                  <ButtonLink
+                    variant="ghost"
+                    size="sm"
+                    href={departmentHref(null)}
+                  >
+                    <ArrowLeft aria-hidden="true" className="size-4" />
+                    All departments
+                  </ButtonLink>
+                ),
+              }
+            : {})}
         />
         {kpis.goals.length > 0 && !kpis.loading && (
           <CardBody className="pb-0">
@@ -768,7 +849,7 @@ export function KpisTab({
                  filtered. */
               <p className="mt-3 text-meta text-muted">
                 {narrowing &&
-                  `Showing ${String(matching.length)} of ${String(kpis.goals.length)}. The figures above are for everything, not for what is filtered here.`}
+                  `Showing ${String(matching.length)} of ${String(pool.length)}. The figures above are for everything, not for what is filtered here.`}
                 {narrowing && order !== "" && " "}
                 {order !== "" &&
                   "Ordered by date, so objectives are not grouped under their parent while this is on."}
@@ -796,7 +877,7 @@ export function KpisTab({
             mood="search"
             icon={<Target aria-hidden="true" />}
             title="Nothing matches that"
-            description={`None of the ${String(kpis.goals.length)} objectives match your filters.`}
+            description={`None of the ${String(pool.length)} objectives match your filters.`}
             action={
               <Button variant="ghost" onClick={clearFilters}>
                 Clear the filters
@@ -818,6 +899,30 @@ export function KpisTab({
                 </Button>
               ) : undefined
             }
+          />
+        ) : showCards ? (
+          directory.loading ? (
+            <CardBody>
+              <LoadState
+                loading
+                error={null}
+                subject="the departments"
+                skeleton="list"
+              >
+                {null}
+              </LoadState>
+            </CardBody>
+          ) : (
+            <CardBody>
+              <DepartmentGrid cards={cards} hrefOf={departmentHref!} />
+            </CardBody>
+          )
+        ) : cascade.length === 0 ? (
+          <EmptyState
+            plain
+            icon={<Target aria-hidden="true" />}
+            title="No objectives here yet"
+            description="Nothing in this department is filed as an objective yet."
           />
         ) : (
           <CardBody className="flex flex-col gap-3">
@@ -1142,6 +1247,53 @@ export function KpisTab({
 /* -------------------------------------------------------------------------- */
 
 /** One rung of the ladder, and everything beneath it. */
+/**
+ * One card per department on "Whole company": its name, how many objectives it
+ * has and, only when there are any, how many are behind. Plain text, no chart.
+ * Each card is a link, so it can be opened in a new tab and the address says
+ * which department is open. One to a row on a phone.
+ */
+export function DepartmentGrid({
+  cards,
+  hrefOf,
+}: {
+  cards: readonly DepartmentCard[];
+  hrefOf: (key: string) => string;
+}) {
+  return (
+    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {cards.map((card) => (
+        <li key={card.key} className="min-w-0">
+          <Link
+            href={hrefOf(card.key)}
+            className="flex min-h-28 flex-col gap-2 rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+          >
+            <span className="text-body-lg font-semibold text-ink">
+              {card.name}
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-body-sm text-body">
+                {card.count === 0
+                  ? "No objectives yet"
+                  : card.count === 1
+                    ? "1 objective"
+                    : `${String(card.count)} objectives`}
+              </span>
+              {card.attention > 0 && (
+                <span className="text-meta text-muted">
+                  {card.attention === 1
+                    ? "1 needs attention"
+                    : `${String(card.attention)} need attention`}
+                </span>
+              )}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function GoalBranch({
   node,
   editable,

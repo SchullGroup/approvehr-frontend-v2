@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useCan, useIsManager } from "@/lib/permissions";
@@ -9,13 +9,21 @@ import { SCOPE_LABEL, type KpiScope } from "@/lib/store/performance";
 import { KpisTab } from "../kpis";
 
 /**
- * KPIs, on its own route.
+ * Objectives, on its own route.
  *
- * Scope state (mine/team/company) used to live in the shared tab-switching
- * shell one level up; it moved here with the tab it belonged to, since
- * nothing else on this module reads it.
+ * Whose objectives (mine/team/company) and, for the whole company, which
+ * department are in the address, read by the page and handed down. Moving
+ * between them is a navigation, so a department's list can be linked, survives
+ * a refresh, and Back returns to the cards.
  */
-export function KpisScreen() {
+export function KpisScreen({
+  scope: asked = null,
+  department = null,
+}: {
+  scope?: string | null;
+  department?: string | null;
+}) {
+  const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   /* A department head leads their department whether or not anybody's
      `managerId` points at them — and in a company that sets none, that was
@@ -23,7 +31,6 @@ export function KpisScreen() {
   const isManager = useIsManager();
   const headed = useHeadedDepartmentIds();
   const leadsATeam = isManager || headed.size > 0;
-  const [chosenScope, setChosenScope] = useState<KpiScope | null>(null);
 
   const scopes: KpiScope[] = [
     "mine",
@@ -37,8 +44,13 @@ export function KpisScreen() {
     : leadsATeam
       ? "team"
       : "mine";
-  const scope =
-    chosenScope && scopes.includes(chosenScope) ? chosenScope : fallback;
+  const scope = scopes.find((one) => one === asked) ?? fallback;
+  const changeScope = (next: KpiScope) =>
+    router.replace(`/performance/kpis?scope=${next}`, { scroll: false });
+  const departmentHref = (key: string | null) =>
+    key === null
+      ? "/performance/kpis?scope=company"
+      : `/performance/kpis?scope=company&department=${encodeURIComponent(key)}`;
 
   return (
     <>
@@ -52,7 +64,13 @@ export function KpisScreen() {
         }
       />
       <PageBody>
-        <KpisTab scope={scope} scopes={scopes} onScopeChange={setChosenScope} />
+        <KpisTab
+          scope={scope}
+          scopes={scopes}
+          onScopeChange={changeScope}
+          department={scope === "company" ? department : null}
+          departmentHref={departmentHref}
+        />
       </PageBody>
     </>
   );
