@@ -19,7 +19,6 @@ import {
   ColumnChart,
   DescriptionList,
   EmptyState,
-  Stat,
   TBody,
   TD,
   TH,
@@ -39,7 +38,6 @@ import {
   scoreWords,
   weightedParts,
   weightLabel,
-  weightsFromNote,
   type ApiBandCount,
   type ApiCycleReport,
   type ApiNamedOnList,
@@ -221,7 +219,6 @@ export function PeriodReportScreen({
 
           {report && report.marks.people > 0 && (
             <>
-              <Headline report={report} />
               {/* Four questions, four tabs: how it came out, what came in, what a
                 mark is made of, and who still needs chasing. They share no row,
                 and stacked they were a 4,600px page. */}
@@ -278,90 +275,6 @@ export function PeriodReportScreen({
 }
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * The four figures somebody opens this screen for.
- *
- * The average is over the marks that exist and its hint says so, because the
- * whole defect this screen is written against is an average quoted beside a
- * headcount it did not come from. With no marks at all it reads "No marks yet"
- * rather than 0%.
- */
-export function Headline({ report }: { report: ApiCycleReport }) {
-  const { distribution, marks } = report;
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {/* Who the figure counts (U96 / PERF-16). A period published since
-          the rule reads the people it was published with (`participantsFrozen`);
-          a running one, and one published before the rule, reads today's
-          staff, and says so. An API that does not say gets no hint on a
-          published period rather than one that may be false. */}
-      <Stat
-        label={
-          report.participantsFrozen === true
-            ? "People it covered"
-            : "People in this period"
-        }
-        value={String(marks.people)}
-        {...(report.participantsFrozen === true
-          ? { hint: "Frozen when it was published" }
-          : !report.published
-            ? { hint: "Everyone currently employed" }
-            : report.participantsFrozen === false
-              ? {
-                  hint: "Everyone currently employed: it was published before a period kept its own list",
-                }
-              : {})}
-      />
-      <Stat
-        label="With a score"
-        value={`${distribution.scored} of ${marks.people}`}
-        hint={
-          distribution.unscored === 0
-            ? "Everybody has one"
-            : `${distribution.unscored} ${distribution.unscored === 1 ? "person has" : "people have"} no score`
-        }
-      />
-      <Stat
-        label="Average score"
-        /* An em dash, not a sentence — the hint already says why. */
-        value={
-          distribution.meanBp === null ? (
-            <span className="text-faint">—</span>
-          ) : (
-            outOf5Label(
-              distribution.meanOutOf5 ?? outOf5FromBp(distribution.meanBp),
-            )
-          )
-        }
-        hint={
-          distribution.meanBp === null
-            ? "No scores yet, so there is no average"
-            : /* rating-scale-prose: an average has no word, so it is a figure (U88). */
-              `Out of 5, across the ${distribution.scored} ${distribution.scored === 1 ? "score" : "scores"} given. People with no score are not counted.`
-        }
-      />
-      <Stat
-        label="Weights used"
-        value={
-          report.weightsFrom === "snapshot"
-            ? "Locked in"
-            : report.weightsFrom === "period"
-              ? "This period's own"
-              : "Company's current"
-        }
-        hint={
-          report.weightsFrom === "period"
-            ? `${weightsFromNote("period")} They lock in when the period starts`
-            : report.weightsFrom === "snapshot"
-              ? `Set when the period started, adding up to ${weightLabel(report.weightsTotalBp)}`
-              : `This period never locked in its own weights, so changing the company's weights would change these scores`
-        }
-      />
-    </div>
-  );
-}
 
 /**
  * One department, added up from the register's own rows.
