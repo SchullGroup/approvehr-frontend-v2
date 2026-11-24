@@ -292,29 +292,35 @@ function HeaderActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button
-        variant="primary"
-        size="sm"
-        disabled={!canSync}
-        loading={sync.pending}
-        onClick={() =>
-          void sync.run(() => workTrackersApi.syncNow(connection.id), {
-            subject: "the sync",
-            success: "Sync finished",
-            notice: (result) =>
-              result.error
-                ? `It stopped early: ${result.error}`
-                : `${result.stored} tickets stored, ${result.linked} added to weekly tasks` +
-                  (result.skippedUnmatched
-                    ? `, ${result.skippedUnmatched} skipped for unmatched people.`
-                    : "."),
-            onDone: onSynced,
-          })
-        }
-      >
-        <RefreshCw aria-hidden="true" className="size-4" />
-        Sync now
-      </Button>
+      {!canSync && (
+        <p className="self-center text-body-sm text-muted">
+          Sync needs an active connection and at least one project chosen.
+        </p>
+      )}
+      {canSync && (
+        <Button
+          variant="primary"
+          size="sm"
+          loading={sync.pending}
+          onClick={() =>
+            void sync.run(() => workTrackersApi.syncNow(connection.id), {
+              subject: "the sync",
+              success: "Sync finished",
+              notice: (result) =>
+                result.error
+                  ? `It stopped early: ${result.error}`
+                  : `${result.stored} tickets stored, ${result.linked} added to weekly tasks` +
+                    (result.skippedUnmatched
+                      ? `, ${result.skippedUnmatched} skipped for unmatched people.`
+                      : "."),
+              onDone: onSynced,
+            })
+          }
+        >
+          <RefreshCw aria-hidden="true" className="size-4" />
+          Sync now
+        </Button>
+      )}
       <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
         <Trash2 aria-hidden="true" className="size-4" />
         Disconnect
