@@ -131,9 +131,7 @@ describe("a company with no parts", () => {
   it("adds a part with its own name, source and description, at 0% (its weight is given with the others)", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(
-      screen.getByRole("button", { name: "Add a part" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Add a part" }));
 
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Name"), "Customer focus");
@@ -159,9 +157,7 @@ describe("a company with no parts", () => {
   it("will not add a part with no name", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(
-      screen.getByRole("button", { name: "Add a part" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Add a part" }));
     const dialog = screen.getByRole("dialog");
     expect(
       within(dialog).getByRole("button", { name: "Add part" }),
