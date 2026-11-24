@@ -13678,3 +13678,76 @@ screens are covered by tests and the routes by the backend's); a letter with att
 list, upload and the download click are covered by tests, and the real file routes were not pressed); a
 company with many queries (the register pages at 50); a line manager, a colleague or an auditor getting the
 404 (the backend's).
+
+---
+
+# A manager is routed a leave request their role cannot decide, and the inbox said Approve anyway
+
+A manager on a customer's production site (24 November 2026) opened **My approvals**, saw a leave request
+waiting on them, pressed **Approve**, and got a toast that began "You can decide leave for the people who
+report to you, and for anybody in a...". The rest of the sentence was cut off by the toast's two-line limit:
+"... a department or an office you run. This one is none of those."
+
+## What was happening
+
+Routing and standing are two different facts, and the product decided them in two different places.
+
+- **Routing follows `managerId`.** When somebody books their own leave the web form sends the request to
+  their manager (`approverFor` in `book-leave.tsx`), and the API's approvals queue shows a card to whoever the
+  request names (`scopeWhere` in `approvals/service.ts`: `approverId = you`). The inbox's own gate,
+  `canApprove = isManager || hasAnyPermission(...)`, lets a manager in without any approve permission.
+- **Standing follows the role.** `assertMayDecide` in `leave/service.ts` refuses anybody who holds none of
+  `APPROVE_LEAVE_ALL`, `APPROVE_LEAVE`, `APPROVE_LEAVE_DEPARTMENT` or `APPROVE_LEAVE_BRANCH`, and for the
+  middle two (and a branch head) also requires the relationship: direct report, department head or office head.
+  Being named as somebody's manager gives none of those. A department head is given a role automatically
+  (`derivedGrants`); a line manager is given nothing and has the permission only if an administrator assigned a
+  role that includes it.
+
+So a company that imports its staff with managers set and never assigns the Line manager role routes every
+leave request to somebody who is then refused every time. Nothing is wrong with the API; it was doing what its
+header says ("Not 'is this the person the request was routed to' ... standing is what is checked").
+
+## What changed on the web
+
+- `mayDecideLeave(permissions)` in `lib/api/approvals.ts`: true for any of the four verbs. The floor only.
+  Whether this person is that employee's manager is a relationship the browser cannot see, so a manager who
+  holds `APPROVE_LEAVE` and is not that person's manager still gets the API's own refusal.
+- A leave row on **My approvals** for a reader who holds none of the four draws no **Approve**, **Decline** or
+  **Archive**. It says, as text on the page, "You are listed as the approver, but your role does not include
+  approving leave, so a decision from you would be refused. Ask whoever manages roles to give you that
+  permission.", and offers **Open leave** instead. Every other kind of row is unchanged.
+- `APPROVE_LEAVE_BRANCH` is not in the web's permission catalogue (`permission-keys.ts`), so the check reads the
+  permission set as strings. Adding the key would put a new row on the Roles screen, which is its own change.
+
+## What did not change, and the decision it leaves
+
+- **Nobody is granted anything.** The real fix for the customer is for an administrator to give the approver a
+  role that includes approving leave (the built-in **Line manager** role does), and for the approver to sign out
+  and in, because permissions are read when the sign-in token is issued.
+- **Granting `APPROVE_LEAVE` automatically to anybody who has direct reports**, the way a department head gets a
+  role, would remove the gap for everybody. It changes who holds a permission, so it is the owner's decision and
+  was not made here.
+- The refusal toast is still clamped to two lines, which hid the sentence that says what is wrong.
+
+## Also found: the red balance error on an employee's Leave page is already fixed on `dev`
+
+The same customer's employee saw "You cannot see the leave balance panel. You need the following to do that:
+See salaries." on **Leave**. `d64a93ca` (U19) reads an employee's own balance from the single-id route they are
+allowed, and is on `dev`. It is not on `test`, `preprod` or `main`, which is why production still shows it.
+It goes out with the next promotion, with the other UAT fixes on `dev`.
+
+## Verified
+
+`tests/approvals-inbox-leave-standing.test.tsx` (8 tests: each of the four verbs offers the buttons, a manager
+with none gets the sentence and the link and no Approve, Decline or Archive, and the other rows in the same inbox
+are untouched). Seven deliberate breaks, each caught by a test written for it, the file restored after each:
+buttons drawn for leave whatever the role; the check always true; the branch verb not counted; the department
+verb not counted; Archive offered on undecided leave; no sentence; the prop not passed at the waiting list.
+The four existing inbox tests that mocked permissions as an empty array now mock a Set that includes
+`APPROVE_LEAVE` (the real hook returns a Set), and pass with the new test: 26 tests in five files.
+
+**Not exercised:** a browser. The inbox was rendered with the store and permissions mocked, never against a real
+API with a real manager whose role lacks the permission, so the root cause is read from the source and the
+tests, not reproduced on a running stack. The customer's actual roles were not read (no access); if the approver
+turns out to hold `APPROVE_LEAVE` and still be refused, the cause is something else (their record's manager is
+not the employee's manager, or a sign-in token from before the role was granted).
