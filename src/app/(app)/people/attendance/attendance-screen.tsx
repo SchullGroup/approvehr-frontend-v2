@@ -11,6 +11,7 @@ import {
   Card,
   Button,
   CardBody,
+  GetReady,
   CardHeader,
   SegmentedControl,
   Skeleton,
@@ -32,6 +33,7 @@ import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { type ApiRosterRow } from "@/lib/api/attendance";
+import { useWorkLocations } from "@/lib/store/attendance";
 import {
   addDays,
   hoursLabel,
@@ -240,6 +242,8 @@ export function AttendanceScreen() {
                 inline here and no longer is. Its own settings are reachable
                 from `AttendanceSettingsButton` in the header rather than a
                 second bar repeated inline here. */}
+            {canEditRecords && <SetUpAttendance />}
+
             <MyClockCard showFailure={false} />
 
             {/* Everybody clocks in above. Everybody else's day is a different
@@ -985,5 +989,37 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
         </TBody>
       </TableWrap>
     </Card>
+  );
+}
+
+/**
+ * First use: one next step until there is somewhere to clock in. Shown to
+ * people who set the company up, and only while the offices list has been read
+ * and is empty (never while loading, never on a failed read).
+ */
+export function SetUpAttendance() {
+  const { locations, loading, error } = useWorkLocations();
+  if (loading || error !== null || locations.length > 0) return null;
+  return (
+    <GetReady
+      title="Set up attendance"
+      steps={[
+        {
+          id: "office",
+          label: "Add your office",
+          detail: "Where people clock in. Add a fence later if you want one.",
+          done: false,
+          action: { label: "Add office", href: "/settings/locations" },
+        },
+        {
+          id: "staff",
+          label: "Invite your staff",
+          detail: "They can clock in once they have signed in.",
+          done: false,
+          optional: true,
+          action: { label: "Invite staff", href: "/people" },
+        },
+      ]}
+    />
   );
 }
