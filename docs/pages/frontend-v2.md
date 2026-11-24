@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `8cf87fc3` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `d33d4cd1` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 **174 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -210,7 +210,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/performance/kpis`                  | Objectives          | What people are aiming at, and how far along it is, yours, your team's, or the company's.                                                                                                                        | `src/app/(app)/performance/kpis/page.tsx`                  |
 | `/performance/kpis/import`           | Upload objectives   | Give a team its quarter from one spreadsheet: match your own column names, see every row that will not go in and why before anything is saved, and have each objective arrive as a draft for its owner to agree. | `src/app/(app)/performance/kpis/import/page.tsx`           |
 | `/performance/kpis/new`              | New objective       | Write an objective one question at a time: the aim, the target, the period it counts in, then send it to be agreed.                                                                                              | `src/app/(app)/performance/kpis/new/page.tsx`              |
-| `/performance/periods`               | Appraisal periods   | Every appraisal period, open ones first, and what each one needs next.                                                                                                                                           | `src/app/(app)/performance/periods/page.tsx`               |
+| `/performance/periods`               | —                   | —                                                                                                                                                                                                                | `src/app/(app)/performance/periods/page.tsx`               |
 | `/performance/periods/[id]`          | Appraisal period    | Run an appraisal period: what is still needed, who is late, who has no appraiser, and where every score stands.                                                                                                  | `src/app/(app)/performance/periods/[id]/page.tsx`          |
 | `/performance/periods/[id]/fairness` | Fairness check      | How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager.                                                                                   | `src/app/(app)/performance/periods/[id]/fairness/page.tsx` |
 | `/performance/periods/[id]/nine-box` | Talent map          | Who is ready for more, who to grow, and who needs a conversation, for one appraisal period.                                                                                                                      | `src/app/(app)/performance/periods/[id]/nine-box/page.tsx` |
