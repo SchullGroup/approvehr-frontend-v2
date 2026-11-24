@@ -79,17 +79,13 @@ describe("the stages of a role", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("cannot lose the Applied stage, and says why in the menu and under the row", async () => {
+  it("cannot lose the Applied stage: no Remove in the menu, and the row says why", async () => {
     const user = userEvent.setup();
     render(<StageEditor stages={typed()} {...props()} />);
     const menu = await menuOf(user, "Applied");
-    const remove = within(menu).getByRole("menuitem", { name: /Remove stage/ });
-    expect(remove).toHaveAttribute("aria-disabled", "true");
     expect(
-      within(menu).getByText(
-        /this is the Applied stage, where new applicants land/i,
-      ),
-    ).toBeInTheDocument();
+      within(menu).queryByRole("menuitem", { name: /Remove stage/ }),
+    ).toBeNull();
     expect(
       screen.getByText(
         /Cannot be removed: this is the Applied stage, where new applicants land/,
@@ -97,10 +93,9 @@ describe("the stages of a role", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not move the Applied stage, or let an ending up into the middle", async () => {
+  it("does not offer to move the Applied stage, or an ending up into the middle", async () => {
     const user = userEvent.setup();
-    const p = props();
-    render(<StageEditor stages={typed()} {...p} />);
+    render(<StageEditor stages={typed()} {...props()} />);
 
     for (const [stageName, item] of [
       ["Applied", "Move down"],
@@ -108,14 +103,11 @@ describe("the stages of a role", () => {
       ["Hired", "Move up"],
     ] as const) {
       const menu = await menuOf(user, stageName);
-      const row = within(menu).getByRole("menuitem", {
-        name: new RegExp(item),
-      });
-      expect(row).toHaveAttribute("aria-disabled", "true");
-      await user.click(row);
+      expect(
+        within(menu).queryByRole("menuitem", { name: new RegExp(item) }),
+      ).toBeNull();
       await user.keyboard("{Escape}");
     }
-    expect(p.onMove).not.toHaveBeenCalled();
   });
 
   it("leaves 'is anybody in it' to the API: an occupied stage can still be asked to go", async () => {
