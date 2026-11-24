@@ -13678,3 +13678,197 @@ screens are covered by tests and the routes by the backend's); a letter with att
 list, upload and the download click are covered by tests, and the real file routes were not pressed); a
 company with many queries (the register pages at 50); a line manager, a colleague or an auditor getting the
 404 (the backend's).
+
+---
+
+# A query points at the records behind it, leads to the ones that follow it, and a manager may draft
+
+Stages 3 and 4 of the Query feature: the web half of `approvehr-backend` PR #308 (branch
+`feat/query-stage3-4-20261123`, note `docs/backend/queries-stage3-4-handover.md`, 13 sections). **Merge the
+backend first.** Against a server that predates it every new field is absent and every screen below reads as
+Stage 2 did: no references, no documents asked for, no leads, no template picker, no drafting, no counts
+route (the Counts page then shows the server's refusal), and the managers switch is "this server has not been
+updated" and not "off".
+
+## What was built
+
+| Where | What |
+| ----- | ---- |
+| `/people/queries/[id]`, **References** (`cited-records.tsx`) | Each cited record as a read-only copy: the kind, the server's one-line title, a line saying whether it is a **preview** (a draft: "read again, and frozen, when the letter is issued") or **frozen** ("as it stood when this letter was issued, <time>"), and the copy behind "What the record said". For the issuer on a draft (`can.cite`) there are **Add a reference** and **Remove**. |
+| `add-citation-dialog.tsx`, `lib/store/query-citation-options.ts` | Six kinds. A policy, an equipment assignment, a leave request and a document request are chosen from the person's own records, read through each module's own route (so a reader is offered only what they may already read there). An attendance day and a rota day are a date. |
+| `documents-asked.tsx` | **Ask for a document** (`can.askForDocument`) and the list of what was asked under the letter. It is an ordinary document request; the person answers under My documents. |
+| `linked-records.tsx` | **Linked records**: the warning, employment change and exit that followed the query, as links only. Staff only; the person's detail carries none. |
+| `draft-editor.tsx` | The warnings beside what they are about (day warnings under the dates, reply-by ones under the reply-by boxes), the confirmation's **Before it goes:** list, files and references only for the issuer, and for a drafting manager one sentence and no Issue button. |
+| `start-dialog.tsx` | **Start from a template**, and for a manager **Draft a query**. |
+| `/settings/queries` | **Managers drafting** (a switch that asks first) and **Letter templates** (list, add, edit, archive, restore). |
+| `/people/queries` | For somebody who holds only `DRAFT_QUERIES`, the same route shows `my-drafts.tsx`, their own drafts and nothing else. For HR: a **Drafted by managers** filter, a "A manager's draft" badge and a **Counts** link. |
+| `/people/queries/counts` | **Counts**: status and month, floor of three, `Withheld` where the server sent `null`. |
+| Conduct warning form, employment change form, exit form | An optional **Linked query** choice (`components/queries/linked-query.tsx`), and **Followed a query** on the record it made (a warning, a change in the queue and on History, an exit's Details). |
+| Documents, staff screens | **Asked under a query** on a request that carries `queryId`. Never on the person's own My documents. |
+| Roles | `DRAFT_QUERIES` in the permission mirrors, labelled **Draft queries**, in the Queries row as **Edit**. |
+
+## Decisions not to undo
+
+1. **A reference is a copy, drawn as one.** `citationRendering` is pure and gives rows of words: a field the
+   copy did not hold draws no row, never a nought, a "None" or a "No". A boolean the server did send is a
+   fact and is said either way ("Had not confirmed receipt"). Leave is dates, days and status only, and the
+   dialog says why: the type and the reason can be health information. A policy says the handbook keeps no
+   earlier versions, that it was published after the incident only when the server says so, and (new, from the
+   server's `bodyTruncated`) that only the start of a long wording is shown. A clock-out the system filled in is
+   not offered as a recorded time.
+2. **The controls are `can`.** `cite` and `askForDocument` are the server's; the Issue button and the files are
+   shown for `can.issue`, which is the server's one word for "this reader is the issuer". A drafting manager is
+   told what they may do in a sentence and is given no button whose one outcome is a refusal.
+3. **A manager's one route is the register's route.** No second page: `QueriesScreen` returns `MyDrafts` for
+   `DRAFT_QUERIES` and neither of the other two. The sidebar row is shown for the permission, and the page
+   asks `GET /queries/my-drafts`, whose 403 sentence is shown as it comes. Whether manager drafting is on is
+   the server's to say, so the row does not guess; a holder with the setting off sees that sentence.
+4. **`DRAFT_QUERIES` is not in `withLegacyExpansion`.** It is held by nobody until a company grants it, and a
+   test says an old role never implies it.
+5. **A lead is an id.** `leadHref` builds `/people/<person>?tab=conduct`, `/people/<person>?tab=history` or
+   `/people/offboarding/<id>`; `queryHref` encodes an id. Nothing is taken from a string the API wrote. There is
+   no hearing link (the server has no such model).
+6. **Linking is a note the creator makes in that module's own form.** Offered only to somebody who works queries,
+   only while queries are on, only the person's queries that are served and not withdrawn; shown as a reference
+   and where it stands, never the subject line. A change that moves pay is told why in the server's own
+   sentence and sends nothing; an exit offers it for a termination only. A query never sets anything in those
+   modules, and no screen was found where the contract implied it would.
+7. **Three dialogs became a new form on every open** (`useOpenSession`): the conduct warning, the exit, and the
+   references and document dialogs. A query chosen for one record must never be left chosen for another.
+8. **Counts: nothing is added up, subtracted or ranked in the browser.** `null` is `Withheld`; there is no total
+   row, no chart and no cut. The server withholds another cell beside any it withholds, so a withheld one may be
+   three or more, and the screen says so only when one is withheld. A year is the only control.
+9. **Templates ship no wording.** The list starts empty, the form has no example or placeholder text, the only
+   sentence about the words is the server's (counsel should read them), and the merge fields are the server's
+   list, not ours.
+10. **A toast is about an act.** "Reference added", "Document asked for", "Reference removed". After an issue it
+    says how many things were shown before it was sent, never what they were: they name dates of somebody's leave.
+11. **No client-side rule about who may do what.** The record-based pickers read through each module's route, and
+    a refusal (a 404 for a record that is not this person's, a 409 for a duplicate) is the server's sentence with
+    what was chosen still on the form.
+
+12. **Issuing says what it saw.** `POST /queries/:id/issue` carries `expectedUpdatedAt`, the `updatedAt` of the draft
+    **as the issuer last saw it** (after the save the same press makes), and only when the server sent one: a
+    server that predates it is never sent a key it would refuse. A 409 is the server's sentence, shown beside the
+    Issue button; the draft is read again and the form is re-seeded from it; **it is never retried from here**. A
+    second issue is a second decision.
+13. **A copy that changed is marked beside that copy.** `changedSincePreview` arrives on the citations of the answer
+    to issuing. It is an `AttentionMark` beside the citation's title (true only: false and absent draw nothing),
+    kept for as long as the screen is open because a later read may not carry it, and the toast says how many, never
+    which. It cannot be shown in the confirmation before issuing: the server computes it when it freezes.
+14. **A drafting manager is offered nothing the server refuses.** No references section and no "nothing cited" line
+    (the server sends `citations: []` and `files: []` for a drafter, and an empty list is not a claim), no files, no
+    boxes for how it is served (`served*` is a 422 for a drafter), no Issue button. The hiding is read from
+    `can.issue`, so an issuer keeps all of it.
+15. **The dates a letter takes are bounded to 2000 to 2100** in the four pickers (`QUERY_DATE_MIN` / `MAX`); a
+    typed date outside them is the server's 422 sentence, as it comes.
+
+## Built against the pushed handover, and what was guessed
+
+Backend `feat/query-stage3-4-20261123` at **`e4d3b43`** (the security review's fixes at `3760abd`, merged with
+`staging`; the handover is the same 13 sections as at `577b4f6`, and the queries module differs from it only in line
+wrapping) is what the final retakes and the `check` ran against. **Every contract point below is built from the pushed handover and was
+exercised against that running backend or its tests**: citations and their per-kind copies, `bodyTruncated`,
+warnings, ask for a document, leads (staff only, `leads` omitted when none is readable), templates (`{ data, meta }`),
+manager drafting and `GET /queries/my-drafts`'s 403, counts (`null` is withheld), `Detail.updatedAt` and
+`expectedUpdatedAt` on issue with the 409 `draft_changed`, `changedSincePreview` on the **issue answer's** `citations`
+(section 12), a drafter's `citations: []` and `files: []`, the 422 on `served*` for a drafter, the strict bodies,
+the 404 for a record that is not this person's, the caps (200 drafts, 200 templates) and the 2000 to 2100 bounds.
+
+**What was guessed first and had to be redone.** The first build, made from a message describing fixes that had
+not been pushed yet, put `changedSincePreview` on each citation of the *detail*. The pushed handover puts it on the
+*issue answer* (`IssueResult.citations: { id, kind, title, changedSincePreview }[]`), so the web now reads it there
+(`toIssuedCitations`), keeps the flagged ids for the life of the screen, and the field is not on `ApiCitation` at all.
+The 200-draft and 200-template sentences in the tests are fixtures; the screens show whatever the server sends.
+**Not built:** the note after re-aiming a draft at another person (section 13 item 7): no screen changes a draft's
+person, so there is no point at which to say it. The handover suggests naming the changed references' titles on the
+confirmation; the web says how many in the toast and marks each changed copy beside its own title on the References
+card, because the flag is computed when the copy is frozen, which is after the confirmation, and a toast must never
+carry what a letter cited.
+
+## Found, and not changed
+
+- **`GET /setup/checklist` answers 403 to everybody without `MANAGE_SETTINGS` on the merged backend** (`e4d3b43`; the
+  route was opened to anybody and is now behind that permission, from `staging`'s CRAWL-8). The web on `dev` still asks
+  for it on every page for every account, so each employee and each HR manager session logs one 403 in the console.
+  Nothing on screen breaks. Not this change's: `lib/store/setup-checklist.ts` should not ask without the permission.
+  Seen in the walk on `e4d3b43` and not on `577b4f6`, which is how it was found.
+- **The register's search term is sent to the API as a query-string parameter** (`GET /queries?q=...`), and a staff
+  member may type a subject line into it. That is Stage 2 and the server searches; it is in the server's access
+  logs. Moving the search to a POST body would be a backend change.
+- **The command palette (header search) lists `Counts` for somebody who holds only the drafting permission**,
+  because a page borrows its owner's permission and `/people/queries` now includes `DRAFT_QUERIES`. They are shown
+  "You cannot open the counts" on opening it. A per-page override in `page-search.ts` would close it.
+- **The Notifications settings screen shows the two new rules as "Query reminder" and "Query no reply"** (it
+  humanises the event code and has no copy table, by its own design), so there was no reminder setting to build.
+- **`ApiEmploymentChangeRow` has an id and no reference** on the in-flight queue, so that row's link reads "open it".
+- **A toast shows two lines**, so what the issuer has not seen yet has to come first. After issuing, the note that a
+  copy differs from the preview was the third sentence and was cut off in the picture; it leads now, and a test pins
+  the order.
+- **A browser walk against a stale server** cost an hour once: `kill` on the `npm exec` wrapper's pid left the old
+  `next-server` listening on the port with a deleted build directory, so every chunk answered 500 while the new
+  server failed to bind. Stop a server by the pid that is listening (`ss -ltnp`), and look at the bind error.
+- **Sign-in is rate limited** (ten attempts in fifteen minutes per account), so a walk that signs in the same person
+  repeatedly is refused. The walk here took the API token for HR from the browser session it already had.
+
+## Security pass
+
+Each item is proved by a test, a deliberate break, or both; none forced a cut.
+
+| Rule | Proved by |
+| ---- | --------- |
+| Typed text is a text node: no `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `RichText`, `LinkedText` in any queries file | `query-ties-security.test.tsx` source scan over every file (one test per file), and break 13 |
+| Hostile text (markup, an address, a script) comes out as text, makes no element and no link, on screen and on the printed letter | the same file's render checks over `LetterView` and `LetterDocument` |
+| Nothing about a letter in an address, query string, title, toast, notification, console, storage or beacon | source scans for console, storage, beacon and title writes and for any `?x=${...subjectLine|filename|title...}`; breaks 14, 15 (a console write, a toast naming a document) and 31 (a toast naming the changed references' titles) |
+| A link to another record is an id the server sent, a same-origin path, only where the server said so; no external link added | `leadHref` / `queryHref` tests, a scan of every `href`, no `target="_blank"` in any queries file; breaks 5, 7 |
+| Every control follows the server's `can` and the reader's permission; a manager sees their own drafts and nothing else; counts are never summed, subtracted or ranked | breaks 0, 1, 6, 25, 28; the counts tests; breaks 2, 3, 4 (a withheld count drawn or read as 0, a total added) |
+| A file is fetched only inside a click | "a file is a click and never a render" scans: no stage 3 or 4 file fetches a file; the one existing place stays in a handler |
+| No secret, token or password in a fixture | "no secret in a fixture" scan over the new tests |
+| No new dependency | `package.json` and the lockfile are untouched (empty diff against `origin/dev`), and a test says so |
+| No `any` and no cast on wire data in the new wire files | scan over `query-ties.ts`, `citation-rows.ts` and `query-citation-options.ts`, and over the new additions to the detail reader |
+| A refused issue is never retried by the screen, and the draft is sent with the `updatedAt` it was read at | breaks 23, 24 |
+| Dates are bounded to the server's 2000 to 2100 in all five pickers | breaks 27, 32, 33 and one test per picker |
+
+## Verified
+
+On the final tree, with `APPROVEHR_BACKEND_DIR` at the backend worktree on `e4d3b43`, so the four cross-repo gates
+(payroll, template, rating scale, signature wording) compared and did not skip. Branch `feat/query-stage3-4-20261123`.
+
+- `npm run check`: see the line at the end of this section for its exit code and the tree it ran on.
+- `npm run verify-demo:build` (a production build with `NEXT_PUBLIC_DEMO=off`, then the check against it) exit 0:
+  "Demo source check: 1397 files, no ungated demo copy. Demo bundle check: 3282 built files, none carries demo copy.
+  Fabrication check: 10 seed personas and 3 credential shape(s), none loose in src/ or the build."
+- Tests: 8 new files, 308 tests (`query-ties-api` 31, `query-citation-rows` 17, `query-ties-screen` 35,
+  `query-add-citation` 15, `query-linked-field` 22, `query-manager-and-counts` 15, `query-templates-and-managers` 22,
+  `query-ties-security` 151) and 6 existing files changed (`queries-api`, `queries-query-screen`,
+  `queries-settings-screen`, `queries-wiring`, `permissions-legacy-expansion`, `propose-change-picker`). All 14 files:
+  397 tests, 0 failing. `vitest related` over every changed source file: 390 files and 5,641 tests, 24 failing in 9
+  files, none this change's: three Performance files (`manager-appraisal-form`, `manager-recommendations-flow`,
+  `subsection-answer-flow-written`, 17 tests) fail the same way on an unmodified `dev`; the six recruitment and
+  completed-team files pass on their own (five of six together, `completed-team` alone: they time out under load).
+- **Deliberate breaks: 34, all caught, each restored with `git checkout --` and the tree checked clean after each**
+  (run on the final tree by `breaks.py`; one exact replacement in one source file, the named test files run,
+  verdict read from the exit code). They are listed above by number where a security rule relies on one. One of the
+  34 had been weak at first (a total added on the counts screen was missed by a word boundary on concatenated text) and
+  was fixed in the test; one was retargeted when the contract moved the changed-copy flag to the issue answer.
+- **In a browser, against the real backend.** A scratch API (the backend worktree, `e4d3b43` for the final retakes,
+  `f80da23` for the earlier walk) on a real Postgres database made for the walk, and a production build of this
+  branch with `NEXT_PUBLIC_DEMO=off`, signed in for real as the administrator, the HR manager, a line manager with
+  the drafting permission and an employee. 37 screenshots in `out/query-stage3-4-walk-2026-11-23/` (not in the
+  repository) with `index.md` grouped by module; seven of them (16, 24, 27, 29, 34, 35, 36) are on `e4d3b43`.
+  Walked: settings (the managers switch asks first, templates with no wording), the register and a draft from a
+  template, all six reference kinds as previews and as frozen copies, the leave and rota warnings beside their dates
+  and in the issue confirmation, the issue refused with the server's own 409 sentence when the draft changed, a cited
+  policy republished between loading and issuing (the toast, the header mark and the copy's mark), Ask for a document
+  and the neutral notification the person gets, the person's own narrowed view, the optional Linked query in the
+  warning, employment-change and exit forms and the link back, Linked records for staff, a manager drafting (their
+  narrowed editor and their own-drafts route, and HR reading it), Counts with withheld cells, the roles screen, and
+  three phone shots at 375px with touch (no sideways scroll). No console error or 5xx apart from the intended 409
+  and, on `e4d3b43`, the `GET /setup/checklist` 403 described above.
+
+**Not exercised:** the QA site; Safari or any real device; an actual email (no transport on the scratch stack); the
+hourly reminder sweep; a manager moved to another manager while a draft is open; a company with hundreds of queries; a
+policy longer than 10,000 characters in a browser (tests only); the 200-draft and 200-template caps in a browser (the
+sentences in the tests are fixtures; the screens show what the server sends); the note after re-aiming a draft at
+another person (no screen changes a draft's person, so it was not built); and demo mode (queries have none, and a
+production build has no demo mode).
