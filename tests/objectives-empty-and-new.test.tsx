@@ -118,14 +118,7 @@ beforeEach(() => {
   state.canUpload = true;
 });
 
-const tab = (scope: KpiScope) =>
-  render(
-    <KpisTab
-      scope={scope}
-      scopes={["mine", "team", "company"]}
-      onScopeChange={vi.fn()}
-    />,
-  );
+const tab = (scope: KpiScope) => render(<KpisTab scope={scope} />);
 
 describe("a reading with no objectives", () => {
   it.each<[KpiScope, string]>([
@@ -160,22 +153,19 @@ describe("a reading with no objectives", () => {
     expect(screen.queryByText("All objectives")).not.toBeInTheDocument();
   });
 
-  it("offers New objective as the page, once, with Add several and Upload as the quieter ways in", () => {
+  it("offers New objective as the page, once, and Upload; no Add several or Add multiple", () => {
     tab("team");
     const links = screen.getAllByRole("link", { name: /new objective/i });
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveAttribute(
       "href",
-      "/performance/kpis/new?back=%2Fperformance%2Fkpis%3Fscope%3Dteam",
+      expect.stringContaining("/performance/kpis/new"),
     );
-    expect(
-      screen.getByRole("button", { name: "Add several" }),
-    ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Upload objectives" }),
     ).toHaveAttribute("href", "/performance/kpis/import");
     expect(
-      screen.queryByRole("button", { name: /add multiple/i }),
+      screen.queryByRole("button", { name: /add (several|multiple)/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -200,15 +190,15 @@ describe("a reading with no objectives", () => {
 });
 
 describe("with objectives", () => {
-  it("keeps the tiles, and New objective goes to the page rather than a dialog", () => {
+  it("has no number tiles and no New objective inside the list (it is in the page header)", () => {
     state.goals = [goal()];
     tab("mine");
-    expect(screen.getByText("Objectives being tracked")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /new objective/i });
-    expect(link).toHaveAttribute(
-      "href",
-      "/performance/kpis/new?back=%2Fperformance%2Fkpis%3Fscope%3Dmine",
-    );
+    expect(
+      screen.queryByText("Objectives being tracked"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /new objective/i }),
+    ).not.toBeInTheDocument();
     expect(within(document.body).queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

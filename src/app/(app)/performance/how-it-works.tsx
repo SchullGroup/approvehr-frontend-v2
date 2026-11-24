@@ -92,8 +92,8 @@ export function HowItWorksBody() {
           An aim with a number on it, filed against the period. It has to be{" "}
           <strong className="font-medium text-ink">agreed before</strong> the
           period it covers, on{" "}
-          <TextLink href="/performance/approvals">
-            the objectives queue
+          <TextLink href="/performance/kpis?tab=agree">
+            To agree, on Objectives
           </TextLink>
           , and only agreed ones are ever scored. An objective agreed after the
           result is known is not an objective.

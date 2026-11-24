@@ -254,8 +254,6 @@ const mount = (
     <ToastProvider>
       <KpisTab
         scope={props.scope ?? "company"}
-        scopes={["mine", "team", "company"]}
-        onScopeChange={vi.fn()}
         department={props.department ?? null}
         departmentHref={href}
       />
@@ -290,7 +288,7 @@ describe("Whole company", () => {
     expect(screen.queryByText("Reconcile the bank daily")).toBeNull();
   });
 
-  it("keeps the four figures and the waiting line above the cards", () => {
+  it("has no number tiles, no waiting-to-be-agreed line, no header sentence and no order dropdown", () => {
     state.goals = [
       ...GOALS,
       goal({
@@ -301,12 +299,19 @@ describe("Whole company", () => {
       }),
     ];
     mount();
-    expect(screen.getByText("Objectives being tracked")).toBeInTheDocument();
-    expect(screen.getByText("Average progress")).toBeInTheDocument();
-    expect(screen.getByText("Needs attention")).toBeInTheDocument();
-    expect(screen.getByText("Targets met")).toBeInTheDocument();
     expect(
-      screen.getByText("1 objective is waiting to be agreed"),
+      screen.queryByText("Objectives being tracked"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Average progress")).not.toBeInTheDocument();
+    expect(screen.queryByText(/waiting to be agreed/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /see what is waiting/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /order|grouped/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Search objectives by title or detail"),
     ).toBeInTheDocument();
   });
 

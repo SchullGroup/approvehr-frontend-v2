@@ -15,7 +15,7 @@ import type { SkillsTabId } from "./tabs";
  * Gated on `appraisals` — a company that has not turned scored reviews on has
  * no levels to rate anybody against. The nav already hides this item for such
  * a company; this is the direct-link case, answered the same way
- * `/performance/approvals` answers it.
+ * the To agree tab of `/performance/kpis` answers it.
  */
 export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
   const features = useFeatures();

@@ -666,8 +666,8 @@ export function WhatNeedsYouTab({
                         : `${queue.length} objectives are waiting for you to agree them`
                     }
                     detail="An objective has to be agreed before the period it covers."
-                    href="/performance/approvals"
-                    action="Open the queue"
+                    href="/performance/kpis?tab=agree"
+                    action="Open To agree"
                   />
                 )}
 

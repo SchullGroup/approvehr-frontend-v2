@@ -435,3 +435,71 @@ export function targetChangesOf(
   }
   return changes;
 }
+
+/* ------------------------------------------------------- who agrees it */
+
+type Agreeing = {
+  id: string;
+  fullName: string;
+  managerId?: string | null;
+  departmentId?: string | null;
+};
+
+/**
+ * Who an objective goes to, before it is sent (owner, 24 Nov 2026): the
+ * person's line manager; if none, the head of their department; if none,
+ * whoever holds the records permission (HR). Company and department objectives
+ * go to HR. Nobody agrees their own, so a manager writing for their own report
+ * is skipped to the next in line.
+ *
+ * It is the API's own rule (`approversOf`), written as one plain line from what
+ * the screen knows; once an objective is sent, `sentLine` says who it reached.
+ */
+export function agreesLine({
+  level,
+  ownerId,
+  meId,
+  people,
+  departments,
+}: {
+  level: ObjectiveLevel;
+  /** The person it is for: an id, or null for "me". */
+  ownerId: string | null;
+  meId: string | null;
+  people: readonly Agreeing[];
+  departments: readonly { id: string; headId: string | null }[];
+}): string {
+  const hr = "Goes to HR to agree.";
+  if (level !== "person") return hr;
+  const owner = people.find((one) => one.id === (ownerId ?? meId));
+  if (!owner) return hr;
+  const named = (id: string | null | undefined) =>
+    id && id !== owner.id && id !== meId
+      ? (people.find((one) => one.id === id)?.fullName ?? null)
+      : null;
+  const manager = named(owner.managerId);
+  if (manager) return `Goes to ${manager} to agree.`;
+  const head = named(
+    departments.find((one) => one.id === owner.departmentId)?.headId,
+  );
+  return head ? `Goes to ${head} to agree.` : hr;
+}
+
+/** "Sent to Ada Eze to agree." from the people the API says it reached. */
+export function sentLine(
+  sentTo: readonly string[] | undefined,
+  people: readonly { id: string; fullName: string }[],
+): string | null {
+  if (!sentTo || sentTo.length === 0) return null;
+  const names = sentTo.map(
+    (id) => people.find((one) => one.id === id)?.fullName ?? null,
+  );
+  if (names.some((name) => name === null)) {
+    return sentTo.length === 1
+      ? "Sent to 1 person to agree."
+      : `Sent to ${String(sentTo.length)} people to agree.`;
+  }
+  const list = names as string[];
+  if (list.length <= 2) return `Sent to ${list.join(" and ")} to agree.`;
+  return `Sent to ${list.slice(0, 2).join(", ")} and ${String(list.length - 2)} others to agree.`;
+}

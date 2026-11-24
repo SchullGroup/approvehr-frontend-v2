@@ -4,7 +4,6 @@ import { useId, useMemo, useState } from "react";
 import { ChevronRight, Inbox, Target } from "lucide-react";
 import { CompletedWork } from "@/components/performance/completed-work";
 import {
-  Badge,
   Button,
   Card,
   ConfirmDialog,
@@ -17,7 +16,6 @@ import {
   LoadState,
   type AppliedFilter,
 } from "@/components/ui";
-import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   formatMeasure,
@@ -43,18 +41,23 @@ import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useFeatures } from "@/lib/store/features";
 import {
-  useObjectiveApprovals,
   useObjectiveMutations,
+  type useObjectiveApprovals,
 } from "@/lib/store/performance";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
 import { ApprovalReasonDialog } from "../approval-dialogs";
 import { sentBackSaid } from "../objective-copy";
-import { AgreedMoment, type Agreement } from "./agreed-moment";
+import { AgreedMoment, type Agreement } from "../approvals/agreed-moment";
 
 /**
- * Objectives waiting to be agreed, in the rhythm of My approvals (owner
- * request, 24 Nov 2026).
+ * Objectives waiting to be agreed: the To agree tab on Objectives (owner,
+ * 24 Nov 2026: "merge the objectives and objectives to agree subs into
+ * multiple tabs in one page"), in the rhythm of My approvals. It was a page of
+ * its own with a sidebar row; `/performance/approvals` now redirects here.
+ *
+ * The queue is read by the screen above it, which also shows its count on the
+ * tab, and handed in, so one read answers both and a decision moves the count.
  *
  * ## Why this screen exists at all
  *
@@ -83,8 +86,18 @@ import { AgreedMoment, type Agreement } from "./agreed-moment";
  * "Nothing waiting" and "you agree nobody's objectives" both render as no rows.
  * `couldHaveQueue` says which.
  */
-export function ApprovalsScreen() {
-  const approvals = useObjectiveApprovals();
+/** Who agrees what, in one line (owner, 24 Nov 2026). Nobody agrees their own. */
+export const AGREE_RULE =
+  "A person's objectives go to their line manager, then their department head, then HR. Company and department objectives go to HR. Nobody agrees their own.";
+
+export function ObjectivesToAgree({
+  approvals,
+  strip,
+}: {
+  approvals: ReturnType<typeof useObjectiveApprovals>;
+  /** The page's tabs, drawn at the top like the other tabs draw them. */
+  strip?: React.ReactNode;
+}) {
   const objectives = useObjectiveMutations();
   const features = useFeatures();
   const toast = useToast();
@@ -127,25 +140,24 @@ export function ApprovalsScreen() {
 
   if (!features.loading && !features.appraisals) {
     return (
-      <>
-        <PageHeader
-          breadcrumb={[{ href: "/performance", label: "Performance" }]}
-          title="Objectives to agree"
+      <div className="flex flex-col gap-6">
+        {strip !== undefined && (
+          /* At its own width, as on the other tabs, not stretched by the
+             column it sits in. */
+          <div className="flex flex-wrap items-center gap-3">{strip}</div>
+        )}
+        <EmptyState
+          plain
+          icon={<Target aria-hidden="true" />}
+          title="Appraisals are switched off"
+          description="Agreeing objectives before the period they cover is part of the appraisal module. Turn it on and this fills itself."
+          action={
+            <TextLink href="/settings/features" className="text-body-sm">
+              Open feature settings
+            </TextLink>
+          }
         />
-        <PageBody>
-          <EmptyState
-            plain
-            icon={<Target aria-hidden="true" />}
-            title="Appraisals are switched off"
-            description="Agreeing objectives before the period they cover is part of the appraisal module. Turn it on and this queue fills itself."
-            action={
-              <TextLink href="/settings/features" className="text-body-sm">
-                Open feature settings
-              </TextLink>
-            }
-          />
-        </PageBody>
-      </>
+      </div>
     );
   }
 
@@ -209,186 +221,178 @@ export function ApprovalsScreen() {
 
   return (
     <>
-      <PageHeader
-        breadcrumb={[{ href: "/performance", label: "Performance" }]}
-        title="Objectives to agree"
-        meta={
-          DEMO_ENABLED && approvals.source === "demo" ? (
-            <Badge tone="warning" size="sm">
-              Demo · decisions stay in this browser
-            </Badge>
-          ) : undefined
-        }
-      />
-
-      <PageBody>
-        <div className="flex flex-col gap-6">
-          {answered && approvals.queue.length > 0 && (
-            <FilterBar
-              search={filters.search}
-              onSearchChange={(search) => set({ search })}
-              searchLabel="Search the objectives waiting by title, person or department"
-              searchPlaceholder="Search objectives…"
-              applied={applied}
-              {...(narrowing || filters.group !== ""
-                ? { onClearAll: () => setFilters(NO_FILTERS) }
-                : {})}
-              count={narrowing ? shown.length : undefined}
-              noun={["objective", "objectives"]}
-              sort={
-                <Select
-                  aria-label="Group the list"
-                  value={filters.group}
-                  onChange={(event) =>
-                    set({ group: event.target.value as QueueGrouping })
-                  }
-                >
-                  <option value="">Not grouped</option>
-                  <option value="department">By department</option>
-                  <option value="person">By person</option>
-                </Select>
-              }
-            >
-              {options.people.length > 0 && (
-                <Select
-                  aria-label="Filter by person"
-                  value={filters.person}
-                  onChange={(event) => set({ person: event.target.value })}
-                >
-                  <option value="">Anybody</option>
-                  {options.people.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              )}
+      <div className="flex flex-col gap-6">
+        {strip !== undefined && (
+          /* At its own width, as on the other tabs, not stretched by the
+             column it sits in. */
+          <div className="flex flex-wrap items-center gap-3">{strip}</div>
+        )}
+        <p className="text-body-sm text-muted">{AGREE_RULE}</p>
+        {answered && approvals.queue.length > 0 && (
+          <FilterBar
+            search={filters.search}
+            onSearchChange={(search) => set({ search })}
+            searchLabel="Search the objectives waiting by title, person or department"
+            searchPlaceholder="Search objectives…"
+            applied={applied}
+            {...(narrowing || filters.group !== ""
+              ? { onClearAll: () => setFilters(NO_FILTERS) }
+              : {})}
+            count={narrowing ? shown.length : undefined}
+            noun={["objective", "objectives"]}
+            sort={
               <Select
-                aria-label="Filter by department"
-                value={filters.department}
-                onChange={(event) => set({ department: event.target.value })}
-              >
-                <option value="">Any department</option>
-                {options.departments.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                aria-label="Filter by period"
-                value={filters.period}
-                onChange={(event) => set({ period: event.target.value })}
-              >
-                <option value="">Any period</option>
-                {options.periods.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                aria-label="Filter by level"
-                value={filters.level}
+                aria-label="Group the list"
+                value={filters.group}
                 onChange={(event) =>
-                  set({ level: event.target.value as ObjectiveLevelFilter })
+                  set({ group: event.target.value as QueueGrouping })
                 }
               >
-                <option value="">Any level</option>
-                {options.levels.map((level) =>
-                  level === "" ? null : (
-                    <option key={level} value={level}>
-                      {LEVEL_WORDS[level]}
-                    </option>
-                  ),
-                )}
+                <option value="">Not grouped</option>
+                <option value="department">By department</option>
+                <option value="person">By person</option>
               </Select>
-            </FilterBar>
-          )}
-
-          {agreed && (
-            <AgreedMoment
-              key={agreed.n}
-              agreement={agreed}
-              onDismiss={() => setAgreed(null)}
-            />
-          )}
-
-          <LoadState
-            loading={approvals.loading}
-            error={approvals.error}
-            subject="the objectives waiting on you"
-            onRetry={approvals.reload}
-            hasData={approvals.queue.length > 0}
-            skeleton="list"
+            }
           >
-            {approvals.queue.length === 0 ? (
-              <Card>
-                {approvals.couldHaveQueue ? (
-                  <EmptyState
-                    art={<Illustration name="coffee-break" />}
-                    title="Nothing waiting to be agreed"
-                    description="New ones show up here when somebody sends an objective to be agreed."
-                  />
-                ) : (
-                  <EmptyState
-                    plain
-                    icon={<Inbox aria-hidden="true" />}
-                    title="You agree nobody's objectives"
-                    description="This fills up for whoever people report to. Yours are on the Objectives page, where you can send them to be agreed."
-                  />
-                )}
-              </Card>
-            ) : shown.length === 0 ? (
-              <Card>
-                <EmptyState
-                  mood="search"
-                  icon={<Target aria-hidden="true" />}
-                  title="Nothing matches that"
-                  description={`None of the ${String(approvals.queue.length)} waiting match your filters.`}
-                  action={
-                    <Button
-                      variant="ghost"
-                      onClick={() => setFilters(NO_FILTERS)}
-                    >
-                      Clear the filters
-                    </Button>
-                  }
-                />
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {groups.map((group) => (
-                  <section
-                    key={group.key}
-                    aria-label={group.name || "Waiting to be agreed"}
-                    className="flex flex-col gap-3"
-                  >
-                    {group.name && (
-                      <h2 className="text-meta font-semibold text-muted">
-                        {group.name} · {group.goals.length}
-                      </h2>
-                    )}
-                    <ul className="flex flex-col gap-3">
-                      {group.goals.map((goal) => (
-                        <li key={goal.id}>
-                          <QueueRow
-                            goal={goal}
-                            open={open.has(goal.id)}
-                            onToggle={() => toggle(goal.id)}
-                            onAgree={() => setAgreeing(goal)}
-                            onDecline={() => setDeclining(goal)}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
+            {options.people.length > 0 && (
+              <Select
+                aria-label="Filter by person"
+                value={filters.person}
+                onChange={(event) => set({ person: event.target.value })}
+              >
+                <option value="">Anybody</option>
+                {options.people.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
                 ))}
-              </div>
+              </Select>
             )}
-          </LoadState>
-        </div>
-      </PageBody>
+            <Select
+              aria-label="Filter by department"
+              value={filters.department}
+              onChange={(event) => set({ department: event.target.value })}
+            >
+              <option value="">Any department</option>
+              {options.departments.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              aria-label="Filter by period"
+              value={filters.period}
+              onChange={(event) => set({ period: event.target.value })}
+            >
+              <option value="">Any period</option>
+              {options.periods.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              aria-label="Filter by level"
+              value={filters.level}
+              onChange={(event) =>
+                set({ level: event.target.value as ObjectiveLevelFilter })
+              }
+            >
+              <option value="">Any level</option>
+              {options.levels.map((level) =>
+                level === "" ? null : (
+                  <option key={level} value={level}>
+                    {LEVEL_WORDS[level]}
+                  </option>
+                ),
+              )}
+            </Select>
+          </FilterBar>
+        )}
+
+        {agreed && (
+          <AgreedMoment
+            key={agreed.n}
+            agreement={agreed}
+            onDismiss={() => setAgreed(null)}
+          />
+        )}
+
+        <LoadState
+          loading={approvals.loading}
+          error={approvals.error}
+          subject="the objectives waiting on you"
+          onRetry={approvals.reload}
+          hasData={approvals.queue.length > 0}
+          skeleton="list"
+        >
+          {approvals.queue.length === 0 ? (
+            <Card>
+              {approvals.couldHaveQueue ? (
+                <EmptyState
+                  art={<Illustration name="coffee-break" />}
+                  title="Nothing waiting to be agreed"
+                  description="New ones show up here when somebody sends an objective to be agreed."
+                />
+              ) : (
+                <EmptyState
+                  plain
+                  icon={<Inbox aria-hidden="true" />}
+                  title="You agree nobody's objectives"
+                  description="This fills up for whoever people report to. Yours are on the Objectives page, where you can send them to be agreed."
+                />
+              )}
+            </Card>
+          ) : shown.length === 0 ? (
+            <Card>
+              <EmptyState
+                mood="search"
+                icon={<Target aria-hidden="true" />}
+                title="Nothing matches that"
+                description={`None of the ${String(approvals.queue.length)} waiting match your filters.`}
+                action={
+                  <Button
+                    variant="ghost"
+                    onClick={() => setFilters(NO_FILTERS)}
+                  >
+                    Clear the filters
+                  </Button>
+                }
+              />
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {groups.map((group) => (
+                <section
+                  key={group.key}
+                  aria-label={group.name || "Waiting to be agreed"}
+                  className="flex flex-col gap-3"
+                >
+                  {group.name && (
+                    <h2 className="text-meta font-semibold text-muted">
+                      {group.name} · {group.goals.length}
+                    </h2>
+                  )}
+                  <ul className="flex flex-col gap-3">
+                    {group.goals.map((goal) => (
+                      <li key={goal.id}>
+                        <QueueRow
+                          goal={goal}
+                          open={open.has(goal.id)}
+                          onToggle={() => toggle(goal.id)}
+                          onAgree={() => setAgreeing(goal)}
+                          onDecline={() => setDeclining(goal)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </LoadState>
+      </div>
 
       <ConfirmDialog
         open={agreeing !== null}

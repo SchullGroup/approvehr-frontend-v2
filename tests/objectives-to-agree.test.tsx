@@ -37,7 +37,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
-  usePathname: () => "/performance/approvals",
+  usePathname: () => "/performance/kpis",
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("@/lib/store/performance", async (importOriginal) => ({
@@ -87,8 +87,8 @@ vi.mock("@/components/performance/completed-work", () => ({
   CompletedWork: () => null,
 }));
 
-const { ApprovalsScreen } =
-  await import("@/app/(app)/performance/approvals/approvals-screen");
+const { ObjectivesToAgree } =
+  await import("@/app/(app)/performance/kpis/to-agree");
 
 const goal = (over: Partial<ApiGoal> & { id: string }): ApiGoal =>
   ({
@@ -169,7 +169,18 @@ beforeEach(() => {
 
 const show = () => {
   const user = userEvent.setup();
-  render(<ApprovalsScreen />);
+  render(
+    <ObjectivesToAgree
+      approvals={{
+        queue: state.queue,
+        loading: state.loading,
+        error: null,
+        source: "api",
+        couldHaveQueue: state.couldHaveQueue,
+        reload: state.reload,
+      }}
+    />,
+  );
   return user;
 };
 /* The row's own toggle: its name starts with the title, where Agree's and
