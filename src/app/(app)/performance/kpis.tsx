@@ -785,7 +785,8 @@ export function KpisTab({
 
           {kpis.goals.length > 0 &&
             !kpis.loading &&
-            !(grouping && opened === null) && (
+            !(grouping && opened === null) &&
+            opened === null && (
               <FilterBar
                 search={search}
                 onSearchChange={setSearch}
