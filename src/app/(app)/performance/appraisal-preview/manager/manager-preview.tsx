@@ -11,9 +11,8 @@ import {
   Select,
   Tabs,
   Textarea,
-  useToast,
 } from "@/components/ui";
-import { FilterBar } from "@/components/ui/filter-bar";
+import { TeamAppraisals } from "@/components/performance/team-appraisals";
 import { ProgressMeter } from "@/components/ui/progress";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { WizardShell } from "@/components/performance/wizard-shell";
@@ -158,131 +157,23 @@ export function ManagerPreview() {
 }
 
 function Team({ onOpen }: { onOpen: (person: Person) => void }) {
-  const toast = useToast();
-  const [department, setDepartment] = useState("");
-  const [status, setStatus] = useState<"" | Status>("");
-  const [nudged, setNudged] = useState<Set<string>>(new Set());
-  const done = PEOPLE.filter((p) => p.status === "done").length;
-  const shown = PEOPLE.filter(
-    (p) =>
-      (department === "" || p.department === department) &&
-      (status === "" || p.status === status),
-  );
-  const departments = [...new Set(PEOPLE.map((p) => p.department))];
-
   return (
-    <div className="flex flex-col gap-4">
-      <Card className="p-5">
-        <ProgressMeter
-          value={done}
-          max={PEOPLE.length}
-          label={`${String(done)} of ${String(PEOPLE.length)} people done`}
-          showValue={false}
-        />
-      </Card>
-      <FilterBar
-        applied={[
-          ...(department
-            ? [
-                {
-                  label: "Department",
-                  value: department,
-                  onClear: () => setDepartment(""),
-                },
-              ]
-            : []),
-          ...(status
-            ? [
-                {
-                  label: "Status",
-                  value: STATUS_WORDS[status],
-                  onClear: () => setStatus(""),
-                },
-              ]
-            : []),
-        ]}
-        onClearAll={() => {
-          setDepartment("");
-          setStatus("");
-        }}
-        count={shown.length}
-        noun={["person", "people"]}
-      >
-        <Field label="Department">
-          <Select
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-          >
-            <option value="">Every department</option>
-            {departments.map((name) => (
-              <option key={name}>{name}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Status">
-          <Select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as "" | Status)}
-          >
-            <option value="">Any status</option>
-            {(Object.keys(STATUS_WORDS) as Status[]).map((key) => (
-              <option key={key} value={key}>
-                {STATUS_WORDS[key]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </FilterBar>
-
-      <ul className="flex flex-col gap-3">
-        {shown.map((person) => (
-          <li
-            key={person.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4"
-          >
-            <div className="min-w-0 flex-1 basis-56">
-              <p className="text-body-md font-medium text-ink">{person.name}</p>
-              <p className="text-body-sm text-muted">
-                {person.department} · {STATUS_WORDS[person.status]}
-              </p>
-              <ProgressMeter
-                className="mt-2"
-                value={person.steps}
-                max={6}
-                size="sm"
-                showValue={false}
-                label={`${String(person.steps)} of 6 steps`}
-              />
-            </div>
-            {person.status === "locked" ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={nudged.has(person.id)}
-                onClick={() => {
-                  setNudged(new Set(nudged).add(person.id));
-                  toast.push({
-                    title: "Reminder sent",
-                    tone: "success",
-                    detail: "They are asked to send their self review.",
-                  });
-                }}
-              >
-                {nudged.has(person.id) ? "Reminded today" : "Nudge"}
-              </Button>
-            ) : (
-              <Button size="sm" variant="accent" onClick={() => onOpen(person)}>
-                {person.status === "done"
-                  ? "View"
-                  : person.status === "in-progress"
-                    ? "Continue"
-                    : "Start"}
-              </Button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <TeamAppraisals
+      people={PEOPLE.map((person) => ({
+        id: person.id,
+        name: person.name,
+        department: person.department,
+        status: person.status,
+        stepsDone: person.steps,
+        stepsTotal: 6,
+        lockedReason: "Their self review has not been sent yet.",
+      }))}
+      onOpen={(row) => {
+        const person = PEOPLE.find((one) => one.id === row.id);
+        if (person) onOpen(person);
+      }}
+      onNudge={() => Promise.resolve()}
+    />
   );
 }
 

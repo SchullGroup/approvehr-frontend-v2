@@ -36,6 +36,7 @@ import {
   type ApiReview,
   type ApiReviewDetail,
   type ApiRevisionRequest,
+  type ApiAppraisalProgress,
   type ApiCycleReport,
   type ApiNineBox,
   type ApiPotentialLevel,
@@ -79,6 +80,7 @@ import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 import { useIsManager } from "@/lib/permissions";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { notSwitchedOn } from "@/lib/performance/notify-objectives";
 import { useFetched } from "@/lib/use-fetched";
 
 /**
@@ -4792,6 +4794,53 @@ export function useScoreHistory(
     error: isConnected ? fetched.error : null,
     available: isConnected,
     refusal: HISTORY_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * The appraisal's steps for one period: the caller's own, the team's, and HR's
+ * totals. An API that does not have the route yet answers 404, which is read as
+ * "nothing here", never as a failure: `unavailable` is true and the screen falls
+ * back to what it always showed.
+ */
+export function useAppraisalProgress(cycleId: string | null): {
+  progress: ApiAppraisalProgress | null;
+  loading: boolean;
+  unavailable: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && isConnected;
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      try {
+        return {
+          progress: await performanceApi.appraisalProgress(
+            cycleId ?? "",
+            signal,
+          ),
+          unavailable: false,
+        };
+      } catch (caught) {
+        if (notSwitchedOn(caught)) {
+          return { progress: null, unavailable: true };
+        }
+        throw caught;
+      }
+    },
+    [cycleId],
+  );
+  const fetched = useFetched<{
+    progress: ApiAppraisalProgress | null;
+    unavailable: boolean;
+  }>(`appraisal-progress|${cycleId ?? "none"}`, active, load);
+  return {
+    progress: fetched.data?.progress ?? null,
+    loading: active ? fetched.loading : false,
+    unavailable: !active || (fetched.data?.unavailable ?? false),
+    error: active ? fetched.error : null,
     reload: fetched.reload,
   };
 }

@@ -673,6 +673,53 @@ export type ApiCyclePublished = ApiCycle & {
   notFinalised: string[];
 };
 
+/** One step of the appraisal, in order: questions, core, behavioural, leadership (only when asked), submitted. */
+export type ApiProgressStep = {
+  key: string;
+  label: string;
+  total: number;
+  answered: number;
+  done: boolean;
+};
+
+export type ApiProgressPerson = {
+  employeeId: string;
+  employeeName: string;
+  selfSubmitted: boolean;
+  submitted: boolean;
+  overallRating: number | null;
+  /** The manager's step waits for the self review; the sentence says why. */
+  locked: boolean;
+  lockedReason: string | null;
+  currentStep: string | null;
+  steps: ApiProgressStep[];
+};
+
+/**
+ * `GET /performance/cycles/:id/appraisal-progress`. `mine` is the caller's own
+ * self review, `team` the people they appraise (everybody, for HR) and null when
+ * they appraise nobody, `totals` is HR's. Every part is optional here: a server
+ * that does not have the route answers 404 and the screen says nothing is there.
+ */
+export type ApiAppraisalProgress = {
+  cycleId: string;
+  cycleName: string;
+  stage: ReviewCycleStage;
+  mine: {
+    reviewId: string | null;
+    submitted: boolean;
+    currentStep: string | null;
+    steps: ApiProgressStep[];
+  } | null;
+  team: ApiProgressPerson[] | null;
+  totals?: {
+    people: number;
+    selfSubmitted: number;
+    managerStarted: number;
+    managerSubmitted: number;
+  };
+};
+
 export type ApiNotifyObjectives = {
   notified: number;
   alreadyHad: number;
@@ -3144,6 +3191,19 @@ export const performanceApi = {
     request<ApiRemindResult>(`/performance/cycles/${id}/remind`, {
       method: "POST",
     }),
+
+  appraisalProgress: (id: string, signal?: AbortSignal) =>
+    request<ApiAppraisalProgress>(
+      `/performance/cycles/${id}/appraisal-progress`,
+      signalOf(signal),
+    ),
+
+  /** Remind somebody to send their self review. Once a day; a 409 says why not. */
+  nudgePerson: (cycleId: string, employeeId: string) =>
+    request<{ nudged: boolean; employeeId: string }>(
+      `/performance/cycles/${cycleId}/people/${employeeId}/nudge`,
+      { method: "POST" },
+    ),
 
   /**
    * Ask everybody in the period to set their objectives (a notification in
