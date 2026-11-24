@@ -852,6 +852,19 @@ confirm, and nothing is asked for in those cases or while the setting is off.
 > leaving it out of the average would let a miss disappear. The message after you add one says so:
 > _Done or not done. It counts as not done until it is confirmed._
 
+#### 11b. Add questions — the step after Create period
+
+After **Create period** the same wizard goes on to `/performance/periods/{id}/questions`. The usual self and
+manager questions are already in (put in once, for a draft with none), so nothing has to be added. One screen
+per group, in the order the review flow asks: **Self review questions**, **Manager review questions**, **Core**,
+**Behavioural** and, when the company has a Leadership section, **Leadership**. Each lists what is in and has
+**Add a question** (text, answer type: a rating from 1 to 5, yes or no, or a written answer; who answers: the
+employee, the manager or both; must it be answered), **Edit**, move up or down, and remove. A competency group
+files the question under a subsection. **Use the defaults and finish** skips the rest, and the last screen counts
+each group; **Finish** lands on the period. The progress bar carries on from the period's five questions. Once
+the period has started the screens are read only and say so in one line. The period page's Questions tab has
+the same wizard behind **Add questions**.
+
 #### 12. _Optional_ — add several objectives in one go
 
 On the last page of **New objective**, press **Add another**. The next objective keeps the period, level
@@ -950,16 +963,13 @@ exited, tells them in the app, and the period can never be deleted again.
 | **Click**      | **Start the period**, then confirm                                                                                  |
 | **You'll see** | A message counting exactly what happened — _"12 forms created · 12 told in the app. No emails are sent from here."_ |
 
-> 🛑 **Read the two warnings it gives you.** Starting a period returns two lists **by name**, and
-> they are the only time anybody is told. Each is a single line on the period screen, and names the
-> person when it is only one ("Tunde Bakare has no appraiser"):
->
-> **"3 people have no appraiser: …"** — these people will finish the period with no score at all, and
-> **nobody has a form to fill in about them**: a manager sees only their own self-appraisal for them. Fix
-> it on `/performance/appraisers` with the period chosen: pick their appraiser in their row, which writes
-> the manager's form on a period that has started. The default is built from the manager on each person's
-> record, or their department's head when none is recorded, so somebody with neither gets no form. That
-> page names them in one line, "3 people have no appraiser: …", with **Show only them** beside it.
+> 🛑 **Read what it tells you.** Starting a period tells you by name about people with no agreed
+> objective, and nothing else needs fixing: nobody is ever left without an appraiser. Each person is
+> appraised by their line manager, else the head of their department (or of the department above it),
+> else HR. Where nothing above somebody is recorded, `/performance/appraisers` says so in one calm line
+> ("3 people have no manager or department head, so HR appraises them.") with one link, **Set a
+> department head**; it is a to-do and not an error. A period that is over shows who appraised, or
+> "Not recorded".
 >
 > **"3 people have no agreed objective: …"** — these people have nothing agreed to be judged on, so the
 > objectives part of their score is empty and the rest is reweighted around it.
@@ -1663,7 +1673,7 @@ on purpose — they are the arguments the module is built on.
 | **A part can count for more than you set.**                       | When other parts have nothing to count, the rest share their weight, and the review page names the parts that were left out in one sentence above the list. A score where Core and Behavioural each show 50% against _Set at 40% by the company_, under _Delivery against objectives, Leadership and Self-assessment were left out_, is working as intended.                                                                                                                                                                         |
 | **You cannot agree your own objective.**                          | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off.                                                                                                                                                                                                                                                                                                                                                                 |
 | **An agreed objective cannot be edited.**                         | Not the title, not the period, not any target, and no new target — because adding one changes what delivering it means. **Reopen the objective** is the only way through and it records who, when and why.                                                                                                                                                                                                                                                                                                                           |
-| **A refusal is final.**                                           | A refused objective cannot be resubmitted. The answer to a refused objective is a _different_ objective, so the refusal stays on the record instead of being written over.                                                                                                                                                                                                                                                                                                                                                           |
+| **A declined objective can be edited and sent again.**            | Decline is a send-back with feedback. The owner changes it from **Edit and resend** and sends it to be agreed again. Only a refusal through the API is terminal, and nothing on this screen does that.                                                                                                                                                                                                                                                                                                                               |
 | **Changing the weights does not move a running period.**          | A period keeps the weights and the scale words it started with. Otherwise a score somebody was told in March would quietly become a different score in June. Weights set on a draft period's own page lock in at the same moment.                                                                                                                                                                                                                                                                                                    |
 | **"Make it final" only appears at calibration.**                  | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear.                                                                                                                                                                                                                                                                                                                                                                               |
 | **A target nobody has read is not a target at 0%.**               | A number added with no current value reads _Not read yet_ and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows _No reading yet_ instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading.                                                                                                                                                 |

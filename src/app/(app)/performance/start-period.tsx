@@ -13,10 +13,7 @@ import {
   Button,
   Checkbox,
   Field,
-  Illustration,
   Input,
-  Modal,
-  SuccessMoment,
   type ButtonSize,
   type ButtonVariant,
 } from "@/components/ui";
@@ -395,7 +392,6 @@ export function StartPeriodButton({
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
-  const [made, setMade] = useState<{ id: string; name: string } | null>(null);
 
   /* Absent, not disabled. A company that has not turned appraisals on has no
      business being shown the door to them, and somebody who cannot run one
@@ -420,36 +416,11 @@ export function StartPeriodButton({
           onClose={() => setOpen(false)}
           onCreated={(period) => {
             setOpen(false);
-            setMade(period);
+            /* The wizard goes on: the usual questions are already in, and
+               the next screens check them group by group. */
+            router.push(`/performance/periods/${period.id}/questions`);
           }}
         />
-      )}
-
-      {made && (
-        <Modal open onClose={() => setMade(null)} title={made.name} size="sm">
-          <SuccessMoment
-            /* Under the dialog's own heading, with one of the owner's figures
-               in place of the check, and one button: the dialog's X already
-               closes it. */
-            headingLevel={3}
-            align="center"
-            art={<Illustration name="welcome" height={144} />}
-            focusHeading
-            title="Appraisal period created"
-            actions={
-              <Button
-                variant="accent"
-                onClick={() => {
-                  const id = made.id;
-                  setMade(null);
-                  router.push(`/performance/periods/${id}`);
-                }}
-              >
-                View period
-              </Button>
-            }
-          />
-        </Modal>
       )}
     </>
   );
