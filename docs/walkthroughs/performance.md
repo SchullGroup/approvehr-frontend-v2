@@ -106,7 +106,7 @@ opens is empty, and says so in a sentence.
 | **Competency ratings**  | `/performance/skills`       | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                        | Everyone                                                                                                   |
 | **Appraisal periods**   | `/performance/periods`      | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                  | HR / Owner                                                                                                 |
 | **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it or decline it with feedback.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
-| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who scores whom, and how much each one's overall rating weighs. | HR / Owner                                                                                                 |
+| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Opens on **All appraisal periods**: everybody's line manager by default. Choose a period to set the exceptions and how much each appraiser's overall rating weighs. | HR / Owner                                                                                                 |
 
 A further item, **My work record** (`/performance/work-record`), sits beside these for a company that has
 Projects switched on, and for nobody else. It is open to everyone and shows only their own (step 33).
@@ -1019,16 +1019,10 @@ exited, tells them in the app, and the period can never be deleted again.
 >
 > **"3 people have no appraiser: …"** — these people will finish the period with no score at all, and
 > **nobody has a form to fill in about them**: a manager sees only their own self-appraisal for them. Fix
-> it by setting their manager on their record and pressing **Fill in from the reporting line** on
-> `/performance/appraisers`, which now writes the manager's form as well as the mapping on a period that
-> has started (press it again if you pressed it before and the manager still has nothing), or by choosing
-> the appraiser on that screen. The default is built from the manager on each person's record only, so
-> somebody with none, or a department head who is nobody's recorded manager, gets no form. After the press
-> it says what it did: _1 person given an appraiser_ and, on a running period, _1 form written for managers
-> to answer._, with a line beside the table naming anybody still without one (_Still nobody appraising Amara
-> Nwachukwu. They have no manager either. Assign somebody by hand._). That line is about the people **the
-> period covers**. The table beside it lists everybody, so its **Nobody appraising** tile can read higher by
-> the Owner or HR manager the period leaves out (step 8). The (i) beside the button says what Fill in does.
+> it on `/performance/appraisers` with the period chosen: pick their appraiser in their row, which writes
+> the manager's form on a period that has started. The default is built from the manager on each person's
+> record, or their department's head when none is recorded, so somebody with neither gets no form. That
+> page names them in one line, "3 people have no appraiser: …", with **Show only them** beside it.
 >
 > **"3 people have no agreed objective: …"** — these people have nothing agreed to be judged on, so the
 > objectives part of their score is empty and the rest is reweighted around it.

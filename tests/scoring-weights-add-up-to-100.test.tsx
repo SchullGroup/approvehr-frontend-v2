@@ -188,7 +188,7 @@ describe("the company's parts card", () => {
     view = twoParts(6000, 4000);
     mount();
     await userEvent.click(
-      screen.getByRole("button", { name: "About Parts of the score" }),
+      screen.getByRole("button", { name: "About the parts of the score" }),
     );
     expect(screen.getByText(new RegExp(WEIGHTS_RULE))).toBeInTheDocument();
   });

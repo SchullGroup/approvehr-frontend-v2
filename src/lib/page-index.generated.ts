@@ -319,7 +319,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/performance/appraisers",
     "title": "Who appraises whom",
-    "description": "Who appraises whom in this period, and how much each appraiser's view counts."
+    "description": "Who appraises whom: everybody's line manager by default, and the exceptions period by period."
   },
   {
     "href": "/performance/approvals",

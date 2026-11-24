@@ -102,6 +102,14 @@ vi.mock("@/lib/api/performance", async (original) => ({
 
 const mutations = vi.hoisted(() => ({ setAppraisers: vi.fn() }));
 let currentMap: ApiAppraiserMap;
+/* The page opens on "All appraisal periods" now (owner, 24 Nov 2026); these
+   tests are about one period's rows, so they open on it the way a period's own
+   page links here. */
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams("period=cy1"),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/performance/appraisers",
+}));
 vi.mock("@/lib/store/performance", () => ({
   useAppraisals: () => ({
     cycles: [{ id: "cy1", name: "H2 2026", stage: "SELF", stageLabel: "Self" }],
