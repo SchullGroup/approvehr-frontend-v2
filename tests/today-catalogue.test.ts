@@ -46,24 +46,15 @@ describe("the Today panel", () => {
     expect(WIDGET_COMPONENTS["today"]).toBeTypeOf("function");
   });
 
-  it("is on by default for staff, with no permission at all", () => {
-    /* Nothing held and every feature off: the panel has no gate of its own,
-       because every section is about the caller and says so itself. */
-    const ctx = context({
-      off: ["attendance", "appraisals", "departments", "hiring"],
-    });
-    expect(layout("staff", ctx).map((widget) => widget.id)).toContain("today");
-  });
-
-  it.each(["owner", "admin", "custom"] as const)(
-    "is off the home page of %s, who asked for it gone",
+  it.each(TIERS)(
+    "is on by default for %s, with no permission at all",
     (tier) => {
+      /* Nothing held and every feature off: the panel has no gate of its own,
+       because every section is about the caller and says so itself. */
       const ctx = context({
-        permissions: ["EDIT_RECORDS", "VIEW_SALARIES", "MANAGE_SETTINGS"],
+        off: ["attendance", "appraisals", "departments", "hiring"],
       });
-      expect(layout(tier, ctx).map((widget) => widget.id)).not.toContain(
-        "today",
-      );
+      expect(layout(tier, ctx).map((widget) => widget.id)).toContain("today");
     },
   );
 
@@ -74,22 +65,31 @@ describe("the Today panel", () => {
     expect(spec?.feature).toBeUndefined();
   });
 
-  it("is one of the first two cards for staff, with only the metrics and a banner above it", () => {
-    const ctx = context({
-      permissions: ["EDIT_RECORDS", "VIEW_SALARIES", "MANAGE_SETTINGS"],
-    });
-    const rows = dashboardSections(layout("staff", ctx), "staff");
-    const cards = rows.find((row) => row.key === "cards");
-    expect(cards?.widgets.slice(0, 2).map((widget) => widget.id)).toContain(
-      "today",
-    );
-    const above = rows.slice(
-      0,
-      rows.findIndex((row) => row.key === "cards"),
-    );
-    expect(
-      above.every((row) => ["lead", "metrics", "banner"].includes(row.key)),
-    ).toBe(true);
+  it.each(TIERS)(
+    "is one of the first two cards for %s, with only the metrics and a banner above it",
+    (tier) => {
+      const ctx = context({
+        permissions: ["EDIT_RECORDS", "VIEW_SALARIES", "MANAGE_SETTINGS"],
+      });
+      const rows = dashboardSections(layout(tier, ctx), tier);
+      const cards = rows.find((row) => row.key === "cards");
+      expect(cards?.widgets.slice(0, 2).map((widget) => widget.id)).toContain(
+        "today",
+      );
+      const above = rows.slice(
+        0,
+        rows.findIndex((row) => row.key === "cards"),
+      );
+      expect(
+        above.every((row) => ["lead", "metrics", "banner"].includes(row.key)),
+      ).toBe(true);
+    },
+  );
+
+  it("comes after what needs a decision, for the people who have that card", () => {
+    const ctx = context({ permissions: ["EDIT_RECORDS", "VIEW_SALARIES"] });
+    const ids = layout("owner", ctx).map((widget) => widget.id);
+    expect(ids.indexOf("needs-you")).toBeLessThan(ids.indexOf("today"));
   });
 
   it("reads its own request, so it costs the dashboard's payload nothing", () => {
