@@ -746,7 +746,7 @@ function DayTable({
               const off = offThatDay(row);
               return (
                 <TR key={row.employeeId}>
-                  <TDPrimary
+                  <TDPrimary avatar={row.employeeName}
                     title={
                       <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
@@ -1034,7 +1034,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
                 return (
                   <TR key={row.employeeId} interactive>
-                    <TDPrimary
+                    <TDPrimary avatar={row.employeeName}
                       title={
                         <TextLink href={`/people/${row.employeeId}`}>
                           {row.employeeName}

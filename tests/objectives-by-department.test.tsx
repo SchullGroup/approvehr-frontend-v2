@@ -311,8 +311,8 @@ describe("Whole company", () => {
       screen.queryByRole("combobox", { name: /order|grouped/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByLabelText("Search objectives by title or detail"),
-    ).toBeInTheDocument();
+      screen.queryByLabelText("Search objectives by title or detail"),
+    ).not.toBeInTheDocument();
   });
 
   it("opens a department in two sections: its own objectives, then Team members, with the way back", () => {
@@ -395,15 +395,12 @@ describe("Whole company", () => {
     expect(none[0]).toMatchObject({ name: "Whole company", count: 0 });
   });
 
-  it("shows matching objectives across departments, not cards, while something is searched", async () => {
-    const user = userEvent.setup();
+  it("has no search or filter on the department cards, and has them again inside a department", () => {
     mount();
-    await user.type(
-      screen.getByLabelText("Search objectives by title or detail"),
-      "call",
-    );
-    expect(screen.getByText("Call twenty customers")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Finance/ })).toBeNull();
+    expect(
+      screen.queryByLabelText("Search objectives by title or detail"),
+    ).toBeNull();
+    expect(screen.getByRole("link", { name: /Finance/ })).toBeInTheDocument();
   });
 });
 

@@ -756,20 +756,22 @@ export function KpisTab({
             </div>
           )}
 
-          {kpis.goals.length > 0 && !kpis.loading && (
-            <FilterBar
-              search={search}
-              onSearchChange={setSearch}
-              searchLabel="Search objectives by title or detail"
-              searchPlaceholder="Search objectives…"
-              applied={applied}
-              {...(narrowing ? { onClearAll: clearFilters } : {})}
-              count={narrowing ? matching.length : undefined}
-              noun={["objective", "objectives"]}
-            >
-              {FILTERS}
-            </FilterBar>
-          )}
+          {kpis.goals.length > 0 &&
+            !kpis.loading &&
+            !(grouping && opened === null) && (
+              <FilterBar
+                search={search}
+                onSearchChange={setSearch}
+                searchLabel="Search objectives by title or detail"
+                searchPlaceholder="Search objectives…"
+                applied={applied}
+                {...(narrowing ? { onClearAll: clearFilters } : {})}
+                count={narrowing ? matching.length : undefined}
+                noun={["objective", "objectives"]}
+              >
+                {FILTERS}
+              </FilterBar>
+            )}
 
           {kpis.loading ? (
             <LoadState

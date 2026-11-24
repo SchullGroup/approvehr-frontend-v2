@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { UploadCloud, FileText, X, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { nameTone } from "./name-tone";
 
 /* Avatar, Timeline, FileDrop, DescriptionList and Tooltip. */
 
@@ -10,13 +11,14 @@ export function Avatar({
   name,
   src,
   size = "md",
-  tone = "neutral",
+  tone = "auto",
   className,
 }: {
   name: string;
   src?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
-  tone?: "neutral" | "accent" | "ink";
+  /** `auto` is a light colour of the person's own, taken from their name. */
+  tone?: "auto" | "neutral" | "accent" | "ink";
   className?: string;
 }) {
   const initials = name
@@ -55,15 +57,24 @@ export function Avatar({
     );
   }
 
+  const own = tone === "auto" ? nameTone(name) : null;
   return (
     <span
       aria-hidden="true"
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-full font-semibold",
         sizes[size],
-        tones[tone],
+        tone !== "auto" && tones[tone],
         className,
       )}
+      style={
+        own
+          ? {
+              color: own,
+              background: `color-mix(in srgb, ${own} 16%, transparent)`,
+            }
+          : undefined
+      }
     >
       {initials}
     </span>

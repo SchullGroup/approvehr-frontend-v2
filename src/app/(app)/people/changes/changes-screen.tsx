@@ -165,7 +165,7 @@ export function ChangesScreen() {
             <TBody>
               {waiting.map((row) => (
                 <TR key={row.id}>
-                  <TDPrimary
+                  <TDPrimary avatar={row.name}
                     className="whitespace-nowrap"
                     title={
                       <Link
@@ -241,7 +241,7 @@ export function ChangesScreen() {
             <TBody>
               {agreed.map((row) => (
                 <TR key={row.id}>
-                  <TDPrimary
+                  <TDPrimary avatar={row.name}
                     className="whitespace-nowrap"
                     title={
                       <Link

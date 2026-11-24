@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { Avatar } from "./misc";
 import { cn } from "@/lib/cn";
+import { nameTone } from "./name-tone";
+
+/** The colour a department keeps wherever it is drawn. */
+export const departmentTone = nameTone;
 
 /**
  * A department as a card with a clear order to it: a coloured tile carrying its
@@ -13,22 +17,6 @@ import { cn } from "@/lib/cn";
  * The colour is the category colour at a light wash over whatever the page is, so
  * it holds in both themes.
  */
-
-const TONES = [
-  "var(--color-cat-1)",
-  "var(--color-cat-2)",
-  "var(--color-cat-3)",
-  "var(--color-cat-4)",
-  "var(--color-cat-5)",
-  "var(--color-cat-6)",
-] as const;
-
-/** The same colour for the same name, every time. */
-export function departmentTone(name: string): string {
-  let hash = 0;
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return TONES[hash % TONES.length]!;
-}
 
 export function DepartmentTile({
   name,

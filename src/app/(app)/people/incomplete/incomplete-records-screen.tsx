@@ -164,7 +164,7 @@ export function IncompleteRecordsScreen() {
                   <TBody>
                     {rows.map(({ employee, blocking, advisory }) => (
                       <TR key={employee.id}>
-                        <TDPrimary
+                        <TDPrimary avatar={fullName(employee)}
                           title={
                             <TextLink href={`/people/${employee.id}`}>
                               {fullName(employee)}
