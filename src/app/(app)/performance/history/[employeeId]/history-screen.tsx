@@ -1,91 +1,53 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Lock,
-  Minus,
-  TriangleAlert,
-} from "lucide-react";
-import {
-  AreaChart,
-  Badge,
-  Callout,
+  BarChart,
   Card,
-  CardBody,
-  CardHeader,
-  DescriptionList,
+  DonutChart,
+  Drawer,
   EmptyState,
-  Stat,
-  StatGrid,
-  Tabs,
-  TextLink,
-  type BadgeTone,
   LoadState,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { WorkRecordPanel } from "@/components/performance/work-record";
 import {
-  changeOutOf5Label,
   dayLabel,
-  outOf5FromBp,
-  outOf5Label,
   scoreLabel,
   scoreWords,
   visibleComponents,
   weightLabel,
   type ApiComponentScore,
   type ApiHistoryPoint,
-  type ApiScoreHistory,
 } from "@/lib/api/performance";
-import { scoredFromSentence } from "@/lib/performance/score-wording";
-import { BAND_TONE, useScoreHistory } from "@/lib/store/performance";
-
-const TAB_ITEMS = [
-  { id: "history", label: "Appraisal history" },
-  { id: "work-record", label: "Work record" },
-];
+import { useScoreHistory } from "@/lib/store/performance";
 
 /**
- * One person's mark, cycle by cycle.
+ * One person's appraisal history, as big cards (owner redesign, 24 Nov 2026).
  *
- * ## Why this screen exists
+ * The page is only the history: a card per period, newest first, each showing
+ * the period, where it stands and the score in words, or a calm "No score yet".
+ * Nothing else is drawn until a card is opened; opening it shows that period's
+ * score broken down by part, with charts.
  *
- * An appraisal decides confirmation after probation, promotion, bonus and
- * sometimes termination, and none of those decisions are about one period. "Has
- * she got better since we spoke about it" is the question a manager actually
- * asks, and until this screen the product could not answer it. The incumbent can
- * (`appraisal-history/employee_history`, `rating_trends`); this is the gap closed.
+ * Every figure is the cycle screen's own (the API builds each point from the
+ * same register, against the weights that period was frozen with); nothing here
+ * recomputes or bands a score. A part with nothing recorded is "Not scored", in
+ * plain text and never red, and never a zero.
  *
- * ## Every point is the cycle screen's own figure
+ * The Work record tab is hidden for now. `WorkRecordPanel` is kept in
+ * `components/performance/work-record.tsx` and returns when the owner says to
+ * pull the history from tasks and projects (see HANDOVER).
  *
- * The API assembles each point from the same `scoreRegister` that produces the
- * mark on `/performance/periods/[id]`, against the weights that period was frozen
- * with. Nothing here recomputes a score, bands a score, or averages one — a
- * second implementation is how two screens end up disagreeing about the same
- * person, and this screen is the one somebody opens *in order to* compare.
- *
- * ## A cycle with no mark is not a zero on the chart
- *
- * It is a row in its own list, and the chart plots only the marks that exist,
- * with a line underneath saying which periods are not on it. Plotting an absence
- * as nought would draw a collapse and a recovery that never happened — and the
- * change against the previous cycle deliberately skips over an unscored one for
- * the same reason. The API does that arithmetic, so the sentence and the figure
- * cannot drift.
- *
- * ## Somebody reading their own history sees final marks only
- *
- * A working figure moves every time a rating is recorded. `withheldNote` is the
- * API's sentence for the periods held back, and it has to be rendered: a missing
- * period with no explanation reads as a period the person was never in.
+ * Somebody reading their own history sees final marks only; `withheldNote` is
+ * the API's sentence for periods held back, so a missing period is explained.
  */
 export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
   const detail = useScoreHistory(employeeId, true);
   const history = detail.history;
-  const [tab, setTab] = useState("history");
+  const [open, setOpen] = useState<ApiHistoryPoint | null>(null);
 
   return (
     <>
@@ -94,487 +56,221 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
         title={history?.employeeName ?? "Appraisal history"}
         meta={
           history ? (
-            <>
-              <Badge tone="neutral" size="sm">
-                {history.counts.cycles}{" "}
-                {history.counts.cycles === 1 ? "period" : "periods"}
-              </Badge>
-              {history.counts.unscored > 0 && (
-                <Badge tone="warning" size="sm" dot>
-                  {history.counts.unscored} with no score
-                </Badge>
-              )}
-            </>
+            <span>
+              {[history.jobTitle, history.departmentName]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
           ) : undefined
         }
       />
 
-      <PageBody className="flex flex-col gap-6">
-        <Tabs items={TAB_ITEMS} value={tab} onChange={setTab}>
-          <div className="flex flex-col gap-6">
-            {/* The work record asks for its own data and says its own failures,
-            so it neither waits on the history below nor is blocked by it. */}
-            {tab === "work-record" && (
-              <WorkRecordPanel employeeId={employeeId} />
-            )}
-
-            {/* The one loading and failure rule. A 403 here reaches the reader as the
-            server's own sentence, which is the one that names the rule: self,
-            direct report, or the records permission. An appraiser assigned to
-            one period is refused on purpose, and only the server can say so. */}
-            {tab === "history" && (
-              <LoadState
-                loading={detail.loading}
-                error={detail.error}
-                subject="this person's score history"
-                onRetry={detail.reload}
-                skeleton="detail"
-              >
-                {history && (
-                  <>
-                    <Who history={history} />
-
-                    {/* The API's own sentence, on its own line. The heading over it
-                said what the sentence already says. */}
-                    {history.withheldNote && (
-                      <NoticeLine tone="muted">
-                        {history.withheldNote}
-                      </NoticeLine>
-                    )}
-
-                    {history.points.length === 0 ? (
-                      <Card>
-                        <EmptyState
-                          compact
-                          icon={<TriangleAlert aria-hidden="true" />}
-                          title="No appraisal period has covered them yet"
-                          description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no scores yet."
-                        />
-                      </Card>
-                    ) : (
-                      <>
-                        <Trend history={history} />
-                        {history.unscoredCycles.length > 0 && (
-                          <NoMark cycles={history.unscoredCycles} />
-                        )}
-                        {history.truncated && (
-                          <p className="text-body-sm text-muted">
-                            The {history.limit} most recent periods are shown.
-                            Older ones exist and are not on this page.
-                          </p>
-                        )}
-                        {[...history.points].reverse().map((point) => (
-                          <Point key={point.cycleId} point={point} />
-                        ))}
-                      </>
-                    )}
-                  </>
-                )}
-              </LoadState>
-            )}
-          </div>
-        </Tabs>
+      <PageBody className="flex flex-col gap-4">
+        {/* The one loading and failure rule. A 403 reaches the reader as the
+            server's own sentence, which names the rule. */}
+        <LoadState
+          loading={detail.loading}
+          error={detail.error}
+          subject="this person's score history"
+          onRetry={detail.reload}
+          skeleton="detail"
+        >
+          {history && (
+            <>
+              {history.withheldNote && (
+                <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
+              )}
+              {history.points.length === 0 ? (
+                <Card>
+                  <EmptyState
+                    compact
+                    icon={<TriangleAlert aria-hidden="true" />}
+                    title="No appraisal period has covered them yet"
+                    description="They show up here once an appraisal period they are part of has started."
+                  />
+                </Card>
+              ) : (
+                <ul className="grid gap-4 sm:grid-cols-2">
+                  {[...history.points].reverse().map((point) => (
+                    <li key={point.cycleId} className="min-w-0">
+                      <PeriodCard point={point} onOpen={() => setOpen(point)} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {history.truncated && (
+                <p className="text-body-sm text-muted">
+                  The {history.limit} most recent periods are shown.
+                </p>
+              )}
+            </>
+          )}
+        </LoadState>
       </PageBody>
+
+      <Drawer
+        open={open !== null}
+        onClose={() => setOpen(null)}
+        title={open?.cycleName ?? "Period"}
+        {...(open ? { description: stageLine(open) } : {})}
+        size="lg"
+      >
+        {open && <PeriodDetail point={open} />}
+      </Drawer>
     </>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-
-function Who({ history }: { history: ApiScoreHistory }) {
-  const scored = history.points.filter((point) => point.scoreBp !== null);
-  const latest = scored[scored.length - 1];
-
-  return (
-    <StatGrid>
-      <Stat
-        label="Who"
-        value={history.employeeName}
-        hint={
-          history.departmentName
-            ? `${history.jobTitle} · ${history.departmentName}`
-            : history.jobTitle
-        }
-      />
-      <Stat
-        label="Latest score"
-        /* An em dash, not a sentence — the hint already says why. */
-        value={
-          latest?.scoreBp === undefined || latest.scoreBp === null ? (
-            <span className="text-faint">—</span>
-          ) : (
-            scoreWords(latest)
-          )
-        }
-        hint={latest ? latest.cycleName : "No period has given a score yet"}
-      />
-      <Stat
-        label="Periods with a score"
-        /* The no-periods case first. `unscored === 0` is true both of somebody
-           marked in every period and of somebody no period has covered, so the
-           hint alone read "Every period has one" over a "0 of 0" — a clean
-           record, claimed about a person nobody has appraised. The three Stats
-           either side of this one already say their own absence. */
-        value={
-          history.counts.cycles === 0 ? (
-            <span className="text-faint">—</span>
-          ) : (
-            `${history.counts.scored} of ${history.counts.cycles}`
-          )
-        }
-        hint={
-          history.counts.cycles === 0
-            ? "No appraisal period has covered them yet"
-            : history.counts.unscored === 0
-              ? "Every period has one"
-              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} had no score`
-        }
-      />
-      <Stat
-        label="Across the whole span"
-        value={
-          history.trend === null ? (
-            <span className="text-faint">—</span>
-          ) : (
-            changeOutOf5Label(history.trend.changeBp)
-          )
-        }
-        hint={
-          history.trend === null
-            ? "Needs at least two scores to show a trend"
-            : `${history.trend.fromCycle} to ${history.trend.toCycle}`
-        }
-      />
-    </StatGrid>
-  );
+function stageLine(point: ApiHistoryPoint): string {
+  const stage = point.stage.toLowerCase();
+  return point.dueDate ? `Due ${dayLabel(point.dueDate)} · ${stage}` : stage;
 }
 
-/**
- * The shape of it.
- *
- * The chart carries only the marks that exist. `AreaChart` needs at least two
- * points to draw a line worth looking at, so with fewer this falls back to the
- * figures alone rather than drawing a single dot and calling it a trend.
- */
-function Trend({ history }: { history: ApiScoreHistory }) {
-  const scored = history.points.filter(
-    (point): point is ApiHistoryPoint & { scoreBp: number } =>
-      point.scoreBp !== null,
-  );
-  const trend = history.trend;
-
-  const direction: {
-    icon: React.ReactNode;
-    tone: BadgeTone;
-    words: string;
-  } | null =
-    trend === null
-      ? null
-      : trend.direction === "UP"
-        ? {
-            icon: <ArrowUpRight aria-hidden="true" className="size-4" />,
-            tone: "success",
-            words: "Up across the span",
-          }
-        : trend.direction === "DOWN"
-          ? {
-              icon: <ArrowDownRight aria-hidden="true" className="size-4" />,
-              tone: "danger",
-              words: "Down across the span",
-            }
-          : {
-              icon: <Minus aria-hidden="true" className="size-4" />,
-              tone: "neutral",
-              words: "Level across the span",
-            };
-
+/** A period, closed: its name, where it stands, and the score or none yet. */
+function PeriodCard({
+  point,
+  onOpen,
+}: {
+  point: ApiHistoryPoint;
+  onOpen: () => void;
+}) {
   return (
-    <Card>
-      <CardHeader
-        title="The scores, in order"
-        description={
-          scored.length < 2
-            ? "A chart needs at least two scores. The figures are below."
-            : "Only periods with a score are on the chart. Periods with no score are listed separately."
-        }
-        {...(direction
-          ? {
-              action: (
-                <Badge tone={direction.tone} size="sm" icon={direction.icon}>
-                  {direction.words} · {changeOutOf5Label(trend?.changeBp ?? 0)}
-                </Badge>
-              ),
-            }
-          : {})}
-      />
-      <CardBody className="flex flex-col gap-4">
-        {scored.length >= 2 ? (
-          <AreaChart
-            points={scored.map((point) => ({
-              label: point.cycleName,
-              value: point.scoreOutOf5 ?? outOf5FromBp(point.scoreBp),
-            }))}
-            format={(value) => outOf5Label(value)}
-            /* rating-scale-prose: the chart's unit, not a level somebody gave (U88). */
-            caption={`${history.employeeName}'s score by period, out of 5`}
-          />
-        ) : (
-          <p className="text-body-sm text-muted">
-            {scored.length === 1
-              ? `One score so far: ${scored[0] ? scoreWords(scored[0]) : ""} in ${scored[0]?.cycleName}.`
-              : "No scores yet, so there is nothing to chart."}
-          </p>
-        )}
-      </CardBody>
-    </Card>
-  );
-}
-
-/** The periods with no mark, by name, and why that is not a nought. */
-function NoMark({ cycles }: { cycles: string[] }) {
-  /* Named, on a line. The paragraph explaining that an absence is not a
-     nought was arguing with a reader who had not disagreed — and the chart
-     beside it already leaves the period out, which is the argument made
-     visually. The names are the part worth keeping. */
-  return (
-    <NoticeLine tone="muted">
-      {cycles.length === 1
-        ? `${cycles[0]} has no score.`
-        : `${cycles.length} periods have no score: ${cycles.join(", ")}.`}
-    </NoticeLine>
-  );
-}
-
-/**
- * One period, in full.
- *
- * Newest first in the list, because the recent period is the one somebody is
- * looking for, and the chart above already carries the chronology.
- */
-function Point({ point }: { point: ApiHistoryPoint }) {
-  return (
-    <Card>
-      <CardHeader
-        level={3}
-        title={point.cycleName}
-        description={
-          point.dueDate
-            ? `Due ${dayLabel(point.dueDate)} · ${point.stage.toLowerCase()}`
-            : point.stage.toLowerCase()
-        }
-        action={
-          <span className="flex flex-wrap items-center gap-2">
-            {point.weightsFrom === "snapshot" && (
-              <Badge
-                tone="neutral"
-                size="sm"
-                icon={<Lock aria-hidden="true" />}
-              >
-                Weights frozen
-              </Badge>
-            )}
-            {point.band === null ? (
-              <Badge tone="warning" size="sm" dot>
-                No score
-              </Badge>
-            ) : (
-              <Badge tone={BAND_TONE[point.band]} size="sm">
-                {point.bandLabel}
-              </Badge>
-            )}
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex min-h-36 w-full min-w-0 flex-col justify-between gap-6 rounded-xl border border-line bg-surface p-5 text-left transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2"
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block break-words text-h4 font-semibold text-ink">
+            {point.cycleName}
           </span>
-        }
-      />
-      <CardBody className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-          <div>
-            <p className="text-meta text-muted">Score</p>
-            {/* Absent is absent. Nothing recorded is not a mark of nought. */}
-            <p className="tabular text-h4 text-ink">
-              {point.scoreBp === null ? (
-                <span className="text-body-lg text-muted">No score</span>
-              ) : (
-                scoreWords(point)
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-meta text-muted">Against the last score</p>
-            <p className="text-body-lg text-ink">
-              {point.changeBp === null ? (
-                <span className="text-muted">
-                  {point.scoreBp === null
-                    ? "Nothing to compare"
-                    : "No earlier score to compare with"}
-                </span>
-              ) : (
-                changeOutOf5Label(point.changeBp)
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-meta text-muted">Objectives agreed</p>
-            <p className="tabular text-body-lg text-ink">
-              {point.objectives.agreed}
-              {point.objectives.awaitingApproval > 0 && (
-                <span className="ml-2 text-body-sm text-muted">
-                  {point.objectives.awaitingApproval} waiting
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <Components components={point.components} />
-
-        <SignOff point={point} />
-
-        {point.exceptions.length > 0 && (
-          <ul className="flex flex-col gap-2">
-            {point.exceptions.map((issue) => (
-              <li
-                key={issue.code}
-                className={
-                  issue.severity === "BLOCKER"
-                    ? "text-body-sm text-danger-text"
-                    : "text-body-sm text-muted"
-                }
-              >
-                {issue.message}
-              </li>
-            ))}
-          </ul>
+          <span className="mt-0.5 block text-body-sm text-muted">
+            {stageLine(point)}
+          </span>
+        </span>
+        <ChevronRight
+          aria-hidden="true"
+          className="mt-1 size-5 shrink-0 text-muted"
+        />
+      </span>
+      <span className="tabular text-body-lg text-ink">
+        {point.scoreBp === null ? (
+          <span className="text-muted">No score yet</span>
+        ) : (
+          scoreWords(point)
         )}
-      </CardBody>
-    </Card>
+      </span>
+    </button>
   );
 }
 
-/**
- * What the mark was made of, and what it was not.
- *
- * `scoreLabel` takes a `number` and never `null`, so the compiler asks this
- * function what it wants to say about an absence instead of letting one fall
- * through as 0%. What it says is the API's own note.
- */
-function Components({ components }: { components: ApiComponentScore[] }) {
+/** What the score was made of: a ring for the mix, a bar per part. */
+function PeriodDetail({ point }: { point: ApiHistoryPoint }) {
+  const parts = visibleComponents(point.components);
+  const counted = parts.filter((part) => part.included);
+  const scored = parts.filter(
+    (part): part is ApiComponentScore & { scoreBp: number } =>
+      part.included && part.scoreBp !== null,
+  );
+  const self = parts.find((part) => part.component === "SELF_ASSESSMENT");
+  const manager = parts.find((part) => part.component === "MANAGER_APPRAISAL");
+
   return (
-    <div className="rounded-md border border-line">
-      <ul className="divide-y divide-line">
-        {visibleComponents(components).map((part) => (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="tabular text-h3 text-ink">
+          {point.scoreBp === null ? (
+            <span className="text-body-lg text-muted">No score yet</span>
+          ) : (
+            scoreWords(point)
+          )}
+        </p>
+        {point.weightsFrom === "snapshot" && (
+          <span className="inline-flex items-center gap-1 text-body-sm text-muted">
+            Weights frozen
+            <InfoTooltip
+              label="About frozen weights"
+              text="This period was scored with the weights it started with. Changing the company's weights later does not change it."
+            />
+          </span>
+        )}
+      </div>
+
+      {counted.length > 0 && (
+        <Card className="p-5">
+          <p className="mb-3 text-body-sm font-medium text-ink">
+            What the score is made of
+          </p>
+          <DonutChart
+            points={counted.map((part) => ({
+              label: part.label,
+              value: Math.round(part.effectiveWeightBp / 100),
+            }))}
+            format={(value) => `${String(value)}%`}
+            caption="Share of the score by part"
+          />
+        </Card>
+      )}
+
+      {scored.length > 0 && (
+        <Card className="p-5">
+          <p className="mb-3 text-body-sm font-medium text-ink">
+            How each part scored
+          </p>
+          <BarChart
+            points={scored.map((part) => ({
+              label: part.label,
+              value: Math.round(part.scoreBp / 100),
+            }))}
+            format={(value) => `${String(value)}%`}
+            caption="Score by part, out of 100%"
+          />
+        </Card>
+      )}
+
+      {self?.scoreBp != null && manager?.scoreBp != null && (
+        <Card className="p-5">
+          <p className="mb-3 text-body-sm font-medium text-ink">
+            Their view and their manager&rsquo;s
+          </p>
+          <BarChart
+            points={[
+              { label: "Their own", value: Math.round(self.scoreBp / 100) },
+              {
+                label: "Their manager's",
+                value: Math.round(manager.scoreBp / 100),
+              },
+            ]}
+            format={(value) => `${String(value)}%`}
+            caption="Self-assessment against manager appraisal"
+            colorBy="series"
+          />
+        </Card>
+      )}
+
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {parts.map((part) => (
           <li
             key={part.component}
-            className="flex flex-wrap gap-x-4 gap-y-1 p-3"
+            className="rounded-xl border border-line bg-surface p-4"
           >
-            <div className="min-w-40 flex-1">
-              <p className="text-body-sm font-medium text-ink">{part.label}</p>
-              {part.included ? (
-                <p className="mt-0.5 text-meta text-muted">
-                  Counted for {weightLabel(part.effectiveWeightBp)} of the score
-                  {part.evidenceCount > 0 &&
-                    ` · ${part.evidenceCount} ${part.evidenceCount === 1 ? "thing" : "things"} recorded`}
-                </p>
-              ) : (
-                <p className="mt-0.5 text-meta text-muted">
-                  {part.excludedNote}
-                </p>
-              )}
-            </div>
-            <p className="tabular shrink-0 text-body-sm font-medium text-ink">
-              {part.scoreBp === null ? (
-                <span className="font-normal text-muted">Nothing recorded</span>
-              ) : (
+            <p className="text-body-sm font-medium text-ink">{part.label}</p>
+            <p className="tabular mt-1 text-body-lg text-ink">
+              {part.included && part.scoreBp !== null ? (
                 scoreLabel(part.scoreBp)
+              ) : (
+                <span className="text-muted">Not scored</span>
               )}
+            </p>
+            <p className="mt-0.5 text-meta text-muted">
+              {part.included
+                ? `${weightLabel(part.effectiveWeightBp)} of the score`
+                : (part.excludedNote ?? "Left out of this score")}
             </p>
           </li>
         ))}
       </ul>
     </div>
-  );
-}
-
-/**
- * Sign-off, as the three separate facts it is.
- *
- * Not acknowledged is usually "nobody has asked them yet", which is why the
- * fields read as states rather than as one boolean.
- */
-function SignOff({ point }: { point: ApiHistoryPoint }) {
-  const { signOff } = point;
-
-  return (
-    <DescriptionList
-      columns={2}
-      items={[
-        {
-          term: "Rating written",
-          value: signOff.submitted ? "Yes" : "Not yet",
-        },
-        {
-          term: "Told the person",
-          value: signOff.finalised
-            ? "Final"
-            : signOff.reviewId === null
-              ? "No manager review exists"
-              : "Not final yet, so they have not been told",
-        },
-        {
-          term: "Their answer",
-          value: signOff.disputed
-            ? "Disputed"
-            : signOff.acknowledged
-              ? "Acknowledged"
-              : signOff.finalised
-                ? "None yet"
-                : "Not asked yet",
-        },
-        /**
-         * Only where they have actually said something.
-         *
-         * This rendered `employeeComment` unconditionally, so one card showed
-         * *"Their answer — Not asked yet"* and, in the next cell,
-         * *"What they said — 'I do not accept this mark…'"*, 532 characters
-         * of it. The comment outlives the state that produced it: a dispute
-         * that a send-back reversed leaves the text on the column with the
-         * flags cleared, which is **BE-21** and is fixed on the API, not here.
-         *
-         * What is this screen's to fix is which of the two it believes. The
-         * flags are the fact; a quote under a flag saying no answer exists is
-         * the card contradicting itself, and the reader has no way to know
-         * which half is stale. So the quote follows the flag, and the row is
-         * absent rather than empty when nobody has answered — the same
-         * distinction the three fields above it are drawn around.
-         */
-        ...(signOff.acknowledged || signOff.disputed
-          ? [
-              {
-                term: "What they said",
-                value: signOff.employeeComment ?? "No comment added",
-              },
-            ]
-          : []),
-        ...(signOff.reviewId
-          ? [
-              {
-                term: "The record",
-                value: (
-                  <TextLink href={`/performance/reviews/${signOff.reviewId}`}>
-                    Open the appraisal
-                  </TextLink>
-                ),
-              },
-            ]
-          : []),
-        {
-          term: "Appraisers' overall rating",
-          value:
-            point.appraiserMark.ratingBp === null
-              ? "None yet"
-              : /* rating-scale-prose: an average of appraisers' ratings has no word (U88). */
-                `${outOf5Label(outOf5FromBp(point.appraiserMark.ratingBp))} out of 5, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
-        },
-      ]}
-    />
   );
 }

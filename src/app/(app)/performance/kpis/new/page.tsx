@@ -23,14 +23,16 @@ export default async function NewObjectivePage({
   searchParams: Promise<{
     parent?: string | string[];
     edit?: string | string[];
+    period?: string | string[];
     back?: string | string[];
   }>;
 }) {
-  const { parent, edit, back } = await searchParams;
+  const { parent, edit, period, back } = await searchParams;
   return (
     <ObjectiveWizard
       parent={one(parent)}
       edit={one(edit)}
+      period={one(period)}
       back={safeBack(one(back))}
     />
   );

@@ -3341,6 +3341,15 @@ export function useCycleMutations() {
       [guard],
     ),
 
+    /** Ask everybody to set their objectives. Connected only. */
+    notifyObjectives: useCallback(
+      async (id: string) => {
+        guard("Asking people to set objectives needs the API.");
+        return performanceApi.notifyObjectives(id);
+      },
+      [guard],
+    ),
+
     /** Notifications in the app. Nothing here sends email. */
     remind: useCallback(
       async (id: string) => {
@@ -3926,8 +3935,8 @@ export function useMyAppraisers(
                 "BLOCKER" | "WARNING",
               code: "NO_APPRAISER" as const,
               message: started
-                ? `Nobody is appraising ${name}. They will finish this period with no score.`
-                : `${name} has no appraiser yet. Starting the period will use their line manager, and they have none.`,
+                ? `${name} has no manager or department head recorded, so HR appraises them.`
+                : `${name} has no manager or department head recorded, so HR will appraise them.`,
             },
           ],
     };

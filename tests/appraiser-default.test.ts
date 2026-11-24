@@ -4,7 +4,7 @@ import {
   defaultWords,
   draftDefaultOf,
   standingRows,
-  withoutLine,
+  hrFallbackLine,
 } from "@/lib/performance/appraiser-default";
 
 /**
@@ -54,13 +54,31 @@ describe("the standing default", () => {
       "Chidi Obi, head of their department (no manager recorded)",
     );
     /* The head of Finance has no manager and heads their own department. */
-    expect(rows.get("chidi")?.appraiser.source).toBe("none");
+    expect(rows.get("chidi")?.appraiser.source).toBe("hr");
     /* A record that names somebody as their own manager is no manager. */
-    expect(rows.get("self")?.appraiser.source).toBe("none");
+    expect(rows.get("self")?.appraiser.source).toBe("hr");
   });
 
-  it("is nobody with neither, and says so", () => {
-    expect(defaultWords(rows.get("musa")!.appraiser)).toBe("No appraiser");
+  it("is HR with neither, never nobody", () => {
+    expect(rows.get("musa")?.appraiser.source).toBe("hr");
+    expect(defaultWords(rows.get("musa")!.appraiser)).toBe(
+      "HR (no manager or department head is recorded)",
+    );
+    expect(rows.get("chidi")?.appraiser.source).toBe("hr");
+    expect(rows.get("self")?.appraiser.source).toBe("hr");
+  });
+
+  it("inherits the nearest head up the department tree", () => {
+    const tree = [
+      { id: "fin", headId: "chidi", parentId: null },
+      { id: "fin-ap", headId: null, parentId: "fin" },
+    ];
+    const ap = standingRows([person("zed", "Zed Ola", null, "fin-ap")], tree);
+    expect(ap[0]?.appraiser).toEqual({
+      source: "department-head",
+      id: "chidi",
+      name: null,
+    });
   });
 });
 
@@ -75,6 +93,16 @@ describe("a period that has not started", () => {
       ...over,
     }) as ApiAppraiserMapRow;
   const heads = new Map([["fin", { id: "chidi", name: "Chidi Obi" }]]);
+
+  it("falls to HR, not nobody, when nothing above them is recorded", () => {
+    expect(
+      draftDefaultOf(
+        row({ lineManagerId: null, lineManagerName: null, departmentId: "x" }),
+        "DRAFT",
+        heads,
+      )?.source,
+    ).toBe("hr");
+  });
 
   it("shows the manager its start will give somebody nobody is mapped to", () => {
     expect(draftDefaultOf(row({}), "DRAFT", heads)?.name).toBe("Chidi Obi");
@@ -99,17 +127,14 @@ describe("a period that has not started", () => {
   });
 });
 
-describe("who has no appraiser, in one line", () => {
-  it("names them, up to eight, and counts the rest", () => {
-    expect(withoutLine([])).toBeNull();
-    expect(withoutLine(["Musa Bello"])).toBe(
-      "1 person has no appraiser: Musa Bello.",
+describe("the HR fallback, in one calm line", () => {
+  it("counts them and names no one", () => {
+    expect(hrFallbackLine(0)).toBeNull();
+    expect(hrFallbackLine(1)).toBe(
+      "1 person has no manager or department head, so HR appraises them.",
     );
-    expect(withoutLine(["A", "B"])).toBe(
-      "2 people have no appraiser: A and B.",
+    expect(hrFallbackLine(3)).toBe(
+      "3 people have no manager or department head, so HR appraises them.",
     );
-    expect(
-      withoutLine(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]),
-    ).toBe("10 people have no appraiser: A, B, C, D, E, F, G, H and 2 others.");
   });
 });

@@ -48,8 +48,13 @@ import {
   LoadState,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
-import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
-import { standInSentence } from "@/lib/performance/appraiser-fill";
+import { GetReady, NextStep } from "@/components/performance/next-step";
+import {
+  askedLine,
+  lastAskedLine,
+  notSwitchedOn,
+} from "@/lib/performance/notify-objectives";
+import type { ApiNotifyObjectives } from "@/lib/api/performance";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -229,12 +234,13 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
-  const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
-  /* Who Start gave their department head, because nobody is recorded as their
-     manager. A policy applied on their behalf, so it is said where it can be
-     checked rather than found afterwards in a manager's list. */
-  const [viaHead, setViaHead] = useState<string[] | null>(null);
-
+  const [noObjectives, setNoObjectives] = useState<number>(0);
+  /* "Ask everyone to set objectives": the last answer, and whether this API
+     has it at all (a 404 or 410 hides the button for good). */
+  const [askedObjectives, setAskedObjectives] =
+    useState<Partial<ApiNotifyObjectives> | null>(null);
+  const [askingObjectives, setAskingObjectives] = useState(false);
+  const [askUnavailable, setAskUnavailable] = useState(false);
   const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
   const nudging = nudgeAudience(detail.participants);
@@ -284,16 +290,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         tone: "success",
         detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told in the app. No emails are sent from here.`,
       });
-      setNoObjectives(
-        result.withoutAgreedObjectives.length > 0
-          ? result.withoutAgreedObjectives
-          : null,
-      );
-      setViaHead(
-        result.viaDepartmentHead && result.viaDepartmentHead.length > 0
-          ? result.viaDepartmentHead
-          : null,
-      );
+      /* A count, never the names: people without an objective are an
+         invitation to add them, not a failure (owner, 24 Nov 2026). */
+      setNoObjectives(result.withoutAgreedObjectives.length);
       detail.reload();
     } catch (error) {
       failed(error);
@@ -324,6 +323,18 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
     } finally {
       setDeleting(false);
       setConfirmingDelete(false);
+    }
+  };
+
+  const askForObjectives = async () => {
+    setAskingObjectives(true);
+    try {
+      setAskedObjectives(await periods.notifyObjectives(cycleId));
+    } catch (error) {
+      if (notSwitchedOn(error)) setAskUnavailable(true);
+      else failed(error);
+    } finally {
+      setAskingObjectives(false);
     }
   };
 
@@ -524,20 +535,81 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               `activateCycle`), so this cannot open the dialog on one person
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
-          {viaHead && (
-            <NoticeLine tone="muted">{standInSentence(viaHead)}</NoticeLine>
+          {/* One next step, never a stack of warnings (`docs/guided-flows.md`). */}
+          {canManage && draft && period && (
+            <GetReady
+              steps={[
+                {
+                  id: "objectives",
+                  label: "Objectives",
+                  optional: true,
+                  done: false,
+                  detail: askedObjectives
+                    ? [
+                        askedLine(askedObjectives),
+                        lastAskedLine(askedObjectives),
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                    : "Optional. Add them if you want them in the score.",
+                  action: askUnavailable
+                    ? { label: "Set objectives", href: "/performance/kpis" }
+                    : {
+                        label: "Ask everyone to set objectives",
+                        onClick: () => void askForObjectives(),
+                        loading: askingObjectives,
+                      },
+                },
+                {
+                  id: "appraisers",
+                  label: "Who appraises whom",
+                  done: true,
+                  detail: "From the reporting line. Change anyone if you like.",
+                  action: {
+                    label: "Review",
+                    href: `/performance/appraisers?period=${cycleId}`,
+                  },
+                },
+                {
+                  id: "questions",
+                  label: "Questions",
+                  done: period.questionCount > 0,
+                  detail:
+                    period.questionCount > 0
+                      ? `${String(period.questionCount)} in the review`
+                      : "None yet",
+                  action: {
+                    label: "Add questions",
+                    href: `/performance/periods/${cycleId}/questions`,
+                  },
+                },
+                {
+                  id: "weights",
+                  label: "How the score is made up",
+                  done: true,
+                  detail:
+                    "The company's weights. Change them on the Settings tab.",
+                  action: {
+                    label: "Review",
+                    onClick: () => setPeriodTab("settings"),
+                  },
+                },
+              ]}
+              final={{
+                label: "Start period",
+                onClick: () => setConfirmingStart(true),
+              }}
+            />
           )}
-          {noObjectives && (
-            <NoticeLine tone="warning">
-              <span>
-                {noObjectives.length === 1
-                  ? `${noObjectives[0]} has no agreed objective`
-                  : `${noObjectives.length} people have no agreed objective: ${noObjectives.join(", ")}`}
-              </span>
-              <Link href="/performance/kpis?tab=agree" className={NOTICE_LINK}>
-                Agree what is waiting
-              </Link>
-            </NoticeLine>
+          {canManage && running && period && (
+            <WhatIsNext
+              waiting={nudging ? nudging.names.length : 0}
+              nextLabel={nextStage ? NEXT_BUTTON[nextStage] : null}
+              noObjectives={noObjectives}
+              onNudge={() => setConfirmingNudge(true)}
+              onAdvance={() => void advance()}
+              advancing={advancing}
+            />
           )}
 
           {/* Not a permission problem and not an outage. Two different sentences,
@@ -1004,9 +1076,16 @@ function QuestionsPanel({
     >
       <div className="flex flex-col gap-6">
         {editable && (
-          <div className="flex justify-end">
-            <Button size="sm" onClick={onEdit}>
-              {questions.length === 0 ? "Add questions" : "Edit questions"}
+          <div className="flex flex-wrap justify-end gap-2">
+            <ButtonLink
+              size="sm"
+              variant="accent"
+              href={`/performance/periods/${cycleId}/questions`}
+            >
+              Add questions
+            </ButtonLink>
+            <Button size="sm" variant="secondary" onClick={onEdit}>
+              Edit questions
             </Button>
           </div>
         )}
@@ -2406,4 +2485,51 @@ function RevisionDialog({
       </Modal>
     </>
   );
+}
+
+/**
+ * A running period: what is next, as one step. People who have not finished
+ * come first (a reminder), then the move to the next stage. A count of people
+ * with no objective is a quiet invitation under it, never a warning.
+ */
+function WhatIsNext({
+  waiting,
+  nextLabel,
+  noObjectives,
+  onNudge,
+  onAdvance,
+  advancing,
+}: {
+  waiting: number;
+  nextLabel: string | null;
+  noObjectives: number;
+  onNudge: () => void;
+  onAdvance: () => void;
+  advancing: boolean;
+}) {
+  const invitation =
+    noObjectives > 0
+      ? `${String(noObjectives)} ${noObjectives === 1 ? "person has" : "people have"} no objective yet. Add them if you want them in the score.`
+      : undefined;
+  if (waiting > 0) {
+    return (
+      <NextStep
+        title={`${String(waiting)} ${waiting === 1 ? "person has" : "people have"} not finished`}
+        {...(invitation ? { detail: invitation } : {})}
+        action={{ label: "Send a reminder", onClick: onNudge }}
+      />
+    );
+  }
+  if (nextLabel) {
+    return (
+      <NextStep
+        title="Everyone has finished this stage"
+        {...(invitation ? { detail: invitation } : {})}
+        action={{ label: nextLabel, onClick: onAdvance, loading: advancing }}
+      />
+    );
+  }
+  return invitation ? (
+    <p className="text-body-sm text-muted">{invitation}</p>
+  ) : null;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Network, Plus, Settings2, Trash2 } from "lucide-react";
@@ -34,7 +35,7 @@ import {
   defaultWords,
   draftDefaultOf,
   standingRows,
-  withoutLine,
+  hrFallbackLine,
   type DefaultAppraiser,
 } from "@/lib/performance/appraiser-default";
 import { useDepartments } from "@/lib/store/departments";
@@ -99,7 +100,7 @@ const SHOW_LABEL: Record<AppraiserShow, string> = {
 };
 /* The standing view has no exceptions to show (the API keeps none without a
    period), so it offers only these two. */
-const STANDING_SHOWS: AppraiserShow[] = ["all", "none"];
+const STANDING_SHOWS: AppraiserShow[] = ["all"];
 
 export function AppraiserMapTab() {
   /* The cycle list is fetched here rather than passed down from the screen, so
@@ -151,6 +152,9 @@ export function AppraiserMapTab() {
 
   /* Each department's head, by id and by name: the API's second choice when
      nobody is recorded as somebody's manager. */
+  const parents = new Map(
+    departmentList.map((one) => [one.id, one.parentId ?? null] as const),
+  );
   const heads = (() => {
     const names = new Map(lookups.map((one) => [one.id, one.fullName]));
     return new Map(
@@ -177,13 +181,17 @@ export function AppraiserMapTab() {
             managerId: one.managerId ?? null,
             departmentId: one.departmentId ?? null,
           })),
-          departmentList.map((one) => ({ id: one.id, headId: one.headId })),
+          departmentList.map((one) => ({
+            id: one.id,
+            headId: one.headId,
+            parentId: one.parentId ?? null,
+          })),
         );
 
   /* On a period that has not started, somebody nobody is mapped to yet gets
      the reporting line when it starts, so that is what the row says. */
   const fallbackOf = (row: ApiAppraiserMapRow) =>
-    draftDefaultOf(row, cycle?.stage, heads);
+    draftDefaultOf(row, cycle?.stage, heads, parents);
   const appraisedBy = (row: ApiAppraiserMapRow) =>
     row.appraisers.length > 0 || (fallbackOf(row)?.source ?? "none") !== "none";
   const exception = (row: ApiAppraiserMapRow) =>
@@ -220,14 +228,19 @@ export function AppraiserMapTab() {
       return false;
     return true;
   });
-  const without =
-    cycleId === null
-      ? standing
-          .filter((row) => row.appraiser.source === "none")
-          .map((row) => row.employeeName)
-      : (map?.rows ?? [])
-          .filter((row) => !appraisedBy(row))
-          .map((row) => row.employeeName);
+  /* People HR appraises because nothing above them is recorded: a calm
+     to-do with one fix, never an error. Nothing is said about a period that
+     is over. */
+  const published = cycle?.stage === "PUBLISHED";
+  const hrCount = published
+    ? 0
+    : cycleId === null
+      ? standing.filter((row) => row.appraiser.source === "hr").length
+      : (map?.rows ?? []).filter(
+          (row) =>
+            row.appraisers.length === 0 &&
+            (fallbackOf(row)?.source ?? "hr") === "hr",
+        ).length;
   const filtering = show !== "all" || department !== "" || needle !== "";
   const shows =
     cycleId === null
@@ -285,7 +298,7 @@ export function AppraiserMapTab() {
   };
 
   const listed = cycleId === null ? standingShown.length : rows.length;
-  const noLine = withoutLine(without);
+  const noLine = hrFallbackLine(hrCount);
 
   return (
     <div className="flex flex-col gap-6">
@@ -324,18 +337,22 @@ export function AppraiserMapTab() {
           count={listed}
           noun={["person", "people"]}
         >
-          <Field label="Show">
-            <Select
-              value={show}
-              onChange={(event) => setShow(event.target.value as AppraiserShow)}
-            >
-              {shows.map((key) => (
-                <option key={key} value={key}>
-                  {SHOW_LABEL[key]}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {shows.length > 1 && (
+            <Field label="Show">
+              <Select
+                value={show}
+                onChange={(event) =>
+                  setShow(event.target.value as AppraiserShow)
+                }
+              >
+                {shows.map((key) => (
+                  <option key={key} value={key}>
+                    {SHOW_LABEL[key]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Field label="Department">
             <Select
               value={department}
@@ -355,17 +372,14 @@ export function AppraiserMapTab() {
       {/* The one thing still worth saying out loud: people the reporting line
           gives nobody. A line, not a card, and the filter shows just them. */}
       {noLine !== null && (
-        <NoticeLine tone="warning">
+        <NoticeLine tone="muted">
           <span>{noLine}</span>
-          {show !== "none" && (
-            <button
-              type="button"
-              onClick={() => setShow("none")}
-              className="font-medium text-accent-text underline-offset-2 hover:underline"
-            >
-              Show only them
-            </button>
-          )}
+          <Link
+            href="/people/departments"
+            className="font-medium text-accent-text underline-offset-2 hover:underline"
+          >
+            Set a department head
+          </Link>
         </NoticeLine>
       )}
 
@@ -373,7 +387,7 @@ export function AppraiserMapTab() {
         <Card>
           <CardHeader
             title="Who appraises whom"
-            description="Everybody is appraised by their line manager, or their department's head when no manager is recorded. To give somebody a different appraiser, or several, choose the period."
+            description="Everybody is appraised by their line manager, else the head of their department (or of the department above it), else HR. To give somebody a different appraiser, or several, choose the period."
           />
           {cyclesLoading && lookups.length === 0 ? (
             <LoadState
@@ -393,9 +407,7 @@ export function AppraiserMapTab() {
               title={filtering ? "Nobody matches" : "Nobody on the staff list"}
               description={
                 filtering
-                  ? show === "none" && department === "" && needle === ""
-                    ? "Everybody has somebody to appraise them."
-                    : "Change or clear the filters to see more people."
+                  ? "Change or clear the filters to see more people."
                   : "Add people first."
               }
             />
@@ -414,15 +426,7 @@ export function AppraiserMapTab() {
                         .filter(Boolean)
                         .join(" · ")}
                     />
-                    <TD
-                      className={
-                        row.appraiser.source === "none"
-                          ? "text-warning-text"
-                          : "text-body"
-                      }
-                    >
-                      {defaultWords(row.appraiser)}
-                    </TD>
+                    <TD className="text-body">{defaultWords(row.appraiser)}</TD>
                   </TR>
                 ))}
               </TBody>
@@ -487,6 +491,7 @@ export function AppraiserMapTab() {
                       row={row}
                       people={people}
                       fallback={fallbackOf(row)}
+                      readOnly={published}
                       suggest={workInAnswers === true}
                       onEdit={() => setEditing(row)}
                       onQuickAssign={(appraiserId) =>
@@ -564,6 +569,7 @@ function PersonTableRow({
   row,
   people,
   fallback = null,
+  readOnly = false,
   suggest,
   onEdit,
   onQuickAssign,
@@ -575,6 +581,8 @@ function PersonTableRow({
    * nobody is set here: the reporting line. Null once it has started.
    */
   fallback?: DefaultAppraiser | null;
+  /** A published period: who appraised, as recorded, and nothing to change. */
+  readOnly?: boolean;
   /** The company lists the people who shared a project with this person first. */
   suggest: boolean;
   onEdit: () => void;
@@ -619,7 +627,25 @@ function PersonTableRow({
           .join(" · ")}
       />
       <TD>
-        {several ? (
+        {readOnly ? (
+          <span
+            className={
+              row.appraisers.length > 0
+                ? "text-body-sm text-ink"
+                : "text-body-sm text-muted"
+            }
+          >
+            {row.appraisers.length > 0
+              ? row.appraisers
+                  .map((one) =>
+                    row.appraisers.length > 1
+                      ? `${one.appraiserName} ${weightLabel(one.weightBp)}`
+                      : one.appraiserName,
+                  )
+                  .join(", ")
+              : "Not recorded"}
+          </span>
+        ) : several ? (
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-ink">
             {row.appraisers
               .map((one) => `${one.appraiserName} ${weightLabel(one.weightBp)}`)
@@ -667,9 +693,9 @@ function PersonTableRow({
                 <option value="">
                   {saving
                     ? "Saving…"
-                    : fallback && fallback.source !== "none"
-                      ? (fallback.name ?? "Their manager")
-                      : "No appraiser"}
+                    : fallback && fallback.source === "hr"
+                      ? "HR"
+                      : (fallback?.name ?? "Their manager")}
                 </option>
               )}
               {missing && current && (
@@ -685,14 +711,13 @@ function PersonTableRow({
             </Select>
             {/* A name that is the reporting line's, not a choice anybody made,
                 says so: it is what the start will give them. */}
-            {current === null &&
-              fallback &&
-              fallback.source !== "none" &&
-              !saving && (
-                <p className="mt-1 text-meta text-muted">
-                  From the reporting line
-                </p>
-              )}
+            {current === null && fallback && !saving && (
+              <p className="mt-1 text-meta text-muted">
+                {fallback.source === "hr"
+                  ? "No manager or department head recorded"
+                  : "From the reporting line"}
+              </p>
+            )}
             {failed !== null && (
               <p className="mt-1 text-meta text-danger-text">{failed}</p>
             )}
@@ -703,13 +728,15 @@ function PersonTableRow({
         {row.weightedRating ?? ""}
       </TD>
       <TD align="right">
-        <IconButton
-          label={`Set several appraisers for ${row.employeeName} and their shares`}
-          variant="ghost"
-          onClick={onEdit}
-        >
-          <Settings2 aria-hidden="true" className="size-4" />
-        </IconButton>
+        {!readOnly && (
+          <IconButton
+            label={`Set several appraisers for ${row.employeeName} and their shares`}
+            variant="ghost"
+            onClick={onEdit}
+          >
+            <Settings2 aria-hidden="true" className="size-4" />
+          </IconButton>
+        )}
       </TD>
     </TR>
   );

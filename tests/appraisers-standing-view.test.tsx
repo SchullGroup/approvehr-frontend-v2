@@ -223,21 +223,25 @@ describe("All appraisal periods", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(rowOf("Musa Bello")).getByText("No appraiser"),
+      within(rowOf("Musa Bello")).getByText(/^HR \(no manager/),
     ).toBeInTheDocument();
     expect(countLine()).toBe("4 people");
   });
 
-  it("says who has no appraiser in a line, and narrows to them", async () => {
-    const user = show();
+  it("says it calmly, once, with one fix, and no filter chip or error", () => {
+    show();
     expect(
       screen.getByText(
-        /2 people have no appraiser: Chidi Obi and Musa Bello\./,
+        "2 people have no manager or department head, so HR appraises them.",
       ),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show only them" }));
-    expect(screen.queryByText("Ada Eze")).not.toBeInTheDocument();
-    expect(countLine()).toBe("2 people match");
+    expect(
+      screen.getByRole("link", { name: "Set a department head" }),
+    ).toHaveAttribute("href", "/people/departments");
+    expect(
+      screen.queryByRole("button", { name: "Show only them" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/have no appraiser/)).not.toBeInTheDocument();
   });
 });
 
@@ -248,9 +252,11 @@ describe("one period chosen", () => {
     const ada = screen.getByRole("combobox", { name: "Appraiser for Ada Eze" });
     expect(ada).toHaveDisplayValue("Chidi Obi");
     expect(screen.getByText("From the reporting line")).toBeInTheDocument();
-    /* Ada will have her manager; only Musa has nobody. */
+    /* Ada will have her manager; Musa has nobody above him, so HR. */
     expect(
-      screen.getByText(/1 person has no appraiser: Musa Bello\./),
+      screen.getByText(
+        "1 person has no manager or department head, so HR appraises them.",
+      ),
     ).toBeInTheDocument();
   });
 
