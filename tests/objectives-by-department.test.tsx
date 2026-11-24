@@ -273,7 +273,7 @@ describe("Whole company", () => {
       "/performance/kpis?scope=company&department=fin",
     );
     expect(within(finance).getByText("2 objectives")).toBeInTheDocument();
-    expect(within(finance).getByText("1 needs attention")).toBeInTheDocument();
+    expect(within(finance).queryByText(/need.* attention/)).toBeNull();
     expect(
       within(screen.getByRole("link", { name: /Engineering/ })).getByText(
         "No objectives yet",
@@ -352,7 +352,7 @@ describe("Whole company", () => {
     expect(screen.getByRole("heading", { name: "Team members" })).toBeVisible();
   });
 
-  it("makes every department card the same size, keeping the attention line's room", () => {
+  it("makes every department card the same size, led by a coloured tile with its initial", () => {
     mount();
     const grid = screen
       .getByRole("link", { name: /Finance/ })
@@ -360,10 +360,10 @@ describe("Whole company", () => {
     expect(grid.className).toMatch(/auto-rows-fr/);
     for (const link of within(grid).getAllByRole("link")) {
       expect(link.className).toMatch(/\bh-full\b/);
-      expect(link.className).toMatch(/min-h-32/);
-      /* The same number of lines on every card, empty or not. */
-      expect(link.querySelectorAll(".min-h-5")).toHaveLength(1);
+      expect(link.className).toMatch(/min-h-44/);
     }
+    const finance = within(grid).getByRole("link", { name: /Finance/ });
+    expect(finance.querySelector("span[aria-hidden]")?.textContent).toBe("F");
   });
 
   it("shows a department's own objectives as cards at the normal size, and its members' in a table", () => {

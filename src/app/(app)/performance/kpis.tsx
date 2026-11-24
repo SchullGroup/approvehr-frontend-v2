@@ -25,6 +25,7 @@ import {
   Input,
   Modal,
   ProgressMeter,
+  RowActions,
   FilterBar,
   Select,
   LoadState,
@@ -40,6 +41,8 @@ import {
   type AppliedFilter,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
+import { InfoTooltip } from "@/components/ui/field";
+import { DepartmentCard as DepartmentCardView } from "@/components/ui/department-card";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
@@ -312,6 +315,14 @@ export function KpisTab({
       ),
     [directory.people],
   );
+  const membersByDepartment = useMemo(() => {
+    const byKey: Record<string, string[]> = {};
+    for (const person of directory.people) {
+      if (!person.departmentId) continue;
+      (byKey[person.departmentId] ??= []).push(person.fullName);
+    }
+    return byKey;
+  }, [directory.people]);
   const cards = useMemo(
     () =>
       grouping
@@ -780,7 +791,11 @@ export function KpisTab({
                 {null}
               </LoadState>
             ) : (
-              <DepartmentGrid cards={cards} hrefOf={departmentHref!} />
+              <DepartmentGrid
+                cards={cards}
+                hrefOf={departmentHref!}
+                members={membersByDepartment}
+              />
             )
           ) : narrowing && matching.length === 0 ? (
             <EmptyState
@@ -1083,40 +1098,29 @@ export function KpisTab({
 export function DepartmentGrid({
   cards,
   hrefOf,
+  members = {},
 }: {
   cards: readonly DepartmentCard[];
   hrefOf: (key: string) => string;
+  /** Names of people in each department, by card key: three faces go on the card. */
+  members?: Record<string, readonly string[]>;
 }) {
   return (
     <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => (
         <li key={card.key} className="min-w-0">
-          <Link
+          <DepartmentCardView
+            name={card.name}
             href={hrefOf(card.key)}
-            className="flex h-full min-h-32 flex-col gap-2 rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-          >
-            <span className="text-body-lg font-semibold text-ink">
-              {card.name}
-            </span>
-            <span className="flex flex-col gap-0.5">
-              <span className="text-body-sm text-body">
-                {card.count === 0
-                  ? "No objectives yet"
-                  : card.count === 1
-                    ? "1 objective"
-                    : `${String(card.count)} objectives`}
-              </span>
-              {/* The line's room is kept when there is nothing to say, so
-                  every card is the same height. */}
-              <span className="min-h-5 text-meta text-muted">
-                {card.attention === 0
-                  ? ""
-                  : card.attention === 1
-                    ? "1 needs attention"
-                    : `${String(card.attention)} need attention`}
-              </span>
-            </span>
-          </Link>
+            line={
+              card.count === 0
+                ? "No objectives yet"
+                : card.count === 1
+                  ? "1 objective"
+                  : `${String(card.count)} objectives`
+            }
+            members={members[card.key] ?? []}
+          />
         </li>
       ))}
     </ul>
@@ -1640,6 +1644,12 @@ function GoalDetailModal({
           <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
             {approvalWords(goal)}
           </Badge>
+          {goal.targetFrozen && (
+            <InfoTooltip
+              label="Why it is fixed"
+              text="Agreed: the title, period and targets are fixed. Progress can still change."
+            />
+          )}
           <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
             {GOAL_STATUS_LABEL[goal.status]}
           </Badge>
@@ -1722,19 +1732,6 @@ function GoalDetailModal({
             to see what went into it. Read-only; nothing here is graded. */}
         {open && <CompletedWork goal={goal} />}
 
-        {/* What the freeze actually costs, said before anything is refused —
-            and now directly above the buttons it explains the absence of. The
-            target is frozen and progress is not, and the two halves are easy
-            to confuse into "this KPI is finished". */}
-        {goal.targetFrozen && (
-          <p className="border-t border-line pt-4 text-body-sm text-muted">
-            Agreed, so it is fixed. The title, the period and every
-            target&apos;s figure stay as they are, and no new target can be
-            added, because that would change what delivering this means.
-            Progress numbers can still change.
-          </p>
-        )}
-
         {noPeriod && goal.approval !== "AGREED" && (
           <p className="text-body-sm text-body">
             Give this a quarter before you send it to be agreed, so it can be
@@ -1742,108 +1739,148 @@ function GoalDetailModal({
           </p>
         )}
 
-        <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-          {/* The lifecycle moves need no permission — the API checks the
-              reporting line — so they are offered whatever `editable` says
-              about writing goals. Sending your own objective to be agreed is a
-              thing you do to your own work. */}
-          {/* A declined one is changed and sent again on the objective's
-              own page, with the feedback beside it. */}
-          {mayBeSubmitted(goal) &&
-            (goal.approval === "NEEDS_REVISION" &&
-            editable &&
-            mayEditGoal(goal) ? (
-              <ButtonLink
-                variant="accent"
-                size="sm"
-                href={newObjectiveHref({ edit: goal.id })}
-              >
-                Edit and resend
-              </ButtonLink>
-            ) : (
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={act(() => onSubmit(goal))}
-              >
-                {goal.approval === "NEEDS_REVISION"
-                  ? "Send it again"
-                  : "Send to be agreed"}
-              </Button>
-            ))}
-          {goal.approval === "AGREED" && !done && (
-            <Button size="sm" onClick={act(() => onReopen(goal))}>
-              Reopen the objective
-            </Button>
-          )}
-          {goal.approval === "AGREED" && !done && canPlan && onPlan && (
-            <Button size="sm" onClick={act(() => onPlan(goal))}>
-              Plan work
-            </Button>
-          )}
-
-          {editable && (
-            <>
-              {/* Refused by the API on an agreed objective, so it is not
-                  offered. The sentence above says why rather than leaving a
-                  gap. */}
-              {!goal.targetFrozen && (
-                <Button size="sm" onClick={act(() => onAddMeasure(goal))}>
-                  <Plus aria-hidden="true" className="size-4" />
-                  Add a target
-                </Button>
-              )}
-              <Button size="sm" onClick={act(() => onAddChild(goal.id))}>
-                Add an objective under this
-              </Button>
-              {/* Only on a shared objective. Somebody's personal KPI is not a
-                  thing to give a team, and the API refuses it — so the button
-                  is absent rather than offering a refusal. */}
-              {goal.ownerId === null && (
-                <Button size="sm" onClick={act(() => onAssign(goal))}>
-                  Give an objective to people
-                </Button>
-              )}
-              {canShare && (
-                <Button size="sm" onClick={act(() => onShare(goal))}>
-                  Tell the people affected
-                </Button>
-              )}
-              {!done && (
-                <>
-                  <Button size="sm" onClick={act(() => onComplete(goal))}>
-                    Mark done
+        {/* Two actions at most, then a menu: a row of four buttons asks the reader to
+            choose between things that are not equally likely. In order of how often
+            each is the next thing to do; what does not fit goes under the dots,
+            and the one that cannot be undone goes last. Each is only listed where
+            the API will take it, so none comes back as a refusal. */}
+        {(() => {
+          type Item = {
+            key: string;
+            label: string;
+            onSelect?: () => void;
+            href?: string;
+            tone?: "danger";
+          };
+          const items: Item[] = [];
+          if (mayBeSubmitted(goal)) {
+            items.push(
+              goal.approval === "NEEDS_REVISION" &&
+                editable &&
+                mayEditGoal(goal)
+                ? {
+                    key: "resend",
+                    label: "Edit and resend",
+                    href: newObjectiveHref({ edit: goal.id }),
+                  }
+                : {
+                    key: "submit",
+                    label:
+                      goal.approval === "NEEDS_REVISION"
+                        ? "Send it again"
+                        : "Send to be agreed",
+                    onSelect: act(() => onSubmit(goal)),
+                  },
+            );
+          }
+          if (goal.approval === "AGREED" && !done) {
+            items.push({
+              key: "reopen",
+              label: "Reopen the objective",
+              onSelect: act(() => onReopen(goal)),
+            });
+            if (canPlan && onPlan) {
+              items.push({
+                key: "plan",
+                label: "Plan work",
+                onSelect: act(() => onPlan(goal)),
+              });
+            }
+          }
+          if (editable) {
+            if (!done)
+              items.push({
+                key: "done",
+                label: "Mark done",
+                onSelect: act(() => onComplete(goal)),
+              });
+            if (!goal.targetFrozen) {
+              items.push({
+                key: "target",
+                label: "Add a target",
+                onSelect: act(() => onAddMeasure(goal)),
+              });
+            }
+            if (mayEditGoal(goal))
+              items.push({
+                key: "edit",
+                label: "Edit",
+                onSelect: act(() => onEdit(goal)),
+              });
+            items.push({
+              key: "child",
+              label: "Add an objective under this",
+              onSelect: act(() => onAddChild(goal.id)),
+            });
+            if (goal.ownerId === null) {
+              items.push({
+                key: "assign",
+                label: "Give an objective to people",
+                onSelect: act(() => onAssign(goal)),
+              });
+            }
+            if (canShare)
+              items.push({
+                key: "share",
+                label: "Tell the people affected",
+                onSelect: act(() => onShare(goal)),
+              });
+            if (!done)
+              items.push({
+                key: "stop",
+                label: "Stop this objective",
+                onSelect: act(() => onStop(goal)),
+              });
+            if (deleteBlocker(goal) === null) {
+              items.push({
+                key: "delete",
+                label: "Delete",
+                tone: "danger",
+                onSelect: act(() => onDelete(goal)),
+              });
+            }
+          }
+          const shown = items.slice(0, 2);
+          const more = items.slice(2);
+          if (items.length === 0) return null;
+          return (
+            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+              {shown.map((item, index) =>
+                item.href ? (
+                  <ButtonLink
+                    key={item.key}
+                    variant={index === 0 ? "accent" : "secondary"}
+                    size="sm"
+                    href={item.href}
+                  >
+                    {item.label}
+                  </ButtonLink>
+                ) : (
+                  <Button
+                    key={item.key}
+                    variant={index === 0 ? "accent" : "secondary"}
+                    size="sm"
+                    onClick={item.onSelect}
+                  >
+                    {item.label}
                   </Button>
-                  <Button size="sm" onClick={act(() => onStop(goal))}>
-                    Stop this objective
-                  </Button>
-                </>
+                ),
               )}
-              {/* Each only where the API will take it, so neither comes back
-                  as a refusal. An agreed objective is edited by reopening its
-                  target, and stopped rather than deleted. */}
-              {mayEditGoal(goal) && (
-                <Button size="sm" onClick={act(() => onEdit(goal))}>
-                  Edit
-                </Button>
+              {more.length > 0 && (
+                <RowActions
+                  label="More for this objective"
+                  items={more.map((item) => ({
+                    key: item.key,
+                    label: item.label,
+                    ...(item.href ? { href: item.href } : {}),
+                    ...(item.onSelect ? { onSelect: item.onSelect } : {}),
+                    ...(item.tone ? { tone: item.tone } : {}),
+                  }))}
+                />
               )}
-              {deleteBlocker(goal) === null && (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={act(() => onDelete(goal))}
-                >
-                  Delete
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-        {editable && deleteBlocker(goal) !== null && (
-          <p className="text-body-sm text-muted">
-            {`Not deletable: ${deleteBlocker(goal) ?? ""}`}
-          </p>
-        )}
+            </div>
+          );
+        })()}
       </div>
     </Modal>
   );

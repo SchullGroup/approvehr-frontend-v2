@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCheck, ChevronDown, Search } from "lucide-react";
 import { Button, EmptyState, Input, TextLink } from "@/components/ui";
 import type { ApiParticipant } from "@/lib/api/performance";
 import { cn } from "@/lib/cn";
+import { DepartmentCard } from "@/components/ui/department-card";
 import { useDepartments } from "@/lib/store/departments";
 
 /**
@@ -187,35 +188,17 @@ export function PeriodPeople({
                 card.lines === 0 ? 0 : (card.lines - card.left) / card.lines;
               return (
                 <li key={card.id ?? "none"}>
-                  <button
-                    type="button"
+                  <DepartmentCard
+                    name={nameOfDept(card.id)}
                     onClick={() => setDept(card.id)}
-                    className="flex h-full min-h-36 w-full flex-col justify-between gap-5 rounded-xl border border-line bg-surface p-5 text-left transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2"
-                  >
-                    <span>
-                      <span className="block text-h4 font-semibold text-ink">
-                        {nameOfDept(card.id)}
-                      </span>
-                      <span className="mt-1 block text-body-sm text-muted">
-                        {card.waitingPeople === 0
-                          ? `${String(card.members.length)} ${card.members.length === 1 ? "person" : "people"}, all in`
-                          : `${String(card.waitingPeople)} of ${String(card.members.length)} still waiting`}
-                      </span>
-                    </span>
-                    <span
-                      role="progressbar"
-                      aria-label={`${nameOfDept(card.id)} progress`}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={Math.round(share * 100)}
-                      className="block h-1.5 w-full overflow-hidden rounded-full bg-sunken"
-                    >
-                      <span
-                        className="block h-full rounded-full bg-accent"
-                        style={{ width: `${String(share * 100)}%` }}
-                      />
-                    </span>
-                  </button>
+                    line={
+                      card.waitingPeople === 0
+                        ? `${String(card.members.length)} ${card.members.length === 1 ? "person" : "people"}, all in`
+                        : `${String(card.waitingPeople)} of ${String(card.members.length)} still waiting`
+                    }
+                    members={card.members.map((m) => m.row.employeeName)}
+                    progress={share}
+                  />
                 </li>
               );
             })}

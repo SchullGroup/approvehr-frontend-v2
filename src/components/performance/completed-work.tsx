@@ -57,6 +57,13 @@ export function CompletedWork({
   const work = read.data;
   const total = work?.total ?? null;
 
+  /* Where it is asked for on open, nothing to show is nothing drawn: an empty
+     box is space for a sentence that says there is nothing. In the queue, where
+     it is asked only when somebody opens it, it stays so it can be opened. */
+  if (!lazy && !read.error && (read.loading || work?.groups.length === 0)) {
+    return null;
+  }
+
   return (
     <Disclosure
       level={4}
