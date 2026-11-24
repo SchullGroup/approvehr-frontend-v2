@@ -18,6 +18,7 @@ import {
 
 const state = vi.hoisted(() => ({
   push: vi.fn(),
+  replace: vi.fn(),
   stage: "DRAFT" as string,
   questions: [] as unknown[],
   addQuestion: vi.fn(),
@@ -26,7 +27,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: state.push }),
+  useRouter: () => ({ push: state.push, replace: state.replace }),
 }));
 vi.mock("@/lib/store/performance", () => ({
   useAppraisals: () => ({
@@ -92,6 +93,7 @@ beforeEach(() => {
   state.addQuestion = vi.fn().mockResolvedValue({});
   state.addStandard = vi.fn().mockResolvedValue([]);
   state.push = vi.fn();
+  state.replace = vi.fn();
   state.reload = vi.fn();
 });
 
@@ -219,17 +221,14 @@ describe("the screens", () => {
     expect(state.push).toHaveBeenCalledWith("/performance/periods/c1");
   });
 
-  it("is read only once the period has started, and says so in one line", () => {
+  it("sends a started period to its Questions tab instead of a dead end", () => {
     state.stage = "SELF";
-    render(<QuestionsWizard cycleId="c1" />);
-    expect(
-      screen.getByText(
-        "This period has started, so its questions can no longer change.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Add a question" }),
-    ).not.toBeInTheDocument();
+    const { container } = render(<QuestionsWizard cycleId="c1" />);
+    expect(state.replace).toHaveBeenCalledWith(
+      "/performance/periods/c1?tab=questions",
+    );
+    expect(container).toBeEmptyDOMElement();
     expect(state.addStandard).not.toHaveBeenCalled();
+    expect(screen.queryByText(/can no longer change/)).toBeNull();
   });
 });

@@ -206,7 +206,14 @@ function IconLink({
   );
 }
 
-export function PeriodScreen({ cycleId }: { cycleId: string }) {
+export function PeriodScreen({
+  cycleId,
+  initialTab,
+}: {
+  cycleId: string;
+  /** From `?tab=questions`, so a link can land on the questions. */
+  initialTab?: "questions";
+}) {
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
@@ -225,7 +232,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [chosenTab, setPeriodTab] = useState<PeriodTabId | null>(null);
+  const [chosenTab, setPeriodTab] = useState<PeriodTabId | null>(
+    initialTab ?? null,
+  );
   const [showingLeft, setShowingLeft] = useState(false);
   const [showingMakeup, setShowingMakeup] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -429,12 +438,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         action={
           <>
             {/* One main button, and it is whatever this period needs next. */}
-            {canManage && draft && (
-              <Button
-                size="sm"
-                disabled={(period?.questionCount ?? 0) === 0}
-                onClick={() => setConfirmingStart(true)}
-              >
+            {/* Not ready (no questions yet) is the Get ready checklist's next
+                step, not a button that refuses. */}
+            {canManage && draft && (period?.questionCount ?? 0) > 0 && (
+              <Button size="sm" onClick={() => setConfirmingStart(true)}>
                 <Play aria-hidden="true" className="size-3.5" />
                 Start period
               </Button>
@@ -697,6 +704,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               <QuestionsPanel
                 cycleId={cycleId}
                 editable={canManage && period.stage !== "PUBLISHED"}
+                draft={draft}
                 onEdit={() => setQuestionsOpen(true)}
               />
             )}
@@ -751,18 +759,20 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           size="md"
           footer={
             <>
-              {canManage && running && (
-                <Button
-                  variant="secondary"
-                  disabled={nudging !== null && !anybodyToNudge(nudging)}
-                  onClick={() => {
-                    setShowingLeft(false);
-                    setConfirmingNudge(true);
-                  }}
-                >
-                  Remind everyone
-                </Button>
-              )}
+              {/* Nobody left to remind: no button, not a disabled one. */}
+              {canManage &&
+                running &&
+                (nudging === null || anybodyToNudge(nudging)) && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setShowingLeft(false);
+                      setConfirmingNudge(true);
+                    }}
+                  >
+                    Remind everyone
+                  </Button>
+                )}
               <Button onClick={() => setShowingLeft(false)}>Close</Button>
             </>
           }
@@ -1049,13 +1059,16 @@ function ProgressStats({
  * then any questions written for this period. The competencies come from the
  * company's own list, so there is nothing to set up here beyond what to add.
  */
-function QuestionsPanel({
+export function QuestionsPanel({
   cycleId,
   editable,
+  draft,
   onEdit,
 }: {
   cycleId: string;
   editable: boolean;
+  /** The step-by-step wizard is for a period that has not started. */
+  draft: boolean;
   onEdit: () => void;
 }) {
   const { questions, loading, error, reload } = useCycleQuestions(cycleId);
@@ -1074,14 +1087,20 @@ function QuestionsPanel({
       <div className="flex flex-col gap-6">
         {editable && (
           <div className="flex flex-wrap justify-end gap-2">
-            <ButtonLink
+            {draft && (
+              <ButtonLink
+                size="sm"
+                variant="accent"
+                href={`/performance/periods/${cycleId}/questions`}
+              >
+                Add questions
+              </ButtonLink>
+            )}
+            <Button
               size="sm"
-              variant="accent"
-              href={`/performance/periods/${cycleId}/questions`}
+              variant={draft ? "secondary" : "accent"}
+              onClick={onEdit}
             >
-              Add questions
-            </ButtonLink>
-            <Button size="sm" variant="secondary" onClick={onEdit}>
               Edit questions
             </Button>
           </div>
@@ -1090,7 +1109,7 @@ function QuestionsPanel({
           <EmptyState
             compact
             icon={<ListChecks aria-hidden="true" />}
-            title="No questions yet"
+            title={draft ? "No questions yet" : "No questions in this period"}
           />
         )}
         {rated.length > 0 && (

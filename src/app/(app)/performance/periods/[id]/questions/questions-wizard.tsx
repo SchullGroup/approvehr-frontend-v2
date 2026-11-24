@@ -115,6 +115,16 @@ export function QuestionsWizard({ cycleId }: { cycleId: string }) {
     questions.filter((q) => groupsOf(q, groupOfCompetency).includes(which));
 
   const finish = () => router.push(`/performance/periods/${cycleId}`);
+
+  /* A period that has started has nothing to step through: go to its
+     Questions tab, where they are read. Not a dead end with a sentence. */
+  const started = period !== null && period.stage !== "DRAFT";
+  useEffect(() => {
+    if (started) {
+      router.replace(`/performance/periods/${cycleId}?tab=questions`);
+    }
+  }, [started, router, cycleId]);
+  if (started) return null;
   const last = step === groups.length;
 
   return (
@@ -142,11 +152,6 @@ export function QuestionsWizard({ cycleId }: { cycleId: string }) {
         hasData={questions.length > 0}
         skeleton="list"
       >
-        {!editable && (
-          <p className="text-body-sm text-muted">
-            This period has started, so its questions can no longer change.
-          </p>
-        )}
         {group ? (
           <GroupStep
             key={group}

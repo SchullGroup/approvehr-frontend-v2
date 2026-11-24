@@ -21,9 +21,17 @@ export const metadata: Metadata = {
  */
 export default async function PeriodPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { id } = await params;
-  return <PeriodScreen cycleId={id} />;
+  const { tab } = await searchParams;
+  return (
+    <PeriodScreen
+      cycleId={id}
+      {...(tab === "questions" ? { initialTab: "questions" as const } : {})}
+    />
+  );
 }
