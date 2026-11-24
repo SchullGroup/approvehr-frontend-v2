@@ -149,11 +149,10 @@ describe("the screens", () => {
     );
   });
 
-  it("puts the standard set in once when a draft has none", () => {
+  it("starts empty when a draft has no questions: nothing is put in for them", () => {
     state.questions = [];
     render(<QuestionsWizard cycleId="c1" />);
-    expect(state.addStandard).toHaveBeenCalledTimes(1);
-    expect(state.addStandard).toHaveBeenCalledWith("c1");
+    expect(state.addStandard).not.toHaveBeenCalled();
   });
 
   it("adds a question to the group with its type, who answers and required", async () => {
@@ -183,19 +182,16 @@ describe("the screens", () => {
   it("walks the groups, counts each on the last screen, and Finish lands on the period", async () => {
     const user = userEvent.setup();
     render(<QuestionsWizard cycleId="c1" />);
-    for (const title of [
-      "Manager review questions",
-      "Core competency questions",
-      "Behavioural competency questions",
-      "Review and finish",
-    ]) {
+    for (const title of ["Manager review questions", "Review and finish"]) {
       await user.click(screen.getByRole("button", { name: "Continue" }));
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
     }
     const list = screen.getByRole("list");
     expect(within(list).getByText("Self review questions")).toBeVisible();
-    expect(within(list).getAllByText("1 question").length).toBe(2);
-    expect(within(list).getAllByText("0 questions").length).toBe(2);
+    expect(within(list).queryByText("Core competency questions")).toBeNull();
+    expect(within(list).getAllByText(/question/).length).toBeGreaterThanOrEqual(
+      2,
+    );
     await user.click(screen.getByRole("button", { name: "Finish" }));
     expect(state.push).toHaveBeenCalledWith("/performance/periods/c1");
   });

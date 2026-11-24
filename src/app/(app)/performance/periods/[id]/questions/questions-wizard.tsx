@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
@@ -65,27 +65,12 @@ export function QuestionsWizard({ cycleId }: { cycleId: string }) {
   const { cycles } = useAppraisals();
   const period = cycles.find((one) => one.id === cycleId) ?? null;
   const editable = period !== null && period.stage === "DRAFT";
-  const mutations = useCycleMutations();
   const { questions, loading, error, reload } = useCycleQuestions(cycleId);
   const { competencies } = useFramework();
   const { sections } = useSections();
 
   const [step, setStep] = useState(0);
   const [failed, setFailed] = useState<string | null>(null);
-
-  /* The standard set, once, for a draft that has no questions at all. */
-  const seeded = useRef(false);
-  useEffect(() => {
-    if (seeded.current || !editable || loading || error || questions.length > 0)
-      return;
-    seeded.current = true;
-    void mutations
-      .addStandardQuestions(cycleId)
-      .then(reload)
-      .catch((caught: unknown) =>
-        setFailed(actionMessage(caught, "the standard questions")),
-      );
-  }, [editable, loading, error, questions.length, cycleId, mutations, reload]);
 
   const sectionGroup = new Map(
     sections.map((section) => [
@@ -99,16 +84,11 @@ export function QuestionsWizard({ cycleId }: { cycleId: string }) {
       one.sectionId ? (sectionGroup.get(one.sectionId) ?? null) : null,
     ]),
   );
-  const hasLeadership = sections.some(
-    (section) => groupForComponent(section.component) === "leadership",
-  );
-  const groups: QuestionGroup[] = [
-    "self",
-    "manager",
-    "core",
-    "behavioural",
-    ...(hasLeadership ? (["leadership"] as const) : []),
-  ];
+  /* Two pages: what people are asked about themselves, and what managers are
+     asked. The competencies are rated on their own, so there is nothing to
+     check group by group, and both pages start empty: they hold what was copied
+     or chosen, and whatever is added by hand. */
+  const groups: QuestionGroup[] = ["self", "manager"];
   const total = BEFORE + groups.length + 1;
   const group = groups[step] ?? null;
   const inGroup = (which: QuestionGroup) =>
