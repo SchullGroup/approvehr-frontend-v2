@@ -1,5 +1,6 @@
 "use client";
 
+import { GoHomeWhenOff } from "@/components/portal/go-home-when-off";
 import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import Link from "next/link";
@@ -262,6 +263,7 @@ function RegisterRow({ row }: { row: ApiQuerySummary }) {
 }
 
 function ModuleOff({ canSettings }: { canSettings: boolean }) {
+  if (!canSettings) return <GoHomeWhenOff />;
   return (
     <EmptyState
       icon={<MessageSquareText aria-hidden="true" className="size-5" />}

@@ -1,5 +1,6 @@
 "use client";
 
+import { GoHomeWhenOff } from "@/components/portal/go-home-when-off";
 import { useCallback, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { Callout, EmptyState, LoadState, TextLink } from "@/components/ui";
@@ -93,6 +94,7 @@ export function QueryScreen({ id }: { id: string }) {
   }
 
   if (isModuleOff(error)) {
+    if (!canSettings) return <GoHomeWhenOff />;
     return (
       <>
         <PageHeader title="Letter" />

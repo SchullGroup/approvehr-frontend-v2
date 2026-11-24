@@ -18,6 +18,12 @@ import { summary, SUBJECT_LINE } from "./queries-fixtures";
  */
 
 let held = new Set<string>();
+const replaceRoute = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: replaceRoute, push: vi.fn() }),
+  usePathname: () => "/people/queries",
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/permissions", () => ({
   useCan: (key: string) => held.has(key),
 }));
@@ -109,21 +115,24 @@ describe("who may open it", () => {
 });
 
 describe("a company that has not turned queries on", () => {
-  it("is told so, with nothing deleted", () => {
+  it("is sent to the dashboard, not shown a page that can only say no", () => {
     on = false;
+    mount();
+    expect(replaceRoute).toHaveBeenCalledWith("/dashboard");
+    expect(
+      screen.queryByText("Queries are switched off for your company"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("tells somebody who can change it, with nothing deleted", () => {
+    on = false;
+    held = new Set(["ISSUE_QUERIES", "MANAGE_SETTINGS"]);
     mount();
     expect(
       screen.getByText("Queries are switched off for your company"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Nothing has been deleted/)).toBeInTheDocument();
-  });
-
-  it("is sent to Settings only if the person may change it", () => {
-    on = false;
-    mount();
-    expect(
-      screen.queryByRole("link", { name: "Open Queries settings" }),
-    ).not.toBeInTheDocument();
+    expect(replaceRoute).not.toHaveBeenCalled();
   });
 
   it("offers the way to Settings to somebody who holds the permission", () => {
@@ -146,9 +155,7 @@ describe("a company that has not turned queries on", () => {
       unavailable: false,
     };
     mount();
-    expect(
-      screen.getByText("Queries are switched off for your company"),
-    ).toBeInTheDocument();
+    expect(replaceRoute).toHaveBeenCalledWith("/dashboard");
   });
 });
 
