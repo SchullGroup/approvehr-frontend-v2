@@ -54,6 +54,7 @@ import {
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
+import { useProjectsGate } from "@/lib/store/project-session";
 import { AppraiserStrip } from "../../review-parts";
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { WorkBehindTheMark } from "@/components/performance/kept-work";
@@ -676,6 +677,7 @@ function ScorePanel({
   /** The company's setting, from the review. See `showsOverallMark`. */
   overallMark: boolean | undefined;
 }) {
+  const projects = useProjectsGate();
   if (loading) {
     return (
       <Card>
@@ -774,7 +776,9 @@ function ScorePanel({
         )}
 
         <ul className="flex flex-col gap-3">
-          {visibleComponents(score.components).map((component) => (
+          {visibleComponents(score.components, {
+            projects: projects.enabled,
+          }).map((component) => (
             <ComponentRow key={component.component} component={component} />
           ))}
         </ul>

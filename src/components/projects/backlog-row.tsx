@@ -2,6 +2,7 @@
 
 import { ArrowRightLeft, GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { dayLabel } from "@/lib/api/performance";
 import type { MoveOption } from "@/lib/projects/backlog";
 import { CYCLE } from "@/lib/projects/terms";
 import type { Issue, ProjectStatus } from "@/lib/projects/types";
@@ -114,6 +115,16 @@ export function BacklogRow({
         {/* Wraps under the title on a phone, where the epic chip is the one thing
             that gives way (it truncates) so the avatar and the menu stay on screen. */}
         <div className="flex min-w-0 max-w-full items-center gap-2 sm:ml-auto">
+          {issue.objective?.state === "LINKED" && issue.objective.title && (
+            <span className="hidden min-w-0 max-w-48 truncate text-meta text-muted sm:inline">
+              {issue.objective.title}
+            </span>
+          )}
+          {issue.dueDate && (
+            <span className="whitespace-nowrap text-meta text-muted">
+              Due {dayLabel(issue.dueDate)}
+            </span>
+          )}
           {epic && <EpicChip title={epic.title} className="min-w-0 shrink" />}
           <FinishTag wontDo={issue.wontDo} accepted={issue.accepted} />
           <StatusPill status={status} />

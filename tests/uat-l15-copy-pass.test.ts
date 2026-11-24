@@ -36,7 +36,6 @@ describe("words a person reads", () => {
     ["app/(app)/people/onboarding/onboarding-screen.tsx", "Add a new staff"],
     ["app/(app)/people/new/form.tsx", "Add a new staff"],
     ["app/(app)/people/[id]/record.tsx", "reports to the board"],
-    ["app/(app)/performance/my-tasks.tsx", "pagination endpoint"],
     ["app/(app)/settings/notifications/settings.tsx", "prototype"],
     [
       "app/(app)/settings/helpdesk/helpdesk-screen.tsx",

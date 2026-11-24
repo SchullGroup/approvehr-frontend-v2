@@ -29,7 +29,8 @@ type Part = Pick<
   | "effectiveWeightBp"
   | "included"
   | "evidenceCount"
->;
+> &
+  Partial<Pick<ApiComponentScore, "done">>;
 
 /**
  * The parts that gave up a weight: left out of this mark although the company
@@ -87,15 +88,19 @@ export function setAtNote(part: Part): string | null {
  * different parts, and "things" is none of them.
  */
 export function evidenceLine(
-  part: Pick<Part, "component" | "evidenceCount">,
+  part: Pick<Part, "component" | "evidenceCount"> & Partial<Pick<Part, "done">>,
 ): string {
   const n = part.evidenceCount;
   if (n === 0) return "Nothing recorded for this";
+  if (part.component === "TASKS" && typeof part.done === "number") {
+    const late = Math.max(n - part.done, 0);
+    return `Tasks done: ${String(part.done)} of ${String(n)}${late > 0 ? ` (${String(late)} overdue)` : ""}`;
+  }
   const unit =
     part.component === "OBJECTIVES"
       ? ["agreed objective", "agreed objectives"]
       : part.component === "TASKS"
-        ? ["graded task", "graded tasks"]
+        ? ["linked task", "linked tasks"]
         : part.component === "MANAGER_APPRAISAL"
           ? ["overall rating", "overall ratings"]
           : ["rating", "ratings"];

@@ -1455,9 +1455,11 @@ export function weightsFromNote(from: WeightsFrom): string | null {
  */
 export function visibleComponents<
   T extends Pick<ApiComponentScore, "component" | "excludedBecause">,
->(components: T[]): T[] {
+>(components: T[], options: { projects?: boolean } = {}): T[] {
   return components.filter(
     (part) =>
+      /* Tasks done comes from Projects: a company without Projects has none. */
+      !(options.projects === false && part.component === "TASKS") &&
       !(
         (part.component === "TASKS" ||
           part.component === "MANAGER_APPRAISAL") &&
@@ -1498,6 +1500,12 @@ export type ApiComponentScore = {
   excludedNote: string | null;
   /** How many things were averaged. Zero is why `scoreBp` is null. */
   evidenceCount: number;
+  /**
+   * For Tasks done: how many of the counted tasks (`evidenceCount`) were
+   * finished. Absent from a server that does not send it, and then the line
+   * says what was counted and nothing about how many were done.
+   */
+  done?: number;
 };
 
 /** Exceptions, in the same shape and severities the payroll run uses. */

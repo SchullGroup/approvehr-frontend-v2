@@ -13,6 +13,7 @@ import {
 import { InfoTooltip } from "@/components/ui/field";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { evidenceLine } from "@/lib/performance/score-wording";
 import {
   dayLabel,
   scoreLabel,
@@ -22,6 +23,7 @@ import {
   type ApiComponentScore,
   type ApiHistoryPoint,
 } from "@/lib/api/performance";
+import { useProjectsGate } from "@/lib/store/project-session";
 import { useScoreHistory } from "@/lib/store/performance";
 
 /**
@@ -167,7 +169,9 @@ function PeriodCard({
 
 /** What the score was made of: a ring for the mix, a bar per part. */
 function PeriodDetail({ point }: { point: ApiHistoryPoint }) {
-  const parts = visibleComponents(point.components);
+  const parts = visibleComponents(point.components, {
+    projects: useProjectsGate().enabled,
+  });
   const counted = parts.filter((part) => part.included);
   const scored = parts.filter(
     (part): part is ApiComponentScore & { scoreBp: number } =>
@@ -268,6 +272,11 @@ function PeriodDetail({ point }: { point: ApiHistoryPoint }) {
                 ? `${weightLabel(part.effectiveWeightBp)} of the score`
                 : (part.excludedNote ?? "Left out of this score")}
             </p>
+            {part.component === "TASKS" && part.included && (
+              <p className="mt-0.5 text-meta text-muted">
+                {evidenceLine(part)}
+              </p>
+            )}
           </li>
         ))}
       </ul>
