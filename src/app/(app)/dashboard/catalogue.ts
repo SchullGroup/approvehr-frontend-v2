@@ -278,7 +278,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "local",
     permission: "MANAGE_SETTINGS",
     feature: "appOpenTracking",
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: [],
   },
   {
     id: "who-is-in",
@@ -289,7 +289,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "dashboard",
     anyPermission: SEES_COMPANY,
     feature: "attendance",
-    defaultFor: ["admin", "custom"],
+    defaultFor: [],
   },
 
   /* ------------------------------------------------------------------- pay */
@@ -302,7 +302,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: [],
   },
   {
     id: "money-owed",
@@ -313,7 +313,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "hiring",
@@ -325,7 +325,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "dashboard",
     permission: "MANAGE_HIRING",
     feature: "hiring",
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: [],
   },
 
   /* ---------------------------------------------------------------- charts */
@@ -337,7 +337,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "reports",
     anyPermission: SEES_COMPANY,
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "chart-joiners-leavers",
@@ -401,7 +401,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "reports",
     permission: "VIEW_SALARIES",
     feature: "departments",
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "chart-gross-breakdown",
@@ -448,7 +448,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
        was the tallest thing in the row and set the row's height. */
     span: "half",
     source: "dashboard",
-    defaultFor: ["admin", "custom"],
+    defaultFor: [],
   },
   {
     id: "my-clock",
@@ -514,7 +514,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "full",
     slot: "header",
     source: "local",
-    defaultFor: ["admin", "custom"],
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "noticeboard",

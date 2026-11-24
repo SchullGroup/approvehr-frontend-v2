@@ -111,9 +111,9 @@ describe("the app-use card", () => {
     expect(spec?.feature).toBe("appOpenTracking");
   });
 
-  it("appears for an owner who holds the permission in a company that turned it on", () => {
+  it("is not on the default home: it is in the drawer for whoever wants it", () => {
     const ctx = context({ permissions: ALLOWED });
-    expect(layout("owner", ctx).map((widget) => widget.id)).toContain(
+    expect(layout("owner", ctx).map((widget) => widget.id)).not.toContain(
       "app-use",
     );
   });

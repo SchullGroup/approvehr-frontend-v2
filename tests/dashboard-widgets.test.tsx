@@ -216,12 +216,22 @@ describe("the catalogue and the components agree", () => {
     expect(bad.map((widget) => widget.id)).toEqual([]);
   });
 
-  it("does not put the owner's own leave balance on their dashboard", () => {
-    /* The product owner's own words: "The owner does not need to see leave
-       left." An HR manager is also somebody with days to book, so the admin
-       tiers keep it, and the owner can add it from the drawer. */
-    expect(widgetById("my-leave")?.defaultFor).not.toContain("owner");
-    expect(widgetById("my-leave")?.defaultFor).toContain("admin");
+  it("puts no leave balance on anybody's default dashboard", () => {
+    /* The product owner, 24 Nov 2026: the home is three number tiles and
+       Start something; leave, hiring, app use and the rest are in the drawer
+       for whoever wants them. */
+    expect(widgetById("my-leave")?.defaultFor).toEqual([]);
+  });
+
+  it("keeps the default home for the people who run the company to three tiles and Start something", () => {
+    for (const id of ["app-use", "who-is-in", "payroll-month", "hiring"]) {
+      expect(widgetById(id)?.defaultFor).toEqual([]);
+    }
+    expect(widgetById("quick-actions")?.defaultFor).toEqual([
+      "owner",
+      "admin",
+      "custom",
+    ]);
   });
 
   it("keeps the staff home to the day: no leave types, no last payslip", () => {
