@@ -3414,6 +3414,15 @@ export function useCycleMutations() {
       [guard],
     ),
 
+    /** Ask everybody to set their objectives. Connected only. */
+    notifyObjectives: useCallback(
+      async (id: string) => {
+        guard("Asking people to set objectives needs the API.");
+        return performanceApi.notifyObjectives(id);
+      },
+      [guard],
+    ),
+
     /** Notifications in the app. Nothing here sends email. */
     remind: useCallback(
       async (id: string) => {

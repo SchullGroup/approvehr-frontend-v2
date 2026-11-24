@@ -673,6 +673,12 @@ export type ApiCyclePublished = ApiCycle & {
   notFinalised: string[];
 };
 
+export type ApiNotifyObjectives = {
+  notified: number;
+  alreadyHad: number;
+  askedAt?: string;
+};
+
 export type ApiRemindResult = {
   cycleId: string;
   outstanding: number;
@@ -3138,6 +3144,18 @@ export const performanceApi = {
     request<ApiRemindResult>(`/performance/cycles/${id}/remind`, {
       method: "POST",
     }),
+
+  /**
+   * Ask everybody in the period to set their objectives (a notification in
+   * the app). Once a day per person; a second press inside the day answers
+   * with `notified: 0` and the counts. `askedAt` is optional. A 404 or 410 is
+   * an API that does not have it switched on.
+   */
+  notifyObjectives: (id: string) =>
+    request<ApiNotifyObjectives>(
+      `/performance/cycles/${id}/notify-objectives`,
+      { method: "POST" },
+    ),
 
   participants: (id: string, signal?: AbortSignal) =>
     request<ApiCycleParticipants>(
