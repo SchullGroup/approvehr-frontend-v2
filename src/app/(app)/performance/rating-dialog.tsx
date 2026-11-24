@@ -1,10 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Field, Modal, Select, Textarea } from "@/components/ui";
+import {
+  Button,
+  Field,
+  Modal,
+  RatingScale,
+  Select,
+  Textarea,
+} from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { LanguageCheck } from "@/components/performance/language-check";
-import type { RateBody } from "@/lib/api/performance";
+import { ratingWordsFrom, type RateBody } from "@/lib/api/performance";
 import {
   WRITTEN_NEVER_COUNTS,
   answerKindOf,
@@ -19,6 +26,7 @@ import {
 import {
   useAppraisals,
   useFramework,
+  useRatingScale,
   useSections,
   useSkills,
 } from "@/lib/store/performance";
@@ -245,6 +253,7 @@ export function RecordLevelDialog({
     kind === "TEXT" && errors["answer"] ? writtenAnswerProblem(words) : null;
   const scaleMax = chosen?.scaleMax ?? 5;
   const steps = Array.from({ length: scaleMax }, (_, index) => index + 1);
+  const levelWords = ratingWordsFrom(useRatingScale().scale.levels);
   const personName = people.find((one) => one.id === person)?.fullName;
 
   const submit = async () => {
@@ -377,17 +386,19 @@ export function RecordLevelDialog({
               required
               {...(errors["level"] ? { error: errors["level"] } : {})}
             >
-              <Select
-                value={level}
-                placeholder="Pick a level"
-                onChange={(event) => setLevel(event.target.value)}
-              >
-                {steps.map((step) => (
-                  <option key={step} value={String(step)}>
-                    {step} of {scaleMax}
-                  </option>
-                ))}
-              </Select>
+              <RatingScale
+                name="current-level"
+                label="Current level"
+                levels={steps.map((step) => ({
+                  level: step,
+                  label:
+                    scaleMax === 5
+                      ? (levelWords(step) ?? String(step))
+                      : `${String(step)} of ${String(scaleMax)}`,
+                }))}
+                value={level ? Number(level) : null}
+                onChange={(next) => setLevel(String(next))}
+              />
             </Field>
             <Field
               optional

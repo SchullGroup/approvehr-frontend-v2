@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AppraisalPreview } from "@/app/(app)/performance/appraisal-preview/appraisal-preview";
@@ -28,9 +28,11 @@ describe("the employee appraisal steps (mock-up)", () => {
     render(<AppraisalPreview />);
     await cont();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    const groups = screen.getAllByRole("group");
+    const groups = screen.getAllByRole("radiogroup");
     for (const group of groups) {
-      await userEvent.click(group.querySelectorAll("button")[2] as HTMLElement);
+      await userEvent.click(
+        within(group).getByRole("radio", { name: /^Rating 3,/ }),
+      );
     }
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
@@ -41,9 +43,9 @@ describe("the employee appraisal steps (mock-up)", () => {
     await cont();
     for (const title of ["Core competencies", "Behavioural competencies"]) {
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
-      for (const group of screen.getAllByRole("group")) {
+      for (const group of screen.getAllByRole("radiogroup")) {
         await userEvent.click(
-          group.querySelectorAll("button")[3] as HTMLElement,
+          within(group).getByRole("radio", { name: /^Rating 4,/ }),
         );
       }
       await cont();
@@ -51,5 +53,27 @@ describe("the employee appraisal steps (mock-up)", () => {
     expect(
       screen.getByRole("heading", { name: "Leadership" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the rating buttons", () => {
+  it("are numbers on one line, with the names in a legend once", async () => {
+    render(<AppraisalPreview />);
+    await cont();
+    expect(
+      screen.getByText(
+        "1 Unsatisfactory · 2 Below Expectations · 3 Meets Expectations · 4 Exceeds Expectations · 5 Exceptional",
+      ),
+    ).toBeVisible();
+    const first = screen.getAllByRole("radiogroup")[0] as HTMLElement;
+    const radios = within(first).getAllByRole("radio");
+    expect(radios.map((r) => r.getAttribute("aria-label"))).toEqual([
+      "Rating 1, Unsatisfactory",
+      "Rating 2, Below Expectations",
+      "Rating 3, Meets Expectations",
+      "Rating 4, Exceeds Expectations",
+      "Rating 5, Exceptional",
+    ]);
+    expect(first.style.gridTemplateColumns).toBe("repeat(5, minmax(0, 1fr))");
   });
 });

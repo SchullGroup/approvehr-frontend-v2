@@ -102,6 +102,7 @@ let rowsOf: Record<string, ApiCompetencyRow[]>;
 let cycles: { id: string; name: string; stage: string }[];
 
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   useFramework: () => ({
     competencies: COMPETENCIES,
     groups: GROUPS,
@@ -654,7 +655,7 @@ describe("changing the skill", () => {
     await pickSkill("Communication");
     await write("Typed for the written one.");
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(screen.getByLabelText(/Current level/), "4");
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 4,/ }));
     await save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());

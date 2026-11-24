@@ -528,6 +528,32 @@ describe("sending it", () => {
     ).toBeInTheDocument();
   });
 
+  it("has two buttons on the last step, no Back, and Add another as a link below them", async () => {
+    const { user } = open();
+    await throughTarget(user);
+    await next(user);
+    const form = screen
+      .getByRole("heading", {
+        name: "Check it, then send it to be agreed",
+      })
+      .closest("form") as HTMLElement;
+    const buttons = within(form)
+      .getAllByRole("button")
+      .map((b) => b.textContent?.trim())
+      .filter((text) => text !== "Change");
+    expect(buttons).toEqual([
+      "Send to be agreed",
+      "Save as a draft",
+      "Add another",
+    ]);
+    expect(
+      within(form).queryByRole("button", { name: /^Back$/ }),
+    ).not.toBeInTheDocument();
+    const add = within(form).getByRole("button", { name: "Add another" });
+    expect(add.className).toMatch(/underline/);
+    expect(add.className).not.toMatch(/bg-accent/);
+  });
+
   it("keeps it as a draft without sending it", async () => {
     const { user } = open();
     await throughTarget(user);

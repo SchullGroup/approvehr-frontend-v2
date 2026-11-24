@@ -83,6 +83,7 @@ const skillRow = (over: Partial<ApiCompetencyRow>): ApiCompetencyRow => ({
 let rowsOf: Record<string, ApiCompetencyRow[]>;
 
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   useFramework: () => ({
     competencies: [FEEDBACK],
     groups: [

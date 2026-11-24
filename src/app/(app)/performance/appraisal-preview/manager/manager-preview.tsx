@@ -6,6 +6,8 @@ import {
   Button,
   Card,
   Field,
+  RatingLegend,
+  RatingScale,
   Select,
   Tabs,
   Textarea,
@@ -98,6 +100,11 @@ const STATUS_WORDS: Record<Status, string> = {
   ready: "Ready to start",
   locked: "Waiting for their self review",
 };
+
+const LEVELS = [1, 2, 3, 4, 5].map((level) => ({
+  level,
+  label: ratingWords(level) ?? String(level),
+}));
 
 const GROUPS = [
   {
@@ -379,6 +386,7 @@ function PersonSteps({
       )}
       {group && (
         <div className="flex flex-col gap-5">
+          <RatingLegend levels={LEVELS} />
           {group.items.map((item, index) => {
             const key = `${group.id}-${item}`;
             const theirs = ((index + 2) % 5) + 1;
@@ -390,24 +398,14 @@ function PersonSteps({
                 <p className="text-body-sm text-muted">
                   Their own rating: {ratingWords(theirs)}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      aria-pressed={mine[key] === level}
-                      onClick={() => setMine({ ...mine, [key]: level })}
-                      className={
-                        "rounded-full border px-4 py-2 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 " +
-                        (mine[key] === level
-                          ? "border-accent bg-accent-soft text-accent-text"
-                          : "border-line bg-surface text-ink hover:border-accent")
-                      }
-                    >
-                      {ratingWords(level)}
-                    </button>
-                  ))}
-                </div>
+                <RatingScale
+                  name={key}
+                  label={item}
+                  legend={false}
+                  levels={LEVELS}
+                  value={mine[key] ?? null}
+                  onChange={(level) => setMine({ ...mine, [key]: level })}
+                />
               </fieldset>
             );
           })}
@@ -415,24 +413,13 @@ function PersonSteps({
       )}
       {isOverall && (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap gap-2">
-            {[1, 2, 3, 4, 5].map((level) => (
-              <button
-                key={level}
-                type="button"
-                aria-pressed={overall === level}
-                onClick={() => setOverall(level)}
-                className={
-                  "rounded-full border px-4 py-2 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 " +
-                  (overall === level
-                    ? "border-accent bg-accent-soft text-accent-text"
-                    : "border-line bg-surface text-ink hover:border-accent")
-                }
-              >
-                {ratingWords(level)}
-              </button>
-            ))}
-          </div>
+          <RatingScale
+            name="overall"
+            label="Overall rating"
+            levels={LEVELS}
+            value={overall || null}
+            onChange={setOverall}
+          />
           <Field label="Your recommendation">
             <Textarea
               rows={4}

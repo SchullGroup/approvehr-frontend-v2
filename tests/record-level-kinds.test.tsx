@@ -83,6 +83,7 @@ const GROUPS = [
 let cycles: { id: string; name: string; stage: string }[];
 
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   useFramework: () => ({
     competencies: COMPETENCIES,
     groups: GROUPS,
@@ -142,7 +143,7 @@ describe("a subsection that is rated", () => {
     const { onSave } = mount();
     await pickPerson();
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(screen.getByLabelText(/Current level/), "4");
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 4,/ }));
     await userEvent.selectOptions(screen.getByLabelText(/Target level/), "5");
     await save();
 
@@ -157,7 +158,7 @@ describe("a subsection that is rated", () => {
     const { onSave } = mount();
     await pickPerson();
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(screen.getByLabelText(/Current level/), "3");
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 3,/ }));
     await save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
@@ -168,10 +169,10 @@ describe("a subsection that is rated", () => {
     mount();
     await pickSkill("Delivery");
     const steps = within(screen.getByLabelText(/Current level/))
-      .getAllByRole("option")
-      .map((one) => one.textContent);
-    expect(steps).toContain("10 of 10");
-    expect(steps).not.toContain("11 of 10");
+      .getAllByRole("radio")
+      .map((one) => one.getAttribute("aria-label"));
+    expect(steps).toContain("Rating 10, 10 of 10");
+    expect(steps).not.toContain("Rating 11, 11 of 10");
   });
 
   it("is what the form shows before any subsection is chosen", () => {
@@ -312,7 +313,7 @@ describe("changing the skill", () => {
     const { onSave } = mount();
     await pickPerson();
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(screen.getByLabelText(/Current level/), "4");
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 4,/ }));
     await userEvent.selectOptions(screen.getByLabelText(/Target level/), "5");
 
     await pickSkill("Follows safety procedures");
@@ -333,16 +334,14 @@ describe("changing the skill", () => {
     await pickSkill("Follows safety procedures");
     await userEvent.selectOptions(screen.getByLabelText(/Answer/), "Yes");
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(screen.getByLabelText(/Current level/), "2");
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 2,/ }));
     await pickSkill("Follows safety procedures");
 
     expect((screen.getByLabelText(/Answer/) as HTMLSelectElement).value).toBe(
       "",
     );
     await pickSkill("Punctuality");
-    expect(
-      (screen.getByLabelText(/Current level/) as HTMLSelectElement).value,
-    ).toBe("");
+    expect(screen.queryAllByRole("radio", { checked: true })).toHaveLength(0);
   });
 
   it("does not carry a choice over to another list", async () => {

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 
 import { LoadState } from "@/components/ui/load-state";
-import { WizardShell } from "@/components/performance/wizard-shell";
+import { WizardLink, WizardShell } from "@/components/performance/wizard-shell";
 import { actionMessage } from "@/lib/use-action";
 import type { ApiQuestion } from "@/lib/api/performance";
 import {
@@ -127,11 +127,9 @@ export function QuestionsWizard({ cycleId }: { cycleId: string }) {
       onBack={step > 0 ? () => setStep(step - 1) : undefined}
       onNext={last ? finish : () => setStep(step + 1)}
       nextLabel={last ? "Finish" : "Continue"}
-      extra={
+      links={
         !last ? (
-          <Button type="button" variant="secondary" onClick={finish}>
-            Use the defaults and finish
-          </Button>
+          <WizardLink onClick={finish}>Use the defaults and finish</WizardLink>
         ) : undefined
       }
       error={failed}

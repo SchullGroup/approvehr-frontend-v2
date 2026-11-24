@@ -198,6 +198,18 @@ describe("the screens", () => {
     expect(state.push).toHaveBeenCalledWith("/performance/periods/c1");
   });
 
+  it("keeps two buttons on a step and Use the defaults and finish as a link under them", () => {
+    render(<QuestionsWizard cycleId="c1" />);
+    const form = screen
+      .getByRole("heading", { name: "Self review questions" })
+      .closest("form") as HTMLElement;
+    const skip = within(form).getByRole("button", {
+      name: "Use the defaults and finish",
+    });
+    expect(skip.className).toMatch(/underline/);
+    expect(skip.className).not.toMatch(/bg-accent/);
+  });
+
   it("offers Use the defaults and finish before the last screen", async () => {
     const user = userEvent.setup();
     render(<QuestionsWizard cycleId="c1" />);

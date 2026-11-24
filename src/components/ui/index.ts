@@ -115,3 +115,9 @@ export type { Point, Segment } from "./chart";
 
 export { BubbleChart } from "./bubble-chart";
 export type { BubbleChartProps, BubblePoint } from "./bubble-chart";
+export {
+  RatingScale,
+  RatingLegend,
+  legendOf,
+  type ScaleLevel,
+} from "./rating-scale";

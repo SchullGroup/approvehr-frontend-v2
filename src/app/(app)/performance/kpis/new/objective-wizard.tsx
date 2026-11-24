@@ -22,7 +22,7 @@ import {
   SuccessMoment,
   Textarea,
 } from "@/components/ui";
-import { WizardShell } from "@/components/performance/wizard-shell";
+import { WizardLink, WizardShell } from "@/components/performance/wizard-shell";
 import {
   SuggestButton,
   SuggestionPanel,
@@ -779,7 +779,7 @@ export function ObjectiveWizard({
       title={STEP_TITLES[screen]}
       /* Once the objective exists, going back to change it would change a
          form and not the objective; the message says what is saved. */
-      {...(saved ? {} : { onBack: () => go(step - 1) })}
+      {...(saved || screen === "review" ? {} : { onBack: () => go(step - 1) })}
       onNext={next}
       nextLabel={
         screen === "review"
@@ -793,19 +793,19 @@ export function ObjectiveWizard({
       }
       busy={busy === "send"}
       error={error}
+      links={
+        screen === "review" && !editing && !saved ? (
+          <WizardLink
+            disabled={busy !== null || periodsPending}
+            onClick={addAnother}
+          >
+            Add another
+          </WizardLink>
+        ) : undefined
+      }
       extra={
         screen === "review" ? (
           <>
-            {!editing && !saved && (
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={busy !== null || periodsPending}
-                onClick={addAnother}
-              >
-                Add another
-              </Button>
-            )}
             <Button
               type="button"
               variant="secondary"
