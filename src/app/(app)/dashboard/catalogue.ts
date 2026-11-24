@@ -173,21 +173,15 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
-    /* Off the home page for everybody (23 Nov 2026, the product owner: "remove
-       these cards"). The widget and its rows stay, and it can come back by
-       putting a tier here; nothing else on the page says what is held up, so
-       payroll's own screens carry the approved-but-unpaid prompt. */
-    defaultFor: [],
+    defaultFor: RUNS_THE_COMPANY,
   },
   {
-    /* Staff only (23 Nov 2026). The owner and the administrators lost it with
-       Needs you, on request: it is the card that says "Nothing needs you
-       today" to the people running the company. For staff it is still the one
-       card about the person, and where a notice is read, a policy accepted and
-       a forgotten clock-out put right, and it sits above the clock card, which
-       the panel's own header badge stands in for (clock state, with a link);
-       move it behind `my-clock` with `leadFor` if the daily button should come
-       first.
+    /* Everybody, and in the first row for every tier: it is the one card that is
+       about the person and not about the company, and the one that answers "what
+       is true for me today" before they have to go and look. For staff it sits
+       above the clock card, which the panel's own header badge stands in for
+       (clock state, with a link); move it behind `my-clock` with `leadFor` if
+       the daily button should come first.
 
        `source: "local"` because it reads its own request (`GET /me/today`), which
        costs the dashboard nothing and fails alone: a failed panel is a card, not
@@ -199,7 +193,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     group: "attention",
     span: "half",
     source: "local",
-    defaultFor: ["staff"],
+    defaultFor: EVERYONE,
   },
   {
     id: "my-queue",
@@ -302,7 +296,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: [],
+    defaultFor: RUNS_THE_COMPANY,
   },
   {
     id: "money-owed",
@@ -313,7 +307,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: [],
+    defaultFor: ["owner"],
   },
   {
     id: "hiring",
@@ -337,7 +331,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "reports",
     anyPermission: SEES_COMPANY,
-    defaultFor: [],
+    defaultFor: ["owner"],
   },
   {
     id: "chart-joiners-leavers",
@@ -401,7 +395,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "reports",
     permission: "VIEW_SALARIES",
     feature: "departments",
-    defaultFor: [],
+    defaultFor: ["owner"],
   },
   {
     id: "chart-gross-breakdown",
@@ -486,11 +480,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "local",
     feature: "appraisals",
-    /* Off the home page (23 Nov 2026): a card that said "Nobody has been
-       appraised yet" and "No appraisal period is running" to a company that
-       was not appraising anybody. Starting and following a period is on the
-       Performance pages. */
-    defaultFor: [],
+    defaultFor: RUNS_THE_COMPANY,
   },
   {
     id: "assistant",
@@ -501,9 +491,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "full",
     slot: "foot",
     source: "local",
-    /* Off the home page (23 Nov 2026). The assistant is one tap away from the
-       orb on every page, so the card said the same thing twice. */
-    defaultFor: [],
+    defaultFor: EVERYONE,
   },
   {
     id: "quick-actions",
