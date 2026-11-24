@@ -33,6 +33,7 @@ export function WizardShell({
   error,
   hideNext = false,
   extra,
+  links,
   done,
 }: {
   open: boolean;
@@ -52,6 +53,12 @@ export function WizardShell({
   hideNext?: boolean;
   /** A second way on from the last screen, beside the main one ("Save as a draft"). */
   extra?: React.ReactNode;
+  /**
+   * Further actions as quiet text links below the buttons (`WizardLink`).
+   * A step has two buttons at most; anything more is a link, never a third
+   * button (owner, 24 Nov 2026).
+   */
+  links?: React.ReactNode;
   /**
    * What happened, in place of the questions, once the last one is answered.
    * The bar shows the whole way done and the X still closes; there is no other
@@ -159,6 +166,11 @@ export function WizardShell({
             )}
             {extra}
           </div>
+          {links && (
+            <div className="-mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+              {links}
+            </div>
+          )}
         </form>
       )}
     </div>,
@@ -187,6 +199,28 @@ export function BigChoice({
           ? "border-accent bg-accent-soft text-accent-text"
           : "border-line bg-surface text-ink hover:border-accent")
       }
+    >
+      {children}
+    </button>
+  );
+}
+
+/** A quiet text link-style action under a step's two buttons. */
+export function WizardLink({
+  onClick,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled ?? false}
+      className="cursor-pointer text-body-sm text-muted underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {children}
     </button>

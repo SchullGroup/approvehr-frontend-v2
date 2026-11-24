@@ -90,6 +90,7 @@ vi.mock("@/lib/store/employees-api", () => ({
   useEmployeeDirectory: () => ({ employees: [], people: PEOPLE }),
 }));
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   CATEGORY_ORDER: ["Core competency"],
   useFramework: () => ({
     competencies: COMPETENCIES,
@@ -230,9 +231,8 @@ describe("recording a written answer", () => {
     await openDialog();
     await pickPerson();
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(
-      inDialog().getByLabelText(/Current level/),
-      "4",
+    await userEvent.click(
+      inDialog().getByRole("radio", { name: /^Rating 4,/ }),
     );
     await save();
 

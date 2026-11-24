@@ -117,3 +117,9 @@ export { BubbleChart } from "./bubble-chart";
 export type { BubbleChartProps, BubblePoint } from "./bubble-chart";
 export { NextStep, GetReady, currentStep } from "./next-step";
 export type { StepAction, ReadyStep } from "./next-step";
+export {
+  RatingScale,
+  RatingLegend,
+  legendOf,
+  type ScaleLevel,
+} from "./rating-scale";

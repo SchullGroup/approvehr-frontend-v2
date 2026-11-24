@@ -60,6 +60,7 @@ const section = (over: Partial<ApiSection>): ApiSection => ({
 let sections: ApiSection[];
 
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   useFramework: () => ({
     competencies: [CORE, KRA, LEAD],
     groups: GROUPS,

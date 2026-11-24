@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Checkbox, Field, Textarea } from "@/components/ui";
+import {
+  Checkbox,
+  Field,
+  RatingLegend,
+  RatingScale,
+  Textarea,
+} from "@/components/ui";
 import { WizardShell } from "@/components/performance/wizard-shell";
 import { ratingWords } from "@/lib/api/performance";
 
@@ -17,6 +23,11 @@ import { ratingWords } from "@/lib/api/performance";
  * company weights Self-assessment. Each step is kept as you go, so it can be
  * left and resumed.
  */
+
+const LEVELS = [1, 2, 3, 4, 5].map((level) => ({
+  level,
+  label: ratingWords(level) ?? String(level),
+}));
 
 type Competency = { id: string; name: string; about: string };
 type Group = {
@@ -153,6 +164,7 @@ export function AppraisalPreview() {
 
       {group && (
         <div className="flex flex-col gap-5">
+          <RatingLegend levels={LEVELS} />
           <p className="text-body-sm text-muted">
             Rate yourself on each. Your manager rates you too and sees both side
             by side.
@@ -163,24 +175,14 @@ export function AppraisalPreview() {
                 {item.name}
               </legend>
               <p className="text-body-sm text-muted">{item.about}</p>
-              <div className="flex flex-wrap gap-2">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    aria-pressed={levels[item.id] === level}
-                    onClick={() => setLevels({ ...levels, [item.id]: level })}
-                    className={
-                      "rounded-full border px-4 py-2 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 " +
-                      (levels[item.id] === level
-                        ? "border-accent bg-accent-soft text-accent-text"
-                        : "border-line bg-surface text-ink hover:border-accent")
-                    }
-                  >
-                    {ratingWords(level)}
-                  </button>
-                ))}
-              </div>
+              <RatingScale
+                name={item.id}
+                label={item.name}
+                legend={false}
+                levels={LEVELS}
+                value={levels[item.id] ?? null}
+                onChange={(level) => setLevels({ ...levels, [item.id]: level })}
+              />
             </fieldset>
           ))}
         </div>

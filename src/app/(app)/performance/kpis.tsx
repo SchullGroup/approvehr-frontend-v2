@@ -36,7 +36,9 @@ import { NoticeLine } from "@/components/portal/notice-line";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
+  COMPANY_KEY,
   departmentCards,
+  departmentKeyOf,
   departmentName,
   goalsForDepartment,
   type DepartmentCard,
@@ -731,11 +733,11 @@ export function KpisTab({
               description="Nothing in this department is filed as an objective yet."
             />
           ) : (
-            /* A flat, even grid: no company objective pinned above it and no
-               grouping under one. Each card says whose it is, where it stands
-               and how far along. */
-            <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
-              {flat.map((goal) => (
+            /* A flat, even grid. An opened department is two sections: its
+               own objectives (level department) in larger cards, then its
+               members' under "Team members" (owner, 24 Nov 2026). */
+            (() => {
+              const card = (goal: ApiGoal) => (
                 <GoalCard
                   key={goal.id}
                   goal={goal}
@@ -756,8 +758,48 @@ export function KpisTab({
                   onRecord={recordMeasure}
                   onPlan={setPlanning}
                 />
-              ))}
-            </div>
+              );
+              const split = opened !== null && opened !== COMPANY_KEY;
+              if (!split) {
+                return (
+                  <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
+                    {flat.map(card)}
+                  </div>
+                );
+              }
+              const own = (goal: ApiGoal) =>
+                departmentKeyOf(goal, owners) === opened;
+              const departmentGoals = flat.filter(
+                (goal) => goal.level === "department" && own(goal),
+              );
+              const members = flat.filter(
+                (goal) => goal.level !== "department" && own(goal),
+              );
+              return (
+                <div className="flex flex-col gap-6">
+                  {departmentGoals.length > 0 && (
+                    <section className="flex flex-col gap-3">
+                      <h3 className="text-body-md font-semibold text-ink">
+                        Department objectives
+                      </h3>
+                      <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
+                        {departmentGoals.map(card)}
+                      </div>
+                    </section>
+                  )}
+                  {members.length > 0 && (
+                    <section className="flex flex-col gap-3">
+                      <h3 className="text-body-md font-semibold text-ink">
+                        Team members
+                      </h3>
+                      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {members.map(card)}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              );
+            })()
           )}
         </>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { FileField, RadioCard } from "@/components/ui";
+import { FileField, RadioCard, RatingScale } from "@/components/ui";
 import type { ApiFormQuestion, ApiRatingScale } from "@/lib/api/performance";
 import {
   AttachedEvidence,
@@ -31,6 +31,8 @@ export type PickOption = {
   /** What the option means, where it has a longer explanation. */
   meaning?: string;
   key: string;
+  /** Set on a rating: the list is then drawn as numbered buttons on one line. */
+  level?: number;
 };
 
 /** A, B, C… for the Nth option of a list. */
@@ -45,6 +47,7 @@ export function ratingOptions(scale: ApiRatingScale): PickOption[] {
       label: entry.label,
       ...(entry.meaning ? { meaning: entry.meaning } : {}),
       key: String(entry.level),
+      level: entry.level,
     }));
 }
 
@@ -81,6 +84,7 @@ function subsectionPickOptions(
           `${String(entry.level)} of ${String(subsection.scaleMax)}`,
         ...(entry.meaning ? { meaning: entry.meaning } : {}),
         key: entry.level <= 9 ? String(entry.level) : "",
+        level: entry.level,
       }));
     case "BOOLEAN":
       return yesNo();
@@ -166,6 +170,21 @@ export function PickList({
   onPick: (value: string) => void;
   columns?: 1 | 2;
 }) {
+  /* A rating is numbered buttons on one line with the names in a legend, the
+     same everywhere somebody grades (owner, 24 Nov 2026). */
+  if (options.length > 0 && options.every((o) => o.level !== undefined)) {
+    return (
+      <RatingScale
+        name={name}
+        levels={options.map((o) => ({
+          level: o.level as number,
+          label: o.label,
+        }))}
+        value={value === undefined ? null : Number(value)}
+        onChange={(level) => onPick(String(level))}
+      />
+    );
+  }
   return (
     <div
       role="radiogroup"
