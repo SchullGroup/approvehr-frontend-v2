@@ -342,16 +342,14 @@ export function StageEditor({
                           {
                             label: "Move up",
                             icon: <ArrowUp />,
-                            disabled: index === 0 || up !== null,
-                            ...(up ? { hint: up } : {}),
+                            available: index !== 0 && up === null,
                             onSelect: () => void onMove(s.id, -1),
                           },
                           {
                             label: "Move down",
                             icon: <ArrowDown />,
-                            disabled:
-                              index === ordered.length - 1 || down !== null,
-                            ...(down ? { hint: down } : {}),
+                            available:
+                              index !== ordered.length - 1 && down === null,
                             onSelect: () => void onMove(s.id, 1),
                           },
                           "separator",
@@ -359,8 +357,7 @@ export function StageEditor({
                             label: "Remove stage",
                             icon: <Trash2 />,
                             tone: "danger",
-                            disabled: stay !== null,
-                            ...(stay ? { hint: stay } : {}),
+                            available: stay === null,
                             onSelect: () => void onRemove(s),
                           },
                         ]}

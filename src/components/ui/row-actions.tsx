@@ -44,9 +44,9 @@ import { Button } from "./button";
  * - **An item is an act or a place.** `onSelect` for an act; `href` for a page,
  *   which renders a real link so it can still be opened in a new tab, and
  *   `external` for a plain anchor (mailto, tel, another origin).
- * - **A refused action is still listed**, dimmed, with `hint` saying why.
- *   Hiding "Remove" because a stage is occupied leaves somebody wondering where
- *   it went; saying so is the rule the icon buttons' `title` was following.
+ * - **An action that can only refuse is left out** (`available: false`). If the
+ *   reader might wonder where it went, the screen says so in one quiet line
+ *   beside the row, not in a dimmed menu item.
  * - **Closes before it acts**, and hands focus back to the trigger first, so a
  *   dialog the item opens records a real element to return to.
  * - Rendered in a portal and positioned from the trigger, so a table or a card
@@ -64,8 +64,9 @@ import { Button } from "./button";
  *
  * ## What it does not do
  *
- * It does not hide a permission. Hand it only the actions the reader may take;
- * an item the API would refuse is the dead control this product keeps recording.
+ * Hand it only the actions the reader may take, or mark the rest
+ * `available: false`; an item the API would refuse is the dead control this
+ * product keeps recording.
  * An empty list renders nothing at all, not an empty button. It has no nested
  * menus, no checkable items and no type-ahead — a row with that many choices
  * wants a drawer.
@@ -84,7 +85,17 @@ export type RowAction = {
   external?: boolean;
   /** `danger` is for the act that cannot easily be undone, and sits last. */
   tone?: "default" | "danger";
-  /** Listed but not offered. Say why in `hint`. */
+  /**
+   * `false` leaves the action out of the menu altogether: it can only refuse
+   * here (wrong state, no permission), and a control that can only refuse is
+   * absent, not greyed. The default is available.
+   */
+  available?: boolean;
+  /**
+   * Listed but not offered, for a *transient* state ("Saving…"). Never to hold
+   * a reason an action cannot be done: use `available: false` for that.
+   * `tests/no-reason-only-disabled-actions.test.ts` refuses `disabled` + `hint`.
+   */
   disabled?: boolean;
   /** One line under the label: why it is off, or what it will do. */
   hint?: string;
@@ -135,7 +146,16 @@ export function RowActions({
   /** Opened from a keyboard: the first choice takes focus. */
   const fromKeyboard = useRef(false);
 
-  const actions = items.filter(
+  /* Unavailable actions are dropped here, and a separator left at an edge or
+     doubled by the drop goes with them. */
+  const shown = items
+    .filter((item) => item === "separator" || item.available !== false)
+    .filter(
+      (item, index, all) =>
+        item !== "separator" ||
+        (index > 0 && index < all.length - 1 && all[index - 1] !== "separator"),
+    );
+  const actions = shown.filter(
     (item): item is RowAction => item !== "separator",
   );
 
@@ -339,7 +359,7 @@ export function RowActions({
             style={{ position: "fixed", left: 0, top: 0, visibility: "hidden" }}
             className="z-50 w-max min-w-52 max-w-[calc(100vw-1rem)] rounded-lg border border-line bg-surface p-1 shadow-lg focus:outline-none"
           >
-            {items.map((item, index) => {
+            {shown.map((item, index) => {
               if (item === "separator") {
                 return (
                   <div

@@ -505,19 +505,14 @@ function componentActions(
         ]
       : []),
     "separator" as const,
-    row.isSystem
-      ? {
-          label: "Archive",
-          icon: <Trash2 aria-hidden="true" className="size-4" />,
-          disabled: true,
-          hint: "Built in. Turn it off instead of removing it",
-        }
-      : {
-          label: "Archive",
-          icon: <Trash2 aria-hidden="true" className="size-4" />,
-          tone: "danger" as const,
-          onSelect: handlers.onArchive,
-        },
+    /* A built-in line cannot be archived; its row already says it is built in. */
+    {
+      label: "Archive",
+      icon: <Trash2 aria-hidden="true" className="size-4" />,
+      tone: "danger" as const,
+      available: !row.isSystem,
+      onSelect: handlers.onArchive,
+    },
   ];
 }
 

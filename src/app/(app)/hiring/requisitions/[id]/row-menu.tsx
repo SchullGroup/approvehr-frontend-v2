@@ -54,6 +54,8 @@ export type RowMenuItem = {
   href?: string;
   external?: boolean;
   tone?: "danger";
+  /** `false` leaves it out: it could only refuse here. The default is available. */
+  available?: boolean;
   disabled?: boolean;
   /** One line under the label: why it is off, or what it will do. */
   hint?: string;
@@ -245,84 +247,93 @@ export function RowMenu({
             "border border-line bg-surface p-1 shadow-lg focus:outline-none",
           )}
         >
-          {items.map((entry, index) => {
-            if (entry === "separator") {
-              return (
-                <div
-                  key={`sep-${String(index)}`}
-                  role="separator"
-                  className="my-1 h-px bg-line"
-                />
-              );
-            }
-            const tone =
-              entry.tone === "danger"
-                ? "text-danger-text hover:bg-danger-soft"
-                : "text-ink hover:bg-sunken";
-            const content = (
-              <>
-                {entry.icon && (
-                  <span
-                    aria-hidden="true"
-                    className="shrink-0 text-muted [&>svg]:size-4"
-                  >
-                    {entry.icon}
-                  </span>
-                )}
-                <span className="min-w-0">
-                  <span className="block">{entry.label}</span>
-                  {entry.hint && (
-                    <span className="block text-meta font-normal text-muted">
-                      {entry.hint}
+          {items
+            .filter(
+              (entry) => entry === "separator" || entry.available !== false,
+            )
+            .filter(
+              (entry, at, all) =>
+                entry !== "separator" ||
+                (at > 0 && at < all.length - 1 && all[at - 1] !== "separator"),
+            )
+            .map((entry, index) => {
+              if (entry === "separator") {
+                return (
+                  <div
+                    key={`sep-${String(index)}`}
+                    role="separator"
+                    className="my-1 h-px bg-line"
+                  />
+                );
+              }
+              const tone =
+                entry.tone === "danger"
+                  ? "text-danger-text hover:bg-danger-soft"
+                  : "text-ink hover:bg-sunken";
+              const content = (
+                <>
+                  {entry.icon && (
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 text-muted [&>svg]:size-4"
+                    >
+                      {entry.icon}
                     </span>
                   )}
-                </span>
-              </>
-            );
-            const common = cn(
-              ROW,
-              tone,
-              entry.disabled &&
-                "cursor-not-allowed opacity-60 hover:bg-transparent",
-            );
-
-            if (entry.href && !entry.disabled) {
-              return entry.external ? (
-                <a
-                  key={entry.label}
-                  role="menuitem"
-                  href={entry.href}
-                  className={common}
-                  onClick={() => setOpen(false)}
-                >
-                  {content}
-                </a>
-              ) : (
-                <Link
-                  key={entry.label}
-                  role="menuitem"
-                  href={entry.href}
-                  className={common}
-                  onClick={() => setOpen(false)}
-                >
-                  {content}
-                </Link>
+                  <span className="min-w-0">
+                    <span className="block">{entry.label}</span>
+                    {entry.hint && (
+                      <span className="block text-meta font-normal text-muted">
+                        {entry.hint}
+                      </span>
+                    )}
+                  </span>
+                </>
               );
-            }
+              const common = cn(
+                ROW,
+                tone,
+                entry.disabled &&
+                  "cursor-not-allowed opacity-60 hover:bg-transparent",
+              );
 
-            return (
-              <button
-                key={entry.label}
-                type="button"
-                role="menuitem"
-                aria-disabled={entry.disabled ? true : undefined}
-                className={common}
-                onClick={() => choose(entry)}
-              >
-                {content}
-              </button>
-            );
-          })}
+              if (entry.href && !entry.disabled) {
+                return entry.external ? (
+                  <a
+                    key={entry.label}
+                    role="menuitem"
+                    href={entry.href}
+                    className={common}
+                    onClick={() => setOpen(false)}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <Link
+                    key={entry.label}
+                    role="menuitem"
+                    href={entry.href}
+                    className={common}
+                    onClick={() => setOpen(false)}
+                  >
+                    {content}
+                  </Link>
+                );
+              }
+
+              return (
+                <button
+                  key={entry.label}
+                  type="button"
+                  role="menuitem"
+                  aria-disabled={entry.disabled ? true : undefined}
+                  className={common}
+                  onClick={() => choose(entry)}
+                >
+                  {content}
+                </button>
+              );
+            })}
         </div>
       )}
     </div>

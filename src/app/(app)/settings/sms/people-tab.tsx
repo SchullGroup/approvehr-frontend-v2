@@ -319,14 +319,12 @@ function Row({
             {
               label: "Record written consent",
               onSelect: onConsent,
-              disabled: !consent.allowed,
-              ...(consent.allowed ? {} : { hint: consent.why }),
+              available: consent.allowed,
             },
             {
               label: "Record opt-out",
               onSelect: onOptOut,
-              disabled: !stop.allowed,
-              ...(stop.allowed ? {} : { hint: stop.why }),
+              available: stop.allowed,
             },
           ]}
         />
