@@ -14140,3 +14140,17 @@ keeps period, level and owner and asks only aim and target; the review lists the
 saves drafts, one at a time and resumable. The Add multiple dialog and its tests are deleted. The wizard's last step and
 the To agree tab say who agrees (`agreesLine`, `AGREE_RULE`). Tests that pinned the old tiles, waiting line and group
 dropdown now assert their absence.
+
+---
+
+# The appraisal history page is cards, and the Work record tab is hidden
+
+Owner redesign, 24 Nov 2026. `/performance/history/[employeeId]` shows the name with job title and department, then one
+big card per period (newest first) with only the period, its stage and the score in words or "No score yet". Clicking a
+card opens a drawer with the score broken down: a ring for what the score is made of, bars per part, a self-versus-manager
+comparison where both exist, and a card per part ("Not scored" in plain text where nothing was recorded; never red). The
+frozen-weights note is behind an info icon. The four stat cards, the trend chart and the tab strip are gone.
+
+**The Work record tab is hidden, not deleted.** `WorkRecordPanel` stays in `components/performance/work-record.tsx` and
+returns when the owner says to pull the history from tasks and projects. The "appraisers' overall rating" line and the
+sign-off detail are no longer on this page; they are on the review page.
