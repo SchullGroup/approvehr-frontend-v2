@@ -171,6 +171,9 @@ export type ApiExit = {
   declinedReason: string | null;
   completedAt: string | null;
   createdAt: string;
+  /** The query this followed, as a note. HR only, and absent on a server a deploy behind. */
+  queryId?: string | null;
+  queryReference?: string | null;
   progress: ApiExitProgress;
   groups: ApiExitGroup[];
   interview: ApiExitInterview | null;
@@ -324,6 +327,8 @@ export type StartExitBody = {
   lastWorkingDay: string;
   /** When they told us. Defaults to today server-side. */
   noticeGivenOn?: string;
+  /** A note that this followed a query. The server refuses it for any exit that is not a termination. */
+  queryId?: string;
 };
 
 /**

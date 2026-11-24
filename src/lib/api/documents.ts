@@ -132,6 +132,11 @@ export type ApiDocumentRequest = {
   fulfilledAt: string | null;
   waivedAt: string | null;
   waivedReason: string | null;
+  /**
+   * The query this was asked under, as a note. Absent on a server a deploy behind. A staff screen
+   * links to it; the person's own page never mentions it.
+   */
+  queryId?: string | null;
 };
 
 /**

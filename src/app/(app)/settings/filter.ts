@@ -94,7 +94,14 @@ export const PAGE_WORDS: Readonly<Record<string, readonly string[]>> = {
     "bank details",
   ],
   "/settings/job-roles": ["job titles", "positions", "competencies"],
-  "/settings/queries": ["letters", "reply", "written"],
+  "/settings/queries": [
+    "letters",
+    "reply",
+    "written",
+    "templates",
+    "managers",
+    "draft",
+  ],
   "/settings/required-details": [
     "profile",
     "next of kin",
@@ -377,7 +384,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     href: "/settings/queries",
     title: "Queries",
     description:
-      "Whether queries are switched on, the usual time to reply, and whether the person who issued a query may decide it when nobody else can.",
+      "Whether queries are switched on, the usual time to reply, whether managers may draft, and the company's own letter templates.",
     group: "people",
   },
   {

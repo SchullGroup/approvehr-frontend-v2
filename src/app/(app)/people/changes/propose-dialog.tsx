@@ -13,6 +13,7 @@ import {
   useToast,
   type PickerOption,
 } from "@/components/ui";
+import { LinkedQueryField } from "@/components/queries/linked-query";
 import { ApiError } from "@/lib/api/client";
 import type {
   ApiFieldSnapshot,
@@ -106,6 +107,7 @@ export function ProposeChangeDialog({
   const [grossMonthly, setGrossMonthly] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [note, setNote] = useState("");
+  const [queryId, setQueryId] = useState("");
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -135,6 +137,10 @@ export function ProposeChangeDialog({
   }, [jobTitle, grossMonthly, departmentId]);
 
   const movesSomething = Object.keys(to).length > 0;
+  /* A query is never linked to a change of pay, whatever the change is called: pay as a penalty
+     needs counsel's advice first, so the server does not offer it and says so. Said here before
+     the press rather than after it, in the server's own sentence. */
+  const movesPay = to.grossMonthlyKobo !== undefined;
   const canSave =
     !saving &&
     !readOnly &&
@@ -146,7 +152,14 @@ export function ProposeChangeDialog({
     setSaving(true);
     setFailure(null);
     try {
-      await propose({ employeeId, kind, effectiveOn, to, note: note.trim() });
+      await propose({
+        employeeId,
+        kind,
+        effectiveOn,
+        to,
+        note: note.trim(),
+        ...(queryId !== "" && !movesPay ? { queryId } : {}),
+      });
       toast.push({
         tone: "success",
         title: `Proposed for ${chosen?.label ?? "them"}`,
@@ -292,6 +305,24 @@ export function ProposeChangeDialog({
             onChange={(e) => setNote(e.currentTarget.value)}
           />
         </Field>
+
+        {/* A note that this followed a query about the same person. Nothing for somebody who does
+            not work queries or when there is none to link; for a change of pay, the reason it is
+            not offered. */}
+        {movesPay ? (
+          employeeId !== "" && (
+            <p className="text-body-sm text-muted">
+              A query cannot be linked to a change of pay. Pay as a penalty
+              needs counsel&apos;s advice first, so it is not offered.
+            </p>
+          )
+        ) : (
+          <LinkedQueryField
+            subjectId={employeeId}
+            value={queryId}
+            onChange={setQueryId}
+          />
+        )}
 
         {!movesSomething && employeeId !== "" && (
           <Callout tone="warning" title="Nothing is being changed">

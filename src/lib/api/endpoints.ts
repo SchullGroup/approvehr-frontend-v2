@@ -860,6 +860,9 @@ export type ApiEmploymentChange = {
   note: string | null;
   fromValue: ApiFieldSnapshot | null;
   toValue: ApiFieldSnapshot | null;
+  /** The query this followed, as a note. Staff only, and absent on a server a deploy behind. */
+  queryId?: string | null;
+  queryReference?: string | null;
 };
 
 /** A row in the in-flight queue. Carries the person, so a list needs no join. */
@@ -885,6 +888,9 @@ export type ApiEmploymentChangeRow = {
   note: string | null;
   fromValue: ApiFieldSnapshot | null;
   toValue: ApiFieldSnapshot | null;
+  /** The query this followed, as a note. Staff only, and absent on a server a deploy behind. */
+  queryId?: string | null;
+  queryReference?: string | null;
 };
 
 export type ApiEmploymentChangeDetail = ApiEmploymentChangeRow & {
@@ -903,6 +909,8 @@ export type EmploymentChangeBody = {
   effectiveOn: string;
   to: ApiFieldSnapshot;
   note: string;
+  /** A note that this followed a query. The server refuses it for any change that moves pay. */
+  queryId?: string;
 };
 
 export type ProbationDecisionBody =
