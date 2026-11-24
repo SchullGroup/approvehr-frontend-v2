@@ -184,12 +184,9 @@ beforeEach(() => {
 });
 
 describe("the company's parts card", () => {
-  it("says the rule behind the info icon on the card's title", async () => {
+  it("says the rule in its one helper line", () => {
     view = twoParts(6000, 4000);
     mount();
-    await userEvent.click(
-      screen.getByRole("button", { name: "About the parts of the score" }),
-    );
     expect(screen.getByText(new RegExp(WEIGHTS_RULE))).toBeInTheDocument();
   });
 

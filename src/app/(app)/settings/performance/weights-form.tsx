@@ -419,8 +419,7 @@ function PartsPanel({
                       ) && <SavedWeightsNote moved={false} />}
                   </span>
                 }
-                info={`The score is the weighted average of these parts. ${WEIGHTS_RULE}`}
-                infoLabel="About the parts of the score"
+                description={WEIGHTS_RULE}
                 action={
                   <span className="flex flex-wrap items-center gap-3">
                     <Total totalBp={view.totalBp} />

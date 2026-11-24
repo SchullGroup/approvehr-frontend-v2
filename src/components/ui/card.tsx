@@ -48,7 +48,6 @@ export function CardHeader({
   action,
   mark,
   info,
-  infoLabel,
   className,
   level = 3,
 }: {
@@ -67,8 +66,6 @@ export function CardHeader({
    * heading, so the heading's name stays the title.
    */
   info?: string;
-  /** The icon's name, when `title` is not plain text to build one from. */
-  infoLabel?: string;
   className?: string;
   /** Keeps the document outline correct wherever the card is placed. */
   level?: 2 | 3 | 4;
@@ -106,8 +103,7 @@ export function CardHeader({
           {info && (
             <InfoTooltip
               label={
-                infoLabel ??
-                (typeof title === "string" ? `About ${title}` : "About this")
+                typeof title === "string" ? `About ${title}` : "About this"
               }
               text={info}
             />
