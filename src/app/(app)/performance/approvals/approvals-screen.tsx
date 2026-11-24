@@ -35,7 +35,6 @@ import {
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog, type ApprovalAct } from "../approval-dialogs";
 import { refusedSaid, sentBackSaid, type Said } from "../objective-copy";
-import { StartPeriodButton } from "../start-period";
 import { AgreedMoment, type Agreement } from "./agreed-moment";
 
 /**
@@ -155,11 +154,6 @@ export function ApprovalsScreen() {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Objectives to agree"
-        /* One of the three doors on the same dialog. Agreeing the objectives is
-           the step immediately before starting the period they belong to, so
-           this is one of the places somebody has the thought — and looking for
-           the button is what the product owner could not do. */
-        action={<StartPeriodButton withIcon />}
         meta={
           DEMO_ENABLED && approvals.source === "demo" ? (
             <Badge tone="warning" size="sm">

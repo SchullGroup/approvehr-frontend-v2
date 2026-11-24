@@ -7,7 +7,6 @@ import { useCan, useIsManager } from "@/lib/permissions";
 import { useHeadedDepartmentIds } from "@/lib/store/departments";
 import { SCOPE_LABEL, type KpiScope } from "@/lib/store/performance";
 import { KpisTab } from "../kpis";
-import { StartPeriodButton } from "../start-period";
 
 /**
  * KPIs, on its own route.
@@ -51,7 +50,6 @@ export function KpisScreen() {
             {SCOPE_LABEL[scope]}
           </Badge>
         }
-        action={<StartPeriodButton withIcon />}
       />
       <PageBody>
         <KpisTab scope={scope} scopes={scopes} onScopeChange={setChosenScope} />

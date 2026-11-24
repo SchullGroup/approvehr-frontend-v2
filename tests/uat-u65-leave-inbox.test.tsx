@@ -86,15 +86,14 @@ describe("an undecided card in the approvals inbox", () => {
     expect(screen.queryByRole("button", { name: /^Archive/ })).toBeNull();
   });
 
-  it("still has it for anything else", () => {
+  it("has no Archive on anything else either", () => {
     items.splice(0, items.length, item({}));
     render(
       <ToastProvider>
         <ApprovalInbox />
       </ToastProvider>,
     );
-    expect(
-      screen.getByRole("button", { name: /^Archive/ }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Archive/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "My archive" })).toBeNull();
   });
 });

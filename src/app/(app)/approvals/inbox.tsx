@@ -14,8 +14,6 @@ import {
   CalendarDays,
   Check,
   ClipboardList,
-  Archive,
-  ArchiveRestore,
   FileText,
   Receipt,
   Undo2,
@@ -174,18 +172,13 @@ function decidedCopy(
  * this screen.
  */
 export function ApprovalInbox() {
-  const [view, setView] = useState<"waiting" | "decided" | "sent" | "archive">(
-    "waiting",
-  );
+  const [view, setView] = useState<"waiting" | "decided" | "sent">("waiting");
   const [filters, setFilters] = useState<QueueFilters>(START_FILTERS);
   const [declining, setDeclining] = useState<QueueItem | null>(null);
   const [decidedOutcome, setDecidedOutcome] = useState<"approved" | "declined">(
     "approved",
   );
-  const queue = useApprovalQueue({
-    ...filters,
-    archived: view === "archive",
-  });
+  const queue = useApprovalQueue(filters);
   /* The filter changes the request, so `loading` goes true again; once the queue
      has answered, a later read replaces it rather than blanking the controls. */
   const answered = useHasAnswered(queue.loading);
@@ -279,28 +272,6 @@ export function ApprovalInbox() {
     }
   };
 
-  const archive = async (item: QueueItem, archived: boolean) => {
-    try {
-      await queue.setArchived(item, archived);
-      toast.push({
-        title: archived ? "Put away" : "Back in your inbox",
-        tone: "info",
-        detail: archived
-          ? `${item.title} is in My archive.`
-          : `${item.title} is waiting on you again.`,
-      });
-    } catch (failure) {
-      toast.push({
-        title: archived ? "Could not archive that" : "Could not restore that",
-        tone: "danger",
-        detail:
-          failure instanceof ApiError
-            ? failure.message
-            : "Something went wrong. Try again.",
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
       {/* Which source these decisions are being written to, stated rather than
@@ -330,7 +301,6 @@ export function ApprovalInbox() {
               ? [{ value: "decided" as const, label: "Decided" }]
               : []),
             { value: "sent", label: "Sent by you" },
-            { value: "archive", label: "My archive" },
           ]}
         />
         {(view !== "waiting" || canApprove) && view !== "sent" && (
@@ -356,39 +326,6 @@ export function ApprovalInbox() {
             ]}
           />
           <DecidedApprovalsList state={decidedList} outcome={decidedOutcome} />
-        </>
-      )}
-
-      {view === "archive" && (
-        <>
-          <p className="text-body-sm text-muted">
-            Approvals you put away for later. They are still waiting for a
-            decision, and putting one here changed nothing for anybody else.
-          </p>
-          {queue.items.length === 0 ? (
-            <Card>
-              <EmptyState
-                icon={<Archive aria-hidden="true" />}
-                title="Nothing in your archive"
-                description="Use Archive on an approval you are not ready to decide. It leaves your inbox and waits here."
-              />
-            </Card>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {queue.items.map((item) => (
-                <li key={item.id}>
-                  <ApprovalRow
-                    item={item}
-                    archived
-                    mayDecideLeave={mayDecideLeaveRows}
-                    onApprove={() => void decide(item, "approved")}
-                    onReject={() => setDeclining(item)}
-                    onArchive={() => void archive(item, false)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
         </>
       )}
 
@@ -424,7 +361,6 @@ export function ApprovalInbox() {
                       mayDecideLeave={mayDecideLeaveRows}
                       onApprove={() => void decide(item, "approved")}
                       onReject={() => setDeclining(item)}
-                      onArchive={() => void archive(item, true)}
                     />
                   </li>
                 ))}
@@ -828,20 +764,16 @@ function WithSourceLinks({ text }: { text: string }) {
 
 function ApprovalRow({
   item,
-  archived = false,
   mayDecideLeave: mayDecideThisLeave = true,
   onApprove,
   onReject,
-  onArchive,
 }: {
   item: QueueItem;
-  archived?: boolean;
   /** False when this reader holds no leave-approval permission at all, so the API would
    *  refuse any decision they made on a leave row. Read only for `leave`. */
   mayDecideLeave?: boolean;
   onApprove: () => void;
   onReject: () => void;
-  onArchive: () => void;
 }) {
   const ageing = item.waitingDays >= 5;
   /* A leave row routed to somebody whose role cannot decide leave. The card is shown to
@@ -960,15 +892,6 @@ function ApprovalRow({
               <X aria-hidden="true" className="size-3.5" />
               Decline
             </Button>
-            {/* Not on undecided leave (UAT 23 Nov, U65): archiving one took it
-                out of the inbox without telling the person who asked. */}
-            {(item.kind !== "leave" || archived) && (
-              <ArchiveButton
-                item={item}
-                archived={archived}
-                onClick={onArchive}
-              />
-            )}
           </div>
         ) : (
           <div className="flex w-full shrink-0 gap-2 sm:w-auto">
@@ -982,41 +905,10 @@ function ApprovalRow({
                 ? "Decide"
                 : `Open ${item.kindLabel.toLowerCase()}`}
             </ButtonLink>
-            {(item.kind !== "leave" || archived) && (
-              <ArchiveButton
-                item={item}
-                archived={archived}
-                onClick={onArchive}
-              />
-            )}
           </div>
         )}
       </CardBody>
     </Card>
-  );
-}
-
-/** Put away for later, or bring back. Personal, and never a decision. */
-function ArchiveButton({
-  item,
-  archived,
-  onClick,
-}: {
-  item: QueueItem;
-  archived: boolean;
-  onClick: () => void;
-}) {
-  const Icon = archived ? ArchiveRestore : Archive;
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      aria-label={`${archived ? "Restore" : "Archive"} ${item.title}`}
-    >
-      <Icon aria-hidden="true" className="size-3.5" />
-      {archived ? "Restore" : "Archive"}
-    </Button>
   );
 }
 

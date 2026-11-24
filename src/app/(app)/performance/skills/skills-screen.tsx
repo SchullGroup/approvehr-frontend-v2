@@ -7,7 +7,6 @@ import { useCan, useIsManager } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { SkillsTab } from "../skills";
 import { EditCompetenciesButton } from "./edit-competencies-button";
-import { StartPeriodButton } from "../start-period";
 import type { SkillsTabId } from "./tabs";
 
 /**
@@ -61,12 +60,7 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Competency ratings"
-        action={
-          <>
-            <EditCompetenciesButton />
-            <StartPeriodButton withIcon />
-          </>
-        }
+        action={<EditCompetenciesButton />}
       />
       <PageBody>
         <SkillsTab
