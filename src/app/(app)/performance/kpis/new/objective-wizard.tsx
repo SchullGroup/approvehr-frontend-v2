@@ -1330,10 +1330,6 @@ export function ObjectiveWizard({
               })}
             </p>
           )}
-          <p className="text-body-sm text-muted">
-            Nobody agrees their own. Once it is agreed the title, the period and
-            the target are fixed. Progress still moves.
-          </p>
           {reviewCycleId === "" && (
             <p className="text-body-sm text-warning-text">
               It is not in an appraisal period, so agreeing it counts towards
