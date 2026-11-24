@@ -163,39 +163,6 @@ const RUNS_THE_COMPANY: readonly RoleTier[] = ["owner", "admin", "custom"];
 export const WIDGETS: readonly WidgetSpec[] = [
   /* ------------------------------------------------------------- attention */
   {
-    id: "needs-you",
-    title: "Needs you",
-    blurb:
-      "Every held-up thing with the button that clears it: approvals waiting, records payroll would refuse, exits and starters part-done.",
-    group: "attention",
-    /* A card in the two-column grid, first in it. When the Today panel beside
-       it has nothing to say it takes the row; when this has nothing it does. */
-    span: "half",
-    source: "dashboard",
-    anyPermission: SEES_COMPANY,
-    defaultFor: RUNS_THE_COMPANY,
-  },
-  {
-    /* Everybody, and in the first row for every tier: it is the one card that is
-       about the person and not about the company, and the one that answers "what
-       is true for me today" before they have to go and look. For staff it sits
-       above the clock card, which the panel's own header badge stands in for
-       (clock state, with a link); move it behind `my-clock` with `leadFor` if
-       the daily button should come first.
-
-       `source: "local"` because it reads its own request (`GET /me/today`), which
-       costs the dashboard nothing and fails alone: a failed panel is a card, not
-       the screen. */
-    id: "today",
-    title: "Today",
-    blurb:
-      "What is true for you today: notices to read, policies to accept, when you are paid, what leave you have left, your next one-to-one, and whether you are clocked in.",
-    group: "attention",
-    span: "half",
-    source: "local",
-    defaultFor: EVERYONE,
-  },
-  {
     id: "my-queue",
     title: "Waiting on you",
     blurb: "How many decisions are sitting in your own approval queue.",
@@ -471,17 +438,6 @@ export const WIDGETS: readonly WidgetSpec[] = [
   },
 
   /* ----------------------------------------------------------------- tools */
-  {
-    id: "appraisals",
-    title: "Appraisals",
-    blurb:
-      "Where the current period has got to, self-reviews in, manager reviews in, scores final, signed off, and the button that starts one.",
-    group: "tools",
-    span: "half",
-    source: "local",
-    feature: "appraisals",
-    defaultFor: RUNS_THE_COMPANY,
-  },
   {
     id: "assistant",
     title: "Ask about your company",

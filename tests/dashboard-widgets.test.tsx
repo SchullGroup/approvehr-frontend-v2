@@ -224,16 +224,13 @@ describe("the catalogue and the components agree", () => {
     expect(widgetById("app-use")?.defaultFor).toEqual([]);
   });
 
-  it("opens the owner's home on what needs them, today, payroll, money owed, headcount and appraisals, with Start something", () => {
+  it("opens the owner's home on payroll, money owed and headcount, with Start something", () => {
     /* The home the owner asked to go back to on 24 Nov 2026 (Crafwell's view). */
     for (const id of [
-      "needs-you",
-      "today",
       "payroll-month",
       "money-owed",
       "chart-headcount-trend",
       "chart-payroll-by-department",
-      "appraisals",
       "quick-actions",
     ]) {
       expect(widgetById(id)?.defaultFor).toContain("owner");
@@ -249,9 +246,10 @@ describe("the catalogue and the components agree", () => {
     expect(widgetById("my-clock")?.leadFor).toContain("staff");
   });
 
-  it("gives the owner appraisals as a card rather than a header button", () => {
-    expect(widgetById("appraisals")?.defaultFor).toContain("owner");
-    expect(widgetById("appraisals")?.feature).toBe("appraisals");
+  it("has no Needs you, Today or Appraisals card: the home is being redesigned", () => {
+    for (const id of ["needs-you", "today", "appraisals"]) {
+      expect(widgetById(id)).toBeUndefined();
+    }
   });
 });
 

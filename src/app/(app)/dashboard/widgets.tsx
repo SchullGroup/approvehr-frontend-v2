@@ -32,10 +32,8 @@ import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { AnnouncementsPanel } from "./announcements-panel";
 import { AppUseCard } from "./app-use-card";
-import { TodayPanel } from "./today-panel";
 import { QuickActions } from "./quick-actions";
-import { AppraisalsCard } from "./appraisals-card";
-import { formatKobo, periodLabel } from "@/lib/api/payroll";
+import { formatKobo } from "@/lib/api/payroll";
 import {
   employmentTypeLabel,
   naira,
@@ -120,125 +118,6 @@ function ChartLoading({ title }: { title: string }) {
     </Panel>
   );
 }
-
-/* -------------------------------------------------------------- attention */
-
-const NeedsYou: WidgetComponent = ({ dashboard }) => {
-  const { headcount, approvals, exits, onboarding, payroll } = dashboard;
-  const canAddEmployee = useCan("EDIT_RECORDS");
-  /* Saying that the money went out is `APPROVE_PAYROLL`, the same permission
-     that approved the run, so the row is for the people who can act on it. */
-  const canApprovePayroll = useCan("APPROVE_PAYROLL");
-  if (!headcount || !approvals) return null;
-
-  /* Absent means no permission; zero means nothing held up. Both draw nothing,
-     and the check is presence-then-value so the code keeps them apart. */
-  const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
-  const onboardingHeldUp = onboarding ? onboarding.withMandatoryOutstanding : 0;
-  const nobodyOnPayroll = headcount.active === 0;
-  /* `APPROVED` is already "nobody has confirmed this was paid": a run only
-     reaches `PAID` through a completed payment batch, which is what recording a
-     bank payment completes. It is true of a company paying from the wallet as
-     much as one paying from its own bank (a wallet run is debited at approval
-     and stays `APPROVED` until its batch completes), so the row is worded for
-     both and does not need to know which this is. It reads the dashboard's own
-     block, which is this month's payroll only: an older run left unpaid is on
-     the payroll home, not here. */
-  const awaitingPayment =
-    canApprovePayroll &&
-    payroll !== null &&
-    payroll !== undefined &&
-    payroll.status === "APPROVED";
-
-  const anything =
-    approvals.waiting > 0 ||
-    headcount.incomplete > 0 ||
-    exitsHeldUp > 0 ||
-    onboardingHeldUp > 0 ||
-    (payroll !== null && payroll !== undefined && payroll.blockers > 0) ||
-    awaitingPayment ||
-    (nobodyOnPayroll && canAddEmployee);
-
-  /* "Needs you" promises every line on it is one click from being dealt with.
-     A card saying nothing needs you is furniture on the screen with the least
-     room for it. */
-  if (!anything) return null;
-
-  return (
-    <Card as="article">
-      <CardHeader title="Needs you" level={3} />
-      <CardBody>
-        <ul className="divide-y divide-line">
-          {nobodyOnPayroll && canAddEmployee && (
-            <Row
-              href="/people/new"
-              label="Nobody's on the payroll yet"
-              detail="Add your first person to start paying them"
-              action="Add employee"
-            />
-          )}
-          {approvals.waiting > 0 && (
-            <Row
-              href="/approvals"
-              label={`${String(approvals.waiting)} ${approvals.waiting === 1 ? "request" : "requests"} waiting for a decision`}
-              detail={
-                approvals.overdue > 0
-                  ? `${String(approvals.overdue)} past the deadline`
-                  : undefined
-              }
-              action="Open approvals"
-              urgent={approvals.overdue > 0}
-            />
-          )}
-          {/* The figure counts a missing pension PIN as well as a missing bank
-              account (U83), and only the second stops pay, so the row says what
-              it counts rather than "cannot be paid". The list it opens needs
-              EDIT_RECORDS; without it the row is a fact and no button. */}
-          {headcount.incomplete > 0 && (
-            <Row
-              href={canAddEmployee ? "/people/incomplete" : null}
-              label={`${String(headcount.incomplete)} ${headcount.incomplete === 1 ? "record" : "records"} missing a bank account or pension PIN`}
-              action="Fix records"
-              urgent
-            />
-          )}
-          {exits && exitsHeldUp > 0 && (
-            <Row
-              href="/people/offboarding"
-              label={`${String(exitsHeldUp)} ${exitsHeldUp === 1 ? "person is" : "people are"} leaving with things still outstanding`}
-              detail={`Equipment, access or final pay not signed off · ${String(exitsHeldUp)} of ${String(exits.open)} open ${exits.open === 1 ? "exit" : "exits"}`}
-              action="Open exits"
-            />
-          )}
-          {onboarding && onboardingHeldUp > 0 && (
-            <Row
-              href="/people/onboarding"
-              label={`${String(onboardingHeldUp)} ${onboardingHeldUp === 1 ? "starter has" : "starters have"} mandatory checklist items outstanding`}
-              detail={`${String(onboardingHeldUp)} of ${String(onboarding.open)} active ${onboarding.open === 1 ? "starter" : "starters"} not yet complete`}
-              action="Open onboarding"
-            />
-          )}
-          {payroll && payroll.blockers > 0 && (
-            <Row
-              href="/payroll"
-              label={`${payroll.period} payroll has ${String(payroll.blockers)} ${payroll.blockers === 1 ? "problem" : "problems"} to fix`}
-              detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
-              action="Open payroll"
-              urgent
-            />
-          )}
-          {awaitingPayment && (
-            <Row
-              href={`/payroll/runs/new?period=${payroll.period}&step=approve`}
-              label={`${periodLabel(payroll.period)} payroll is approved, waiting for payment to go out`}
-              action="Open the payment"
-            />
-          )}
-        </ul>
-      </CardBody>
-    </Card>
-  );
-};
 
 const MyQueue: WidgetComponent = ({ dashboard }) => {
   const me = dashboard.me;
@@ -800,14 +679,8 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
 
 const MyClock: WidgetComponent = () => <MyClockCard hero />;
 
-/* Both read their own request, so neither takes the dashboard's payload. See
-   `TodayPanel` and `AppUseCard`: each draws nothing when it has nothing to say. */
-const Today: WidgetComponent = () => <TodayPanel />;
 const AppUse: WidgetComponent = () => <AppUseCard />;
 
-/* ------------------------------------------------------------------ tools */
-
-const Appraisals: WidgetComponent = () => <AppraisalsCard />;
 const Assistant: WidgetComponent = () => <AskPanel />;
 const Actions: WidgetComponent = () => <QuickActions />;
 const Noticeboard: WidgetComponent = ({ dashboard }) => (
@@ -825,8 +698,6 @@ const Noticeboard: WidgetComponent = ({ dashboard }) => (
  * either nothing or a card nobody can remove.
  */
 export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
-  "needs-you": NeedsYou,
-  today: Today,
   "my-queue": MyQueue,
   "stat-headcount": StatHeadcount,
   "stat-approvals": StatApprovals,
@@ -849,43 +720,10 @@ export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "my-pay": MyPay,
   "my-leave": MyLeave,
   "my-clock": MyClock,
-  appraisals: Appraisals,
   assistant: Assistant,
   "quick-actions": Actions,
   noticeboard: Noticeboard,
 };
-
-/* ------------------------------------------------------------------ pieces */
-
-function Row({
-  href,
-  label,
-  action,
-}: {
-  /** `null` when the reader cannot open where it leads: a fact, no button. */
-  href: string | null;
-  label: string;
-  detail?: string;
-  action: string;
-  urgent?: boolean;
-}) {
-  /* A list with dividers, as the Today panel beside it is, rather than a stack
-     of bordered boxes: two cards that are both lists of "a thing and the button
-     for it" should read as the same kind of list. The label may take two lines
-     and no more; the button keeps its place at the end. */
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3">
-      <p className="min-w-40 flex-1 text-body-sm font-medium text-ink">
-        {label}
-      </p>
-      {href && (
-        <ButtonLink href={href} variant="secondary" size="sm">
-          {action}
-        </ButtonLink>
-      )}
-    </li>
-  );
-}
 
 /**
  * A single figure, as a link to the screen it came from.
