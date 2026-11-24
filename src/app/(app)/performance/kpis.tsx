@@ -737,11 +737,12 @@ export function KpisTab({
                own objectives (level department) in larger cards, then its
                members' under "Team members" (owner, 24 Nov 2026). */
             (() => {
-              const card = (goal: ApiGoal) => (
+              const card = (goal: ApiGoal, emphasis = false) => (
                 <GoalCard
                   key={goal.id}
                   goal={goal}
                   depth={0}
+                  emphasis={emphasis}
                   editable={mutations.editable}
                   actingId={actingId}
                   canPlan={canPlan}
@@ -763,7 +764,7 @@ export function KpisTab({
               if (!split) {
                 return (
                   <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
-                    {flat.map(card)}
+                    {flat.map((goal) => card(goal))}
                   </div>
                 );
               }
@@ -783,7 +784,7 @@ export function KpisTab({
                         Department objectives
                       </h3>
                       <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
-                        {departmentGoals.map(card)}
+                        {departmentGoals.map((goal) => card(goal, true))}
                       </div>
                     </section>
                   )}
@@ -793,7 +794,7 @@ export function KpisTab({
                         Team members
                       </h3>
                       <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {members.map(card)}
+                        {members.map((goal) => card(goal))}
                       </div>
                     </section>
                   )}
@@ -1011,12 +1012,12 @@ export function DepartmentGrid({
   hrefOf: (key: string) => string;
 }) {
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => (
         <li key={card.key} className="min-w-0">
           <Link
             href={hrefOf(card.key)}
-            className="flex min-h-28 flex-col gap-2 rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+            className="flex h-full min-h-32 flex-col gap-2 rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
           >
             <span className="text-body-lg font-semibold text-ink">
               {card.name}
@@ -1029,13 +1030,15 @@ export function DepartmentGrid({
                     ? "1 objective"
                     : `${String(card.count)} objectives`}
               </span>
-              {card.attention > 0 && (
-                <span className="text-meta text-muted">
-                  {card.attention === 1
+              {/* The line's room is kept when there is nothing to say, so
+                  every card is the same height. */}
+              <span className="min-h-5 text-meta text-muted">
+                {card.attention === 0
+                  ? ""
+                  : card.attention === 1
                     ? "1 needs attention"
                     : `${String(card.attention)} need attention`}
-                </span>
-              )}
+              </span>
             </span>
           </Link>
         </li>
@@ -1191,9 +1194,12 @@ export function GoalCard({
   onReopen,
   onRecord,
   onPlan,
+  emphasis = false,
 }: {
   goal: ApiGoal;
   depth: number;
+  /** A department's own objective: larger text and more room (owner, 24 Nov 2026). */
+  emphasis?: boolean;
   editable: boolean;
   /** Signed-in person's own employee id — decides who may log a task. */
   actingId: string | null;
@@ -1256,7 +1262,11 @@ export function GoalCard({
           type="button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
-          className="flex w-full flex-col gap-2.5 rounded-lg p-3.5 text-left transition-colors hover:border-accent-line hover:bg-sunken/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+          className={cn(
+            "flex w-full flex-col rounded-lg text-left transition-colors hover:border-accent-line hover:bg-sunken/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+            emphasis ? "gap-3.5 p-5" : "gap-2.5 p-3.5",
+          )}
+          data-emphasis={emphasis ? "true" : undefined}
         >
           <div className="flex w-full items-start justify-between gap-3">
             <div className="flex min-w-0 gap-2.5">
@@ -1266,7 +1276,12 @@ export function GoalCard({
                   className="mt-0.5 size-4 shrink-0 text-faint"
                 />
               )}
-              <p className="min-w-0 text-body-sm font-medium text-ink">
+              <p
+                className={cn(
+                  "min-w-0 font-medium text-ink",
+                  emphasis ? "text-h4" : "text-body-sm",
+                )}
+              >
                 {goal.title}
               </p>
             </div>
@@ -1281,7 +1296,12 @@ export function GoalCard({
               </span>
             ) : (
               <span className="shrink-0 text-right">
-                <span className="tabular block text-body-sm font-medium text-ink">
+                <span
+                  className={cn(
+                    "tabular block font-medium text-ink",
+                    emphasis ? "text-body-lg" : "text-body-sm",
+                  )}
+                >
                   {progress}%
                 </span>
                 {reads && (
@@ -1293,7 +1313,12 @@ export function GoalCard({
             )}
           </div>
 
-          <div className="flex w-full flex-wrap items-center justify-between gap-2 text-meta text-muted">
+          <div
+            className={cn(
+              "flex w-full flex-wrap items-center justify-between gap-2 text-muted",
+              emphasis ? "text-body-sm" : "text-meta",
+            )}
+          >
             <span className="flex min-w-0 items-center gap-1.5">
               {goal.companyWide ? (
                 <span>Everyone</span>

@@ -352,6 +352,32 @@ describe("Whole company", () => {
     expect(screen.getByRole("heading", { name: "Team members" })).toBeVisible();
   });
 
+  it("makes every department card the same size, keeping the attention line's room", () => {
+    mount();
+    const grid = screen
+      .getByRole("link", { name: /Finance/ })
+      .closest("ul") as HTMLElement;
+    expect(grid.className).toMatch(/auto-rows-fr/);
+    for (const link of within(grid).getAllByRole("link")) {
+      expect(link.className).toMatch(/\bh-full\b/);
+      expect(link.className).toMatch(/min-h-32/);
+      /* The same number of lines on every card, empty or not. */
+      expect(link.querySelectorAll(".min-h-5")).toHaveLength(1);
+    }
+  });
+
+  it("gives a department's own objectives larger text and more room than a member's", () => {
+    mount({ department: "fin" });
+    const own = screen.getByText("Close the books in five days");
+    const member = screen.getByText("Reconcile the bank daily");
+    expect(own.className).toMatch(/text-h4/);
+    expect(member.className).toMatch(/text-body-sm/);
+    const pad = (node: HTMLElement) =>
+      (node.closest("button") as HTMLElement).className;
+    expect(pad(own)).toMatch(/\bp-5\b/);
+    expect(pad(member)).toMatch(/p-3\.5/);
+  });
+
   it("always has Whole company first, even with nothing on it", () => {
     const none = departmentCards(
       GOALS.filter((g) => g.level !== "company"),
