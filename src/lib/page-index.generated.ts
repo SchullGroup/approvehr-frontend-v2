@@ -319,7 +319,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/performance/appraisers",
     "title": "Who appraises whom",
-    "description": "Who appraises whom in this period, and how much each appraiser's view counts."
+    "description": "Who appraises whom: everybody's line manager by default, and the exceptions period by period."
   },
   {
     "href": "/performance/approvals",
@@ -355,11 +355,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "href": "/performance/periods/new",
     "title": "Draft a period",
     "description": "Describe an appraisal period in a sentence or two and edit the goals and questions that come back. Nothing is created until the last screen."
-  },
-  {
-    "href": "/performance/review-tasks",
-    "title": "Weekly tasks",
-    "description": "Log what you did toward your objectives, and grade what your team did."
   },
   {
     "href": "/performance/skills",
