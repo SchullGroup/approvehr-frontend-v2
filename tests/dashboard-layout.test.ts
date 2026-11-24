@@ -87,14 +87,16 @@ describe.each(TIERS)("the dashboard for %s", (tier) => {
 });
 
 describe("what moved off the page", () => {
-  it("shows the quick actions as a card in the body, not the header", () => {
-    const ctx = context(EVERYTHING);
-    const chosen = resolveLayout(defaultLayout("owner", ctx), ctx);
-    const rows = dashboardSections(chosen, "owner");
-    expect(rows.flatMap((row) => row.widgets.map((w) => w.id))).toContain(
-      "quick-actions",
-    );
-    expect(WIDGETS.find((w) => w.id === "quick-actions")?.slot).toBeUndefined();
+  it("keeps the Start-something menu in the header and out of every row", () => {
+    for (const tier of TIERS) {
+      const ctx = context(EVERYTHING);
+      const chosen = resolveLayout(defaultLayout(tier, ctx), ctx);
+      const rows = dashboardSections(chosen, tier);
+      expect(rows.flatMap((row) => row.widgets.map((w) => w.id))).not.toContain(
+        "quick-actions",
+      );
+    }
+    expect(WIDGETS.find((w) => w.id === "quick-actions")?.slot).toBe("header");
   });
 
   it("closes the noticeboard at the foot, after every card", () => {

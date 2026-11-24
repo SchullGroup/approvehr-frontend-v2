@@ -227,7 +227,6 @@ describe("the catalogue and the components agree", () => {
       "payroll-month",
       "who-is-in",
       "attendance-by-day",
-      "chart-headcount-by-department",
       "money-owed",
       "quick-actions",
     ]) {

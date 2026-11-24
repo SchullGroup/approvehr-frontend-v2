@@ -104,11 +104,11 @@
      complement (ochre) and a slate. Each clears 3:1 against the canvas, which
      `scripts/verify-contrast.ts` checks. */
   --color-cat-1: #2b3990;
-  --color-cat-2: #5f73c7;
-  --color-cat-3: #3d8798;
-  --color-cat-4: #a67c2b;
-  --color-cat-5: #7a6bb8;
-  --color-cat-6: #5d6b8a;
+  --color-cat-2: #6577cf;
+  --color-cat-3: #3f4fa8;
+  --color-cat-4: #9aa7e3;
+  --color-cat-5: #5a52b0;
+  --color-cat-6: #c3caef;
 
   /* ---- Wellness accents. Scoped to the Wellness area, never status. --- */
   /* Wellness is the one place the product is allowed to be playful, so it gets
@@ -367,10 +367,10 @@
 
   --color-cat-1: #8c99ee;
   --color-cat-2: #6f86d6;
-  --color-cat-3: #6fb3c4;
-  --color-cat-4: #d1ad66;
-  --color-cat-5: #a99be0;
-  --color-cat-6: #8e9bbb;
+  --color-cat-3: #a9b4f2;
+  --color-cat-4: #5a6cc4;
+  --color-cat-5: #c4cbf7;
+  --color-cat-6: #7f78d0;
 
   --color-well-green-soft: #112a1b;
   --color-well-green-text: #7be29c;

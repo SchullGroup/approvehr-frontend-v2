@@ -339,7 +339,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "reports",
     anyPermission: SEES_COMPANY,
     feature: "departments",
-    defaultFor: ["owner", "admin", "custom"],
+    defaultFor: [],
   },
   {
     id: "chart-employment-types",
@@ -473,9 +473,10 @@ export const WIDGETS: readonly WidgetSpec[] = [
     id: "quick-actions",
     title: "Things to start",
     blurb:
-      "The handful of acts people begin from this screen, filtered to what you can do, as coloured tiles.",
+      "The handful of acts people begin from this screen, filtered to what you can do, A menu in the page header.",
     group: "tools",
     span: "full",
+    slot: "header",
     source: "local",
     defaultFor: ["owner", "admin", "custom"],
   },

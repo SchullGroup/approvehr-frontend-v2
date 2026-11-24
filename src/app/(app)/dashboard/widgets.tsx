@@ -34,7 +34,7 @@ import { AppUseCard } from "./app-use-card";
 import { DepartmentCard } from "@/components/ui/department-card";
 import { AttendanceByDay } from "./attendance-by-day";
 import { MyObjectivesCard } from "./my-objectives-card";
-import { QuickActionTiles } from "./quick-actions";
+import { QuickActions } from "./quick-actions";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { formatKobo } from "@/lib/api/payroll";
@@ -704,11 +704,7 @@ const MyClock: WidgetComponent = () => <MyClockCard hero />;
 const AppUse: WidgetComponent = () => <AppUseCard />;
 
 const Assistant: WidgetComponent = () => <AskPanel />;
-const Actions: WidgetComponent = () => (
-  <Panel title="Quick actions">
-    <QuickActionTiles />
-  </Panel>
-);
+const Actions: WidgetComponent = () => <QuickActions />;
 const AttendanceByDayWidget: WidgetComponent = () => <AttendanceByDay />;
 const MyObjectives: WidgetComponent = () => <MyObjectivesCard />;
 const Noticeboard: WidgetComponent = ({ dashboard }) => (
