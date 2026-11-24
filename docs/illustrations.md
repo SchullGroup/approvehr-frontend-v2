@@ -94,14 +94,14 @@ Shown on `/design-system`.
 Every piece of art follows the theme. Nothing draws a light box, a white card or a daylight-bright gradient on a dark
 page.
 
-| Art                                  | Light theme                                    | Dark theme                                                                          |
-| ------------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Open Peeps figures (`Illustration`)  | white fill, black line                         | fill `accent-soft`, line `accent-text`, from `peeps/dark/`                          |
-| Wellness scenes (`SceneImage`)       | black line and pink on the `well-sticker` tile | line `accent-text`, pink `well-pink-text`, on `well-peri-soft`, from `scenes/dark/` |
-| Wellness mascots (`WellnessArt`)     | bright `well-*` fills, fixed `well-ink` faces  | the same: built to read on both grounds                                             |
-| Blue hero gradient (`HeroBackdrop`)  | `hero-from` #1c2872 to `hero-to` #4059d3       | a step deeper: #131b4f to #2c3d98                                                   |
-| Sign-in panel mockups (`AuthVisual`) | white cards, slate ink                         | `surface` cards, `ink` text, `warning-soft` pill (`.ahr-mockups-follow-theme`)      |
-| Offline page (`/offline`)            | its own light colours                          | its own dark colours, now that it runs the theme script itself                      |
+| Art                                  | Light theme                                    | Dark theme                                                                                 |
+| ------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Open Peeps figures (`Illustration`)  | white fill, black line                         | fill `accent-soft`, line `accent-text`, from `peeps/dark/`                                 |
+| Wellness scenes (`SceneImage`)       | black line and pink on the `well-sticker` tile | line `accent-text`, pink `well-pink-text`, on `well-peri-soft`, from `scenes/dark/`        |
+| Wellness mascots (`WellnessArt`)     | bright `well-*` fills, fixed `well-ink` faces  | the same: built to read on both grounds                                                    |
+| Blue hero gradient (`HeroBackdrop`)  | `hero-from` #1c2872 to `hero-to` #4059d3       | a step deeper: #131b4f to #2c3d98                                                          |
+| Sign-in panel mockups (`AuthVisual`) | white cards, slate ink                         | `surface` cards, `ink` text, `warning-soft` pill (set on the wrapper in `auth-visual.tsx`) |
+| Offline page (`/offline`)            | its own light colours                          | its own dark colours, now that it runs the theme script itself                             |
 
 The dark copies of the line art are files, not filters: `scripts/dark-art.ts` (`npm run art:dark`) writes
 `public/illustrations/peeps/dark/` and `public/wellness/scenes/dark/` from the light files, reading the colours out of the

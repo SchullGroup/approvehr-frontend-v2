@@ -160,13 +160,20 @@ describe("the offline page", () => {
 describe("the sign-in panel's product cards", () => {
   it("take the dark theme's surfaces instead of staying white", () => {
     const { container } = render(<AuthVisual />);
-    expect(container.querySelector(".ahr-mockups-follow-theme")).not.toBeNull();
-    const rule =
-      /:root\[data-theme="dark"\] \.ahr-mockups-follow-theme \{([^}]*)\}/.exec(
-        css,
-      )?.[1];
-    expect(rule).toContain("--color-white: var(--color-surface)");
-    expect(rule).toContain("--color-slate: var(--color-ink)");
+    const wrapper = container.querySelector(
+      '[class*="--color-white:var(--color-surface)"]',
+    );
+    expect(wrapper?.className).toContain(
+      "[[data-theme=dark]_&]:[--color-white:var(--color-surface)]",
+    );
+    expect(wrapper?.className).toContain(
+      "[[data-theme=dark]_&]:[--color-slate:var(--color-ink)]",
+    );
+    expect(wrapper?.className).toContain(
+      "[[data-theme=dark]_&]:[--color-wash-amber:var(--color-warning-soft)]",
+    );
+    // Both product cards are inside it.
+    expect(wrapper?.children.length).toBe(2);
   });
 
   it("glow darker at the top in the dark theme, not lighter", () => {

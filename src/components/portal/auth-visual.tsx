@@ -33,6 +33,13 @@ import {
  * before picking them, since not every mockup in that file does (a couple
  * gate a field's entire width behind `group-hover` and show nothing at rest).
  */
+const DARK_MOCKUPS = [
+  "relative mt-12 flex flex-col gap-4 px-14",
+  "[[data-theme=dark]_&]:[--color-white:var(--color-surface)]",
+  "[[data-theme=dark]_&]:[--color-slate:var(--color-ink)]",
+  "[[data-theme=dark]_&]:[--color-wash-amber:var(--color-warning-soft)]",
+].join(" ");
+
 export function AuthVisual() {
   return (
     <div
@@ -103,9 +110,14 @@ export function AuthVisual() {
           checking what sits inside the region where they cross, and this is
           the second time that distinction mattered. A plain gap has nothing
           to get wrong. */}
-      {/* `ahr-mockups-follow-theme`: in the dark theme the cards take the dark
-          surfaces (globals.css), so they are not two white boxes on a dark screen. */}
-      <div className="ahr-mockups-follow-theme relative mt-12 flex flex-col gap-4 px-14">
+      {/* The mockups are drawn in the marketing palette: white cards and
+          near-black slate ink. In the dark theme those were two white boxes
+          beside a dark form, so the dark theme lends this wrapper its own
+          surface, ink and amber wash. The utilities read these through the
+          variables, so nothing in the mockups changes. Set here rather than in
+          globals.css on purpose: a `--color-white` there would make `text-white`
+          count as a colour token everywhere (verify-typescale reads that file). */}
+      <div className={DARK_MOCKUPS}>
         <PipelineMockup className="w-[27rem] shrink-0 self-start rotate-2 shadow-2xl" />
         <PayrollCardMockup className="ml-14 w-96 shrink-0 self-start shadow-2xl" />
       </div>
