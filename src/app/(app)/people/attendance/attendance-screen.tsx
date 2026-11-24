@@ -9,6 +9,7 @@ import {
   Badge,
   ButtonLink,
   Card,
+  Button,
   CardBody,
   CardHeader,
   SegmentedControl,
@@ -466,6 +467,13 @@ function TodayView({
   const unexplained = absent.filter((row) => !offToday(row)).length;
   const restDays = absent.length - unexplained;
 
+  /* Nobody in yet is the ordinary start of a day, not 64 rows of the same
+     words. The count above already says it; the list is one press away. */
+  const nobodyIn =
+    roster.rows.length > 0 && roster.rows.every((row) => !row.clockIn);
+  const [showList, setShowList] = useState(false);
+  const collapsed = nobodyIn && !showList;
+
   return (
     <>
       <StatGrid>
@@ -512,7 +520,23 @@ function TodayView({
             actions. Five columns of that is unreadable under 375px, so below
             `sm` this becomes a card per person instead. `RosterStatusDetails`
             is the one copy of what those lines say, read by both. */}
-        <div className="hidden sm:block">
+        {collapsed && (
+          <CardBody>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-body-sm text-muted">
+                {`${roster.rows.length} not clocked in yet.`}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowList(true)}
+              >
+                Show the list
+              </Button>
+            </div>
+          </CardBody>
+        )}
+        <div className={collapsed ? "hidden" : "hidden sm:block"}>
           <TableWrap className="rounded-none border-0">
             <THead>
               <TH>Employee</TH>
@@ -580,7 +604,7 @@ function TodayView({
           </TableWrap>
         </div>
 
-        <ul className="divide-y divide-line sm:hidden">
+        <ul className={collapsed ? "hidden" : "divide-y divide-line sm:hidden"}>
           {roster.rows.map((row) => {
             const shift = rota.shiftOn(row.employeeId, roster.date);
             const off = offToday(row);
