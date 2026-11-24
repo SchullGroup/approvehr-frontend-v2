@@ -30,7 +30,7 @@ import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
 import { useAssistantAvailable } from "@/lib/store/ai";
-import { useCycleMutations } from "@/lib/store/performance";
+import { useAppraisals, useCycleMutations } from "@/lib/store/performance";
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
 
@@ -57,7 +57,7 @@ import { todayIn } from "@/lib/time";
  * a person.
  */
 
-const STEPS = 5;
+const STEPS = 6;
 
 export function StartPeriodDialog({
   open,
@@ -67,9 +67,22 @@ export function StartPeriodDialog({
   open: boolean;
   onClose: () => void;
   /** The new period. The caller decides what to show next. */
-  onCreated: (period: { id: string; name: string }) => void;
+  onCreated: (period: {
+    id: string;
+    name: string;
+    /** Where to go next: the questions wizard, or the period itself once its questions are in. */
+    next: "questions" | "period";
+  }) => void;
 }) {
   const periods = useCycleMutations();
+  const appraisals = useAppraisals();
+  /* The latest earlier period that already has questions, to offer as a start. */
+  const earlier =
+    appraisals.cycles.find((one) => one.questionCount > 0) ?? null;
+  const [source, setSource] = useState<"earlier" | "standard" | "write" | null>(
+    null,
+  );
+  const questionsFrom = source ?? (earlier ? "earlier" : "write");
   const assistant = useAssistantAvailable();
   const departments = useDepartments();
 
@@ -126,7 +139,22 @@ export function StartPeriodDialog({
           ...(managersAdd ? { managersCanAddQuestions: true } : {}),
         },
       );
-      onCreated({ id: created.id, name: created.name });
+      /* Questions chosen in the wizard go in now, so the person is not left to
+         find the next step. A failure here does not undo the period: it opens on
+         its questions, where they can be added by hand. */
+      let next: "questions" | "period" = "questions";
+      try {
+        if (questionsFrom === "earlier" && earlier) {
+          await periods.copyQuestions(created.id, earlier.id);
+          next = "period";
+        } else if (questionsFrom === "standard") {
+          await periods.addStandardQuestions(created.id);
+          next = "period";
+        }
+      } catch {
+        next = "period";
+      }
+      onCreated({ id: created.id, name: created.name, next });
     } catch (caught) {
       setError(actionMessage(caught, "the period"));
     } finally {
@@ -146,6 +174,7 @@ export function StartPeriodDialog({
     "Is this for the whole company?",
     "Remind people who haven't finished?",
     "Can managers add their own questions?",
+    "What should people be asked?",
   ];
 
   return (
@@ -347,6 +376,31 @@ export function StartPeriodDialog({
           </BigChoice>
         </div>
       )}
+
+      {step === 5 && (
+        <div className="flex flex-col gap-3">
+          {earlier && (
+            <BigChoice
+              selected={questionsFrom === "earlier"}
+              onClick={() => setSource("earlier")}
+            >
+              Use the questions from {earlier.name}
+            </BigChoice>
+          )}
+          <BigChoice
+            selected={questionsFrom === "standard"}
+            onClick={() => setSource("standard")}
+          >
+            Use our standard questions
+          </BigChoice>
+          <BigChoice
+            selected={questionsFrom === "write"}
+            onClick={() => setSource("write")}
+          >
+            Write them next
+          </BigChoice>
+        </div>
+      )}
     </WizardShell>
   );
 }
@@ -416,9 +470,13 @@ export function StartPeriodButton({
           onClose={() => setOpen(false)}
           onCreated={(period) => {
             setOpen(false);
-            /* The wizard goes on: the usual questions are already in, and
-               the next screens check them group by group. */
-            router.push(`/performance/periods/${period.id}/questions`);
+            /* The wizard goes on: to the questions when they still need
+               writing, to the period once they are in. */
+            router.push(
+              period.next === "questions"
+                ? `/performance/periods/${period.id}/questions`
+                : `/performance/periods/${period.id}`,
+            );
           }}
         />
       )}
