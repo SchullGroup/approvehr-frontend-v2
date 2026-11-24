@@ -1100,12 +1100,15 @@ export function QuestionsPanel({
             title={draft ? "No questions yet" : "No questions in this period"}
           />
         )}
-        {rated.length > 0 && (
+        {extra.length > 0 && (
           <Card>
-            <CardHeader title="Rated" />
-            <CardBody>
+            <CardHeader title="Questions" />
+            <CardBody className="flex flex-col gap-3">
+              <p className="text-meta text-muted">
+                Read by managers. Not part of the score.
+              </p>
               <ul className="flex flex-col gap-2">
-                {rated.map((q) => (
+                {extra.map((q) => (
                   <li
                     key={q.id}
                     className="flex items-center justify-between gap-3 rounded-md border border-line p-3 text-body-sm text-ink"
@@ -1120,15 +1123,12 @@ export function QuestionsPanel({
             </CardBody>
           </Card>
         )}
-        {extra.length > 0 && (
+        {rated.length > 0 && (
           <Card>
-            <CardHeader title="Questions" />
-            <CardBody className="flex flex-col gap-3">
-              <p className="text-meta text-muted">
-                Read by managers. Not part of the score.
-              </p>
+            <CardHeader title="Rated" />
+            <CardBody>
               <ul className="flex flex-col gap-2">
-                {extra.map((q) => (
+                {rated.map((q) => (
                   <li
                     key={q.id}
                     className="flex items-center justify-between gap-3 rounded-md border border-line p-3 text-body-sm text-ink"
