@@ -540,7 +540,7 @@ function SectionMeta({
         <Badge tone="neutral" size="sm">
           {section.weightBp === null
             ? NO_PART
-            : `${weightLabel(section.weightBp)} of the mark`}
+            : `${weightLabel(section.weightBp)} of the score`}
         </Badge>
       )}
     </>

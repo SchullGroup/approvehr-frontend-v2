@@ -50,14 +50,39 @@ vi.mock("@/lib/store/features", async (original) => ({
 }));
 
 const people = [
-  { id: "ada", firstName: "Ada", lastName: "Obi", jobTitle: "Engineer" },
-  { id: "bola", firstName: "Bola", lastName: "Ade", jobTitle: "Analyst" },
-  { id: "chidi", firstName: "Chidi", lastName: "Eze", jobTitle: "Designer" },
-  { id: "dayo", firstName: "Dayo", lastName: "Ola", jobTitle: "Lead" },
+  {
+    id: "ada",
+    firstName: "Ada",
+    lastName: "Obi",
+    fullName: "Ada Obi",
+    jobTitle: "Engineer",
+  },
+  {
+    id: "bola",
+    firstName: "Bola",
+    lastName: "Ade",
+    fullName: "Bola Ade",
+    jobTitle: "Analyst",
+  },
+  {
+    id: "chidi",
+    firstName: "Chidi",
+    lastName: "Eze",
+    fullName: "Chidi Eze",
+    jobTitle: "Designer",
+  },
+  {
+    id: "dayo",
+    firstName: "Dayo",
+    lastName: "Ola",
+    fullName: "Dayo Ola",
+    jobTitle: "Lead",
+  },
   {
     id: "subject",
     firstName: "Femi",
     lastName: "Balogun",
+    fullName: "Femi Balogun",
     jobTitle: "Manager",
   },
 ];

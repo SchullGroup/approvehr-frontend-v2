@@ -55,7 +55,7 @@ export const STAGE_NEXT_LABEL: Record<string, string> = {
 export const STAGE_CONSEQUENCE: Record<string, string> = {
   MANAGER:
     "Managers write their reviews now. Self-reviews already in are kept.",
-  CALIBRATION: "Marks are in. Nothing else is asked for until you publish.",
+  CALIBRATION: "Scores are in. Nothing else is asked for until you publish.",
 };
 
 export type PrimaryAction =
@@ -161,7 +161,7 @@ export type PeriodTab = "overview" | "outstanding" | "marks" | "appraisers";
 export const TAB_LABEL: Record<PeriodTab, string> = {
   overview: "Overview",
   outstanding: "Outstanding",
-  marks: "Marks",
+  marks: "Scores",
   appraisers: "Appraisers",
 };
 
@@ -205,7 +205,7 @@ export function publishFacts(input: {
   }
   if (unscored !== null && unscored > 0) {
     facts.push(
-      `${unscored} ${unscored === 1 ? "person has" : "people have"} no mark and will finish with none.`,
+      `${unscored} ${unscored === 1 ? "person has" : "people have"} no score and will finish with none.`,
     );
   }
   return facts;

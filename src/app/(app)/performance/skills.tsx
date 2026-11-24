@@ -116,7 +116,7 @@ export function SkillsTab({
 
   const showGaps = canSeeCompany || isManager;
   const items: TabItem[] = [
-    { id: "mine", label: "Your skills" },
+    { id: "mine", label: "Your competencies" },
     ...(showGaps
       ? [
           {
@@ -139,7 +139,7 @@ export function SkillsTab({
         <div className="flex flex-col gap-6">
           <StatGrid columns={3}>
             <Stat
-              label="Skills on your framework"
+              label="Competencies on your framework"
               value={mineReady ? String(summary.total) : "—"}
             />
             <Stat
@@ -153,11 +153,11 @@ export function SkillsTab({
           </StatGrid>
 
           <Card>
-            <CardHeader title="Your skills" />
+            <CardHeader title="Your competencies" />
             <LoadState
               loading={mine.loading}
               error={mine.error}
-              subject="your skills framework"
+              subject="your competency framework"
               onRetry={mine.reload}
               hasData={grouped.length > 0}
               skeleton="list"
@@ -200,7 +200,7 @@ export function SkillsTab({
           <LoadState
             loading={gaps.loading}
             error={gaps.error}
-            subject="the skill gaps"
+            subject="the competency gaps"
             onRetry={gaps.reload}
             skeleton="table"
           >
@@ -221,7 +221,7 @@ export function SkillsTab({
                       found in the browser console, not by `tsc`. */}
                     <THead>
                       <TH>Person</TH>
-                      <TH>Skill</TH>
+                      <TH>Competency</TH>
                       <TH align="right">Level</TH>
                       <TH align="right">Target</TH>
                     </THead>
@@ -285,7 +285,7 @@ export function SkillsTab({
         <Card>
           <CardHeader
             title="Department heatmap"
-            description="Average level per skill, per department."
+            description="Average level per competency, per department."
           />
           <LoadState
             loading={grid.loading}

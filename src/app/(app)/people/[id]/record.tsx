@@ -799,6 +799,21 @@ export function EmployeeRecord({
                   emptyLabel: "Not recorded",
                   help: "Payslips and approvals are sent here.",
                 },
+                /* Their own address (U16): a hire from recruitment arrives
+                   with this and no work email. Only where the API sends it,
+                   so an older server shows no field it cannot save. */
+                ...(employee.personalEmail === undefined
+                  ? []
+                  : [
+                      {
+                        key: "personalEmail" as const,
+                        label: "Personal email",
+                        type: "email" as const,
+                        optional: true,
+                        emptyLabel: "Not recorded",
+                        help: "Their own address, for reaching them before a work email is set up.",
+                      },
+                    ]),
                 { key: "phone", label: "Phone", type: "tel" },
                 {
                   key: "dateOfBirth",
@@ -1131,9 +1146,9 @@ export function EmployeeRecord({
                   clearsToNull: true,
                   label: "Reports to",
                   type: "picker",
-                  placeholder: "No manager (reports to the board)",
+                  placeholder: "No manager",
                   value: employee.managerId ?? "",
-                  emptyLabel: "No manager (reports to the board).",
+                  emptyLabel: "No manager.",
                   format: () =>
                     manager ? (
                       <PersonLink employee={manager} />
@@ -1141,7 +1156,7 @@ export function EmployeeRecord({
                       (managerName ?? "—")
                     ),
                   options: [
-                    { value: "", label: "No manager (reports to the board)" },
+                    { value: "", label: "No manager" },
                     /* Belt and braces: the picker's options come from the first
                        200 employees, connected. A company past that size could
                        have a manager sitting outside the slice, and without

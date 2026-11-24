@@ -268,7 +268,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       ).not.toBeInTheDocument();
       expect(
         screen.getByText(
-          "A flag is the person's own word that an item is not right. It does not remove the item or change the mark.",
+          "A flag is the person's own word that an item is not right. It does not remove the item or change the score.",
         ),
       ).toBeInTheDocument();
     });
@@ -293,7 +293,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       mount({ own: true });
       expect(
         screen.getByText(
-          "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back. It does not remove the item or change your mark.",
+          "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back. It does not remove the item or change your score.",
         ),
       ).toBeInTheDocument();
       expect(screen.queryByText(/say so beside it/)).not.toBeInTheDocument();
@@ -336,7 +336,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       ).toHaveLength(3);
       expect(
         screen.getByText(
-          "If something on this list is not right, say so beside it. It tells whoever reads your work. It does not remove the item or change your mark.",
+          "If something on this list is not right, say so beside it. It tells whoever reads your work. It does not remove the item or change your score.",
         ),
       ).toBeInTheDocument();
     });
@@ -411,7 +411,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       ).not.toBeInTheDocument();
       expect(
         screen.getByText(
-          "A flag is the person's own word that an item is not right. It does not remove the item or change the mark.",
+          "A flag is the person's own word that an item is not right. It does not remove the item or change the score.",
         ),
       ).toBeInTheDocument();
       expect(screen.getByText(/1 flagged as wrong/)).toBeInTheDocument();
@@ -454,7 +454,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       ).toBeInTheDocument();
       expect(
         within(dialog).getByText(
-          "This tells whoever reads your work that an item is not right. It does not remove it from the list and it does not change your mark.",
+          "This tells whoever reads your work that an item is not right. It does not remove it from the list and it does not change your score.",
         ),
       ).toBeInTheDocument();
     });

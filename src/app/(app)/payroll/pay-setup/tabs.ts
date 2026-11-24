@@ -15,7 +15,13 @@
 export const PAY_SETUP_TABS = [
   "allowances",
   "deductions",
-  "extras",
+  /**
+   * Payroll settings: the one home for them (U80). The rates, the salary split,
+   * the checks, the bonus and wallet switches and who is in the pension scheme.
+   * It used to be "Extras" and repeat /settings/payroll beside it; that page now
+   * leads here.
+   */
+  "settings",
   "grades",
   /**
    * Benefits. Last, and the one tab not gated on `VIEW_SALARIES`.
@@ -33,4 +39,14 @@ export type PaySetupTab = (typeof PAY_SETUP_TABS)[number];
 
 export function isPaySetupTab(value: string | undefined): value is PaySetupTab {
   return PAY_SETUP_TABS.some((tab) => tab === value);
+}
+
+/**
+ * The tab a `?tab=` asks for. `extras` was this tab's old name and is still in
+ * people's links and bookmarks, so it opens Settings; anything unknown opens
+ * the first tab.
+ */
+export function paySetupTabFrom(value: string | undefined): PaySetupTab {
+  if (value === "extras") return "settings";
+  return isPaySetupTab(value) ? value : "allowances";
 }

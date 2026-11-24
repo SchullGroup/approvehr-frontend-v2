@@ -22,7 +22,7 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDay, todayIn } from "@/lib/time";
 import {
   SHARED_NOTES_NOTE,
   meetingState,
@@ -360,7 +360,9 @@ function Item({
             {item.ownerName}
           </Badge>
           {item.dueDate && (
-            <span className="text-meta text-faint">by {item.dueDate}</span>
+            <span className="text-meta text-faint">
+              by {formatDay(item.dueDate)}
+            </span>
           )}
         </>
       ) : (

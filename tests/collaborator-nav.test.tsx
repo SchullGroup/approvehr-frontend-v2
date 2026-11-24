@@ -67,6 +67,7 @@ const facts = (collaborator: boolean | undefined): NavFacts => ({
     approvals: false,
     "agrees-objectives": false,
     exits: false,
+    "my-team": false,
   },
   ...(collaborator === undefined ? {} : { collaborator }),
 });

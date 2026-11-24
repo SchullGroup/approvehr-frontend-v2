@@ -163,7 +163,7 @@ describe("How it works", () => {
     expect(screen.getByText("Line view can count too")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Line view counts toward the mark only when the period gives it a weight\./,
+        /Line view counts toward the score only when the period gives it a weight\./,
       ),
     ).toBeInTheDocument();
   });
@@ -171,12 +171,12 @@ describe("How it works", () => {
   it("states the rules that hold at every weight, and none that depends on one", () => {
     render(<HowItWorksBody />);
     const text =
-      screen.getByText(/counts toward the mark only when/).textContent ?? "";
+      screen.getByText(/counts toward the score only when/).textContent ?? "";
     expect(text).toContain(
       "weighted by their share when a person has more than one",
     );
     expect(text).toContain(
-      "a manager’s form asks for an overall mark and needs one",
+      "a manager’s form asks for an overall rating and needs one",
     );
     expect(text).toContain("spread over the other parts");
     expect(text).not.toMatch(/\d+%/);
@@ -199,19 +199,19 @@ describe("How it works", () => {
     serve(null);
     render(<HowItWorksBody />);
     expect(screen.queryByText(/Manager appraisal can count too/)).toBeNull();
-    expect(screen.queryByText(/overall mark/i)).toBeNull();
+    expect(screen.queryByText(/overall rating/i)).toBeNull();
   });
 });
 
 describe("the appraiser mapping", () => {
-  it("opens the shares from a button that does not call it the mark", async () => {
+  it("opens the shares from a button that does not call it the score", async () => {
     render(
       <ToastProvider>
         <AppraiserMapTab />
       </ToastProvider>,
     );
     expect(
-      screen.queryByRole("button", { name: /Share the mark for/ }),
+      screen.queryByRole("button", { name: /Share the score for/ }),
     ).toBeNull();
     await userEvent.click(
       screen.getByRole("button", {
@@ -220,15 +220,15 @@ describe("the appraiser mapping", () => {
     );
     expect(
       screen.getByText(
-        "Everybody who has a say, and how much each one's overall mark weighs against the others'. The shares have to make 100%.",
+        "Everybody who has a say, and how much each one's overall rating weighs against the others'. The shares have to make 100%.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/how much of the mark each one carries/),
+      screen.queryByText(/how much of the score each one carries/),
     ).toBeNull();
   });
 
-  it("says a chosen appraiser is the only one, never that they hold the whole mark, which is true at no weight", async () => {
+  it("says a chosen appraiser is the only one, never that they hold the whole score, which is true at no weight", async () => {
     /* At 0% the overall mark counts for nothing and at 30% it counts for 30%, so
        "for the whole mark" was true of neither. What the pick does is set a set of
        one. */
@@ -249,10 +249,10 @@ describe("the appraiser mapping", () => {
     expect(setAppraisers).toHaveBeenCalledWith("cy1", "e-Ola Test", [
       { appraiserId: "id-hana", role: "LINE_MANAGER", weightBp: 10000 },
     ]);
-    expect(screen.queryByText(/whole mark/)).toBeNull();
+    expect(screen.queryByText(/whole score/)).toBeNull();
   });
 
-  it("says what Fill in does without claiming a share of the mark", async () => {
+  it("says what Fill in does without claiming a share of the score", async () => {
     const user = userEvent.setup();
     render(
       <ToastProvider>
@@ -267,15 +267,17 @@ describe("the appraiser mapping", () => {
     const text = panel?.textContent ?? "";
     expect(text).toContain("Gives each person nobody appraises");
     expect(text).toContain("as their only appraiser");
-    expect(text).not.toMatch(/whole mark|of the mark/);
+    expect(text).not.toMatch(/whole score|of the score/);
     /* The rest of what it says is unchanged. */
     expect(text).toContain("On a running period it also writes the forms");
   });
 
-  it("describes the feature as deciding how much an appraiser's overall mark weighs, which is true at any weight", () => {
+  it("describes the feature as deciding how much an appraiser's overall rating weighs, which is true at any weight", () => {
     const line = FEATURE_COPY.multiAppraiser.line;
-    expect(line).toContain("share decides how much their overall mark weighs");
-    expect(line).not.toMatch(/share of the mark/);
+    expect(line).toContain(
+      "share decides how much their overall rating weighs",
+    );
+    expect(line).not.toMatch(/share of the score/);
   });
 });
 

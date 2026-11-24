@@ -69,7 +69,7 @@ describe("the set-up wizard", () => {
     render(<SetupWizard open onClose={() => {}} onDone={() => {}} />);
     expect(
       screen.getByRole("heading", {
-        name: "What counts towards someone's mark?",
+        name: "What counts towards someone's score?",
       }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));

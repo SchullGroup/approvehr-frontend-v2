@@ -104,6 +104,7 @@ vi.mock("@/lib/store/performance", () => ({
     loading: false,
     error: null,
   }),
+  useSections: () => ({ sections: [], loading: false, reload: () => {} }),
   useAppraisals: () => ({ cycles: [], loading: false }),
   useSkills: (employeeId: string | null) => {
     /* The signed-in person's own list is the screen's; everybody else's is what the
@@ -163,7 +164,7 @@ const inDialog = () => within(dialog());
 const pickPerson = () =>
   userEvent.selectOptions(inDialog().getByLabelText(/Employee/), "e-chidi");
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(inDialog().getByLabelText(/Which skill/), name);
+  userEvent.selectOptions(inDialog().getByLabelText(/Which competency/), name);
 const save = () =>
   userEvent.click(inDialog().getByRole("button", { name: "Save it" }));
 

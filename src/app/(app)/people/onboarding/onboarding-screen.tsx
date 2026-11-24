@@ -24,6 +24,8 @@ import {
   LoadState,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { useSession } from "@/lib/store/session";
+import { ServerOnboarding } from "./server-onboarding";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import {
@@ -83,6 +85,30 @@ const OWNER: Record<string, { label: string; tone: BadgeTone }> = {
  * never a second one.
  */
 export function OnboardingScreen() {
+  const { isConnected } = useSession();
+  if (!isConnected) return <LocalOnboardingScreen />;
+  /* Connected, the server's open checklists decide who is here (U16): a new
+     starter saved as Active still has one, and Home counts the same list. */
+  return (
+    <>
+      <PageHeader
+        title="Onboarding"
+        action={
+          <ButtonLink href="/people/new" variant="accent" size="sm">
+            <Plus aria-hidden="true" className="size-4" />
+            Add an employee
+          </ButtonLink>
+        }
+      />
+      <PageBody className="flex flex-col gap-6">
+        <ServerOnboarding />
+      </PageBody>
+    </>
+  );
+}
+
+/** Demo mode: who the local records say is Onboarding, ticks in this browser. */
+function LocalOnboardingScreen() {
   const { employees, loading, connected, error, reload } = useEmployeeDirectory(
     {
       status: "ONBOARDING",
@@ -148,7 +174,7 @@ export function OnboardingScreen() {
         action={
           <ButtonLink href="/people/new" variant="accent" size="sm">
             <Plus aria-hidden="true" className="size-4" />
-            Add a new staff
+            Add an employee
           </ButtonLink>
         }
       />
@@ -241,7 +267,7 @@ export function OnboardingScreen() {
                 description="Somebody appears here while their status is Onboarding, and drops off it the moment you finish them."
                 action={
                   <ButtonLink href="/people/new" variant="accent" size="sm">
-                    Add a new staff
+                    Add an employee
                   </ButtonLink>
                 }
               />

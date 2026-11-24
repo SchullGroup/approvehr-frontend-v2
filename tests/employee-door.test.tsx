@@ -41,6 +41,7 @@ const EVERYTHING_ANSWERED: NavFacts = {
     approvals: false,
     "agrees-objectives": false,
     exits: false,
+    "my-team": false,
   },
 };
 

@@ -498,10 +498,6 @@ export const WORKING_DAY_FALLBACK: ApiWorkingDay = {
   holidays: [],
 };
 
-/** Trims `1.0` to `1` so a target reads as "4 working hours", not "4.0". */
-const trim = (value: number): string =>
-  (Math.round(value * 10) / 10).toString().replace(/\.0$/, "");
-
 /**
  * A count of working minutes, in words.
  *
@@ -520,12 +516,14 @@ export function formatWorkingMinutes(
 
   if (value < 1) return "under a minute";
   if (value < 60) return `${value} minute${value === 1 ? "" : "s"}`;
+  /* Whole hours and whole days: "Overdue by 20.5 working days" is a
+     calculation, not an answer (UAT 23 Nov, L15: HR-34). */
   if (value < safeDay) {
-    const hours = trim(value / 60);
-    return `${hours} working hour${hours === "1" ? "" : "s"}`;
+    const hours = Math.max(1, Math.round(value / 60));
+    return `${hours} working hour${hours === 1 ? "" : "s"}`;
   }
-  const days = trim(value / safeDay);
-  return `${days} working day${days === "1" ? "" : "s"}`;
+  const days = Math.max(1, Math.round(value / safeDay));
+  return `${days} working day${days === 1 ? "" : "s"}`;
 }
 
 /**

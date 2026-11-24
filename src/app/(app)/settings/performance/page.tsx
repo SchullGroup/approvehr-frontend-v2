@@ -7,7 +7,7 @@ import { ScoringWeightsForm } from "./weights-form";
 export const metadata: Metadata = {
   title: "Appraisal scoring",
   description:
-    "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts.",
+    "The parts an appraisal score is made of, each with its own name, weight and source, what each rating is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts.",
 };
 
 /**

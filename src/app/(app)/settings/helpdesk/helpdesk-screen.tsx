@@ -28,6 +28,7 @@ import {
   type TicketPriority,
 } from "@/lib/api/helpdesk";
 import { useCan } from "@/lib/permissions";
+import { PRIORITY } from "@/app/(app)/help/ticket-labels";
 import { useHelpdeskCatalogue } from "@/lib/store/helpdesk";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 
@@ -386,8 +387,10 @@ function SlaRow({
           <span className="text-body-sm font-medium text-ink">
             {policy.name}
           </span>
+          {/* The queue's own words for urgency, not the code (UAT 23 Nov, L15:
+              HR-34). */}
           <Badge tone="neutral" size="sm">
-            {policy.priority}
+            {PRIORITY[policy.priority].label}
           </Badge>
           {!policy.active && (
             <Badge tone="neutral" size="sm">
@@ -702,7 +705,7 @@ function SlaDialog({
           >
             {PRIORITIES.map((option) => (
               <option key={option} value={option}>
-                {option.charAt(0) + option.slice(1).toLowerCase()}
+                {PRIORITY[option].label}
               </option>
             ))}
           </Select>

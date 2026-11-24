@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Check, Layers, Radar, ShieldCheck, Sparkles } from "lucide-react";
 import { Pill } from "@/components/marketing/pill";
+import { StartFreePill } from "@/components/marketing/start-buttons";
 import { CountUp, Reveal } from "@/components/marketing/motion";
 import { PlatformOverview } from "@/components/marketing/platform-overview";
 import { ModuleGrid, SectionHeading } from "@/components/marketing/sections";
 import { ClientLogos, Testimonials } from "@/components/marketing/social-proof";
 import { PayrollMockup, StatutoryMockup } from "@/components/marketing/mockups";
-import { liveProductCta, newTabIfApp } from "@/lib/marketing/links";
+import {
+  liveProductCta,
+  newTabIfApp,
+  SIGN_UP_URL,
+} from "@/lib/marketing/links";
 import { quote } from "@/lib/marketing/pricing";
 import { SITE_URL } from "@/lib/marketing/site";
 
@@ -117,9 +122,7 @@ export default function HomePage() {
 
             <Reveal delay={180}>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-                <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Start free, book a demo
-                </Pill>
+                <StartFreePill />
                 <Pill
                   href={heroCta.href}
                   variant="quiet"
@@ -330,13 +333,12 @@ export default function HomePage() {
                   Start free. Pay from month two.
                 </h2>
                 <p className="mt-5 max-w-md leading-relaxed text-white/60">
-                  Your first month on us. We migrate your existing employee
-                  records and payroll history at no cost. Pricing after that is
-                  per employee, per month, the rate falls as your team grows.
+                  Your first month on us. Pricing after that is per employee,
+                  per month, and the rate falls as your team grows.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <Pill href="/demo" variant="solid" arrow>
-                    Get started free
+                  <Pill href={SIGN_UP_URL ?? "/demo"} variant="solid" arrow>
+                    {SIGN_UP_URL ? "Get started free" : "Book a demo"}
                   </Pill>
                   <Pill href="/pricing" variant="ghost">
                     See full pricing
@@ -378,16 +380,14 @@ export default function HomePage() {
           <Reveal>
             <div className="rounded-3xl border border-sand-line bg-white/60 px-8 py-16 text-center">
               <h2 className="mx-auto max-w-3xl text-h1 text-slate">
-                Start free. We move your data. You pay from month two.
+                Start free. You pay from month two.
               </h2>
               <p className="mx-auto mt-5 max-w-xl text-lead text-slate-muted">
-                Book a thirty-minute demo on your own numbers. If it fits, we
-                migrate your records and run your first payroll at no cost.
+                Sign up and run your first payroll at no cost, or book a
+                thirty-minute demo on your own numbers.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
-                <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Start free, book a demo
-                </Pill>
+                <StartFreePill />
                 <Pill
                   href={closingCta.href}
                   variant="quiet"

@@ -164,7 +164,7 @@ const SCREENS = [
       return <SkillsTab canSeeCompany={false} isManager={false} />;
     },
     empty: "No framework yet",
-    failed: "Your skills framework did not load",
+    failed: "Your competency framework did not load",
   },
   {
     name: "the reported faults",

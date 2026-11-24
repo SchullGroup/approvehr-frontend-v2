@@ -132,6 +132,9 @@ const review = (over: Partial<ApiReviewDetail> = {}): ApiReviewDetail =>
     mine: true,
     submitted: false,
     questions: [],
+    /* "How far could they go?" is its own page on a manager's review; these
+       scenarios are about the closing note, so the period does not ask it. */
+    askPotential: false,
     ...over,
   }) as unknown as ApiReviewDetail;
 

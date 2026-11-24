@@ -2,7 +2,7 @@
 
 Everything the Performance module does, in the order you actually do it. Follow it top to bottom
 with the product open beside you and you will take a company from no appraisal at all to published
-marks without guessing once. No code, no database, no jargon that is not explained the first time
+scores without guessing once. No code, no database, no jargon that is not explained the first time
 it appears.
 
 |                                |                                                               |
@@ -32,8 +32,8 @@ one of them is fuzzy, several screens will.
 A stretch of time you are judging people over — a half, a quarter, a probation. Starting one hands
 every employee a form and tells them it is open.
 
-> _A person's mark belongs to one period, never to "the year". Two periods can cover the same person
-> and produce two different marks, and that is correct._
+> _A person's score belongs to one period, never to "the year". Two periods can cover the same person
+> and produce two different scores, and that is correct._
 
 ### Objective — shown on screen as "KPI"
 
@@ -43,17 +43,17 @@ department.
 > _The screen is called KPIs and the buttons say KPI. Objective is the word the rest of the product
 > uses for the same thing. They are not two things._
 
-### Measure
+### Target
 
 What an objective is judged by. There are two kinds. **A number to reach**: "Offers accepted",
 starting at 2, aiming at 8, with progress worked out from it automatically. **Done or not done**:
 "Both engineers hired", which has no number at all and counts as not done until a manager confirms
 it.
 
-> _An objective with no measure still works — it is then judged on a stated figure by a human rather
+> _An objective with no target still works — it is then judged on a stated figure by a human rather
 > than tracked._
 
-A measure is also **read** or **not read yet**. A number nobody has entered a figure for is not at 0%:
+A target is also **read** or **not read yet**. A number nobody has entered a figure for is not at 0%:
 it is unmeasured, and it is left out of the objective's progress until somebody enters one.
 
 ### Competency
@@ -63,12 +63,12 @@ groups come ready-made. Somebody records a level against each one, once per pers
 
 > _Leadership is only rated for people who lead others: somebody reports to them, they lead a team, or
 > they head a department. For everybody else it is left out, not marked low. That distinction matters
-> and the product holds it, and the form and the mark use the same definition, so a person who is asked
+> and the product holds it, and the form and the score use the same definition, so a person who is asked
 > the leadership questions is a person whose leadership counts._
 
-### The mark
+### The score
 
-What all of it adds up to. Each part carries a percentage of the mark and the percentages total 100%
+What all of it adds up to. Each part carries a percentage of the score and the percentages total 100%
 exactly.
 
 > _There is no state where they do not total 100%, so there is never anything to reconcile
@@ -101,12 +101,12 @@ opens is empty, and says so in a sentence.
 | Sidebar item            | Route                       | What it is for                                                                                                                  | Who sees it                                                                                                |
 | ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **Overview**            | `/performance`              | Your landing. What is open, what is waiting on you, what is waiting on somebody else. Start here every time.                    | Everyone                                                                                                   |
-| **KPIs**                | `/performance/kpis`         | The objective tree. Create, give out, add measures, record progress, confirm a done-or-not-done measure, send for agreement.                                        | Everyone                                                                                                   |
+| **KPIs**                | `/performance/kpis`         | The objective tree. Create, give out, add targets, record progress, confirm a done-or-not-done target, send for agreement.                                        | Everyone                                                                                                   |
 | **Weekly tasks**        | `/performance/review-tasks` | Staff log what they did each week against an objective; managers grade it. This is the evidence a delivery score is built from. | Everyone                                                                                                   |
 | **Competency ratings**  | `/performance/skills`       | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                        | Everyone                                                                                                   |
 | **Appraisal periods**   | `/performance/periods`      | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                  | HR / Owner                                                                                                 |
 | **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it, send it back, or refuse it.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
-| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and how much each one's overall mark weighs. | HR / Owner                                                                                                 |
+| **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who scores whom, and how much each one's overall rating weighs. | HR / Owner                                                                                                 |
 
 A further item, **My work record** (`/performance/work-record`), sits beside these for a company that has
 Projects switched on, and for nobody else. It is open to everyone and shows only their own (step 33).
@@ -122,7 +122,7 @@ More screens exist but have no sidebar item, because you reach them from somethi
 | `/performance/reviews/{id}/answer`   | Answering a review one question at a time, in a window of its own                   |
 | `/performance/periods/{id}/report`   | The period's results                                                                |
 | `/performance/periods/{id}/nine-box` | The calibration grid                                                                |
-| `/performance/periods/{id}/fairness` | How the marks compare across groups of people and across managers (step 25)         |
+| `/performance/periods/{id}/fairness` | How the scores compare across groups of people and across managers (step 25)         |
 | `/performance/history/{employeeId}`  | One person across every period                                                      |
 | `/performance/how-it-works`          | The product explaining itself, in its own words                                     |
 
@@ -141,7 +141,7 @@ people, which is the view to hand somebody who asks "so whose job is this?".
 | 1   | **Not started**    | Names the period, sets the dates, writes the questions, decides who it covers                                          | —                                                                          | Sees nothing. No forms exist yet                                            |
 | 2   | **Self-review**    | Watches who is outstanding, nudges the late ones                                                                       | —                                                                          | Fills in their own form and sends it                                        |
 | 3   | **Manager review** | —                                                                                                                      | Writes their review of each person and sends it. Records competency levels | Nothing. Self-reviews already sent are kept                                 |
-| 4   | **Calibration**    | Compares marks across the company, moves any that are out of line with a written reason, places people on the nine-box | Makes each rating final. This is the point at which the person is told     | —                                                                           |
+| 4   | **Calibration**    | Compares scores across the company, moves any that are out of line with a written reason, places people on the nine-box | Makes each rating final. This is the point at which the person is told     | —                                                                           |
 | 5   | **Published**      | Reads the report, the distribution and the trend                                                                       | —                                                                          | Reads what was written about them. Acknowledges it                          |
 
 The four presses that move it between stages, in order: **Start the period** → **Move to manager
@@ -155,7 +155,7 @@ flowchart LR
     direction TB
     A["1–8<br/>Set it up<br/>scale, weights, questions"]
     D["16<br/>Start the period<br/>forms created, people told"]
-    G["24–27<br/>Calibration<br/>compare, check fairness, move marks, nine-box"]
+    G["24–27<br/>Calibration<br/>compare, check fairness, move scores, nine-box"]
     J["31–33<br/>Publish, then read<br/>the report and the trend"]
   end
   subgraph MG ["Line manager"]
@@ -166,7 +166,7 @@ flowchart LR
   end
   subgraph EM ["The person"]
     direction TB
-    B["9–14<br/>Set a target<br/>objective, measure, send it"]
+    B["9–14<br/>Set a target<br/>objective, target, send it"]
     E["17<br/>Self-review<br/>answer it and send"]
     I["29<br/>Acknowledge it<br/>they say they have seen it"]
   end
@@ -190,7 +190,7 @@ Start, Calibration, Make it final, Publish — cannot be undone.
 >
 > **Objectives are agreed before any of it.** The agreement loop happens ahead of the period, not
 > inside it — that is why it does not appear as a stage. If you start a period with nothing agreed,
-> everybody in it will finish with a mark built from competencies alone.
+> everybody in it will finish with a score built from competencies alone.
 >
 > **Moving the stage does not chase anybody.** Moving to manager review does not close self-reviews
 > that are still open, and it does not stop a late one arriving. It changes what the product asks
@@ -201,7 +201,7 @@ Start, Calibration, Make it final, Publish — cannot be undone.
 ## 4. The walkthrough
 
 Thirty-four steps in the order they have to happen. Steps marked _optional_ can be skipped on a first
-walk and the period will still produce marks. Every other step has something after it that will not
+walk and the period will still produce scores. Every other step has something after it that will not
 work if you leave it out.
 
 > ### Why the order is what it is
@@ -211,7 +211,7 @@ work if you leave it out.
 > has to be agreed before the stretch of time it covers. The draft period is what gives the
 > objectives something to be filed against.
 
-### Phase A — once per company: decide what a mark means before you measure anybody
+### Phase A — once per company: decide what a score means before you target anybody
 
 Three settings. You do this once and then leave it alone — a change here never moves a period that
 has already started, which is deliberate.
@@ -235,7 +235,7 @@ company's own words if you have them.
 
 |                |                                                                                       |
 | -------------- | ------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **What a mark is called**                                   |
+| **Where**      | `/settings/performance` → **What each rating is called**                                   |
 | **Who**        | HR / Owner                                                                            |
 | **Click**      | Edit **What level 3 is called** and **What it means** for each of the five, then save |
 | **You'll see** | The badge above the form flips from _The built-in five_ to _Your company's words_     |
@@ -244,84 +244,83 @@ company's own words if you have them.
 > tell them apart. And a period that has already started keeps the words it started with.
 
 The first card on that same tab decides whether a form asks for one of those words at all, as an
-**overall mark** after the last question. It is **off** for a new company: a form is its answers.
+**overall rating** after the last question. It is **off** for a new company: a form is its answers.
 
 |                |                                                                                                           |
 | -------------- | --------------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **Names of marks** → **Overall mark on appraisals**                             |
+| **Where**      | `/settings/performance` → **Rating names** → **Overall rating on appraisals**                             |
 | **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                        |
-| **Click**      | **Ask for an overall mark at the end of an appraisal**                                                    |
-| **You'll see** | A toast saying it applies to the next form anybody opens, and that marks already given are not touched    |
+| **Click**      | **Ask for an overall rating at the end of an appraisal**                                                    |
+| **You'll see** | A toast saying it applies to the next form anybody opens, and that scores already given are not touched    |
 
 > 💡 **What it does and does not do.** The switch decides what a form offers, and the page is optional.
-> It does not decide whether a manager's overall mark counts towards the score: that happens only in a
-> period that weights **Manager appraisal** (step 3), and then a manager's form asks for the mark whatever
+> It does not decide whether a manager's overall rating counts towards the score: that happens only in a
+> period that weights **Manager appraisal** (step 3), and then a manager's form asks for the score whatever
 > this switch says, and needs it. The card says so in its header, under the switch and in the toast after
 > you press it, in the company's own name for the part. Until the weights have loaded, or if they cannot be
-> read, it says nothing about whether a form asks for a mark or whether the mark counts, because it does not
-> know. Self-assessment (step 3) reads from the overall mark somebody gave themselves when there is one,
+> read, it says nothing about whether a form asks for a score or whether the score counts, because it does not
+> know. Self-assessment (step 3) reads from the overall rating somebody gave themselves when there is one,
 > and from how they answered when there is not, so this switch does not decide whether that part has
-> anything to count. Switching this off never hides or changes a mark already given, and a form that is
+> anything to count. Switching this off never hides or changes a score already given, and a form that is
 > already open keeps the pages it opened with.
 
-#### 3. Set what the mark is made of
+#### 3. Set what the score is made of
 
-A mark is made of **parts**, and the company writes its own list of them. A part has a **name** of the
-company's choosing, a **description** (optional), a **weight**, and the thing its mark is **scored
+A score is made of **parts**, and the company writes its own list of them. A part has a **name** of the
+company's choosing, a **description** (optional), a **weight**, and the thing its score is **scored
 from**: delivery against objectives, weekly tasks, core competencies, behavioural competencies,
 leadership, **manager appraisal**, or what somebody said about themselves. Each source backs one part at
-most, so a source another part already uses is not offered. Weights are proportional: each part counts as
-its weight over the total, and the share it comes to is shown on its row, so the total does not have to be
-100%. A company that signs up starts with no parts, and **an appraisal period cannot start until at least
-one part has a weight**.
+most, so a source another part already uses is not offered. **The weights add up to 100%**: a part's
+weight is its share of the score, and nothing else is saved. A company that signs up starts with no parts,
+and **an appraisal period cannot start until at least one part has a weight**.
 
 Saved parts are plain rows, not open boxes: the name, **Scored from** and the source's own name, the
 weight with the share of a mark it comes to (**Counts for nothing** at 0%), and the description. Nothing is
 a text box until you choose to add or edit.
 
-The self-assessment source is the overall mark somebody gave themselves when there is one (step 2), and
+The self-assessment source is the overall rating somebody gave themselves when there is one (step 2), and
 otherwise **how they answered, about themselves, the rated subsections their manager answers too**: the
 mean of those answers on a self-review they have sent. An answer to a subsection asked of the person alone
 is not counted again here, because it is already their rating. Self-assessment counts only when a part is
-scored from it; the card under the list says what it does to a mark and says **Not counted** until then.
+scored from it; the card under the list says what it does to a score and says **Not counted** until then.
 
 |                |                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **Parts of a mark**                                                        |
+| **Where**      | `/settings/performance` → **Parts of the score**                                                        |
 | **Who**        | HR / Owner (everybody else can read the parts)                                                       |
-| **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from**, a **Weight** in percent, and an optional **Description**, then **Add part** again. The pencil on a row edits it in the same form, and the bin deletes it after asking |
-| **You'll see** | A toast saying the part was added, saved or deleted and, for an add or a change, that **It applies to the next appraisal period you start.** **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. The **Total** badge turns red at 0%, because a set that is all zeros cannot make a mark. When the parts add up to more than 100% the card says so in plain words above the list (**These add up to 110%, which is more than 100%. Each part counts for its share of 110%, not for the weight typed. To make the weights read as shares of 100%, take off 10%.**), and the same sentence shows under the **Weight** box while a number is being typed that takes the total over. It is a warning: nothing is shut by it, and 110% is saved if that is what the company means |
+| **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from** and an optional **Description**, then **Add part** again. The part is added at 0% and **Change the weights** opens next. **Change the weights** has a box for every part's weight; **Save the weights** saves them all at once. The pencil on a row edits its name, source and description, and the bin deletes a part at 0% after asking |
+| **You'll see** | **X added at 0%** and **Give it a weight, so the weights still add up to 100%.** In **Change the weights**, **Save the weights** stays dead until the weights add up to exactly 100%, and the dialog says by how much they are off (**These add up to 110%. Take off 10%.**). The bin on a part that still counts opens **Give X's weight to the other parts first** instead of deleting it, and its button opens **Change the weights** with that part at 0. **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. A set saved before this rule (110%, say) is listed with **These add up to 110%. They have to add up to 100%: change the weights to take off 10%. Until they do, each part counts for its share of 110%.** above it |
 
 > 💡 **A change here does not move a period that has started.** When a period starts, its parts and
-> weights are copied onto it, so changing or deleting a part afterwards cannot move a mark that has already
+> weights are copied onto it, so changing or deleting a part afterwards cannot move a score that has already
 > been awarded. Deleting asks first (**Delete the part**) and says it stops counting from the next period
 > you start. These are the company's starting parts; a single period can change its own weights (step 4).
 
 > 💡 **What Weekly tasks counts.** When it carries a weight, the part is how the manager graded the tasks
 > people logged against the period's objectives (step 18): **Completed** counts in full, **Partly
 > completed** counts half, and **Not completed** and **Rejected** count nothing. Somebody with no graded
-> tasks is not marked down: their share is spread over the other parts. A mark with Weekly tasks weighted
+> tasks is not marked down: their share is spread over the other parts. A score with Weekly tasks weighted
 > at 0% does not list it at all. A single period can change the weights it starts with (step 4).
 
-> 💡 **What Manager appraisal counts.** When it carries a weight, the part is the overall mark each
+> 💡 **What Manager appraisal counts.** When it carries a weight, the part is the overall rating each
 > appraiser gave, weighted by their share when a person has more than one appraiser (the **Who appraises whom** screen), and a
 > person's appraisers who have sent one are the only ones counted. It is the way for a company that does not
-> record competency levels to count its managers' judgement: without it those marks are built from objectives
-> alone. A mark with it weighted at 0% does not
-> list it at all. In a period that weights it, a manager's form asks for an overall mark whatever the switch in
+> record competency levels to count its managers' judgement: without it those scores are built from objectives
+> alone. A score with it weighted at 0% does not
+> list it at all. In a period that weights it, a manager's form asks for an overall rating whatever the switch in
 > step 2 says, and cannot be sent without one (step 17). Somebody whose appraisers have sent none is not marked
 > down: the part's share is spread over the other parts. The sentence under the part scored from it is the
-> API's own and says what the weight does to a mark, including that a manager's judgement then reaches the
-> score by two routes: the levels they record under Competency ratings, and this overall mark. It says so as
+> API's own and says what the weight does to a score, including that a manager's judgement then reaches the
+> score by two routes: the levels they record under Competency ratings, and this overall rating. It says so as
 > a note, never as a refusal. A company with no part scored from Manager appraisal has no such sentence, and
-> a manager's form then does not need an overall mark.
+> a manager's form then does not need an overall rating.
 
 > 💡 **Worth showing a stakeholder.** The self-assessment card underneath does the arithmetic out loud:
-> at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final mark
+> at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final score
 > by 10%. That figure moves as you drag the weight, before you save, and it reads the same whether or
-> not forms ask for an overall mark. The API's own sentence above it says what the part is read from.
+> not forms ask for an overall rating. The API's own sentence above it says what the part is read from.
 
-The third tab on that page, **Records**, is not about scoring and moves no mark. It says how long **the
+The third tab on that page, **Records**, is not about scoring and moves no score. It says how long **the
 finished work behind a final rating** is kept. The review shows what a person finished in the cycle
 beside the rating, and that list is read as it stands, so a task reopened or deleted later changes what
 an old review shows. For a company that sets a period here, the list as it stood on the day a rating was
@@ -349,7 +348,7 @@ made final is kept with it, and removed when the period ends.
 > not been updated, the card says so and offers nothing to change.
 
 Under it, the same tab holds **Work in review answers**: whether people may use their own finished project
-work in what they write about it. **It is off for every company**, it moves no mark, and it only does
+work in what they write about it. **It is off for every company**, it moves no score, and it only does
 anything while Projects is switched on.
 
 |                |                                                                                                                  |
@@ -363,7 +362,7 @@ anything while Projects is switched on.
 > their review answers?_, lists it. A person writing their self-review can attach finished tasks from their own
 > list to an answer, each with a note of their own, and **the task's title is not saved with it**. The people
 > who read the review see them beside the answer, and the full list of finished work stays one press away for
-> them. A person can flag an item on their list as wrong, which does not remove it or change a mark. When
+> them. A person can flag an item on their list as wrong, which does not remove it or change a score. When
 > feedback is asked for, or an appraiser is chosen, the colleagues who shared a project with the person are
 > listed first, and nobody is chosen for anybody. It only works while Projects is switched on. It ends with a
 > plain reminder: _Before you switch it on, tell your staff, and check with whoever looks after data protection
@@ -373,7 +372,7 @@ anything while Projects is switched on.
 > a flag already raised stays on the list and in the count and can still be taken back; only a new pin or a new
 > or changed flag stops.
 
-> 💡 **What it never does.** Change a mark, a score, a band or a rank; save a task title with an attached task;
+> 💡 **What it never does.** Change a score, a band or a rank; save a task title with an attached task;
 > remove anything from the finished-work list; choose anybody for anybody; or offer anything while Projects is
 > switched off. What a person attaches is read by the people who can read the review, and a flag by the people
 > who can read that person's work: the person, their manager, an assigned appraiser and HR. Where Projects is
@@ -381,7 +380,7 @@ anything while Projects is switched on.
 > been updated the card says so and offers no switch.
 
 Under that, the third card on the tab, **Work behind a milestone, and weekly lines**, is the switch for two
-small helpers. **It is off for every company**, it moves no mark, and it only does anything while Projects is
+small helpers. **It is off for every company**, it moves no score, and it only does anything while Projects is
 switched on.
 
 |                |                                                                                                                                  |
@@ -392,17 +391,17 @@ switched on.
 | **You'll see** | A toast, _The two assists are now offered_, and the card describing what they offer                                              |
 
 > ⚠️ **Turning it on asks first, and says what it does.** The question, _Offer the linked tasks and the
-> weekly-line suggestions?_, lists it: beside **Confirm** on a done-or-not measure, the tasks linked to that
-> measure are listed with where each stands (step 11), and a person writing a weekly line can add the tasks
+> weekly-line suggestions?_, lists it: beside **Confirm** on a done-or-not target, the tasks linked to that
+> target are listed with where each stands (step 11), and a person writing a weekly line can add the tasks
 > they finished that week as text, then edit it (step 18). Nothing is filed, submitted, graded or scored; the
-> list never says a measure is done and never recommends confirming it; a task's title is shown only to the
+> list never says a target is done and never recommends confirming it; a task's title is shown only to the
 > person whose task it is, in the weekly line, and is not saved by this. It only works while Projects is
 > switched on. **Turning it off is one press, with no question,** and deletes nothing (the toast says so:
 > _Nothing is deleted. Tasks closed as won't do and accepted tasks stay as recorded._).
 
 > 💡 **Won't do and acceptance are not behind this switch.** Closing a finished task as **won't do**, and a
 > leader **accepting** one, are recordings available to whoever the server says may make them, whatever this
-> says, and they change nothing until a person makes one. Neither feeds a mark. Where Projects is off the card
+> says, and they change nothing until a person makes one. Neither feeds a score. Where Projects is off the card
 > says so, with a link to **Features**, and the switch is still there. On a server that has not been updated the
 > card says so and offers no switch.
 
@@ -446,22 +445,22 @@ them on its own page.
 
 |                |                                                                                                                                                  |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Where**      | `/performance/periods/{id}`, on a draft: the card **How the mark is made up**                                                                    |
+| **Where**      | `/performance/periods/{id}`, on a draft: the card **How the score is made up**                                                                    |
 | **Who**        | HR / Owner                                                                                                                                       |
 | **Click**      | Type a whole number from 0 to 100 into each part, then **Save the weights**. **Use the company defaults** puts the company's back               |
-| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. Over 100% the card says **These add up to 110%, which is more than 100%...** and how much to take off, and still saves; on a period that has started the same sentence is shown without the advice. |
+| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **Give at least one part a weight above 0%.** **Save the weights** stays dead until something has changed, and while a weight is not a whole number from 0 to 100 or every part is at 0%. Under the pie it says **Take 10% off somewhere** or **10% still to give out** until the weights add up to 100%, and **Save the weights** stays dead until they do. |
 
 Two things about it. Whole numbers only: the company defaults in Settings take two decimal places, but here
-a weight is a whole number from 0 to 100, and the parts count in proportion to their total. And an untouched
+a weight is a whole number from 0 to 100, and the weights add up to 100% here too. And an untouched
 card does nothing: the period keeps following the company's weights, and when it starts whatever the company
 holds at that moment is fixed onto it. From the moment it starts the card is read-only and reads **Fixed
 when this period started.** (a period from before this existed reads **This period follows the company's
 weights as they are today.**). The assistant's draft (step 5) shows the same card on its first page, under
 the description, and **Draft it** stays off while a weight you typed is not a whole number from 0 to 100 or
 every part is at 0%. **Manager appraisal** has a row of its own between Leadership and Self-assessment, with a
-line under the card saying that where no appraiser has sent an overall mark for somebody, its share is spread
+line under the card saying that where no appraiser has sent an overall rating for somebody, its share is spread
 over the other parts. On the period's own page the API adds one sentence under the card, in its own words, about
-what weighting Manager appraisal does to this period's marks, and it reads **Saved now, not yet changed:** once
+what weighting Manager appraisal does to this period's scores, and it reads **Saved now, not yet changed:** once
 you have typed over the saved weights.
 
 **Changing the name afterwards.** A name typed wrongly can be fixed at any stage, a running or published
@@ -496,7 +495,7 @@ questions for you to edit. Everything it writes is editable before it saves.
 > on the server. The screen says so and gives you two ways out; the ordinary dialog in step 4 does
 > the same job by hand. Whether an assistant is wired is shown on `/settings/ai`.
 
-> 💡 **One thing it deliberately will not do.** Every measure it suggests arrives with an **empty
+> 💡 **One thing it deliberately will not do.** Every target it suggests arrives with an **empty
 > target box**. A model cannot know whether ₦40m is ambitious or already banked, and the number a
 > period is judged against is not something to be guessed. You type every target yourself.
 
@@ -517,8 +516,8 @@ The three settings on a question:
 - **Who is asked** — the person themselves, their manager, or their colleagues anonymously. A
   question can go to more than one.
 - **Filed under** — which competency subsection it sits under in the list. That only groups the
-  question. **An answer to a question never counts towards the mark, however it is filed.** The
-  competency part of the mark comes from the level a manager records on the subsection itself (step
+  question. **An answer to a question never counts towards the score, however it is filed.** The
+  competency part of the score comes from the level a manager records on the subsection itself (step
   22, **Record a level**), and the dialog says so under the two pickers. A question filed under
   nothing is still asked and answered. Choosing a section and leaving **Subsection** on _None_ files
   it under nothing, and the dialog warns you before you save. The **Subsection** list says beside a
@@ -528,8 +527,8 @@ The three settings on a question:
   period asks it on the review form (_Ask it on the review form_, under **By section**, below). Otherwise
   only the questions filed under it do, with its name on them, and it is answered under **Record a level**.
   Under a subsection answered in words the sentence is shorter and says one thing, because nothing
-  recorded on it reaches the mark, whatever its section is worth: _Answers to questions written here do
-  not count towards the mark. Nor does the written answer recorded on Communication._
+  recorded on it reaches the score, whatever its section is worth: _Answers to questions written here do
+  not count towards the score. Nor does the written answer recorded on Communication._
 
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step. If that period asked a subsection on its review
@@ -608,21 +607,21 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   any period, and how it is answered applies to every period._ The control is greyed, and **Start a new
   version** beside it is the way through (below). A yes or no and a pick have no target, so they are left out
   of the gap list and the heatmap. Words have no target and no score either, and the one line under the picker
-  says the larger thing: _A written answer is read by people and never counts towards the mark._ It has no
+  says the larger thing: _A written answer is read by people and never counts towards the score._ It has no
   list of choices, and none of the lines that quote what its section is worth or warn that the section is
-  worth nothing, because a written answer reaches no part of the mark.
+  worth nothing, because a written answer reaches no part of the score.
 
   **Start a new version** is there for somebody who can manage settings on a connected company, on a
   subsection that has ratings. It opens a dialog with **How the new version is answered**, which offers the
   three other ways (**A level on a scale, 1 to 5**, **Yes or no**, **Pick one from a list** and **In their own
   words**, less the one the subsection has now) and chooses nothing for you, and three lines of what will
-  happen: the old subsection keeps its ratings and every mark made from them, is marked retired and leaves
+  happen: the old subsection keeps its ratings and every score made from them, is marked retired and leaves
   the list; the new one has the same name and section and starts with no ratings; and periods that have not
   started use the new one (for a pick-one version they stop asking it until its choices are in), while
   published periods keep the old one, so their forms read as they did. Choosing **In their own words** adds a
   fourth line, the sentence that says what is different about it: _A written answer is read by people and
-  never counts towards the mark._ When the subsection being retired was itself answered in words, the first
-  line says only that it keeps its ratings, and nothing of marks, because none was ever made from them.
+  never counts towards the score._ When the subsection being retired was itself answered in words, the first
+  line says only that it keeps its ratings, and nothing of scores, because none was ever made from them.
   **Start new version** is switched off until a way is chosen. It cannot go
   ahead while a period that is running asks the subsection on its review form: the API names the period, its
   sentence is shown in the dialog with your choice still made, and nothing has changed. When it works the new
@@ -645,7 +644,7 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   All questions._). The message only comes after the API has said yes, so a refusal shows its own sentence
   instead. One short line under the control says whose answer counts, for the choice you have made even
   before you press the button: _Recorded when the manager sends their review._ for the manager, _Their own
-  answer counts towards the mark._ for the employee, and _The manager's answer counts. The employee's is
+  answer counts towards the score._ for the employee, and _The manager's answer counts. The employee's is
   shown beside it._ for both. For a subsection answered in words the lines say where the words go and never
   that they count: _Recorded when the manager sends their review._, _Recorded when they send their review._
   and _The manager's words are recorded. The employee's are shown beside them._ It is held to no rule about
@@ -665,7 +664,7 @@ Open a subsection and it has two tabs, which are two views of one subsection and
 
 **Add a section** (a name and **Counts towards**: Core competencies, Behavioural competencies, Leadership, or
 _No part of the mark_) and, inside a section, **New subsection** with **Answered by** both stay open after
-each add, so several can be typed in a row. **Counts towards** is what ties a new section back to the mark:
+each add, so several can be typed in a row. **Counts towards** is what ties a new section back to the score:
 a section with no mapping is recorded and never scored, weights belong to those three parts and not to
 sections, and two sections on one part are averaged together. Only somebody who can manage settings sees the
 controls, and not in demo mode, where the framework is fixed.
@@ -712,7 +711,7 @@ manager appraised.
 ### Phase C — before you start it: set the targets, and get them agreed
 
 This is the half of the module people skip, and skipping it is what produces an appraisal nobody can
-defend. An objective that was never agreed is never scored — it will simply be absent from the mark,
+defend. An objective that was never agreed is never scored — it will simply be absent from the score,
 silently.
 
 #### 9. Create an objective
@@ -728,16 +727,16 @@ person's objectives under those. You can start anywhere.
 | **You'll see** | Four fields: **Objective title**, **Assigned to**, **Due quarter**, **Appraisal period** |
 
 > 🛑 **A personal KPI has to be filed in an appraisal period.** **Appraisal period** is what files the
-> KPI against a period, and a KPI filed in none **counts towards nobody's mark**, even once it is
+> KPI against a period, and a KPI filed in none **counts towards nobody's score**, even once it is
 > agreed. So whenever the company has an open period, the field is required on a KPI that is somebody's
 > own: it has no _Not part of an appraisal period_ choice, it starts on the period when there is only
 > one open, and **Create KPI** refuses with "Choose the appraisal period this is scored in. A KPI with
-> none counts towards nobody's mark, even once it is agreed." A published period is never offered.
+> none counts towards nobody's score, even once it is agreed." A published period is never offered.
 >
 > Two cases stay optional. A **company-wide or department objective** is a standing target and may
 > belong to no cycle, so it keeps _Not part of an appraisal period_. And a company with **no open
 > period yet** is not stopped from writing its KPIs down: a note reads "No appraisal period is open, so
-> this KPI will count towards nobody's mark. Start a period first, then edit the KPI to file it in
+> this KPI will count towards nobody's score. Start a period first, then edit the KPI to file it in
 > that period."
 >
 > The server still accepts an objective with no period. This is the form's rule, and it is why
@@ -756,45 +755,45 @@ person's objectives under those. You can start anywhere.
 |---|---|
 | **Who** | Whoever can write the objective: its owner, their line manager, a department head, HR / Owner |
 | **Click** | Open the objective, then **Edit** or **Delete** (at the end of the buttons) |
-| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. On a personal KPI the **Appraisal period** is required, as in step 9, so editing an old one that was never filed asks for it; that is the way out of the "no appraisal period" warnings an upload gives. **Delete** asks "Delete this KPI?" ("Delete this objective?" on a company or department one) and says it also removes the measures |
+| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. On a personal KPI the **Appraisal period** is required, as in step 9, so editing an old one that was never filed asks for it; that is the way out of the "no appraisal period" warnings an upload gives. **Delete** asks "Delete this KPI?" ("Delete this objective?" on a company or department one) and says it also removes the targets |
 
 > ⚠️ **Neither is offered once it is agreed.** An agreed target is the record of what two people
-> agreed, so **Edit** is replaced by **Reopen the target**, and **Delete** by **Stop this KPI**. The
+> agreed, so **Edit** is replaced by **Reopen the objective**, and **Delete** by **Stop this KPI**. The
 > card says "Not deletable" and why, in one line. The same goes for a finished or refused one, and
 > for one that other objectives ladder up to (move or delete those first). **Who it is assigned to**
 > is not in Edit: handing an objective to somebody else is a separate act.
 
-#### 11. Put a measure on it
+#### 11. Put a target on it
 
-A measure is what makes progress track itself. Without one, somebody has to state a figure by hand
-at the end. It is added in two steps: what kind of measure it is, then what that kind needs.
+A target is what makes progress track itself. Without one, somebody has to state a figure by hand
+at the end. It is added in two steps: what kind of target it is, then what that kind needs.
 
 |                |                                                                       |
 | -------------- | --------------------------------------------------------------------- |
 | **Where**      | `/performance/kpis` → open the card                                   |
 | **Who**        | Line manager · the owner                                              |
-| **Click**      | **Add a measure**                                                     |
-| **You'll see** | A window called **Add a measure** that first asks **What kind of measure is this?**: **A number to reach** (already chosen) or **Done or not done**, with **Cancel** and **Next**. A number then asks for **Measure**, **Starting value**, **Target value**, **Current value**, **Unit** and a tick box, **This number should go down**. Done or not done asks one thing, **What does done mean?**. **Back** returns to the question and **Add measure** saves it |
+| **Click**      | **Add a target**                                                     |
+| **You'll see** | A window called **Add a target** that first asks **What kind of target is this?**: **A number to reach** (already chosen) or **Done or not done**, with **Cancel** and **Next**. A number then asks for **Name**, **Starting value**, **Target value**, **Current value**, **Unit** and a tick box, **This number should go down**. Done or not done asks one thing, **What does done mean?**. **Back** returns to the question and **Add target** saves it |
 
 > 💡 **For things that should go down** — cost, days-to-hire, complaints. Tick **This number should
 > go down** and progress becomes how far it has fallen. Without the tick, a target below the start is
 > refused with an explanation rather than silently scored backwards.
 
-> 💡 **Leave Current value blank if nothing has been measured yet.** The measure is then **Not read
+> 💡 **Leave Current value blank if nothing has been measured yet.** The target is then **Not read
 > yet**, and it is left out of the objective's progress instead of being counted as 0%. The message
 > after you add it says so: _No reading yet, so it is left out of progress until there is one._ A
 > figure typed there is a reading, and so is the starting figure typed later as a first reading, because
 > 0 can be the honest answer.
 
-**A number: enter a reading.** An unread number says **Not read yet** and **No reading yet · target 40
+**A number: enter a reading.** An unread number says **Not read yet** and **No reading yet · aiming for 40
 leads · started at 10 leads**, and offers an empty box with the placeholder **First reading**. Type a
 figure and press **Save**; after that it shows **Now …** and a bar like any other. Under the
 objective's own bar a line says how much of that figure is a reading:
 
-- some read: **2 of 3 measures read. The others are left out of the figure above until somebody enters a
-  reading.**, and the bar is labelled **Progress, from the measures read so far**
-- none read: **0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.**
-  (**Its measure has not been read. …** when there is only one), the bar is labelled **Progress,
+- some read: **2 of 3 targets read. The others are left out of the figure above until somebody enters a
+  reading.**, and the bar is labelled **Progress, from the targets read so far**
+- none read: **0 of 3 targets read. Nothing is counted yet, so the figure above is not a result.**
+  (**Its target has not been read. …** when there is only one), the bar is labelled **Progress,
   nothing read yet**, and no percentage is drawn
 - all read: no line at all
 
@@ -812,17 +811,17 @@ back** undoes it. A company or department objective has no owner, so confirming 
 permission. It still works once the objective is agreed, because progress is the half that does not
 freeze.
 
-**The tasks linked to the measure, beside Confirm.** Where the company has switched on **Work behind a
-milestone, and weekly lines** (step 3), whoever sees **Confirm it is done** on a measure that is not confirmed
-also sees **Tasks linked to this measure** with a count, closed until it is opened. It lists each linked task by
+**The tasks linked to the target, beside Confirm.** Where the company has switched on **Work behind a
+milestone, and weekly lines** (step 3), whoever sees **Confirm it is done** on a target that is not confirmed
+also sees **Tasks linked to this target** with a count, closed until it is opened. It lists each linked task by
 its key (a link that opens the task) and where it stands: **Open**, **Finished 9 Nov 2026**, **Closed as won't do**,
 and, where a leader accepted it, _accepted by Ada Eze on 11 Nov 2026_. A task the reader cannot open is one plain
 line, **A task you cannot open**, with nothing else about it, and those lines come last, after the tasks that can
 be opened, so where one sits says nothing about it. When nothing is linked it says **No task is
-linked to this measure.** When there are more than the page lists it says **Showing 50 of 63.** **It lists and
-never decides:** it does not say the measure is done, how many are left or that anything is ready, and it does
-not recommend confirming. Which tasks count towards a measure is set on the task (**Link to an objective**).
-It is not shown once the measure is confirmed, to the person whose objective it is, or to a reader who may not
+linked to this target.** When there are more than the page lists it says **Showing 50 of 63.** **It lists and
+never decides:** it does not say the target is done, how many are left or that anything is ready, and it does
+not recommend confirming. Which tasks count towards a target is set on the task (**Link to an objective**).
+It is not shown once the target is confirmed, to the person whose objective it is, or to a reader who may not
 confirm, and nothing is asked for in those cases or while the setting is off.
 
 > ⚠️ **Until it is confirmed a milestone counts as not done**, at 0% in the average, from the day it is
@@ -875,8 +874,8 @@ Then **Check and review**:
 > a name. Somebody with the records permission is offered each person's address while typing. A
 > department head is not: the staff list a head can read carries no emails.
 
-> ⚠️ **Leave Appraisal period blank and an objective may count towards nobody's mark.** An
-> objective counts towards a person's appraisal mark only once it is filed in an appraisal period. This
+> ⚠️ **Leave Appraisal period blank and an objective may count towards nobody's score.** An
+> objective counts towards a person's appraisal score only once it is filed in an appraisal period. This
 > holds for this window and for **Upload objectives** alike, because both go through the same check.
 > A row that names a parent objective and leaves the period blank takes the parent's period, as long
 > as that period is still open. A row with no parent and no period, or whose parent's period is
@@ -888,7 +887,7 @@ Then **Check and review**:
 >   that the way to file them is to name an open period under **Appraisal period** (the report lets you
 >   type it beside each row) or to press **Edit** on the objective before it is agreed (step 10);
 > - on each such row, **No appraisal period, so this objective counts towards nobody's appraisal
->   mark.**;
+>   score.**;
 > - in this window the **Appraisal period** dropdown's blank choice reads **None chosen (the parent's
 >   period, if any)**.
 >
@@ -940,7 +939,7 @@ Sign in as the manager. This is the queue screen, and it has one job.
 | **Click**      | **Agree it** on the row, then confirm                                          |
 | **You'll see** | The row leaves the queue and the objective's badge becomes _Agreed_ everywhere |
 
-Each row lists its measures so you can see what you are agreeing to: **Offers accepted, 0 to 10 · now
+Each row lists its targets so you can see what you are agreeing to: **Offers accepted, 0 to 10 · now
 5**, or **Both engineers hired, done or not done · not done yet**. A number nobody has entered a
 figure for reads **· nothing recorded yet**, and one already at its target reads **· already at
 target**, which is worth stopping on: a target agreed after the work was done is the one this step
@@ -963,7 +962,7 @@ flowchart TD
 > **Nobody agrees their own.** Your own objective never appears in your own queue, whatever
 > permissions you hold.
 >
-> **Agreed means frozen.** The only way to change an agreed target is **Reopen the target**, which
+> **Agreed means frozen.** The only way to change an agreed target is **Reopen the objective**, which
 > demands a reason and records who did it and when. A target that moved with no record of why is what
 > makes a rating impossible to defend later.
 
@@ -985,7 +984,7 @@ exited, tells them in the app, and the period can never be deleted again.
 > they are the only time anybody is told. Each is a single line on the period screen, and names the
 > person when it is only one ("Tunde Bakare has no appraiser"):
 >
-> **"3 people have no appraiser: …"** — these people will finish the period with no mark at all, and
+> **"3 people have no appraiser: …"** — these people will finish the period with no score at all, and
 > **nobody has a form to fill in about them**: a manager sees only their own self-appraisal for them. Fix
 > it by setting their manager on their record and pressing **Fill in from the reporting line** on
 > `/performance/appraisers`, which now writes the manager's form as well as the mapping on a period that
@@ -999,7 +998,7 @@ exited, tells them in the app, and the period can never be deleted again.
 > the Owner or HR manager the period leaves out (step 8). The (i) beside the button says what Fill in does.
 >
 > **"3 people have no agreed objective: …"** — these people have nothing agreed to be judged on, so the
-> objectives part of their mark is empty and the rest is reweighted around it.
+> objectives part of their score is empty and the rest is reweighted around it.
 
 > ⚠️ **Nothing here sends email.** People are told inside the app only. If your walkthrough audience
 > expects an email to arrive, say so before you press it.
@@ -1019,32 +1018,32 @@ the module, so it is worth walking properly.
 - **Save and finish later** keeps a half-typed answer without sending it. Nobody else can see a form
   that has not been sent.
 - The form ends on **Preview**. It reads every answer back and sends nothing: press anything on it
-  to change it, and **Send it** is what sends. There is no overall mark to give unless the company
-  has switched one on (step 2). Then one optional page, **Is there an overall mark?**, sits between
-  the last question and the closing page, the **Preview** has an **Overall mark** row, and the
-  confirmation says _"… and an overall mark of Meets Expectations"_. Either way the mark comes from
+  to change it, and **Send it** is what sends. There is no overall rating to give unless the company
+  has switched one on (step 2). Then one optional page, **Is there an overall rating?**, sits between
+  the last question and the closing page, the **Preview** has an **Overall rating** row, and the
+  confirmation says _"… and an overall rating of Meets Expectations"_. Either way the score comes from
   the scores (step 22).
-- **A manager's form in a period that weights Manager appraisal (step 3) has to carry an overall mark.** The
-  page is there whatever the switch says. It is called **Your overall mark**. With one appraiser it says
-  _"Needed. It counts for 30% of the mark in this period."_ (the figure is the part's share). With several it
-  says the strip's own sentence after _"Needed."_ (_"Your overall mark counts for 60% of what the appraisers say,
-  alongside 1 other. What they say is 30% of the mark."_), because the part's share belongs to all of them and not
+- **A manager's form in a period that weights Manager appraisal (step 3) has to carry an overall rating.** The
+  page is there whatever the switch says. It is called **Your overall rating**. With one appraiser it says
+  _"Needed. It counts for 30% of the score in this period."_ (the figure is the part's share). With several it
+  says the strip's own sentence after _"Needed."_ (_"Your overall rating counts for 60% of what the appraisers say,
+  alongside 1 other. What they say is 30% of the score."_), because the part's share belongs to all of them and not
   to this one, and the two pages must not give two answers. Where the server sent no share the line reads
   _"Needed. This period counts it towards the score."_ and gives no figure. There is no **Leave it blank
   instead** and the button reads **Next**, never **Skip**. Going on without one stays on the page with _"This one needs an
-  answer before you can go on."_ On the **Preview** the **Overall mark** row reads _Not given yet_ with a
-  **Needs an answer** badge and a line says _"The overall mark still needs an answer before this can go."_;
+  answer before you can go on."_ On the **Preview** the **Overall rating** row reads _Not given yet_ with a
+  **Needs an answer** badge and a line says _"The overall rating still needs an answer before this can go."_;
   **Send it** walks you back to the page instead of sending. A self-review is never held to it.
 - **A review that was sent back keeps the mark it was given** (step 30). Where the form asks for a mark it opens
   on that one, unless this browser remembers a newer pick, so the manager is not blocked until they pick, again, a
-  mark the record already holds. A mark the record holds can be replaced but not left blank, so **Leave it blank
+  score the record already holds. A score the record holds can be replaced but not left blank, so **Leave it blank
   instead** is not offered for it. A first-time form holds none and still needs one, and a form that does not ask
-  for a mark sends none.
-- **The strip at the top of a manager's form says what the overall mark is worth.** _"Your overall mark counts
-  for 30% of the mark."_ where the period weights Manager appraisal; with several appraisers _"Your overall mark
-  counts for 40% of what the appraisers say, alongside 2 others. What they say is 30% of the mark."_; and
-  _"Your overall mark does not count towards the score."_ where the period does not weight it and the form asks
-  for one. It used to say the review counted for the mark, which was never true of the review.
+  for a score sends none.
+- **The strip at the top of a manager's form says what the overall rating is worth.** _"Your overall rating counts
+  for 30% of the score."_ where the period weights Manager appraisal; with several appraisers _"Your overall rating
+  counts for 40% of what the appraisers say, alongside 2 others. What they say is 30% of the score."_; and
+  _"Your overall rating does not count towards the score."_ where the period does not weight it and the form asks
+  for one. It used to say the review counted for the score, which was never true of the review.
 - **The closing page is named for who is writing.** On the person's own form, and on peer feedback, it is
   **Anything to add?**. On a manager's form it is **Your recommendations** (_"Optional. What you recommend
   for them, and anything else you want to say, in your own words."_), and the **Preview** row and the line
@@ -1095,7 +1094,7 @@ the module, so it is worth walking properly.
   answer behind it), and they come back when it closes, including when the company turns the setting off under
   it: the picker goes with its button and does not return by itself. A pin can still be taken off after the
   company turns the setting off, and nothing new is offered. A pin the server no longer holds (taken off in another window) leaves the list, and
-  one that was already gone when **Unpin** was pressed is simply removed. It does not change the mark.
+  one that was already gone when **Unpin** was pressed is simply removed. It does not change the score.
 
 #### 18. _Optional_ — log what you did each week
 
@@ -1177,7 +1176,7 @@ answer.
 > date in the past and every manager in the period is released at once); or you hold the records
 > permission (**Edit records**). A period with no self-review has nothing to wait for. This is the
 > answer to "I cannot finish the manager appraisal": almost always it is waiting for the person. The row
-> says it too: on **Waiting on you**, a small mark beside the person's name on **Fill it in** carries the same
+> says it too: on **Waiting on you**, a small score beside the person's name on **Fill it in** carries the same
 > sentence when you hover or tap it.
 
 > 💡 **What the person said of themselves, on a directly rated subsection.** Where a subsection is asked of
@@ -1198,7 +1197,7 @@ answer.
 
 #### 22. Record competency levels
 
-Separate from the review form, and easy to forget. A person with no competency ratings gets a mark
+Separate from the review form, and easy to forget. A person with no competency ratings gets a score
 built from their objectives alone.
 
 |                |                                                                                 |
@@ -1226,7 +1225,7 @@ refused on the field (_Write the answer in words._), and so is one over the limi
 characters._, which is the server's own sentence). A count appears from 3,500 characters (_3,620 of 4,000
 characters_) and goes on counting past the limit, in red, because pasting more is allowed so that it can be
 shortened. There is no level and no target, and under the box one line says what it is: _A written answer is
-read by people and never counts towards the mark._ **Appraisal period** says nothing about a mark for it:
+read by people and never counts towards the score._ **Appraisal period** says nothing about a score for it:
 with a period chosen, _Filed under that period. Each person has one answer per period, so writing it again
 replaces this one._, and with none, _A snapshot of where they are now._ **The language check runs here too.**
 Type _"Chidi is quite disorganised"_ and the phrase is quoted back under the box, with _Nothing here stops you
@@ -1237,7 +1236,7 @@ It never stops the save. On the **Your skills** list a written answer shows its 
 about what it said.
 
 > 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
-> recorded but counts towards no period's mark.
+> recorded but counts towards no period's score.
 
 A subsection the period asks on its review form is also recorded when the review is sent, as the same rating
 under the same period (with the person's words in it, for a written one): the manager's send records the
@@ -1256,7 +1255,7 @@ Where the company has switched on **Work in review answers** (step 3), the peopl
 the person are listed first, each saying how many (_Shared 3 projects_, _Shared 1 project_), under the line
 _People who shared a project with Femi Balogun are listed first. You still choose who to ask._ The same
 ordering is on `/performance/appraisers`: once somebody opens a row's list of people it puts **Shared a
-project** before **Everybody else**, and so does the **Appraiser** list in the dialog that shares the mark
+project** before **Everybody else**, and so does the **Appraiser** list in the dialog that shares the score
 between several. **A list that is open is never rearranged.** What it shows is fixed at the moment somebody
 reaches into it (focus, a press, a key), and an answer that arrives after is applied the next time it is
 opened, so a name never moves under the pointer. Resting the pointer on a row's list for a moment asks early,
@@ -1266,9 +1265,9 @@ task. It only orders the list. Nobody is chosen for the person, and where the se
 setting is off, or the reader is one it does not answer) the list is as it was and nothing claims that
 anybody shared no projects.
 
-### Phase E — calibration: compare across the company, then make the marks final
+### Phase E — calibration: compare across the company, then make the scores final
 
-Calibration is the stage where a company looks at every mark side by side and asks whether two
+Calibration is the stage where a company looks at every score side by side and asks whether two
 managers have been using the same scale. It is also where a rating stops being a draft and becomes
 the thing a person is told.
 
@@ -1279,31 +1278,31 @@ the thing a person is told.
 | **Where**      | `/performance/periods/{id}`                                                                                   |
 | **Who**        | HR / Owner                                                                                                    |
 | **Click**      | **Move to calibration**                                                                                       |
-| **You'll see** | _"Marks are in. Nothing more is asked of anyone until you publish."_ A _Calibration_ column appears on the register |
+| **You'll see** | _"Scores are in. Nothing more is asked of anyone until you publish."_ A _Calibration_ column appears on the register |
 
 > 💡 **This is what unlocks finalising.** Ratings to be made final only appear in a manager's
 > **Waiting on you** once the period is at calibration. If a manager tells you they cannot see
 > anything to finalise, this is almost always the reason.
 
-#### 25. _Optional_ — check the marks for fairness
+#### 25. _Optional_ — check the scores for fairness
 
-Before you move anything, look at how the marks fall. This screen compares the marks as the answers
+Before you move anything, look at how the scores fall. This screen compares the marks as the answers
 produced them, before any calibration move, across groups of people and across managers, and flags the
-gaps worth a second look. It does not change a mark.
+gaps worth a second look. It does not change a score.
 
 |                |                                                                                                                                                  |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Where**      | `/performance/periods/{id}/fairness`                                                                                                             |
 | **Who**        | Whoever holds the **See the fairness check** permission                                                                                          |
 | **Click**      | **Fairness check**, at the top of the period screen once the period has started                                                                  |
-| **You'll see** | **Marks compared**, **Gaps flagged**, **Groups hidden** and **Company average**, then three tabs: **Groups**, **Managers** and **Calibration moves** |
+| **You'll see** | **Scores compared**, **Gaps flagged**, **Groups hidden** and **Company average**, then three tabs: **Groups**, **Managers** and **Calibration moves** |
 
 - **Groups** is one card per way of grouping people — the permission names gender, age, time at the
   company, location, contract type and department. Each card reads **Flagged**, **No clear gap** or
   **Too few to compare**, and can be shown as an **Average**, as **Bands** or as a **Table**.
-- **Managers** shows the average mark each manager gave, and flags a manager whose marks sit well apart
+- **Managers** shows the average score each manager gave, and flags a manager whose scores sit well apart
   from everyone else's, or barely vary at all.
-- **Calibration moves** counts the marks that were moved up and down, by group, and lists the latest
+- **Calibration moves** counts the scores that were moved up and down, by group, and lists the latest
   moves with the reason given for each.
 - **This period** and **Last 3 periods** at the top switch what is counted.
 - **How flags work**, at the foot, states the rules in the product's own words: a group is flagged only
@@ -1319,19 +1318,19 @@ gaps worth a second look. It does not change a mark.
 > backend branch that has not reached `staging`, so there nobody holds it. Delete this note when it
 > ships.
 
-#### 26. Move a mark that is out of line
+#### 26. Move a score that is out of line
 
-One manager marks generously and another marks hard. Calibration is where that is corrected, on the
+One manager scores generously and another scores hard. Calibration is where that is corrected, on the
 record rather than in a corridor.
 
 |                |                                                                                 |
 | -------------- | ------------------------------------------------------------------------------- |
-| **Where**      | `/performance/periods/{id}` → **Where the marks stand**                         |
+| **Where**      | `/performance/periods/{id}` → **Where the scores stand**                         |
 | **Who**        | HR / Owner                                                                      |
-| **Click**      | **Change the mark** on the row → new percentage → **Why**                         |
+| **Click**      | **Change the score** on the row → new percentage → **Why**                         |
 | **You'll see** | The row shows both figures: what the answers produced, and what it was moved to |
 
-> ⚠️ **The reason is not optional and not a formality.** It is kept with the mark and it is what
+> ⚠️ **The reason is not optional and not a formality.** It is kept with the score and it is what
 > explains the change if anybody asks years later. A few words is refused; the product asks for a
 > sentence.
 
@@ -1349,7 +1348,7 @@ is a judgement somebody records here.
 
 > ✅ **Worth pointing out to a stakeholder.** Anybody missing either half is **named underneath the
 > grid** with which half is missing, rather than being dropped into the bottom-left box. As the screen
-> puts it: having no mark is not the same as a low one. Most nine-box tools get this wrong.
+> puts it: having no score is not the same as a low one. Most nine-box tools get this wrong.
 
 #### 28. Make a rating final
 
@@ -1363,7 +1362,7 @@ tells the person.
 | **Click**      | **Make it final**, then confirm                                                           |
 | **You'll see** | A _Final_ badge, and the row moves to **Waiting on somebody else** — it is their move now |
 
-> 🛑 **It cannot be changed afterwards.** The confirmation says so. Once final, the mark cannot be
+> 🛑 **It cannot be changed afterwards.** The confirmation says so. Once final, the score cannot be
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
 > route is step 30.
 
@@ -1392,7 +1391,7 @@ column for each on a wide screen, each headed with who wrote it and when it was 
 question answered on each side in one row. On a phone the two answers stack, each under its own label.
 A question only one of them was asked reads **Not asked**, which is not the same as **Not answered**.
 Under the questions, **Closing note and recommendations** puts the manager's recommendations beside
-anything the person added, and **Overall mark** appears as a row only where the company asks for one or
+anything the person added, and **Overall rating** appears as a row only where the company asks for one or
 somebody gave one. Where the self-review is not there the card is simply **Manager review**.
 
 Where the person pinned finished work to an answer (step 17), it is read under their answer in the **Self
@@ -1403,12 +1402,12 @@ note and a line such as _Pinned by Femi Balogun on 5 Nov 2026_ (_Pinned by you_ 
 is the person's own selection and shows no title, and the full list of finished work is still one press away
 under **Work this cycle**. The manager's column never carries pins, and an answer with none says nothing.
 
-Above it, **What the mark is made of** lists each part with what it scored, what it counts for and what
+Above it, **What the score is made of** lists each part with what it scored, what it counts for and what
 it is based on: _Based on 4 ratings_, _Based on 1 agreed objective_. A part left out says why in the API's
 own words. When parts were left out, one sentence above the list names them and says the others count for
 more than the company set (see _The mark_), and each part that moved says only what was set. **Manager
 appraisal** is listed only where it carries a weight, and _Based on 2 overall marks_ is what it counted.
-Beside the score, **Appraisers' overall rating** says whether it is in the mark: _"It is what Manager
+Beside the score, **Appraisers' overall rating** says whether it is in the score: _"It is what Manager
 appraisal is scored from."_ where the part carries a weight, and _"For reference. It does not count towards the
 score."_ where it does not.
 
@@ -1439,7 +1438,7 @@ flowchart TD
 > they can record a formal dispute."_ The server will take a dispute from somebody holding the records
 > permission, but nothing in the product sends one, so today that can only happen over the API. A
 > review disputed before the button went still shows **Disputed**, with the person's words beside the
-> mark. Why it is like this: [ADR-0008](../adr/0008-an-employee-acknowledges-a-rating-and-only-hr-records-a-dispute.md).
+> score. Why it is like this: [ADR-0008](../adr/0008-an-employee-acknowledges-a-rating-and-only-hr-records-a-dispute.md).
 
 > ⚠️ **One answer only.** The acknowledgement is stored with its date and cannot be given twice. Three
 > separate states exist and the product never confuses them — _acknowledged_, _disputed_ (only on a
@@ -1462,7 +1461,7 @@ else's review moves.
 > back to work.
 
 > 💡 **A manager's review keeps the mark it was given.** Sending it back clears when it was sent, not the
-> rating, so the form opens on the mark it already holds (step 17) and Send is not held up for a mark that is
+> rating, so the form opens on the mark it already holds (step 17) and Send is not held up for a score that is
 > already there.
 
 ### Phase G — close it out: publish, then read what the period actually said
@@ -1474,9 +1473,9 @@ else's review moves.
 | **Where**      | `/performance/periods/{id}`                                                                                                                  |
 | **Who**        | HR / Owner                                                                                                                                   |
 | **Click**      | **Publish the results**, then confirm                                                                                                        |
-| **You'll see** | Either _"People can now read what their manager wrote about them."_, or a count of how many people finish with no mark — **by name**: _"2 people finish with no mark: …"_ |
+| **You'll see** | Either _"People can now read what their manager wrote about them."_, or a count of how many people finish with no score — **by name**: _"2 people finish with no score: …"_ |
 
-> ⚠️ **Read the names it gives you.** If anybody finishes with no mark, publishing is the last moment
+> ⚠️ **Read the names it gives you.** If anybody finishes with no score, publishing is the last moment
 > anybody is told. Those people go through a whole appraisal period and come out the other side with
 > nothing.
 
@@ -1487,11 +1486,11 @@ else's review moves.
 | **Where**      | `/performance/periods/{id}/report`                                                                              |
 | **Who**        | HR / Owner                                                                                                      |
 | **Click**      | **See the report** from the period screen                                                                       |
-| **You'll see** | Headcount, how many have a mark, the average, the distribution across the five bands, and a table by department |
+| **You'll see** | Headcount, how many have a score, the average, the distribution across the five bands, and a table by department |
 
 > ✅ **The thing to check, and the thing to say.** **Two headcounts, never divided into each other.**
-> "People in this period" and "with a mark" are separate figures in separate cards, each stating its
-> own total. The average is over the marks that exist and reads as blank when there are none — never
+> "People in this period" and "with a score" are separate figures in separate cards, each stating its
+> own total. The average is over the scores that exist and reads as blank when there are none — never
 > 0%.
 >
 > Three lists name people rather than counting them: _nobody marked them_, _written but not
@@ -1508,14 +1507,14 @@ else's review moves.
 | **Where**      | `/performance/history/{employeeId}`                                                        |
 | **Who**        | HR / Owner · their manager · themselves                                                    |
 | **Click**      | Reached from a person's record and from the appraisal screen                               |
-| **You'll see** | Two tabs. **Appraisal history** is every mark in order, with the change against the previous one, and what was said each time. **Work record** is what they finished on the project boards (below) |
+| **You'll see** | Two tabs. **Appraisal history** is every score in order, with the change against the previous one, and what was said each time. **Work record** is what they finished on the project boards (below) |
 
 > 💡 **Two details worth demonstrating.** A period where nothing was recorded is **skipped, not
-> plotted as zero** — the change is measured against the last period that actually has a mark, and the
+> plotted as zero** — the change is measured against the last period that actually has a score, and the
 > empty ones are named underneath. A fall and a recovery that never happened is the easiest chart in
 > the world to draw by accident.
 >
-> The person themselves sees only finalised marks, and is told how many are withheld. A working
+> The person themselves sees only finalised scores, and is told how many are withheld. A working
 > figure moves every time somebody records a rating, so they see it when it is final and not before.
 
 **The Work record tab, and My work record.** The same panel is on the **Work record** tab of this page
@@ -1569,7 +1568,7 @@ both when it is reopened.
   somebody else put on their list is kept, shown with **Personal** and **Set by**. **A company that has not
   switched Projects on does not see it at all.** A person with nothing recorded reads "No finished tasks were
   recorded for you on the project boards in this period", which says nothing about the rest of their work. It
-  is collapsed on a phone, and it does not change the mark. Where the company has switched on **Work in review
+  is collapsed on a phone, and it does not change the score. Where the company has switched on **Work in review
   answers** (step 3), the person the work is about can say **This is wrong** beside an item, with a reason of 3
   to 280 characters (**What is wrong with it?**) and **Flag it**, and can **Change** it or **Take it back**.
   Whoever reads the list sees _Flagged by Chidi Nwosu on 6 Nov 2026: …_ on the row and a count in the heading
@@ -1577,7 +1576,7 @@ both when it is reopened.
   the count, when the company later switches the setting off**: the person still has **Take it back**, nobody
   can raise or change one, and the panel says so (_Raising or changing a flag is not available at the
   moment. A flag you raised stays on the list, and you can still take it back…_). A flag does not remove the
-  item or change the mark, and the panel says so. The dialog cannot be closed while a request is out, and a
+  item or change the score, and the panel says so. The dialog cannot be closed while a request is out, and a
   refusal is shown in it with the reason still typed; after a flag is raised, changed or taken back the
   keyboard focus is on that row's own control, and both panels (this list and the record kept with a rating)
   show the same flags without reloading. A flag the server says is already gone when **Take it back** is
@@ -1605,7 +1604,7 @@ both when it is reopened.
   Tasks list and from a person's completed list, both as one request for the tasks chosen, each task
   answering for itself. Anybody who may link (the people on the task, the project's
   lead, their manager or department head, HR) can choose any objective or KPI they can see, a draft included, and
-  one of its measures, at any time. A task that is not linked is never mentioned.
+  one of its targets, at any time. A task that is not linked is never mentioned.
 
 In the demo all of it works: Adaeze Okonkwo leads three people, and Chidi Nwosu's and Amara Nwachukwu's first-half
 work (and Amara's earlier half, whose objective has closed) is there to read.
@@ -1620,7 +1619,7 @@ B are already done.
 | **Where**      | `/performance/periods`                                                                        |
 | **Who**        | HR / Owner                                                                                    |
 | **Click**      | **Start an appraisal period**                                                                 |
-| **You'll see** | The previous period stays exactly as it was. Marks belong to a period, not to a person's year |
+| **You'll see** | The previous period stays exactly as it was. Scores belong to a period, not to a person's year |
 
 ---
 
@@ -1667,7 +1666,7 @@ appraisers on. Holds the settings and the company-wide reads.
 1. Once: the scale, the weights, and the feature switch.
 2. Per period: create it, write the questions, decide who it covers, start it.
 3. While it runs: watch who is outstanding, nudge, move the stage along.
-4. At calibration: check the fairness view if you hold that permission, move any mark that is out of
+4. At calibration: check the fairness view if you hold that permission, move any score that is out of
    line, place people on the nine-box.
 5. At the end: publish, then read the report.
 
@@ -1695,18 +1694,18 @@ on purpose — they are the arguments the module is built on.
 | What you will notice | Why it is like that |
 |---|---|
 | **Nothing sends email.** | People are told inside the app only — starting a period, being nudged, being told a rating is final. Every message that mentions it says so rather than leaving you to find out. |
-| **An empty figure is blank, never 0%.** | Nobody scored yet reads *No mark*. A competency nobody rated reads *Nothing recorded*. A zero would be a claim that somebody performed at nothing, which is a completely different fact from nobody having looked. |
-| **Leadership is missing for most people.** | It is only rated for people who lead others: somebody reports to them, they lead a team, or they head a department. For everybody else it is left out of the mark and the rest is reweighted, rather than being scored low. If a figure exists for somebody who leads nobody, the page says it was rated and why it is left out, and what makes it count: record who they lead. |
-| **A part can count for more than you set.** | When other parts have nothing to count, the rest share their weight, and the review page names the parts that were left out in one sentence above the list. A mark where Core and Behavioural each show 50% against _Set at 40% by the company_, under _Delivery against objectives, Leadership and Self-assessment were left out_, is working as intended. |
+| **An empty figure is blank, never 0%.** | Nobody scored yet reads *No score*. A competency nobody rated reads *Nothing recorded*. A zero would be a claim that somebody performed at nothing, which is a completely different fact from nobody having looked. |
+| **Leadership is missing for most people.** | It is only rated for people who lead others: somebody reports to them, they lead a team, or they head a department. For everybody else it is left out of the score and the rest is reweighted, rather than being scored low. If a figure exists for somebody who leads nobody, the page says it was rated and why it is left out, and what makes it count: record who they lead. |
+| **A part can count for more than you set.** | When other parts have nothing to count, the rest share their weight, and the review page names the parts that were left out in one sentence above the list. A score where Core and Behavioural each show 50% against _Set at 40% by the company_, under _Delivery against objectives, Leadership and Self-assessment were left out_, is working as intended. |
 | **You cannot agree your own objective.** | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off. |
-| **An agreed objective cannot be edited.** | Not the title, not the period, not any target, and no new measure — because adding one changes what delivering it means. **Reopen the target** is the only way through and it records who, when and why. |
+| **An agreed objective cannot be edited.** | Not the title, not the period, not any target, and no new target — because adding one changes what delivering it means. **Reopen the objective** is the only way through and it records who, when and why. |
 | **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
-| **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. Weights set on a draft period's own page lock in at the same moment. |
+| **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a score somebody was told in March would quietly become a different score in June. Weights set on a draft period's own page lock in at the same moment. |
 | **"Make it final" only appears at calibration.** | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear. |
-| **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
-| **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
+| **A target nobody has read is not a target at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
+| **Only a manager says a milestone is done.** | A *Done or not done* target has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
 | **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21). |
-| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it, unless a period weights Manager appraisal: then managers are asked for one whatever the switch says. Self-assessment reads from the mark somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
+| **There is no overall rating unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall rating on appraisals** under Rating names, off by default, read when a form opens, and it never changes a score already given. A manager's overall rating sits beside the score and is not counted in it, unless a period weights Manager appraisal: then managers are asked for one whatever the switch says. Self-assessment reads from the score somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
 | **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---
@@ -1721,7 +1720,7 @@ account up or ask an engineer why somebody cannot see something.
 | **Everyone**     | Any account that can sign in. No permission required.                                                                                                                       | Everybody, including the Employee role, which holds nothing.                                                   |
 | **The person**   | The subject of the form. Resolved from who they are, not from a permission.                                                                                                 | Whoever the review or objective is about.                                                                      |
 | **Line manager** | **Having direct reports.** Not a role — it follows from the reporting line on people's records. Widened to a whole department for whoever is set as that department's head. | Nobody, until somebody's record names them as a manager.                                                       |
-| **HR / Owner**   | Two separate permissions that happen to travel together: _Manage settings_ (start a period, weights, scale) and _Edit records_ (read every mark in the company).            | The **Owner** and **HR manager** roles. Notably **not** Departmental Lead, Branch Manager or Payroll officer. |
+| **HR / Owner**   | Two separate permissions that happen to travel together: _Manage settings_ (start a period, weights, scale) and _Edit records_ (read every score in the company).            | The **Owner** and **HR manager** roles. Notably **not** Departmental Lead, Branch Manager or Payroll officer. |
 
 > ⚠️ **The one that trips people up in testing.** The role called **Departmental Lead** (formerly
 > Department Manager) carries no performance permission. Whoever heads a department holds it
@@ -1742,24 +1741,24 @@ seeded accounts to use.
 
 | #   | Do this                                                                                                                     | What to point at                                                                                                                   |
 | --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **HR** — `/settings/performance`. Show the parts of a mark and their weights, then change one.                              | Each part counts in proportion to the total, and the share it comes to is shown beside it. Manager appraisal starts at 0%.        |
+| 1   | **HR** — `/settings/performance`. Show the parts of a score and their weights, then change one.                              | The weights add up to 100%, and Save stays dead until they do. Manager appraisal starts at 0%.                                    |
 | 2   | **HR** — **Start an appraisal period**. Name it, set a due date, open _What to tell people_, type two sentences. Create it. | Nobody has been told anything yet. Say so.                                                                                         |
 | 3   | **HR** — **Write the questions**. Add one for the person and one for their manager.                                         | _Filed under_. And Start is dead until at least one question exists, and says why.                                                 |
-| 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
+| 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a target, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
 | 5   | **Manager** — `/performance`. The same objective is in **Waiting on you**. Open the queue and agree it.                     | Both sides of one action, thirty seconds apart. **This is the moment the demo lands.**                                             |
 | 6   | **Manager** — go back to KPIs and try to change the target you just agreed.                                                 | The controls are gone and a sentence above says why. Not a refusal after the click — the offer was never made.                     |
 | 7   | **HR** — **Start the period**. Confirm, then read the result out loud.                                                      | How many forms, how many told, and any names it gives you. "Nobody is appraising them" if it appears.                              |
-| 8   | **Employee** — **Fill it in**. Answer, read the **Preview**, send it.                                                       | The Preview reads everything back and sends nothing. There is no overall mark to give while the company has it off, which is the default: the answers are the review.                 |
+| 8   | **Employee** — **Fill it in**. Answer, read the **Preview**, send it.                                                       | The Preview reads everything back and sends nothing. There is no overall rating to give while the company has it off, which is the default: the answers are the review.                 |
 | 9   | **HR** — **Move to manager review**.                                                                                        | Self-reviews already in are kept. Say it; people assume otherwise.                                                                 |
 | 10  | **Manager** — write the review. Type _"Chidera is quite disorganised"_ and press Send.                                      | It quotes the phrase back at you and the button becomes **Send anyway**. It never blocks — and nothing you typed left the product. |
-| 11  | **HR** — **Move to calibration**, then **Change the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
+| 11  | **HR** — **Move to calibration**, then **Change the score** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
 | 12  | **Manager** — **Make it final**. Read the confirmation aloud before pressing it.                                     | This is the one-way door and the moment the person is told.                                                                        |
 | 13  | **Employee** — answer it. **I have seen this**.                                                                             | The sentence saying acknowledging is not agreeing, and the **Acknowledged** card that replaces the banner. One answer, once.       |
 | 14  | **HR** — **See the report**. Finish here.                                                                                   | The two headcounts, and the three lists of names: nobody marked them, written but not finalised, told and no answer yet.           |
 
 ---
 
-*Written against the product as it stands on 20 October 2026, except the reading of a mark and of the two reviews together, steps 3 and 28 and the closing page of step 17 (brought up to 30 October 2026), and steps 3 and 4 (the six parts and a
+*Written against the product as it stands on 20 October 2026, except the reading of a score and of the two reviews together, steps 3 and 28 and the closing page of step 17 (brought up to 30 October 2026), and steps 3 and 4 (the six parts and a
 period's own weights), 6 (the questions and the subsections), 16 (the no-appraiser warning), 17 and 21
 (answering a review), 22 (recording a level) and 32 (the report), the twelfth surprise and demo step 8, which
 were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated
@@ -1768,9 +1767,9 @@ subsection's name and starting a new version, and steps 6, 17, 21 and 22 again o
 subsection answered in the person's own words, and the paragraph on finished project work in step 18 and the
 **Work this cycle** note in step 33 on 11 November 2026, for who may read it, what it leaves out and the retired
 bridge, and steps 3 and 28 and the **Work when the rating was made final** note in step 33 on 12 November 2026,
-for the work kept with a final rating, and steps 2, 3, 4 and 17, the reading of a mark and the twelfth
+for the work kept with a final rating, and steps 2, 3, 4 and 17, the reading of a score and the twelfth
 surprise again on 12 November 2026, for the Manager appraisal part, and steps 3, 4, 17 and 30 once more on the
-same day, for when Save is dead, the mark page with several appraisers and a review sent back, and steps 3, 17 and 23,
+same day, for when Save is dead, the score page with several appraisers and a review sent back, and steps 3, 17 and 23,
 the notes in step 33 and the reading of the two reviews on 12 November 2026, for work in review answers, and steps 3, 11,
 18 and 33 on 12 November 2026, for the linked tasks beside Confirm, the weekly-line suggestions and tasks closed as
 won't do). Every button label, field name and

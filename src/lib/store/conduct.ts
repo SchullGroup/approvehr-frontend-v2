@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import {
   useCallback,
   useEffect,
@@ -139,24 +140,7 @@ export const LEVEL_TONE: Record<DisciplinaryLevel, BadgeTone> = {
 
 /** `2026-08-19` → `19 Aug 2026`. Long enough to be unambiguous on a legal record. */
 export function dayLabel(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  return formatDay(iso);
 }
 
 /**

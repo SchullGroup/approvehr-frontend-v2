@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { KpisScreen } from "./kpis-screen";
 
 export const metadata: Metadata = {
-  title: "KPIs",
+  title: "Objectives",
   description:
     "What people are aiming at, and how far along it is, yours, your team's, or the company's.",
 };

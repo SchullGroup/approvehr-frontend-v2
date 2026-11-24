@@ -28,9 +28,12 @@ import { NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { WorkRecordPanel } from "@/components/performance/work-record";
 import {
-  changeLabel,
+  changeOutOf5Label,
   dayLabel,
+  outOf5FromBp,
+  outOf5Label,
   scoreLabel,
+  scoreWords,
   visibleComponents,
   weightLabel,
   type ApiComponentScore,
@@ -98,7 +101,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
               </Badge>
               {history.counts.unscored > 0 && (
                 <Badge tone="warning" size="sm" dot>
-                  {history.counts.unscored} with no mark
+                  {history.counts.unscored} with no score
                 </Badge>
               )}
             </>
@@ -145,7 +148,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
                           compact
                           icon={<TriangleAlert aria-hidden="true" />}
                           title="No appraisal period has covered them yet"
-                          description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
+                          description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no scores yet."
                         />
                       </Card>
                     ) : (
@@ -194,19 +197,19 @@ function Who({ history }: { history: ApiScoreHistory }) {
         }
       />
       <Stat
-        label="Latest mark"
+        label="Latest score"
         /* An em dash, not a sentence — the hint already says why. */
         value={
           latest?.scoreBp === undefined || latest.scoreBp === null ? (
             <span className="text-faint">—</span>
           ) : (
-            scoreLabel(latest.scoreBp)
+            scoreWords(latest)
           )
         }
-        hint={latest ? latest.cycleName : "No period has given a mark yet"}
+        hint={latest ? latest.cycleName : "No period has given a score yet"}
       />
       <Stat
-        label="Periods with a mark"
+        label="Periods with a score"
         /* The no-periods case first. `unscored === 0` is true both of somebody
            marked in every period and of somebody no period has covered, so the
            hint alone read "Every period has one" over a "0 of 0" — a clean
@@ -224,7 +227,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
             ? "No appraisal period has covered them yet"
             : history.counts.unscored === 0
               ? "Every period has one"
-              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} had no mark`
+              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} had no score`
         }
       />
       <Stat
@@ -233,12 +236,12 @@ function Who({ history }: { history: ApiScoreHistory }) {
           history.trend === null ? (
             <span className="text-faint">—</span>
           ) : (
-            changeLabel(history.trend.changeBp)
+            changeOutOf5Label(history.trend.changeBp)
           )
         }
         hint={
           history.trend === null
-            ? "Needs at least two marks to show a trend"
+            ? "Needs at least two scores to show a trend"
             : `${history.trend.fromCycle} to ${history.trend.toCycle}`
         }
       />
@@ -288,17 +291,17 @@ function Trend({ history }: { history: ApiScoreHistory }) {
   return (
     <Card>
       <CardHeader
-        title="The marks, in order"
+        title="The scores, in order"
         description={
           scored.length < 2
-            ? "A chart needs at least two marks. The figures are below."
-            : "Only periods with a mark are on the chart. Periods with no mark are listed separately."
+            ? "A chart needs at least two scores. The figures are below."
+            : "Only periods with a score are on the chart. Periods with no score are listed separately."
         }
         {...(direction
           ? {
               action: (
                 <Badge tone={direction.tone} size="sm" icon={direction.icon}>
-                  {direction.words} · {changeLabel(trend?.changeBp ?? 0)}
+                  {direction.words} · {changeOutOf5Label(trend?.changeBp ?? 0)}
                 </Badge>
               ),
             }
@@ -309,16 +312,17 @@ function Trend({ history }: { history: ApiScoreHistory }) {
           <AreaChart
             points={scored.map((point) => ({
               label: point.cycleName,
-              value: point.scoreBp / 100,
+              value: point.scoreOutOf5 ?? outOf5FromBp(point.scoreBp),
             }))}
-            format={(value) => `${value}%`}
-            caption={`${history.employeeName}'s mark by period, as a percentage`}
+            format={(value) => outOf5Label(value)}
+            /* rating-scale-prose: the chart's unit, not a level somebody gave (U88). */
+            caption={`${history.employeeName}'s score by period, out of 5`}
           />
         ) : (
           <p className="text-body-sm text-muted">
             {scored.length === 1
-              ? `One mark so far: ${scoreLabel(scored[0]?.scoreBp ?? 0)} in ${scored[0]?.cycleName}.`
-              : "No marks yet, so there is nothing to chart."}
+              ? `One score so far: ${scored[0] ? scoreWords(scored[0]) : ""} in ${scored[0]?.cycleName}.`
+              : "No scores yet, so there is nothing to chart."}
           </p>
         )}
       </CardBody>
@@ -335,8 +339,8 @@ function NoMark({ cycles }: { cycles: string[] }) {
   return (
     <NoticeLine tone="muted">
       {cycles.length === 1
-        ? `${cycles[0]} has no mark.`
-        : `${cycles.length} periods have no mark: ${cycles.join(", ")}.`}
+        ? `${cycles[0]} has no score.`
+        : `${cycles.length} periods have no score: ${cycles.join(", ")}.`}
     </NoticeLine>
   );
 }
@@ -371,7 +375,7 @@ function Point({ point }: { point: ApiHistoryPoint }) {
             )}
             {point.band === null ? (
               <Badge tone="warning" size="sm" dot>
-                No mark
+                No score
               </Badge>
             ) : (
               <Badge tone={BAND_TONE[point.band]} size="sm">
@@ -384,27 +388,27 @@ function Point({ point }: { point: ApiHistoryPoint }) {
       <CardBody className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
           <div>
-            <p className="text-meta text-muted">Mark</p>
+            <p className="text-meta text-muted">Score</p>
             {/* Absent is absent. Nothing recorded is not a mark of nought. */}
             <p className="tabular text-h4 text-ink">
               {point.scoreBp === null ? (
-                <span className="text-body-lg text-muted">No mark</span>
+                <span className="text-body-lg text-muted">No score</span>
               ) : (
-                scoreLabel(point.scoreBp)
+                scoreWords(point)
               )}
             </p>
           </div>
           <div>
-            <p className="text-meta text-muted">Against the last mark</p>
+            <p className="text-meta text-muted">Against the last score</p>
             <p className="text-body-lg text-ink">
               {point.changeBp === null ? (
                 <span className="text-muted">
                   {point.scoreBp === null
                     ? "Nothing to compare"
-                    : "No earlier mark to compare with"}
+                    : "No earlier score to compare with"}
                 </span>
               ) : (
-                changeLabel(point.changeBp)
+                changeOutOf5Label(point.changeBp)
               )}
             </p>
           </div>
@@ -466,7 +470,7 @@ function Components({ components }: { components: ApiComponentScore[] }) {
               <p className="text-body-sm font-medium text-ink">{part.label}</p>
               {part.included ? (
                 <p className="mt-0.5 text-meta text-muted">
-                  Counted for {weightLabel(part.effectiveWeightBp)} of the mark
+                  Counted for {weightLabel(part.effectiveWeightBp)} of the score
                   {part.evidenceCount > 0 &&
                     ` · ${part.evidenceCount} ${part.evidenceCount === 1 ? "thing" : "things"} recorded`}
                 </p>
@@ -563,11 +567,12 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
             ]
           : []),
         {
-          term: "Appraisers' overall mark",
+          term: "Appraisers' overall rating",
           value:
             point.appraiserMark.ratingBp === null
               ? "None yet"
-              : `${scoreLabel(point.appraiserMark.ratingBp)}, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
+              : /* rating-scale-prose: an average of appraisers' ratings has no word (U88). */
+                `${outOf5Label(outOf5FromBp(point.appraiserMark.ratingBp))} out of 5, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). ${scoredFromSentence(point.components) ?? "For reference; it is not part of the score."}`,
         },
       ]}
     />

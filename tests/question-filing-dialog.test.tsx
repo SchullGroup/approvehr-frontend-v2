@@ -107,18 +107,18 @@ describe("the sentence under Section and Subsection", () => {
     mount();
     expect(
       screen.getByText(
-        "Answers to questions written here do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
+        "Answers to questions written here do not count towards the score. The score comes from what is recorded on each subsection, under Competency ratings.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("names the weight, and where the mark really comes from, once a subsection is chosen", async () => {
+  it("names the weight, and where the score really comes from, once a subsection is chosen", async () => {
     mount();
-    await pickSection("Core competency, 40% of the mark");
+    await pickSection("Core competency, 40% of the score");
     await pickSubsection("Diligence");
     expect(
       screen.getByText(
-        "Answers to questions written here do not count towards the mark. Core competency is 40% of the mark, and it comes from the level recorded on Diligence, under Competency ratings.",
+        "Answers to questions written here do not count towards the score. Core competency is 40% of the score, and it comes from the level recorded on Diligence, under Competency ratings.",
       ),
     ).toBeInTheDocument();
   });
@@ -141,7 +141,7 @@ describe("the sentence under Section and Subsection", () => {
 
   it("warns when a section is chosen and no subsection is", async () => {
     mount();
-    await pickSection("Core competency, 40% of the mark");
+    await pickSection("Core competency, 40% of the score");
     expect(
       screen.getByText(
         "Pick a subsection to file this question under. A section on its own files it under nothing.",
@@ -151,7 +151,7 @@ describe("the sentence under Section and Subsection", () => {
 
   it("never tells HR that an answer counts towards a section", async () => {
     mount();
-    await pickSection("Core competency, 40% of the mark");
+    await pickSection("Core competency, 40% of the score");
     await pickSubsection("Diligence");
     expect(document.body.textContent).not.toMatch(
       /answers? to (this|these|it|them) counts?/i,
@@ -161,12 +161,12 @@ describe("the sentence under Section and Subsection", () => {
     );
   });
 
-  it("says an unfiled subsection counts towards no part of the mark", async () => {
+  it("says an unfiled subsection counts towards no part of the score", async () => {
     mount();
     await pickSubsection("Punctuality");
     expect(
       screen.getByText(
-        "Answers to questions written here do not count towards the mark. Punctuality is not filed under a section, so a level recorded on it counts towards no part of the mark either.",
+        "Answers to questions written here do not count towards the score. Punctuality is not filed under a section, so a level recorded on it counts towards no part of the score either.",
       ),
     ).toBeInTheDocument();
   });

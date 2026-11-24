@@ -161,6 +161,8 @@ export type ApiValidateResult = {
   toCreate: number;
   toUpdate: number;
   toSkip: number;
+  /** Invitation emails importing this would send (U54). Absent on an older API. */
+  toInvite?: number;
   /** A ready-to-print sentence that always names the skipped rows. */
   summary: string;
   /**

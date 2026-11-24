@@ -34,16 +34,16 @@ export function overallMarkHeader(
   part: ManagerAppraisalPart,
 ): string {
   if (on === true)
-    return "Each form ends with a page asking for one overall mark.";
+    return "Each form ends with a page asking for one overall rating.";
   if (on === false && part.state === "has") {
-    return `Forms do not ask for an overall mark, except a manager's form in a period that weights ${part.label}. Otherwise the answers stand on their own.`;
+    return `Forms do not ask for an overall rating, except a manager's form in a period that weights ${part.label}. Otherwise the answers stand on their own.`;
   }
   if (on === false && part.state === "none") {
-    return "Forms do not ask for an overall mark. The answers stand on their own.";
+    return "Forms do not ask for an overall rating. The answers stand on their own.";
   }
   /* Not said by the server, or off with nothing known about the part: whether a
      form asks is not something this side can claim. */
-  return "Whether each form ends with a page asking for one overall mark.";
+  return "Whether each form ends with a page asking for one overall rating.";
 }
 
 /** The line under the switch itself. */
@@ -53,7 +53,7 @@ export function overallMarkSwitchNote(part: ManagerAppraisalPart): string {
     return `${base} It is optional, except for managers in a period that weights ${part.label}: they have to give one.`;
   }
   if (part.state === "none") {
-    return `${base} It is optional. A manager's overall mark is shown beside the score and is not counted in it.`;
+    return `${base} It is optional. A manager's overall rating is shown beside the score and is not counted in it.`;
   }
   return base;
 }
@@ -63,12 +63,12 @@ export function overallMarkSavedTitle(
   next: boolean,
   part: ManagerAppraisalPart,
 ): string {
-  if (next) return "Appraisal forms will end with an overall mark";
+  if (next) return "Appraisal forms will end with an overall rating";
   if (part.state === "has") {
-    return `Appraisal forms will not ask for an overall mark, except a manager's form in a period that weights ${part.label}`;
+    return `Appraisal forms will not ask for an overall rating, except a manager's form in a period that weights ${part.label}`;
   }
   if (part.state === "none") {
-    return "Appraisal forms will not ask for an overall mark";
+    return "Appraisal forms will not ask for an overall rating";
   }
-  return "Overall mark switched off";
+  return "Overall rating switched off";
 }

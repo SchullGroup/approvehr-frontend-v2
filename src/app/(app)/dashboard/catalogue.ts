@@ -481,7 +481,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     id: "appraisals",
     title: "Appraisals",
     blurb:
-      "Where the current period has got to, self-reviews in, manager reviews in, marks final, signed off, and the button that starts one.",
+      "Where the current period has got to, self-reviews in, manager reviews in, scores final, signed off, and the button that starts one.",
     group: "tools",
     span: "half",
     source: "local",

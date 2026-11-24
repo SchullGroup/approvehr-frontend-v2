@@ -4,7 +4,7 @@ import { HowAppraisalsWorkScreen } from "./screen";
 export const metadata: Metadata = {
   title: "How appraisals work",
   description:
-    "What a period is, what a mark is made of, and what happens when one is given.",
+    "What a period is, what a score is made of, and what happens when one is given.",
 };
 
 export default function HowAppraisalsWorkPage() {

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui";
 import { quarterOptions } from "@/app/(app)/performance/goal-dialogs";
@@ -18,6 +18,11 @@ vi.mock("@/lib/store/session", async (original) => ({
 vi.mock("@/lib/store/employees-api", async (original) => ({
   ...(await original<typeof import("@/lib/store/employees-api")>()),
   useEmployeeDirectory: () => ({ employees: [], archivedIds: new Set() }),
+}));
+
+vi.mock("@/lib/store/performance", async (original) => ({
+  ...(await original<typeof import("@/lib/store/performance")>()),
+  useAppraisals: () => ({ cycles: [] }),
 }));
 
 vi.mock("@/app/(app)/performance/kpis/import/lists", () => ({
@@ -64,8 +69,10 @@ describe("Add multiple, on 21 October 2026", () => {
         />
       </ToastProvider>,
     );
-    fireEvent.click(screen.getByRole("radio", { name: "Stacked" }));
-    const select = screen.getByLabelText(/Due quarter/) as HTMLSelectElement;
+    /* One table now (U105): the first row's cell. */
+    const select = screen.getAllByLabelText(
+      /Due quarter/,
+    )[0] as HTMLSelectElement;
     expect(select.value).toBe("2026-Q4");
   });
 });

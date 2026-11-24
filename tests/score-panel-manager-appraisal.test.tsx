@@ -241,7 +241,7 @@ describe("the record page's appraisers' overall rating", () => {
     ).toBeInTheDocument();
   });
 
-  it("lists the part among what the mark is made of only where it carries a weight", () => {
+  it("lists the part among what the score is made of only where it carries a weight", () => {
     mount([objectives, managerPart(0)]);
     expect(
       screen.queryByText("Manager appraisal", { selector: "span" }),
@@ -254,7 +254,7 @@ describe("the record page's appraisers' overall rating", () => {
       within(list as HTMLElement).getByText("Manager appraisal"),
     ).toBeInTheDocument();
     expect(
-      within(list as HTMLElement).getByText("Based on 1 overall mark"),
+      within(list as HTMLElement).getByText("Based on 1 overall rating"),
     ).toBeInTheDocument();
   });
 
@@ -266,12 +266,12 @@ describe("the record page's appraisers' overall rating", () => {
         included: false,
         effectiveWeightBp: 0,
         excludedBecause: "NO_APPRAISER_MARK",
-        excludedNote: "No appraiser has sent an overall mark yet.",
+        excludedNote: "No appraiser has sent an overall rating yet.",
         evidenceCount: 0,
       }),
     ]);
     expect(
-      screen.getByText("No appraiser has sent an overall mark yet."),
+      screen.getByText("No appraiser has sent an overall rating yet."),
     ).toBeInTheDocument();
     expect(screen.getByText("Nothing recorded")).toBeInTheDocument();
     expect(
@@ -297,37 +297,39 @@ describe("the strip above the record", () => {
     render(<ReviewScreen reviewId="r-1" />);
   };
 
-  it("says what the overall mark is worth, from the period's share", () => {
+  it("says what the overall rating is worth, from the period's share", () => {
     mount({ appraiser: appraiser(3000) });
     expect(
-      screen.getByText("This overall mark counts for 30% of the mark."),
+      screen.getByText("This overall rating counts for 30% of the score."),
     ).toBeInTheDocument();
   });
 
-  it("says it does not count where the form asks for a mark and the period does not weight the part", () => {
+  it("says it does not count where the form asks for a score and the period does not weight the part", () => {
     mount({ overallMark: true, appraiser: appraiser(0) });
     expect(
-      screen.getByText("This overall mark does not count towards the score."),
+      screen.getByText("This overall rating does not count towards the score."),
     ).toBeInTheDocument();
   });
 
-  it("says nothing about the mark where the form does not ask for one", () => {
+  it("says nothing about the score where the form does not ask for one", () => {
     mount({ overallMark: false, appraiser: appraiser(0) });
     expect(screen.getByText("Line manager")).toBeInTheDocument();
     expect(
-      screen.queryByText("This overall mark does not count towards the score."),
+      screen.queryByText(
+        "This overall rating does not count towards the score.",
+      ),
     ).toBeNull();
   });
 
   it("makes no claim from a server that does not say, and never says the review counts", () => {
     mount({ appraiser: appraiser() });
     expect(screen.getByText("Line manager")).toBeInTheDocument();
-    expect(screen.queryByText(/This overall mark/)).toBeNull();
+    expect(screen.queryByText(/This overall rating/)).toBeNull();
     expect(screen.queryByText(/review counts/i)).toBeNull();
   });
 });
 
-describe("the history page's appraisers' overall mark", () => {
+describe("the history page's appraisers' overall rating", () => {
   const point = (components: unknown[]): ApiHistoryPoint =>
     ({
       cycleId: "c-1",

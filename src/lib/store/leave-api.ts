@@ -362,6 +362,7 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
             }
           : null,
         reduced: false,
+        clashesAmong: "company",
         history: [],
       },
       loading: false,

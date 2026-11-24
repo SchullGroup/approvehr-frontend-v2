@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { Lock } from "lucide-react";
 import {
   AreaChart,
@@ -20,7 +21,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
 import { useReports } from "@/lib/store/insights";
 import { useOrgTimezone } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDay, formatMonth, todayIn } from "@/lib/time";
 import { employmentTypeLabel, naira } from "@/lib/api/insights";
 import { monthLabel } from "@/lib/api/overtime";
 import { Field, Select } from "@/components/ui";
@@ -291,7 +292,16 @@ function Reports() {
 
       <PageBody className="flex flex-col gap-6">
         <StatGrid>
-          <Stat label="On the payroll" value={totalPeople.toLocaleString()} />
+          {/* One base for every headcount here (U95 / PERF-15: "On the payroll
+              62", "Employed now 63" and "Employment mix 61" on one page). The
+              API's own figure and day where it sends them. */}
+          <Stat
+            label="Employed"
+            value={(headcount.base?.total ?? totalPeople).toLocaleString()}
+            {...(headcount.base
+              ? { hint: `On ${formatDay(headcount.base.asOf)}` }
+              : {})}
+          />
           <Stat
             label="Departments"
             value={headcount.byDepartment.length.toLocaleString()}
@@ -307,6 +317,11 @@ function Reports() {
             value={operationalLoad.approvalsPending.toLocaleString()}
           />
         </StatGrid>
+        {headcount.base && (
+          <p className="-mt-3 text-meta text-muted">
+            {`Every headcount on this page counts the same ${headcount.base.total.toLocaleString()} people. ${headcount.base.rule} The trend counts each month's end on its own.`}
+          </p>
+        )}
 
         {/* ---- Who works here, over time --------------------------------- */}
         <Card>
@@ -336,7 +351,7 @@ function Reports() {
                   height={160}
                   format={(n: number) => n.toLocaleString()}
                   points={workforce.trend.map((row) => ({
-                    label: row.month,
+                    label: formatMonth(row.month),
                     value: row.headcount,
                   }))}
                 />
@@ -388,9 +403,7 @@ function Reports() {
                 <BarChart
                   caption="Gross pay by department for the period"
                   colorBy="series"
-                  format={(n) =>
-                    `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
+                  format={(n) => formatMoney(n, "NGN", { decimals: true })}
                   points={payrollByDepartment.map((d) => ({
                     label: d.department,
                     value: naira(d.grossKobo),
@@ -419,9 +432,7 @@ function Reports() {
                   <DonutChart
                     caption="How gross pay divides for the period"
                     centreLabel="Gross"
-                    format={(n) =>
-                      `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    }
+                    format={(n) => formatMoney(n, "NGN", { decimals: true })}
                     points={[
                       {
                         label: "Basic",
@@ -479,9 +490,7 @@ function Reports() {
                 <BarChart
                   caption="Average gross pay per person, by department, for the period"
                   colorBy="series"
-                  format={(n) =>
-                    `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
+                  format={(n) => formatMoney(n, "NGN", { decimals: true })}
                   points={[...payrollByDepartment]
                     .map((d) => ({
                       label: d.department,

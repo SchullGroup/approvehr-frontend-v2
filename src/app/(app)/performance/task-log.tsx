@@ -150,7 +150,7 @@ export function TaskLogPanel({
             <Select
               value={keyResultId}
               disabled={saving}
-              placeholder="Not tied to one measure"
+              placeholder="Not tied to one target"
               onChange={(event) => setKeyResultId(event.target.value)}
             >
               {keyResults.map((measure) => (

@@ -8,6 +8,7 @@ import { JsonLd } from "@/components/marketing/json-ld";
 import { TIERS } from "@/lib/marketing/pricing";
 import { SITE_URL } from "@/lib/marketing/site";
 import { cn } from "@/lib/cn";
+import { StartButtons } from "@/components/marketing/start-buttons";
 import { PricingCalculator } from "./calculator";
 
 export const metadata: Metadata = {
@@ -222,7 +223,7 @@ const COMPARISON: TableSection[] = [
 const FAQ = [
   {
     q: "How does pricing work?",
-    a: "We price per employee, per month, banded by headcount, the rate falls as your team grows. Tell us your headcount and we will give you an exact number in one conversation.",
+    a: "We price per employee, per month, banded by headcount, the rate falls as your team grows. The calculator on this page gives the exact figure for your headcount.",
   },
   {
     q: "Is there an implementation fee?",
@@ -274,18 +275,13 @@ export default function PricingPage() {
               align="center"
               eyebrow="Pricing"
               title="Start free. Pay from month two."
-              lead="Your first month on us, run your first payroll, onboard your full team, and we migrate your existing data at no cost. After that, pricing is per employee, per month."
+              lead="Your first month on us: run your first payroll and onboard your full team. After that, pricing is per employee, per month."
             />
           </Reveal>
 
           <Reveal delay={100}>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-              <Pill href="/demo" variant="solid" size="lg" arrow>
-                Start free, book a demo
-              </Pill>
-              <Pill href="/demo" variant="quiet" size="lg">
-                Talk to sales
-              </Pill>
+              <StartButtons />
             </div>
           </Reveal>
         </div>
@@ -508,16 +504,14 @@ export default function PricingPage() {
           <Reveal>
             <div className="rounded-3xl bg-night px-8 py-16 text-center">
               <h2 className="mx-auto max-w-2xl text-h1 text-white">
-                Start free. We move your data. You pay from month two.
+                Start free. You pay from month two.
               </h2>
               <p className="mx-auto mt-5 max-w-lg text-body-lg leading-relaxed text-white/60">
-                Book a demo on your own numbers. If it fits, we migrate your
-                existing records and you run your first payroll at no cost.
+                Sign up and run your first payroll at no cost, or book a demo on
+                your own numbers.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
-                <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Start free, book a demo
-                </Pill>
+                <StartButtons onNight />
               </div>
             </div>
           </Reveal>

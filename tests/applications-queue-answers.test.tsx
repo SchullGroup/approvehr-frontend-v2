@@ -170,7 +170,7 @@ describe("what the row says before anything is opened", () => {
     );
     expect(
       within(duplicate).getByRole("link", { name: "See the earlier one" }),
-    ).toHaveAttribute("href", "/hiring/candidates/earlier-1");
+    ).toHaveAttribute("href", "/hiring/candidates/earlier-1?kind=applicant");
 
     const plain = rowOf("Applicant 1");
     expect(within(plain).queryByText("Needs a look")).not.toBeInTheDocument();
@@ -361,7 +361,7 @@ describe("the answers behind a row", () => {
       screen.getByText('Answered No to "Right to work in Nigeria?"'),
     ).toBeInTheDocument();
     expect(screen.getByTestId("consent-record")).toHaveTextContent(
-      "Agreed to the privacy notice on 2026-10-01",
+      "Agreed to the privacy notice on 1 Oct 2026",
     );
 
     await user.click(screen.getByRole("button", { name: /Open file/ }));

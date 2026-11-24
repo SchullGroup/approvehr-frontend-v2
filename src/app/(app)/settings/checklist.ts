@@ -247,7 +247,7 @@ function leaveRow(facts: SetupFacts): ChecklistRow {
         : "") +
       ` and ${plural(holidays, "holiday", "holidays")} for ${year}` +
       (awaitingProclamation > 0
-        ? `, ${awaitingProclamation} of them awaiting proclamation.`
+        ? `, ${awaitingProclamation} of them not confirmed yet.`
         : "."),
     href: "/settings/leave",
     linkLabel: "Review leave",

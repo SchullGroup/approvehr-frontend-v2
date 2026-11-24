@@ -1010,6 +1010,7 @@ export function useEmployeeMutations() {
         bankAccount,
         nin,
         phone,
+        personalEmail,
         ...rest
       } = fields;
 
@@ -1051,6 +1052,14 @@ export function useEmployeeMutations() {
           : { bankAccount: bankAccount === "" ? null : bankAccount }),
         ...(nin === undefined ? {} : { nin: nin === "" ? null : nin }),
         ...(phone === undefined ? {} : { phone: phone === "" ? null : phone }),
+        ...(personalEmail === undefined
+          ? {}
+          : {
+              personalEmail:
+                personalEmail === "" || personalEmail === null
+                  ? null
+                  : personalEmail,
+            }),
         /* The enums are upper case on the wire and lower case in `Employee` —
            `toEmployee` lower-cases on the way in, so this is the way back. */
         ...(status ? { status: status.toUpperCase() } : {}),

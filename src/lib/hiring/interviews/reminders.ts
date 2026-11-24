@@ -1,3 +1,4 @@
+import type { InterviewStatus } from "@/lib/api/recruitment";
 import type { InterviewNotice } from "./model";
 
 /**
@@ -227,6 +228,24 @@ export function whenWords(
         ? `Was due ${when(group.dueAt)}`
         : `Was planned for ${when(group.dueAt)}`;
   }
+}
+
+/**
+ * Whether a reminder still waiting will never go, because the interview is closed
+ * (UAT 23 Nov, U91 / PERF-30). The API's own gate at send time, in the same terms
+ * (`reminderGate`): a reminder before the interview goes only while it is
+ * scheduled; a nudge to hand in a scorecard goes after it is complete, and not
+ * once it was cancelled or nobody came. The screen said "Planned" for both.
+ */
+export function notNeeded(
+  group: Pick<ReminderGroup, "slot" | "status">,
+  interviewStatus: InterviewStatus,
+): boolean {
+  if (group.status !== "planned" && group.status !== "due") return false;
+  if (isNudge(group.slot)) {
+    return interviewStatus === "CANCELLED" || interviewStatus === "NO_SHOW";
+  }
+  return interviewStatus !== "SCHEDULED";
 }
 
 /** Whether something is still to go. */

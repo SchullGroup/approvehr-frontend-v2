@@ -43,7 +43,7 @@ export function PeriodsListScreen() {
             plain
             icon={<ToggleRight aria-hidden="true" />}
             title="Appraisals are switched off"
-            description="Scored reviews inside an appraisal period, and skills against their targets, on top of shared KPIs."
+            description="Scored reviews inside an appraisal period, and competencies against their targets, on top of shared objectives."
             action={
               <ButtonLink variant="accent" href="/settings/features">
                 Turn appraisals on

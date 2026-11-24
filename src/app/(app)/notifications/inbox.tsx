@@ -8,7 +8,7 @@ import {
   Button,
   ButtonLink,
   EmptyState,
-  IconButton,
+  RowActions,
   SegmentedControl,
   LoadState,
   Skeleton,
@@ -382,24 +382,28 @@ function Row({
             {verb}
           </ButtonLink>
         )}
-        {!item.read && (
-          <IconButton
-            label={`Mark “${item.title}” read`}
-            size="sm"
-            disabled={busy}
-            onClick={onMarkRead}
-          >
-            <Check aria-hidden="true" className="size-4" />
-          </IconButton>
-        )}
-        <IconButton
-          label={`Remove “${item.title}”`}
-          size="sm"
+        {/* One button and one menu, not three small buttons on a phone
+            (UAT 23 Nov, L29: SELF-22). */}
+        <RowActions
+          label={`More for “${item.title}”`}
           disabled={busy}
-          onClick={onDismiss}
-        >
-          <X aria-hidden="true" className="size-4" />
-        </IconButton>
+          items={[
+            ...(!item.read
+              ? [
+                  {
+                    label: "Mark read",
+                    icon: <Check aria-hidden="true" className="size-4" />,
+                    onSelect: onMarkRead,
+                  },
+                ]
+              : []),
+            {
+              label: "Remove",
+              icon: <X aria-hidden="true" className="size-4" />,
+              onSelect: onDismiss,
+            },
+          ]}
+        />
       </div>
     </li>
   );

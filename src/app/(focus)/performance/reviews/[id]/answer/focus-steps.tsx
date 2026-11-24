@@ -549,13 +549,13 @@ export function CheckStep({
               onClick={() => onEdit("mark")}
               className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
             >
-              <p className="text-meta font-medium text-muted">Overall mark</p>
+              <p className="text-meta font-medium text-muted">Overall rating</p>
               <p className="mt-1 text-body-sm leading-relaxed text-ink">
                 {mark
                   ? (words(Number(mark)) ?? mark)
                   : markRequired
                     ? "Not given yet"
-                    : "No overall mark"}
+                    : "No overall rating"}
               </p>
               {markMissing && (
                 <span className="mt-1.5 block">

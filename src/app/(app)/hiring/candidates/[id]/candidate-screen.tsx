@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Briefcase,
   Inbox,
@@ -58,9 +59,10 @@ import {
 import { useCan, usePermissions } from "@/lib/permissions";
 import { useDemoInterviewViews } from "@/lib/hiring/interviews/use-demo-interviews";
 import { useApplicantRecord, useOfferBands } from "@/lib/store/hiring";
+import { kindFrom } from "@/lib/hiring/candidate-href";
 import { useRealPipelineApplication } from "@/lib/store/recruitment";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { formatDateShort } from "@/lib/time";
+import { formatDateShort, formatDay } from "@/lib/time";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
@@ -183,10 +185,16 @@ function queueStatusFor(record: ApplicantRecord | null): string {
 }
 
 function Record({ id }: { id: string }) {
-  const view = useApplicantRecord(id);
+  /* What the link said the id is, so neither lookup guesses (L11). */
+  const kind = kindFrom(useSearchParams().get("kind"));
+  const view = useApplicantRecord(id, kind);
   const canOpenCv = useCanOpenCv();
   const { isConnected } = useSession();
-  const real = useRealPipelineApplication(id, view.record?.candidateId ?? null);
+  const real = useRealPipelineApplication(
+    id,
+    view.record?.candidateId ?? null,
+    kind,
+  );
   const [screening, setScreening] = useState(false);
   const [declining, setDeclining] = useState(false);
   const toast = useToast();
@@ -981,7 +989,12 @@ function Pipeline({ card }: { card: PipelineCard }) {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <DescriptionList
                 columns={2}
-                items={[{ term: "Start date", value: card.offer.startDate }]}
+                items={[
+                  {
+                    term: "Start date",
+                    value: formatDay(card.offer.startDate),
+                  },
+                ]}
               />
               {card.offer.status === "pending_approval" && (
                 <ButtonLink href="/hiring/offers" variant="accent" size="sm">

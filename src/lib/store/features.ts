@@ -369,14 +369,14 @@ export const FEATURE_COPY: Record<
      management", and everybody recognises "two managers judging one person". */
   multiAppraiser: {
     label: "More than one appraiser per person",
-    line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser's share decides how much their overall mark weighs.",
+    line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser's share decides how much their overall rating weighs.",
   },
   /* Named for what it does rather than what it is called. "Two-factor
      authentication" is a phrase people have learnt to skip past; "a code from
      your email" is the thing that will actually happen to them. */
   twoFactor: {
-    label: "Ask for a code from email",
-    line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
+    label: "Ask for a code before important actions",
+    line: "Anybody who turns two-factor on is asked for a code at sign-in either way. This decides whether chosen actions, such as approving payroll, also need one.",
   },
   /* Says what is kept and, in the same breath, what is not: a switch that
      records when people use a tool is read first as surveillance, and the

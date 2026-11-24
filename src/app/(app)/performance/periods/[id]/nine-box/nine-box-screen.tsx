@@ -19,7 +19,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   PERFORMANCE_AXIS_LABELS,
   POTENTIAL_REASON_MIN,
-  scoreLabel,
+  scoreWords,
   type ApiNineBox,
   type ApiNineBoxCell,
   type ApiNineBoxPerson,
@@ -219,7 +219,7 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
                         <span className="block truncate text-meta text-muted">
                           {person.jobTitle}
                           {person.scoreBp !== null &&
-                            ` · ${scoreLabel(person.scoreBp)}`}
+                            ` · ${scoreWords(person) ?? ""}`}
                         </span>
                       </span>
                     </span>
@@ -372,7 +372,7 @@ function NotOnTheMap({ grid }: { grid: ApiNineBox }) {
   if (waiting.length === 0) return null;
   return (
     <Disclosure
-      title="No mark yet"
+      title="No score yet"
       meta={<span className="text-meta text-muted">{waiting.length}</span>}
       level={2}
     >

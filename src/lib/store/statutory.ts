@@ -26,8 +26,19 @@ import { useSession } from "./session";
  * be.
  */
 
+/** A schedule, with the payroll month it is for. */
+export type StatutoryRow = ApiStatutorySchedule & { period: string };
+
+/** How many approved payrolls back an unfiled schedule is looked for. */
+const LOOK_BACK = 12;
+
 export type StatutoryState = {
-  schedules: ApiStatutorySchedule[];
+  /**
+   * The newest approved payroll's schedules, then every unfiled schedule from
+   * the approved payrolls before it (U33). Approving November used to make
+   * August's six unfiled schedules vanish from the screen.
+   */
+  schedules: StatutoryRow[];
   /** The run they belong to, so the screen can name the period. */
   runId: string | null;
   period: string | null;
@@ -42,7 +53,7 @@ export function useStatutorySchedules(): StatutoryState {
   const [tick, setTick] = useState(0);
   const [state, setState] = useState<{
     key: string;
-    schedules: ApiStatutorySchedule[];
+    schedules: StatutoryRow[];
     runId: string | null;
     period: string | null;
     error: ApiError | null;
@@ -67,10 +78,13 @@ export function useStatutorySchedules(): StatutoryState {
         const { runs } = await payrollApi.runs();
         /* The newest run that has actually been approved. A DRAFT or IN_REVIEW
            run has no schedules by design — the figures are not frozen yet. */
-        const run = runs.find(
-          (candidate) =>
-            candidate.status === "APPROVED" || candidate.status === "PAID",
-        );
+        const approved = runs
+          .filter(
+            (candidate) =>
+              candidate.status === "APPROVED" || candidate.status === "PAID",
+          )
+          .slice(0, LOOK_BACK);
+        const run = approved[0];
         if (!run) {
           if (!cancelled) {
             setState({
@@ -83,7 +97,17 @@ export function useStatutorySchedules(): StatutoryState {
           }
           return;
         }
-        const schedules = await statutory.forRun(run.id);
+        const perRun = await Promise.all(
+          approved.map(async (each) =>
+            (await statutory.forRun(each.id)).map((row): StatutoryRow => ({
+              ...row,
+              period: each.period,
+            })),
+          ),
+        );
+        const schedules = perRun.flatMap((rows, index) =>
+          index === 0 ? rows : rows.filter((row) => row.filedAt === null),
+        );
         if (!cancelled) {
           setState({
             key,

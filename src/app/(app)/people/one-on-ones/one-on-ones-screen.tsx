@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import { CalendarClock, Lock, MessagesSquare, Plus } from "lucide-react";
 import {
@@ -330,7 +331,7 @@ function Due({ series }: { series: ApiOneOnOne }) {
   }
   return (
     <Badge tone="success" size="sm" icon={<CalendarClock aria-hidden="true" />}>
-      Due {series.nextDueOn}
+      Due {formatDay(series.nextDueOn)}
     </Badge>
   );
 }

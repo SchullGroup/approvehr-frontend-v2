@@ -179,7 +179,7 @@ export function FinaliseDialog({
             it.{" "}
             {review.rating === null
               ? showsOverallMark(review)
-                ? "This form has no overall mark, so they will read the answers."
+                ? "This form has no overall rating, so they will read the answers."
                 : "They will read the answers."
               : `Their rating becomes "${ratingWords(review.rating)}".`}{" "}
             It cannot be changed afterwards.

@@ -705,12 +705,26 @@ export type ApiParticipant = {
   peers: { asked: number; answered: number };
 };
 
+/** "9 of 13": how many are done out of how many it applies to. */
+export type ApiProgressCount = { done: number; of: number };
+
 export type ApiCycleParticipants = {
   cycleId: string;
   cycleName: string;
   stage: ReviewCycleStage;
   rows: ApiParticipant[];
-  counts: { people: number; selfDone: number; managerDone: number };
+  counts: {
+    people: number;
+    selfDone: number;
+    managerDone: number;
+    /**
+     * People with a self-review form, and people with a manager review: what
+     * `selfDone` and `managerDone` are out of (UAT 23 Nov, U103). The same
+     * figures as the report's `progress`. Absent from an older API.
+     */
+    selfTotal?: number;
+    managerTotal?: number;
+  };
 };
 
 /**
@@ -960,6 +974,15 @@ export type ApiFormQuestion = {
 export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
+  /**
+   * The one answer a person is given (UAT 23 Nov, U36 / PERF-2: "Exceeds
+   * Expectations", "Overall score 41.94%" and "Meets expectations" on three
+   * screens). On a manager's review once it is final or the period is
+   * published: the score of record as the company's band word and on the 1.0 to
+   * 5.0 scale. Null before then and on any other form; absent from an older
+   * API. Read it through `outcomeWords`.
+   */
+  outcome?: { bandLabel: string | null; scoreOutOf5: number | null } | null;
   /**
    * Whether the company's appraisal forms end with an overall mark: its setting
    * in Appraisal scoring, sent with the form so the page that draws it needs no
@@ -1502,6 +1525,12 @@ export type ApiScoreRow = {
   /** The same integer as a percentage. Null for the same reason. */
   scorePercent: number | null;
   /**
+   * The same score on the forms' 1.0 to 5.0 scale, one decimal (UAT 23 Nov,
+   * U88 / PERF-17). Null with `scoreBp`; absent from an older API. Read it
+   * through `scoreWords`.
+   */
+  scoreOutOf5?: number | null;
+  /**
    * Which band the mark falls in, decided by the API.
    *
    * **Null when there is no mark**, and a screen must render that as an absence
@@ -1674,7 +1703,7 @@ export type ApiScoringPart = {
 
 export type ApiScoringParts = {
   parts: ApiScoringPart[];
-  /** Weights are proportional, so this need not be 10000. */
+  /** 10000 for a set saved since the 100% rule; an older set may differ. */
   totalBp: number;
   /** Every source a part can be scored from, and the part using it if any. */
   sources: {
@@ -1737,6 +1766,8 @@ export type ApiScoreDistribution = {
    * 3.9 rendered directly above "0 total criteria".
    */
   meanBp: number | null;
+  /** The mean on the 1.0 to 5.0 scale (U88). Null with `meanBp`; absent from an older API. */
+  meanOutOf5?: number | null;
 };
 
 /** One person on a named list, with the API's own reason for being on it. */
@@ -1934,6 +1965,13 @@ export type ApiCycleReport = {
   stage: ReviewCycleStage;
   started: boolean;
   published: boolean;
+  /**
+   * Whether the period reads the people it was published with (UAT 23 Nov,
+   * U96): true once it has been published since that rule; false while it runs
+   * and for a period published before it, which still reads today's staff.
+   * Absent from an older API.
+   */
+  participantsFrozen?: boolean;
   /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
   weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];
@@ -1957,6 +1995,20 @@ export type ApiCycleReport = {
     awaitingAnswer: number;
     /** No manager review row at all — a different fact from an unwritten one. */
     noReview: number;
+  };
+  /**
+   * The one set of progress counts every screen shows (UAT 23 Nov, U103 /
+   * CRAWL-2: "Self 9 of 29" on the dashboard and "9 of 13" on the period page).
+   * Each is people out of the people it applies to: self-reviews out of people
+   * with a self form, manager reviews out of people with a manager review,
+   * final scores out of the period's people, sign-off out of the scores made
+   * final. Absent from an older API.
+   */
+  progress?: {
+    self: ApiProgressCount;
+    manager: ApiProgressCount;
+    finalised: ApiProgressCount;
+    acknowledged: ApiProgressCount;
   };
   components: ApiReportComponent[];
   /** Who finishes with no mark, by name. */
@@ -1982,6 +2034,8 @@ export type ApiHistoryPoint = {
   weightsFrom: WeightsFrom;
   scoreBp: number | null;
   scorePercent: number | null;
+  /** On the 1.0 to 5.0 scale (U88). Null with `scoreBp`; absent from an older API. */
+  scoreOutOf5?: number | null;
   band: ScoreBand | null;
   bandLabel: string | null;
   /**
@@ -2185,8 +2239,28 @@ export type ApiTaskForGrading = {
    * that predates the field simply leaves it out, and absent means open.
    */
   weekClosed?: boolean;
+  /**
+   * Whether a grade is still taken: until the due date of the period its
+   * objective counts towards, not only in its own week (UAT 23 Nov, U38 /
+   * PERF-5). Absent from an older API, where the week rule decides
+   * (`taskGradeable`).
+   */
+  gradeable?: boolean;
+  /** The last day it can be graded (`YYYY-MM-DD`), only where the period carries grading past the week. */
+  gradeableUntil?: string | null;
   projectSource?: ApiProjectSource | null;
 };
+
+/**
+ * Whether a task in the grading queue can still be graded: the API's
+ * `gradeable` where it says, and otherwise the week rule it used to apply.
+ */
+export function taskGradeable(task: {
+  gradeable?: boolean;
+  weekClosed?: boolean;
+}): boolean {
+  return task.gradeable ?? !task.weekClosed;
+}
 
 /* -------------------------------------------------------------------- bodies */
 
@@ -3163,12 +3237,12 @@ export const performanceApi = {
     ),
 
   /**
-   * The **whole** set, replaced, and refused unless it makes exactly 100%.
+   * The **whole** set, replaced, in one write.
    *
-   * There is no endpoint that saves one weight, deliberately: it could not check
-   * a total, so the check would end up in a form and be a suggestion. That is
-   * why the incumbent needs a "Resolve Weights" button and this does not — there
-   * is never an unbalanced state to resolve.
+   * The company's weights add up to exactly 100% (UAT 23 Nov, L14), and the
+   * only place that can be checked is a write of the whole set: the Settings
+   * weights editor sends nothing else, and Save stays shut until the total is
+   * 100%. The API refuses only a set of zeros, so that check is this side's.
    */
   setScoringWeights: (
     weights: WeightSet,
@@ -4121,6 +4195,72 @@ export function scoreLabel(bp: number): string {
 }
 
 /**
+ * A score on the forms' 1.0 to 5.0 scale, from basis points (UAT 23 Nov, U88 /
+ * PERF-17: a straight 3 read as 50%, which looks like a bare pass).
+ *
+ * The API's own `outOf5` in `modules/performance/scoring.ts`, line for line: 0
+ * is 1.0, the whole score is 5.0, one decimal. It is a change of unit, not a
+ * way of working a score out, and it is used only where the API sends a figure
+ * in basis points and no `scoreOutOf5` beside it (a department's average, which
+ * this side adds up from the register's rows; a calibrated score's original).
+ * Pinned against the API's values in `tests/score-out-of-5.test.ts`.
+ */
+export function outOf5FromBp(bp: number): number {
+  return Math.round((1 + (4 * bp) / 10_000) * 10) / 10;
+}
+
+/** "3.0": a 1.0 to 5.0 figure, always with its one decimal. */
+export function outOf5Label(value: number): string {
+  return value.toFixed(1);
+}
+
+/** A change on the 1.0 to 5.0 scale, signed: `2250` as "+0.9", `-1250` as "-0.5". */
+export function changeOutOf5Label(bp: number): string {
+  if (bp === 0) return "No change";
+  const value = Math.round(((4 * Math.abs(bp)) / 10_000) * 10) / 10;
+  return `${bp > 0 ? "+" : "-"}${value.toFixed(1)}`;
+}
+
+/**
+ * The outcome of a final review as one line, "Exceeds Expectations · 4.1", or
+ * null where the API sent none or sent nothing in it (U36 / PERF-2).
+ */
+export function outcomeWords(
+  outcome:
+    { bandLabel: string | null; scoreOutOf5: number | null } | null | undefined,
+): string | null {
+  if (!outcome) return null;
+  const parts = [
+    outcome.bandLabel,
+    outcome.scoreOutOf5 === null ? null : outOf5Label(outcome.scoreOutOf5),
+  ].filter((part): part is string => Boolean(part));
+  return parts.length === 0 ? null : parts.join(" · ");
+}
+
+/**
+ * A score as a person reads it: the company's band word and the 1.0 to 5.0
+ * figure, "Meets Expectations · 3.0" (U88 / PERF-17), or null where there is no
+ * score. The API's `scoreOutOf5` where it sends one; an older API's basis
+ * points are changed to the same scale. Never a percentage.
+ */
+export function scoreWords(row: {
+  scoreBp: number | null;
+  scoreOutOf5?: number | null;
+  bandLabel?: string | null;
+}): string | null {
+  const figure =
+    typeof row.scoreOutOf5 === "number"
+      ? row.scoreOutOf5
+      : row.scoreBp === null
+        ? null
+        : outOf5FromBp(row.scoreBp);
+  if (figure === null) return null;
+  return row.bandLabel
+    ? `${row.bandLabel} · ${outOf5Label(figure)}`
+    : outOf5Label(figure);
+}
+
+/**
  * A change in a mark, signed: `2264` as `"+22.64%"`, `-5000` as `"-50%"`.
  *
  * Signed on purpose. An unsigned delta beside two marks makes the reader do the
@@ -4151,7 +4291,7 @@ export function scoringWeightProblem(
 ): string | null {
   const total = entries.reduce((sum, entry) => sum + entry.weightBp, 0);
   if (total > 0) return null;
-  return "Give at least one part a weight above 0%, or there is nothing to make a mark from.";
+  return "Give at least one part a weight above 0%, or there is nothing to make a score from.";
 }
 
 /**
@@ -4199,35 +4339,33 @@ export function weightProblem(entries: { weightBp: number }[]): string | null {
 }
 
 /**
- * What to say beside a set of proportional weights that add up to more than
- * 100%, or null when they do not.
+ * What to say beside a company's weights that do not add up to 100%, or null
+ * when they do (UAT 23 Nov, L14 / PERF-39: the weights add up to 100%
+ * everywhere, so a part's weight is its share of the score).
  *
- * A warning and not a refusal. The company's parts and a period's own weights
- * are proportional: each part counts for its weight over the total, so 110% is
- * a legitimate set and the API takes it. What goes wrong is the reading. A
- * person who typed 45 and sees 45% on the row takes it for 45% of the mark,
- * and the mark counts it for 45/110, so the total is the only place the
- * difference can be said. It is said beside the total and beside the field that
- * moves it, in one place, so the two cannot describe it differently.
- *
- * **Not said for exactly 100%, or for less.** Under 100% nothing is
- * misleading: every part still counts for at least its weight's worth of the
- * whole, and "weights that do not add up to 100%" is a question for the
- * company, not an alarm.
- *
- * `canChange` is false for a set that is fixed (a period that has started): the
- * advice to take some off would be an instruction nobody can follow.
+ * Nothing on this side saves a set that is not 100%. A set saved before that
+ * rule (110%, say) still scores in proportion to its total on the server until
+ * somebody changes it, so the sentence says so, and where the set can be
+ * changed it says by how much. `canChange` is false for a set nobody here can
+ * change (a period that has started): advice nobody can follow is left out.
  */
-export function overFullWeightNote(
+export function weightTotalNote(
   totalBp: number,
   { canChange = true }: { canChange?: boolean } = {},
 ): string | null {
-  if (!Number.isFinite(totalBp) || totalBp <= FULL_WEIGHT_BP) return null;
+  if (!Number.isFinite(totalBp) || totalBp === FULL_WEIGHT_BP) return null;
   const total = weightLabel(totalBp);
-  const said = `These add up to ${total}, which is more than 100%. Each part counts for its share of ${total}, not for the weight typed.`;
+  const gap =
+    totalBp < FULL_WEIGHT_BP
+      ? `add ${weightLabel(FULL_WEIGHT_BP - totalBp)}`
+      : `take off ${weightLabel(totalBp - FULL_WEIGHT_BP)}`;
+  const meanwhile =
+    totalBp > 0
+      ? ` Until they do, each part counts for its share of ${total}.`
+      : "";
   return canChange
-    ? `${said} To make the weights read as shares of 100%, take off ${weightLabel(totalBp - FULL_WEIGHT_BP)}.`
-    : said;
+    ? `These add up to ${total}. They have to add up to 100%: change the weights to ${gap}.${meanwhile}`
+    : `These add up to ${total}, not 100%.${meanwhile}`;
 }
 
 /**
@@ -4262,7 +4400,7 @@ export const APPRAISER_ROLE_HELP: Record<AppraiserRole, string> = {
   LINE_MANAGER: "The person's own manager. One at most.",
   FUNCTIONAL_MANAGER: "Owns the craft rather than the reporting line.",
   PROJECT_LEAD: "Ran the work they spent the period on.",
-  SKIP_LEVEL: "Their manager's manager, checking the mark.",
+  SKIP_LEVEL: "Their manager's manager, checking the score.",
 };
 
 /**

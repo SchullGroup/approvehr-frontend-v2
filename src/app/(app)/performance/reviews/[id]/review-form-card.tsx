@@ -273,7 +273,7 @@ export function ReviewFormCard({
 
           {showMark && (
             <li className="flex flex-col gap-2 py-4 first:pt-0">
-              <p className="text-meta font-medium text-muted">Overall mark</p>
+              <p className="text-meta font-medium text-muted">Overall rating</p>
               <Pair
                 self={<Mark rating={selfReview.rating} words={ratingWords} />}
                 manager={<Mark rating={review.rating} words={ratingWords} />}

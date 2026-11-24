@@ -1532,7 +1532,7 @@ export type Source = "api" | "demo";
 export type KpiScope = "mine" | "team" | "company";
 
 export const SCOPE_LABEL: Record<KpiScope, string> = {
-  mine: "My KPIs",
+  mine: "My objectives",
   team: "My team",
   company: "Whole company",
 };
@@ -1738,7 +1738,7 @@ export function useKpiMutations() {
         },
       ) => {
         guard(
-          "Assigning a KPI needs the API. These are several people's targets, " +
+          "Assigning an objective needs the API. These are several people's targets, " +
             "and ones kept in this browser would never reach their reviews.",
         );
         return performanceApi.assignObjective(parentId, body);
@@ -1749,7 +1749,7 @@ export function useKpiMutations() {
     addKeyResult: useCallback(
       async (goalId: string, body: CreateKeyResultBody) => {
         guard(
-          "Adding a measure needs the API: the demo book's measures are fixed, " +
+          "Adding a target needs the API: the demo book's targets are fixed, " +
             "but you can move any of their numbers.",
         );
         return performanceApi.addKeyResult(goalId, body);
@@ -1765,7 +1765,7 @@ export function useKpiMutations() {
     confirmMeasure: useCallback(
       async (measureId: string, note?: string) => {
         guard(
-          "Confirming a measure needs the API. It is a manager's word about " +
+          "Confirming a target needs the API. It is a manager's word about " +
             "somebody else's work, and one kept in this browser would never " +
             "reach their review.",
         );
@@ -2519,7 +2519,7 @@ export function useReviewMutations() {
 
 const FINALISE_OFFLINE =
   "Finalising somebody's rating needs the API. It is the one-way door that " +
-  "decides what a person is told their mark is, and it belongs with their " +
+  "decides what a person is told their score is, and it belongs with their " +
   "record rather than in a browser.";
 
 /**
@@ -3172,7 +3172,7 @@ export function useCycleMutations() {
         employeeId: string,
         body: { calibratedBp: number; reason: string },
       ) => {
-        guard("Moving a mark needs the API.");
+        guard("Moving a score needs the API.");
         return performanceApi.calibrate(cycleId, employeeId, body);
       },
       [guard],
@@ -3180,7 +3180,7 @@ export function useCycleMutations() {
 
     clearCalibration: useCallback(
       async (cycleId: string, employeeId: string) => {
-        guard("Putting a mark back needs the API.");
+        guard("Putting a score back needs the API.");
         return performanceApi.clearCalibration(cycleId, employeeId);
       },
       [guard],
@@ -3571,7 +3571,7 @@ export function useTaskActions() {
  * ======================================================================== */
 
 const APPRAISER_OFFLINE =
-  "Who appraises whom needs the API. A mapping is what a mark is defended " +
+  "Who appraises whom needs the API. A mapping is what a score is defended " +
   "with months later, and one kept in this browser would never reach the " +
   "appraisal period it belongs to.";
 
@@ -3696,7 +3696,7 @@ export function useAppraiserMutations() {
 
 const REGISTER_OFFLINE =
   "A period's register needs the API. It is an aggregate over everybody: who " +
-  "owes a form, who has nobody appraising them, and what each person's mark is " +
+  "owes a form, who has nobody appraising them, and what each person's score is " +
   "made of, and one assembled in this browser would describe a period nothing " +
   "else here is running.";
 
@@ -3763,6 +3763,12 @@ export type CycleRegister = {
 export function useCycleRegister(
   cycleId: string | null,
   enabled: boolean,
+  /**
+   * Whether to ask for the revision requests, which need `MANAGE_SETTINGS`:
+   * HR without it got a 403 on every load of the period page (UAT 23 Nov, L11 /
+   * CRAWL-6). Not asked is no list, and the screen offers no revision column.
+   */
+  withRevisions = false,
 ): CycleRegister {
   const { isConnected } = useSession();
   const active = cycleId !== null && enabled && isConnected;
@@ -3781,7 +3787,11 @@ export function useCycleRegister(
          cannot take the other four with it. An abort is not a failure — the
          key changed or the screen went away, and `useFetched` discards the
          answer anyway — so it is re-thrown to keep that path unchanged. */
-      const extra = performanceApi.revisionRequests(id, signal).then(
+      const extra = (
+        withRevisions
+          ? performanceApi.revisionRequests(id, signal)
+          : Promise.resolve([] as ApiRevisionRequest[])
+      ).then(
         (rows) => ({ rows, failed: false }),
         (error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") {
@@ -3801,7 +3811,7 @@ export function useCycleRegister(
         revisionsUnavailable: revisions.failed,
       };
     },
-    [cycleId],
+    [cycleId, withRevisions],
   );
 
   const fetched = useFetched<{
@@ -3811,7 +3821,11 @@ export function useCycleRegister(
     exceptions: ApiAppraiserMap;
     revisionRequests: ApiRevisionRequest[];
     revisionsUnavailable: boolean;
-  }>(`cycle-register|${cycleId ?? "none"}`, active, load);
+  }>(
+    `cycle-register|${cycleId ?? "none"}|${withRevisions ? "r" : "-"}`,
+    active,
+    load,
+  );
 
   /* Nothing is derived offline — see the refusal above — so this is a stable
      constant rather than a computed value, and it never touches state. */
@@ -3967,7 +3981,7 @@ export function useMyAppraisers(
                 "BLOCKER" | "WARNING",
               code: "NO_APPRAISER" as const,
               message: started
-                ? `Nobody is appraising ${name}. They will finish this period with no mark.`
+                ? `Nobody is appraising ${name}. They will finish this period with no score.`
                 : `${name} has no appraiser yet. Starting the period will use their line manager, and they have none.`,
             },
           ],
@@ -4115,7 +4129,7 @@ export const BAND_TONE: Record<ScoreBand, BadgeTone> = {
 };
 
 const WEIGHTS_SAVE_OFFLINE =
-  "Saving the weights needs the API. They decide how everybody's mark is put " +
+  "Saving the weights needs the API. They decide how everybody's score is put " +
   "together, and a set kept in this browser would change no score anywhere: a " +
   "settings screen that looks saved and moves nothing is worse than one that " +
   "says it cannot.";
@@ -4368,7 +4382,7 @@ const DEMO_PARTS: ApiScoringParts = (() => {
 })();
 
 const PARTS_SAVE_OFFLINE =
-  "Changing the scoring parts needs the API. They decide how everybody's mark " +
+  "Changing the scoring parts needs the API. They decide how everybody's score " +
   "is put together, and parts kept in this browser would change no score.";
 
 /**
@@ -4447,7 +4461,7 @@ export function useScoringParts(): {
 
 const REPORT_OFFLINE =
   "A period report needs the API. A distribution is an aggregate over " +
-  "everybody's mark, and one assembled in this browser would describe a period " +
+  "everybody's score, and one assembled in this browser would describe a period " +
   "nothing else here is running.";
 
 const HISTORY_OFFLINE =
@@ -4576,7 +4590,7 @@ export function useReviewFlag(
 }
 
 const FLAG_DECISION_OFFLINE =
-  "Deciding on a flagged mark needs the API. The decision is part of the period's record.";
+  "Deciding on a flagged score needs the API. The decision is part of the period's record.";
 
 /** "Mark stands" and taking it back. Moving a mark and sending a review back have their own hooks. */
 export function useFlagDecisions() {
@@ -4599,7 +4613,7 @@ export function useFlagDecisions() {
 }
 
 export const FAIRNESS_OFFLINE =
-  "The fairness check needs the API. Its figures are drawn from everybody's mark and records.";
+  "The fairness check needs the API. Its figures are drawn from everybody's score and records.";
 
 export function useCycleFairness(
   cycleId: string,
@@ -4640,7 +4654,7 @@ export function useCycleFairness(
 }
 
 const NINE_BOX_OFFLINE =
-  "A nine-box needs the API. One half of it is every person's mark, which is " +
+  "A nine-box needs the API. One half of it is every person's score, which is " +
   "an aggregate over everybody, and the other half is a judgement somebody " +
   "recorded, a grid assembled in this browser would place people nobody has " +
   "placed.";

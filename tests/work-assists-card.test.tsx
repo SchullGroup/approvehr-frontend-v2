@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 describe("a company that has not chosen", () => {
-  it("is off, and says neither is offered and that the marks stay as recorded", () => {
+  it("is off, and says neither is offered and that the scores stay as recorded", () => {
     mount();
     expect(screen.getByRole("switch", { name: THE_SWITCH })).not.toBeChecked();
     expect(
@@ -84,25 +84,25 @@ describe("a company that has not chosen", () => {
     ).toBeInTheDocument();
   });
 
-  it("says on the switch itself that it is for reading and changes no mark", () => {
+  it("says on the switch itself that it is for reading and changes no score", () => {
     mount();
     expect(
-      screen.getByText(/Both are for reading\. Neither changes a mark/),
+      screen.getByText(/Both are for reading\. Neither changes a score/),
     ).toBeInTheDocument();
   });
 
-  it("lists what it never does, including confirming a measure and saving a title", () => {
+  it("lists what it never does, including confirming a target and saving a title", () => {
     mount();
     expect(screen.getByText("What it never does")).toBeInTheDocument();
     expect(
-      screen.getByText("Confirm a measure, or say that one is done"),
+      screen.getByText("Confirm a target, or say that one is done"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("File, submit, grade or score anything"),
     ).toBeInTheDocument();
     expect(screen.getByText("Save a task title anywhere")).toBeInTheDocument();
     expect(
-      screen.getByText("Change a mark, a score, a band or a rank"),
+      screen.getByText("Change a score, a band or a rank"),
     ).toBeInTheDocument();
   });
 });
@@ -126,13 +126,13 @@ describe("turning it on", () => {
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     const body = within(dialog());
     expect(
-      body.getByText(/the tasks linked to that measure are listed/),
+      body.getByText(/the tasks linked to that target are listed/),
     ).toBeInTheDocument();
     expect(
       body.getByText(/Nothing is filed, submitted, graded or scored/),
     ).toBeInTheDocument();
     expect(
-      body.getByText(/never says a measure is done and never recommends/),
+      body.getByText(/never says a target is done and never recommends/),
     ).toBeInTheDocument();
     expect(body.getByText(/is not saved by this/)).toBeInTheDocument();
     expect(
@@ -174,7 +174,7 @@ describe("turning it off", () => {
     mount(true, { workAssists: true });
     expect(
       screen.getByText(
-        /Beside Confirm on a done-or-not measure, the tasks linked/,
+        /Beside Confirm on a done-or-not target, the tasks linked/,
       ),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
@@ -299,11 +299,11 @@ describe("a refusal", () => {
 });
 
 describe("who is shown what", () => {
-  it("says the list beside Confirm is shown to the people who may confirm the measure, and that the person whose objective it is does not see it", () => {
+  it("says the list beside Confirm is shown to the people who may confirm the target, and that the person whose objective it is does not see it", () => {
     mount();
     expect(
       screen.getByText(
-        /The list beside Confirm is shown to the people who may confirm the measure\./,
+        /The list beside Confirm is shown to the people who may confirm the target\./,
       ),
     ).toBeInTheDocument();
     expect(

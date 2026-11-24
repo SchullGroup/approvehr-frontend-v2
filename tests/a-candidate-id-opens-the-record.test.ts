@@ -34,7 +34,7 @@ describe("the resolver", () => {
   it("tries the URL id as a candidate, not only as an application", () => {
     /* The whole fix. Without this branch the fallback can only ever fire for
        somebody who also has a careers application. */
-    expect(store).toMatch(/if \(!application && id\)/);
+    expect(store).toMatch(/if \(!application && id && \(kind === null/);
   });
 
   it("still tries it as an application first", () => {
@@ -43,7 +43,7 @@ describe("the resolver", () => {
     const from = store.indexOf("const throughCandidate");
     const body = store.slice(from, from + 2600);
     expect(body.indexOf("getApplication")).toBeLessThan(
-      body.indexOf("if (!application && id)"),
+      body.indexOf("if (!application && id &&"),
     );
   });
 
@@ -68,7 +68,7 @@ describe("the resolver", () => {
     /* An aborted request is the resolver dropping its own work, not an answer.
        Swallowing it as "not found" would render a refusal for a navigation that
        was simply superseded. */
-    const from = store.indexOf("if (!application && id)");
+    const from = store.indexOf("if (!application && id &&");
     const body = store.slice(from, from + 700);
     expect(body).toMatch(/AbortError/);
   });

@@ -224,7 +224,8 @@ export function ApproveStep({
           <Callout tone="warning" title="Somebody else approves this">
             Approving payroll is a separate permission from preparing it, on
             purpose: the person who works out the pay is not the person who
-            releases it.
+            releases it. Press Send for approval when it is ready, and they are
+            told.
           </Callout>
         )}
       </aside>

@@ -64,26 +64,28 @@ describe("the page before a review is sent", () => {
     expect(screen.queryByText(/look it over/i)).toBeNull();
   });
 
-  it("shows no overall mark where the company does not ask for one", () => {
+  it("shows no overall rating where the company does not ask for one", () => {
     mount();
-    expect(screen.queryByText(/overall mark/i)).toBeNull();
+    expect(screen.queryByText(/overall rating/i)).toBeNull();
   });
 
-  it("shows the mark in the company's own words where it asks", () => {
+  it("shows the score in the company's own words where it asks", () => {
     mount(vi.fn(), { withMark: true, mark: "4" });
-    expect(screen.getByText("Overall mark")).toBeInTheDocument();
+    expect(screen.getByText("Overall rating")).toBeInTheDocument();
     expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
   });
 
   it("says there is none rather than showing a nought, where it asks and nobody gave one", () => {
     mount(vi.fn(), { withMark: true, mark: "" });
-    expect(screen.getByText("No overall mark")).toBeInTheDocument();
+    expect(screen.getByText("No overall rating")).toBeInTheDocument();
     expect(screen.queryByText("Unsatisfactory")).toBeNull();
   });
 
-  it("sends the person to the mark page to change it", async () => {
+  it("sends the person to the score page to change it", async () => {
     const { onEdit } = mount(vi.fn(), { withMark: true, mark: "4" });
-    await userEvent.click(screen.getByRole("button", { name: /Overall mark/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Overall rating/ }),
+    );
     expect(onEdit).toHaveBeenCalledWith("mark");
   });
 
