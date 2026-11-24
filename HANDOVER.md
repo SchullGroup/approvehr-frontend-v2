@@ -14086,3 +14086,27 @@ from the staff list, as on the Objectives cards.
    title `"X" was sent back`). The web maps the label; the notification is the API's.
 4. **Declining a company or department objective tells nobody**: `sendBackObjective` notifies the owner,
    and those have none. The person who sent it (`submittedById`) is the one to tell.
+
+---
+
+# Who appraises whom opens on the reporting line, for all periods
+
+Owner request, 24 Nov 2026. `/performance/appraisers` (`appraiser-map.tsx`) lost its four number cards and the
+"Fill in from the reporting line" button. It opens on **All appraisal periods**: everybody employed with the
+appraiser the reporting line gives them (their recorded manager, else their department's head, else nobody),
+read only, with one line naming anybody with no appraiser and **Show only them**. Choosing a period shows that
+period's real map, where the exceptions (another appraiser, several with roles and weights) are set as before;
+on a period that has not started, somebody not set yet shows the appraiser its start will give them, "From the
+reporting line". Search, the filter button and the people count stay.
+
+- **The API has no map without a period** (`/cycles/:id/appraisers` only), and applies the reporting line once,
+  when a period starts. So "All appraisal periods" is that rule worked out here from the staff list
+  (`lib/performance/appraiser-default.ts`, which says which of the three it used), and it cannot be edited: there
+  is nowhere to keep a change that applies to every period. The card says to choose a period to change somebody.
+- **Without the button**, a person on a running period who is given a manager after it started stays unmapped
+  until somebody picks their appraiser in that period's row (which writes the form). The automatic version needs
+  the API (below). The period page never had the button.
+- The API proposal is `appraiser-default-api-proposal.md` in the shared side-session notes: a map without a
+  period (`GET /performance/appraiser-map`), standing exceptions (`PUT /performance/appraiser-map/:employeeId`,
+  applied when a period starts), the default applied automatically on a running period when a manager changes or
+  somebody joins, and, optionally, the projected default returned for a draft.
