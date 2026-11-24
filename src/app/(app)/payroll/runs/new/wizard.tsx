@@ -1046,17 +1046,22 @@ export function PayrollRunWizard() {
                   }
                 />
                 <CardBody className="flex flex-wrap items-center gap-3">
-                  <Button
-                    variant={run ? "secondary" : "accent"}
-                    onClick={() => void prepare()}
-                    loading={busy === "prepare"}
-                    disabled={!canPrepare || settled || busy !== null}
-                  >
-                    {busy !== "prepare" && (
-                      <RefreshCw aria-hidden="true" className="size-4" />
-                    )}
-                    {run ? "Run again" : `Run ${periodLabel(period)}`}
-                  </Button>
+                  {/* Absent, not greyed, where it could only do nothing: the
+                      reader may not prepare, or the run is already approved
+                      (its badge above says so). */}
+                  {canPrepare && !settled && (
+                    <Button
+                      variant={run ? "secondary" : "accent"}
+                      onClick={() => void prepare()}
+                      loading={busy === "prepare"}
+                      disabled={busy !== null}
+                    >
+                      {busy !== "prepare" && (
+                        <RefreshCw aria-hidden="true" className="size-4" />
+                      )}
+                      {run ? "Run again" : `Run ${periodLabel(period)}`}
+                    </Button>
+                  )}
                   {run && (
                     <p className="text-meta leading-relaxed text-muted">
                       {payslipCountLabel(run)} · {formatKobo(run.grossKobo)}{" "}

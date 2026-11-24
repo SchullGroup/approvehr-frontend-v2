@@ -174,18 +174,20 @@ export function ReleasePanel({
 
               {providerKnown && (
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    variant="secondary"
-                    /* The label carries the whole amount, so it is the longest
+                  {providerConnected && canApprove && (
+                    <Button
+                      variant="secondary"
+                      /* The label carries the whole amount, so it is the longest
                        button on the screen: on a phone let it wrap rather than
                        push a 320px page sideways. */
-                    className="max-w-full max-sm:h-auto max-sm:whitespace-normal max-sm:py-2 max-sm:text-left"
-                    disabled={!providerConnected || !canApprove || busy}
-                    onClick={() => setConfirming("release")}
-                  >
-                    <Send aria-hidden="true" className="size-4 shrink-0" />
-                    Release {total} to {headcount}
-                  </Button>
+                      className="max-w-full max-sm:h-auto max-sm:whitespace-normal max-sm:py-2 max-sm:text-left"
+                      disabled={busy}
+                      onClick={() => setConfirming("release")}
+                    >
+                      <Send aria-hidden="true" className="size-4 shrink-0" />
+                      Release {total} to {headcount}
+                    </Button>
+                  )}
                   {!providerConnected && (
                     <p className="max-w-md text-body-sm text-muted">
                       Bank transfers are not connected yet. Download the payment
