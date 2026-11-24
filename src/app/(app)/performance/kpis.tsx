@@ -97,7 +97,6 @@ import {
   deleteBlocker,
   mayEditGoal,
 } from "./goal-dialogs";
-import { TaskLogPanel } from "./task-log";
 import { CompletedWork } from "@/components/performance/completed-work";
 import { useCanUploadObjectives } from "./kpis/import/access";
 import { PlanWorkDialog } from "./plan-work-dialog";
@@ -1217,7 +1216,7 @@ export function GoalCard({
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
   onPlan?: ((goal: ApiGoal) => void) | undefined;
 }) {
-  const facts = goalFacts(goal, actingId);
+  const facts = goalFacts(goal);
   const { progress, done, reads } = facts;
 
   /* The detail is a modal, and this is the card's only piece of state.
@@ -1432,7 +1431,6 @@ function GoalDetailModal({
   progress,
   done,
   canShare,
-  canLogTasks,
   noPeriod,
   reads,
   editable,
@@ -1457,7 +1455,6 @@ function GoalDetailModal({
   progress: number;
   done: boolean;
   canShare: boolean;
-  canLogTasks: boolean;
   noPeriod: boolean;
   /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
   reads: { read: number; of: number } | null;
@@ -1575,10 +1572,6 @@ function GoalDetailModal({
           <p className="text-body-sm text-body">
             No target yet, so its progress has to be entered by hand.
           </p>
-        )}
-
-        {canLogTasks && (
-          <TaskLogPanel goalId={goal.id} keyResults={goal.keyResults} />
         )}
 
         {/* The finished project tasks linked to this, for whoever is reading it

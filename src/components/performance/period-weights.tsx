@@ -279,9 +279,8 @@ export function PeriodWeights({
 
       {parts.includes("TASKS") && (
         <p className="text-meta text-muted">
-          If someone has no graded weekly tasks against this period&apos;s
-          objectives, the {labelOf("TASKS")} share is spread over the other
-          parts.
+          If someone has no tasks linked to this period&apos;s objectives, the{" "}
+          {labelOf("TASKS")} share is spread over the other parts.
         </p>
       )}
 

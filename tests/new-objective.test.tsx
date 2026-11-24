@@ -182,35 +182,27 @@ describe("what the detail modal is told about a goal", () => {
   });
 
   it("takes measured progress over the stored figure", () => {
-    expect(goalFacts(goal({ progress: 10 }), null).progress).toBe(10);
+    expect(goalFacts(goal({ progress: 10 })).progress).toBe(10);
     expect(
-      goalFacts(goal({ progress: 10, measuredProgress: 40 }), null).progress,
+      goalFacts(goal({ progress: 10, measuredProgress: 40 })).progress,
     ).toBe(40);
   });
 
-  it("lets only the owner log tasks, and only once it is agreed", () => {
+  it("no longer has a way to log a weekly task: work is tracked in Projects", () => {
     const mine = goal({ ownerId: "emp-1", approval: "AGREED" });
-    expect(goalFacts(mine, "emp-1").canLogTasks).toBe(true);
-    expect(goalFacts(mine, "emp-2").canLogTasks).toBe(false);
-    expect(goalFacts({ ...mine, approval: "DRAFT" }, "emp-1").canLogTasks).toBe(
-      false,
-    );
-    expect(goalFacts({ ...mine, status: "DONE" }, "emp-1").canLogTasks).toBe(
-      false,
-    );
+    expect("canLogTasks" in goalFacts(mine)).toBe(false);
   });
 
   it("will not offer to tell people about an objective with no measure", () => {
-    expect(goalFacts(goal(), null).canShare).toBe(false);
-    expect(goalFacts(goal({ dueQuarter: null }), null).canShare).toBe(false);
+    expect(goalFacts(goal()).canShare).toBe(false);
+    expect(goalFacts(goal({ dueQuarter: null })).canShare).toBe(false);
   });
 
   it("says when there is no period to be agreed in", () => {
-    expect(goalFacts(goal(), null).noPeriod).toBe(false);
-    expect(goalFacts(goal({ dueQuarter: null }), null).noPeriod).toBe(true);
+    expect(goalFacts(goal()).noPeriod).toBe(false);
+    expect(goalFacts(goal({ dueQuarter: null })).noPeriod).toBe(true);
     expect(
-      goalFacts(goal({ dueQuarter: null, reviewCycleId: "c-1" }), null)
-        .noPeriod,
+      goalFacts(goal({ dueQuarter: null, reviewCycleId: "c-1" })).noPeriod,
     ).toBe(false);
   });
 });

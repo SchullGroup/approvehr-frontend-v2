@@ -4183,7 +4183,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
       label: "Delivery against objectives",
       weightBp: 4_000,
     },
-    { component: "TASKS", label: "Weekly tasks", weightBp: 0 },
+    { component: "TASKS", label: "Tasks done", weightBp: 0 },
     {
       component: "CORE_COMPETENCY",
       label: "Core competencies",

@@ -98,7 +98,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
         <CardHeader
           title="Task suggestions"
           level={3}
-          info="A manager confirming a done-or-not target sees the tasks linked to it. Only people who may confirm see that list, not the person whose objective it is. A person writing a weekly line can add tasks they finished that week; only they see those suggestions. Nothing is filed, graded or scored. Closing a task as won't do, and accepting one, aren't affected by this switch."
+          info="A manager confirming a done-or-not target sees the tasks linked to it. Only people who may confirm see that list, not the person whose objective it is. Nothing is filed, graded or scored. Closing a task as won't do, and accepting one, aren't affected by this switch."
         />
         <CardBody className="flex flex-col gap-4">
           {reading ? (
@@ -106,7 +106,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
           ) : switchable ? (
             <>
               <Switch
-                label="Show linked tasks next to Confirm, and suggest finished tasks for weekly lines"
+                label="Show linked tasks next to Confirm"
                 description="It never changes a score."
                 checked={on}
                 disabled={!features.editable || saving}
@@ -174,13 +174,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
           <p>
             Managers see the tasks linked to a done-or-not target next to
             Confirm. The list never says a target is done; a manager still
-            decides.
-          </p>
-          <p>
-            People writing a weekly line can add the tasks they finished that
-            week, then edit the text and send it themselves. Nothing is filed or
-            graded for them, and task titles aren&apos;t saved. It needs
-            Projects.
+            decides. Task titles aren&apos;t saved. It needs Projects.
           </p>
         </div>
       </Modal>

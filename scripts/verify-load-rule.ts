@@ -105,7 +105,6 @@ const ADOPTED = [
   "src/app/(app)/performance/kpis/to-agree.tsx",
   "src/app/(app)/performance/history/[employeeId]/history-screen.tsx",
   "src/app/(app)/performance/kpis.tsx",
-  "src/app/(app)/performance/my-tasks.tsx",
   "src/app/(app)/performance/now.tsx",
   "src/app/(app)/performance/periods.tsx",
   "src/app/(app)/performance/periods/[id]/fairness/fairness-screen.tsx",

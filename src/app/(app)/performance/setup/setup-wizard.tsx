@@ -33,7 +33,7 @@ const CHOICES: { source: ScoreComponent; label: string }[] = [
   { source: "LEADERSHIP", label: "Leadership" },
   { source: "MANAGER_APPRAISAL", label: "Manager's overall rating" },
   { source: "SELF_ASSESSMENT", label: "Their own rating" },
-  { source: "TASKS", label: "Weekly tasks" },
+  { source: "TASKS", label: "Tasks done" },
 ];
 
 const COMPETENCY_PARTS: ScoreComponent[] = [

@@ -125,19 +125,19 @@ describe("what the face of a card says about its figure", () => {
   const stamp = "2026-10-22T09:00:00.000Z";
 
   it("carries how many targets are read, so the card and the window cannot differ", () => {
-    expect(goalFacts(goal([null, null]), "emp-1").reads).toEqual({
+    expect(goalFacts(goal([null, null])).reads).toEqual({
       read: 0,
       of: 2,
     });
-    expect(goalFacts(goal([stamp, null, null]), "emp-1").reads).toEqual({
+    expect(goalFacts(goal([stamp, null, null])).reads).toEqual({
       read: 1,
       of: 3,
     });
   });
 
   it("has nothing to say when every target is read, or there are none", () => {
-    expect(goalFacts(goal([stamp, stamp]), "emp-1").reads).toBeNull();
-    expect(goalFacts(goal([]), "emp-1").reads).toBeNull();
+    expect(goalFacts(goal([stamp, stamp])).reads).toBeNull();
+    expect(goalFacts(goal([])).reads).toBeNull();
   });
 
   it("puts the count where the 0% would have been, in four words", () => {

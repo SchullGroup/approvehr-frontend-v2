@@ -160,15 +160,14 @@ export function HowItWorksBody() {
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
-          Weekly tasks can count too
+          Tasks done can count too
         </p>
         <p className="mt-1">
-          Weekly tasks count toward the score only when the period gives them a
-          weight. They use the manager&rsquo;s grades on tasks logged against
-          the period&rsquo;s objectives: Completed counts in full, Partly
-          completed counts half, and Not completed and Rejected count nothing.
-          Someone with no graded tasks has that share spread over the other
-          parts.
+          Tasks done is part of the score only when the period gives it a
+          weight. It comes from the tasks in Projects that are linked to the
+          period&rsquo;s objectives: the ones finished, out of the ones finished
+          or due by the end of the period. Someone with no linked tasks has that
+          share spread over the other parts.
         </p>
       </div>
 

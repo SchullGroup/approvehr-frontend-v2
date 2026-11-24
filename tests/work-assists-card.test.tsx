@@ -109,12 +109,9 @@ describe("turning it on", () => {
       body.getByText(/the tasks linked to a done-or-not target/),
     ).toBeInTheDocument();
     expect(
-      body.getByText(/Nothing is filed or graded for them/),
-    ).toBeInTheDocument();
-    expect(
       body.getByText(/never says a target is done; a manager still decides/),
     ).toBeInTheDocument();
-    expect(body.getByText(/task titles aren't saved/)).toBeInTheDocument();
+    expect(body.getByText(/[Tt]ask titles aren't saved/)).toBeInTheDocument();
     expect(body.getByText(/It needs Projects/)).toBeInTheDocument();
   });
 
@@ -271,12 +268,10 @@ describe("who is shown what", () => {
     expect(info()).not.toMatch(/read by the people who may confirm/);
   });
 
-  it("still says only the person sees their weekly-line suggestions", async () => {
+  it("says nothing about weekly lines: they are gone", async () => {
     mount();
     await openInfo();
-    expect(info()).toMatch(
-      /can add tasks they finished that week; only they see those suggestions/,
-    );
+    expect(info()).not.toMatch(/weekly line/i);
   });
 });
 

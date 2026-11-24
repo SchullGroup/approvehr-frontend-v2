@@ -123,11 +123,10 @@ describe("weightsFromNote", () => {
 });
 
 describe("How it works", () => {
-  it("explains Weekly tasks and how they are graded", () => {
+  it("explains Tasks done, from linked Projects tasks, with no grading", () => {
     render(<HowItWorksBody />);
-    expect(
-      screen.getByText(/Weekly tasks count toward the score/i),
-    ).toBeTruthy();
-    expect(screen.getByText(/Partly completed counts half/i)).toBeTruthy();
+    expect(screen.getByText(/Tasks done is part of the score/i)).toBeTruthy();
+    expect(screen.getByText(/linked to the period/i)).toBeTruthy();
+    expect(screen.queryByText(/Partly completed counts half/i)).toBeNull();
   });
 });
