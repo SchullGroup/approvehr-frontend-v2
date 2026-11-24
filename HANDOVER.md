@@ -7305,7 +7305,7 @@ Three things worth not undoing:
   confirmed: neither a guess nor frequent, and it re-asks only the reads a
   decision can actually move.
 
-`useLeaveRequests` listens too, for the sidebar's *other* badge: "pending leave"
+`useLeaveRequests` listens too, for the sidebar's _other_ badge: "pending leave"
 is one of these lists, mounted by the shell, and withdrawing your own request
 would otherwise leave it counting a request that no longer exists.
 
@@ -7334,7 +7334,7 @@ Four decisions in the control:
   out. The API accepts a cancel on a declined request and it would change
   nothing anybody can act on — the leave is already not happening, so the button
   would only rewrite a label. That is a judgement about what the control is
-  *for*, not this screen refusing what the server allows.
+  _for_, not this screen refusing what the server allows.
 - **It confirms, and the confirmation says the thing that is actually true**:
   `reopen` needs `APPROVE_LEAVE_ALL`, so the filer genuinely cannot put it back
   themselves. Without that sentence the step reads as a control you can try.
@@ -7345,7 +7345,7 @@ Four decisions in the control:
 
 ## The booking toast named an inbox the reader cannot open
 
-*"It is waiting in your approvals inbox."* — unconditional, for every request,
+_"It is waiting in your approvals inbox."_ — unconditional, for every request,
 whoever raised it and wherever it was routed. An employee filing their own leave
 was told it was sitting in an inbox they have no access to, on a screen with no
 inbox on it. The one thing they wanted to know — **who has it** — was already on
@@ -7359,11 +7359,11 @@ on a row that is routed perfectly well, and two people can share one.
 
 ## A link in the middle of a task was not a link
 
-The product owner's words: *"in performance module, I should be able to click
-the link in task submission, even if the link is in the middle of text."*
+The product owner's words: _"in performance module, I should be able to click
+the link in task submission, even if the link is in the middle of text."_
 
 An objective task is one line of what you did this week, and what people write is
-*"shipped the retry, PR at https://github.com/…/412, notes in the doc"*. All
+_"shipped the retry, PR at https://github.com/…/412, notes in the doc"_. All
 three surfaces rendered `{task.description}` as plain text, so the manager
 grading it had to select a URL out of a sentence and paste it into a bar. **A
 link in the middle of a sentence is the ordinary case, not the edge one** — the
@@ -7385,7 +7385,7 @@ Four rules in it:
   `javascript:` ends up behind something that reads as a URL. The scheme is
   checked twice — once by the pattern and once by `URL` on the way to the
   `href` — because the second check is the one that still holds the day somebody
-  widens the first. Tamper-tested by widening the pattern *and* removing the
+  widens the first. Tamper-tested by widening the pattern _and_ removing the
   guard together; either alone still refuses.
 - **Trailing punctuation belongs to the sentence.** `see …/report.` links
   `…/report`, `(…/a)` does not swallow the bracket, and
@@ -7414,7 +7414,7 @@ chain. The 10 lint **warnings** are unused imports in `customize-drawer.tsx`,
 **Against the live API on port 8000**, in a browser, as the real seeded people:
 
 - **The toast**: Emeka books his own leave and is told
-  *"2 days for Emeka Anyanwu. It is waiting with Adaeze Okonkwo."* — his actual
+  _"2 days for Emeka Anyanwu. It is waiting with Adaeze Okonkwo."_ — his actual
   manager, resolved by the server, where it used to name his own inbox.
 - **Withdraw**: the drawer on Emeka's own request, whose buttons were
   `["", ""]`, now carries **Withdraw request**; the confirm dialog renders all
@@ -7433,10 +7433,10 @@ chain. The 10 lint **warnings** are unused imports in `customize-drawer.tsx`,
 **Not exercised in a browser: `task-log.tsx`.** It is the same one-token
 substitution inside the same `<span>`, rendering the same `ApiTask.description`,
 and it is covered by the typecheck and by the gate on the splitting logic — but
-the panel lives on an *agreed* objective's card on `/performance/kpis`, which
+the panel lives on an _agreed_ objective's card on `/performance/kpis`, which
 shows a manager their reports' objectives and not their own, and the API
 correctly refuses `submitTask` against somebody else's objective
-(*"You can only log tasks against your own objectives."*). Somebody logging a
+(_"You can only log tasks against your own objectives."_). Somebody logging a
 task with a link against their own agreed objective should look at it once.
 
 **Demo mode was not exercised**, because the API was up and `useApiReachable`
@@ -7574,12 +7574,11 @@ This change shipped through `dev`, `test` and `preprod` with no documentation at
 all, and writing it afterwards turned up drift that had nothing to do with it:
 
 - `docs/walkthroughs/performance.md` said the Start dialog had **three**
-  collapsed sections. It had four before this change and has five now — *Let
-  managers add their own questions* had been undocumented for some time.
+  collapsed sections. It had four before this change and has five now — _Let
+  managers add their own questions_ had been undocumented for some time.
 - `docs/components/frontend-v2.md` was missing `sections-dialog.tsx`,
   `self-evidence.tsx` and `PeriodExceptionNotice` as well as `appraiserSummary`,
-  and its `/performance` group header claimed 49 files where its own rows listed
-  48.
+  and its `/performance` group header claimed 49 files where its own rows listed 48.
 
 Both are fixed, and the `/performance` section was re-derived and diffed row by
 row against source rather than patched at the one row this change touched — 50
@@ -7650,7 +7649,7 @@ cached its resolved application keyed on `id:candidateId:nonce`.
 mutation, which bumps `nonce` — so the key changed, `matched` went false, and
 `application` went back to `null` for the length of the refetch.
 `candidate-screen.tsx`'s loading guard only re-shows a skeleton while the
-careers-page `record` is *also* unresolved, which it is not for anybody who
+careers-page `record` is _also_ unresolved, which it is not for anybody who
 already applied through the careers page and was screened in — the ordinary
 case. So the guard never caught the gap, and the page fell through to
 `RealPipeline`'s own "nothing here yet" fallback for one round trip on every
@@ -7711,8 +7710,8 @@ employment and starts no exit**. Three reasons, in order of weight:
    both.
 
 The dialog's consequence callout changes with the outcome and says this in as
-many words, **above** the button rather than after it: *"This ends nothing on
-its own."* It then names where the exit does start.
+many words, **above** the button rather than after it: _"This ends nothing on
+its own."_ It then names where the exit does start.
 
 Confirming moves `ONBOARDING` → `ACTIVE` and **leaves `SUSPENDED` and
 `ON_LEAVE` alone**. Somebody confirmed while suspended is confirmed and still
@@ -7732,7 +7731,7 @@ So `GET /employees/probation/due` returns **two lists**: `due`, the queue, and
 screen renders both, and the second one is why it exists.
 
 **Overdue rows are never dropped from `due`.** `dueSoon(db, withinDays = 30)`
-takes everything up to 30 days out *and everything already past*, and the screen
+takes everything up to 30 days out _and everything already past_, and the screen
 counts and orders them separately — a probation that ended four months ago is a
 different problem from one ending on Friday, and a single "12 due" hides which
 kind you have.
@@ -7760,8 +7759,8 @@ has with `leaveTwoStepApproval`.
 **Demo mode refuses that switch**, unlike every other feature flag, and the
 reason is specific: what `probationTracking` does is make `employees/service.ts`
 put a date on a new record, which happens on the API and nowhere else. A demo
-company with it switched on would read *"Somebody joining is given an end date
-6 months out"* while no person created in that browser ever got one — a switch
+company with it switched on would read _"Somebody joining is given an end date
+6 months out"_ while no person created in that browser ever got one — a switch
 that persists and changes nothing, which is the green "Paid" over money nobody
 moved, one module along.
 
@@ -7769,7 +7768,7 @@ Changing `probationMonths` moves **nobody already on a probation**. Their date
 is a column on their own record from the day they were created, and re-dating
 it from a setting would move a decision somebody is owed notice of. The field
 says so; so does the callout when the flag is off and the undated list is not
-empty — *"Switching this on changes nothing above."*
+empty — _"Switching this on changes nothing above."_
 
 ## The sweep is idempotent and only runs for companies that asked
 
@@ -7826,7 +7825,7 @@ once and watch the row leave the queue.
 # A promotion is a date, not a button
 
 Second of the four gaps. The inputs all existed — nine-box placement, grade
-neighbours, salary bands, department and team membership — and no *act* did: a
+neighbours, salary bands, department and team membership — and no _act_ did: a
 promotion was somebody editing two fields on a record page with nothing
 remembering why. `PARITY.md` §2 has the analysis.
 
@@ -7904,7 +7903,7 @@ which is how people stop editing records.
 ## The permission, and the maker/checker rule
 
 `APPROVE_EMPLOYMENT_CHANGE`, separate from `EDIT_RECORDS` (which proposes) and
-from `MANAGE_PAY_STRUCTURE` (which decides what Grade 5 *pays*, not who is on
+from `MANAGE_PAY_STRUCTURE` (which decides what Grade 5 _pays_, not who is on
 it). The proposer is very often the person who gains by it.
 
 Segregation is counted from the database at the moment of approval, the same
@@ -7933,14 +7932,14 @@ conflict resolves itself; blocking it would leave a proposal nobody can clear.
 
 ## The screens
 
-| | |
-|---|---|
-| `/people/changes` | Two tables: waiting on a decision, and **agreed but not yet in effect** with the sentence that nothing on those records has moved. Applied changes are not here at all — they are history. |
+|                              |                                                                                                                                                                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/people/changes`            | Two tables: waiting on a decision, and **agreed but not yet in effect** with the sentence that nothing on those records has moved. Applied changes are not here at all — they are history.                                    |
 | `/people/[id]` → **History** | The timeline. Its own tab rather than a section under Employment, because Employment says what is true now and offers to change it; this says how it came to be true and offers nothing, which is why a dispute is read here. |
 
-`PARITY.md` says "that history *is* the feature", and it is: it answers *why is
-she on Grade 5*, *who confirmed him*, *when did this department change and on
-whose say-so* — the three questions an employment record is kept for and the
+`PARITY.md` says "that history _is_ the feature", and it is: it answers _why is
+she on Grade 5_, _who confirmed him_, _when did this department change and on
+whose say-so_ — the three questions an employment record is kept for and the
 three `Employee` cannot answer.
 
 The propose form defaults its effective date to **the first of next month**,
@@ -7995,7 +7994,7 @@ identical on a clean tree), `npm run build` exit 0 with `/people/changes` and
 `/people/probation` both prerendered.
 
 In the browser, demo mode: `/people/changes` with the refusal, the empty queue
-saying it *cannot answer* rather than claiming nothing is waiting, and the
+saying it _cannot answer_ rather than claiming nothing is waiting, and the
 History tab on a record rendering its empty state. A fresh tab on `/help`,
 `/dashboard` and the record page is console-clean.
 
@@ -8006,7 +8005,7 @@ record **not** move — that last part is the one that matters.
 
 ## One callout defect, and the rule behind it
 
-The demo refusal read *"Promotions and transfers need the API"* as its heading
+The demo refusal read _"Promotions and transfers need the API"_ as its heading
 and then began its body with the same sentence. That is the exact restatement
 the product owner has raised more than once. `DEMO_CHANGE_HEADING` and
 `DEMO_CHANGE_REASON` are now separate exports composed into
@@ -8086,8 +8085,8 @@ A target of 7 on a 1–5 scale is a standard nobody can meet, and **nothing
 downstream would notice**: the bar renders unreachable and the score sits
 permanently below target, which reads as a performance problem rather than a
 configuration one. So `setCompetencies` reads each competency's real `scaleMax`
-and names it in the refusal — *"Judgement is rated 1 to 5, so 7 is not a target
-anybody could reach."*
+and names it in the refusal — _"Judgement is rated 1 to 5, so 7 is not a target
+anybody could reach."_
 
 Deliberately **not** in the zod schema: `scaleMax` is a column, a schema sees
 only the body, and a `max(5)` written into the file would be a guess that
@@ -8238,8 +8237,8 @@ answers do not have. Close it and start another.
 
 ### Answering is not audited, and that is deliberate
 
-An audit row saying *"Ada submitted a response to the anonymous engagement
-survey at 14:32:07"* rebuilds exactly the link this module exists to break — in
+An audit row saying _"Ada submitted a response to the anonymous engagement
+survey at 14:32:07"_ rebuilds exactly the link this module exists to break — in
 the one table somebody with `VIEW_AUDIT` is expected to read. Creating, opening,
 closing and re-questioning a survey are all audited; answering one is not. There
 is a test asserting the absence **and** asserting that `surveys.opened` is still
@@ -8275,7 +8274,7 @@ the company is running and the results. PARITY Rule 1 — the incumbent ships
 these as separate pages, which is how you get a hundred and twenty routes.
 
 The "waiting on you" half is first for everybody including the administrator: a
-survey waiting on *you* is a thing to do, and a list of surveys you are running
+survey waiting on _you_ is a thing to do, and a list of surveys you are running
 is a thing you are looking at.
 
 **Demo mode has none at all**, unlike every other module, and the refusal says
@@ -8315,7 +8314,7 @@ In the browser, demo mode: `/surveys` rendering the refusal, console clean.
   that wants to ask a sixth thing on the way out can, while the hardcoded five
   keep working. Two question engines, temporarily, and named as such.
 - **No survey builder in the interface.** `POST /surveys`, `PUT
-  /surveys/:id/questions` and `POST /surveys/:id/invitations` all exist and are
+/surveys/:id/questions` and `POST /surveys/:id/invitations` all exist and are
   tested; the screen reads, answers and reports but does not compose. A company
   can run one over `curl` today and not from the product. That is the next thing
   to build here.
@@ -8327,6 +8326,7 @@ In the browser, demo mode: `/surveys` rendering the refusal, console clean.
   breakdown re-introduces exactly the subtraction the threshold prevents, and
   needs the threshold applied **per slice** rather than per survey. Worth doing
   carefully rather than quickly.
+
 ---
 
 # An employee had no way into Exit management, and the fix for it had been written down and not done
@@ -8428,7 +8428,7 @@ or work email". Statutory names (PAYE, TIN, NIN, NHF) stay as they are.
 
 **A heading is only ever matched by what is left after removing everything but
 letters and digits**, on both sides (`normalizeKey`). So "First name",
-`first_name` and "FIRST  NAME" are one column, and most old headings equal their
+`first_name` and "FIRST NAME" are one column, and most old headings equal their
 replacement without anybody doing anything. The ones that changed spelling —
 `gross_monthly` became "Monthly pay (gross)" — keep the old heading as an
 accepted alias, because `buildDictionary` reads `[column, ...aliases]`. That is
@@ -8510,21 +8510,21 @@ next kind of record is a configuration rather than a copy.
 
 One window, three layouts of one list, a read-only review, and a way in and out of Excel.
 
-| File | What and why |
-| ---- | ------------ |
-| `components/bulk-create/bulk-create-dialog.tsx` | The window: toolbar, check, review, result, the question asked before closing. Knows nothing about objectives. |
-| `components/bulk-create/layouts.tsx` | **Stacked** (a card each), **Page by page** (arrows and a chip per item), **Table** (Excel-like; paste, Enter and arrow keys). |
-| `components/bulk-create/field-control.tsx` | One field in four forms: on a card, read-only, a table cell, a table cell read-only. Every layout reads a field's control from the surface, so a dropdown is a dropdown in all three. |
-| `lib/bulk-create/model.ts`, `report.ts`, `draft-file.ts`, `surface.ts` | Pure: drafts and their conversions, the check's answer put back on the right item, the downloaded file, and what a surface must say. |
-| `lib/store/bulk-create.ts` | The state machine: `edit`, `checking`, `review`, `applying`, `done`. |
-| `app/(app)/performance/add-multiple-objectives.tsx` | The only objectives-specific file: groups, controls, where the options come from. |
+| File                                                                   | What and why                                                                                                                                                                          |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/bulk-create/bulk-create-dialog.tsx`                        | The window: toolbar, check, review, result, the question asked before closing. Knows nothing about objectives.                                                                        |
+| `components/bulk-create/layouts.tsx`                                   | **Stacked** (a card each), **Page by page** (arrows and a chip per item), **Table** (Excel-like; paste, Enter and arrow keys).                                                        |
+| `components/bulk-create/field-control.tsx`                             | One field in four forms: on a card, read-only, a table cell, a table cell read-only. Every layout reads a field's control from the surface, so a dropdown is a dropdown in all three. |
+| `lib/bulk-create/model.ts`, `report.ts`, `draft-file.ts`, `surface.ts` | Pure: drafts and their conversions, the check's answer put back on the right item, the downloaded file, and what a surface must say.                                                  |
+| `lib/store/bulk-create.ts`                                             | The state machine: `edit`, `checking`, `review`, `applying`, `done`.                                                                                                                  |
+| `app/(app)/performance/add-multiple-objectives.tsx`                    | The only objectives-specific file: groups, controls, where the options come from.                                                                                                     |
 
 ## Decisions worth not undoing
 
 - **It goes through the importer, not through "create" in a loop.** The window posts what it holds
   to `POST /imports/objectives/validate` and then `/apply`, exactly as an upload does. Same rules,
   same refusals, and each row is judged on the author's own authority. A loop over `POST
-  /performance/goals` would be N requests, a half-saved result when the fourth fails, and a second
+/performance/goals` would be N requests, a half-saved result when the fourth fails, and a second
   opinion about the rules.
 - **A draft is a row, held by dictionary field.** That is why a downloaded draft goes straight back
   through **Upload objectives**, and why a file can be loaded in. Nothing about objectives is in the
@@ -8532,7 +8532,7 @@ One window, three layouts of one list, a read-only review, and a way in and out 
 - **The check is all-or-nothing, and the importer's is not.** An upload imports the good rows and
   reports the rest. Here a row that fails keeps you on the form and nothing is created until every
   row passes. A window of five items is one thought, and "four of your five went in" is a worse
-  place to be than "fix this one". A failure *at apply* (rare: the world changed between the two
+  place to be than "fix this one". A failure _at apply_ (rare: the world changed between the two
   presses) is reported by name, and **Fix the N that did not go in** brings back only those. The ones
   that landed are removed from the window, because leaving them would let the next press create
   them twice.
@@ -8562,7 +8562,7 @@ One window, three layouts of one list, a read-only review, and a way in and out 
   order: **the backend headings change reaches `staging` before this frontend reaches `test`.** The
   existing upload page has the same exposure and only prints a note.
 - **Assigned to is a typed work email.** The importer takes an email because two people can share a
-  name. A department head's staff list is a *lookup* row (`DirectoryPerson`), which has no email at
+  name. A department head's staff list is a _lookup_ row (`DirectoryPerson`), which has no email at
   all, so for them there is nothing to suggest and the box is a plain email box, as the spreadsheet
   column is. With `EDIT_RECORDS` the full rows carry addresses and each person is offered by name.
   A real picker for heads needs the API to accept something else (a staff number) or to expose
@@ -8607,7 +8607,7 @@ instinct on seeing 100 ms is to start optimising something that is already fine.
   the render's `drafts` and set the whole next list: they are event handlers, so that render is the
   one the person was looking at.
 - **The "did not go in" list read its reasons from the wrong place.** It used the reports from the
-  *check*, which had passed and been cleared; the reasons came with the *apply*. Found by a test,
+  _check_, which had passed and been cleared; the reasons came with the _apply_. Found by a test,
   and invisible to the types: both are `Record<string, ItemReport>`.
 - **The "set one value" bar had labels tied to nothing.** `<label>` around a control that is not
   inside it. A test could not find the control, which is what a screen reader would have said.
@@ -8706,7 +8706,6 @@ The "Add several objectives" check showed a red box naming the objective and the
 box naming the same email again. Names an item's own error already quotes are now left out of the amber box and
 its link ("Check your staff list") moves into the red one; an amber box remains only for a name no item
 mentions. `tests/bulk-create-dialog.test.tsx` has two cases (one tamper-tested against the old code).
-
 
 ---
 
@@ -9084,16 +9083,16 @@ claimed.
 # "Approve routine items" asks first, and approves the list it showed
 
 The inbox button that read **Approve 3 routine items** counted the routine rows on screen and then
-pressed a route that decided the **whole routine queue on the server**. Entries in *My archive*, and
+pressed a route that decided the **whole routine queue on the server**. Entries in _My archive_, and
 entries the person was never shown, were approved with it, and nothing asked first. Merged on
 2026-10-21 (backend #202 at 07:55 UTC, frontend #431 at 07:56 UTC).
 
 ## What it does now
 
 - **The button opens a confirmation** titled `Approve N routine items?` (`routine item` for one) that
-  names every item, with the confirm button reading `Approve N`. The body says: *These are approved
+  names every item, with the confirm button reading `Approve N`. The body says: _These are approved
   now, and the people who asked are told. Each one is checked again as it goes: anything that is no
-  longer routine, or that you cannot approve, stays where it is.*
+  longer routine, or that you cannot approve, stays where it is._
 - **It sends the rows it showed, and only those.** The dialog takes a snapshot of the items when it
   opens and posts their ids to `POST /approvals/approve-routine/selected` (1 to 200).
   `approveSelected` in `lib/api/approvals.ts` is the client, `approveRoutine(items)` on
@@ -9108,8 +9107,8 @@ entries the person was never shown, were approved with it, and nothing asked fir
 ## Two things not to undo
 
 - **A server that predates the route answers 404, and that is never retried as the old sweep.**
-  `SERVER_BEHIND` is the sentence shown: *The server is a version behind this page and cannot approve a
-  list you were shown yet, so nothing was approved. Ask whoever looks after the server to update it.* The route is separate from the old one on
+  `SERVER_BEHIND` is the sentence shown: _The server is a version behind this page and cannot approve a
+  list you were shown yet, so nothing was approved. Ask whoever looks after the server to update it._ The route is separate from the old one on
   purpose: a body sent to the old `/approve-routine` would have been ignored and the whole queue swept.
   So the order is the backend first, and a frontend that arrives early fails safe.
 - **The Decided view is connected-only.** The inbox's view switch gains **Decided**, with a switch for
@@ -9170,10 +9169,10 @@ objectives upload had two gaps, both found on item 36 of the tracker and merged 
   dialog does not, and does not prefill it either. The upload now behaves like the first. The importer
   checks for a published period; `assignObjective` does not.
 - **The parent has to exist already.** A parent that is another row of the same file is refused
-  (*It has to exist already*), so inheritance works from existing objectives only.
+  (_It has to exist already_), so inheritance works from existing objectives only.
 - **Every row that will really be written with no period carries a warning** on the Appraisal period
-  column (never an error: a company may mean it): *No appraisal period, so this objective counts towards
-  nobody's appraisal mark.* With a parent in a published period the API adds a second sentence naming
+  column (never an error: a company may mean it): _No appraisal period, so this objective counts towards
+  nobody's appraisal mark._ With a parent in a published period the API adds a second sentence naming
   it, and with a parent that has none it says there was none to take. The file also gets two batch notes
   in both the validate and the apply response.
 - **The check step says it once, above the report.** `ImportSurface` has a new optional
@@ -9256,7 +9255,7 @@ main menu", so saying its visible label did not reach it (WCAG 2.5.3, label in n
 is now `<label>, back to main menu`: it starts with what is shown.
 
 A level of eight or more items is filed under small headings, and each heading is now a button that folds
-its section. These are the sections *inside* a level; the rows on the top level already open a level, so
+its section. These are the sections _inside_ a level; the rows on the top level already open a level, so
 there was nothing there to fold.
 
 - **What is stored is what is folded, not what is open** (`lib/store/sidebar-sections.ts`, key
@@ -9302,17 +9301,17 @@ previous `goal-dialogs.tsx`, and the other 4 are the controls that must hold eit
 
 # No banners anywhere: a fact goes beside the thing it is about
 
-The owner does not want large banners. *"The big banner like '1 probation has already ended' should not be
+The owner does not want large banners. _"The big banner like '1 probation has already ended' should not be
 used… maybe a tooltip, maybe an icon that draws users' attention… on the table where we have user
-information."* This is what replaced them, and the rule for what to reach for.
+information."_ This is what replaced them, and the rule for what to reach for.
 
 ## The rule
 
-| What it is | What it becomes |
-|---|---|
-| **A fact about a person, a row, a section or a status** | `AttentionMark` beside it: a small ochre icon, the sentence behind it. `TDPrimary`, `CardHeader` and `Stat` take a `mark` prop; `PageHeader` takes one in `meta`. |
-| **A failure** that has to be read to carry on (a refused action, a failed load) | Plain red words, no box: `Callout tone="danger"`. |
-| **A call to action** | A button, link or row action on one line, with the mark beside it saying why: `NoticeLine` + `AttentionMark` + `NOTICE_LINK`. |
+| What it is                                                                      | What it becomes                                                                                                                                                   |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A fact about a person, a row, a section or a status**                         | `AttentionMark` beside it: a small ochre icon, the sentence behind it. `TDPrimary`, `CardHeader` and `Stat` take a `mark` prop; `PageHeader` takes one in `meta`. |
+| **A failure** that has to be read to carry on (a refused action, a failed load) | Plain red words, no box: `Callout tone="danger"`.                                                                                                                 |
+| **A call to action**                                                            | A button, link or row action on one line, with the mark beside it saying why: `NoticeLine` + `AttentionMark` + `NOTICE_LINK`.                                     |
 
 A status stays plain muted text; the mark is the only colour on a row. `tone="info"` is the grey glyph for
 what a state means once somebody has seen it (closed, repaid); the default ochre is for what to look at.
@@ -9365,13 +9364,13 @@ screen, the API sent it; if the API did not send one, the screen says nothing.
 
 ## What is where
 
-| File | What and why |
-| ---- | ------------ |
-| `lib/pay/schedule.ts` | Pure. Years to months and back, the form's draft and its conversion to the six fields, `sameSchedule`, the "Paid" text, the sentence after a save, the warning before an edit. `scheduleText(undefined)` is **"Monthly"**, never blank. |
-| `lib/store/schedule-preview.ts` | The debounced preview of the typed schedule. Exempt in `verify-revalidate` with its reason: it answers what is typed, not something another screen can change. |
-| `lib/store/scheduled-allowances.ts` | What a run holds back and lets through. Read again when the run is calculated again; **unavailable says nothing**, never "nothing held back". |
-| `pay-setup/schedule-fields.tsx` | The "Applies" section of the form, and the whole of the **Change schedule** dialog. |
-| `runs/new/scheduled-note.tsx` | The one quiet line on the run, with the detail behind an `AttentionMark`. |
+| File                                | What and why                                                                                                                                                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/pay/schedule.ts`               | Pure. Years to months and back, the form's draft and its conversion to the six fields, `sameSchedule`, the "Paid" text, the sentence after a save, the warning before an edit. `scheduleText(undefined)` is **"Monthly"**, never blank. |
+| `lib/store/schedule-preview.ts`     | The debounced preview of the typed schedule. Exempt in `verify-revalidate` with its reason: it answers what is typed, not something another screen can change.                                                                          |
+| `lib/store/scheduled-allowances.ts` | What a run holds back and lets through. Read again when the run is calculated again; **unavailable says nothing**, never "nothing held back".                                                                                           |
+| `pay-setup/schedule-fields.tsx`     | The "Applies" section of the form, and the whole of the **Change schedule** dialog.                                                                                                                                                     |
+| `runs/new/scheduled-note.tsx`       | The one quiet line on the run, with the detail behind an `AttentionMark`.                                                                                                                                                               |
 
 ## Decisions worth not undoing
 
@@ -9443,7 +9442,7 @@ counted that 0. A 0 that is not a result is the failure ADR 0003 names, in a pla
   unread; a reading stamps it. A `DONE` measure is read from the day it is made, at 0%, because "not done
   yet" is an answer: a milestone nobody confirmed by the end of the period was not met, and leaving it out
   of the average would let a miss disappear. Every existing measure was backfilled to `lastReadAt =
-  updatedAt`, so no running period moved.
+updatedAt`, so no running period moved.
 - **An objective's progress is the average of the measures read.** `measuredProgress` is `null` when none
   has been, and the objective then keeps its stored progress instead of being overwritten with a figure the
   measures do not support. This is the one change that moves a number: an objective with one read measure
@@ -9461,15 +9460,15 @@ counted that 0. A 0 that is not a result is the failure ADR 0003 names, in a pla
 `goalFacts` carries `reads` (from `readCount`) so the card and the window cannot differ. It is `null` unless
 some measure is unread, which is deliberate: "4 of 4 read" on every card is noise.
 
-| Where | With nothing read | With some read |
-| ----- | ----------------- | -------------- |
-| The card's face | **No reading yet**, no percentage | the percentage and **1 of 3 read** under it |
-| The objective's window | the bar is labelled **Progress, nothing read yet**, no figure beside it, and a line: **0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.** | **Progress, from the measures read so far** and **1 of 3 measures read. The others are left out of the figure above until somebody enters a reading.** |
-| One measure's row | **Not read yet**, no bar, **No reading yet · target 40 leads · started at 10 leads**, an empty **First reading** box | as before |
-| The average stat | an objective with nothing read is left out, and the caption counts what it averaged: **across 5 of 6 KPIs, the rest not read yet** | |
-| The self-review's "Your objectives" | **No reading entered yet, so there is no figure to show.** | the bar as before |
-| The toast after adding | **No reading yet, so it is left out of progress until there is one.** | the figures alone |
-| The approvals row | **· nothing recorded yet** | **· now 5** |
+| Where                               | With nothing read                                                                                                                                                           | With some read                                                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The card's face                     | **No reading yet**, no percentage                                                                                                                                           | the percentage and **1 of 3 read** under it                                                                                                            |
+| The objective's window              | the bar is labelled **Progress, nothing read yet**, no figure beside it, and a line: **0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.** | **Progress, from the measures read so far** and **1 of 3 measures read. The others are left out of the figure above until somebody enters a reading.** |
+| One measure's row                   | **Not read yet**, no bar, **No reading yet · target 40 leads · started at 10 leads**, an empty **First reading** box                                                        | as before                                                                                                                                              |
+| The average stat                    | an objective with nothing read is left out, and the caption counts what it averaged: **across 5 of 6 KPIs, the rest not read yet**                                          |                                                                                                                                                        |
+| The self-review's "Your objectives" | **No reading entered yet, so there is no figure to show.**                                                                                                                  | the bar as before                                                                                                                                      |
+| The toast after adding              | **No reading yet, so it is left out of progress until there is one.**                                                                                                       | the figures alone                                                                                                                                      |
+| The approvals row                   | **· nothing recorded yet**                                                                                                                                                  | **· now 5**                                                                                                                                            |
 
 What being unread costs is said **once**, under the objective's own bar, and not again under each unread
 measure. The first version said it four times in a few lines to somebody with one unread measure.
@@ -9574,15 +9573,15 @@ still open.
 
 ## What changed
 
-| Where                                                    | What                                                                                                                                                                                                                                                         |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/projects/mine` (`my-tasks-screen.tsx`)                 | **My tasks**: your own list, apart from any project. A quick-add row (title, due date, **Attach files**, **Add details**), three groups (**To do**, **In progress**, and **Done this week**, closed), **Open / Done / Overdue** views, and "Set by …" on a task a leader gave you. |
-| `/projects/team` (`team-tasks-screen.tsx`)               | **Team tasks**: one block per person you manage or whose department you run, with a load strip and "2 overdue, 1 this week, 4 open, 2 done this week", **Give a task**, and **Move to…** on a personal task. **Overdue**, **Due this week** and **All open** views. |
-| `/projects/tasks/[id]` (`task-screen.tsx`)               | One task, by its id.                                                                                                                                                                                                                                         |
-| `personal-issue-drawer.tsx`, `reduced-issue-drawer.tsx`  | The drawer for a task with no board, and the read-only view a leader gets of a board task on a board they are not on.                                                                                                                                         |
-| `task-files.tsx`, `watchers.tsx`, `lib/projects/files.ts` | **Files** (thumbnails, attach or drop, open, remove) and **Watchers** in the drawer, and the three-step upload.                                                                                                                                              |
-| `lib/store/team-tasks.ts`                                | `useLeadsTeam`: whether the **Team tasks** nav row exists.                                                                                                                                                                                                   |
-| `next.config.ts`                                         | The policy's `img-src` admits the configured upload origins, for thumbnails.                                                                                                                                                                                 |
+| Where                                                     | What                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/projects/mine` (`my-tasks-screen.tsx`)                  | **My tasks**: your own list, apart from any project. A quick-add row (title, due date, **Attach files**, **Add details**), three groups (**To do**, **In progress**, and **Done this week**, closed), **Open / Done / Overdue** views, and "Set by …" on a task a leader gave you. |
+| `/projects/team` (`team-tasks-screen.tsx`)                | **Team tasks**: one block per person you manage or whose department you run, with a load strip and "2 overdue, 1 this week, 4 open, 2 done this week", **Give a task**, and **Move to…** on a personal task. **Overdue**, **Due this week** and **All open** views.                |
+| `/projects/tasks/[id]` (`task-screen.tsx`)                | One task, by its id.                                                                                                                                                                                                                                                               |
+| `personal-issue-drawer.tsx`, `reduced-issue-drawer.tsx`   | The drawer for a task with no board, and the read-only view a leader gets of a board task on a board they are not on.                                                                                                                                                              |
+| `task-files.tsx`, `watchers.tsx`, `lib/projects/files.ts` | **Files** (thumbnails, attach or drop, open, remove) and **Watchers** in the drawer, and the three-step upload.                                                                                                                                                                    |
+| `lib/store/team-tasks.ts`                                 | `useLeadsTeam`: whether the **Team tasks** nav row exists.                                                                                                                                                                                                                         |
+| `next.config.ts`                                          | The policy's `img-src` admits the configured upload origins, for thumbnails.                                                                                                                                                                                                       |
 
 The API half is backend #216: `/projects/mine/tasks`, `/projects/team-tasks` and `/leads`, `/issues/:id/move`,
 `/issues/:id/watch` and `/watchers`, and `/issues/:id/attachments` (an upload URL, then the record) with
@@ -9908,8 +9907,8 @@ deployed to the QA backend at 17:48 and 18:10 UTC.
 
 ## The Questions dialog said an answer counts towards the mark, and it does not
 
-Under **Section** and **Subsection**, a question filed under a subsection read *"Answers to this count towards Core
-competency, which is 40% of the mark."* Nothing makes that so. The competency part of the mark is built from the
+Under **Section** and **Subsection**, a question filed under a subsection read _"Answers to this count towards Core
+competency, which is 40% of the mark."_ Nothing makes that so. The competency part of the mark is built from the
 level a manager records on the subsection itself (**Competency ratings**, **Record a level**). The score register
 never reads the answer to a question, however the question is filed, and filing only groups it in the list.
 `tests/performance-question-answers-not-scored.test.ts` in the backend pins that in both directions: a sent answer
@@ -9961,8 +9960,8 @@ somebody who leads nobody, which is the case this takes off the form, so it file
 ## "I'm still unable to do the manager appraisal" was Send, and the rule told nobody until the end
 
 Reproduced on a scratch API. A manager can open and answer a review at any time, but Send is refused until the
-employee has sent their self-appraisal: *"Chidi has not sent their self-appraisal yet, and it should inform
-yours..."*. The rule is deliberate (the product owner's own feedback asked for it) and has three releases: **a past
+employee has sent their self-appraisal: _"Chidi has not sent their self-appraisal yet, and it should inform
+yours..."_. The rule is deliberate (the product owner's own feedback asked for it) and has three releases: **a past
 due date on the period**, **the appraiser holding `EDIT_RECORDS`**, and **no self-review on the period**; the
 employee sending theirs releases it too. HR setting the period's due date to a past date releases every manager at
 once (checked). The failure was that the only place anybody learned it was the refusal, after the whole form was
@@ -9984,7 +9983,7 @@ row would be a second read for every row.
 
 It is tied back only through the section's **Counts towards** (Core competencies, Behavioural competencies or
 Leadership). A section with no mapping is recorded and never scored: the seeded "Key result area" is one. Weights
-belong to those three *parts* (Settings, Scoring), not to sections, so two sections on one part are averaged
+belong to those three _parts_ (Settings, Scoring), not to sections, so two sections on one part are averaged
 together and a new section cannot have a weight of its own. An answer on a subsection (a level, a yes or no, or a
 pick) counts only when it is recorded under Competency ratings with an appraisal period chosen; with none it is
 recorded and affects no mark. **Answers to review questions never count.**
@@ -10030,8 +10029,8 @@ turned up two more defects, in frontend #507 and backend #237. All three are in 
 
 - **The Questions dialog has a view switch, `All questions | By section`.** All is the default and is the form as
   it was. **By section** (`SubsectionTree` in `subsection-tree.tsx`) lays the same questions out under the
-  company's sections: each shows how many subsections it has and its weight (*15% of the mark*, or *Not
-  weighted*), and each subsection a kind badge and its question count. An open subsection has two tabs. **Rated
+  company's sections: each shows how many subsections it has and its weight (_15% of the mark_, or _Not
+  weighted_), and each subsection a kind badge and its question count. An open subsection has two tabs. **Rated
   directly** is `DirectAnswerPanel` (`direct-answer-panel.tsx`): the **How it is answered** picker, and for a
   pick the `ScoredChoiceEditor`, a score in percent per choice and **Save choices**. **Answered by questions** is
   this period's questions filed under it, with the question form.
@@ -10124,7 +10123,7 @@ filing sentence; **By section** with the four sections and their weights; adding
 Behavioural competencies; a yes-or-no and a pick-one subsection; three scored choices saved; the **Answered by
 questions** tab; a line manager recording a yes for one report and a pick for another in **Record a level** (their
 Employee list was empty before #507, and the dialog showed no level or target for either kind); each report's
-skills list showing the yes and the picked label with no scale; and the manager's *Waiting on you* before and
+skills list showing the yes and the picked label with no scale; and the manager's _Waiting on you_ before and
 after pressing **Fill in from the reporting line** on the fixed API (the form about the new person appears, and a
 second press writes nothing).
 
@@ -10147,7 +10146,7 @@ a company with real data.
 
 The QA round of 2026-10-28 removed "Is there an overall mark?" from the answer flow ("a review is its answers"), and
 its entry above recorded the one consequence: a company that weights **Self-assessment** has nothing to read for
-that part, because Self-assessment *is* the overall mark somebody gave themselves. The owner's answer was to put it
+that part, because Self-assessment _is_ the overall mark somebody gave themselves. The owner's answer was to put it
 back as a switch in Performance settings, off by default. Backend #238 (merged 18:05 UTC), backend #239 and
 frontend #512 are that change. #238 and #512 are merged (18:05 and 19:02 UTC); #239 is open for the user.
 
@@ -10211,7 +10210,7 @@ asked for a figure nothing can produce, and it is the one that now says so.
 ## Decisions not to undo
 
 - **Absent is not off, and null is not off.** An absent `overallMark` on a review means the form does not ask (the
-  API still accepts a rating), but an absent one on the *features* means no switch, not an off switch.
+  API still accepts a rating), but an absent one on the _features_ means no switch, not an off switch.
 - **Two guards stand between a stale draft and the send**, and neither fails a test alone: the `mark` state is seeded
   empty when the form does not ask, and the body sends `rating` only when it does. Removing both fails
   `ignores a mark left in the browser from before the setting moved`. Keep both: a mark that cannot exist is better
@@ -10315,13 +10314,13 @@ test text unchanged. **A PR that was green when it was written can fail a gate t
 Four screens used to find out from a refusal, or say nothing. Each field is optional on the web and an absent one makes
 no claim, so an older server behaves as before; each case has a test with the field missing.
 
-| | What the web now says | Needs |
-| --- | --- | --- |
-| **R1** Fill in from the reporting line | The toast reads "N people given an appraiser" with "N forms written for managers to answer." (`formsCreated`, already on `staging`). Two lines sit beside the table: who was given their department head, and "Still nobody appraising X. …" read against the live map, so somebody assigned since drops off. | nothing new; the department-head line needs #241 |
-| **R3** a pick subsection | A choice anybody has picked has its score greyed: "Picked N times, so its score is fixed. Add a new choice to score it differently." Its name and place stay editable. **Record a level** opens on the choice the person already has, matched by id, and says so when that choice has since been taken off the list. | #240 (`ratingCount`, `choiceOptionId`) |
-| **R4** the Overview | A manager's **Fill it in** row carries a small mark beside the person's name with the API's sentence for why Send is closed. | #240 (`sendBlockedBy`) |
-| **R5** `employees` against `people` | Audited, nothing to change (see below). | |
-| **R2** the department head as appraiser | **Not shipped.** | #241, a draft |
+|                                         | What the web now says                                                                                                                                                                                                                                                                                                | Needs                                            |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **R1** Fill in from the reporting line  | The toast reads "N people given an appraiser" with "N forms written for managers to answer." (`formsCreated`, already on `staging`). Two lines sit beside the table: who was given their department head, and "Still nobody appraising X. …" read against the live map, so somebody assigned since drops off.        | nothing new; the department-head line needs #241 |
+| **R3** a pick subsection                | A choice anybody has picked has its score greyed: "Picked N times, so its score is fixed. Add a new choice to score it differently." Its name and place stay editable. **Record a level** opens on the choice the person already has, matched by id, and says so when that choice has since been taken off the list. | #240 (`ratingCount`, `choiceOptionId`)           |
+| **R4** the Overview                     | A manager's **Fill it in** row carries a small mark beside the person's name with the API's sentence for why Send is closed.                                                                                                                                                                                         | #240 (`sendBlockedBy`)                           |
+| **R5** `employees` against `people`     | Audited, nothing to change (see below).                                                                                                                                                                                                                                                                              |                                                  |
+| **R2** the department head as appraiser | **Not shipped.**                                                                                                                                                                                                                                                                                                     | #241, a draft                                    |
 
 ### Decisions worth not undoing
 
@@ -10415,15 +10414,15 @@ that pins the flow. Nothing on the backend changed.
 Walked on a scratch company against a production build, before touching the code. Each of these was measured, not read
 off the source, which is why the one thing that looked likely and was not is on the list too.
 
-| Found                                                          | Measured                                                                     |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| No way to add from By section                                  | a yes-or-no subsection opened on _Rated directly_, **0** add buttons, **0** question boxes |
-| Enter in the question box                                      | added nothing                                                                |
-| Focus after pressing Add                                       | the page body: the button is disabled while it saves                         |
-| Edit                                                           | the form 434px below the pencil that was pressed (visible with 3 questions, not with 12) |
-| The bin                                                        | removed the question at once, no question asked                              |
-| Closing with a question typed                                  | closed and discarded it                                                      |
-| The list while a question is added                             | **did not** flash: the row count never dipped across the re-read             |
+| Found                              | Measured                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| No way to add from By section      | a yes-or-no subsection opened on _Rated directly_, **0** add buttons, **0** question boxes |
+| Enter in the question box          | added nothing                                                                              |
+| Focus after pressing Add           | the page body: the button is disabled while it saves                                       |
+| Edit                               | the form 434px below the pencil that was pressed (visible with 3 questions, not with 12)   |
+| The bin                            | removed the question at once, no question asked                                            |
+| Closing with a question typed      | closed and discarded it                                                                    |
+| The list while a question is added | **did not** flash: the row count never dipped across the re-read                           |
 
 ## Decisions not to undo
 
@@ -10466,8 +10465,7 @@ off the source, which is why the one thing that looked likely and was not is on 
   the add succeeded (`save` resolves to whether it did), so a refused question leaves the form open with the reason.
 - **The form's second argument is `how`, not `options`.** Its first name shadowed the choices of the question being
   written, and picking _Pick from a list_ crashed the form. Nothing but the new pick-from-a-list tests would have said so.
-- **The server's limits are said before the request:** 300 characters (in the server's own sentence, with a counter from
-  250) and ten choices of up to 120. Not a `maxLength` on the question box: that truncates a paste without a word.
+- **The server's limits are said before the request:** 300 characters (in the server's own sentence, with a counter from 250) and ten choices of up to 120. Not a `maxLength` on the question box: that truncates a paste without a word.
 - **Enter adds** unless an input method is composing a character, and `save` ignores a second press while one is under
   way, so a double Enter adds once.
 
@@ -10559,13 +10557,13 @@ decides by permission). That is a `Standing` of three booleans, `EDIT_RECORDS`, 
 read from the permission set once by `standingFrom`. A person is shown the first three that apply, then "What can you do
 for me?".
 
-| Holds | Is offered |
-| --- | --- |
-| none of the three (an employee, **and a line manager**) | their last net pay, the leave they have asked for, the review periods |
+| Holds                                                                  | Is offered                                                                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| none of the three (an employee, **and a line manager**)                | their last net pay, the leave they have asked for, the review periods                            |
 | `EDIT_RECORDS` and `VIEW_SALARIES` (the HR manager, the administrator) | the people with no bank account, the leave still waiting, who is missing something before payday |
-| `VIEW_SALARIES` only (the Payroll analyst, the Finance approver) | who is missing something before payday, what was paid last month, their last net pay |
-| `EDIT_RECORDS` only | the people with no bank account, the leave still waiting, their last net pay |
-| `APPROVE_LEAVE_ALL` only | the leave still waiting, their last net pay, the review periods |
+| `VIEW_SALARIES` only (the Payroll analyst, the Finance approver)       | who is missing something before payday, what was paid last month, their last net pay             |
+| `EDIT_RECORDS` only                                                    | the people with no bank account, the leave still waiting, their last net pay                     |
+| `APPROVE_LEAVE_ALL` only                                               | the leave still waiting, their last net pay, the review periods                                  |
 
 "What leave have I asked for?" is offered only to somebody who is given their own requests: for a holder of
 `APPROVE_LEAVE_ALL` or `EDIT_RECORDS` the lookup returns everybody's, and "mine" would be the wrong word for it. For
@@ -10676,16 +10674,16 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
 
 ## What changed
 
-| Where                                                                         | What                                                                                                                                                                                                                                                                                                                 |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Where                                                                         | What                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lib/api/performance.ts`                                                      | `ApiQuestion` gains `answersSubsection?` and `competencyName?`. `ApiFormQuestion` gains `answersSubsection?`, `subsection?` (name, kind, ceiling, choices as ids and labels) and `selfAnswer?`. `ApiAnswer.choiceOptionId?`, `AnswerBody.choiceOptionId?`, and the two calls `askSubsection` (PUT) and `stopAskingSubsection` (DELETE). |
-| `lib/store/performance.ts`                                                    | The two writes on `useCycleMutations`, refused offline in the sentence every period write uses.                                                                                                                                                                                                                       |
-| `lib/performance/subsection-ask.ts`                                           | The period's side, pure: the four choices, what each sends, the one line under each, what pressing the button does (`askActionFor`) and what it says, the message after a save, `SubsectionAsk` (what the tree and the panel are handed).                                                                                                                                                                        |
-| `lib/performance/subsection-answer.ts`                                        | The form's side, pure: which questions are a subsection's own, the kind they are drawn as, the levels, an answer in words, the person's own answer in words.                                                                                                                                                          |
-| `direct-answer-panel.tsx`                                                     | **Ask it on the review form**, after how a subsection is answered (`AskOnForm`): who is asked, and the button that writes it.                                                                                                                                                                                                                                      |
-| `subsection-tree.tsx`, `period-dialogs.tsx`, `period-screen.tsx`              | The dialog is told the period's stage and given the two writes; it builds `ask` for the tree; the rows of All questions and the Questions tab know a subsection question.                                                                                                                                             |
-| `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                       |
-| `docs/walkthroughs/performance.md`                                            | Steps 6, 17, 21 and 22 and the footer date. Every label in them was checked against the source.                                                                                                                                                                                                                       |
+| `lib/store/performance.ts`                                                    | The two writes on `useCycleMutations`, refused offline in the sentence every period write uses.                                                                                                                                                                                                                                         |
+| `lib/performance/subsection-ask.ts`                                           | The period's side, pure: the four choices, what each sends, the one line under each, what pressing the button does (`askActionFor`) and what it says, the message after a save, `SubsectionAsk` (what the tree and the panel are handed).                                                                                               |
+| `lib/performance/subsection-answer.ts`                                        | The form's side, pure: which questions are a subsection's own, the kind they are drawn as, the levels, an answer in words, the person's own answer in words.                                                                                                                                                                            |
+| `direct-answer-panel.tsx`                                                     | **Ask it on the review form**, after how a subsection is answered (`AskOnForm`): who is asked, and the button that writes it.                                                                                                                                                                                                           |
+| `subsection-tree.tsx`, `period-dialogs.tsx`, `period-screen.tsx`              | The dialog is told the period's stage and given the two writes; it builds `ask` for the tree; the rows of All questions and the Questions tab know a subsection question.                                                                                                                                                               |
+| `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                                                          |
+| `docs/walkthroughs/performance.md`                                            | Steps 6, 17, 21 and 22 and the footer date. Every label in them was checked against the source.                                                                                                                                                                                                                                         |
 
 ## Decisions not to undo
 
@@ -10758,7 +10756,7 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
   contract the two halves were built from had no such refusal; the backend added one (a 422 from `askSubsection`), and the web draws
   the same rule before the click instead of waiting for it.
 - **Nothing is offered once the period has started** (the control is read only, with `H2 2026 Appraisal has started, so this can no
-  longer change.`), and an absent `stage` is not a draft. The dialog itself is only opened from **Write the questions**, which is on a
+longer change.`), and an absent `stage` is not a draft. The dialog itself is only opened from **Write the questions**, which is on a
   draft's **Set it up, then start it** card and nowhere else, so this state is reached only when somebody starts the period while the
   dialog is open. It was reached that way in a browser, by leaving the window and coming back so that the period was read again.
 - **A server that sends none of the new fields reaches none of the new code.** `isSubsectionQuestion` needs the flag **and** the
@@ -11001,12 +10999,12 @@ has been invited.
 `noticeReach(access)` in `lib/api/announcements.ts` is the one copy of the rule, and its wording is the record's own ("Invited", "Invitation
 expired", "Access closed"):
 
-| Access | Can be addressed | What it says |
-|---|---|---|
-| `NONE` | no | "has no account yet", and to invite them first |
-| `DISABLED` | no | "no longer has access" |
-| `SENT`, `EXPIRED` | **yes** | "has not signed in yet", and that they will see it once they do |
-| `ACCEPTED`, not known | yes | nothing |
+| Access                | Can be addressed | What it says                                                    |
+| --------------------- | ---------------- | --------------------------------------------------------------- |
+| `NONE`                | no               | "has no account yet", and to invite them first                  |
+| `DISABLED`            | no               | "no longer has access"                                          |
+| `SENT`, `EXPIRED`     | **yes**          | "has not signed in yet", and that they will see it once they do |
+| `ACCEPTED`, not known | yes              | nothing                                                         |
 
 `SendMessageDialog` takes `access` now instead of `canSignIn: boolean`, because a boolean cannot tell no account from invited. The screen
 follows the server. If the owner wants only people who have signed in to be messageable, that is a change to `assertPeople` first and a one-line
@@ -11084,18 +11082,18 @@ hundreds of people in the picker; the backend suite in one run (CI runs it).
 The owner asked for "the ability to attach files for a leave request, for the manager to view the file, and to
 approve or reject leave with reasons". The API side is `docs/backend/leave-attachments-handover.md` on the
 backend (read it first: routes, error codes, who may open a file, limits). **These files are often medical
-certificates**, so most of what follows is about what the web must *not* do.
+certificates**, so most of what follows is about what the web must _not_ do.
 
 ## What is where
 
-| File | What and why |
-| ---- | ------------ |
-| `lib/api/leave-files.ts` | Every file route, `declaredType`, `fileRefusal`, `uploadLeaveFile`, `openLeaveFile`, `fileProblem`. |
-| `lib/store/leave-files.ts` | The limits (one shared read), the rule for these dates, one request's file list. Connected only. |
-| `components/leave/leave-file-picker.tsx` | Choosing files in the request form, and the staged list the drawer reuses. |
-| `components/leave/leave-request-files.tsx` | The drawer's files: open, add, remove, the flag when one is missing. |
-| `components/leave/leave-history.tsx` | What happened to a request, from the API's own history. |
-| `components/portal/approve-dialog.tsx` | Approve with an optional note. The same shape as `DeclineDialog`. |
+| File                                       | What and why                                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `lib/api/leave-files.ts`                   | Every file route, `declaredType`, `fileRefusal`, `uploadLeaveFile`, `openLeaveFile`, `fileProblem`. |
+| `lib/store/leave-files.ts`                 | The limits (one shared read), the rule for these dates, one request's file list. Connected only.    |
+| `components/leave/leave-file-picker.tsx`   | Choosing files in the request form, and the staged list the drawer reuses.                          |
+| `components/leave/leave-request-files.tsx` | The drawer's files: open, add, remove, the flag when one is missing.                                |
+| `components/leave/leave-history.tsx`       | What happened to a request, from the API's own history.                                             |
+| `components/portal/approve-dialog.tsx`     | Approve with an optional note. The same shape as `DeclineDialog`.                                   |
 
 ## Rules that are about this module and not any screen
 
@@ -11103,7 +11101,7 @@ certificates**, so most of what follows is about what the web must *not* do.
   tab is opened inside the click (a browser stops one opened after an `await`) and pointed at the file when the link
   comes back; the link goes to `location` and no further. No thumbnail, no preview, no prefetch, nothing stored,
   logged or put in a toast. If the browser stopped the tab **no link is asked for at all**, because issuing one is
-  a look in the audit trail and there would be nothing to look with. The mode used is the one the API *returns*.
+  a look in the audit trail and there would be nothing to look with. The mode used is the one the API _returns_.
 - **A file's name is a row in the file list and nowhere else.** No toast, no message, no title is built from one, and
   `fileProblem` uses the API's sentences, none of which carry a name. A test per component asserts it.
 - **Controls come from what the API says about this reader** (`access.canAdd`, `canRemove`, `requirement`,
@@ -11111,7 +11109,7 @@ certificates**, so most of what follows is about what the web must *not* do.
   reduced read, because it would be a 403 for anybody else; a request with no file and nobody who may add one draws
   no heading; somebody who cannot open files is told only how many there are.
 - **Uploaded when the request is sent, not when a file is picked.** A person who picks a certificate and closes the
-  form asked for nothing to be stored. The ref is remembered per file *and per employee*, so a retry does not upload
+  form asked for nothing to be stored. The ref is remembered per file _and per employee_, so a retry does not upload
   twice and a file uploaded for one person is not sent for another (its key would not match).
 - **The PUT sends exactly the signed headers.** `PresignedUpload.headers` is new; with it `putToStorage` sends those
   and nothing else. `declaredType` prefers the extension to a browser type the API does not accept (some say
@@ -11255,14 +11253,14 @@ of a finalise, so a recommendation would be dropped with a 200 and the rating ca
 
 ## What changed on the web
 
-| Where                                                       | What                                                                                                                                                                                                             |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `reviews/[id]/review-form-card.tsx` (new)                   | One card, **Self review and manager review**, a column for each, who wrote it and when, the same question answered on each side in one row. Replaces the two stacked cards. Alone, it is **Manager review**.     |
-| `lib/performance/review-comparison.ts` (new)                | Lines the two forms up by question id. Pure.                                                                                                                                                                     |
-| `lib/performance/score-wording.ts` (new)                    | The sentences under each part of the mark: what was counted, which parts gave up a weight, what was set. Pure.                                                                                                   |
-| `reviews/[id]/finalise-dialog.tsx`, `sign-off-copy.ts`      | HR's optional **Your recommendation**, sent with the finalise. Offered to `EDIT_RECORDS` alone, and only where the server sends `hrRecommendation`.                                                                                                                  |
-| `reviews/[id]/review-screen.tsx`                            | The card above, **HR's recommendation** directly under the rating, and the score panel's wording.                                                                                                                |
-| `(focus)/.../answer/focus-logic.ts`, `focus-steps.tsx`      | A manager's closing page is **Your recommendations**; the person's and a peer's stay **Anything to add?**. One function, `closingNoteWords`, so the page, the preview row and the progress line cannot disagree. |
+| Where                                                        | What                                                                                                                                                                                                             |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reviews/[id]/review-form-card.tsx` (new)                    | One card, **Self review and manager review**, a column for each, who wrote it and when, the same question answered on each side in one row. Replaces the two stacked cards. Alone, it is **Manager review**.     |
+| `lib/performance/review-comparison.ts` (new)                 | Lines the two forms up by question id. Pure.                                                                                                                                                                     |
+| `lib/performance/score-wording.ts` (new)                     | The sentences under each part of the mark: what was counted, which parts gave up a weight, what was set. Pure.                                                                                                   |
+| `reviews/[id]/finalise-dialog.tsx`, `sign-off-copy.ts`       | HR's optional **Your recommendation**, sent with the finalise. Offered to `EDIT_RECORDS` alone, and only where the server sends `hrRecommendation`.                                                              |
+| `reviews/[id]/review-screen.tsx`                             | The card above, **HR's recommendation** directly under the rating, and the score panel's wording.                                                                                                                |
+| `(focus)/.../answer/focus-logic.ts`, `focus-steps.tsx`       | A manager's closing page is **Your recommendations**; the person's and a peer's stay **Anything to add?**. One function, `closingNoteWords`, so the page, the preview row and the progress line cannot disagree. |
 | `settings/performance/weights-form.tsx`, `overall-mark-card` | The "Switch overall marks on" action and the card's _nothing to count_ warning are gone, and the two part descriptions say what they are read from now.                                                          |
 
 ## Decisions not to undo
@@ -11395,11 +11393,11 @@ earlier walk of this feature used a stand-in that did not check), and a producti
 A file goes **from the browser straight to the bucket** (the API never carries it), so three things have to be true and any
 one of them being false stops every upload, from every screen that uploads (leave, task files, documents):
 
-| Symptom on **Book leave** | What is missing | Where it is fixed |
-| --- | --- | --- |
-| No **Supporting file** section at all, and no sentence about why | The API says `storage: false` (no `S3_BUCKET` and its siblings), or the limits request failed | The API's environment. `GET /api/v1/leave/attachments/limits` shows `storage` |
-| The file is refused with **"This site is not set up to send files to storage yet"** | The web build's security policy does not name the bucket's address | `NEXT_PUBLIC_UPLOAD_ORIGINS` on the web project, then a **rebuild**: `next.config.ts` reads it when the site is built |
-| **"The upload did not finish. Check your connection and try again."** every time, with a CORS error in the browser console | The bucket has no CORS rule that allows `PUT` from this web origin | The bucket |
+| Symptom on **Book leave**                                                                                                  | What is missing                                                                               | Where it is fixed                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| No **Supporting file** section at all, and no sentence about why                                                           | The API says `storage: false` (no `S3_BUCKET` and its siblings), or the limits request failed | The API's environment. `GET /api/v1/leave/attachments/limits` shows `storage`                                         |
+| The file is refused with **"This site is not set up to send files to storage yet"**                                        | The web build's security policy does not name the bucket's address                            | `NEXT_PUBLIC_UPLOAD_ORIGINS` on the web project, then a **rebuild**: `next.config.ts` reads it when the site is built |
+| **"The upload did not finish. Check your connection and try again."** every time, with a CORS error in the browser console | The bucket has no CORS rule that allows `PUT` from this web origin                            | The bucket                                                                                                            |
 
 **The QA site, `https://approvehr-frontend-v2-three.vercel.app`, is in the first row and the second, and the first is the one that
 matters.** Its API answers `"storage": false` to `GET /api/v1/leave/attachments/limits` (read on 2 November at about 12:30 UTC,
@@ -11514,12 +11512,12 @@ button is offered where the lock is, and the API answers 404.
 
 ## What changed
 
-| Where | What |
-| ----- | ---- |
-| Questions dialog, **By section**, a subsection, **How it is rated** (`direct-answer-panel.tsx`) | The reason is **above** the control and says the count and the fact that is not obvious: _Fixed: 12 ratings are recorded on this subsection, in any period, and how it is answered applies to every period._ **Start a new version** sits beside the greyed control. |
-| `new-version-dialog.tsx` (new) | One dialog: **How the new version is answered** (the two other ways, nothing chosen for you), three lines of what will happen, **Start new version**. |
-| By-section rows and the **Sections and subsections** dialog (`subsection-title.tsx`, new) | The word for how it is answered (**Rated**, **Yes or no**, **Pick one**) **leads the name**, in a fixed-width column on every row, level or not. A small lock follows the name of a subsection that has ratings. |
-| `lib/performance/new-version.ts` (new), `performanceApi.newCompetencyVersion`, `useFrameworkActions().newCompetencyVersion` | The words, the call, and the offline refusal. |
+| Where                                                                                                                       | What                                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Questions dialog, **By section**, a subsection, **How it is rated** (`direct-answer-panel.tsx`)                             | The reason is **above** the control and says the count and the fact that is not obvious: _Fixed: 12 ratings are recorded on this subsection, in any period, and how it is answered applies to every period._ **Start a new version** sits beside the greyed control. |
+| `new-version-dialog.tsx` (new)                                                                                              | One dialog: **How the new version is answered** (the two other ways, nothing chosen for you), three lines of what will happen, **Start new version**.                                                                                                                |
+| By-section rows and the **Sections and subsections** dialog (`subsection-title.tsx`, new)                                   | The word for how it is answered (**Rated**, **Yes or no**, **Pick one**) **leads the name**, in a fixed-width column on every row, level or not. A small lock follows the name of a subsection that has ratings.                                                     |
+| `lib/performance/new-version.ts` (new), `performanceApi.newCompetencyVersion`, `useFrameworkActions().newCompetencyVersion` | The words, the call, and the offline refusal.                                                                                                                                                                                                                        |
 
 ## Decisions not to undo
 
@@ -11540,7 +11538,7 @@ button is offered where the lock is, and the API answers 404.
 5. **A refusal stays in the dialog, with the choice still made**, and the dialog cannot be closed while the request is in flight,
    so what comes back is never lost behind a dialog that has gone. The one that matters is a period that is **running** and asks
    the subsection on its review form: the API names it. A 404 says the subsection is gone, **by name** (`kindOf(caught) ===
-   "missing"`): the shared `actionMessage` would have said "The new version is not there any more", about something that was
+"missing"`): the shared `actionMessage` would have said "The new version is not there any more", about something that was
    never made.
 6. **After it works, the screen reads the framework, the sections and the period's questions again** (`onQuestionsMoved`),
    because a draft period's questions moved on the server; a re-read of the framework alone would show the new subsection
@@ -11643,8 +11641,7 @@ The way back from a revert is to revert the revert, or, as here, to take the tre
 ## What was done
 
 A merge commit with `dev` and `staging` as its parents, and the tree of `staging` with Joseph's two commits applied to it, which
-are the only work `dev` had that `staging` lacked. Against `staging` it differs in five files (his board change); against `dev` in
-169. Putting his change on `staging`'s code needed two reconciliations:
+are the only work `dev` had that `staging` lacked. Against `staging` it differs in five files (his board change); against `dev` in 169. Putting his change on `staging`'s code needed two reconciliations:
 
 - `hiddenDoneCount` (added on `staging`) counted every finished task that was not an epic. After his change a sub-task has no
   board card, so a finished one is not "hidden": it now uses the same `onBoard` rule that `boardScope` does.
@@ -11685,17 +11682,17 @@ words** (the web cannot tell), and it would be refused. That was not run.
 
 ## What changed
 
-| Where | What |
-| ----- | ---- |
-| `lib/api/performance.ts` | `AnswerKind` gains `TEXT`. `textValue` on a skills row, on the rate body and its answer, and on a manager's `selfAnswer`, all optional: a server that sends none of them is read as it always was. |
-| `lib/performance/answer-kind.ts` | The fourth kind: **In their own words** in a picker, **Written** on a row, and `WRITTEN_NEVER_COUNTS`, the one sentence. `directCounts` says nothing for it. |
-| `lib/performance/question-limits.ts` | `WRITTEN_ANSWER_MAX_LENGTH` (4,000, the server's), the count from 3,500, `writtenAnswerProblem`, `writtenAnswerCounter`, `writtenAnswerIsOver`. The review form's own box (`TEXT_LIMIT`) reads the same constant. |
-| Record a level (`rating-dialog.tsx`) | A **Answer** box for a written skill: already filled with what is on record, a count, the one sentence under it, the period help that does not mention a mark, and the language check. Title unchanged. |
-| Skills (`skills.tsx`) | A written row shows the words in full with **Written**, folded to three lines with **Read all** when long, never a level, a score or a nought. **Answered** when the words did not arrive. The toast says **Answer recorded** for anything that is not a level. |
-| The review form (`review-parts.tsx`, `subsection-answer.ts`, `focus-question.tsx`) | A written subsection question is a box to write in, held and sent as `textValue` and never as a pick; blank is not an answer; read back in full with its paragraphs; a manager sees the person's own words in full on **Their own answer**. |
-| Questions dialog (`direct-answer-panel.tsx`, `subsection-ask.ts`, `question-filing.ts`, `period-dialogs.tsx`) | **In their own words** in **How it is answered** and **Answered by**; **Ask it on the review form** with lines that say where the words go; the filing sentence for a written subsection; a **Written directly** badge. |
-| Start a new version (`new-version.ts`, `new-version-dialog.tsx`) | The list gains **In their own words**. Choosing it adds a fourth line, the sentence above. A retired subsection that was written does not say its marks stay. |
-| `language-check.tsx`, `review-language.ts` | `caveat` on the component, and `ANSWER_CAVEAT` for words that are saved and not a review that is sent. |
+| Where                                                                                                         | What                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/api/performance.ts`                                                                                      | `AnswerKind` gains `TEXT`. `textValue` on a skills row, on the rate body and its answer, and on a manager's `selfAnswer`, all optional: a server that sends none of them is read as it always was.                                                              |
+| `lib/performance/answer-kind.ts`                                                                              | The fourth kind: **In their own words** in a picker, **Written** on a row, and `WRITTEN_NEVER_COUNTS`, the one sentence. `directCounts` says nothing for it.                                                                                                    |
+| `lib/performance/question-limits.ts`                                                                          | `WRITTEN_ANSWER_MAX_LENGTH` (4,000, the server's), the count from 3,500, `writtenAnswerProblem`, `writtenAnswerCounter`, `writtenAnswerIsOver`. The review form's own box (`TEXT_LIMIT`) reads the same constant.                                               |
+| Record a level (`rating-dialog.tsx`)                                                                          | A **Answer** box for a written skill: already filled with what is on record, a count, the one sentence under it, the period help that does not mention a mark, and the language check. Title unchanged.                                                         |
+| Skills (`skills.tsx`)                                                                                         | A written row shows the words in full with **Written**, folded to three lines with **Read all** when long, never a level, a score or a nought. **Answered** when the words did not arrive. The toast says **Answer recorded** for anything that is not a level. |
+| The review form (`review-parts.tsx`, `subsection-answer.ts`, `focus-question.tsx`)                            | A written subsection question is a box to write in, held and sent as `textValue` and never as a pick; blank is not an answer; read back in full with its paragraphs; a manager sees the person's own words in full on **Their own answer**.                     |
+| Questions dialog (`direct-answer-panel.tsx`, `subsection-ask.ts`, `question-filing.ts`, `period-dialogs.tsx`) | **In their own words** in **How it is answered** and **Answered by**; **Ask it on the review form** with lines that say where the words go; the filing sentence for a written subsection; a **Written directly** badge.                                         |
+| Start a new version (`new-version.ts`, `new-version-dialog.tsx`)                                              | The list gains **In their own words**. Choosing it adds a fourth line, the sentence above. A retired subsection that was written does not say its marks stay.                                                                                                   |
+| `language-check.tsx`, `review-language.ts`                                                                    | `caveat` on the component, and `ANSWER_CAVEAT` for words that are saved and not a review that is sent.                                                                                                                                                          |
 
 ## Decisions not to undo
 
@@ -11834,11 +11831,11 @@ server would not refuse, it would silently ignore the switch.)
 
 ## The two switches
 
-| Where | What |
-| ----- | ---- |
+| Where                                 | What                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `/settings/leave`, **Add leave type** | Two switches, **Ask for a reason** and **Ask for a supporting file**, **both on**, each with a line of visible text saying what it does in either position. It always sends both answers explicitly (`reasonRequired` and an `attachmentPolicy` of `REQUIRED` or `OPTIONAL`) and never a number of days, which it says is set in the table afterwards. |
-| `/settings/leave`, the types table | The three-way **Supporting file** select is a switch, **Required**, with **After N days** while on, and a new **Reason** column with its own **Required** switch. The phone card has both as **Supporting file required** and **Reason required**. Connected only, as the file column always was. |
-| `/people/leave`, **Book leave** | **Reason** is required (the `Field` `required`, no "(optional)") when the chosen type says so, checked and trimmed **before anything is uploaded or sent**, and the trimmed text is what is sent. |
+| `/settings/leave`, the types table    | The three-way **Supporting file** select is a switch, **Required**, with **After N days** while on, and a new **Reason** column with its own **Required** switch. The phone card has both as **Supporting file required** and **Reason required**. Connected only, as the file column always was.                                                      |
+| `/people/leave`, **Book leave**       | **Reason** is required (the `Field` `required`, no "(optional)") when the chosen type says so, checked and trimmed **before anything is uploaded or sent**, and the trimmed text is what is sent.                                                                                                                                                      |
 
 ### Decisions not to undo
 
@@ -12419,12 +12416,12 @@ suggested.** This branch is stacked on #628, and its base is that branch until #
 
 ## What it does
 
-| Where | What |
-| ----- | ---- |
-| Settings, **Appraisal scoring**, **Records** (`settings/performance/work-record-card.tsx`) | **Work kept with a final rating**: a box for whole months, 1 to 120, empty, with the placeholder "Keep nothing" and the sentence that none is suggested. **Set this period** asks first and says what it will and will not do. **Stop keeping records** is one press. `MANAGE_SETTINGS` to change it; everybody else reads it, with the reason. |
-| A manager's review whose rating is final (`components/performance/kept-work.tsx`, `WorkBehindTheMark`) | In the slot the live list had. By what the API says: **kept**, the record leads and the live list is one press away; **never kept**, one line saying so above the live list; **removed**, one line saying when it ended above the live list; anything else, the live list alone. |
-| The finalise confirmation (`finalise-dialog.tsx`, `sign-off-copy.ts`) | After "Make it final", one more line: "A record of the 4 tasks Chidi finished in this cycle is kept with it until 12 Nov 2027." Nothing when none was kept. |
-| `lib/api/kept-work.ts`, `lib/store/kept-work.ts`, `lib/store/features.ts` | The read, its keyed hook, and the setting (three states). |
+| Where                                                                                                  | What                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings, **Appraisal scoring**, **Records** (`settings/performance/work-record-card.tsx`)             | **Work kept with a final rating**: a box for whole months, 1 to 120, empty, with the placeholder "Keep nothing" and the sentence that none is suggested. **Set this period** asks first and says what it will and will not do. **Stop keeping records** is one press. `MANAGE_SETTINGS` to change it; everybody else reads it, with the reason. |
+| A manager's review whose rating is final (`components/performance/kept-work.tsx`, `WorkBehindTheMark`) | In the slot the live list had. By what the API says: **kept**, the record leads and the live list is one press away; **never kept**, one line saying so above the live list; **removed**, one line saying when it ended above the live list; anything else, the live list alone.                                                                |
+| The finalise confirmation (`finalise-dialog.tsx`, `sign-off-copy.ts`)                                  | After "Make it final", one more line: "A record of the 4 tasks Chidi finished in this cycle is kept with it until 12 Nov 2027." Nothing when none was kept.                                                                                                                                                                                     |
+| `lib/api/kept-work.ts`, `lib/store/kept-work.ts`, `lib/store/features.ts`                              | The read, its keyed hook, and the setting (three states).                                                                                                                                                                                                                                                                                       |
 
 ## Decisions worth not undoing
 
@@ -12616,15 +12613,15 @@ and every screen below behaves as it did, with no row, no sentence and nothing s
 
 ## What changed
 
-| Where | What |
-| ----- | ---- |
-| Settings > Appraisal scoring > Weights | A seventh row, **Manager appraisal**, between Leadership and Self-assessment, editable like the others. The API's own sentence about what the weight does (`managerAppraisalNote`, the double count included) is drawn once, under the row. |
-| A period's own weights (`PeriodWeights`: the draft's **How the mark is made up**, and the assistant's first page) | The same seventh row, whole percents, and a line saying that where no appraiser has sent an overall mark the share is spread over the other parts. On the period's own page the API's sentence for **that period's** weights (`ApiCycle.managerAppraisalNote`) is drawn under the card, draft and started alike. |
-| The answer flow | On a manager's form in a period that weights the part (`overallMarkRequired`) the mark page is there whatever the company's switch says, is called **Your overall mark**, cannot be left blank, and the review does not go without one. With several appraisers the page says the strip's own sentence, because the part's share belongs to all of them. A review sent back for revision opens on the mark it already holds. |
-| The strip above a manager's form | Says what the overall mark is worth, from the period's share (`appraiser.markShareBp`). It no longer says the review counts for the mark. |
-| The record page and the history page | The sentence beside the appraisers' overall rating says whether it is in the score, read off the part. |
-| Settings > Names of marks, the overall-mark card | Says, in its header, under the switch and in the toast after pressing it, that a manager's form in a period that weights the part asks for a mark whatever the switch says, in the company's own name for the part. While the weights are not in, or could not be read, it says nothing about whether a form asks for a mark or whether the mark counts. |
-| How it works, the appraiser mapping, the feature line, the Settings search blurb | Every sentence that said the manager's mark is not counted, that an appraiser holds "the whole mark" or a share "of the mark", or that the weights must make 100% exactly, is true at every weight now. |
+| Where                                                                                                             | What                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings > Appraisal scoring > Weights                                                                            | A seventh row, **Manager appraisal**, between Leadership and Self-assessment, editable like the others. The API's own sentence about what the weight does (`managerAppraisalNote`, the double count included) is drawn once, under the row.                                                                                                                                                                                  |
+| A period's own weights (`PeriodWeights`: the draft's **How the mark is made up**, and the assistant's first page) | The same seventh row, whole percents, and a line saying that where no appraiser has sent an overall mark the share is spread over the other parts. On the period's own page the API's sentence for **that period's** weights (`ApiCycle.managerAppraisalNote`) is drawn under the card, draft and started alike.                                                                                                             |
+| The answer flow                                                                                                   | On a manager's form in a period that weights the part (`overallMarkRequired`) the mark page is there whatever the company's switch says, is called **Your overall mark**, cannot be left blank, and the review does not go without one. With several appraisers the page says the strip's own sentence, because the part's share belongs to all of them. A review sent back for revision opens on the mark it already holds. |
+| The strip above a manager's form                                                                                  | Says what the overall mark is worth, from the period's share (`appraiser.markShareBp`). It no longer says the review counts for the mark.                                                                                                                                                                                                                                                                                    |
+| The record page and the history page                                                                              | The sentence beside the appraisers' overall rating says whether it is in the score, read off the part.                                                                                                                                                                                                                                                                                                                       |
+| Settings > Names of marks, the overall-mark card                                                                  | Says, in its header, under the switch and in the toast after pressing it, that a manager's form in a period that weights the part asks for a mark whatever the switch says, in the company's own name for the part. While the weights are not in, or could not be read, it says nothing about whether a form asks for a mark or whether the mark counts.                                                                     |
+| How it works, the appraiser mapping, the feature line, the Settings search blurb                                  | Every sentence that said the manager's mark is not counted, that an appraiser holds "the whole mark" or a share "of the mark", or that the weights must make 100% exactly, is true at every weight now.                                                                                                                                                                                                                      |
 
 ## Sentences that said the wrong thing
 
@@ -12716,7 +12713,7 @@ sentences and one block that was too strict**. All six are fixed after that revi
 - `evidenceCount` for the part is read as "overall marks counted". If the API counts something else, `evidenceLine`
   (`Based on 2 overall marks`) is the one place to change.
 - `docs/components/landing-frontend.md` and `docs/components/backend-api.md` read as stale under `npm run docs --
-  --check`. They are read from `origin/main` and `origin/staging` of the sibling repositories, which have moved
+--check`. They are read from `origin/main` and `origin/staging` of the sibling repositories, which have moved
   (the committed snapshots are 24 September for the landing site and 30 October for the backend), and nothing here touches either. Left alone.
 
 ## Verified
@@ -12799,14 +12796,14 @@ no mark. Both are merged, so this branches straight off `dev`.
 
 ## What it does
 
-| Where | What |
-| ----- | ---- |
-| Settings, **Appraisal scoring**, **Records**, **Work in review answers** (`settings/performance/work-in-answers-card.tsx`) | The switch **Let people use their own project work in their review answers**, off for every company. Turning it **on** asks first (_Let people use their own work in their review answers?_), says what it does, that it needs Projects, and ends with a plain reminder to tell staff and to check with whoever looks after data protection whether an assessment should be filed. Turning it **off** is one press and keeps everything already written. `MANAGE_SETTINGS` to change it, read-only with the reason for everybody else. |
-| The answer flow (`components/performance/answer-pins.tsx`, `pin-work-dialog.tsx`) | On a person's own unsent self-review, where the server says the setting is on (`review.workPins`), **Add work** under each question opens a picker of their finished work for the period. One task at a time, an optional note of up to 280 characters, **Add to this answer**. Up to five an answer. Each pin is saved as it is added, so closing the page loses nothing. **Done**, the cross, Escape and the backdrop ask first when a task is picked or a note typed and not added (_Keep editing_, _Discard_, _Add it and close_), and nothing closes it while a request is out. **Add work** is offered only for a period that has dates. **Unpin** until the review is sent. The **Preview** reads the pins back. |
-| Reading (`components/performance/pins-read.tsx`, `reviews/[id]/review-form-card.tsx`) | The pins sit under the person's answer in the **Self review** column and on a self review read on its own: the task's key (a link that opens it **where the reader may**: the server says so per pin, `canOpen`; where it says they may not the key is plain text), the day it was finished, on time or late, **Set by**, the note, and _Pinned by Chidi Nwosu on 5 Nov 2026_ (_by you_ to the person). **No title, ever.** |
-| **Ask colleagues**, the appraiser map and its dialog (`periods/[id]/ask-peers.tsx`, `appraiser-map.tsx`, `components/performance/shared-project-options.tsx`) | People who shared a project with the person are listed first, most shared first, each labelled _Shared 3 projects_. It orders a list the person still picks from. A table row asks the server only when somebody reaches for its list or rests the pointer on it for 250 ms, and **a list that is open is never rearranged**: what it shows is fixed when it is reached for and an answer that lands after applies the next time. |
-| **Work this cycle** and **Work when the rating was made final** (`work-this-cycle.tsx`, `kept-work.tsx`, `work-flags.tsx`) | The person the work is about can say **This is wrong** beside an item, with a reason (3 to 280 characters), change it, or take it back. A reader sees _Flagged by Chidi Nwosu on 6 Nov 2026: …_ on the row and a count in the heading, and no control. **A flag that was written stays drawn when the company turns the setting off**, and the person can still take it back; only raising and changing stop. It removes nothing and moves no mark, and says so. The two panels share one state (`useWorkFlags`, a shared resource keyed by cycle and person). |
-| `lib/api/work-pins.ts`, `shared-projects.ts`, `work-flags.ts`, `lib/store/work-pins.ts`, `shared-projects.ts`, `work-flags.ts`, `lib/performance/work-in-answers.ts` | The wire layer and the words. Each normaliser claims only what the API said. |
+| Where                                                                                                                                                                | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings, **Appraisal scoring**, **Records**, **Work in review answers** (`settings/performance/work-in-answers-card.tsx`)                                           | The switch **Let people use their own project work in their review answers**, off for every company. Turning it **on** asks first (_Let people use their own work in their review answers?_), says what it does, that it needs Projects, and ends with a plain reminder to tell staff and to check with whoever looks after data protection whether an assessment should be filed. Turning it **off** is one press and keeps everything already written. `MANAGE_SETTINGS` to change it, read-only with the reason for everybody else.                                                                                                                                                                                  |
+| The answer flow (`components/performance/answer-pins.tsx`, `pin-work-dialog.tsx`)                                                                                    | On a person's own unsent self-review, where the server says the setting is on (`review.workPins`), **Add work** under each question opens a picker of their finished work for the period. One task at a time, an optional note of up to 280 characters, **Add to this answer**. Up to five an answer. Each pin is saved as it is added, so closing the page loses nothing. **Done**, the cross, Escape and the backdrop ask first when a task is picked or a note typed and not added (_Keep editing_, _Discard_, _Add it and close_), and nothing closes it while a request is out. **Add work** is offered only for a period that has dates. **Unpin** until the review is sent. The **Preview** reads the pins back. |
+| Reading (`components/performance/pins-read.tsx`, `reviews/[id]/review-form-card.tsx`)                                                                                | The pins sit under the person's answer in the **Self review** column and on a self review read on its own: the task's key (a link that opens it **where the reader may**: the server says so per pin, `canOpen`; where it says they may not the key is plain text), the day it was finished, on time or late, **Set by**, the note, and _Pinned by Chidi Nwosu on 5 Nov 2026_ (_by you_ to the person). **No title, ever.**                                                                                                                                                                                                                                                                                             |
+| **Ask colleagues**, the appraiser map and its dialog (`periods/[id]/ask-peers.tsx`, `appraiser-map.tsx`, `components/performance/shared-project-options.tsx`)        | People who shared a project with the person are listed first, most shared first, each labelled _Shared 3 projects_. It orders a list the person still picks from. A table row asks the server only when somebody reaches for its list or rests the pointer on it for 250 ms, and **a list that is open is never rearranged**: what it shows is fixed when it is reached for and an answer that lands after applies the next time.                                                                                                                                                                                                                                                                                       |
+| **Work this cycle** and **Work when the rating was made final** (`work-this-cycle.tsx`, `kept-work.tsx`, `work-flags.tsx`)                                           | The person the work is about can say **This is wrong** beside an item, with a reason (3 to 280 characters), change it, or take it back. A reader sees _Flagged by Chidi Nwosu on 6 Nov 2026: …_ on the row and a count in the heading, and no control. **A flag that was written stays drawn when the company turns the setting off**, and the person can still take it back; only raising and changing stop. It removes nothing and moves no mark, and says so. The two panels share one state (`useWorkFlags`, a shared resource keyed by cycle and person).                                                                                                                                                          |
+| `lib/api/work-pins.ts`, `shared-projects.ts`, `work-flags.ts`, `lib/store/work-pins.ts`, `shared-projects.ts`, `work-flags.ts`, `lib/performance/work-in-answers.ts` | The wire layer and the words. Each normaliser claims only what the API said.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## Decisions worth not undoing
 
@@ -12906,7 +12903,7 @@ no mark. Both are merged, so this branches straight off `dev`.
     same** (`useWorkFlags.unflag`): a 404 is a flag already taken back elsewhere, so it leaves the answer and
     nothing is said; every other failure is still thrown.
 15. **A pin's key is a link only where the server says the reader may open the task** (`pins[].canOpen ===
-    true`). Absent makes no claim, as everywhere else in this repo, and Stage 4's hint reads an absent
+true`). Absent makes no claim, as everywhere else in this repo, and Stage 4's hint reads an absent
     `canOpen` as "may not open"; so absent and `false` both draw the key as plain text and everything else about
     the pin as usual. The wire reader still leaves an absent field absent (it does not invent `false`). The real
     server always sends the field, so nothing changes against it; against one that does not, no pin key opens
@@ -13042,16 +13039,16 @@ score, a band or a rank. Stage 3 is its base, so it merges after Stage 3.
 
 ## What it does
 
-| Where | What |
-| ----- | ---- |
+| Where                                                                                                                                                                          | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | The task drawer (`components/projects/finish-marks.tsx`, in `issue-drawer.tsx`, which a personal task's drawer wraps) and a leader's reduced view (`reduced-issue-drawer.tsx`) | A section, **How it finished**, drawn only when the task carries a mark or the server says this reader may make one: _Closed as won't do by Adaeze Okonkwo on 10 Nov_ with the reason the person wrote, _Accepted by Adaeze Okonkwo on 11 Nov_, and the buttons **Won't do…**, **Accept**, **Take back won't do**, **Take back acceptance**, each drawn for exactly what the task's own read says the reader may do (`canMarkWontDo`, `canAccept`). **Won't do…** asks **Why is it not being done?** (3 to 280 characters) and sends it trimmed. |
-| A board card, a backlog row, a Master list row and **My tasks** (`finish-tag.tsx`) | **Won't do** and **Accepted** as plain words beside the task's key or stage. In **My tasks**, in the list and in the Board layout's Done column, the **Done (last 14 days)** count is _1 finished, 1 won't do_, never a bare number that includes a task nobody did, and a board card says **Won't do** or **Accepted**, and the Archive says _Closed as won't do_ / _Won't do 20 Oct_ instead of a completion date. The Master list's Archive says _Closed as won't do_ in place of _Finished …_. |
-| A project's **List** tab (`projects/[id]/issues-view.tsx`) | **Won't do** and **Accepted** beside the task's stage in its own row, in the same words as the board. Found by the browser walk: every other place that lists a task with its stage said it, and this table drew a plain Done. |
-| The history of a task (`lib/projects/history.ts`) | _closed the task as won't do: <the reason>_, _removed the won't-do mark from the task_, _accepted the task_, _removed the acceptance of the task_. An object is never printed. |
-| A done-or-not measure's row (`performance/linked-work-hint.tsx`, in `done-measure.tsx`) | **Tasks linked to this measure** with a count, closed until opened, beside **Confirm it is done**: each task as its key (a link where the API said the reader may open it), where it stands in words (**Open**, **Finished 9 Nov 2026**, **Closed as won't do**, _accepted by Ada Eze on 11 Nov 2026_), and **A task you cannot open** as one plain line, listed after the others, for a task the reader may not open. **No task is linked to this measure.** when none is. |
-| A weekly line (`performance/task-suggestions.tsx`, in `task-log.tsx`) | Under the box that **Log a task** opens: **Add from my finished work** with a count, closed until opened, the owner's own tasks finished that week under that objective as _KEY title_ with the day. **Add** puts the text in the box; nothing else happens. The weekly line is 300 characters at most: the box counts from 250 (_260 of 300 characters_), says the server's sentence past 300 and cannot be saved, and a task that would take it past 300 is not added (its row says so). |
-| Settings, **Appraisal scoring**, **Records**, **Work behind a milestone, and weekly lines** (`settings/performance/work-assists-card.tsx`) | The switch **Offer the linked tasks beside Confirm, and finished tasks for weekly lines**, under **Work in review answers**. Off by default; turning it on asks first (_Offer the linked tasks and the weekly-line suggestions?_); turning it off is one press and deletes nothing. It says that won't do and acceptance are **not** behind it. |
-| `lib/api/work-assists.ts`, `lib/store/work-assists.ts`, `lib/projects/finish-marks.ts`, `lib/api/projects.ts`, `lib/store/features.ts`, `lib/api/setup.ts` | The wire layer, the two hooks, the words and limits, the four routes (`POST` and `DELETE /issues/:id/wont-do` and `/accept`, under `/issues` and not under `/projects`), and the setting as `boolean | null`. |
+| A board card, a backlog row, a Master list row and **My tasks** (`finish-tag.tsx`)                                                                                             | **Won't do** and **Accepted** as plain words beside the task's key or stage. In **My tasks**, in the list and in the Board layout's Done column, the **Done (last 14 days)** count is _1 finished, 1 won't do_, never a bare number that includes a task nobody did, and a board card says **Won't do** or **Accepted**, and the Archive says _Closed as won't do_ / _Won't do 20 Oct_ instead of a completion date. The Master list's Archive says _Closed as won't do_ in place of _Finished …_.                                               |
+| A project's **List** tab (`projects/[id]/issues-view.tsx`)                                                                                                                     | **Won't do** and **Accepted** beside the task's stage in its own row, in the same words as the board. Found by the browser walk: every other place that lists a task with its stage said it, and this table drew a plain Done.                                                                                                                                                                                                                                                                                                                   |
+| The history of a task (`lib/projects/history.ts`)                                                                                                                              | _closed the task as won't do: <the reason>_, _removed the won't-do mark from the task_, _accepted the task_, _removed the acceptance of the task_. An object is never printed.                                                                                                                                                                                                                                                                                                                                                                   |
+| A done-or-not measure's row (`performance/linked-work-hint.tsx`, in `done-measure.tsx`)                                                                                        | **Tasks linked to this measure** with a count, closed until opened, beside **Confirm it is done**: each task as its key (a link where the API said the reader may open it), where it stands in words (**Open**, **Finished 9 Nov 2026**, **Closed as won't do**, _accepted by Ada Eze on 11 Nov 2026_), and **A task you cannot open** as one plain line, listed after the others, for a task the reader may not open. **No task is linked to this measure.** when none is.                                                                      |
+| A weekly line (`performance/task-suggestions.tsx`, in `task-log.tsx`)                                                                                                          | Under the box that **Log a task** opens: **Add from my finished work** with a count, closed until opened, the owner's own tasks finished that week under that objective as _KEY title_ with the day. **Add** puts the text in the box; nothing else happens. The weekly line is 300 characters at most: the box counts from 250 (_260 of 300 characters_), says the server's sentence past 300 and cannot be saved, and a task that would take it past 300 is not added (its row says so).                                                       |
+| Settings, **Appraisal scoring**, **Records**, **Work behind a milestone, and weekly lines** (`settings/performance/work-assists-card.tsx`)                                     | The switch **Offer the linked tasks beside Confirm, and finished tasks for weekly lines**, under **Work in review answers**. Off by default; turning it on asks first (_Offer the linked tasks and the weekly-line suggestions?_); turning it off is one press and deletes nothing. It says that won't do and acceptance are **not** behind it.                                                                                                                                                                                                  |
+| `lib/api/work-assists.ts`, `lib/store/work-assists.ts`, `lib/projects/finish-marks.ts`, `lib/api/projects.ts`, `lib/store/features.ts`, `lib/api/setup.ts`                     | The wire layer, the two hooks, the words and limits, the four routes (`POST` and `DELETE /issues/:id/wont-do` and `/accept`, under `/issues` and not under `/projects`), and the setting as `boolean                                                                                                                                                                                                                                                                                                                                             | null`. |
 
 ## Decisions worth not undoing
 
@@ -13355,11 +13352,11 @@ more than 100%. Each part counts for its share of 110%, not for the weight typed
 take off 10%."_ It is `null` at exactly 100% and below it (a set that falls short misleads nobody), for a total that is not a
 number, and the advice sentence is left off when `canChange` is false.
 
-| Where | When it speaks |
-| ----- | -------------- |
-| The company's parts card (`PartsPanel`), above the list | The saved parts add up to more than 100%. |
-| The **Add part** and **Edit the part** dialog (`PartModal`), under **Weight** | The others as saved plus this weight as typed come to more than 100%. The part being edited counts for what is typed and **never for its saved weight as well** (a part saved at 60 beside one at 40 reads 100%, not 160%). Nothing while the weight is blank, out of range or not a number: the field's own refusal is what is on screen. **Save stays open.** |
-| A period's own weights (`PeriodWeights`: the draft's card and the assistant's first page) | The typed set adds up to more than 100%, and no row is refused. **Save the weights stays open.** On a period that has started the same sentence is shown **without the advice** nobody could follow. |
+| Where                                                                                     | When it speaks                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The company's parts card (`PartsPanel`), above the list                                   | The saved parts add up to more than 100%.                                                                                                                                                                                                                                                                                                                       |
+| The **Add part** and **Edit the part** dialog (`PartModal`), under **Weight**             | The others as saved plus this weight as typed come to more than 100%. The part being edited counts for what is typed and **never for its saved weight as well** (a part saved at 60 beside one at 40 reads 100%, not 160%). Nothing while the weight is blank, out of range or not a number: the field's own refusal is what is on screen. **Save stays open.** |
+| A period's own weights (`PeriodWeights`: the draft's card and the assistant's first page) | The typed set adds up to more than 100%, and no row is refused. **Save the weights stays open.** On a period that has started the same sentence is shown **without the advice** nobody could follow.                                                                                                                                                            |
 
 It is plain amber words on the page (`text-warning-text`, `role="status"`), never behind an icon and never a tinted box,
 because it changes how every figure under it is to be read. The Total badge beside it is unchanged.
@@ -13412,21 +13409,21 @@ the last entry, and HR had no way to say whether the person is told when a docum
 
 ## What changed
 
-| Where | What |
-| ----- | ---- |
-| `lib/use-open-session.ts` (new) | `useOpenSession(open, identity?)`: a number that goes up when a dialog opens, to be the `key` of the form below it. The same wrapper `RoleEditor` and the notice form write by hand, once. |
-| `people/documents/dialogs.tsx` | `AskForDocumentModal`, `AttachDocumentModal`, `AddDocumentModal`, `WaiveModal` and `RemindModal` are each a wrapper that holds a session and renders their form (`...Form`), keyed by it. |
-| `people/signatures/send-dialog.tsx` | `SendDialog` is a wrapper over `SendForm` in the same way. The people search that feeds its picker moved down with the fields. |
-| `AddDocumentModal` | A **Tell them** checkbox, unticked, with one visible line of what it does. Offered only where the caller passes `canNotify`. |
-| `people/documents/employee-file.tsx` | Decides `canNotify` (API connected, `EDIT_RECORDS`, not your own file) and toasts by `addedNotice`. |
-| `lib/api/documents.ts`, `lib/store/documents.ts` | `AddDocumentBody.notifyEmployee`, `ApiAddedDocument` (`notifiedEmployee?`), and `addedNotice`, the one place the toast's wording is decided. |
+| Where                                            | What                                                                                                                                                                                       |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lib/use-open-session.ts` (new)                  | `useOpenSession(open, identity?)`: a number that goes up when a dialog opens, to be the `key` of the form below it. The same wrapper `RoleEditor` and the notice form write by hand, once. |
+| `people/documents/dialogs.tsx`                   | `AskForDocumentModal`, `AttachDocumentModal`, `AddDocumentModal`, `WaiveModal` and `RemindModal` are each a wrapper that holds a session and renders their form (`...Form`), keyed by it.  |
+| `people/signatures/send-dialog.tsx`              | `SendDialog` is a wrapper over `SendForm` in the same way. The people search that feeds its picker moved down with the fields.                                                             |
+| `AddDocumentModal`                               | A **Tell them** checkbox, unticked, with one visible line of what it does. Offered only where the caller passes `canNotify`.                                                               |
+| `people/documents/employee-file.tsx`             | Decides `canNotify` (API connected, `EDIT_RECORDS`, not your own file) and toasts by `addedNotice`.                                                                                        |
+| `lib/api/documents.ts`, `lib/store/documents.ts` | `AddDocumentBody.notifyEmployee`, `ApiAddedDocument` (`notifiedEmployee?`), and `addedNotice`, the one place the toast's wording is decided.                                               |
 
 ## Decisions not to undo
 
 1. **A session starts when the dialog opens, and at no other time** (see the header of `use-open-session.ts`).
    Not when it closes (what is on screen must not change while it animates away), and not when the same
    record is handed over again as a new object (a list that reloads on window focus must not wipe a
-   half-typed field). A *different* record arriving while it is open does start one, for the two dialogs
+   half-typed field). A _different_ record arriving while it is open does start one, for the two dialogs
    that answer for a record (`AttachDocumentModal`, `WaiveModal`), by the record's id.
 2. **Cancel discards what was typed**, as every other dialog here does. A half-typed document is not kept
    for later; there is no draft for it and none was asked for.
@@ -13445,7 +13442,7 @@ the last entry, and HR had no way to say whether the person is told when a docum
 6. **`notifyEmployee` is sent as `true` or not at all.** Never `false`: two spellings of "do not tell" are
    one more thing for the API to disagree about.
 7. **What the toast says follows `notifiedEmployee` and nothing else** (`addedNotice`):
-   `true` says they were told and where to find it; `false` says nobody was told and that the person *may*
+   `true` says they were told and where to find it; `false` says nobody was told and that the person _may_
    not have a sign-in, as a warning, because HR would otherwise assume they know (the API gives two causes,
    no sign-in or the company's notice switched off, and does not say which, so the screen names neither as
    fact; the same goes for the Remind dialog and the Ask toast); **absent, with the tick on, says nothing about
@@ -13547,15 +13544,15 @@ no query request is made for the sidebar, and nothing else changes.
 
 ## What was built
 
-| Where | What |
-| ----- | ---- |
-| `/people/queries` | The register for the people who write or decide queries: tabs for Draft, Waiting for a reply, No reply in time, Replied, Closed and Withdrawn, a search, Show archived, and `?subject=` (where a person's record links). **Issue a query** opens a two-field dialog (a person, a subject line) that makes a draft and opens its page. |
-| `/people/queries/[id]` | One route for every reader, narrowed by the API: the status and receipt, the letter, the one reply, the outcome, the actions (extend, withdraw, archive, print) and the timeline. A draft is edited and issued here and nowhere else. |
-| Printed letter | `LetterDocument`: the page's own typed fields with the company's logo, name and address, drawn only on paper (`print:block`) while everything else is `print:hidden`. Made by the browser, in the payslip's way, never by the server. |
-| `/settings/queries` | The company switch (off for every company; turning it on asks first) and the three rules: usual reply time, warning time, and whether the issuer may decide when nobody else can. Works while the switch is off. |
-| `/profile` | "Letters from HR": a reference, where it stands and the reply-by time, with a link. Never a subject line. Outside the tabs, like the missing-details list. |
-| `/people/[id]` | For the people who work queries, one link ("See the queries about them"), with no number. |
-| Roles, sidebar, search | `ISSUE_QUERIES` and `DECIDE_QUERIES` in the permission mirrors and the role matrix; the sidebar row "Queries" (`anyPermission`, behind the `queries` flag); the page index and the Settings filter. |
+| Where                  | What                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/people/queries`      | The register for the people who write or decide queries: tabs for Draft, Waiting for a reply, No reply in time, Replied, Closed and Withdrawn, a search, Show archived, and `?subject=` (where a person's record links). **Issue a query** opens a two-field dialog (a person, a subject line) that makes a draft and opens its page. |
+| `/people/queries/[id]` | One route for every reader, narrowed by the API: the status and receipt, the letter, the one reply, the outcome, the actions (extend, withdraw, archive, print) and the timeline. A draft is edited and issued here and nowhere else.                                                                                                 |
+| Printed letter         | `LetterDocument`: the page's own typed fields with the company's logo, name and address, drawn only on paper (`print:block`) while everything else is `print:hidden`. Made by the browser, in the payslip's way, never by the server.                                                                                                 |
+| `/settings/queries`    | The company switch (off for every company; turning it on asks first) and the three rules: usual reply time, warning time, and whether the issuer may decide when nobody else can. Works while the switch is off.                                                                                                                      |
+| `/profile`             | "Letters from HR": a reference, where it stands and the reply-by time, with a link. Never a subject line. Outside the tabs, like the missing-details list.                                                                                                                                                                            |
+| `/people/[id]`         | For the people who work queries, one link ("See the queries about them"), with no number.                                                                                                                                                                                                                                             |
+| Roles, sidebar, search | `ISSUE_QUERIES` and `DECIDE_QUERIES` in the permission mirrors and the role matrix; the sidebar row "Queries" (`anyPermission`, behind the `queries` flag); the page index and the Settings filter.                                                                                                                                   |
 
 ## Decisions not to undo
 
@@ -13586,7 +13583,7 @@ no query request is made for the sidebar, and nothing else changes.
 7. **Receipt is not agreement.** "I received this query" is a button, and the sentence beside it says it is
    not agreeing and that nothing waits on it. Opening is recorded by the server on the person's first read.
 8. **Files are a click, never a link.** The bytes need the bearer token and every open is audited by the
-   server *before* it serves anything, so a file is fetched inside the click handler and handed to the browser
+   server _before_ it serves anything, so a file is fetched inside the click handler and handed to the browser
    as a download: never on render, never prefetched. A file's name is drawn in the file list and nowhere else.
 9. **Typed text is not turned into links.** A letter about somebody's conduct is not a place for a clickable
    address, and what was written is what is on the record, with its line breaks.
@@ -13628,7 +13625,7 @@ no query request is made for the sidebar, and nothing else changes.
 - **`Badge` ignores its tone** on this branch (plain muted text), so the "neutral, never danger" for "No reply
   in time" is true by construction. The test checks the class it is given.
 - **`docs/components/backend-api.md` is owed.** It is generated from `origin/staging`, so `npm run docs --
-  --only backend-api` follows the backend merge.
+--only backend-api` follows the backend merge.
 
 ## Verified
 
@@ -13692,20 +13689,20 @@ updated" and not "off".
 
 ## What was built
 
-| Where | What |
-| ----- | ---- |
-| `/people/queries/[id]`, **References** (`cited-records.tsx`) | Each cited record as a read-only copy: the kind, the server's one-line title, a line saying whether it is a **preview** (a draft: "read again, and frozen, when the letter is issued") or **frozen** ("as it stood when this letter was issued, <time>"), and the copy behind "What the record said". For the issuer on a draft (`can.cite`) there are **Add a reference** and **Remove**. |
-| `add-citation-dialog.tsx`, `lib/store/query-citation-options.ts` | Six kinds. A policy, an equipment assignment, a leave request and a document request are chosen from the person's own records, read through each module's own route (so a reader is offered only what they may already read there). An attendance day and a rota day are a date. |
-| `documents-asked.tsx` | **Ask for a document** (`can.askForDocument`) and the list of what was asked under the letter. It is an ordinary document request; the person answers under My documents. |
-| `linked-records.tsx` | **Linked records**: the warning, employment change and exit that followed the query, as links only. Staff only; the person's detail carries none. |
-| `draft-editor.tsx` | The warnings beside what they are about (day warnings under the dates, reply-by ones under the reply-by boxes), the confirmation's **Before it goes:** list, files and references only for the issuer, and for a drafting manager one sentence and no Issue button. |
-| `start-dialog.tsx` | **Start from a template**, and for a manager **Draft a query**. |
-| `/settings/queries` | **Managers drafting** (a switch that asks first) and **Letter templates** (list, add, edit, archive, restore). |
-| `/people/queries` | For somebody who holds only `DRAFT_QUERIES`, the same route shows `my-drafts.tsx`, their own drafts and nothing else. For HR: a **Drafted by managers** filter, a "A manager's draft" badge and a **Counts** link. |
-| `/people/queries/counts` | **Counts**: status and month, floor of three, `Withheld` where the server sent `null`. |
-| Conduct warning form, employment change form, exit form | An optional **Linked query** choice (`components/queries/linked-query.tsx`), and **Followed a query** on the record it made (a warning, a change in the queue and on History, an exit's Details). |
-| Documents, staff screens | **Asked under a query** on a request that carries `queryId`. Never on the person's own My documents. |
-| Roles | `DRAFT_QUERIES` in the permission mirrors, labelled **Draft queries**, in the Queries row as **Edit**. |
+| Where                                                            | What                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/people/queries/[id]`, **References** (`cited-records.tsx`)     | Each cited record as a read-only copy: the kind, the server's one-line title, a line saying whether it is a **preview** (a draft: "read again, and frozen, when the letter is issued") or **frozen** ("as it stood when this letter was issued, <time>"), and the copy behind "What the record said". For the issuer on a draft (`can.cite`) there are **Add a reference** and **Remove**. |
+| `add-citation-dialog.tsx`, `lib/store/query-citation-options.ts` | Six kinds. A policy, an equipment assignment, a leave request and a document request are chosen from the person's own records, read through each module's own route (so a reader is offered only what they may already read there). An attendance day and a rota day are a date.                                                                                                           |
+| `documents-asked.tsx`                                            | **Ask for a document** (`can.askForDocument`) and the list of what was asked under the letter. It is an ordinary document request; the person answers under My documents.                                                                                                                                                                                                                  |
+| `linked-records.tsx`                                             | **Linked records**: the warning, employment change and exit that followed the query, as links only. Staff only; the person's detail carries none.                                                                                                                                                                                                                                          |
+| `draft-editor.tsx`                                               | The warnings beside what they are about (day warnings under the dates, reply-by ones under the reply-by boxes), the confirmation's **Before it goes:** list, files and references only for the issuer, and for a drafting manager one sentence and no Issue button.                                                                                                                        |
+| `start-dialog.tsx`                                               | **Start from a template**, and for a manager **Draft a query**.                                                                                                                                                                                                                                                                                                                            |
+| `/settings/queries`                                              | **Managers drafting** (a switch that asks first) and **Letter templates** (list, add, edit, archive, restore).                                                                                                                                                                                                                                                                             |
+| `/people/queries`                                                | For somebody who holds only `DRAFT_QUERIES`, the same route shows `my-drafts.tsx`, their own drafts and nothing else. For HR: a **Drafted by managers** filter, a "A manager's draft" badge and a **Counts** link.                                                                                                                                                                         |
+| `/people/queries/counts`                                         | **Counts**: status and month, floor of three, `Withheld` where the server sent `null`.                                                                                                                                                                                                                                                                                                     |
+| Conduct warning form, employment change form, exit form          | An optional **Linked query** choice (`components/queries/linked-query.tsx`), and **Followed a query** on the record it made (a warning, a change in the queue and on History, an exit's Details).                                                                                                                                                                                          |
+| Documents, staff screens                                         | **Asked under a query** on a request that carries `queryId`. Never on the person's own My documents.                                                                                                                                                                                                                                                                                       |
+| Roles                                                            | `DRAFT_QUERIES` in the permission mirrors, labelled **Draft queries**, in the Queries row as **Edit**.                                                                                                                                                                                                                                                                                     |
 
 ## Decisions not to undo
 
@@ -13776,8 +13773,8 @@ manager drafting and `GET /queries/my-drafts`'s 403, counts (`null` is withheld)
 the 404 for a record that is not this person's, the caps (200 drafts, 200 templates) and the 2000 to 2100 bounds.
 
 **What was guessed first and had to be redone.** The first build, made from a message describing fixes that had
-not been pushed yet, put `changedSincePreview` on each citation of the *detail*. The pushed handover puts it on the
-*issue answer* (`IssueResult.citations: { id, kind, title, changedSincePreview }[]`), so the web now reads it there
+not been pushed yet, put `changedSincePreview` on each citation of the _detail_. The pushed handover puts it on the
+_issue answer_ (`IssueResult.citations: { id, kind, title, changedSincePreview }[]`), so the web now reads it there
 (`toIssuedCitations`), keeps the flagged ids for the life of the screen, and the field is not on `ApiCitation` at all.
 The 200-draft and 200-template sentences in the tests are fixtures; the screens show whatever the server sends.
 **Not built:** the note after re-aiming a draft at another person (section 13 item 7): no screen changes a draft's
@@ -13815,19 +13812,19 @@ carry what a letter cited.
 
 Each item is proved by a test, a deliberate break, or both; none forced a cut.
 
-| Rule | Proved by |
-| ---- | --------- |
-| Typed text is a text node: no `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `RichText`, `LinkedText` in any queries file | `query-ties-security.test.tsx` source scan over every file (one test per file), and break 13 |
-| Hostile text (markup, an address, a script) comes out as text, makes no element and no link, on screen and on the printed letter | the same file's render checks over `LetterView` and `LetterDocument` |
-| Nothing about a letter in an address, query string, title, toast, notification, console, storage or beacon | source scans for console, storage, beacon and title writes and for any `?x=${...subjectLine|filename|title...}`; breaks 14, 15 (a console write, a toast naming a document) and 31 (a toast naming the changed references' titles) |
-| A link to another record is an id the server sent, a same-origin path, only where the server said so; no external link added | `leadHref` / `queryHref` tests, a scan of every `href`, no `target="_blank"` in any queries file; breaks 5, 7 |
-| Every control follows the server's `can` and the reader's permission; a manager sees their own drafts and nothing else; counts are never summed, subtracted or ranked | breaks 0, 1, 6, 25, 28; the counts tests; breaks 2, 3, 4 (a withheld count drawn or read as 0, a total added) |
-| A file is fetched only inside a click | "a file is a click and never a render" scans: no stage 3 or 4 file fetches a file; the one existing place stays in a handler |
-| No secret, token or password in a fixture | "no secret in a fixture" scan over the new tests |
-| No new dependency | `package.json` and the lockfile are untouched (empty diff against `origin/dev`), and a test says so |
-| No `any` and no cast on wire data in the new wire files | scan over `query-ties.ts`, `citation-rows.ts` and `query-citation-options.ts`, and over the new additions to the detail reader |
-| A refused issue is never retried by the screen, and the draft is sent with the `updatedAt` it was read at | breaks 23, 24 |
-| Dates are bounded to the server's 2000 to 2100 in all five pickers | breaks 27, 32, 33 and one test per picker |
+| Rule                                                                                                                                                                  | Proved by                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Typed text is a text node: no `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `RichText`, `LinkedText` in any queries file    | `query-ties-security.test.tsx` source scan over every file (one test per file), and break 13                                   |
+| Hostile text (markup, an address, a script) comes out as text, makes no element and no link, on screen and on the printed letter                                      | the same file's render checks over `LetterView` and `LetterDocument`                                                           |
+| Nothing about a letter in an address, query string, title, toast, notification, console, storage or beacon                                                            | source scans for console, storage, beacon and title writes and for any `?x=${...subjectLine                                    | filename | title...}`; breaks 14, 15 (a console write, a toast naming a document) and 31 (a toast naming the changed references' titles) |
+| A link to another record is an id the server sent, a same-origin path, only where the server said so; no external link added                                          | `leadHref` / `queryHref` tests, a scan of every `href`, no `target="_blank"` in any queries file; breaks 5, 7                  |
+| Every control follows the server's `can` and the reader's permission; a manager sees their own drafts and nothing else; counts are never summed, subtracted or ranked | breaks 0, 1, 6, 25, 28; the counts tests; breaks 2, 3, 4 (a withheld count drawn or read as 0, a total added)                  |
+| A file is fetched only inside a click                                                                                                                                 | "a file is a click and never a render" scans: no stage 3 or 4 file fetches a file; the one existing place stays in a handler   |
+| No secret, token or password in a fixture                                                                                                                             | "no secret in a fixture" scan over the new tests                                                                               |
+| No new dependency                                                                                                                                                     | `package.json` and the lockfile are untouched (empty diff against `origin/dev`), and a test says so                            |
+| No `any` and no cast on wire data in the new wire files                                                                                                               | scan over `query-ties.ts`, `citation-rows.ts` and `query-citation-options.ts`, and over the new additions to the detail reader |
+| A refused issue is never retried by the screen, and the draft is sent with the `updatedAt` it was read at                                                             | breaks 23, 24                                                                                                                  |
+| Dates are bounded to the server's 2000 to 2100 in all five pickers                                                                                                    | breaks 27, 32, 33 and one test per picker                                                                                      |
 
 ## Verified
 
@@ -13960,14 +13957,14 @@ Two decisions from the owner after the UAT of 23 November (U94 / PERF-14, L14 / 
 Performance had KPI, objective, goal, measure, key result and skill for a handful of ideas, and "mark"
 meant a 1–5 rating on one screen and a percentage on every other. It now uses one word per idea:
 
-| Idea | Word | Was |
-| ---- | ---- | --- |
-| What somebody aims at in a period | **Objective** | KPI, goal |
-| The number an objective is measured by (a key result) | **Target** | measure |
-| The number a target aims for | "aiming for" on the row, **Target value** in the form, **Figure** in the assistant's draft | target |
-| What is rated against a framework | **Competency** | skill |
-| A 1–5 level, including the overall one at the end of a form | **Rating**, **overall rating** | mark, overall mark |
-| The percentage a period works out | **Score** | mark |
+| Idea                                                        | Word                                                                                       | Was                |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------ |
+| What somebody aims at in a period                           | **Objective**                                                                              | KPI, goal          |
+| The number an objective is measured by (a key result)       | **Target**                                                                                 | measure            |
+| The number a target aims for                                | "aiming for" on the row, **Target value** in the form, **Figure** in the assistant's draft | target             |
+| What is rated against a framework                           | **Competency**                                                                             | skill              |
+| A 1–5 level, including the overall one at the end of a form | **Rating**, **overall rating**                                                             | mark, overall mark |
+| The percentage a period works out                           | **Score**                                                                                  | mark               |
 
 The Settings tabs are **Parts of the score**, **Rating names** and **Records**. The tab that was "Names of
 marks" names the five words of the 1–5 scale, so by the rule above it is **Rating names**, not "score".
@@ -14131,3 +14128,15 @@ and the Overview's task row, the period page, How it works and the "nobody was a
   is still offered once a department is open.
 - `NavFacts.rows["agrees-objectives"]` stays, unused by any row, because every menu's facts are one shape and seven test
   files build it.
+
+---
+
+# Objectives: one New objective button, several objectives in one wizard
+
+Owner redesign, 24 Nov 2026. `/performance/kpis` is "Objectives" with no scope tabs: HR opens on one card per
+department, a manager sees the team's and their own, staff their own; the only strip is `[Objectives][To agree (n)]`.
+The header has one **New objective** menu (New objective, Upload objectives). The wizard adds several: **Add another**
+keeps period, level and owner and asks only aim and target; the review lists them, sends all (`Send N to be agreed`) or
+saves drafts, one at a time and resumable. The Add multiple dialog and its tests are deleted. The wizard's last step and
+the To agree tab say who agrees (`agreesLine`, `AGREE_RULE`). Tests that pinned the old tiles, waiting line and group
+dropdown now assert their absence.

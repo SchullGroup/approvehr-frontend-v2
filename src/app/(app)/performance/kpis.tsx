@@ -7,12 +7,10 @@ import {
   ArrowLeft,
   Check,
   CornerDownRight,
-  ListPlus,
   Plus,
   Target,
   TrendingDown,
   TrendingUp,
-  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -21,20 +19,15 @@ import {
   Button,
   ButtonLink,
   Card,
-  CardBody,
-  CardHeader,
   ConfirmDialog,
   EmptyState,
   Illustration,
   Input,
   Modal,
   ProgressMeter,
-  SegmentedControl,
   FilterBar,
   Select,
   LoadState,
-  Stat,
-  StatGrid,
   Textarea,
   useToast,
   type AppliedFilter,
@@ -72,8 +65,6 @@ import {
   APPROVAL_TONE,
   GOAL_STATUS_LABEL,
   GOAL_STATUS_TONE,
-  toCascade,
-  SCOPE_LABEL,
   mayBeSubmitted,
   useKpiMutations,
   useKpis,
@@ -81,11 +72,9 @@ import {
   type GoalNode,
   type KpiScope,
 } from "@/lib/store/performance";
-import { AddMultipleObjectives } from "./add-multiple-objectives";
 import { ApprovalReasonDialog } from "./approval-dialogs";
 import { goalFacts } from "./goal-facts";
 import {
-  averageProgressHint,
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
@@ -167,23 +156,6 @@ import {
 /** Not a cycle id, so it cannot collide with one. */
 const NO_PERIOD = "none";
 
-/**
- * How the list is ordered, when it is not the cascade's own order.
- *
- * The default is deliberately **not** a date. The cascade sorts by rung —
- * company, then department, then personal — because the indentation is the
- * argument the screen is making, and a date order destroys it. So choosing a
- * date here **flattens the tree on purpose**, and the screen says so: what was
- * asked for is a chronological list, and a list is what it gives.
- */
-const ORDERS = [
-  ["updated", "Changed most recently"],
-  ["created", "Newest first"],
-  ["created-asc", "Oldest first"],
-] as const;
-
-type Order = (typeof ORDERS)[number][0];
-
 /** The heading of the empty state, by whose objectives are being read. */
 export const EMPTY_TITLE: Record<KpiScope, string> = {
   mine: "No objectives yet",
@@ -201,14 +173,14 @@ export const EMPTY_TITLE: Record<KpiScope, string> = {
 export function EmptyObjectives({
   scope,
   href,
-  onAddSeveral,
+  showUpload = false,
   uploadHref = "/performance/kpis/import",
 }: {
   scope: KpiScope;
   /** Where New objective goes, or null when this person cannot write one. */
   href: string | null;
-  /** Opens the window for several at once, when this person may. */
-  onAddSeveral?: () => void;
+  /** Upload objectives, as the quieter way in, for people who may. */
+  showUpload?: boolean;
   uploadHref?: string;
 }) {
   return (
@@ -225,22 +197,13 @@ export function EmptyObjectives({
                     <Plus aria-hidden="true" className="size-4" />
                     New objective
                   </ButtonLink>
-                  {onAddSeveral && (
-                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-body-sm">
-                      <button
-                        type="button"
-                        onClick={onAddSeveral}
-                        className="font-medium text-accent-text underline-offset-2 hover:underline"
-                      >
-                        Add several
-                      </button>
-                      <Link
-                        href={uploadHref}
-                        className="font-medium text-accent-text underline-offset-2 hover:underline"
-                      >
-                        Upload objectives
-                      </Link>
-                    </div>
+                  {showUpload && (
+                    <Link
+                      href={uploadHref}
+                      className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+                    >
+                      Upload objectives
+                    </Link>
                   )}
                 </div>
               ),
@@ -253,15 +216,11 @@ export function EmptyObjectives({
 
 export function KpisTab({
   scope,
-  scopes,
-  onScopeChange,
   department = null,
   departmentHref,
   strip,
 }: {
   scope: KpiScope;
-  scopes: KpiScope[];
-  onScopeChange: (scope: KpiScope) => void;
   /**
    * The page's tab strip, when the page draws one with more than whose
    * objectives in it (To agree). Left out, the scopes are drawn here.
@@ -328,8 +287,6 @@ export function KpisTab({
     });
   const addUnder = (parentId: string) => router.push(newObjective(parentId));
 
-  /* The window for adding several objectives at once. */
-  const [addingMany, setAddingMany] = useState(false);
   const [assigning, setAssigning] = useState<ApiGoal | null>(null);
   const [addingTo, setAddingTo] = useState<ApiGoal | null>(null);
   const [stopping, setStopping] = useState<ApiGoal | null>(null);
@@ -370,8 +327,6 @@ export function KpisTab({
   const [owner, setOwner] = useState("");
   /** A cycle id, or `NO_PERIOD` for the objectives that belong to none. */
   const [period, setPeriod] = useState("");
-  /** Empty means the cascade's own rung order. */
-  const [order, setOrder] = useState<Order | "">("");
 
   /* Every write reports its own failure through the one place that decides
      what a failure says — see `lib/use-action.ts`. Worth knowing what changed
@@ -538,30 +493,14 @@ export function KpisTab({
     });
   }, [pool, narrowing, term, approval, progress, owner, period]);
 
-  const cascade = useMemo(() => {
-    if (order !== "") {
-      /* Flat, every row a root. The card reads correctly at depth 0 — that is
-         the path a company with no nesting already takes — and `parentTitle`
-         on the row keeps the context the indentation was carrying. */
-      const dated = [...matching].sort((a, b) => {
-        if (order === "updated") return b.updatedAt.localeCompare(a.updatedAt);
-        return order === "created"
-          ? b.createdAt.localeCompare(a.createdAt)
-          : a.createdAt.localeCompare(b.createdAt);
-      });
-      return dated.map((goal) => ({ ...goal, children: [], depth: 0 }));
-    }
-    /* `toCascade` already makes a goal whose parent is absent into a root
-       rather than dropping it — the documented behaviour, and exactly what a
-       search result wants: every match visible, with `parentTitle` to say what
-       it sits under. */
-    if (narrowing) return toCascade(matching);
-    return openedGoals ? toCascade(openedGoals) : kpis.cascade;
-  }, [order, narrowing, matching, kpis.cascade, openedGoals]);
+  /* A flat list, by title: no cascade, no company objective pinned above the
+     rest (owner, 24 Nov 2026). `matching` is the pool narrowed by the search
+     and filters, or the whole pool. */
+  const flat = [...matching].sort((x, y) => x.title.localeCompare(y.title));
 
   /* The cards stand in for the list until a department is opened, or a
      search or a filter asks across all of them. */
-  const showCards = grouping && opened === null && !narrowing && order === "";
+  const showCards = grouping && opened === null && !narrowing;
   const openedName = opened === null ? null : departmentName(cards, opened);
 
   const clearFilters = () => {
@@ -570,7 +509,6 @@ export function KpisTab({
     setProgress("");
     setOwner("");
     setPeriod("");
-    setOrder("");
   };
 
   /* `label` is the dimension and `value` is the choice — the chip renders them
@@ -617,101 +555,86 @@ export function KpisTab({
         ]),
   ];
 
-  /* Same rule as `GoalBranch` applies to a node's children, applied to the
-     roots: no ladder between peers, so peers pair up, and anything heading a
-     cascade keeps its own row. */
-  const rootLeaves = cascade.filter((node) => node.children.length === 0);
-  const rootBranches = cascade.filter((node) => node.children.length > 0);
-
-  const tracked = kpis.goals.filter((goal) => goal.status !== "DONE");
   /* Nothing at all in this reading, as an answer and not while it loads or
-     after it failed: the tiles, the filters and an empty list are replaced by
-     one empty state that says what an objective is and offers to write one. */
+     after it failed: the filters and an empty list are replaced by one empty
+     state that says what an objective is and offers to write one. */
   const empty = !kpis.loading && !kpis.error && kpis.goals.length === 0;
   const unsent = kpis.goals.filter(
     (goal) => goal.approval === "DRAFT" || goal.approval === "NEEDS_REVISION",
   );
-  const attention = tracked.filter(
-    (goal) => goal.status === "AT_RISK" || goal.status === "OFF_TRACK",
+
+  /* The filter controls, behind the filter icon. */
+  const FILTERS = (
+    <>
+      <Select
+        aria-label="Filter by agreement"
+        value={approval}
+        onChange={(event) => setApproval(event.target.value)}
+      >
+        <option value="">Any agreement</option>
+        {approvalOptions.map(([key, label]) => (
+          <option key={key} value={key}>
+            {label}
+          </option>
+        ))}
+      </Select>
+      <Select
+        aria-label="Filter by progress"
+        value={progress}
+        onChange={(event) => setProgress(event.target.value)}
+      >
+        <option value="">Any progress</option>
+        {(["ON_TRACK", "AT_RISK", "OFF_TRACK", "DONE"] as GoalStatus[]).map(
+          (key) => (
+            <option key={key} value={key}>
+              {GOAL_STATUS_LABEL[key]}
+            </option>
+          ),
+        )}
+      </Select>
+      {periodOptions.length > 0 && (
+        <Select
+          aria-label="Filter by appraisal period"
+          value={period}
+          onChange={(event) => setPeriod(event.target.value)}
+        >
+          <option value="">Any period</option>
+          {periodOptions.map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      )}
+      {ownerOptions.length > 0 && (
+        <Select
+          aria-label="Filter by owner"
+          value={owner}
+          onChange={(event) => setOwner(event.target.value)}
+        >
+          <option value="">Anybody</option>
+          {ownerOptions.map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </Select>
+      )}
+    </>
   );
-  const measures = kpis.goals.flatMap((goal) => goal.keyResults);
-  const hit = measures.filter((measure) => measure.met).length;
-  /* Null, not 0. A mean over nothing is not zero progress — it is no progress
-     recorded, and the two read identically on a Stat while meaning opposite
-     things. Same rule the module's own `period-status.tsx` states with
-     `notYet`. */
-  /* A goal whose measures have all gone unread has no figure, only the 0 it was
-     created with, so it is left out of the mean instead of pulling it down. */
-  const withAFigure = tracked.filter(
-    (goal) => !(goal.keyResults.length > 0 && goal.measuredProgress === null),
-  );
-  const averageHint = averageProgressHint(withAFigure.length, tracked.length);
-  const average =
-    withAFigure.length === 0
-      ? null
-      : Math.round(
-          withAFigure.reduce(
-            (sum, goal) => sum + (goal.measuredProgress ?? goal.progress),
-            0,
-          ) / withAFigure.length,
-        );
 
   const content = (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {strip !== undefined ? (
-          strip
-        ) : scopes.length > 1 ? (
-          <SegmentedControl<KpiScope>
-            label="Whose objectives to show"
-            value={scope}
-            onChange={onScopeChange}
-            options={scopes.map((id) => ({
-              value: id,
-              label: SCOPE_LABEL[id],
-            }))}
-          />
-        ) : (
-          <span className="text-body-sm text-muted">{SCOPE_LABEL[scope]}</span>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
+      {(strip !== undefined || (DEMO_ENABLED && kpis.source === "demo")) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {strip}
           {DEMO_ENABLED && kpis.source === "demo" && (
             <Badge tone="warning" size="sm">
               Demo · numbers stay in this browser
             </Badge>
           )}
-          {mutations.editable && canUpload && !empty && (
-            <ButtonLink
-              variant="secondary"
-              size="sm"
-              href="/performance/kpis/import"
-            >
-              <Upload aria-hidden="true" className="size-4" />
-              Upload objectives
-            </ButtonLink>
-          )}
-          {/* Beside the upload, because it is the same door for fewer rows:
-              the same people, the same checks, typed in here instead of in
-              Excel. */}
-          {mutations.editable && canUpload && !empty && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setAddingMany(true)}
-            >
-              <ListPlus aria-hidden="true" className="size-4" />
-              Add multiple
-            </Button>
-          )}
-          {mutations.editable && !empty && (
-            <ButtonLink variant="accent" size="sm" href={newObjective()}>
-              <Plus aria-hidden="true" className="size-4" />
-              New objective
-            </ButtonLink>
-          )}
         </div>
-      </div>
+      )}
 
       <LoadFailure
         subject="your objectives"
@@ -723,55 +646,14 @@ export function KpisTab({
         <EmptyObjectives
           scope={scope}
           href={mutations.editable ? newObjective() : null}
-          {...(mutations.editable && canUpload
-            ? { onAddSeveral: () => setAddingMany(true) }
-            : {})}
+          {...(mutations.editable && canUpload ? { showUpload: true } : {})}
         />
       ) : (
         <>
-          <StatGrid>
-            <Stat
-              label="Objectives being tracked"
-              value={String(tracked.length)}
-            />
-            <Stat
-              label="Average progress"
-              /* An em dash, not a sentence — see `Stat`'s other callers
-             (`advances-screen.tsx`, `payments/history-screen.tsx`): nothing
-             tracked is a dash, same size as every other Stat value, not a
-             phrase that reads as a different kind of thing in the same row. */
-              value={
-                average === null ? (
-                  <span className="text-faint">—</span>
-                ) : (
-                  `${average}%`
-                )
-              }
-              {...(averageHint ? { hint: averageHint } : {})}
-            />
-            <Stat
-              label="Needs attention"
-              value={String(attention.length)}
-              {...(attention.length > 0
-                ? { trend: { direction: "down" as const, label: "Behind" } }
-                : {})}
-            />
-            <Stat
-              label="Targets met"
-              /* "0 of 0" is a measurement of a set nobody has created. */
-              value={
-                measures.length === 0 ? (
-                  <span className="text-faint">—</span>
-                ) : (
-                  `${hit} of ${measures.length}`
-                )
-              }
-            />
-          </StatGrid>
-
-          {/* No "N objectives are waiting to be agreed" line here (owner, 24
-              Nov 2026: "we shouldn't have this again"): the To agree tab
-              carries the count. A test fails if it comes back. */}
+          {/* No figures above the list (owner, 24 Nov 2026: "remove
+              objectives being tracked, average progress, just large cards"),
+              and none of the lines that used to sit here about what waits to
+              be agreed: the To agree tab carries that count. */}
           {unsent.length > 0 && (
             <NoticeLine tone="warning">
               {unsent.length === 1
@@ -780,279 +662,105 @@ export function KpisTab({
             </NoticeLine>
           )}
 
-          <Card>
-            <CardHeader
-              title={
-                showCards
-                  ? "By department"
-                  : opened !== null
-                    ? (openedName ?? "Objectives")
-                    : "All objectives"
-              }
-              description={
-                showCards
-                  ? undefined
-                  : opened !== null
-                    ? "Its objectives, under the company objective they support."
-                    : "The company objective is at the top. Team and personal objectives sit under the one they support."
-              }
-              {...(opened !== null && departmentHref
-                ? {
-                    action: (
-                      <ButtonLink
-                        variant="ghost"
-                        size="sm"
-                        href={departmentHref(null)}
-                      >
-                        <ArrowLeft aria-hidden="true" className="size-4" />
-                        All departments
-                      </ButtonLink>
-                    ),
-                  }
-                : {})}
-            />
-            {kpis.goals.length > 0 && !kpis.loading && (
-              <CardBody className="pb-0">
-                <FilterBar
-                  search={search}
-                  onSearchChange={setSearch}
-                  searchLabel="Search objectives by title or detail"
-                  searchPlaceholder="Search objectives…"
-                  applied={applied}
-                  {...(narrowing || order !== ""
-                    ? { onClearAll: clearFilters }
-                    : {})}
-                  count={narrowing ? matching.length : undefined}
-                  noun={["objective", "objectives"]}
-                  /* Grouping means nothing over the department cards, so
-                     the order is offered only once a list is showing. */
-                  sort={
-                    showCards ? undefined : (
-                      <Select
-                        aria-label="Order the list"
-                        value={order}
-                        onChange={(event) =>
-                          setOrder(event.target.value as Order | "")
-                        }
-                      >
-                        <option value="">Grouped under the company goal</option>
-                        {ORDERS.map(([key, label]) => (
-                          <option key={key} value={key}>
-                            {label}
-                          </option>
-                        ))}
-                      </Select>
-                    )
-                  }
-                >
-                  <Select
-                    aria-label="Filter by agreement"
-                    value={approval}
-                    onChange={(event) => setApproval(event.target.value)}
-                  >
-                    <option value="">Any agreement</option>
-                    {approvalOptions.map(([key, label]) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select
-                    aria-label="Filter by progress"
-                    value={progress}
-                    onChange={(event) => setProgress(event.target.value)}
-                  >
-                    <option value="">Any progress</option>
-                    {(
-                      [
-                        "ON_TRACK",
-                        "AT_RISK",
-                        "OFF_TRACK",
-                        "DONE",
-                      ] as GoalStatus[]
-                    ).map((key) => (
-                      <option key={key} value={key}>
-                        {GOAL_STATUS_LABEL[key]}
-                      </option>
-                    ))}
-                  </Select>
-                  {periodOptions.length > 0 && (
-                    <Select
-                      aria-label="Filter by appraisal period"
-                      value={period}
-                      onChange={(event) => setPeriod(event.target.value)}
-                    >
-                      <option value="">Any period</option>
-                      {periodOptions.map(([id, label]) => (
-                        <option key={id} value={id}>
-                          {label}
-                        </option>
-                      ))}
-                    </Select>
-                  )}
-                  {ownerOptions.length > 0 && (
-                    <Select
-                      aria-label="Filter by owner"
-                      value={owner}
-                      onChange={(event) => setOwner(event.target.value)}
-                    >
-                      <option value="">Anybody</option>
-                      {ownerOptions.map(([id, name]) => (
-                        <option key={id} value={id}>
-                          {name}
-                        </option>
-                      ))}
-                    </Select>
-                  )}
-                </FilterBar>
-                {(narrowing || order !== "") && (
-                  /* Two separate facts, each said only when it is true.
-                 -------------------------------------------------------------
-                 The figures above are the company's and do not move with a
-                 filter: a reader who takes "24 being tracked" as the size of
-                 the list below has been misled by a number that was never
-                 about the list. And a date order flattens the cascade, which
-                 is a change to *what* they are looking at rather than to how
-                 much of it — so it is said whether or not anything is
-                 filtered. */
-                  <p className="mt-3 text-meta text-muted">
-                    {narrowing &&
-                      `Showing ${String(matching.length)} of ${String(pool.length)}. The figures above are for everything, not for what is filtered here.`}
-                    {narrowing && order !== "" && " "}
-                    {order !== "" &&
-                      "Ordered by date, so objectives are not grouped under their parent while this is on."}
-                  </p>
-                )}
-              </CardBody>
-            )}
-            {kpis.loading ? (
-              <CardBody>
-                <LoadState
-                  loading
-                  error={null}
-                  subject="the objectives"
-                  skeleton="list"
-                >
-                  {null}
-                </LoadState>
-              </CardBody>
-            ) : kpis.error ? null : narrowing && matching.length === 0 ? (
-              /* Distinct from "No KPIs yet". Nothing matching a search is not a
-             company with no objectives, and offering "New objective" to
-             somebody who mistyped a name would answer a question they did not
-             ask. */
-              <EmptyState
-                mood="search"
-                icon={<Target aria-hidden="true" />}
-                title="Nothing matches that"
-                description={`None of the ${String(pool.length)} objectives match your filters.`}
-                action={
-                  <Button variant="ghost" onClick={clearFilters}>
-                    Clear the filters
-                  </Button>
-                }
-              />
-            ) : showCards ? (
-              directory.loading ? (
-                <CardBody>
-                  <LoadState
-                    loading
-                    error={null}
-                    subject="the departments"
-                    skeleton="list"
-                  >
-                    {null}
-                  </LoadState>
-                </CardBody>
-              ) : (
-                <CardBody>
-                  <DepartmentGrid cards={cards} hrefOf={departmentHref!} />
-                </CardBody>
-              )
-            ) : cascade.length === 0 ? (
-              <EmptyState
-                plain
-                icon={<Target aria-hidden="true" />}
-                title="No objectives here yet"
-                description="Nothing in this department is filed as an objective yet."
-              />
+          {opened !== null && departmentHref && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-h4 font-semibold text-ink">
+                {openedName ?? "Objectives"}
+              </h2>
+              <ButtonLink variant="ghost" size="sm" href={departmentHref(null)}>
+                <ArrowLeft aria-hidden="true" className="size-4" />
+                All departments
+              </ButtonLink>
+            </div>
+          )}
+
+          {kpis.goals.length > 0 && !kpis.loading && (
+            <FilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchLabel="Search objectives by title or detail"
+              searchPlaceholder="Search objectives…"
+              applied={applied}
+              {...(narrowing ? { onClearAll: clearFilters } : {})}
+              count={narrowing ? matching.length : undefined}
+              noun={["objective", "objectives"]}
+            >
+              {FILTERS}
+            </FilterBar>
+          )}
+
+          {kpis.loading ? (
+            <LoadState
+              loading
+              error={null}
+              subject="the objectives"
+              skeleton="list"
+            >
+              {null}
+            </LoadState>
+          ) : kpis.error ? null : showCards ? (
+            directory.loading ? (
+              <LoadState
+                loading
+                error={null}
+                subject="the departments"
+                skeleton="list"
+              >
+                {null}
+              </LoadState>
             ) : (
-              <CardBody className="flex flex-col gap-3">
-                {/* Roots pair up too, on the same rule the branches use.
-                ------------------------------------------------------------
-                The grid was originally only applied to a node's *children*,
-                which quietly did nothing for the commonest shape there is: a
-                company whose objectives are a flat list rather than a
-                cascade. Read against a real company with nine objectives and
-                no nesting at all, every card was at depth 0, no node had
-                children, and the grid never rendered — nine full-width cards
-                in one column, which is the exact scroll this change set out
-                to remove.
-
-                So the split is applied here as well: a root with nothing
-                under it is a leaf like any other and can sit beside its
-                peers, while a root that heads a cascade stays full width so
-                the things indented beneath it read as beneath it. */}
-                {rootLeaves.length > 0 && (
-                  <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
-                    {rootLeaves.map((node) => (
-                      <GoalCard
-                        key={node.id}
-                        goal={node}
-                        depth={node.depth}
-                        editable={mutations.editable}
-                        actingId={actingId}
-                        canPlan={canPlan}
-                        onAddMeasure={setAddingTo}
-                        onAddChild={addUnder}
-                        onAssign={setAssigning}
-                        onComplete={setCompleting}
-                        onStop={setStopping}
-                        onEdit={setEditing}
-                        onDelete={setDeleting}
-                        onShare={shareGoal}
-                        onSubmit={setSending}
-                        onReopen={setReopening}
-                        onRecord={recordMeasure}
-                        onPlan={setPlanning}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {rootBranches.map((node) => (
-                  <GoalBranch
-                    key={node.id}
-                    node={node}
-                    editable={mutations.editable}
-                    actingId={actingId}
-                    canPlan={canPlan}
-                    onAddMeasure={setAddingTo}
-                    onAddChild={addUnder}
-                    onAssign={setAssigning}
-                    onComplete={setCompleting}
-                    onStop={setStopping}
-                    onEdit={setEditing}
-                    onDelete={setDeleting}
-                    onShare={shareGoal}
-                    onSubmit={setSending}
-                    onReopen={setReopening}
-                    onRecord={recordMeasure}
-                    onPlan={setPlanning}
-                  />
-                ))}
-              </CardBody>
-            )}
-          </Card>
+              <DepartmentGrid cards={cards} hrefOf={departmentHref!} />
+            )
+          ) : narrowing && matching.length === 0 ? (
+            <EmptyState
+              mood="search"
+              icon={<Target aria-hidden="true" />}
+              title="Nothing matches that"
+              description={`None of the ${String(pool.length)} objectives match your filters.`}
+              action={
+                <Button variant="ghost" onClick={clearFilters}>
+                  Clear the filters
+                </Button>
+              }
+            />
+          ) : flat.length === 0 ? (
+            <EmptyState
+              plain
+              icon={<Target aria-hidden="true" />}
+              title="No objectives here yet"
+              description="Nothing in this department is filed as an objective yet."
+            />
+          ) : (
+            /* A flat, even grid: no company objective pinned above it and no
+               grouping under one. Each card says whose it is, where it stands
+               and how far along. */
+            <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
+              {flat.map((goal) => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  depth={0}
+                  editable={mutations.editable}
+                  actingId={actingId}
+                  canPlan={canPlan}
+                  onAddMeasure={setAddingTo}
+                  onAddChild={addUnder}
+                  onAssign={setAssigning}
+                  onComplete={setCompleting}
+                  onStop={setStopping}
+                  onEdit={setEditing}
+                  onDelete={setDeleting}
+                  onShare={shareGoal}
+                  onSubmit={setSending}
+                  onReopen={setReopening}
+                  onRecord={recordMeasure}
+                  onPlan={setPlanning}
+                />
+              ))}
+            </div>
+          )}
         </>
       )}
-
-      <AddMultipleObjectives
-        open={addingMany}
-        onClose={() => setAddingMany(false)}
-        goals={kpis.goals}
-        onChanged={kpis.reload}
-      />
 
       <AssignKpiDialog
         open={assigning !== null}

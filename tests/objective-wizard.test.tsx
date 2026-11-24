@@ -460,6 +460,58 @@ describe("sending it", () => {
     expect(state.push).toHaveBeenCalledWith(BACK);
   });
 
+  it("adds another on the same period, lists both, and sends both", async () => {
+    const { user } = open();
+    await throughTarget(user);
+    await next(user);
+    await user.click(screen.getByRole("button", { name: "Add another" }));
+
+    /* Only the aim and the target are asked again; the period is kept. */
+    expect(
+      screen.getByRole("textbox", { name: /objective title/i }),
+    ).toHaveValue("");
+    await user.type(
+      screen.getByRole("textbox", { name: /objective title/i }),
+      "Cut hiring time to 30 days",
+    );
+    await next(user);
+    await user.click(screen.getByRole("radio", { name: /a number to reach/i }));
+    await user.type(
+      screen.getByRole("textbox", { name: /what is counted/i }),
+      "Days to hire",
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: /target value/i }),
+      "30",
+    );
+    await next(user);
+
+    const added = screen.getByRole("list", {
+      name: "Objectives already added",
+    });
+    expect(within(added).getByText("Fill the two Lagos roles")).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: "Send 2 to be agreed" }),
+    );
+
+    expect(state.createGoal).toHaveBeenCalledTimes(2);
+    expect(state.createGoal.mock.calls[0]?.[0]).toMatchObject({
+      title: "Fill the two Lagos roles",
+      reviewCycleId: "c-h2",
+    });
+    expect(state.createGoal.mock.calls[1]?.[0]).toMatchObject({
+      title: "Cut hiring time to 30 days",
+      reviewCycleId: "c-h2",
+    });
+    expect(state.submit).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "2 objectives sent to be agreed",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps it as a draft without sending it", async () => {
     const { user } = open();
     await throughTarget(user);

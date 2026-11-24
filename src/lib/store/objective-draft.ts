@@ -21,6 +21,8 @@ import { createPersistedState } from "./persisted";
 
 export type StoredObjectiveDraft = {
   draft: ObjectiveDraft;
+  /** Objectives already finished in this flow and waiting to be sent with it. */
+  batch?: ObjectiveDraft[];
   /** The step they were on, so carrying on lands where they left. */
   step: number;
   savedAt: string;
@@ -63,13 +65,18 @@ export function useObjectiveDraft(
   const kept = key ? (state.drafts[key] ?? null) : null;
 
   const keep = useCallback(
-    (draft: ObjectiveDraft, step: number) => {
+    (draft: ObjectiveDraft, step: number, batch: ObjectiveDraft[] = []) => {
       if (!key) return;
       const now = store.current();
       store.commit({
         drafts: {
           ...now.drafts,
-          [key]: { draft, step, savedAt: new Date().toISOString() },
+          [key]: {
+            draft,
+            step,
+            ...(batch.length > 0 ? { batch } : {}),
+            savedAt: new Date().toISOString(),
+          },
         },
       });
     },

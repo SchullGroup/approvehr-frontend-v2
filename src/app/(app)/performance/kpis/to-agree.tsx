@@ -86,6 +86,10 @@ import { AgreedMoment, type Agreement } from "../approvals/agreed-moment";
  * "Nothing waiting" and "you agree nobody's objectives" both render as no rows.
  * `couldHaveQueue` says which.
  */
+/** Who agrees what, in one line (owner, 24 Nov 2026). Nobody agrees their own. */
+export const AGREE_RULE =
+  "A person's objectives go to their line manager, then their department head, then HR. Company and department objectives go to HR. Nobody agrees their own.";
+
 export function ObjectivesToAgree({
   approvals,
   strip,
@@ -223,6 +227,7 @@ export function ObjectivesToAgree({
              column it sits in. */
           <div className="flex flex-wrap items-center gap-3">{strip}</div>
         )}
+        <p className="text-body-sm text-muted">{AGREE_RULE}</p>
         {answered && approvals.queue.length > 0 && (
           <FilterBar
             search={filters.search}

@@ -47,10 +47,12 @@ import {
   targetChangesOf,
   type ObjectiveDraft,
   type ObjectiveLevel,
+  type ObjectiveStep,
   type StepProblems,
   type TargetChoice,
   type TargetEdit,
 } from "@/lib/performance/objective-wizard";
+import { agreesLine, sentLine } from "@/lib/performance/objective-wizard";
 import {
   approvalWords,
   whoseWords as goalWhose,
@@ -107,14 +109,22 @@ import { sentToAgreeCopy } from "../../objective-copy";
  * objective throws it away.
  */
 
-const SCREENS = OBJECTIVE_STEPS.length;
+/* Objectives after the first in one flow share its period, level and owner, so
+   they are asked the aim and the target and nothing else. */
+const LATER_STEPS = ["aim", "target", "review"] as const;
 
 type Written = { goal: ApiGoal | null; target: boolean };
 
 type Finished =
   | { kind: "sent"; goal: ApiGoal; sentTo: string[] | undefined }
   | { kind: "draft"; goal: ApiGoal }
-  | { kind: "saved"; goal: ApiGoal };
+  | { kind: "saved"; goal: ApiGoal }
+  | {
+      kind: "many";
+      goals: ApiGoal[];
+      sent: boolean;
+      sentTo: string[] | undefined;
+    };
 
 export function ObjectiveWizard({
   parent,
@@ -212,6 +222,12 @@ export function ObjectiveWizard({
     parentId: parent ?? "",
   }));
   const [step, setStep] = useState(0);
+  /* Objectives finished earlier in this flow, waiting to be sent with the one
+     being written. They share the first one's period, level and owner. */
+  const [batch, setBatch] = useState<ObjectiveDraft[]>([]);
+  const later = batch.length > 0;
+  const steps: readonly ObjectiveStep[] = later ? LATER_STEPS : OBJECTIVE_STEPS;
+  const SCREENS = steps.length;
   /* Whether anything has been answered here yet: a draft kept from last time
      arrives a moment after the first render (storage is read after
      hydration), and is carried on from only if nothing has been typed. */
@@ -225,7 +241,14 @@ export function ObjectiveWizard({
       ...kept.draft,
       parentId: editing ? kept.draft.parentId : (parent ?? kept.draft.parentId),
     });
-    setStep(Math.min(kept.step, SCREENS - 1));
+    setBatch(kept.batch ?? []);
+    setStep(
+      Math.min(
+        kept.step,
+        (kept.batch && kept.batch.length > 0 ? LATER_STEPS : OBJECTIVE_STEPS)
+          .length - 1,
+      ),
+    );
   }
   /* An objective being changed starts on what it says now, unless a draft of
      the change was carried on first. */
@@ -245,6 +268,9 @@ export function ObjectiveWizard({
     goal: null,
     target: false,
   });
+  /* New objectives write one at a time; this is how far each got. */
+  const [writtenList, setWrittenList] = useState<Written[]>([]);
+  const saved = written.goal !== null || writtenList.some((w) => w.goal);
   const [finished, setFinished] = useState<Finished | null>(null);
 
   /* The starting answers follow what has loaded, until somebody chooses. */
@@ -284,8 +310,8 @@ export function ObjectiveWizard({
     setDraft(next);
     setTouched(true);
     setProblems({});
-    if (draftIsBlank(next)) discard();
-    else keep(next, step);
+    if (draftIsBlank(next) && !later) discard();
+    else keep(next, step, batch);
   };
 
   const go = (to: number) => {
@@ -293,7 +319,7 @@ export function ObjectiveWizard({
     setStep(to);
     setProblems({});
     setError(null);
-    if (!draftIsBlank(draft)) keep(draft, to);
+    if (!draftIsBlank(draft) || later) keep(draft, to, batch);
   };
 
   const leave = () => {
@@ -301,7 +327,7 @@ export function ObjectiveWizard({
     router.push(back);
   };
 
-  const screen = OBJECTIVE_STEPS[step] ?? "aim";
+  const screen = steps[step] ?? "aim";
 
   const next = () => {
     const found = stepProblems(screen, effective, context);
@@ -321,8 +347,8 @@ export function ObjectiveWizard({
   const finish = async (how: "send" | "draft") => {
     /* Every answer is checked again before anything is written: a draft
        carried on from another day may no longer hold (its period closed). */
-    if (!written.goal) {
-      for (const [index, name] of OBJECTIVE_STEPS.entries()) {
+    if (!saved) {
+      for (const [index, name] of steps.entries()) {
         const found = stepProblems(name, effective, context);
         if (hasProblems(found)) {
           setStep(index);
@@ -338,56 +364,131 @@ export function ObjectiveWizard({
       setBusy(null);
       return;
     }
-    let progress = written;
+    /* One at a time, in order. Each write can be repeated, so a press after a
+       failure carries on from where it stopped and makes nothing twice. */
+    const items: ObjectiveDraft[] = [
+      ...batch,
+      { ...effective, quarter, periodId: reviewCycleId },
+    ];
+    const list: Written[] = items.map(
+      (_, index) => writtenList[index] ?? { goal: null, target: false },
+    );
+    const answers: ApiObjectiveSubmitted[] = [];
+    const who = (index: number) =>
+      items.length === 1
+        ? "The objective"
+        : `"${items[index]?.title.trim() ?? ""}"`;
     try {
-      if (!progress.goal) {
-        const goal = await mutations.createGoal(
-          goalBodyOf(effective, { reviewCycleId, quarter }),
-        );
-        progress = { goal, target: false };
-        setWritten(progress);
-        /* It exists now: a draft kept after this would make it twice. */
-        discard();
-      }
-      const targetBody = keyResultBodyOf(effective);
-      if (targetBody && !progress.target && progress.goal) {
-        try {
-          await mutations.addKeyResult(progress.goal.id, targetBody);
-        } catch (caught) {
-          setError(
-            `The objective is saved as a draft, but its target is not: ${actionMessage(caught, "the target")} Press again to add the target.`,
+      for (const [index, item] of items.entries()) {
+        let w = list[index] as Written;
+        if (!w.goal) {
+          const made = await mutations.createGoal(
+            goalBodyOf(item, {
+              reviewCycleId: item.periodId ?? "",
+              quarter: item.quarter,
+            }),
           );
-          return;
+          w = { goal: made, target: false };
+          list[index] = w;
+          setWrittenList([...list]);
+          /* It exists now: a draft kept after this would make it twice. */
+          discard();
         }
-        progress = { ...progress, target: true };
-        setWritten(progress);
-      }
-      const goal = progress.goal as ApiGoal;
-      if (how === "draft") {
-        discard();
-        setFinished({ kind: "draft", goal });
-        return;
-      }
-      let answer: ApiObjectiveSubmitted | undefined;
-      try {
-        answer = await objectives.submit(goal.id);
-      } catch (caught) {
-        setError(
-          `The objective is saved as a draft, but it was not sent to be agreed: ${actionMessage(caught, "the objective")}`,
-        );
-        return;
+        const targetBody = keyResultBodyOf(item);
+        if (targetBody && !w.target && w.goal) {
+          try {
+            await mutations.addKeyResult(w.goal.id, targetBody);
+          } catch (caught) {
+            setError(
+              `${who(index)} is saved as a draft, but its target is not: ${actionMessage(caught, "the target")} Press again to add the target.`,
+            );
+            return;
+          }
+          w = { ...w, target: true };
+          list[index] = w;
+          setWrittenList([...list]);
+        }
+        if (how === "send" && w.goal) {
+          try {
+            const answer = await objectives.submit(w.goal.id);
+            if (answer) answers.push(answer);
+          } catch (caught) {
+            setError(
+              `${who(index)} is saved as a draft, but it was not sent to be agreed: ${actionMessage(caught, "the objective")}`,
+            );
+            return;
+          }
+        }
       }
       discard();
-      setFinished({
-        kind: "sent",
-        goal: answer ?? goal,
-        sentTo: Array.isArray(answer?.sentTo) ? answer.sentTo : undefined,
-      });
+      const goals = list.map((w) => w.goal as ApiGoal);
+      if (items.length > 1) {
+        const last = answers[answers.length - 1];
+        setFinished({
+          kind: "many",
+          goals,
+          sent: how === "send",
+          sentTo: Array.isArray(last?.sentTo) ? last.sentTo : undefined,
+        });
+      } else if (how === "draft") {
+        setFinished({ kind: "draft", goal: goals[0] as ApiGoal });
+      } else {
+        const answer = answers[0];
+        setFinished({
+          kind: "sent",
+          goal: answer ?? (goals[0] as ApiGoal),
+          sentTo: Array.isArray(answer?.sentTo) ? answer.sentTo : undefined,
+        });
+      }
     } catch (caught) {
-      setError(actionMessage(caught, "the objective"));
+      setError(
+        `${items.length > 1 ? "Not everything is saved. " : ""}${actionMessage(caught, "the objective")}`,
+      );
     } finally {
       setBusy(null);
     }
+  };
+
+  /** Keeps this one, and starts the next on the same period, level and owner. */
+  const addAnother = () => {
+    for (const [index, name] of steps.entries()) {
+      const found = stepProblems(name, effective, context);
+      if (hasProblems(found)) {
+        setStep(index);
+        setProblems(found);
+        return;
+      }
+    }
+    const done = { ...effective, quarter, periodId: reviewCycleId };
+    const nextBatch = [...batch, done];
+    const fresh: ObjectiveDraft = {
+      ...BLANK_OBJECTIVE,
+      level: effective.level,
+      departmentId: effective.departmentId,
+      personId: effective.personId,
+      quarter,
+      periodId: reviewCycleId,
+      parentId: parent ?? "",
+    };
+    setBatch(nextBatch);
+    setDraft(fresh);
+    setStep(0);
+    setProblems({});
+    setError(null);
+    keep(fresh, 0, nextBatch);
+  };
+
+  const removeFromBatch = (index: number) => {
+    const nextBatch = batch.filter((_, at) => at !== index);
+    setBatch(nextBatch);
+    keep(
+      draft,
+      Math.min(
+        step,
+        (nextBatch.length > 0 ? LATER_STEPS : OBJECTIVE_STEPS).length - 1,
+      ),
+      nextBatch,
+    );
   };
 
   /**
@@ -480,6 +581,44 @@ export function ObjectiveWizard({
 
   /* ------------------------------------------------------------ the screen */
 
+  if (finished?.kind === "many") {
+    const count = finished.goals.length;
+    return (
+      <WizardShell
+        open
+        onClose={leave}
+        step={SCREENS - 1}
+        total={SCREENS}
+        title="Objectives saved"
+        done={
+          <SuccessMoment
+            headingLevel={1}
+            align="center"
+            art={<Illustration name="welcome" height={144} />}
+            focusHeading
+            title={
+              finished.sent
+                ? `${String(count)} objectives sent to be agreed`
+                : `${String(count)} objectives saved as drafts`
+            }
+            lead={
+              finished.sent
+                ? (sentLine(finished.sentTo, people) ??
+                  "They have gone to be agreed.")
+                : "Nobody is asked to agree them until they are sent. Send each from its card on Objectives."
+            }
+            actions={
+              <Button variant="accent" onClick={leave}>
+                Back to objectives
+              </Button>
+            }
+          />
+        }
+      >
+        {null}
+      </WizardShell>
+    );
+  }
   if (finished) {
     const copy =
       finished.kind === "sent"
@@ -629,9 +768,15 @@ export function ObjectiveWizard({
       title={STEP_TITLES[screen]}
       /* Once the objective exists, going back to change it would change a
          form and not the objective; the message says what is saved. */
-      {...(written.goal ? {} : { onBack: () => go(step - 1) })}
+      {...(saved ? {} : { onBack: () => go(step - 1) })}
       onNext={next}
-      nextLabel={screen === "review" ? "Send to be agreed" : "Continue"}
+      nextLabel={
+        screen === "review"
+          ? batch.length > 0
+            ? `Send ${String(batch.length + 1)} to be agreed`
+            : "Send to be agreed"
+          : "Continue"
+      }
       canNext={
         !((screen === "period" || screen === "review") && periodsPending)
       }
@@ -639,15 +784,31 @@ export function ObjectiveWizard({
       error={error}
       extra={
         screen === "review" ? (
-          <Button
-            type="button"
-            variant="secondary"
-            loading={busy === "draft"}
-            disabled={busy !== null || periodsPending}
-            onClick={() => void finish("draft")}
-          >
-            {editing ? "Save without sending" : "Save as a draft"}
-          </Button>
+          <>
+            {!editing && !saved && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy !== null || periodsPending}
+                onClick={addAnother}
+              >
+                Add another
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              loading={busy === "draft"}
+              disabled={busy !== null || periodsPending}
+              onClick={() => void finish("draft")}
+            >
+              {editing
+                ? "Save without sending"
+                : batch.length > 0
+                  ? "Save as drafts"
+                  : "Save as a draft"}
+            </Button>
+          </>
         ) : undefined
       }
     >
@@ -728,7 +889,7 @@ export function ObjectiveWizard({
             </div>
           )}
 
-          {editing ? (
+          {editing || later ? (
             <p className="text-body-sm text-body">
               <span className="text-muted">Whose: </span>
               {whoseWords}
@@ -778,7 +939,7 @@ export function ObjectiveWizard({
             </FieldSet>
           ) : null}
 
-          {!editing && level === "department" && (
+          {!editing && !later && level === "department" && (
             <Field
               label="Department"
               required
@@ -803,6 +964,7 @@ export function ObjectiveWizard({
           )}
 
           {!editing &&
+            !later &&
             level === "person" &&
             (led.length > 0 ? (
               <Field
@@ -1062,44 +1224,70 @@ export function ObjectiveWizard({
 
       {screen === "review" && (
         <>
+          {batch.length > 0 && (
+            <ul
+              aria-label="Objectives already added"
+              className="divide-y divide-line rounded-lg border border-line bg-surface"
+            >
+              {batch.map((item, index) => (
+                <li
+                  key={`${String(index)}-${item.title}`}
+                  className="flex items-center justify-between gap-3 px-4 py-2.5 text-body-sm"
+                >
+                  <span className="min-w-0 break-words text-ink">
+                    {item.title.trim()}
+                  </span>
+                  {!saved && (
+                    <button
+                      type="button"
+                      className="shrink-0 text-accent-text underline-offset-2 hover:underline"
+                      onClick={() => removeFromBatch(index)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           <dl className="divide-y divide-line rounded-lg border border-line bg-surface">
             <ReviewRow
               label="Objective"
               value={draft.title.trim()}
               onChange={() => go(0)}
-              locked={written.goal !== null}
+              locked={saved}
             />
             <ReviewRow
               label="Whose"
               value={whoseWords}
               onChange={() => go(0)}
-              locked={written.goal !== null}
+              locked={saved}
             />
             {draft.description.trim() && (
               <ReviewRow
                 label="More detail"
                 value={draft.description.trim()}
                 onChange={() => go(0)}
-                locked={written.goal !== null}
+                locked={saved}
               />
             )}
             <ReviewRow
               label="Target"
               value={targetWords}
               onChange={() => go(1)}
-              locked={written.goal !== null}
+              locked={saved}
             />
             <ReviewRow
               label="Due"
               value={quarterLabel(quarter)}
               onChange={() => go(2)}
-              locked={written.goal !== null}
+              locked={saved}
             />
             <ReviewRow
               label="Appraisal period"
               value={periodsPending ? "Still loading" : (periodName ?? "None")}
               onChange={() => go(2)}
-              locked={written.goal !== null}
+              locked={saved}
             />
             <ReviewRow
               label="Supports"
@@ -1110,13 +1298,23 @@ export function ObjectiveWizard({
                   : "Nothing above it")
               }
               onChange={() => go(2)}
-              locked={written.goal !== null}
+              locked={saved}
             />
           </dl>
+          {!editing && (
+            <p className="text-body-sm text-body">
+              {agreesLine({
+                level,
+                ownerId: effective.personId || null,
+                meId: employeeId ?? null,
+                people,
+                departments: allDepartments,
+              })}
+            </p>
+          )}
           <p className="text-body-sm text-muted">
-            Sending it asks somebody else to agree it; nobody agrees their own.
-            Once it is agreed the title, the period and the target are fixed.
-            Progress still moves.
+            Nobody agrees their own. Once it is agreed the title, the period and
+            the target are fixed. Progress still moves.
           </p>
           {reviewCycleId === "" && (
             <p className="text-body-sm text-warning-text">

@@ -1577,11 +1577,16 @@ export function useKpis(
          rejected `Promise.all` would throw away the company goals that
          answered — emptying a screen that has plenty to show. Same latent bug,
          one hook along. */
-      const [scoped, company] = await Promise.allSettled([
+      const [scoped, company, own] = await Promise.allSettled([
         scope === "mine"
           ? performanceApi.myGoals({ pageSize: PAGE }, signal)
           : performanceApi.teamGoals({ pageSize: PAGE }, signal),
         performanceApi.goals({ companyOnly: true, pageSize: 50 }, signal),
+        /* A manager's own objectives sit beside their team's (owner, 24 Nov
+           2026), and the team read does not hold them. */
+        scope === "team"
+          ? performanceApi.myGoals({ pageSize: PAGE }, signal)
+          : Promise.resolve(null),
       ]);
 
       /* The company read failing leaves nothing worth rendering, so it throws.
@@ -1590,8 +1595,10 @@ export function useKpis(
       if (company.status === "rejected") throw company.reason;
 
       const mine = scoped.status === "fulfilled" ? scoped.value.data : [];
+      const ownGoals =
+        own.status === "fulfilled" && own.value !== null ? own.value.data : [];
       const seen = new Set<string>();
-      return [...company.value.data, ...mine].filter((goal) => {
+      return [...company.value.data, ...mine, ...ownGoals].filter((goal) => {
         if (seen.has(goal.id)) return false;
         seen.add(goal.id);
         return true;

@@ -254,8 +254,6 @@ const mount = (
     <ToastProvider>
       <KpisTab
         scope={props.scope ?? "company"}
-        scopes={["mine", "team", "company"]}
-        onScopeChange={vi.fn()}
         department={props.department ?? null}
         departmentHref={href}
       />
@@ -290,10 +288,7 @@ describe("Whole company", () => {
     expect(screen.queryByText("Reconcile the bank daily")).toBeNull();
   });
 
-  /* The four figures stay; the "waiting to be agreed" line went (owner, 24
-     Nov 2026: "we shouldn't have this again"). The To agree tab carries the
-     count, so this fails if the line or its link comes back. */
-  it("keeps the four figures, and no waiting-to-be-agreed line, above the cards", () => {
+  it("has no number tiles, no waiting-to-be-agreed line, no header sentence and no order dropdown", () => {
     state.goals = [
       ...GOALS,
       goal({
@@ -304,39 +299,19 @@ describe("Whole company", () => {
       }),
     ];
     mount();
-    expect(screen.getByText("Objectives being tracked")).toBeInTheDocument();
-    expect(screen.getByText("Average progress")).toBeInTheDocument();
-    expect(screen.getByText("Needs attention")).toBeInTheDocument();
-    expect(screen.getByText("Targets met")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Objectives being tracked"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Average progress")).not.toBeInTheDocument();
     expect(screen.queryByText(/waiting to be agreed/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: /see what is waiting/i }),
     ).not.toBeInTheDocument();
     expect(
-      document.querySelector('a[href="/performance/approvals"]'),
-    ).toBeNull();
-  });
-
-  it("draws no header sentence and no order dropdown over the department cards", () => {
-    mount();
-    expect(
-      screen.getByRole("heading", { name: "By department" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Open a department to see its objectives/),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("combobox", { name: "Order the list" }),
+      screen.queryByRole("combobox", { name: /order|grouped/i }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByLabelText("Search objectives by title or detail"),
-    ).toBeInTheDocument();
-  });
-
-  it("still offers the order inside an opened department", () => {
-    mount({ department: "fin" });
-    expect(
-      screen.getByRole("combobox", { name: "Order the list" }),
     ).toBeInTheDocument();
   });
 

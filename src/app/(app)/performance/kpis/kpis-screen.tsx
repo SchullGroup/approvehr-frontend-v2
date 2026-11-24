@@ -1,23 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Badge, SegmentedControl } from "@/components/ui";
+import { Plus } from "lucide-react";
+import { SegmentedControl } from "@/components/ui";
+import { RowActions } from "@/components/ui/row-actions";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { newObjectiveHref } from "@/lib/performance/objective-wizard";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { useHeadedDepartmentIds } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
 import {
-  SCOPE_LABEL,
+  useKpiMutations,
   useObjectiveApprovals,
   type KpiScope,
 } from "@/lib/store/performance";
 import { KpisTab } from "../kpis";
+import { useCanUploadObjectives } from "./import/access";
 import { ObjectivesToAgree } from "./to-agree";
 
 /** The To agree tab's value in the strip and in the address (`?tab=agree`). */
 export const AGREE_TAB = "agree";
 
-type Tab = KpiScope | typeof AGREE_TAB;
+type Tab = "objectives" | typeof AGREE_TAB;
 
 /** "To agree", with how many wait on this reader when any do. */
 export function agreeLabel(count: number): string {
@@ -25,24 +29,23 @@ export function agreeLabel(count: number): string {
 }
 
 /**
- * Objectives, on its own route, with one flat strip of tabs (owner, 24 Nov
- * 2026: "merge the objectives and objectives to agree subs into multiple tabs
- * in one page"): My objectives, My team, Whole company, To agree.
+ * Objectives, on its own route (owner redesign, 24 Nov 2026).
  *
- * Whose objectives (mine/team/company) and, for the whole company, which
- * department are in the address, read by the page and handed down; To agree is
- * `?tab=agree`. Moving between them is a navigation, so each can be linked,
- * survives a refresh, and Back returns to where somebody was.
+ * The page is just "Objectives". What it shows follows the reader and is not
+ * chosen from tabs: somebody who can see the company opens on one large card
+ * per department (a card opens that department's list, `?department=<id>`);
+ * a manager sees their team's objectives and their own as a plain list; anybody
+ * else sees their own. The only strip is **Objectives | To agree (n)**, offered
+ * to the people who agree objectives, and `?tab=agree` opens the queue.
  *
- * To agree is offered to the people who agree objectives (who lead somebody,
- * or hold `EDIT_RECORDS`) while appraisals are on, as its sidebar row was. Its
- * count is the queue's own length, read once here and handed to the tab.
+ * One button at the right, "New objective", with a menu of two: a new objective
+ * (the full-page wizard, which can add several) and Upload objectives.
  */
 export function KpisScreen({
-  scope: asked = null,
   department = null,
   tab: askedTab = null,
 }: {
+  /** Kept so old links still resolve; the reader decides what they see. */
   scope?: string | null;
   department?: string | null;
   tab?: string | null;
@@ -50,71 +53,75 @@ export function KpisScreen({
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   /* A department head leads their department whether or not anybody's
-     `managerId` points at them — and in a company that sets none, that was
-     every head, with no team view to find the KPIs they had just set. */
+     `managerId` points at them. */
   const isManager = useIsManager();
   const headed = useHeadedDepartmentIds();
   const leadsATeam = isManager || headed.size > 0;
   const features = useFeatures();
   const approvals = useObjectiveApprovals();
+  const mutations = useKpiMutations();
+  const canUpload = useCanUploadObjectives();
   const agrees =
     features.appraisals === true && approvals.couldHaveQueue === true;
 
-  const scopes: KpiScope[] = [
-    "mine",
-    ...(leadsATeam ? (["team"] as const) : []),
-    ...(canSeeCompany ? (["company"] as const) : []),
-  ];
-
-  /* The widest reading this person is allowed, unless they picked one. */
-  const fallback: KpiScope = canSeeCompany
+  const scope: KpiScope = canSeeCompany
     ? "company"
     : leadsATeam
       ? "team"
       : "mine";
-  const scope = scopes.find((one) => one === asked) ?? fallback;
-  const tab: Tab = agrees && askedTab === AGREE_TAB ? AGREE_TAB : scope;
+  const tab: Tab = agrees && askedTab === AGREE_TAB ? AGREE_TAB : "objectives";
 
   const changeTab = (next: Tab) =>
     router.replace(
       next === AGREE_TAB
         ? `/performance/kpis?tab=${AGREE_TAB}`
-        : `/performance/kpis?scope=${next}`,
+        : "/performance/kpis",
       { scroll: false },
     );
   const departmentHref = (key: string | null) =>
     key === null
-      ? "/performance/kpis?scope=company"
-      : `/performance/kpis?scope=company&department=${encodeURIComponent(key)}`;
+      ? "/performance/kpis"
+      : `/performance/kpis?department=${encodeURIComponent(key)}`;
 
-  const tabs: { value: Tab; label: string }[] = [
-    ...scopes.map((id) => ({ value: id as Tab, label: SCOPE_LABEL[id] })),
-    ...(agrees
-      ? [{ value: AGREE_TAB as Tab, label: agreeLabel(approvals.queue.length) }]
+  const strip = agrees ? (
+    <SegmentedControl<Tab>
+      label="Objectives or objectives to agree"
+      value={tab}
+      onChange={changeTab}
+      options={[
+        { value: "objectives", label: "Objectives" },
+        { value: AGREE_TAB, label: agreeLabel(approvals.queue.length) },
+      ]}
+    />
+  ) : undefined;
+
+  const back = department
+    ? `/performance/kpis?department=${encodeURIComponent(department)}`
+    : "/performance/kpis";
+  const menu = [
+    { label: "New objective", href: newObjectiveHref({ back }) },
+    ...(canUpload
+      ? [{ label: "Upload objectives", href: "/performance/kpis/import" }]
       : []),
   ];
-  const strip =
-    tabs.length > 1 ? (
-      <SegmentedControl<Tab>
-        label="Which objectives to show"
-        value={tab}
-        onChange={changeTab}
-        options={tabs}
-      />
-    ) : (
-      <span className="text-body-sm text-muted">{SCOPE_LABEL[scope]}</span>
-    );
 
   return (
     <>
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Objectives"
-        meta={
-          <Badge tone={tab === "mine" ? "neutral" : "accent"} size="sm">
-            {tab === AGREE_TAB ? "To agree" : SCOPE_LABEL[scope]}
-          </Badge>
-        }
+        {...(mutations.editable
+          ? {
+              action: (
+                <RowActions
+                  label="New objective, or upload objectives"
+                  triggerText="New objective"
+                  triggerIcon={<Plus aria-hidden="true" className="size-4" />}
+                  items={menu}
+                />
+              ),
+            }
+          : {})}
       />
       <PageBody>
         {tab === AGREE_TAB ? (
@@ -122,8 +129,6 @@ export function KpisScreen({
         ) : (
           <KpisTab
             scope={scope}
-            scopes={scopes}
-            onScopeChange={changeTab}
             strip={strip}
             department={scope === "company" ? department : null}
             departmentHref={departmentHref}

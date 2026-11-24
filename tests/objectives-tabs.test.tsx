@@ -78,16 +78,14 @@ beforeEach(() => {
 
 const tabs = () =>
   screen
-    .getByRole("radiogroup", { name: "Which objectives to show" })
+    .getByRole("radiogroup", { name: "Objectives or objectives to agree" })
     .querySelectorAll("[role=radio]");
 
 describe("the strip", () => {
-  it("is one flat row: My objectives, My team, Whole company, To agree with its count", () => {
+  it("is one flat row: Objectives and To agree with its count", () => {
     render(<KpisScreen />);
     expect([...tabs()].map((tab) => tab.textContent)).toEqual([
-      "My objectives",
-      "My team",
-      "Whole company",
+      "Objectives",
       "To agree (2)",
     ]);
     expect(screen.getByText("The objectives list")).toBeInTheDocument();
