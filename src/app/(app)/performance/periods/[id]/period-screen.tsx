@@ -1369,13 +1369,11 @@ function Register({
     <Card>
       <CardHeader
         title="Where the scores stand"
-        description={
-          register.weightsFrom === "period"
-            ? `${weightsFromNote("period")} Totalling ${weightLabel(register.weightsTotalBp)}. They lock in when the period starts.`
-            : register.weightsFrom === "snapshot"
-              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these scores.`
-              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`
-        }
+        {...(register.weightsFrom === "current"
+          ? {
+              info: `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`,
+            }
+          : {})}
         action={
           <span className="flex flex-wrap gap-2">
             {register.counts.unscored > 0 && (

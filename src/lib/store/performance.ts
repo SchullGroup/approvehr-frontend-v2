@@ -25,7 +25,6 @@ import {
   type ApiFormQuestion,
   type ApiGap,
   type ApiGoal,
-  type ApiHeatmap,
   type ApiKeyResult,
   type ApiMyReviews,
   type ApiPeerFeedback,
@@ -91,7 +90,7 @@ import { useFetched } from "@/lib/use-fetched";
  *
  * | | Connected | Demo |
  * |---|---|---|
- * | Read the cascade, the framework, the heatmap, what was said about me | yes | yes, from the seed |
+ * | Read the cascade, the framework, what was said about me | yes | yes, from the seed |
  * | **Update progress on one key result** | yes | **yes, to this browser** |
  * | Answer and send my own review | yes | yes, to this browser |
  * | **Send an objective for approval, agree it, send it back, refuse it, reopen it** | yes | **yes, to this browser** |
@@ -1253,52 +1252,6 @@ function demoGaps(): ApiGap[] {
     .sort(
       (a, b) => b.gap - a.gap || a.employeeName.localeCompare(b.employeeName),
     );
-}
-
-/** Departments down the side, competencies across the top. Averages in the cells. */
-function demoHeatmap(): ApiHeatmap {
-  const departments = [...new Set(EMPLOYEES.map((e) => e.department))].sort();
-
-  const rows = departments.map((department) => {
-    const people = new Set(
-      EMPLOYEES.filter((e) => e.department === department).map((e) => e.id),
-    );
-    const mine = SEED_RATINGS.filter((r) => people.has(r.employeeId));
-
-    return {
-      departmentId: department,
-      departmentName: department,
-      ratedPeople: new Set(mine.map((r) => r.employeeId)).size,
-      cells: demoCompetencies.map((competency) => {
-        const cell = mine.filter((r) => r.name === competency.name);
-        const average =
-          cell.length === 0
-            ? null
-            : Math.round(
-                (cell.reduce((sum, r) => sum + r.level, 0) / cell.length) * 10,
-              ) / 10;
-        return {
-          competencyId: competency.id,
-          average,
-          rated: cell.length,
-          belowTarget: cell.filter(
-            (r) => r.target !== null && r.level < r.target,
-          ).length,
-        };
-      }),
-    };
-  });
-
-  return {
-    competencies: demoCompetencies.map((c) => ({
-      id: c.id,
-      name: c.name,
-      scaleMax: c.scaleMax,
-      isCore: c.isCore,
-    })),
-    rows: rows.filter((row) => row.ratedPeople > 0),
-    ratedPeople: new Set(SEED_RATINGS.map((r) => r.employeeId)).size,
-  };
 }
 
 const reviewId = (cycleId: string, kind: string) =>
@@ -2981,32 +2934,6 @@ export function useGaps(enabled: boolean): {
 
   return {
     gaps: isConnected ? (fetched.data ?? []) : enabled ? demoGaps() : [],
-    loading: fetched.loading,
-    error: fetched.error,
-    reload: fetched.reload,
-  };
-}
-
-/** The department grid. `EDIT_RECORDS` only — an aggregate over everybody. */
-export function useHeatmap(enabled: boolean): {
-  heatmap: ApiHeatmap | null;
-  loading: boolean;
-  error: ApiError | null;
-  reload: () => void;
-} {
-  const { isConnected } = useSession();
-  const load = useCallback(
-    async (signal: AbortSignal) => performanceApi.heatmap(signal),
-    [],
-  );
-  const fetched = useFetched<ApiHeatmap>(
-    "heatmap",
-    enabled && isConnected,
-    load,
-  );
-
-  return {
-    heatmap: isConnected ? fetched.data : enabled ? demoHeatmap() : null,
     loading: fetched.loading,
     error: fetched.error,
     reload: fetched.reload,

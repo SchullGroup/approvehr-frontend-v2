@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { ShieldAlert } from "lucide-react";
 import {
   AttentionMark,
@@ -123,6 +124,7 @@ export function StatutoryScreen() {
               "fund and the Federal Mortgage Bank needs the “View " +
               "salaries” permission. Ask somebody who holds it."
             }
+            action={<BackHome />}
           />
         </PageBody>
       </>

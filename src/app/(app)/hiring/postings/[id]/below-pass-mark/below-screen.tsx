@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import { Flag, Inbox, Lock, Mail } from "lucide-react";
 import {
@@ -133,6 +134,7 @@ export function BelowScreen({ id }: { id: string }) {
               icon={<Lock aria-hidden="true" />}
               title="You cannot open this list"
               description="It holds applicants' details and is where people are turned down, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

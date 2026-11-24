@@ -314,15 +314,11 @@ describe("the words for each kind", () => {
 
   it("say, for the two that have no level, where they are not shown", () => {
     /* HR is not left wondering where a yes-or-no subsection went in the gap list
-       and the heatmap, which are about levels and are filtered to levels. */
-    expect(kindLine("BOOLEAN", 5)).toContain(
-      "left out of the gap list and the heatmap",
-    );
-    expect(kindLine("CHOICE", 5)).toContain(
-      "left out of the gap list and the heatmap",
-    );
+       which is about levels and is filtered to levels. */
+    expect(kindLine("BOOLEAN", 5)).toContain("left out of the gap list");
+    expect(kindLine("CHOICE", 5)).toContain("left out of the gap list");
     expect(kindLine("RATING", 5)).toContain("1 to 5");
-    expect(kindLine("RATING", 5)).toContain("gap list and the heatmap");
+    expect(kindLine("RATING", 5)).toContain("in the gap list");
     expect(kindLine("RATING", 5)).not.toContain("left out");
   });
 

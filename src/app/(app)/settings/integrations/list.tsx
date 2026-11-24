@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useEffect, useState } from "react";
 import { Check, Plug } from "lucide-react";
 import {
@@ -107,6 +108,7 @@ export function IntegrationsList({
               icon={<Plug aria-hidden="true" />}
               title="You cannot manage integrations"
               description="Requesting or withdrawing an integration is a settings decision. Ask whoever manages settings to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

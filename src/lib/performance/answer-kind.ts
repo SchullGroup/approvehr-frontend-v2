@@ -98,9 +98,8 @@ export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
 /**
  * What picking a kind means, in one sentence each.
  *
- * Yes or no and a pick say they have no target and are left out of the gap list
- * and the heatmap, because both are about levels and the API filters them to
- * `RATING`. Said here so HR is not left wondering where a yes-or-no subsection
+ * Yes or no and a pick say they have no target and are left out of the gap list,
+ * because it is about levels and the API filters it to `RATING`. Said here so HR is not left wondering where a yes-or-no subsection
  * went, which is the question that sentence exists to answer. A written answer says
  * the larger thing instead, that it never counts towards the mark, and nobody
  * expects a target or a gap from words.
@@ -108,11 +107,11 @@ export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
 export function kindLine(kind: AnswerKind, scaleMax: number): string {
   switch (kind) {
     case "RATING":
-      return `A level from 1 to ${String(scaleMax)}, with a target if one is set. It shows in the gap list and the heatmap.`;
+      return `A level from 1 to ${String(scaleMax)}, with a target if one is set. It shows in the gap list.`;
     case "BOOLEAN":
-      return "A yes or a no. Yes scores 100% and no scores 0%, with nothing to set. It has no target, so it is left out of the gap list and the heatmap.";
+      return "A yes or a no. Yes scores 100% and no scores 0%, with nothing to set. It has no target, so it is left out of the gap list.";
     case "CHOICE":
-      return "One pick from the list below, and each pick scores what you set for it. It has no target, so it is left out of the gap list and the heatmap.";
+      return "One pick from the list below, and each pick scores what you set for it. It has no target, so it is left out of the gap list.";
     case "TEXT":
       return WRITTEN_NEVER_COUNTS;
   }

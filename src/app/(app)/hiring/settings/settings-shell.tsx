@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { Lock } from "lucide-react";
 import { Card, EmptyState, LinkTabs, Skeleton } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -80,6 +81,7 @@ export function HiringSettingsShell({
               icon={<Lock aria-hidden="true" />}
               title="You cannot change these"
               description="They shape every role's pipeline and what applicants are told, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

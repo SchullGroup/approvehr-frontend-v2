@@ -1002,10 +1002,9 @@ export function PayrollRunWizard() {
           {stepper.index === 0 && (
             <div className="flex flex-col gap-5">
               {!canPrepare && (
-                <Callout tone="warning" title="You cannot run payroll yet">
-                  Preparing payroll needs the &ldquo;Run payroll&rdquo;
-                  permission. Somebody who has it can prepare this period, and
-                  you will still be able to review and approve it.
+                <Callout tone="neutral" title="Waiting for the payroll team">
+                  Somebody who runs payroll prepares this period. You can review
+                  and approve it once they have.
                 </Callout>
               )}
 
@@ -1151,6 +1150,7 @@ export function PayrollRunWizard() {
                   {exceptions.length > 0 && (
                     <ExceptionList
                       exceptions={exceptions}
+                      total={run?.payslips.length}
                       actionFor={actionFor}
                       replaceFixFor={bankInPlace ? BANK_IN_PLACE : undefined}
                     />
