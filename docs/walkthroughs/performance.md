@@ -233,33 +233,33 @@ Nothing is deleted by switching it off, and nothing is lost by switching it back
 Every form shows words, not bare numbers. The built-in five are there from the start; give them your
 company's own words if you have them.
 
-|                |                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **What each rating is called**                              |
-| **Who**        | HR / Owner                                                                            |
-| **Click**      | Edit **What level 3 is called** and **What it means** for each of the five, then save |
-| **You'll see** | The badge above the form flips from _The built-in five_ to _Your company's words_     |
+|                |                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Rating names** → **Rating names**                           |
+| **Who**        | HR / Owner                                                                              |
+| **Click**      | Edit **Level 3 name** and **Level 3 meaning** for each of the five, then **Save names** |
+| **You'll see** | The badge on the card flips from _Built-in names_ to _Your own names_                   |
 
 > ⚠️ **Careful.** Two levels cannot share a word — the product refuses it, because a reader could not
-> tell them apart. And a period that has already started keeps the words it started with.
+> tell them apart. And a period that has already started keeps the words it started with (the card's info
+> icon says so). **Reset to built-in names** puts the five back.
 
 The first card on that same tab decides whether a form asks for one of those words at all, as an
 **overall rating** after the last question. It is **off** for a new company: a form is its answers.
 
-|                |                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **Rating names** → **Overall rating on appraisals**                           |
-| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                      |
-| **Click**      | **Ask for an overall rating at the end of an appraisal**                                                |
-| **You'll see** | A toast saying it applies to the next form anybody opens, and that scores already given are not touched |
+|                |                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Rating names** → **Overall rating**                    |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it) |
+| **Click**      | **Ask for an overall rating at the end of each appraisal**                         |
+| **You'll see** | A toast, _Overall rating switched on_, and _Applies to forms opened from now on._  |
 
 > 💡 **What it does and does not do.** The switch decides what a form offers, and the page is optional.
 > It does not decide whether a manager's overall rating counts towards the score: that happens only in a
 > period that weights **Manager appraisal** (step 3), and then a manager's form asks for the score whatever
-> this switch says, and needs it. The card says so in its header, under the switch and in the toast after
-> you press it, in the company's own name for the part. Until the weights have loaded, or if they cannot be
-> read, it says nothing about whether a form asks for a score or whether the score counts, because it does not
-> know. Self-assessment (step 3) reads from the overall rating somebody gave themselves when there is one,
+> this switch says, and needs it. The line under the switch and the toast after you press it say so, in the
+> company's own name for the part. Until the weights have loaded, or if they cannot be read, the card says
+> nothing about managers, because it does not know. Self-assessment (step 3) reads from the overall rating somebody gave themselves when there is one,
 > and from how they answered when there is not, so this switch does not decide whether that part has
 > anything to count. Switching this off never hides or changes a score already given, and a form that is
 > already open keeps the pages it opened with.
@@ -275,8 +275,8 @@ weight is its share of the score, and nothing else is saved. A company that sign
 and **an appraisal period cannot start until at least one part has a weight**.
 
 Saved parts are plain rows, not open boxes: the name, **Scored from** and the source's own name, the
-weight with the share of a mark it comes to (**Counts for nothing** at 0%), and the description. Nothing is
-a text box until you choose to add or edit.
+weight (with the share of the score it comes to, where that differs), and the description. Nothing is a text
+box until you choose to add or edit. The card's info icon says how the score is put together.
 
 The self-assessment source is the overall rating somebody gave themselves when there is one (step 2), and
 otherwise **how they answered, about themselves, the rated subsections their manager answers too**: the
@@ -284,17 +284,17 @@ mean of those answers on a self-review they have sent. An answer to a subsection
 is not counted again here, because it is already their rating. Self-assessment counts only when a part is
 scored from it; the card under the list says what it does to a score and says **Not counted** until then.
 
-|                |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **Parts of the score**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Who**        | HR / Owner (everybody else can read the parts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Click**      | **Add part** (or **Add the first part** on an empty list): a **Name**, **Scored from** and an optional **Description**, then **Add part** again. The part is added at 0% and **Change the weights** opens next. **Change the weights** has a box for every part's weight; **Save the weights** saves them all at once. The pencil on a row edits its name, source and description, and the bin deletes a part at 0% after asking                                                                                                                                                                                                                                                                                                                                                                                |
-| **You'll see** | **X added at 0%** and **Give it a weight, so the weights still add up to 100%.** In **Change the weights**, **Save the weights** stays dead until the weights add up to exactly 100%, and the dialog says by how much they are off (**These add up to 110%. Take off 10%.**). The bin on a part that still counts opens **Give X's weight to the other parts first** instead of deleting it, and its button opens **Change the weights** with that part at 0. **Add part** is dead, with **Every source already has a part. Edit or delete one first.** on it, when every source has a part. A set saved before this rule (110%, say) is listed with **These add up to 110%. They have to add up to 100%: change the weights to take off 10%. Until they do, each part counts for its share of 110%.** above it |
+|                |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Where**      | `/settings/performance` → **Parts of the score**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Who**        | HR / Owner (everybody else can read the parts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Click**      | **Add part** (or **Add a part** on an empty list): a **Name**, **Scored from** and an optional **Description**, then **Add part** again. The part is added at 0% and **Edit weights** opens next. **Edit weights** has a box for every part's weight; **Save weights** saves them all at once. The pencil on a row edits its name, source and description, and the bin deletes a part at 0% after asking                                                                                                                                                                                                                                                                                                                             |
+| **You'll see** | **X added at 0%** and **Set its weight next.** In **Edit weights**, **Save weights** stays dead until the weights add up to exactly 100%, and the dialog says by how much they are off (**These add up to 110%. Take off 10%.**). The bin on a part that still counts opens **Move X's weight first** instead of deleting it, and its button opens **Edit weights** with that part at 0. **Add part** is dead, with **Every source is in use. Edit or delete a part first.** on it, when every source has a part. A set saved before this rule (110%, say) is listed with **These add up to 110%. They have to add up to 100%: change the weights to take off 10%. Until they do, each part counts for its share of 110%.** above it |
 
 > 💡 **A change here does not move a period that has started.** When a period starts, its parts and
 > weights are copied onto it, so changing or deleting a part afterwards cannot move a score that has already
-> been awarded. Deleting asks first (**Delete the part**) and says it stops counting from the next period
-> you start. These are the company's starting parts; a single period can change its own weights (step 4).
+> been awarded; one line under the cards says so, with a link to **Performance**. Deleting asks first
+> (**Delete part**) and says it goes from the next period you start. These are the company's starting parts; a single period can change its own weights (step 4).
 
 > 💡 **What Weekly tasks counts.** When it carries a weight, the part is how the manager graded the tasks
 > people logged against the period's objectives (step 18): **Completed** counts in full, **Partly
@@ -309,16 +309,16 @@ scored from it; the card under the list says what it does to a score and says **
 > alone. A score with it weighted at 0% does not
 > list it at all. In a period that weights it, a manager's form asks for an overall rating whatever the switch in
 > step 2 says, and cannot be sent without one (step 17). Somebody whose appraisers have sent none is not marked
-> down: the part's share is spread over the other parts. The sentence under the part scored from it is the
-> API's own and says what the weight does to a score, including that a manager's judgement then reaches the
+> down: the part's share is spread over the other parts. The info icon on the part scored from it says
+> what the weight does to a score, including that a manager's judgement then reaches the
 > score by two routes: the levels they record under Competency ratings, and this overall rating. It says so as
 > a note, never as a refusal. A company with no part scored from Manager appraisal has no such sentence, and
 > a manager's form then does not need an overall rating.
 
 > 💡 **Worth showing a stakeholder.** The self-assessment card underneath does the arithmetic out loud:
-> at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final score
-> by 10%. That figure moves as you drag the weight, before you save, and it reads the same whether or
-> not forms ask for an overall rating. The API's own sentence above it says what the part is read from.
+> at 20%, _Rating themselves 5 instead of 3 moves a person's own score by 10%._ It follows the saved
+> weights and reads the same whether or not forms ask for an overall rating. Its info icon holds the API's
+> own sentence about what the part is read from.
 
 The third tab on that page, **Records**, is not about scoring and moves no score. It says how long **the
 finished work behind a final rating** is kept. The review shows what a person finished in the cycle
@@ -326,19 +326,19 @@ beside the rating, and that list is read as it stands, so a task reopened or del
 an old review shows. For a company that sets a period here, the list as it stood on the day a rating was
 made final is kept with it, and removed when the period ends.
 
-|                |                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| **Where**      | `/settings/performance` → **Records** → **Work kept with a final rating**                        |
-| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)               |
-| **Click**      | Type a whole number of **Months**, 1 to 120, then **Set this period**, then **Start keeping it** |
-| **You'll see** | A toast saying it applies to ratings made final from now on, and the card now saying how long    |
+|                |                                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Work kept with a final rating**                                                   |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                                          |
+| **Click**      | Type a whole number in **Months to keep**, 1 to 120; the button then names it (**Keep for 12 months**). Then **Keep it**    |
+| **You'll see** | A toast, _Work is kept with final ratings for 12 months_, and the card saying _Kept for 12 months after a rating is final._ |
 
-> ⚠️ **Nothing is kept until a company sets a period, and no figure is suggested.** The box starts empty,
-> and the card says how long is right is a decision for the company and its legal advice. It is the same
-> rule as how long rejected candidates are kept. **Stop keeping records** clears it, with one press and no
-> question, and a record already kept stays until its own date.
+> ⚠️ **Nothing is kept until a company sets a period, and no figure is suggested.** The box starts empty and
+> the card says _Not kept._ Its info icon says to check with your legal adviser how long. It is the same rule
+> as how long rejected candidates are kept. **Stop keeping work** clears it, with one press and no question,
+> and a record already kept stays until its own date.
 
-> 💡 **What is kept, and what is not.** Which tasks the person finished in the cycle, when each was finished
+> 💡 **What is kept, and what is not** (behind the card's info icon). Which tasks the person finished in the cycle, when each was finished
 > and whether it met its due date, who set it when somebody else did, and whether it sat under an objective.
 > **Never task titles**, descriptions, comments, files, time spent or points: a title can hold health or
 > trade-union details. Nothing is kept while Projects is switched off, and a rating made final before a period
@@ -351,58 +351,56 @@ Under it, the same tab holds **Work in review answers**: whether people may use 
 work in what they write about it. **It is off for every company**, it moves no score, and it only does
 anything while Projects is switched on.
 
-|                |                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **Records** → **Work in review answers**                                               |
-| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                               |
-| **Click**      | The switch **Let people use their own project work in their review answers**, then **Switch it on**              |
-| **You'll see** | A toast, _People can now use their own work in their review answers_, and the card describing what people can do |
+|                |                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| **Where**      | `/settings/performance` → **Records** → **Work in review answers**                               |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)               |
+| **Click**      | The switch **Let people add their finished work to their review answers**, then **Switch it on** |
+| **You'll see** | A toast, _Work in review answers switched on_                                                    |
 
-> ⚠️ **Turning it on asks first, and says what it does.** The question, _Let people use their own work in
-> their review answers?_, lists it. A person writing their self-review can attach finished tasks from their own
+> ⚠️ **Turning it on asks first, and says what it does.** The question, _Let people add their work to review
+> answers?_, lists it. A person writing their self-review can attach finished tasks from their own
 > list to an answer, each with a note of their own, and **the task's title is not saved with it**. The people
 > who read the review see them beside the answer, and the full list of finished work stays one press away for
 > them. A person can flag an item on their list as wrong, which does not remove it or change a score. When
 > feedback is asked for, or an appraiser is chosen, the colleagues who shared a project with the person are
 > listed first, and nobody is chosen for anybody. It only works while Projects is switched on. It ends with a
-> plain reminder: _Before you switch it on, tell your staff, and check with whoever looks after data protection
-> at your company whether an assessment should be filed first. This page does not do that for you._ **Turning
-> it off is one press, with no question,** and keeps everything already written (the toast says so: _People can
-> no longer add work to their review answers_). A pin already added is still read and can still be taken off, and
+> plain reminder: _Before you switch it on, tell your staff and check with whoever handles data protection
+> whether an assessment is needed._ **Turning it off is one press, with no question,** and keeps everything
+> already written (the toast says so: _Work already added stays._). A pin already added is still read and can still be taken off, and
 > a flag already raised stays on the list and in the count and can still be taken back; only a new pin or a new
 > or changed flag stops.
 
-> 💡 **What it never does.** Change a score, a band or a rank; save a task title with an attached task;
+> 💡 **What it never does** (behind the card's info icon). Change a score, a band or a rank; save a task title with an attached task;
 > remove anything from the finished-work list; choose anybody for anybody; or offer anything while Projects is
 > switched off. What a person attaches is read by the people who can read the review, and a flag by the people
 > who can read that person's work: the person, their manager, an assigned appraiser and HR. Where Projects is
-> off the card says so, with a link to **Features**, and the switch is still there. On a server that has not
+> off the card says _Needs Projects. Turn it on in **Features**._, and the switch is still there. On a server that has not
 > been updated the card says so and offers no switch.
 
-Under that, the third card on the tab, **Work behind a milestone, and weekly lines**, is the switch for two
+Under that, the third card on the tab, **Task suggestions**, is the switch for two
 small helpers. **It is off for every company**, it moves no score, and it only does anything while Projects is
 switched on.
 
-|                |                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Where**      | `/settings/performance` → **Records** → **Work behind a milestone, and weekly lines**                            |
-| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                               |
-| **Click**      | The switch **Offer the linked tasks beside Confirm, and finished tasks for weekly lines**, then **Switch it on** |
-| **You'll see** | A toast, _The two assists are now offered_, and the card describing what they offer                              |
+|                |                                                                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Records** → **Task suggestions**                                                         |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                                   |
+| **Click**      | The switch **Show linked tasks next to Confirm, and suggest finished tasks for weekly lines**, then **Switch it on** |
+| **You'll see** | A toast, _Task suggestions switched on_                                                                              |
 
-> ⚠️ **Turning it on asks first, and says what it does.** The question, _Offer the linked tasks and the
-> weekly-line suggestions?_, lists it: beside **Confirm** on a done-or-not target, the tasks linked to that
+> ⚠️ **Turning it on asks first, and says what it does.** The question, _Switch on task suggestions?_, lists it: beside **Confirm** on a done-or-not target, the tasks linked to that
 > target are listed with where each stands (step 11), and a person writing a weekly line can add the tasks
 > they finished that week as text, then edit it (step 18). Nothing is filed, submitted, graded or scored; the
 > list never says a target is done and never recommends confirming it; a task's title is shown only to the
 > person whose task it is, in the weekly line, and is not saved by this. It only works while Projects is
 > switched on. **Turning it off is one press, with no question,** and deletes nothing (the toast says so:
-> _Nothing is deleted. Tasks closed as won't do and accepted tasks stay as recorded._).
+> _Nothing is deleted._).
 
 > 💡 **Won't do and acceptance are not behind this switch.** Closing a finished task as **won't do**, and a
 > leader **accepting** one, are recordings available to whoever the server says may make them, whatever this
-> says, and they change nothing until a person makes one. Neither feeds a score. Where Projects is off the card
-> says so, with a link to **Features**, and the switch is still there. On a server that has not been updated the
+> says, and they change nothing until a person makes one. Neither feeds a score. The card's info icon says so.
+> Where Projects is off the card says _Needs Projects. Turn it on in **Features**._, and the switch is still there. On a server that has not been updated the
 > card says so and offers no switch.
 
 ### Phase B — once per period: build it, and leave it as a draft
@@ -1082,7 +1080,7 @@ longer files a weekly task**: finished project work is evidence to read (see **W
 nothing waits for a grade because of it.
 
 **Starting a weekly line from finished work.** On an agreed objective's own card, **Log a task** opens a box for
-the line. Where the company has switched on **Work behind a milestone, and weekly lines** (step 3), under the
+the line. Where the company has switched on **Task suggestions** (step 3), under the
 box there is **Add from my finished work** with a count, closed until it is opened: the tasks the person
 finished that week (Monday to Sunday) under that objective, each as the text _KEY title_ with the day it was
 finished. **Add** puts that text in the box (on a new line if something is already there, never replacing it),
@@ -1657,22 +1655,22 @@ Not a role at all — anybody can be asked, once, about one person.
 Every one of these is deliberate. If you are demonstrating the product, several are worth pointing at
 on purpose — they are the arguments the module is built on.
 
-| What you will notice                                              | Why it is like that                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Nothing sends email.**                                          | People are told inside the app only — starting a period, being nudged, being told a rating is final. Every message that mentions it says so rather than leaving you to find out.                                                                                                                                                                                                                                                                                                                                                                   |
-| **An empty figure is blank, never 0%.**                           | Nobody scored yet reads _No score_. A competency nobody rated reads _Nothing recorded_. A zero would be a claim that somebody performed at nothing, which is a completely different fact from nobody having looked.                                                                                                                                                                                                                                                                                                                                |
-| **Leadership is missing for most people.**                        | It is only rated for people who lead others: somebody reports to them, they lead a team, or they head a department. For everybody else it is left out of the score and the rest is reweighted, rather than being scored low. If a figure exists for somebody who leads nobody, the page says it was rated and why it is left out, and what makes it count: record who they lead.                                                                                                                                                                   |
-| **A part can count for more than you set.**                       | When other parts have nothing to count, the rest share their weight, and the review page names the parts that were left out in one sentence above the list. A score where Core and Behavioural each show 50% against _Set at 40% by the company_, under _Delivery against objectives, Leadership and Self-assessment were left out_, is working as intended.                                                                                                                                                                                       |
-| **You cannot agree your own objective.**                          | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off.                                                                                                                                                                                                                                                                                                                                                                               |
-| **An agreed objective cannot be edited.**                         | Not the title, not the period, not any target, and no new target — because adding one changes what delivering it means. **Reopen the objective** is the only way through and it records who, when and why.                                                                                                                                                                                                                                                                                                                                         |
-| **A refusal is final.**                                           | A refused objective cannot be resubmitted. The answer to a refused objective is a _different_ objective, so the refusal stays on the record instead of being written over.                                                                                                                                                                                                                                                                                                                                                                         |
-| **Changing the weights does not move a running period.**          | A period keeps the weights and the scale words it started with. Otherwise a score somebody was told in March would quietly become a different score in June. Weights set on a draft period's own page lock in at the same moment.                                                                                                                                                                                                                                                                                                                  |
-| **"Make it final" only appears at calibration.**                  | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear.                                                                                                                                                                                                                                                                                                                                                                                             |
-| **A target nobody has read is not a target at 0%.**               | A number added with no current value reads _Not read yet_ and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows _No reading yet_ instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading.                                                                                                                                                               |
-| **Only a manager says a milestone is done.**                      | A _Done or not done_ target has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as _not done_, because a milestone nobody confirmed by the end of the period was not met.                                                                                                                                                                                                                                                                                                          |
-| **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21).                                                                                                                                                                                                                              |
-| **There is no overall rating unless the company turns it on.**    | A form is its answers and the score comes from them. The switch is **Overall rating on appraisals** under Rating names, off by default, read when a form opens, and it never changes a score already given. A manager's overall rating sits beside the score and is not counted in it, unless a period weights Manager appraisal: then managers are asked for one whatever the switch says. Self-assessment reads from the score somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
-| **The Owner and the HR manager get no form.**                     | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8).                                                                                                                                                                                      |
+| What you will notice                                              | Why it is like that                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Nothing sends email.**                                          | People are told inside the app only — starting a period, being nudged, being told a rating is final. Every message that mentions it says so rather than leaving you to find out.                                                                                                                                                                                                                                                                                                                                                     |
+| **An empty figure is blank, never 0%.**                           | Nobody scored yet reads _No score_. A competency nobody rated reads _Nothing recorded_. A zero would be a claim that somebody performed at nothing, which is a completely different fact from nobody having looked.                                                                                                                                                                                                                                                                                                                  |
+| **Leadership is missing for most people.**                        | It is only rated for people who lead others: somebody reports to them, they lead a team, or they head a department. For everybody else it is left out of the score and the rest is reweighted, rather than being scored low. If a figure exists for somebody who leads nobody, the page says it was rated and why it is left out, and what makes it count: record who they lead.                                                                                                                                                     |
+| **A part can count for more than you set.**                       | When other parts have nothing to count, the rest share their weight, and the review page names the parts that were left out in one sentence above the list. A score where Core and Behavioural each show 50% against _Set at 40% by the company_, under _Delivery against objectives, Leadership and Self-assessment were left out_, is working as intended.                                                                                                                                                                         |
+| **You cannot agree your own objective.**                          | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off.                                                                                                                                                                                                                                                                                                                                                                 |
+| **An agreed objective cannot be edited.**                         | Not the title, not the period, not any target, and no new target — because adding one changes what delivering it means. **Reopen the objective** is the only way through and it records who, when and why.                                                                                                                                                                                                                                                                                                                           |
+| **A refusal is final.**                                           | A refused objective cannot be resubmitted. The answer to a refused objective is a _different_ objective, so the refusal stays on the record instead of being written over.                                                                                                                                                                                                                                                                                                                                                           |
+| **Changing the weights does not move a running period.**          | A period keeps the weights and the scale words it started with. Otherwise a score somebody was told in March would quietly become a different score in June. Weights set on a draft period's own page lock in at the same moment.                                                                                                                                                                                                                                                                                                    |
+| **"Make it final" only appears at calibration.**                  | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear.                                                                                                                                                                                                                                                                                                                                                                               |
+| **A target nobody has read is not a target at 0%.**               | A number added with no current value reads _Not read yet_ and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows _No reading yet_ instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading.                                                                                                                                                 |
+| **Only a manager says a milestone is done.**                      | A _Done or not done_ target has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as _not done_, because a milestone nobody confirmed by the end of the period was not met.                                                                                                                                                                                                                                                                                            |
+| **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21).                                                                                                                                                                                                                |
+| **There is no overall rating unless the company turns it on.**    | A form is its answers and the score comes from them. The switch is **Overall rating** under Rating names, off by default, read when a form opens, and it never changes a score already given. A manager's overall rating sits beside the score and is not counted in it, unless a period weights Manager appraisal: then managers are asked for one whatever the switch says. Self-assessment reads from the score somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
+| **The Owner and the HR manager get no form.**                     | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8).                                                                                                                                                                        |
 
 ---
 

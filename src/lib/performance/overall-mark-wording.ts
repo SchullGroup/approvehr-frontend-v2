@@ -5,8 +5,10 @@
  * weights the Manager appraisal part asks for a mark and needs one **whatever the
  * switch says**, so a card that says "forms do not ask for an overall mark" while
  * the switch is off is making two claims at once, on any server that has the part.
- * Every sentence the card writes about the switch, the header, the line under it
- * and the toast after pressing it, is here, so they cannot disagree.
+ * Every sentence the card writes about the switch, the line under it and the
+ * toast after pressing it, is here, so they cannot disagree. (The card had a
+ * line under its title too; the owner asked on 24 Nov 2026 for these pages to
+ * say less, and the switch already shows whether it is on.)
  *
  * ## Three states, because "no row" is two different facts
  *
@@ -28,47 +30,26 @@
 export type ManagerAppraisalPart =
   { state: "has"; label: string } | { state: "none" } | { state: "unknown" };
 
-/** The line under the card's title, from what the company has set. */
-export function overallMarkHeader(
-  on: boolean | null,
-  part: ManagerAppraisalPart,
-): string {
-  if (on === true)
-    return "Each form ends with a page asking for one overall rating.";
-  if (on === false && part.state === "has") {
-    return `Forms do not ask for an overall rating, except a manager's form in a period that weights ${part.label}. Otherwise the answers stand on their own.`;
-  }
-  if (on === false && part.state === "none") {
-    return "Forms do not ask for an overall rating. The answers stand on their own.";
-  }
-  /* Not said by the server, or off with nothing known about the part: whether a
-     form asks is not something this side can claim. */
-  return "Whether each form ends with a page asking for one overall rating.";
-}
-
-/** The line under the switch itself. */
+/**
+ * The one line under the switch. It names the exception where the server has
+ * the part, and says nothing about it otherwise.
+ */
 export function overallMarkSwitchNote(part: ManagerAppraisalPart): string {
-  const base = "The person picks one of the names below after the questions.";
+  const base = "People pick one of the rating names below.";
   if (part.state === "has") {
-    return `${base} It is optional, except for managers in a period that weights ${part.label}: they have to give one.`;
-  }
-  if (part.state === "none") {
-    return `${base} It is optional. A manager's overall rating is shown beside the score and is not counted in it.`;
+    return `${base} Managers must give one in a period that weights ${part.label}.`;
   }
   return base;
 }
 
-/** The toast's title after the switch has been pressed and saved. */
+/** The toast after the switch moves. */
 export function overallMarkSavedTitle(
   next: boolean,
   part: ManagerAppraisalPart,
 ): string {
-  if (next) return "Appraisal forms will end with an overall rating";
+  if (next) return "Overall rating switched on";
   if (part.state === "has") {
-    return `Appraisal forms will not ask for an overall rating, except a manager's form in a period that weights ${part.label}`;
-  }
-  if (part.state === "none") {
-    return "Appraisal forms will not ask for an overall rating";
+    return `Overall rating switched off, except for managers in periods that weight ${part.label}`;
   }
   return "Overall rating switched off";
 }

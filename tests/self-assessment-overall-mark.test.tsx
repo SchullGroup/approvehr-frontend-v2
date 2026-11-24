@@ -129,9 +129,8 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
       overallMark = value;
       mount();
       expect(
-        screen.getByText(/moves their own final score by 10%/),
+        screen.getByText(/moves a person's own score by 10%/),
       ).toBeInTheDocument();
-      expect(screen.getByText("What we do instead")).toBeInTheDocument();
     },
   );
 
@@ -150,19 +149,26 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
     overallMark = false;
     mount();
     expect(
-      screen.getByText(/Add a part scored from self-assessment/),
+      screen.getByText(/To count it, add a part scored from self-assessment/),
     ).toBeInTheDocument();
   });
 
-  it("keeps the API's own sentence about what is saved, so it is said once and by the API", () => {
+  it("keeps the API's own sentence about what is saved, once, behind the info icon", async () => {
     mount();
-    expect(screen.getAllByText("THE API'S NOTE")).toHaveLength(1);
+    expect(screen.queryByText(/THE API'S NOTE/)).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "About Self-assessment" }),
+    );
+    expect(screen.getAllByText(/THE API'S NOTE/)).toHaveLength(1);
   });
 
-  it("says the person's own answers are shown beside the manager's, not a self-rating", () => {
+  it("says the person's own answers are shown beside the manager's, not a self-rating", async () => {
     mount();
+    await userEvent.click(
+      screen.getByRole("button", { name: "About Self-assessment" }),
+    );
     expect(
-      screen.getByText(/Their own answers are shown beside the manager's/),
+      screen.getByText(/a person's own answers are shown beside the manager's/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/The self-rating is shown/)).toBeNull();
   });
@@ -171,7 +177,7 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
 describe("the Rating names tab", () => {
   it("opens with the switch, ahead of the names it decides whether to offer", () => {
     mount("marks");
-    const card = screen.getByText("Overall rating on appraisals");
+    const card = screen.getByRole("heading", { name: "Overall rating" });
     const scale = screen.getByText("THE SCALE FORM");
     expect(
       card.compareDocumentPosition(scale) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -183,7 +189,7 @@ describe("the Rating names tab", () => {
     mount("marks");
     await userEvent.click(screen.getByRole("switch"));
     expect(setOverallMark).toHaveBeenCalledWith(true);
-    await screen.findByText("Appraisal forms will end with an overall rating");
+    await screen.findByText("Overall rating switched on");
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });

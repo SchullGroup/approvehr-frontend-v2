@@ -2,7 +2,7 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import { Info, Lock, Pencil, Plus, Scale, Trash2 } from "lucide-react";
+import { Pencil, Plus, Scale, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -11,7 +11,6 @@ import {
   CardBody,
   CardHeader,
   ConfirmDialog,
-  DescriptionList,
   EmptyState,
   Field,
   IconButton,
@@ -43,7 +42,6 @@ import {
 } from "@/lib/api/performance";
 import { useHeld } from "@/lib/use-held";
 import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
-import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 import { WeightsPie } from "@/components/performance/weights-pie";
 import { useCan } from "@/lib/permissions";
 import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
@@ -52,6 +50,8 @@ import { WorkAssistsCard } from "./work-assists-card";
 import { WorkInAnswersCard } from "./work-in-answers-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
 import { WorkRecordCard } from "./work-record-card";
+import { NEXT_PERIOD, READ_ONLY_MANY } from "./setting-copy";
+import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 
 const TAB_ITEMS: TabItem[] = [
   { id: "weights", label: "Parts of the score" },
@@ -287,7 +287,7 @@ function PartsPanel({
         toast.push({
           tone: "success",
           title: `${body.name} added at 0%`,
-          detail: "Give it a weight, so the weights still add up to 100%.",
+          detail: "Set its weight next.",
         });
         setDraft(null);
         setWeighing({});
@@ -298,7 +298,7 @@ function PartsPanel({
         toast.push({
           tone: "success",
           title: `${body.name} saved`,
-          detail: "It applies to the next appraisal period you start.",
+          detail: NEXT_PERIOD,
         });
       }
       setDraft(null);
@@ -328,8 +328,8 @@ function PartsPanel({
         title: "Weights saved",
         detail:
           kept.length === 0
-            ? "They apply to the next appraisal period you start."
-            : `They apply to the next appraisal period you start. ${kept.join(", ")} ${kept.length === 1 ? "keeps the weights it" : "keep the weights they"} started with.`,
+            ? NEXT_PERIOD
+            : `${NEXT_PERIOD} ${kept.join(", ")} ${kept.length === 1 ? "keeps its" : "keep their"} old weights.`,
       });
       setWeighing(null);
     } catch (caught) {
@@ -362,7 +362,7 @@ function PartsPanel({
       toast.push({
         tone: "success",
         title: `${deleting.name} deleted`,
-        detail: "It no longer counts towards a score.",
+        detail: "It no longer counts towards the score.",
       });
       setDeleting(null);
     } catch (caught) {
@@ -390,17 +390,12 @@ function PartsPanel({
   return (
     <>
       {!editable && (
-        <Callout tone="warning" title="Changing these needs the API">
+        <Callout tone="warning" title="You can't change these here">
           <p>{refusal}</p>
         </Callout>
       )}
       {editable && !canManage && (
-        <Callout tone="info" title="Changing these needs settings permission">
-          <p>
-            How much each part counts decides pay, so it sits behind the same
-            permission as the rest of company configuration. You can read them.
-          </p>
-        </Callout>
+        <p className="text-body-sm text-muted">{READ_ONLY_MANY}</p>
       )}
 
       <LoadState
@@ -424,7 +419,7 @@ function PartsPanel({
                       ) && <SavedWeightsNote moved={false} />}
                   </span>
                 }
-                description={`The score is the weighted average of these parts. ${WEIGHTS_RULE}`}
+                description={WEIGHTS_RULE}
                 action={
                   <span className="flex flex-wrap items-center gap-3">
                     <Total totalBp={view.totalBp} />
@@ -435,7 +430,7 @@ function PartsPanel({
                         onClick={() => setWeighing({})}
                       >
                         <Scale aria-hidden="true" className="size-4" />
-                        Change the weights
+                        Edit weights
                       </Button>
                     )}
                     {manage && (
@@ -445,7 +440,7 @@ function PartsPanel({
                         disabled={free.length === 0}
                         title={
                           free.length === 0
-                            ? "Every source already has a part. Edit or delete one first."
+                            ? "Every source is in use. Edit or delete a part first."
                             : undefined
                         }
                         onClick={newPart}
@@ -486,13 +481,13 @@ function PartsPanel({
                     <EmptyState
                       plain
                       title="No parts yet"
-                      description="Add the parts your appraisals are scored on: a name, what it is scored from and a description. Then give them weights that add up to 100%. An appraisal period cannot start until they do."
+                      description="Add the parts a score is made of, then give them weights that add up to 100%."
                       {...(manage
                         ? {
                             action: (
                               <Button variant="accent" onClick={newPart}>
                                 <Plus aria-hidden="true" className="size-4" />
-                                Add the first part
+                                Add a part
                               </Button>
                             ),
                           }
@@ -528,17 +523,12 @@ function PartsPanel({
                             {/* The share only where it differs from the
                                 weight: "45%" over "45% of a mark" said one
                                 thing twice (L14 / PERF-39). */}
-                            {part.weightBp === 0 ? (
-                              <p className="tabular text-meta text-muted">
-                                Counts for nothing
-                              </p>
-                            ) : (
+                            {part.weightBp > 0 &&
                               part.shareBp !== part.weightBp && (
                                 <p className="tabular text-meta text-muted">
                                   {`${weightLabel(part.shareBp)} of the score`}
                                 </p>
-                              )
-                            )}
+                              )}
                           </div>
                           {manage && (
                             <span className="flex gap-1">
@@ -574,30 +564,10 @@ function PartsPanel({
               swingBp={Math.round(selfShareBp / 2)}
             />
 
-            <Card>
-              <CardHeader
-                title="A change here does not move a period that has started"
-                description="A period keeps the weights it started with."
-              />
-              <CardBody className="flex flex-col gap-3 text-body-sm text-body">
-                <p>
-                  When a period starts, its parts and weights are copied onto
-                  it. Changing or deleting a part afterwards cannot move a score
-                  that has already been awarded.
-                </p>
-                <p className="flex items-start gap-2 text-body-sm text-body">
-                  <Lock
-                    aria-hidden="true"
-                    className="mt-0.5 size-4 shrink-0 text-faint"
-                  />
-                  <span className="min-w-0">
-                    A period screen says whether its weights are frozen, and{" "}
-                    <TextLink href="/performance">the appraisals tab</TextLink>{" "}
-                    is where appraisal periods are started.
-                  </span>
-                </p>
-              </CardBody>
-            </Card>
+            <p className="text-body-sm text-muted">
+              A period keeps the parts and weights it started with. Periods are
+              started in <TextLink href="/performance">Performance</TextLink>.
+            </p>
           </>
         )}
       </LoadState>
@@ -628,13 +598,12 @@ function PartsPanel({
         <ConfirmDialog
           open
           onClose={() => setDeleting(null)}
-          title={`Give ${deleting.name}'s weight to the other parts first`}
-          confirmLabel="Change the weights"
+          title={`Move ${deleting.name}'s weight first`}
+          confirmLabel="Edit weights"
           body={
             <p>
-              {deleting.name} counts for {weightLabel(deleting.weightBp)}.
-              Without it the weights would add up to less than 100%. Set it to
-              0% and share its weight among the other parts, then delete it.
+              {deleting.name} counts for {weightLabel(deleting.weightBp)}. Set
+              it to 0% and give its weight to the other parts, then delete it.
             </p>
           }
           onConfirm={() => void onDelete()}
@@ -646,12 +615,11 @@ function PartsPanel({
           loading={removing}
           tone="danger"
           title={`Delete ${deleting?.name ?? "this part"}?`}
-          confirmLabel="Delete the part"
+          confirmLabel="Delete part"
           body={
             <p>
-              It counts for nothing now, and it is no longer listed from the
-              next appraisal period you start. Periods already running keep the
-              parts they started with.
+              It goes from the next period you start. Periods already running
+              keep it.
             </p>
           }
           onConfirm={() => void onDelete()}
@@ -693,8 +661,8 @@ function PartModal({
       title={draft.id === null ? "Add a part" : "Edit the part"}
       description={
         draft.id === null
-          ? "It starts at 0%. You give it a weight next, so the weights still add up to 100%."
-          : "It applies to the next appraisal period you start. Its weight is changed with the others, under Change the weights."
+          ? "It starts at 0%. Set its weight next."
+          : NEXT_PERIOD
       }
       footer={
         <>
@@ -746,10 +714,7 @@ function PartModal({
             ))}
           </Select>
         </Field>
-        <Field
-          label="Description"
-          help="Optional. Shown under the part's name."
-        >
+        <Field label="Description" optional help="Shown under the name.">
           <Textarea
             rows={3}
             maxLength={300}
@@ -805,8 +770,8 @@ function WeightsModal({
     <Modal
       open
       onClose={onClose}
-      title="Change the weights"
-      description="A part's weight is its share of the score, so the weights add up to 100%. They apply to the next appraisal period you start."
+      title="Edit weights"
+      description={`They must add up to 100%. ${NEXT_PERIOD}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>
@@ -818,7 +783,7 @@ function WeightsModal({
             disabled={!ready}
             onClick={onSave}
           >
-            Save the weights
+            Save weights
           </Button>
         </>
       }
@@ -873,9 +838,9 @@ function Total({ totalBp }: { totalBp: number }) {
 }
 
 /**
- * What counting self-assessment does to a mark, stated on the screen. An
- * employee's own rating in their official mark rewards confidence over
- * delivery, so the cost is said where the decision is made.
+ * Whether a person's own rating counts, in one line. The API's sentence about
+ * what the part is read from, and what counting it costs, sit behind the info
+ * icon: the badge and the line say the state, which is what a visit needs.
  */
 function SelfAssessment({
   note,
@@ -891,51 +856,18 @@ function SelfAssessment({
     <Card>
       <CardHeader
         title="Self-assessment"
-        description="Whether it counts is decided by adding a part scored from it."
+        info={`${note} Either way, a person's own answers are shown beside the manager's.`}
+        description={
+          on
+            ? `Rating themselves 5 instead of 3 moves a person's own score by ${weightLabel(swingBp)}.`
+            : "To count it, add a part scored from self-assessment."
+        }
         action={
           <Badge tone={on ? "warning" : "neutral"} size="sm" dot>
-            {on ? `Counting for ${weightLabel(weightBp)}` : "Not counted"}
+            {on ? `Counts for ${weightLabel(weightBp)}` : "Not counted"}
           </Badge>
         }
       />
-      <CardBody className="flex flex-col gap-3">
-        <p className="flex items-start gap-2 text-body-sm text-body">
-          <Info
-            aria-hidden="true"
-            className="mt-0.5 size-4 shrink-0 text-faint"
-          />
-          <span>{note}</span>
-        </p>
-        {on ? (
-          <p className="text-body-sm text-muted">
-            At {weightLabel(weightBp)}, somebody who rates themselves 5 out of 5
-            rather than 3 out of 5 moves their own final score by{" "}
-            {weightLabel(swingBp)}. Two people who delivered identically will
-            not get the same score.
-          </p>
-        ) : (
-          <p className="text-body-sm text-body">
-            Add a part scored from self-assessment and an employee&apos;s own
-            opinion of themselves becomes part of the score used to decide
-            confirmation, promotion and bonus.
-          </p>
-        )}
-        <DescriptionList
-          columns={2}
-          items={[
-            {
-              term: "What we do instead",
-              value:
-                "Their own answers are shown beside the manager's, so the gap between them is visible and can be discussed.",
-            },
-            {
-              term: "Why it is a setting at all",
-              value:
-                "A company that insists can weight it. It is off by default, deliberately, and this screen says what turning it on costs.",
-            },
-          ]}
-        />
-      </CardBody>
     </Card>
   );
 }
