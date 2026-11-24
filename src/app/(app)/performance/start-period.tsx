@@ -13,6 +13,7 @@ import {
   Button,
   Checkbox,
   Field,
+  Illustration,
   Input,
   Modal,
   SuccessMoment,
@@ -427,23 +428,25 @@ export function StartPeriodButton({
       {made && (
         <Modal open onClose={() => setMade(null)} title={made.name} size="sm">
           <SuccessMoment
+            /* Under the dialog's own heading, with one of the owner's figures
+               in place of the check, and one button: the dialog's X already
+               closes it. */
+            headingLevel={3}
+            align="center"
+            art={<Illustration name="welcome" height={144} />}
+            focusHeading
             title="Appraisal period created"
             actions={
-              <>
-                <Button variant="ghost" onClick={() => setMade(null)}>
-                  Close
-                </Button>
-                <Button
-                  variant="accent"
-                  onClick={() => {
-                    const id = made.id;
-                    setMade(null);
-                    router.push(`/performance/periods/${id}`);
-                  }}
-                >
-                  View period
-                </Button>
-              </>
+              <Button
+                variant="accent"
+                onClick={() => {
+                  const id = made.id;
+                  setMade(null);
+                  router.push(`/performance/periods/${id}`);
+                }}
+              >
+                View period
+              </Button>
             }
           />
         </Modal>
