@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  CheckCheck,
   ListChecks,
   Grid3x3,
   Play,
@@ -79,7 +78,6 @@ import {
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import {
-  outstandingIn,
   useCycleMutations,
   useCycleQuestions,
   useCycleRegister,
@@ -88,6 +86,7 @@ import {
 } from "@/lib/store/performance";
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
+import { PeriodPeople } from "./period-people";
 import { QuestionsDialog } from "../../period-dialogs";
 import { AskPeersButton, AskPeersDialog } from "./ask-peers";
 import {
@@ -179,7 +178,7 @@ const NEXT_BUTTON: Record<string, string> = {
   CALIBRATION: "Check scores",
 };
 
-type PeriodTabId = "overview" | "questions" | "marks" | "settings";
+type PeriodTabId = "overview" | "people" | "questions" | "marks" | "settings";
 
 /** A quiet icon button that goes somewhere. The name is the tooltip and the label. */
 function IconLink({
@@ -239,7 +238,6 @@ export function PeriodScreen({
   const [chosenTab, setPeriodTab] = useState<PeriodTabId | null>(
     initialTab ?? null,
   );
-  const [showingLeft, setShowingLeft] = useState(false);
   const [showingMakeup, setShowingMakeup] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
@@ -258,7 +256,6 @@ export function PeriodScreen({
   const [askingObjectives, setAskingObjectives] = useState(false);
   const [askUnavailable, setAskUnavailable] = useState(false);
   const period = detail.cycle;
-  const outstanding = outstandingIn(detail.participants);
   const nudging = nudgeAudience(detail.participants);
   const draft = period?.stage === "DRAFT";
   const published = period?.stage === "PUBLISHED";
@@ -625,7 +622,6 @@ export function PeriodScreen({
               nextLabel={nextStage ? NEXT_BUTTON[nextStage] : null}
               noObjectives={noObjectives}
               startedWith={startedWith}
-              onNudge={() => setConfirmingNudge(true)}
               onAdvance={() => void advance()}
               advancing={advancing}
             />
@@ -683,6 +679,9 @@ export function PeriodScreen({
           <Tabs
             items={[
               ...(questionsTab ? [] : [{ id: "overview", label: "Overview" }]),
+              ...(!draft && canSeeCompany && detail.available
+                ? [{ id: "people", label: "People" }]
+                : []),
               ...(canManage ? [{ id: "questions", label: "Questions" }] : []),
               ...(draft ? [] : [{ id: "marks", label: "Scores" }]),
               ...(canManage ? [{ id: "settings", label: "Settings" }] : []),
@@ -701,11 +700,9 @@ export function PeriodScreen({
                   {detail.available && !detail.error && (
                     <>
                       <ProgressStats
-                        rows={outstanding}
                         participants={detail.participants}
                         published={period?.stage === "PUBLISHED"}
                         marked={detail.register?.rows.length ?? null}
-                        onShowLeft={() => setShowingLeft(true)}
                       />
                       <MultiAppraiserReviews
                         participants={detail.participants}
@@ -714,6 +711,27 @@ export function PeriodScreen({
                   )}
                 </LoadState>
               </div>
+            )}
+            {periodTab === "people" && !draft && (
+              <LoadState
+                loading={detail.loading}
+                error={null}
+                subject="the people"
+                skeleton="list"
+              >
+                {detail.participants && (
+                  <PeriodPeople
+                    rows={detail.participants.rows}
+                    onRemind={
+                      canManage &&
+                      running &&
+                      (nudging === null || anybodyToNudge(nudging))
+                        ? () => setConfirmingNudge(true)
+                        : null
+                    }
+                  />
+                )}
+              </LoadState>
             )}
             {periodTab === "questions" && period && canManage && (
               <QuestionsPanel
@@ -765,51 +783,6 @@ export function PeriodScreen({
           </Tabs>
         </div>
       </PageBody>
-
-      {showingLeft && (
-        <Modal
-          open
-          onClose={() => setShowingLeft(false)}
-          title="Still to come in"
-          size="md"
-          footer={
-            <>
-              {/* Nobody left to remind: no button, not a disabled one. */}
-              {canManage &&
-                running &&
-                (nudging === null || anybodyToNudge(nudging)) && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setShowingLeft(false);
-                      setConfirmingNudge(true);
-                    }}
-                  >
-                    Remind everyone
-                  </Button>
-                )}
-              <Button onClick={() => setShowingLeft(false)}>Close</Button>
-            </>
-          }
-        >
-          <ul className="flex flex-col gap-2">
-            {outstanding.map((row) => (
-              <li
-                key={`${row.employeeId}-${row.reviewId}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <span className="text-body-sm text-ink">{row.what}</span>
-                <TextLink
-                  href={`/performance/reviews/${row.reviewId}`}
-                  className="text-body-sm"
-                >
-                  Open
-                </TextLink>
-              </li>
-            ))}
-          </ul>
-        </Modal>
-      )}
 
       {showingMakeup && period && (
         <Modal
@@ -988,19 +961,15 @@ export function PeriodScreen({
  * "12 of 18 self-reviews in" and the list underneath it cannot disagree.
  */
 function ProgressStats({
-  rows,
   participants,
   published,
   marked,
-  onShowLeft,
 }: {
-  rows: { employeeId: string; reviewId: string; what: string }[];
   participants: ApiCycleParticipants | null;
   /** A published period is a record, said in the past tense (U96 / PERF-16). */
   published: boolean;
   /** Who the period's register reads: for a published one, who was in it. */
   marked: number | null;
-  onShowLeft: () => void;
 }) {
   if (!participants) return null;
   /* Who was in a published period is the register's rows, not today's staff
@@ -1049,22 +1018,6 @@ function ProgressStats({
         <Stat label="Self-reviews" value={ratio(selfIn, selfTotal)} />
         <Stat label="Manager reviews" value={ratio(managerIn, managerTotal)} />
       </div>
-      {rows.length === 0 ? (
-        <p className="flex items-center gap-2 text-body-sm text-body">
-          <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
-          Everything has come in.
-        </p>
-      ) : (
-        <button
-          type="button"
-          onClick={onShowLeft}
-          className="self-start text-body-sm font-medium text-accent-text underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          {rows.length === 1
-            ? "1 review still to come in"
-            : `${rows.length} reviews still to come in`}
-        </button>
-      )}
     </div>
   );
 }
@@ -2526,7 +2479,6 @@ function WhatIsNext({
   nextLabel,
   noObjectives,
   startedWith,
-  onNudge,
   onAdvance,
   advancing,
 }: {
@@ -2534,7 +2486,6 @@ function WhatIsNext({
   waiting: number;
   nextLabel: string | null;
   noObjectives: number;
-  onNudge: () => void;
   onAdvance: () => void;
   advancing: boolean;
 }) {
@@ -2549,13 +2500,9 @@ function WhatIsNext({
   ].filter((line): line is string => line !== null);
   const invitation = lines.length > 0 ? lines.join(" ") : undefined;
   if (waiting > 0) {
-    return (
-      <NextStep
-        title={`${String(waiting)} ${waiting === 1 ? "person has" : "people have"} not finished`}
-        {...(invitation ? { detail: invitation } : {})}
-        action={{ label: "Send a reminder", onClick: onNudge }}
-      />
-    );
+    return invitation ? (
+      <p className="text-body-sm text-muted">{invitation}</p>
+    ) : null;
   }
   if (nextLabel) {
     return (
