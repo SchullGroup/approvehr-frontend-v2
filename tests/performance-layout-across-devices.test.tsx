@@ -120,16 +120,7 @@ describe("the report's spread of marks", () => {
 describe("the scoring settings page", () => {
   const form = source("src/app/(app)/settings/performance/weights-form.tsx");
 
-  it("keeps the frozen-period sentence in one element, because its paragraph is a flex row", () => {
-    /* A flex row makes every direct child a column, so loose text, a link and
-       more text rendered as three blocks side by side, at every width. */
-    const at = form.indexOf(
-      "A period screen says whether its weights are frozen",
-    );
-    expect(at).toBeGreaterThan(-1);
-    const before = form.slice(Math.max(0, at - 200), at);
-    expect(before).toMatch(/<span className="min-w-0">\s*$/);
-  });
+  /* The sentence about frozen period weights was removed from this page on purpose (a1a531e5): the period screen says it itself. */
 
   it("lets the save bar's buttons wrap on a 320px phone instead of running out of the card", () => {
     expect(form).not.toMatch(/className="flex shrink-0 flex-wrap gap-2"/);
