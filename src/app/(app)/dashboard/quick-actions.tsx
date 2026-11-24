@@ -155,7 +155,9 @@ export function QuickActions() {
   if (features.loading) return null;
 
   const items: RowActionItem[] = ACTIONS.filter((action) => {
-    if (action.feature !== undefined && features[action.feature] === false) {
+    /* A module that is off, or not known to be on, is not offered: a company
+       that does not use hiring is not shown "Post a job advert". */
+    if (action.feature !== undefined && features[action.feature] !== true) {
       return false;
     }
     return (
