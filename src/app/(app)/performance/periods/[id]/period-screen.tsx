@@ -7,6 +7,8 @@ import {
   ArrowRight,
   ListChecks,
   Grid3x3,
+  Pencil,
+  Plus,
   Play,
   UserX,
   Users,
@@ -18,6 +20,7 @@ const FairnessIcon = PAGE_ICONS["/performance/fairness"]!;
 import {
   Badge,
   Button,
+  IconButton,
   ButtonLink,
   Card,
   CardBody,
@@ -1078,26 +1081,6 @@ export function QuestionsPanel({
       skeleton="list"
     >
       <div className="flex flex-col gap-6">
-        {editable && (
-          <div className="flex flex-wrap justify-end gap-2">
-            {draft && (
-              <ButtonLink
-                size="sm"
-                variant="accent"
-                href={`/performance/periods/${cycleId}/questions`}
-              >
-                Add questions
-              </ButtonLink>
-            )}
-            <Button
-              size="sm"
-              variant={draft ? "secondary" : "accent"}
-              onClick={onEdit}
-            >
-              Edit questions
-            </Button>
-          </div>
-        )}
         {questions.length === 0 && (
           <EmptyState
             compact
@@ -1105,9 +1088,24 @@ export function QuestionsPanel({
             title={draft ? "No questions yet" : "No questions in this period"}
           />
         )}
-        {extra.length > 0 && (
+        {(extra.length > 0 || editable) && (
           <Card>
-            <CardHeader title="Questions" />
+            <CardHeader
+              title="Questions"
+              action={
+                editable ? (
+                  <HeaderIcons
+                    what="questions"
+                    {...(draft
+                      ? {
+                          addHref: `/performance/periods/${cycleId}/questions`,
+                          editHref: `/performance/periods/${cycleId}/questions`,
+                        }
+                      : { onAdd: onEdit, onEdit })}
+                  />
+                ) : undefined
+              }
+            />
             <CardBody className="flex flex-col gap-3">
               <p className="text-meta text-muted">
                 Read by managers. Not part of the score.
@@ -1130,7 +1128,18 @@ export function QuestionsPanel({
         )}
         {rated.length > 0 && (
           <Card>
-            <CardHeader title="Rated" />
+            <CardHeader
+              title="Rated"
+              action={
+                editable ? (
+                  <HeaderIcons
+                    what="competencies"
+                    addHref="/performance/skills"
+                    onEdit={onEdit}
+                  />
+                ) : undefined
+              }
+            />
             <CardBody>
               <ul className="flex flex-col gap-2">
                 {rated.map((q) => (
@@ -1150,6 +1159,57 @@ export function QuestionsPanel({
         )}
       </div>
     </LoadState>
+  );
+}
+
+/**
+ * A plus and a pencil at the right of a card's title: add to it, or change it.
+ * Each goes to the place that does it, as a link where that is a page and as a
+ * button where it opens the editor.
+ */
+function HeaderIcons({
+  what,
+  addHref,
+  editHref,
+  onAdd,
+  onEdit,
+}: {
+  what: string;
+  addHref?: string;
+  editHref?: string;
+  onAdd?: () => void;
+  onEdit?: () => void;
+}) {
+  const icon = "size-9 rounded-md";
+  return (
+    <span className="flex items-center gap-1">
+      {addHref ? (
+        <IconLink href={addHref} label={`Add to the ${what}`}>
+          <Plus aria-hidden="true" className="size-4" />
+        </IconLink>
+      ) : (
+        <IconButton
+          label={`Add to the ${what}`}
+          className={icon}
+          onClick={onAdd}
+        >
+          <Plus aria-hidden="true" className="size-4" />
+        </IconButton>
+      )}
+      {editHref ? (
+        <IconLink href={editHref} label={`Edit the ${what}`}>
+          <Pencil aria-hidden="true" className="size-4" />
+        </IconLink>
+      ) : (
+        <IconButton
+          label={`Edit the ${what}`}
+          className={icon}
+          onClick={onEdit}
+        >
+          <Pencil aria-hidden="true" className="size-4" />
+        </IconButton>
+      )}
+    </span>
   );
 }
 
