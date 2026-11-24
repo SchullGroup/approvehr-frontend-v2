@@ -46,7 +46,7 @@ const mount = (connected = true, over: Partial<FeatureState> = {}) => {
   );
 };
 
-const THE_SWITCH = /Offer the linked tasks beside Confirm/;
+const THE_SWITCH = /Show linked tasks next to Confirm/;
 const dialog = () => screen.getByRole("dialog");
 
 beforeEach(() => {
@@ -211,7 +211,7 @@ describe("who may change it", () => {
 describe("when the setting is not known, which is not off", () => {
   it("says it is reading while the store loads, and offers no switch", () => {
     mount(true, { workAssists: null, loading: true });
-    expect(screen.getByText("Reading the setting")).toBeInTheDocument();
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
@@ -227,7 +227,7 @@ describe("when the setting is not known, which is not off", () => {
     mount(true, { workAssists: null });
     expect(
       screen.getByText(
-        /This server has not been updated to offer this setting yet/,
+        /This server doesn't offer this setting yet/,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();

@@ -108,7 +108,7 @@ describe("the Records tab", () => {
     expect(tab.getByText("Work in review answers")).toBeInTheDocument();
     expect(
       tab.getByRole("switch", {
-        name: /Let people use their own project work/,
+        name: /Let people add their finished work/,
       }),
     ).not.toBeChecked();
   });
@@ -121,7 +121,7 @@ describe("the Records tab", () => {
     ).toBeInTheDocument();
     expect(
       tab.getByRole("switch", {
-        name: /Offer the linked tasks beside Confirm/,
+        name: /Show linked tasks next to Confirm/,
       }),
     ).not.toBeChecked();
   });
@@ -141,7 +141,7 @@ describe("the Records tab", () => {
     mount();
     const all = screen.getAllByRole("switch", {
       hidden: true,
-      name: /Offer the linked tasks beside Confirm/,
+      name: /Show linked tasks next to Confirm/,
     });
     expect(all).toHaveLength(1);
     expect(records()).toContainElement(all[0] as HTMLElement);
@@ -151,7 +151,7 @@ describe("the Records tab", () => {
     mount();
     await userEvent.click(
       within(records()).getByRole("switch", {
-        name: /Offer the linked tasks beside Confirm/,
+        name: /Show linked tasks next to Confirm/,
       }),
     );
     expect(await screen.findByRole("dialog")).toHaveTextContent(
@@ -162,7 +162,7 @@ describe("the Records tab", () => {
 
   it("is not on the weights or the names", async () => {
     mount();
-    const switchLabel = /Let people use their own project work/;
+    const switchLabel = /Let people add their finished work/;
     const all = screen.getAllByRole("switch", {
       hidden: true,
       name: switchLabel,
@@ -175,7 +175,7 @@ describe("the Records tab", () => {
     mount();
     await userEvent.click(
       within(records()).getByRole("switch", {
-        name: /Let people use their own project work/,
+        name: /Let people add their finished work/,
       }),
     );
     expect(await screen.findByRole("dialog")).toHaveTextContent(

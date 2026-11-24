@@ -139,7 +139,7 @@ describe("the switch", () => {
     mount({}, { editable: false });
     expect(screen.getByRole("switch")).toBeDisabled();
     expect(
-      screen.getByText(/needs the Manage settings permission/),
+      screen.getByText(/Only people who manage settings can change/),
     ).toBeInTheDocument();
   });
 
@@ -276,7 +276,7 @@ describe("where there is no answer to show", () => {
     expect(screen.queryByRole("switch")).toBeNull();
     expect(
       screen.getByText(
-        /This server has not been updated to offer this setting yet/,
+        /This server doesn't offer this setting yet/,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/The answers stand on their own/)).toBeNull();
@@ -291,7 +291,7 @@ describe("where there is no answer to show", () => {
 
   it("does not say the server is behind while it is still being asked", () => {
     mount({}, { overallMark: null, loading: true });
-    expect(screen.getByText("Reading the setting")).toBeInTheDocument();
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByText(/has not been updated/)).toBeNull();
     expect(screen.queryByRole("switch")).toBeNull();
   });

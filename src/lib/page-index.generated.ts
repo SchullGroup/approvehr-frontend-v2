@@ -357,11 +357,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Describe an appraisal period in a sentence or two and edit the goals and questions that come back. Nothing is created until the last screen."
   },
   {
-    "href": "/performance/review-tasks",
-    "title": "Weekly tasks",
-    "description": "Log what you did toward your objectives, and grade what your team did."
-  },
-  {
     "href": "/performance/skills",
     "title": "Competency ratings",
     "description": "Where people stand against the levels the company set."
@@ -514,7 +509,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "The parts an appraisal score is made of, each with its own name, weight and source, what each rating is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
+    "description": "How an appraisal score is made, what each rating is called, and what work is kept with a final rating."
   },
   {
     "href": "/settings/policies",

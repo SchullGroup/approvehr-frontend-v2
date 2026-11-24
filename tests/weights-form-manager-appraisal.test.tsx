@@ -267,7 +267,7 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
     await user.click(screen.getByRole("button", { name: "Delete Line view" }));
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Delete the part",
+        name: "Delete part",
       }),
     );
     await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));

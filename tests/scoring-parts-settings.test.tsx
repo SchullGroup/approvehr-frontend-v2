@@ -121,7 +121,7 @@ describe("a company with no parts", () => {
     mount();
     expect(screen.getByText("No parts yet")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add the first part" }),
+      screen.getByRole("button", { name: "Add a part" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Delivery against objectives")).toBeNull();
     /* No open boxes on the page until somebody chooses to add or edit. */
@@ -132,7 +132,7 @@ describe("a company with no parts", () => {
     const user = userEvent.setup();
     mount();
     await user.click(
-      screen.getByRole("button", { name: "Add the first part" }),
+      screen.getByRole("button", { name: "Add a part" }),
     );
 
     const dialog = screen.getByRole("dialog");
@@ -160,7 +160,7 @@ describe("a company with no parts", () => {
     const user = userEvent.setup();
     mount();
     await user.click(
-      screen.getByRole("button", { name: "Add the first part" }),
+      screen.getByRole("button", { name: "Add a part" }),
     );
     const dialog = screen.getByRole("dialog");
     expect(
@@ -253,7 +253,7 @@ describe("a company with parts", () => {
       screen.getByRole("button", { name: "Delete Leading people" }),
     );
     expect(screen.getByText("Delete Leading people?")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Delete the part" }));
+    await user.click(screen.getByRole("button", { name: "Delete part" }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith("p-2"));
   });
 

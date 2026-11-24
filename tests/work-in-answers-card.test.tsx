@@ -46,7 +46,7 @@ const mount = (connected = true, over: Partial<FeatureState> = {}) => {
   );
 };
 
-const THE_SWITCH = /Let people use their own project work/;
+const THE_SWITCH = /Let people add their finished work/;
 const dialog = () => screen.getByRole("dialog");
 
 beforeEach(() => {
@@ -284,7 +284,7 @@ describe("what the card says when it cannot say", () => {
 
   it("is reading, while the setting is on its way", () => {
     mount(true, { workInAnswers: null, loading: true });
-    expect(screen.getByText("Reading the setting")).toBeInTheDocument();
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
     SWITCHLESS();
   });
 
@@ -300,7 +300,7 @@ describe("what the card says when it cannot say", () => {
     mount(true, { workInAnswers: null });
     expect(
       screen.getByText(
-        /This server has not been updated to offer this setting yet/,
+        /This server doesn't offer this setting yet/,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Off\./)).not.toBeInTheDocument();
@@ -324,7 +324,7 @@ describe("what the card says when it cannot say", () => {
 
   it("says each of the four in its own words and never two at once", () => {
     const sentences = [
-      "Reading the setting",
+      "Loading…",
       "could not be read",
       "has not been updated",
       "nothing to switch here",

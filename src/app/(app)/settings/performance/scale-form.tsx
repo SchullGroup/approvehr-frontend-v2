@@ -26,6 +26,7 @@ import {
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useRatingScale } from "@/lib/store/performance";
+import { LOADING, NEXT_PERIOD, READ_ONLY_MANY } from "./setting-copy";
 
 /**
  * What a mark is called, in this company's own words.
@@ -168,14 +169,10 @@ export function RatingScaleForm() {
       setEdited(null);
       toast.push({
         tone: "success",
-        title: "The scale is saved",
-        /* The rule somebody will otherwise ask about, in the same breath. A
-           period already running keeps its own copy, so nothing already
+        title: "Rating names saved",
+        /* A period already running keeps its own copy, so nothing already
            awarded is re-worded under anybody. */
-        detail:
-          "Appraisal periods already running keep the words they started " +
-          "with, so no rating already given changes. This applies to the next " +
-          "period you start.",
+        detail: NEXT_PERIOD,
       });
     } catch (caught) {
       toast.push({
@@ -194,8 +191,8 @@ export function RatingScaleForm() {
   return (
     <Card>
       <CardHeader
-        title="What each rating is called"
-        description="Every appraisal form shows these words instead of a bare number."
+        title="Rating names"
+        info="Forms show these names instead of numbers. A period keeps the names it started with, so a rating already given never changes."
         action={
           <div className="flex flex-wrap items-center gap-2">
             {sourceNote(source === "api") && (
@@ -207,9 +204,7 @@ export function RatingScaleForm() {
               tone={scale.source === "saved" ? "accent" : "neutral"}
               size="sm"
             >
-              {scale.source === "saved"
-                ? "Your company's words"
-                : "The built-in five"}
+              {scale.source === "saved" ? "Your own names" : "Built-in names"}
             </Badge>
           </div>
         }
@@ -220,44 +215,18 @@ export function RatingScaleForm() {
         {loading ? (
           <span className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
-            Reading the scale
+            {LOADING}
           </span>
         ) : (
           <>
             {!editable && (
-              <Callout tone="warning" title="Saving needs the API">
+              <Callout tone="warning" title="You can't change these here">
                 <p>{refusal}</p>
               </Callout>
             )}
             {editable && !canManage && (
-              <Callout
-                tone="info"
-                title="Changing these needs settings permission"
-              >
-                <p>
-                  The words a rating is given in sit behind the same permission
-                  as the rest of company configuration. Everybody can read them:
-                  a scale you are measured against and not allowed to read would
-                  be an odd thing to ship.
-                </p>
-              </Callout>
+              <p className="text-body-sm text-muted">{READ_ONLY_MANY}</p>
             )}
-
-            <Callout
-              tone="info"
-              title="A period keeps the words it started with"
-            >
-              <p>
-                Renaming a level here does not re-word a rating already given.
-                An appraisal period freezes the scale when it starts, so a 4
-                awarded last half still reads as whatever a 4 was called then.
-              </p>
-              <p className="mt-2">
-                The sentence beside each word is what stops five managers
-                reading the same label five ways, which is the whole reason an
-                appraisal has a scale rather than a conversation.
-              </p>
-            </Callout>
 
             <div className="flex flex-col gap-5">
               {/* Highest first. The form reads top-down as "best to worst",
@@ -274,9 +243,7 @@ export function RatingScaleForm() {
                     {entry.level}
                   </div>
                   <div className="flex min-w-0 flex-col gap-2">
-                    <Field
-                      label={`What level ${String(entry.level)} is called`}
-                    >
+                    <Field label={`Level ${String(entry.level)} name`}>
                       <Input
                         value={entry.label}
                         disabled={!canManage || !editable}
@@ -288,8 +255,8 @@ export function RatingScaleForm() {
                     </Field>
                     <Field
                       optional
-                      label="What it means"
-                      help="Shown under the word on every form, so nobody has to guess."
+                      label={`Level ${String(entry.level)} meaning`}
+                      help="Shown under the name on every form."
                     >
                       <Textarea
                         rows={2}
@@ -307,7 +274,7 @@ export function RatingScaleForm() {
             </div>
 
             {problem && (
-              <Callout tone="warning" title="This set cannot be saved yet">
+              <Callout tone="warning" title="Can't save yet">
                 <p>{problem}</p>
               </Callout>
             )}
@@ -320,7 +287,7 @@ export function RatingScaleForm() {
                   disabled={!dirty || problem !== null}
                   onClick={() => void onSave()}
                 >
-                  Save the scale
+                  Save names
                 </Button>
                 <Button
                   variant="secondary"
@@ -330,10 +297,10 @@ export function RatingScaleForm() {
                   }
                 >
                   <RotateCcw aria-hidden="true" className="size-3.5" />
-                  Use the built-in five
+                  Reset to built-in names
                 </Button>
                 {dirty && (
-                  <span className="text-meta text-muted">Not saved yet.</span>
+                  <span className="text-meta text-muted">Unsaved changes</span>
                 )}
               </div>
             )}
