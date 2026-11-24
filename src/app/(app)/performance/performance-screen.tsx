@@ -105,12 +105,6 @@ function AppraisalHome() {
             ))}
           </ul>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <Link
-              href="/performance/periods"
-              className="text-body-sm text-accent-text hover:underline"
-            >
-              All appraisal periods
-            </Link>
             <ChangeMarks onClick={() => setSetting(true)} />
           </div>
         </div>
