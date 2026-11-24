@@ -116,9 +116,7 @@ describe("the Records tab", () => {
   it("holds the two assists' switch as well", () => {
     mount();
     const tab = within(records());
-    expect(
-      tab.getByText("Work behind a milestone, and weekly lines"),
-    ).toBeInTheDocument();
+    expect(tab.getByText("Task suggestions")).toBeInTheDocument();
     expect(
       tab.getByRole("switch", {
         name: /Show linked tasks next to Confirm/,
@@ -131,7 +129,7 @@ describe("the Records tab", () => {
     const text = records().textContent ?? "";
     const kept = text.indexOf("Work kept with a final rating");
     const answers = text.indexOf("Work in review answers");
-    const assists = text.indexOf("Work behind a milestone, and weekly lines");
+    const assists = text.indexOf("Task suggestions");
     expect(kept).toBeGreaterThanOrEqual(0);
     expect(kept).toBeLessThan(answers);
     expect(answers).toBeLessThan(assists);
@@ -155,7 +153,7 @@ describe("the Records tab", () => {
       }),
     );
     expect(await screen.findByRole("dialog")).toHaveTextContent(
-      "Offer the linked tasks and the weekly-line suggestions?",
+      "Switch on task suggestions?",
     );
     expect(setWorkAssists).not.toHaveBeenCalled();
   });
@@ -179,7 +177,7 @@ describe("the Records tab", () => {
       }),
     );
     expect(await screen.findByRole("dialog")).toHaveTextContent(
-      "Let people use their own work in their review answers?",
+      "Let people add their work to review answers?",
     );
     expect(setWorkInAnswers).not.toHaveBeenCalled();
   });

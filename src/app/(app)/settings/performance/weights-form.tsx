@@ -51,6 +51,7 @@ import { WorkInAnswersCard } from "./work-in-answers-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
 import { WorkRecordCard } from "./work-record-card";
 import { NEXT_PERIOD, READ_ONLY_MANY } from "./setting-copy";
+import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 
 const TAB_ITEMS: TabItem[] = [
   { id: "weights", label: "Parts of the score" },
@@ -410,7 +411,7 @@ function PartsPanel({
             <Card>
               <CardHeader
                 title="Parts of the score"
-                info="The score is the weighted average of these parts. Each weight is that part's share, so the weights add up to 100%."
+                info={`The score is the weighted average of these parts. ${WEIGHTS_RULE}`}
                 action={
                   <span className="flex flex-wrap items-center gap-3">
                     <Total totalBp={view.totalBp} />

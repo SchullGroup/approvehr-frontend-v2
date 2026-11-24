@@ -184,9 +184,12 @@ beforeEach(() => {
 });
 
 describe("the company's parts card", () => {
-  it("says the rule in its description", () => {
+  it("says the rule behind the info icon on the card's title", async () => {
     view = twoParts(6000, 4000);
     mount();
+    await userEvent.click(
+      screen.getByRole("button", { name: "About Parts of the score" }),
+    );
     expect(screen.getByText(new RegExp(WEIGHTS_RULE))).toBeInTheDocument();
   });
 
@@ -254,9 +257,7 @@ describe("the weights editor", () => {
   });
 
   const open = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.click(
-      screen.getByRole("button", { name: "Edit weights" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Edit weights" }));
     return screen.getByRole("dialog", { name: "Edit weights" });
   };
 

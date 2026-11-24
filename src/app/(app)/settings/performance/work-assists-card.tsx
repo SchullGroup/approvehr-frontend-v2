@@ -98,7 +98,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
         <CardHeader
           title="Task suggestions"
           level={3}
-          info="A manager confirming a done-or-not target sees the tasks linked to it and where each stands. A person writing a weekly line can add the tasks they finished that week, as text to edit. Neither files, grades or scores anything. Closing a task as won't do, and accepting one, aren't affected by this switch."
+          info="A manager confirming a done-or-not target sees the tasks linked to it. Only people who may confirm see that list, not the person whose objective it is. A person writing a weekly line can add tasks they finished that week; only they see those suggestions. Nothing is filed, graded or scored. Closing a task as won't do, and accepting one, aren't affected by this switch."
         />
         <CardBody className="flex flex-col gap-4">
           {reading ? (
@@ -178,8 +178,9 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
           </p>
           <p>
             People writing a weekly line can add the tasks they finished that
-            week, then edit the text and send it themselves. Task titles
-            aren&apos;t saved. It needs Projects.
+            week, then edit the text and send it themselves. Nothing is filed or
+            graded for them, and task titles aren&apos;t saved. It needs
+            Projects.
           </p>
         </div>
       </Modal>

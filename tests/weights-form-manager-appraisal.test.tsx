@@ -288,54 +288,40 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
 });
 
 describe("what the form tells the overall-score card about the part", () => {
-  const header = {
-    has: (label: string) =>
-      `Forms do not ask for an overall rating, except a manager's form in a period that weights ${label}. Otherwise the answers stand on their own.`,
-    none: "Forms do not ask for an overall rating. The answers stand on their own.",
-    unknown:
-      "Whether each form ends with a page asking for one overall rating.",
-  };
+  const BASE = "People pick one of the rating names below.";
+  const has = (label: string) =>
+    `${BASE} Managers must give one in a period that weights ${label}.`;
 
   it("the company has a part scored from it: the card names the exception, in the company's own word", () => {
     mount("marks");
-    expect(screen.getByText(header.has("Line view"))).toBeInTheDocument();
+    expect(screen.getByText(has("Line view"))).toBeInTheDocument();
     expect(screen.queryByText(/is not counted in it/)).toBeNull();
   });
 
   it("the server lists the source and the company has no part from it yet: the card names it by the source's own name", () => {
     view = viewOf([delivery]);
     mount("marks");
-    expect(
-      screen.getByText(header.has("Manager appraisal")),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/is not counted in it/)).toBeNull();
+    expect(screen.getByText(has("Manager appraisal"))).toBeInTheDocument();
   });
 
-  it("the server does not list the source, so it predates the part: the card says what it always did", () => {
+  it("the server does not list the source, so it predates the part: no exception is named", () => {
     view = viewOf([delivery], { listsManager: false });
     mount("marks");
-    expect(screen.getByText(header.none)).toBeInTheDocument();
-    expect(screen.getByText(/is not counted in it/)).toBeInTheDocument();
+    expect(screen.getByText(BASE)).toBeInTheDocument();
+    expect(screen.queryByText(/Managers must/)).toBeNull();
   });
 
   it.each([
     ["not in yet", "loading"],
     ["failed", "failed"],
   ] as const)(
-    "the parts %s: nothing is known, so the card says nothing about whether forms ask or the score counts",
+    "the parts %s: nothing is known, so the card says nothing about managers or the score counting",
     (_name, state) => {
       read = state;
       mount("marks");
-      expect(screen.getByText(header.unknown)).toBeInTheDocument();
-      expect(screen.queryByText(header.none)).toBeNull();
+      expect(screen.getByText(BASE)).toBeInTheDocument();
+      expect(screen.queryByText(/Managers must/)).toBeNull();
       expect(screen.queryByText(/is not counted in it/)).toBeNull();
-      expect(screen.queryByText(/shown beside the score/)).toBeNull();
-      expect(screen.queryByText(/have to give one/)).toBeNull();
-      expect(
-        screen.getByText(
-          "The person picks one of the names below after the questions.",
-        ),
-      ).toBeInTheDocument();
     },
   );
 });
