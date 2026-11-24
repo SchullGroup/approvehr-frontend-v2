@@ -421,9 +421,9 @@ function payrollChecksRow(facts: SetupFacts): ChecklistRow {
       title: "Payroll checks",
       affects,
       status: "attention",
-      detail: `${plural(blockers, "person has", "people have")} no usable bank details, out of ${employees}. They cannot be paid, and a payroll will not go out until each one is fixed or deliberately left off.`,
-      href: "/people",
-      linkLabel: "Fix the records",
+      detail: `${plural(blockers, "person needs", "people need")} bank details before ${"they"} can be paid.`,
+      href: "/people/incomplete",
+      linkLabel: "Add bank details",
       also: { href: "/settings/payroll", label: "The checks" },
     };
   }

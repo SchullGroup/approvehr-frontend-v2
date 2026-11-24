@@ -1,7 +1,7 @@
 "use client";
 
 import { ShieldAlert } from "lucide-react";
-import { EmptyState, Skeleton } from "@/components/ui";
+import { ButtonLink, EmptyState, Skeleton } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   hasAnyPermission,
@@ -95,7 +95,12 @@ export function NoAccess({
       plain
       icon={<ShieldAlert aria-hidden="true" />}
       title={title}
-      description={`${what} needs ${permissionPhrase(needed)}. Ask somebody who holds it.`}
+      description={`${what} needs ${permissionPhrase(needed)}. Ask your administrator to add it to your role.`}
+      action={
+        <ButtonLink href="/dashboard" variant="secondary">
+          Back to Home
+        </ButtonLink>
+      }
     />
   );
 }
