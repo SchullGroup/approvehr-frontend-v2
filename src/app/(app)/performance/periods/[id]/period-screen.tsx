@@ -72,7 +72,6 @@ import {
   scoreWords,
   visibleComponents,
   weightLabel,
-  weightsFromNote,
   type ApiComponentScore,
   type ApiCycle,
   type ApiCycleParticipants,
@@ -244,7 +243,6 @@ export function PeriodScreen({
   const [chosenTab, setPeriodTab] = useState<PeriodTabId | null>(
     initialTab ?? null,
   );
-  const [showingMakeup, setShowingMakeup] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
@@ -772,15 +770,6 @@ export function PeriodScreen({
               !detail.loading &&
               !detail.error && (
                 <div className="flex flex-col gap-6">
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowingMakeup(true)}
-                    >
-                      How the score is made up
-                    </Button>
-                  </div>
                   <Register
                     register={detail.register}
                     cycleId={cycleId}
@@ -809,23 +798,6 @@ export function PeriodScreen({
           </Tabs>
         </div>
       </PageBody>
-
-      {showingMakeup && period && (
-        <Modal
-          open
-          onClose={() => setShowingMakeup(false)}
-          title="How the score is made up"
-          size="md"
-          footer={
-            <Button onClick={() => setShowingMakeup(false)}>Close</Button>
-          }
-        >
-          <PeriodWeightsSection
-            period={period}
-            onChanged={() => detail.reload()}
-          />
-        </Modal>
-      )}
 
       {period && (
         <RenamePeriodDialog

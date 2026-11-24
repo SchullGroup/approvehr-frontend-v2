@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Building2,
   CalendarPlus,
@@ -144,6 +145,63 @@ const ACTIONS: readonly Action[] = [
     permission: "EDIT_RECORDS",
   },
 ];
+
+/** A soft, different tint for each tile, in the department-card family. */
+const TINTS = [
+  "var(--color-accent)",
+  "#0e9f8e",
+  "#d97706",
+  "#7c3aed",
+  "#db2777",
+  "#2563eb",
+  "#65a30d",
+  "#dc2626",
+] as const;
+
+/** The same gated list as the menu, as coloured icon tiles for the dashboard. */
+export function QuickActionTiles() {
+  const { permissions } = usePermissions();
+  const features = useFeatures();
+  if (features.loading) return null;
+  const shown = ACTIONS.filter((action) => {
+    if (action.feature !== undefined && features[action.feature] !== true) {
+      return false;
+    }
+    return (
+      action.permission === undefined || permissions.has(action.permission)
+    );
+  });
+  if (shown.length === 0) return null;
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+      {shown.map((action) => {
+        const tint = TINTS[ACTIONS.indexOf(action) % TINTS.length];
+        return (
+          <li key={action.href}>
+            <Link
+              href={action.href}
+              className="flex h-full flex-col gap-3 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <span
+                aria-hidden="true"
+                className="grid size-9 place-items-center rounded-lg [&_svg]:size-5"
+                style={{
+                  color: tint,
+                  background: `color-mix(in srgb, ${tint} 14%, var(--color-surface))`,
+                }}
+              >
+                {action.icon}
+              </span>
+              <span className="text-body-sm font-semibold text-ink">
+                {action.label}
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 export function QuickActions() {
   const { permissions } = usePermissions();

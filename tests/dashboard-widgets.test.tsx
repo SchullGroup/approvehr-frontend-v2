@@ -216,33 +216,29 @@ describe("the catalogue and the components agree", () => {
     expect(bad.map((widget) => widget.id)).toEqual([]);
   });
 
-  it("puts no leave balance on anybody's default dashboard", () => {
-    /* The product owner, 24 Nov 2026: no leave, hiring or app-use cards by
-       default; they are in the drawer for whoever wants them. */
-    expect(widgetById("my-leave")?.defaultFor).toEqual([]);
+  it("puts no hiring or app-use card on anybody's default dashboard", () => {
     expect(widgetById("hiring")?.defaultFor).toEqual([]);
     expect(widgetById("app-use")?.defaultFor).toEqual([]);
   });
 
-  it("opens the owner's home on payroll, money owed and headcount, with Start something", () => {
-    /* The home the owner asked to go back to on 24 Nov 2026 (Crafwell's view). */
+  it("opens the admin home on the cards the product owner chose (24 Nov 2026)", () => {
     for (const id of [
+      "stat-headcount",
       "payroll-month",
+      "who-is-in",
+      "attendance-by-day",
+      "chart-headcount-by-department",
       "money-owed",
-      "chart-headcount-trend",
-      "chart-payroll-by-department",
       "quick-actions",
     ]) {
       expect(widgetById(id)?.defaultFor).toContain("owner");
     }
   });
 
-  it("keeps the staff home to the day: no leave types, no last payslip", () => {
-    /* Asked for on 2026-11-17: the staff home leads with the clock. Both cards
-       are still in the drawer for somebody who wants them. */
-    expect(widgetById("my-leave")?.defaultFor).not.toContain("staff");
-    expect(widgetById("my-pay")?.defaultFor).not.toContain("staff");
-    expect(widgetById("my-clock")?.defaultFor).toContain("staff");
+  it("opens the staff home on the clock, leave, latest payslip and objectives", () => {
+    for (const id of ["my-clock", "my-leave", "my-pay", "my-objectives"]) {
+      expect(widgetById(id)?.defaultFor).toContain("staff");
+    }
     expect(widgetById("my-clock")?.leadFor).toContain("staff");
   });
 

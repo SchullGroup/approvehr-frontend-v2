@@ -175,7 +175,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
        count. The widget also draws nothing for anybody the company-wide
        approvals block was sent to, so a custom role that holds the company
        permissions is covered too. */
-    defaultFor: ["custom", "staff"],
+    defaultFor: [],
   },
 
   /* ---------------------------------------------------------------- people */
@@ -187,7 +187,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "quarter",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "stat-approvals",
@@ -224,7 +224,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "dashboard",
     anyPermission: SEES_COMPANY,
     feature: "attendance",
-    defaultFor: ["owner", "admin", "custom"],
+    defaultFor: [],
   },
   {
     /* Only where the company has turned the measure on, and only for whoever holds
@@ -246,11 +246,11 @@ export const WIDGETS: readonly WidgetSpec[] = [
     title: "Who is in today",
     blurb: "Clocked in, late, on leave and unaccounted for, as one bar.",
     group: "people",
-    span: "half",
+    span: "third",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
     feature: "attendance",
-    defaultFor: [],
+    defaultFor: ["owner", "admin", "custom"],
   },
 
   /* ------------------------------------------------------------------- pay */
@@ -260,10 +260,10 @@ export const WIDGETS: readonly WidgetSpec[] = [
     blurb:
       "Net and gross for the current run, its status, and what is left to check.",
     group: "pay",
-    span: "half",
+    span: "third",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "money-owed",
@@ -274,7 +274,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: ["owner"],
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "hiring",
@@ -298,7 +298,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "reports",
     anyPermission: SEES_COMPANY,
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "chart-joiners-leavers",
@@ -335,11 +335,11 @@ export const WIDGETS: readonly WidgetSpec[] = [
     title: "Headcount by department",
     blurb: "Where everybody sits, largest first.",
     group: "charts",
-    span: "half",
+    span: "full",
     source: "reports",
     anyPermission: SEES_COMPANY,
     feature: "departments",
-    defaultFor: [],
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "chart-employment-types",
@@ -362,7 +362,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "reports",
     permission: "VIEW_SALARIES",
     feature: "departments",
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "chart-gross-breakdown",
@@ -395,7 +395,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     group: "you",
     span: "quarter",
     source: "dashboard",
-    defaultFor: ["owner", "admin", "custom"],
+    defaultFor: ["staff"],
   },
   {
     /* Off for the owner by default, and that is the whole of the difference —
@@ -409,7 +409,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
        was the tallest thing in the row and set the row's height. */
     span: "half",
     source: "dashboard",
-    defaultFor: [],
+    defaultFor: ["staff"],
   },
   {
     id: "my-clock",
@@ -450,13 +450,32 @@ export const WIDGETS: readonly WidgetSpec[] = [
     defaultFor: EVERYONE,
   },
   {
+    id: "attendance-by-day",
+    title: "Attendance by day",
+    blurb: "How many people were in on each of the last working days.",
+    group: "people",
+    span: "half",
+    source: "local",
+    anyPermission: SEES_COMPANY,
+    feature: "attendance",
+    defaultFor: ["owner", "admin", "custom"],
+  },
+  {
+    id: "my-objectives",
+    title: "My objectives",
+    blurb: "Your agreed objectives and how far along each one is.",
+    group: "tools",
+    span: "half",
+    source: "local",
+    defaultFor: ["staff"],
+  },
+  {
     id: "quick-actions",
     title: "Things to start",
     blurb:
-      "The handful of acts people begin from this screen, filtered to what you can do. A menu in the page header.",
+      "The handful of acts people begin from this screen, filtered to what you can do, as coloured tiles.",
     group: "tools",
     span: "full",
-    slot: "header",
     source: "local",
     defaultFor: ["owner", "admin", "custom"],
   },

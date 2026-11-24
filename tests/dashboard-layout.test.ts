@@ -87,16 +87,14 @@ describe.each(TIERS)("the dashboard for %s", (tier) => {
 });
 
 describe("what moved off the page", () => {
-  it("keeps the Start-something menu in the header and out of every row", () => {
-    for (const tier of TIERS) {
-      const ctx = context(EVERYTHING);
-      const chosen = resolveLayout(defaultLayout(tier, ctx), ctx);
-      const rows = dashboardSections(chosen, tier);
-      expect(rows.flatMap((row) => row.widgets.map((w) => w.id))).not.toContain(
-        "quick-actions",
-      );
-    }
-    expect(WIDGETS.find((w) => w.id === "quick-actions")?.slot).toBe("header");
+  it("shows the quick actions as a card in the body, not the header", () => {
+    const ctx = context(EVERYTHING);
+    const chosen = resolveLayout(defaultLayout("owner", ctx), ctx);
+    const rows = dashboardSections(chosen, "owner");
+    expect(rows.flatMap((row) => row.widgets.map((w) => w.id))).toContain(
+      "quick-actions",
+    );
+    expect(WIDGETS.find((w) => w.id === "quick-actions")?.slot).toBeUndefined();
   });
 
   it("closes the noticeboard at the foot, after every card", () => {
@@ -108,11 +106,13 @@ describe("what moved off the page", () => {
     ).toContain("noticeboard");
   });
 
-  it("gives a member of staff the queue tile", () => {
+  it("gives a member of staff the clock, leave, pay and objectives", () => {
     const ids = sectionsFor("staff", []).flatMap((row) =>
       row.widgets.map((widget) => widget.id),
     );
-    expect(ids).toContain("my-queue");
+    for (const id of ["my-clock", "my-leave", "my-pay", "my-objectives"]) {
+      expect(ids).toContain(id);
+    }
   });
 });
 

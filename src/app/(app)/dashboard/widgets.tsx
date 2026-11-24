@@ -26,13 +26,17 @@ import {
   Money,
   ProgressMeter,
   Spinner,
-  StackedBar,
 } from "@/components/ui";
 import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { AnnouncementsPanel } from "./announcements-panel";
 import { AppUseCard } from "./app-use-card";
-import { QuickActions } from "./quick-actions";
+import { DepartmentCard } from "@/components/ui/department-card";
+import { AttendanceByDay } from "./attendance-by-day";
+import { MyObjectivesCard } from "./my-objectives-card";
+import { QuickActionTiles } from "./quick-actions";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { formatKobo } from "@/lib/api/payroll";
 import {
   employmentTypeLabel,
@@ -236,43 +240,18 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
       title="Who is in today"
       description={`Of ${String(today.expected)} expected.`}
     >
-      <StackedBar
-        total={today.expected}
-        format={(n) => String(n)}
-        segments={[
-          {
-            label: "Clocked in",
-            value: today.clockedIn,
-            color: "var(--color-cat-1)",
-          },
-          ...(today.late > 0
-            ? [
-                {
-                  label: "Late",
-                  value: today.late,
-                  color:
-                    "color-mix(in srgb, var(--color-cat-4) 55%, var(--color-surface))",
-                },
-              ]
-            : []),
-          ...(today.onLeave > 0
-            ? [
-                {
-                  label: "On leave",
-                  value: today.onLeave,
-                  color: "var(--color-cat-3)",
-                },
-              ]
-            : []),
-          ...(today.unaccountedFor > 0
-            ? [
-                {
-                  label: "Not accounted for",
-                  value: today.unaccountedFor,
-                  color: "var(--color-cat-4)",
-                },
-              ]
-            : []),
+      <DonutChart
+        size={168}
+        thickness={20}
+        centre={{
+          value: `${String(Math.round(((today.clockedIn + today.late) / Math.max(today.expected, 1)) * 100))}%`,
+          label: "in today",
+        }}
+        points={[
+          { label: "Clocked in", value: today.clockedIn },
+          { label: "Late", value: today.late },
+          { label: "On leave", value: today.onLeave },
+          { label: "Not accounted for", value: today.unaccountedFor },
         ]}
         caption={`Of ${String(today.expected)} expected today: ${String(today.clockedIn)} clocked in, ${String(today.late)} late, ${String(today.onLeave)} on leave, ${String(today.unaccountedFor)} not accounted for.`}
       />
@@ -281,6 +260,14 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
 };
 
 /* -------------------------------------------------------------------- pay */
+
+/** How far a run has got, out of four: made, reviewed, approved, paid. */
+const RUN_STEP: Record<string, number> = {
+  DRAFT: 1,
+  IN_REVIEW: 2,
+  APPROVED: 3,
+  PAID: 4,
+};
 
 const PayrollMonth: WidgetComponent = ({ dashboard }) => {
   const payroll = dashboard.payroll;
@@ -320,6 +307,26 @@ const PayrollMonth: WidgetComponent = ({ dashboard }) => {
             Net pay for {payroll.employeeCount}{" "}
             {payroll.employeeCount === 1 ? "person" : "people"}
           </p>
+          <div
+            role="progressbar"
+            aria-label="How far this month's payroll has got"
+            aria-valuemin={0}
+            aria-valuemax={4}
+            aria-valuenow={RUN_STEP[payroll.status] ?? 0}
+            className="flex gap-1.5"
+          >
+            {[1, 2, 3, 4].map((step) => (
+              <span
+                key={step}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full",
+                  step <= (RUN_STEP[payroll.status] ?? 0)
+                    ? "bg-accent"
+                    : "bg-sunken",
+                )}
+              />
+            ))}
+          </div>
           <ButtonLink href="/payroll" variant="secondary" size="sm">
             Open payroll
           </ButtonLink>
@@ -486,16 +493,31 @@ const HeadcountByDepartment: WidgetComponent = ({
   reports,
   reportsLoading,
 }) => {
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const { flat: departments } = useDepartments();
   if (reportsLoading) return <ChartLoading title="Headcount by department" />;
   const rows = reports?.headcount?.byDepartment ?? [];
   if (rows.length === 0) return null;
+  const faces = (name: string) => {
+    const id = departments.find((one) => one.name === name)?.id;
+    return directory.people
+      .filter((person) => id !== undefined && person.departmentId === id)
+      .map((person) => person.fullName);
+  };
   return (
-    <Panel title="Headcount by department" description="Largest first.">
-      <BarChart
-        points={rows.map((row) => ({ label: row.name, value: row.count }))}
-        format={(n) => String(n)}
-        caption="How many people sit in each department."
-      />
+    <Panel title="Headcount by department">
+      <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => (
+          <li key={row.name} className="min-w-0">
+            <DepartmentCard
+              name={row.name}
+              href="/people/departments"
+              line={`${String(row.count)} ${row.count === 1 ? "person" : "people"}`}
+              members={faces(row.name)}
+            />
+          </li>
+        ))}
+      </ul>
     </Panel>
   );
 };
@@ -682,7 +704,13 @@ const MyClock: WidgetComponent = () => <MyClockCard hero />;
 const AppUse: WidgetComponent = () => <AppUseCard />;
 
 const Assistant: WidgetComponent = () => <AskPanel />;
-const Actions: WidgetComponent = () => <QuickActions />;
+const Actions: WidgetComponent = () => (
+  <Panel title="Quick actions">
+    <QuickActionTiles />
+  </Panel>
+);
+const AttendanceByDayWidget: WidgetComponent = () => <AttendanceByDay />;
+const MyObjectives: WidgetComponent = () => <MyObjectivesCard />;
 const Noticeboard: WidgetComponent = ({ dashboard }) => (
   <AnnouncementsPanel board={dashboard.announcements} />
 );
@@ -722,6 +750,8 @@ export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "my-clock": MyClock,
   assistant: Assistant,
   "quick-actions": Actions,
+  "attendance-by-day": AttendanceByDayWidget,
+  "my-objectives": MyObjectives,
   noticeboard: Noticeboard,
 };
 
