@@ -13834,7 +13834,10 @@ Each item is proved by a test, a deliberate break, or both; none forced a cut.
 On the final tree, with `APPROVEHR_BACKEND_DIR` at the backend worktree on `e4d3b43`, so the four cross-repo gates
 (payroll, template, rating scale, signature wording) compared and did not skip. Branch `feat/query-stage3-4-20261123`.
 
-- `npm run check`: see the line at the end of this section for its exit code and the tree it ran on.
+- `npm run check` exit 0 on the tree at `37c9b9ef` (typecheck, lint with 0 errors and 14 warnings that are all on `dev`
+  and none in a file this change touches, format, and every `verify-*`; payroll 62, template 81, review language 52,
+  linked text 57, load rule 92 screens). The cross-repo gates printed `comparing with` the backend worktree.
+- `npm run docs -- --check --only frontend-pages,frontend-components` and `npm run page-index` are current.
 - `npm run verify-demo:build` (a production build with `NEXT_PUBLIC_DEMO=off`, then the check against it) exit 0:
   "Demo source check: 1397 files, no ungated demo copy. Demo bundle check: 3282 built files, none carries demo copy.
   Fabrication check: 10 seed personas and 3 credential shape(s), none loose in src/ or the build."
