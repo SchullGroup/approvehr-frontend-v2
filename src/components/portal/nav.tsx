@@ -11,7 +11,6 @@ import {
   ChartNoAxesColumn,
   CheckCheck,
   ClipboardCheck,
-  ClipboardList,
   ListChecks,
   Clock,
   CreditCard,
@@ -1057,12 +1056,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/performance/kpis",
       label: "Objectives",
       icon: <TrendingUp aria-hidden="true" />,
-      always: true,
-    },
-    {
-      href: "/performance/review-tasks",
-      label: "Weekly tasks",
-      icon: <ClipboardList aria-hidden="true" />,
       always: true,
     },
     {

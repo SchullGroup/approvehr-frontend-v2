@@ -519,10 +519,7 @@ function PartsPanel({
                           {part.source === MANAGER_SOURCE &&
                             weights?.managerAppraisalNote && (
                               <div className="mt-2">
-                                <SavedWeightsNote
-                                  note={weights.managerAppraisalNote}
-                                  moved={false}
-                                />
+                                <SavedWeightsNote moved={false} />
                               </div>
                             )}
                         </div>

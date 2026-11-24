@@ -64,7 +64,6 @@ const INDEX_WORDS: Readonly<Record<string, readonly string[]>> = {
   "/performance/kpis": ["objectives", "goals", "okr", "targets", "measures"],
   "/performance/skills": ["competencies", "levels", "ratings", "gaps"],
   "/performance/appraisers": ["mapping", "who appraises", "manager"],
-  "/performance/review-tasks": ["weekly tasks", "task grading", "grade"],
   "/people/leave": ["time off", "vacation", "holiday", "absence", "book"],
   "/people/probation": ["confirmation", "confirm", "new starter"],
   "/people/changes": ["promotion", "transfer", "grade change", "pay change"],

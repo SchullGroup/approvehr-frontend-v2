@@ -55,12 +55,7 @@ export function PeriodWeightsSection({
             companyDefaults={companyDefaults}
             parts={weights.parts}
           />
-          {period.managerAppraisalNote && (
-            <SavedWeightsNote
-              note={period.managerAppraisalNote}
-              moved={false}
-            />
-          )}
+          {period.managerAppraisalNote && <SavedWeightsNote moved={false} />}
         </CardBody>
       </Card>
     );
@@ -149,9 +144,7 @@ function DraftWeights({
           void run({ weights: null }, "Using your company's weights")
         }
       />
-      {period.managerAppraisalNote && (
-        <SavedWeightsNote note={period.managerAppraisalNote} moved={dirty} />
-      )}
+      {period.managerAppraisalNote && <SavedWeightsNote moved={dirty} />}
       {error && (
         <p role="alert" className="text-body-sm text-danger-text">
           {error}
