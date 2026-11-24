@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `d02fd3de` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `7deb5eb6` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -26,7 +26,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — `/dashboard`](#screens--dashboard)                                                      |       13 |         11 |       0 |         6 |
 | [Screens — `/people`](#screens--people)                                                            |      143 |        154 |       0 |        32 |
 | [Screens — `/payroll`](#screens--payroll)                                                          |       82 |         83 |       2 |        46 |
-| [Screens — `/performance`](#screens--performance)                                                  |       94 |        110 |       3 |        69 |
+| [Screens — `/performance`](#screens--performance)                                                  |       93 |        109 |       3 |        69 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
 | [Screens — `/projects`](#screens--projects)                                                        |       38 |         37 |       0 |         4 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1404** |   **1166** | **481** |  **1804** |
+| **Total**                                                                                          | **1403** |   **1165** | **481** |  **1804** |
 
 ---
 
@@ -1216,8 +1216,7 @@ Screen components for the performance module, including its dialogs and panels.
 | `src/app/(app)/performance/skills/page.tsx`                             | `PerformanceSkillsPage`                                                                                      | —                           | —                                                                                                                                                                                                                                                                                                                                                         | 1 const           |
 | `src/app/(app)/performance/skills/skills-screen.tsx`                    | `SkillsScreen`                                                                                               | —                           | —                                                                                                                                                                                                                                                                                                                                                         | —                 |
 | `src/app/(app)/performance/skills/tabs.ts`                              | —                                                                                                            | —                           | —                                                                                                                                                                                                                                                                                                                                                         | 1 const · 1 type  |
-| `src/app/(app)/performance/work-record/page.tsx`                        | `MyWorkRecordPage`                                                                                           | —                           | —                                                                                                                                                                                                                                                                                                                                                         | 1 const           |
-| `src/app/(app)/performance/work-record/work-record-screen.tsx`          | `MyWorkRecordScreen`                                                                                         | —                           | —                                                                                                                                                                                                                                                                                                                                                         | —                 |
+| `src/app/(app)/performance/work-record/page.tsx`                        | `MyWorkRecordPage`                                                                                           | —                           | —                                                                                                                                                                                                                                                                                                                                                         | —                 |
 
 ---
 

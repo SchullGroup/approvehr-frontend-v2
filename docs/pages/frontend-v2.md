@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `d02fd3de` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `7deb5eb6` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 **173 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -218,7 +218,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/performance/review-tasks`          | Weekly tasks        | Log what you did toward your objectives, and grade what your team did.                                                                                                                                           | `src/app/(app)/performance/review-tasks/page.tsx`          |
 | `/performance/reviews/[id]`          | Appraisal           | One appraisal: the score, what it is made of, who gave it, and the employee's reply.                                                                                                                             | `src/app/(app)/performance/reviews/[id]/page.tsx`          |
 | `/performance/skills`                | Competency ratings  | Where people stand against the levels the company set.                                                                                                                                                           | `src/app/(app)/performance/skills/page.tsx`                |
-| `/performance/work-record`           | My work record      | What you finished on the project boards, a day, week, month or quarter at a time.                                                                                                                                | `src/app/(app)/performance/work-record/page.tsx`           |
+| `/performance/work-record`           | —                   | —                                                                                                                                                                                                                | `src/app/(app)/performance/work-record/page.tsx`           |
 
 ### Profile
 
