@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `7a43ca6e` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `6038caf5` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -62,7 +62,7 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 | `src/components/ui/field.tsx`                | `InfoTooltip`, `Field`, `FieldRow`, `FieldSet`                                                 | `useFieldContext`, `useFieldControl` | —                                                                                             | 1 type             |
 | `src/components/ui/file-field.tsx`           | `FileField`                                                                                    | —                                    | —                                                                                             | —                  |
 | `src/components/ui/filter-bar.tsx`           | `FilterBar`                                                                                    | —                                    | —                                                                                             | 1 type             |
-| `src/components/ui/hero-backdrop.tsx`        | `HeroBackdrop`                                                                                 | —                                    | —                                                                                             | 4 const            |
+| `src/components/ui/hero-backdrop.tsx`        | `HeroBackdrop`                                                                                 | —                                    | —                                                                                             | 1 const            |
 | `src/components/ui/illustration.tsx`         | `Illustration`                                                                                 | —                                    | —                                                                                             | —                  |
 | `src/components/ui/in-dialog.ts`             | —                                                                                              | —                                    | —                                                                                             | 1 const            |
 | `src/components/ui/input.tsx`                | `Input`, `Textarea`, `Select`                                                                  | —                                    | —                                                                                             | 2 types            |

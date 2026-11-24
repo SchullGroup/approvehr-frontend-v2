@@ -52,8 +52,6 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
-  EXCEPTION_CODE_SUMMARY,
-  groupExceptionsByCode,
   outOf5FromBp,
   outOf5Label,
   ratingWordsFrom,
@@ -62,7 +60,6 @@ import {
   visibleComponents,
   weightLabel,
   weightsFromNote,
-  type ApiAppraiserMap,
   type ApiComponentScore,
   type ApiCycle,
   type ApiCycleParticipants,
@@ -619,14 +616,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                         marked={detail.register?.rows.length ?? null}
                         onShowLeft={() => setShowingLeft(true)}
                       />
-                      {/* Nobody can be given an appraiser once a period is
-                          published, so a published one lists nobody. */}
-                      {period?.stage !== "PUBLISHED" && (
-                        <NobodyAppraising
-                          cycleId={cycleId}
-                          exceptions={detail.exceptions}
-                        />
-                      )}
                       <MultiAppraiserReviews
                         participants={detail.participants}
                       />
@@ -897,69 +886,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * The people something is wrong with, by name (UAT 23 Nov, U102 / PERF-23).
- *
- * The period page said people nobody asked were "listed above" and listed
- * nobody: the list had gone in a redesign and only its comment stayed. It is
- * back, from the appraiser map's own exceptions (`NO_APPRAISER` and the rest),
- * one line per kind of problem with the people named, and a link to Who
- * appraises whom, where they are fixed. Nothing to fix draws nothing: the
- * progress above already says what is in.
- *
- * Named and not counted, because a count tells nobody who to go and look at;
- * past eight names the rest are counted, and every one of them is on the page
- * the link opens.
- */
-const NAMED = 8;
-
-function namesInLine(names: string[]): string {
-  if (names.length <= NAMED) {
-    return names.length === 1
-      ? names[0]!
-      : `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
-  }
-  const rest = names.length - NAMED;
-  return `${names.slice(0, NAMED).join(", ")} and ${rest} ${rest === 1 ? "other" : "others"}`;
-}
-
-function NobodyAppraising({
-  cycleId,
-  exceptions,
-}: {
-  cycleId: string;
-  exceptions: ApiAppraiserMap | null;
-}) {
-  if (!exceptions) return null;
-  const flat = exceptions.rows.flatMap((row) =>
-    row.exceptions.map((issue) => ({ ...issue, name: row.employeeName })),
-  );
-  if (flat.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-2">
-      {groupExceptionsByCode(flat).map((group) => {
-        const summary = EXCEPTION_CODE_SUMMARY[
-          group.code as keyof typeof EXCEPTION_CODE_SUMMARY
-        ](group.items.length);
-        return (
-          <NoticeLine key={`${group.code}-${group.severity}`}>
-            <span>
-              {`${summary.replace(/\.$/, "")}: ${namesInLine(group.items.map((item) => item.name))}.`}
-            </span>
-            <Link
-              href={`/performance/appraisers?period=${cycleId}`}
-              className={NOTICE_LINK}
-            >
-              Assign appraisers
-            </Link>
-          </NoticeLine>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * Who has not sent a form yet, by name and by what is missing.
