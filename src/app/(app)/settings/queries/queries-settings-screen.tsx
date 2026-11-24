@@ -26,6 +26,7 @@ import {
   useQueryActions,
 } from "@/lib/store/queries";
 import { actionMessage } from "@/lib/use-action";
+import { TemplatesCard } from "./templates-card";
 
 /**
  * Queries in Settings: the switch, and the three rules beside it.
@@ -76,14 +77,22 @@ export function QueriesSettingsScreen() {
         skeleton="list"
       >
         {settings.data && (
-          <RulesCard
-            key={`${settings.data.replyHours}-${settings.data.warnHours}-${String(settings.data.issuerMayDecideIfSole)}`}
-            settings={settings.data}
-            editable={switchState.editable}
-            reload={settings.reload}
-          />
+          <div className="flex flex-col gap-6">
+            <RulesCard
+              key={`${settings.data.replyHours}-${settings.data.warnHours}-${String(settings.data.issuerMayDecideIfSole)}`}
+              settings={settings.data}
+              editable={switchState.editable}
+              reload={settings.reload}
+            />
+            <ManagersCard
+              settings={settings.data}
+              editable={switchState.editable}
+              reload={settings.reload}
+            />
+          </div>
         )}
       </LoadState>
+      <TemplatesCard editable={switchState.editable} />
     </div>
   );
 }
@@ -380,5 +389,168 @@ function RulesCard({
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * Whether a line manager may draft a query, and nothing wider.
+ *
+ * ## What it decides
+ *
+ * A manager who has been given **Draft queries** (on Roles, held by nobody to begin with) may
+ * write the letter of a query about somebody who reports to them. HR reviews and issues it. They
+ * cannot issue, extend, decide, withdraw, cite a record or attach a file, and they never see a
+ * query once it has been issued. Off, the permission does nothing.
+ *
+ * ## It asks first
+ *
+ * Turning it on opens a confirmation that says what a manager can and cannot do and ends with the
+ * two things nobody should skip. Turning it off is one press, deletes nothing and cuts every
+ * manager off at once (the server re-derives a manager's access on each request).
+ *
+ * `managersMayDraft` is `null` for a server that did not say (one a deploy behind): no switch is
+ * offered for a setting that does not exist, and it is never read as off.
+ */
+function ManagersCard({
+  settings,
+  editable,
+  reload,
+}: {
+  settings: ApiQuerySettings;
+  editable: boolean;
+  reload: () => void;
+}) {
+  const toast = useToast();
+  const actions = useQueryActions();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const on = settings.managersMayDraft === true;
+
+  function close() {
+    if (!busy) setAsking(false);
+  }
+
+  async function save(next: boolean) {
+    setBusy(true);
+    setProblem(null);
+    try {
+      await actions.updateSettings({ managersMayDraft: next });
+      setAsking(false);
+      toast.push({
+        tone: next ? "success" : "info",
+        title: next ? "Managers may draft" : "Managers may not draft",
+        detail: next
+          ? "Only people given Draft queries on Roles can, and only about their own reports."
+          : "Drafts already written are kept, and HR still sees them.",
+      });
+      reload();
+    } catch (error) {
+      setProblem(actionMessage(error, "that setting"));
+      setAsking(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader
+          title="Managers drafting"
+          level={2}
+          description="Whether a line manager may write the letter of a query about somebody who reports to them, for HR to review and issue."
+        />
+        <CardBody className="flex flex-col gap-4">
+          {settings.managersMayDraft === null ? (
+            <p className="text-body-sm text-muted">
+              This server has not been updated to offer manager drafting yet, so
+              there is no switch to show until it is.
+            </p>
+          ) : (
+            <>
+              <Switch
+                label="Let managers draft queries"
+                description="Off for every company. A manager writes the letter and nothing else: they cannot issue, extend, decide or withdraw it, cite a record or attach a file, and they never see a query once it is issued. Turning it off cuts every manager off at once and deletes nothing."
+                checked={on}
+                disabled={!editable || busy}
+                onChange={(event) => {
+                  if (event.target.checked) setAsking(true);
+                  else void save(false);
+                }}
+              />
+              {problem && (
+                <p role="alert" className="text-body-sm text-danger-text">
+                  {problem}
+                </p>
+              )}
+              {!editable && (
+                <p className="text-body-sm text-muted">
+                  Read-only: changing this needs the Manage settings permission.
+                </p>
+              )}
+              <p className="text-body-sm text-muted">
+                Who may draft is set on{" "}
+                <TextLink href="/settings/roles">Roles</TextLink>, as Draft
+                queries. Nobody holds it until you give it to them.
+              </p>
+            </>
+          )}
+        </CardBody>
+      </Card>
+
+      <Modal
+        open={asking}
+        onClose={close}
+        title="Let managers draft queries?"
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={close}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              loading={busy}
+              onClick={() => void save(true)}
+            >
+              Switch it on
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
+          <p>
+            Managers you give Draft queries to can write the letter of a query
+            about somebody who reports to them. HR reviews it and issues it.
+          </p>
+          <ul className="list-disc pl-5">
+            <li>
+              A manager sees only their own drafts about their own reports, and
+              never a query once it has been issued or withdrawn.
+            </li>
+            <li>
+              They cannot issue, extend, decide or withdraw one, cite a record,
+              attach a file or ask for a document.
+            </li>
+            <li>
+              The moment the person stops reporting to them, or you switch this
+              off, they lose the draft.
+            </li>
+            <li>Nobody holds Draft queries until you give it on Roles.</li>
+          </ul>
+          <p className="font-medium text-ink">
+            Tell your managers what they may and may not do before you use it,
+            and have your counsel review it.
+          </p>
+        </div>
+      </Modal>
+    </>
   );
 }

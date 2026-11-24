@@ -20,6 +20,11 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import {
+  LinkedQueryField,
+  LinkedQueryLine,
+} from "@/components/queries/linked-query";
+import { useOpenSession } from "@/lib/use-open-session";
 import { ApiError } from "@/lib/api/client";
 import type { ApiAction, DisciplinaryLevel } from "@/lib/api/conduct";
 import { useCan } from "@/lib/permissions";
@@ -361,6 +366,13 @@ export function ActionRow({
               </>
             )}
           </p>
+          {/* Drawn only where the server sent the id, which it does for the person this is
+              about and for whoever edits records. */}
+          <LinkedQueryLine
+            queryId={action.queryId}
+            reference={action.queryReference}
+            className="mt-1 text-meta text-muted"
+          />
         </div>
 
         <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:shrink-0">
@@ -399,14 +411,14 @@ const MIN_SUMMARY = 5;
  * The last line before the button says who will be able to see this. One line —
  * not a paragraph about data protection.
  */
-function RecordWarningModal({
-  open,
-  employeeId,
-  employeeName,
-  onClose,
-  onSave,
-  onStartExit,
-}: {
+function RecordWarningModal(props: RecordWarningProps) {
+  /* A new form each time it opens: a query chosen for one warning must never be left chosen for
+     the next, and a half-typed warning is not kept for another person. */
+  const session = useOpenSession(props.open, props.employeeId);
+  return <RecordWarningForm key={session} {...props} />;
+}
+
+type RecordWarningProps = {
   /* Controlled by `ConductPanel`, which owns the "Record a warning" button.
      This modal now stays mounted at all times so its own exit animation can
      run when `open` goes false — see `setup-guide.tsx` for the pattern. */
@@ -423,8 +435,18 @@ function RecordWarningModal({
     detail?: string;
     outcome?: string;
     expiresOn?: string;
+    queryId?: string;
   }) => Promise<void>;
-}) {
+};
+
+function RecordWarningForm({
+  open,
+  employeeId,
+  employeeName,
+  onClose,
+  onSave,
+  onStartExit,
+}: RecordWarningProps) {
   const timeZone = useOrgTimezone();
   /* The real clock, in the company's zone, not the demo's `TODAY`: an
      incident is dated against the company's own day, not whichever browser
@@ -438,6 +460,7 @@ function RecordWarningModal({
   const [detail, setDetail] = useState("");
   const [outcome, setOutcome] = useState("");
   const [expiresOn, setExpiresOn] = useState("");
+  const [queryId, setQueryId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const dateProblem =
@@ -484,6 +507,7 @@ function RecordWarningModal({
                   ...(detail.trim() ? { detail: detail.trim() } : {}),
                   ...(outcome.trim() ? { outcome: outcome.trim() } : {}),
                   ...(expiresOn ? { expiresOn } : {}),
+                  ...(queryId !== "" ? { queryId } : {}),
                 }).finally(() => setBusy(false));
               }}
             >
@@ -609,6 +633,14 @@ function RecordWarningModal({
             }}
           />
         </Field>
+
+        {/* A note that this followed a query about the same person. Nothing is drawn for
+            somebody who does not work queries, or when there is no query to link. */}
+        <LinkedQueryField
+          subjectId={employeeId}
+          value={queryId}
+          onChange={setQueryId}
+        />
       </div>
     </Modal>
   );

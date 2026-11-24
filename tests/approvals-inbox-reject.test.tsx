@@ -66,7 +66,7 @@ vi.mock("@/lib/store/approvals-api", () => ({
 vi.mock("@/lib/permissions", () => ({
   hasAnyPermission: () => true,
   useIsManager: () => true,
-  usePermissions: () => ({ permissions: [] }),
+  usePermissions: () => ({ permissions: new Set(["APPROVE_LEAVE"]) }),
 }));
 
 const { ApprovalInbox } = await import("@/app/(app)/approvals/inbox");

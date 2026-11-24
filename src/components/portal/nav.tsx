@@ -701,7 +701,12 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/queries",
       label: "Queries",
       icon: <MessageSquareText aria-hidden="true" />,
-      anyPermission: ["ISSUE_QUERIES", "DECIDE_QUERIES"],
+      /* `DRAFT_QUERIES` is the line manager's: the same row opens their own drafts and nothing
+         else. Held by nobody on the day, so the row is not in front of anybody who was not
+         given it. Whether the company has switched manager drafting on is the server's to say
+         (`GET /queries/my-drafts` answers 403 with its own sentence), so the page asks and the
+         row does not guess. */
+      anyPermission: ["ISSUE_QUERIES", "DECIDE_QUERIES", "DRAFT_QUERIES"],
       feature: "queries",
     },
     {

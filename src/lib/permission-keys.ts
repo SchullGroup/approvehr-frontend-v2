@@ -97,6 +97,10 @@ export const PERMISSION_KEYS = [
      changes. */
   "ISSUE_QUERIES",
   "DECIDE_QUERIES",
+  /* Queries: write the letter of one about somebody who reports to you, and nothing else. Held by
+     nobody on the day (it is not part of the EDIT_RECORDS expansion), given on the Roles screen,
+     and it only works while the company's "managers may draft" setting is on. */
+  "DRAFT_QUERIES",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -197,6 +201,8 @@ export const PERMISSION_SHAPE: Record<
   SEE_ALL_WORK: { module: "projects", action: "view" },
   ISSUE_QUERIES: { module: "queries", action: "create" },
   DECIDE_QUERIES: { module: "queries", action: "approve" },
+  /* "Edit", because the matrix has no "draft" column and one cell is not worth one. */
+  DRAFT_QUERIES: { module: "queries", action: "edit" },
   MANAGE_SETTINGS: { module: "settings", action: "manage" },
   MANAGE_ROLES: { module: "access", action: "manage" },
   INVITE_STAFF: { module: "access", action: "invite" },

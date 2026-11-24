@@ -80,6 +80,7 @@ beforeEach(() => {
       replyHours: 48,
       warnHours: 24,
       issuerMayDecideIfSole: true,
+      managersMayDraft: false,
       retention: "archive_only",
     },
     loading: false,
@@ -281,6 +282,7 @@ describe("the rules", () => {
       replyHours: 48,
       warnHours: 24,
       issuerMayDecideIfSole: true,
+      managersMayDraft: false,
       retention: null,
     };
     mount();

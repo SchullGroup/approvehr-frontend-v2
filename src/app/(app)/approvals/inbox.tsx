@@ -50,6 +50,7 @@ import type { ApprovalKind } from "@/lib/mock/workflows";
 import { fullName } from "@/lib/types";
 import {
   isDecidableHere,
+  mayDecideLeave,
   type ApprovalRow as ApiApprovalRow,
 } from "@/lib/api/approvals";
 import {
@@ -199,6 +200,9 @@ export function ApprovalInbox() {
   const { permissions } = usePermissions();
   const canApprove =
     isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+  /* A manager is shown the requests routed to them whether or not their role can decide
+     leave, so a leave row has to know if an Approve could ever work for this reader. */
+  const mayDecideLeaveRows = mayDecideLeave(permissions);
 
   const decide = async (
     item: QueueItem,
@@ -376,6 +380,7 @@ export function ApprovalInbox() {
                   <ApprovalRow
                     item={item}
                     archived
+                    mayDecideLeave={mayDecideLeaveRows}
                     onApprove={() => void decide(item, "approved")}
                     onReject={() => setDeclining(item)}
                     onArchive={() => void archive(item, false)}
@@ -416,6 +421,7 @@ export function ApprovalInbox() {
                   <li key={item.id}>
                     <ApprovalRow
                       item={item}
+                      mayDecideLeave={mayDecideLeaveRows}
                       onApprove={() => void decide(item, "approved")}
                       onReject={() => setDeclining(item)}
                       onArchive={() => void archive(item, true)}
@@ -823,17 +829,25 @@ function WithSourceLinks({ text }: { text: string }) {
 function ApprovalRow({
   item,
   archived = false,
+  mayDecideLeave: mayDecideThisLeave = true,
   onApprove,
   onReject,
   onArchive,
 }: {
   item: QueueItem;
   archived?: boolean;
+  /** False when this reader holds no leave-approval permission at all, so the API would
+   *  refuse any decision they made on a leave row. Read only for `leave`. */
+  mayDecideLeave?: boolean;
   onApprove: () => void;
   onReject: () => void;
   onArchive: () => void;
 }) {
   const ageing = item.waitingDays >= 5;
+  /* A leave row routed to somebody whose role cannot decide leave. The card is shown to
+     whoever the request was routed to (their manager), and the API then refuses every
+     decision: an Approve that can only fail. They are told why, and offered the request. */
+  const cannotDecideLeave = item.kind === "leave" && !mayDecideThisLeave;
   /* Only a seed row knows who raised it. The API's approval row does not carry
      a requester, and its title already names the person it is about, so the
      line is left off rather than filled with a guess. */
@@ -905,6 +919,13 @@ function ApprovalRow({
             )}
             <span>Raised {item.requestedAt}</span>
           </div>
+          {cannotDecideLeave && (
+            <p className="mt-2 text-body-sm text-body">
+              You are listed as the approver, but your role does not include
+              approving leave, so a decision from you would be refused. Ask
+              whoever manages roles to give you that permission.
+            </p>
+          )}
         </div>
 
         {item.amount !== undefined && (
@@ -924,7 +945,7 @@ function ApprovalRow({
             now refuses these outright rather than pretend to act. A button
             here would be one that always fails; the real one is one click
             away. */}
-        {isDecidableHere(item.kind) ? (
+        {isDecidableHere(item.kind) && !cannotDecideLeave ? (
           <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
             <Button
               variant="approve"
@@ -961,11 +982,13 @@ function ApprovalRow({
                 ? "Decide"
                 : `Open ${item.kindLabel.toLowerCase()}`}
             </ButtonLink>
-            <ArchiveButton
-              item={item}
-              archived={archived}
-              onClick={onArchive}
-            />
+            {(item.kind !== "leave" || archived) && (
+              <ArchiveButton
+                item={item}
+                archived={archived}
+                onClick={onArchive}
+              />
+            )}
           </div>
         )}
       </CardBody>

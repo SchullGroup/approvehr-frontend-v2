@@ -292,6 +292,21 @@ describe("somebody who works queries", () => {
     expect(screen.getByText("No reply has been sent yet.")).toBeInTheDocument();
   });
 
+  it("bounds the new reply-by date to 2000 to 2100, the same as the server", async () => {
+    mount(
+      detail({
+        issuedById: "u-other",
+        can: can({ extend: true, withdraw: true }),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Extend the reply-by time" }),
+    );
+    const day = screen.getByLabelText(/^New date/);
+    expect(day).toHaveAttribute("min", "2000-01-01");
+    expect(day).toHaveAttribute("max", "2100-12-31");
+  });
+
   it("is not offered the outcome form when the server says it cannot decide, and is told the rule", () => {
     mount(
       detail({
