@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `bdb7d194` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `3157d807` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
-**177 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**178 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   156 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   157 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    10 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(careers)`   |     2 | **A company's careers pages.** Public, no sign-in. The employer's own frame: its brand header and a one-line footer, none of the product's sales chrome.                                                             |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
@@ -197,13 +197,14 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Performance
 
-`/performance` — 22 pages
+`/performance` — 23 pages
 
 | Route                                    | Title                     | What it is                                                                                                                                                                                                       | File                                                           |
 | ---------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `/performance`                           | Performance               | What is waiting on you, and how the running appraisal period is going.                                                                                                                                           | `src/app/(app)/performance/page.tsx`                           |
 | `/performance/appraisal-preview`         | Appraisal flow preview    | A mock-up of the step-by-step appraisal for an employee, with example answers. Nothing is saved.                                                                                                                 | `src/app/(app)/performance/appraisal-preview/page.tsx`         |
 | `/performance/appraisal-preview/manager` | Manager appraisal preview | A mock-up of a manager's team list and the step-by-step appraisal of one person, with example data. Nothing is saved.                                                                                            | `src/app/(app)/performance/appraisal-preview/manager/page.tsx` |
+| `/performance/appraisals`                | Appraisals                | Where your appraisal stands, step by step, and where your team's do.                                                                                                                                             | `src/app/(app)/performance/appraisals/page.tsx`                |
 | `/performance/appraisers`                | Who appraises whom        | Who appraises whom: everybody's line manager by default, and the exceptions period by period.                                                                                                                    | `src/app/(app)/performance/appraisers/page.tsx`                |
 | `/performance/approvals`                 | —                         | —                                                                                                                                                                                                                | `src/app/(app)/performance/approvals/page.tsx`                 |
 | `/performance/fairness`                  | Fairness check            | How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager.                                                                                   | `src/app/(app)/performance/fairness/page.tsx`                  |

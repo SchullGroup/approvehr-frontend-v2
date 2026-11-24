@@ -736,7 +736,13 @@ export function QuestionsDialog({
    */
   /* `how`, not `options`: that is the choices of the question being written,
      which the form below reads. */
+  /* A period that has started takes no new question (the API refuses it), so
+     nothing here offers one: a question can still be edited or removed until
+     somebody answers it. An unknown stage keeps every control. */
+  const canAdd = stage === undefined || stage === "DRAFT";
+
   const renderForm = (place: FormPlace, how: { inline?: boolean } = {}) => {
+    if (editing === null && !canAdd) return null;
     const filingLine =
       place.where === "subsection"
         ? filingNote({
@@ -1102,6 +1108,12 @@ export function QuestionsDialog({
       }
     >
       <div className="flex flex-col gap-5">
+        {!canAdd && (
+          <p className="text-body-sm text-muted">
+            This period has started. A question can be changed or removed until
+            somebody answers it; new ones cannot be added.
+          </p>
+        )}
         <SegmentedControl
           label="View"
           value={view}
@@ -1122,7 +1134,7 @@ export function QuestionsDialog({
             whyNot={whyNot}
             selectedId={selectedId}
             onSelect={selectSubsection}
-            onAddQuestion={addQuestionTo}
+            {...(canAdd ? { onAddQuestion: addQuestionTo } : {})}
             renderQuestions={renderSubsectionQuestions}
             {...(ask ? { ask } : {})}
             onQuestionsMoved={reload}
@@ -1197,7 +1209,7 @@ export function QuestionsDialog({
               </>
             )}
 
-            {onAddStandard && !changingOneInList && (
+            {onAddStandard && canAdd && !changingOneInList && (
               /* The testing doc's six, offered whether or not HR has already
                  typed questions of their own — unlike `onCopyFrom`, this is
                  not confined to a blank form. Pressing it twice is refused by
@@ -1303,7 +1315,7 @@ function SectionsView({
   whyNot: string | null;
   selectedId: string | null;
   onSelect: (competency: ApiCompetency | null) => void;
-  onAddQuestion: (competency: ApiCompetency) => void;
+  onAddQuestion?: ((competency: ApiCompetency) => void) | undefined;
   renderQuestions: (
     competency: ApiCompetency,
     section: SectionOption | null,
@@ -1353,7 +1365,7 @@ function SectionsView({
       whyNot={whyNot}
       selectedId={selectedId}
       onSelect={onSelect}
-      onAddQuestion={onAddQuestion}
+      {...(onAddQuestion ? { onAddQuestion } : {})}
       onChanged={() => {
         framework.reload();
         reloadSections();
