@@ -40,8 +40,6 @@ import {
   useToast,
   type AppliedFilter,
 } from "@/components/ui";
-import { NoticeLine } from "@/components/portal/notice-line";
-import { InfoTooltip } from "@/components/ui/field";
 import { DepartmentCard as DepartmentCardView } from "@/components/ui/department-card";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
@@ -660,9 +658,6 @@ export function KpisTab({
      after it failed: the filters and an empty list are replaced by one empty
      state that says what an objective is and offers to write one. */
   const empty = !kpis.loading && !kpis.error && kpis.goals.length === 0;
-  const unsent = kpis.goals.filter(
-    (goal) => goal.approval === "DRAFT" || goal.approval === "NEEDS_REVISION",
-  );
 
   /* The filter controls, behind the filter icon. */
   const FILTERS = (
@@ -755,14 +750,6 @@ export function KpisTab({
               objectives being tracked, average progress, just large cards"),
               and none of the lines that used to sit here about what waits to
               be agreed: the To agree tab carries that count. */}
-          {unsent.length > 0 && (
-            <NoticeLine tone="warning">
-              {unsent.length === 1
-                ? "1 objective has not been sent to be agreed yet"
-                : `${unsent.length} objectives have not been sent to be agreed yet`}
-            </NoticeLine>
-          )}
-
           {opened !== null && departmentHref && (
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-col items-start gap-1">
@@ -1664,19 +1651,13 @@ function GoalDetailModal({
   return (
     <Modal open={open} onClose={onClose} title={goal.title} size="lg">
       <div className="flex flex-col gap-4">
-        {(goal.ownerName || goal.targetFrozen) && (
+        {goal.ownerName && (
           <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
             {goal.ownerName && (
               <span className="flex items-center gap-1.5">
                 <Avatar name={goal.ownerName} size="xs" />
                 {goal.ownerName}
               </span>
-            )}
-            {goal.targetFrozen && (
-              <InfoTooltip
-                label="Why it is fixed"
-                text="Agreed: the title, period and targets are fixed. Progress can still change."
-              />
             )}
           </div>
         )}
@@ -1689,7 +1670,7 @@ function GoalDetailModal({
           size="sm"
           tone={
             done
-              ? "ink"
+              ? "success"
               : goal.status === "OFF_TRACK"
                 ? "danger"
                 : goal.status === "AT_RISK"
@@ -1994,7 +1975,7 @@ export function MeasureRow({
           value={measure.percent}
           showValue
           size="sm"
-          tone={measure.met ? "ink" : "accent"}
+          tone={measure.met ? "success" : "accent"}
         />
       )}
 
