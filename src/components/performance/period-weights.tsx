@@ -138,6 +138,24 @@ export function periodWeightsProblem(
   return total === 100 ? null : TOTAL_RULE;
 }
 
+/**
+ * Whether what is typed differs from the company's own weights, for the parts
+ * shown. The "use my company's weights" button is only worth having when it would
+ * change something.
+ */
+export function weightsDifferFromCompany(
+  value: WeightText,
+  companyDefaults: ApiScoringWeights | null,
+  only?: readonly ScoreComponent[] | null,
+): boolean {
+  if (companyDefaults === null) return false;
+  const company = weightsToText(weightSetFromRows(companyDefaults.rows));
+  return shownOf(value, only ?? null).some(
+    (component) =>
+      Number(value[component] ?? 0) !== Number(company[component] ?? 0),
+  );
+}
+
 export function PeriodWeights({
   value,
   onChange,
@@ -148,6 +166,7 @@ export function PeriodWeights({
   basis,
   parts: givenParts,
   hint,
+  hideReset = false,
 }: {
   value: WeightText;
   onChange: (next: WeightText) => void;
@@ -172,6 +191,8 @@ export function PeriodWeights({
   /** A small info icon beside the heading, for the one explanation that is
    *  still needed (the manager-appraisal note). */
   hint?: React.ReactNode;
+  /** The caller draws the reset button itself, beside its own Save. */
+  hideReset?: boolean;
 }) {
   const labelOf = (component: ScoreComponent) =>
     companyDefaults?.rows.find((row) => row.component === component)?.label ??
@@ -302,17 +323,20 @@ export function PeriodWeights({
           </p>
         ) : null
       ) : (
-        <div>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={disabled}
-            onClick={reset}
-          >
-            <RotateCcw aria-hidden="true" className="size-3.5" />
-            Use my company&apos;s weights
-          </Button>
-        </div>
+        !hideReset &&
+        weightsDifferFromCompany(value, companyDefaults, only) && (
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={disabled}
+              onClick={reset}
+            >
+              <RotateCcw aria-hidden="true" className="size-3.5" />
+              Use my company&apos;s weights
+            </Button>
+          </div>
+        )
       )}
     </section>
   );

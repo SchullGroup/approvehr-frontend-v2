@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { RotateCcw } from "lucide-react";
 import { Button, Card, CardBody, useToast } from "@/components/ui";
 import {
   PeriodWeights,
   companyPartsOf,
+  weightsDifferFromCompany,
   periodWeightsProblem,
   weightsFromText,
   weightsToText,
@@ -149,16 +151,14 @@ function DraftWeights({
           ) : undefined
         }
         disabled={saving}
-        onUseDefaults={() =>
-          void run({ weights: null }, "Using your company's weights")
-        }
+        hideReset
       />
       {error && (
         <p role="alert" className="text-body-sm text-danger-text">
           {error}
         </p>
       )}
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="accent"
           size="sm"
@@ -170,6 +170,25 @@ function DraftWeights({
         >
           Save the weights
         </Button>
+        {/* Only when this period's weights are not the company's: otherwise there
+            is nothing for it to change. */}
+        {weightsDifferFromCompany(
+          value,
+          companyDefaults,
+          weights.parts ?? companyPartsOf(companyDefaults),
+        ) && (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={saving}
+            onClick={() =>
+              void run({ weights: null }, "Using your company's weights")
+            }
+          >
+            <RotateCcw aria-hidden="true" className="size-3.5" />
+            Use my company&apos;s weights
+          </Button>
+        )}
       </div>
     </div>
   );
