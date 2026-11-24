@@ -115,3 +115,5 @@ export type { Point, Segment } from "./chart";
 
 export { BubbleChart } from "./bubble-chart";
 export type { BubbleChartProps, BubblePoint } from "./bubble-chart";
+export { NextStep, GetReady, currentStep } from "./next-step";
+export type { StepAction, ReadyStep } from "./next-step";
