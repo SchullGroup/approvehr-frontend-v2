@@ -1626,18 +1626,16 @@ function MarkActions({
   if (canCalibrate) {
     items.push({
       label: row.calibration ? "Change the moved score" : "Change the score",
-      disabled: row.scoreBp === null,
-      ...(row.scoreBp === null ? { hint: "No score yet" } : {}),
+      /* No score yet: nothing to change, so no item. */
+      available: row.scoreBp !== null,
       onSelect: () => setOpen("calibrate"),
     });
   }
   if (canRequestRevision) {
     items.push({
       label: "Send back",
-      disabled: Boolean(existingRevision),
-      ...(existingRevision
-        ? { hint: "Sent back, waiting for them to send it again" }
-        : {}),
+      /* Already sent back: it is waiting for them, so no second item. */
+      available: !existingRevision,
       onSelect: () => {
         setRevisionSession((n) => n + 1);
         setOpen("revision");

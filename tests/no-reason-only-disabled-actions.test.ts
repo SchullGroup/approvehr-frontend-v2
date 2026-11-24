@@ -39,8 +39,6 @@ describe("disabled menu items that only hold a reason", () => {
   it("there are none", () => {
     const found: string[] = [];
     for (const path of files("src")) {
-      /* Performance is being audited by its own session: remove this line once its two items (period-screen.tsx, Remove rating / Revise) are converted. */
-      if (path.includes("(app)/performance")) continue;
       const text = readFileSync(path, "utf8");
       if (!text.includes("disabled") || !text.includes("hint")) continue;
       const source = ts.createSourceFile(
