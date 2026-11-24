@@ -62,7 +62,6 @@ const INDEX_WORDS: Readonly<Record<string, readonly string[]>> = {
   ],
   "/settings/leave/holidays": ["public holidays", "calendar", "gazetted"],
   "/performance/kpis": ["objectives", "goals", "okr", "targets", "measures"],
-  "/performance/periods": ["appraisal", "review cycle", "cycle", "half year"],
   "/performance/skills": ["competencies", "levels", "ratings", "gaps"],
   "/performance/appraisers": ["mapping", "who appraises", "manager"],
   "/performance/review-tasks": ["weekly tasks", "task grading", "grade"],

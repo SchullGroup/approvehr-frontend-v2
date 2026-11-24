@@ -413,7 +413,7 @@ export function DraftPeriodWizard() {
         </PageBody>
         <StartPeriodDialog
           open
-          onClose={() => router.push("/performance/periods")}
+          onClose={() => router.push("/performance")}
           onCreated={(period) => {
             toast.push({
               title: `${period.name} created`,

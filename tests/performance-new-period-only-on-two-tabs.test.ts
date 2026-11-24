@@ -22,16 +22,12 @@ function sources(dir: string): string[] {
 }
 
 describe("the New appraisal period button", () => {
-  it("is rendered only by the Overview and the Appraisal periods list (and the Now panel)", () => {
+  it("is rendered only by the Overview (the Appraisal periods list is part of it now, with the Now panel)", () => {
     const users = sources(ROOT)
       .filter((file) => /<StartPeriodButton/.test(readFileSync(file, "utf8")))
       .map((file) => relative(ROOT, file))
       .sort();
 
-    expect(users).toEqual([
-      "now.tsx",
-      "performance-screen.tsx",
-      "periods/periods-list-screen.tsx",
-    ]);
+    expect(users).toEqual(["now.tsx", "performance-screen.tsx"]);
   });
 });

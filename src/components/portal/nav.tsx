@@ -1074,16 +1074,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "appraisals",
     },
     {
-      /* Matches the old tab's own gate exactly: appraisals on, and either
-         runs a period (`MANAGE_SETTINGS`) or reads across the company
-         (`EDIT_RECORDS`). Staff with neither never had this tab either. */
-      href: "/performance/periods",
-      label: "Appraisal periods",
-      icon: <CalendarRange aria-hidden="true" />,
-      feature: "appraisals",
-      anyPermission: ["MANAGE_SETTINGS", "EDIT_RECORDS"],
-    },
-    {
       /* Was reachable only from a notification. It is a queue with one job,
          same shape as Hiring's Applications, and it deserves the same
          permanent door. */

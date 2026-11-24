@@ -315,7 +315,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         tone: "success",
         detail: "Nobody had been sent anything, so there is nothing to undo.",
       });
-      router.push("/performance/periods");
+      router.push("/performance");
     } catch (error) {
       failed(error);
     } finally {
@@ -396,10 +396,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[
-          { href: "/performance", label: "Performance" },
-          { href: "/performance/periods", label: "Appraisal periods" },
-        ]}
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title={period?.name ?? "Appraisal period"}
         meta={
           period ? (
