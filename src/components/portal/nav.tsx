@@ -32,7 +32,6 @@ import {
   Megaphone,
   MessagesSquare,
   Network,
-  Scale,
   FileChartColumn,
   Receipt,
   ReceiptText,
@@ -55,6 +54,10 @@ import type { FeatureKey } from "@/lib/api/setup";
 import { MODULES, type ModuleId } from "@/lib/marketing/modules";
 import { moduleLocked, type BillingModule } from "@/lib/billing";
 import type { ApiBilling } from "@/lib/api/endpoints";
+import { PAGE_ICONS } from "./nav-icons";
+
+const WhoAppraisesIcon = PAGE_ICONS["/performance/appraisers"]!;
+const FairnessIcon = PAGE_ICONS["/performance/fairness"]!;
 
 /**
  * Badges that are computed from a live store rather than typed in here.
@@ -1075,7 +1078,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          carry both. */
       href: "/performance/appraisers",
       label: "Who appraises whom",
-      icon: <Network aria-hidden="true" />,
+      icon: <WhoAppraisesIcon aria-hidden="true" />,
       feature: "multiAppraiser",
       permission: "EDIT_RECORDS",
       needsPeriod: true,
@@ -1085,7 +1088,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          own in Performance, for whoever may see it. */
       href: "/performance/fairness",
       label: "Fairness check",
-      icon: <Scale aria-hidden="true" />,
+      icon: <FairnessIcon aria-hidden="true" />,
       feature: "appraisals",
       permission: "VIEW_FAIRNESS",
       needsPeriod: true,
