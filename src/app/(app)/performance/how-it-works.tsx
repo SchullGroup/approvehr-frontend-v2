@@ -193,14 +193,12 @@ export function HowItWorksBody() {
           Finished project work shows up too
         </p>
         <p className="mt-1">
-          When people finish tasks in Projects, those tasks appear on their{" "}
-          <TextLink href="/performance/work-record">work record</TextLink> and
-          in their reviews, whether or not a task is linked to an objective.
-          Anybody who may can link a task to an objective, and then it also
-          shows under that objective, so whoever reads the objective sees the
-          work that went into it. Linking is optional. Finished tasks are there
-          to read beside the answers. They are not graded and they do not change
-          the score.
+          When people finish tasks in Projects, those tasks appear in their
+          reviews, whether or not a task is linked to an objective. Anybody who
+          may can link a task to an objective, and then it also shows under that
+          objective, so whoever reads the objective sees the work that went into
+          it. Linking is optional. Finished tasks are there to read beside the
+          answers. They are not graded and they do not change the score.
         </p>
       </div>
 

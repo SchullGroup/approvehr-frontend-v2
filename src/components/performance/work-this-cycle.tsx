@@ -189,11 +189,7 @@ export function WorkThisCycle({
             work={work}
             timeZone={timeZone}
             flagging={flagging}
-            seeAll={
-              own
-                ? "/performance/work-record"
-                : `/performance/history/${subjectId}`
-            }
+            seeAll={`/performance/history/${subjectId}`}
           />
         )}
         {flagging.dialog}

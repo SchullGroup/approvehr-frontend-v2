@@ -327,12 +327,12 @@ describe("what it says", () => {
     ).toHaveAttribute("href", "/performance/history/bola");
   });
 
-  it("points your own review at your own work record", () => {
+  it("points your own review at the history, there being no page of your own", () => {
     hook.read = ok(work({ capped: true, total: 90 }));
     render(<WorkThisCycle {...props} own />);
     expect(
       screen.getByRole("link", { name: "Open the work record" }),
-    ).toHaveAttribute("href", "/performance/work-record");
+    ).toHaveAttribute("href", "/performance/history/bola");
   });
 
   it("asks for the right person, cycle and dates, once", () => {

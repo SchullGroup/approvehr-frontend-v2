@@ -65,7 +65,6 @@ const INDEX_WORDS: Readonly<Record<string, readonly string[]>> = {
   "/performance/periods": ["appraisal", "review cycle", "cycle", "half year"],
   "/performance/skills": ["competencies", "levels", "ratings", "gaps"],
   "/performance/appraisers": ["mapping", "who appraises", "manager"],
-  "/performance/work-record": ["tasks", "projects", "evidence", "delivery"],
   "/performance/review-tasks": ["weekly tasks", "task grading", "grade"],
   "/people/leave": ["time off", "vacation", "holiday", "absence", "book"],
   "/people/probation": ["confirmation", "confirm", "new starter"],
