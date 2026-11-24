@@ -96,12 +96,6 @@ vi.mock("@/lib/store/performance", async (importActual) => ({
     error: null,
     reload: () => {},
   }),
-  useHeatmap: () => ({
-    heatmap: null,
-    loading: false,
-    error: null,
-    reload: () => {},
-  }),
   useRating: () => ({ rate: async () => {} }),
 }));
 vi.mock("@/lib/store/assets", async (importActual) => ({

@@ -103,7 +103,7 @@ opens is empty, and says so in a sentence.
 | **Overview**                       | `/performance`                | Your landing. What is open, what is waiting on you, what is waiting on somebody else. Start here every time.                                                                                                                         | Everyone                                 |
 | **KPIs**                           | `/performance/kpis`           | The objective tree. Create, give out, add targets, record progress, confirm a done-or-not-done target, send for agreement.                                                                                                           | Everyone                                 |
 | **Weekly tasks**                   | `/performance/review-tasks`   | Staff log what they did each week against an objective; managers grade it. This is the evidence a delivery score is built from.                                                                                                      | Everyone                                 |
-| **Competency ratings**             | `/performance/skills`         | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                                                                                                                             | Everyone                                 |
+| **Competency ratings**             | `/performance/skills`         | Record a level against a skill for one person. Also shows who is below target.                                                                                                                            | Everyone                                 |
 | **Appraisal periods**              | `/performance/periods`        | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                                                                                                                       | HR / Owner                               |
 | **To agree** (a tab of Objectives) | `/performance/kpis?tab=agree` | The queue. Somebody sent you a target; you agree it or decline it with feedback. The tab shows how many wait on you.                                                                                                                 | People who lead somebody, and HR / Owner |
 | **Who appraises whom**             | `/performance/appraisers`     | Only appears if the company has switched multiple appraisers on. Opens on **All appraisal periods**: everybody's line manager by default. Choose a period to set the exceptions and how much each appraiser's overall rating weighs. | HR / Owner                               |
@@ -604,7 +604,7 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   A line **above** the control says so, with the count: _Fixed: 12 ratings are recorded on this subsection, in
   any period, and how it is answered applies to every period._ The control is greyed, and **Start a new
   version** beside it is the way through (below). A yes or no and a pick have no target, so they are left out
-  of the gap list and the heatmap. Words have no target and no score either, and the one line under the picker
+  of the gap list. Words have no target and no score either, and the one line under the picker
   says the larger thing: _A written answer is read by people and never counts towards the score._ It has no
   list of choices, and none of the lines that quote what its section is worth or warn that the section is
   worth nothing, because a written answer reaches no part of the score.
@@ -1169,7 +1169,7 @@ built from their objectives alone.
 | **Where**      | `/performance/skills`                                                           |
 | **Who**        | Line manager · HR / Owner                                                       |
 | **Click**      | **Record a level** → who, which skill, where they are now, where they should be |
-| **You'll see** | The _Below target_ count and the department heatmap both move as you record     |
+| **You'll see** | The _Below target_ count moves as you record    |
 
 A line manager is offered the people who report to them, and somebody with **Edit records** is offered
 everybody but themselves. What the form then asks for follows how the skill is answered (step 6): a level and

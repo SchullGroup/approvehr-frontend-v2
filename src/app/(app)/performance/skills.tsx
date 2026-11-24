@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, GraduationCap, Grid3x3 } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -12,7 +12,6 @@ import {
   EmptyState,
   Stat,
   StatGrid,
-  Tag,
   TBody,
   TD,
   TDPrimary,
@@ -26,12 +25,11 @@ import {
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
+import type { ApiCompetencyRow } from "@/lib/api/performance";
 import { KIND_BADGE, answerKindOf } from "@/lib/performance/answer-kind";
 import {
   CATEGORY_ORDER,
   useGaps,
-  useHeatmap,
   useRating,
   useSkills,
 } from "@/lib/store/performance";
@@ -88,7 +86,6 @@ export function SkillsTab({
   /* The three figures count what the read returned, which is nothing both
      before it answers and after it fails: a dash, not a 0. */
   const mineReady = !mine.loading && !mine.error;
-  const grid = useHeatmap(canSeeCompany);
   const rating = useRating();
   const toast = useToast();
 
@@ -127,7 +124,6 @@ export function SkillsTab({
           },
         ]
       : []),
-    ...(canSeeCompany ? [{ id: "heatmap", label: "Heatmap" }] : []),
   ];
   /* A `?tab=` for something this reader may not see falls back to their own
      skills rather than an empty panel. */
@@ -280,69 +276,6 @@ export function SkillsTab({
           </LoadState>
         </Card>
       )}
-
-      {shown === "heatmap" && canSeeCompany && (
-        <Card>
-          <CardHeader
-            title="Department heatmap"
-            description="Average level per competency, per department."
-          />
-          <LoadState
-            loading={grid.loading}
-            error={grid.error}
-            subject="the department heatmap"
-            onRetry={grid.reload}
-            skeleton="table"
-          >
-            {!grid.heatmap || grid.heatmap.rows.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<Grid3x3 aria-hidden="true" />}
-                title="Nothing assessed yet"
-                description="Record a level for somebody and the grid fills in."
-              />
-            ) : (
-              <CardBody className="flex flex-col gap-4">
-                <Legend />
-                <div className="scroll-x">
-                  <table className="w-full border-collapse text-body-sm">
-                    <thead>
-                      <tr>
-                        <th
-                          scope="col"
-                          className="sticky left-0 z-10 bg-surface p-2 text-left font-medium text-muted"
-                        >
-                          Department
-                        </th>
-                        {grid.heatmap.competencies.map((competency) => (
-                          <th
-                            scope="col"
-                            key={competency.id}
-                            className="min-w-28 p-2 text-left align-bottom font-medium text-muted"
-                          >
-                            {competency.name}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {grid.heatmap.rows.map((row) => (
-                        <HeatRow
-                          key={row.departmentId ?? "none"}
-                          row={row}
-                          scaleMax={
-                            grid.heatmap?.competencies[0]?.scaleMax ?? 5
-                          }
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardBody>
-            )}
-          </LoadState>
-        </Card>
-      )}
     </>
   );
 
@@ -381,15 +314,14 @@ export function SkillsTab({
                 body.level === undefined ? "Answer recorded" : "Level recorded",
               tone: "success",
             });
-            /* All three reads, not one. `mine` is the signed-in person's own
+            /* Both reads, not one. `mine` is the signed-in person's own
                skills and `rateCompetency` refuses a self-rating, so it is the
                one panel on this screen a save here can never change — while
-               the gap table and the heatmap are exactly what a new level
-               moves. Reloading only `mine` left both of those showing the
-               figures from before the save until somebody refreshed. */
+               the gap table is exactly what a new level moves. Reloading only
+               `mine` left it showing the figures from before the save until
+               somebody refreshed. */
             mine.reload();
             gaps.reload();
-            grid.reload();
             setRecording(false);
           } catch (error) {
             toast.push({
@@ -619,89 +551,5 @@ function Pips({
         );
       })}
     </span>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/** Four bands. The key to the tint, which is never the only signal. */
-function Legend() {
-  const bands = [
-    { label: "Under 2.5", className: "bg-warning-soft text-warning-text" },
-    { label: "2.5 to 3.4", className: "bg-sunken text-body" },
-    { label: "3.5 to 4.4", className: "bg-accent-soft text-accent-text" },
-    { label: "4.5 and above", className: "bg-accent-line text-accent-text" },
-  ];
-  return (
-    <ul className="flex flex-wrap items-center gap-2">
-      {bands.map((band) => (
-        <li key={band.label}>
-          <Tag className={band.className}>{band.label}</Tag>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function bandFor(average: number): string {
-  if (average < 2.5) return "bg-warning-soft text-warning-text";
-  if (average < 3.5) return "bg-sunken text-body";
-  if (average < 4.5) return "bg-accent-soft text-accent-text";
-  return "bg-accent-line text-accent-text";
-}
-
-function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {
-  return (
-    <tr>
-      <th
-        scope="row"
-        className="sticky left-0 z-10 border-t border-line bg-surface p-2 text-left align-middle font-medium text-ink"
-      >
-        {row.departmentName}
-        <span className="mt-0.5 block text-meta font-normal text-muted">
-          {row.ratedPeople === 1 ? "1 person" : `${row.ratedPeople} people`}
-        </span>
-      </th>
-      {row.cells.map((cell) => (
-        <td
-          key={cell.competencyId}
-          className="border-t border-line p-1 align-middle"
-        >
-          {cell.average === null ? (
-            <span className="flex h-11 items-center justify-center rounded-sm border border-line bg-canvas text-body-sm text-muted">
-              <span aria-hidden="true">&mdash;</span>
-              <span className="sr-only">Not assessed</span>
-            </span>
-          ) : (
-            <span
-              className={cn(
-                "tabular flex h-11 flex-col items-center justify-center rounded-sm border border-line text-body-sm font-medium",
-                bandFor(cell.average),
-              )}
-            >
-              <span>
-                {cell.average}
-                <span className="sr-only"> out of {scaleMax}</span>
-              </span>
-              {cell.belowTarget > 0 ? (
-                <span className="flex items-center gap-1 text-meta font-normal">
-                  <AlertTriangle aria-hidden="true" className="size-3" />
-                  {cell.belowTarget}
-                  <span className="sr-only">
-                    {cell.belowTarget === 1
-                      ? " person below target"
-                      : " people below target"}
-                  </span>
-                </span>
-              ) : (
-                <span className="text-meta font-normal">
-                  {cell.rated === 1 ? "1 rated" : `${cell.rated} rated`}
-                </span>
-              )}
-            </span>
-          )}
-        </td>
-      ))}
-    </tr>
   );
 }

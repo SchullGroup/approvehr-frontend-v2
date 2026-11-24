@@ -14140,3 +14140,24 @@ keeps period, level and owner and asks only aim and target; the review lists the
 saves drafts, one at a time and resumable. The Add multiple dialog and its tests are deleted. The wizard's last step and
 the To agree tab say who agrees (`agreesLine`, `AGREE_RULE`). Tests that pinned the old tiles, waiting line and group
 dropdown now assert their absence.
+
+---
+
+# The department heatmap was removed from Competency ratings, on request
+
+The owner asked (24 Nov 2026) to remove the **Heatmap** tab from `/performance/skills` "for now". Competency ratings
+keeps **Your competencies** and **Below target** (the latter only for people who may see it). `?tab=heatmap` now falls
+back to the first tab like any unknown tab. If the page has one tab, the strip is not drawn (that rule was already there).
+
+**Removed, so it can come back** (find it in git history before this commit, `git log -S useHeatmap`):
+
+- `src/app/(app)/performance/skills.tsx`: the `heatmap` panel (a Department x competency table of averages, with the
+  count below target and a spoken count in each cell), `HeatRow`, `bandFor` and the `Legend` of four tints; the tab
+  item and the `useHeatmap(canSeeCompany)` read, and its reload after a level is recorded.
+- `src/app/(app)/performance/skills/tabs.ts`: `"heatmap"` in `SKILLS_TABS`.
+- `src/lib/store/performance.ts`: `useHeatmap` and its demo data (`demoHeatmap`).
+- `src/lib/api/performance.ts`: `performanceApi.heatmap` (`GET /performance/competencies/heatmap`, `EDIT_RECORDS`) and
+  the types `ApiHeatmap`, `ApiHeatmapRow`, `ApiHeatmapCell`. **The API route is untouched and still answers.**
+- Copy that mentioned it: the kind lines (`answer-kind.ts`), the Record a level dialog's help, and the walkthrough.
+- The design rule worth keeping if it returns: every cell printed its average as text, with the tint only a second
+  channel, and a cell with people below target carried an icon and a spoken count.
