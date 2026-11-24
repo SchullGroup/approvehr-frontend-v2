@@ -120,7 +120,13 @@ describe("the report's spread of marks", () => {
 describe("the scoring settings page", () => {
   const form = source("src/app/(app)/settings/performance/weights-form.tsx");
 
-  /* The sentence about frozen period weights was removed from this page on purpose (a1a531e5): the period screen says it itself. */
+  it("no longer carries the frozen-period sentence that used to sit in a flex row", () => {
+    /* The paragraph was simplified away (31364ceb); with it went the loose
+       text beside a link that rendered as three columns. */
+    expect(form).not.toContain(
+      "A period screen says whether its weights are frozen",
+    );
+  });
 
   it("lets the save bar's buttons wrap on a 320px phone instead of running out of the card", () => {
     expect(form).not.toMatch(/className="flex shrink-0 flex-wrap gap-2"/);
