@@ -94,3 +94,30 @@ describe("the wording", () => {
     for (const line of all) expect(line).not.toMatch(/—/);
   });
 });
+
+import {
+  fallbackCountLine,
+  fallbackSentence,
+} from "@/lib/performance/appraiser-fill";
+
+describe("who HR stands in for", () => {
+  it("says it as one quiet line, and nothing where nobody was or the server did not say", () => {
+    expect(fallbackSentence(["Ada"])).toBe(
+      "Ada is appraised by HR (no manager recorded).",
+    );
+    expect(fallbackSentence(["Ada", "Bo"])).toBe(
+      "Ada and Bo are appraised by HR (no manager recorded).",
+    );
+    expect(fallbackSentence([])).toBeNull();
+    expect(fallbackSentence(undefined)).toBeNull();
+  });
+  it("can say it as a count, with no names", () => {
+    expect(fallbackCountLine(["A", "B", "C"])).toBe(
+      "3 people are appraised by HR (no manager recorded).",
+    );
+    expect(fallbackCountLine(["A"])).toBe(
+      "1 person is appraised by HR (no manager recorded).",
+    );
+    expect(fallbackCountLine(undefined)).toBeNull();
+  });
+});

@@ -324,6 +324,16 @@ export function SkillsTab({
             gaps.reload();
             setRecording(false);
           } catch (error) {
+            /* Rated inside a period before the person has sent their self
+               review: the dialog says so calmly, with a reminder, instead of a
+               refusal here. */
+            if (
+              error instanceof ApiError &&
+              error.status === 409 &&
+              body.reviewCycleId
+            ) {
+              throw error;
+            }
             toast.push({
               title: "That did not work",
               tone: "danger",
