@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `225faf62` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `70f22606` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -14,7 +14,7 @@ component, and so does a symbol exported through an `export { … }` list.
 
 | Group                                                                                              |    Files | Components |   Hooks | Functions |
 | -------------------------------------------------------------------------------------------------- | -------: | ---------: | ------: | --------: |
-| [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       40 |         95 |       6 |        12 |
+| [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       41 |         97 |       7 |        12 |
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       45 |         44 |       1 |        21 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       23 |         51 |       0 |         6 |
 | [Module components — `src/components/*`](#module-components--srccomponents)                        |      172 |        253 |      12 |        54 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1402** |   **1163** | **480** |  **1800** |
+| **Total**                                                                                          | **1403** |   **1165** | **481** |  **1800** |
 
 ---
 
@@ -62,6 +62,7 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 | `src/components/ui/field.tsx`                | `InfoTooltip`, `Field`, `FieldRow`, `FieldSet`                                                 | `useFieldContext`, `useFieldControl` | —                                                                                             | 1 type             |
 | `src/components/ui/file-field.tsx`           | `FileField`                                                                                    | —                                    | —                                                                                             | —                  |
 | `src/components/ui/filter-bar.tsx`           | `FilterBar`                                                                                    | —                                    | —                                                                                             | 1 type             |
+| `src/components/ui/header-slot.tsx`          | `HeaderSlotProvider`, `HeaderSlot`                                                             | `useHeaderSlot`                      | —                                                                                             | —                  |
 | `src/components/ui/hero-backdrop.tsx`        | `HeroBackdrop`                                                                                 | —                                    | —                                                                                             | 4 const            |
 | `src/components/ui/illustration.tsx`         | `Illustration`                                                                                 | —                                    | —                                                                                             | —                  |
 | `src/components/ui/in-dialog.ts`             | —                                                                                              | —                                    | —                                                                                             | 1 const            |

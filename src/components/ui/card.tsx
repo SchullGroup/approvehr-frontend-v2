@@ -24,7 +24,10 @@ export function Card({
      takes the same arguments and produces the identical element at
      runtime, but is typed against `As` directly rather than through JSX's
      library-managed-attributes machinery, so it never hits that collapse. */
+  /* `data-card`: a `FilterBar` inside a card filters that card, so its icon
+     stays in the card rather than moving up into the page header. */
   return createElement(As, {
+    "data-card": "",
     className: cn(
       /* `min-w-0`: a card is very often a grid or flex item, and an item's
          automatic minimum width is its content's. One row with a no-wrap
