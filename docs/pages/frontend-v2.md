@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `d45cdb31` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `8cf87fc3` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
-**173 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**174 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   152 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   153 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    10 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(careers)`   |     2 | **A company's careers pages.** Public, no sign-in. The employer's own frame: its brand header and a one-line footer, none of the product's sales chrome.                                                             |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
@@ -197,7 +197,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Performance
 
-`/performance` — 18 pages
+`/performance` — 19 pages
 
 | Route                                | Title               | What it is                                                                                                                                                                                                       | File                                                       |
 | ------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -209,6 +209,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/performance/how-it-works`          | How appraisals work | What a period is, what a score is made of, and what happens when one is given.                                                                                                                                   | `src/app/(app)/performance/how-it-works/page.tsx`          |
 | `/performance/kpis`                  | Objectives          | What people are aiming at, and how far along it is, yours, your team's, or the company's.                                                                                                                        | `src/app/(app)/performance/kpis/page.tsx`                  |
 | `/performance/kpis/import`           | Upload objectives   | Give a team its quarter from one spreadsheet: match your own column names, see every row that will not go in and why before anything is saved, and have each objective arrive as a draft for its owner to agree. | `src/app/(app)/performance/kpis/import/page.tsx`           |
+| `/performance/kpis/new`              | New objective       | Write an objective one question at a time: the aim, the target, the period it counts in, then send it to be agreed.                                                                                              | `src/app/(app)/performance/kpis/new/page.tsx`              |
 | `/performance/periods`               | Appraisal periods   | Every appraisal period, open ones first, and what each one needs next.                                                                                                                                           | `src/app/(app)/performance/periods/page.tsx`               |
 | `/performance/periods/[id]`          | Appraisal period    | Run an appraisal period: what is still needed, who is late, who has no appraiser, and where every score stands.                                                                                                  | `src/app/(app)/performance/periods/[id]/page.tsx`          |
 | `/performance/periods/[id]/fairness` | Fairness check      | How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager.                                                                                   | `src/app/(app)/performance/periods/[id]/fairness/page.tsx` |

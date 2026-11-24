@@ -347,6 +347,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Give a team its quarter from one spreadsheet: match your own column names, see every row that will not go in and why before anything is saved, and have each objective arrive as a draft for its owner to agree."
   },
   {
+    "href": "/performance/kpis/new",
+    "title": "New objective",
+    "description": "Write an objective one question at a time: the aim, the target, the period it counts in, then send it to be agreed."
+  },
+  {
     "href": "/performance/periods",
     "title": "Appraisal periods",
     "description": "Every appraisal period, open ones first, and what each one needs next."
@@ -365,11 +370,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "href": "/performance/skills",
     "title": "Competency ratings",
     "description": "Where people stand against the levels the company set."
-  },
-  {
-    "href": "/performance/work-record",
-    "title": "My work record",
-    "description": "What you finished on the project boards, a day, week, month or quarter at a time."
   },
   {
     "href": "/profile",

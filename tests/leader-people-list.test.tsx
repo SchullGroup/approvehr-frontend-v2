@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "@/lib/api/client";
@@ -61,7 +61,7 @@ vi.mock("@/lib/store/ai", () => ({
   }),
 }));
 
-const { AssignKpiDialog, NewKpiDialog } =
+const { AssignKpiDialog } =
   await import("@/app/(app)/performance/goal-dialogs");
 
 const person = (
@@ -193,23 +193,6 @@ describe("Give a KPI to people, as a department head", () => {
     expect(
       screen.getByText(/nobody is in this department yet/i),
     ).toBeInTheDocument();
-  });
-});
-
-describe("New KPI, as a department head", () => {
-  it("offers the people they lead, by name, and not themselves twice or another department", () => {
-    render(<NewKpiDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
-    const select = screen.getByRole("combobox", { name: /assigned to/i });
-    const options = within(select)
-      .getAllByRole("option")
-      .map((option) => option.textContent);
-    expect(options).toEqual([
-      "Mine",
-      "Engineering, the whole department",
-      "Tunde Bello · Analyst",
-      "Ife Adeyemi · Analyst",
-      "Kemi Cole · Analyst",
-    ]);
   });
 });
 

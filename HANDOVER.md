@@ -14012,3 +14012,38 @@ part, or lowering one, moves the total off 100% on the way to the next save. So:
 A period's own weights already refused anything but 100% (`periodWeightsProblem`); only its comments
 changed. **The API still accepts any total** and scores in proportion: the rule is this side's until the
 API refuses too.
+
+---
+
+# New objective is a page, and an empty Objectives list says what an objective is
+
+Owner request, 24 Nov 2026. `/performance/kpis/new` (`kpis/new/objective-wizard.tsx`) replaces the
+New objective dialog: one question to a screen on `WizardShell`, the aim and whose it is, the target,
+the period and what it supports, then **Send to be agreed** or **Save as a draft**. **New objective**
+and **Add an objective under this** (`?parent=<id>`) both go there; `?back=` is where the X returns,
+and is ignored unless it is an Objectives address (`safeBack`). `NewKpiDialog` is deleted, so there is
+one way to write an objective.
+
+Decisions worth not undoing:
+
+- **The rules are data, in `lib/performance/objective-wizard.ts`**, and the target's direction rule is
+  `measureProblems`, shared with **Add a target**. Only periods in DRAFT or SELF are offered: the API
+  refuses a new objective in a period past self-review, and offering one is a button whose outcome is
+  a refusal.
+- **Three writes, never twice.** The objective, its target, then the send. What has been written is
+  held, so a refused target or send is retried from where it stopped, and the message says what is
+  saved. Once the objective exists there is no Back and no Change.
+- **Every answer is checked again before writing, and the last screen waits for the periods.** A
+  draft carried on lands on the review at once, before `useAppraisals` has answered; written then it
+  was filed in no period (seen in the browser, pinned by a test).
+- **The draft is kept on every change, per account, in this browser** (`lib/store/objective-draft.ts`),
+  because the owner asked for it to survive leaving; the line beside **Start again** says it is this
+  browser only. Writing the objective throws it away, the moment the objective exists.
+- **The empty state replaces the tiles, the filters and the list** only for a reading that answered
+  with nothing; not while loading and not after a failure.
+- `WizardShell` now scrolls (`overflow-y-auto` and `m-auto`, not `justify-center`, which cut the top
+  of a long step off on a phone), and takes `extra` (a second action) and `done` (the last screen).
+
+Not exercised in the browser: **Send to be agreed** end to end (it notifies real approvers on the demo
+company; the unit tests cover it). The empty-state screenshots answer the goals read with an empty page
+in that one browser context, because no seeded account has an empty list.

@@ -721,33 +721,58 @@ person's objectives under those. You can start anywhere.
 
 |                |                                                                                                            |
 | -------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Where**      | `/performance/kpis`                                                                                        |
+| **Where**      | `/performance/kpis`, then its own page, `/performance/kpis/new`                                            |
 | **Who**        | Line manager · HR / Owner · anyone, for themselves                                                         |
-| **Click**      | **New objective**, which opens it, with **Add a KPI under this** waiting in it                             |
-| **You'll see** | Four fields: **Objective title**, **Assigned to**, **Due quarter**, **Appraisal period** |
+| **Click**      | **New objective**, or **Add an objective under this** on an objective (it starts under that one)           |
+| **You'll see** | A full page, one question to a screen, with a bar showing how far along it is and an **X** to leave        |
 
-> 🛑 **A personal KPI has to be filed in an appraisal period.** **Appraisal period** is what files the
-> KPI against a period, and a KPI filed in none **counts towards nobody's score**, even once it is
-> agreed. So whenever the company has an open period, the field is required on a KPI that is somebody's
-> own: it has no _Not part of an appraisal period_ choice, it starts on the period when there is only
-> one open, and **Create KPI** refuses with "Choose the appraisal period this is scored in. A KPI with
-> none counts towards nobody's score, even once it is agreed." A published period is never offered.
+The four screens:
+
+1. **What is the aim?** — **Objective title**, **Who is it for?** (**The whole company**, **A
+   department** or **One person**, only the ones you may set) and **More detail**. Somebody who can
+   only write their own sees "It is your own objective." instead of the choice.
+2. **What is the target?** — **A number to reach** (**What is counted**, **Starting value**, **Target
+   value**, **Unit**, and **This number should go down**), **Done or not done** (**What does done
+   mean?**), or **Add it later**.
+3. **Which period does it count in?** — **Due quarter**, **Appraisal period** and **What does it
+   support?** (the objective above it, if any).
+4. **Check it, then send it to be agreed** — every answer with a **Change** beside it, then **Send to
+   be agreed** or **Save as a draft**.
+
+The last screen shows one of the people drawings and one button, **Back to objectives**.
+
+> 💡 **Leaving keeps what you typed.** Close it part-way and the next **New objective** carries on
+> from where you left it, saying "Carried on from where you left it. Kept in this browser, not on
+> your account." with **Start again** beside it. It is in this browser only and does not follow you
+> to another device. Writing the objective throws it away.
+
+> 🛑 **A personal objective has to be filed in an appraisal period.** **Appraisal period** is what
+> files it against a period, and one filed in none **counts towards nobody's score**, even once it is
+> agreed. So whenever the company has an open period, the field is required on somebody's own
+> objective: it has no _Not part of an appraisal period_ choice, it starts on the running period when
+> there is one, and **Continue** refuses with "Choose the appraisal period this is scored in. An
+> objective with none counts towards nobody's score, even once it is agreed." Only periods still
+> taking objectives are offered (not started, or at self-review); one past self-review or published is
+> not.
 >
-> Two cases stay optional. A **company-wide or department objective** is a standing target and may
-> belong to no cycle, so it keeps _Not part of an appraisal period_. And a company with **no open
-> period yet** is not stopped from writing its KPIs down: a note reads "No appraisal period is open, so
-> this KPI will count towards nobody's score. Start a period first, then edit the KPI to file it in
-> that period."
+> Two cases stay optional. A **company or department objective** is a standing target and may belong
+> to no cycle. And a company with **no open period yet** is not stopped: a line reads "No appraisal
+> period is open, so this objective will count towards nobody's score. Start a period first, then
+> edit the objective to file it in that period."
 >
 > The server still accepts an objective with no period. This is the form's rule, and it is why
 > **Upload objectives** and **Add several objectives** (step 12) warn about an unfiled row and do
 > not refuse it.
 
-> ⚠️ **Who you can pick under "Assigned to."** Yourself, plus each department you head.
-> The whole company, and every department, only if you hold the records permission. To put a KPI on
-> somebody else, open the objective and use **Give a KPI to people**. **Add a KPI under this** has a
-> "Assigned to" list of your direct reports, plus everybody in a department you head. If
-> somebody you expect is missing from that list, that is why.
+> ⚠️ **Who you can pick.** Yourself and the people you lead (your direct reports and everybody in a
+> department you head), each department you head, and the whole company and every department only if
+> you hold the records permission. If somebody you expect is missing, that is why.
+
+> 💡 **Nothing at all yet.** A list with no objectives in it shows a drawing, "No objectives yet"
+> ("Nobody in your team has an objective yet" on **My team**, "The company has no objectives yet" on
+> **Whole company**), a line on what an objective is, **New objective**, and **Add several** and
+> **Upload objectives** under it. The number tiles and the search row are not shown until there is
+> something to count.
 
 #### 10. _Optional_ — change or delete an objective before it is agreed
 
@@ -1744,7 +1769,7 @@ seeded accounts to use.
 | 1   | **HR** — `/settings/performance`. Show the parts of a score and their weights, then change one.                              | The weights add up to 100%, and Save stays dead until they do. Manager appraisal starts at 0%.                                    |
 | 2   | **HR** — **Start an appraisal period**. Name it, set a due date, open _What to tell people_, type two sentences. Create it. | Nobody has been told anything yet. Say so.                                                                                         |
 | 3   | **HR** — **Write the questions**. Add one for the person and one for their manager.                                         | _Filed under_. And Start is dead until at least one question exists, and says why.                                                 |
-| 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a target, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
+| 4   | **Employee** — `/performance/kpis`. **New objective**, add a target, set _Appraisal period_ to the new period, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
 | 5   | **Manager** — `/performance`. The same objective is in **Waiting on you**. Open the queue and agree it.                     | Both sides of one action, thirty seconds apart. **This is the moment the demo lands.**                                             |
 | 6   | **Manager** — go back to KPIs and try to change the target you just agreed.                                                 | The controls are gone and a sentence above says why. Not a refusal after the click — the offer was never made.                     |
 | 7   | **HR** — **Start the period**. Confirm, then read the result out loud.                                                      | How many forms, how many told, and any names it gives you. "Nobody is appraising them" if it appears.                              |

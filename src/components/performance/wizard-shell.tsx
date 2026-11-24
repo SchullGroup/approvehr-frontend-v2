@@ -13,6 +13,10 @@ import { useIsClient } from "@/hooks/use-is-client";
  * top, the question in the middle, Back and Continue underneath. It knows
  * nothing about what is asked. Enter continues, Escape closes, and focus moves
  * to the question each time it changes so a keyboard never has to hunt for it.
+ *
+ * The page scrolls and the question is centred with `m-auto`, not
+ * `justify-center`: a long step on a phone (a target has five fields) would
+ * otherwise be cut off at the top, where centring pushes what does not fit.
  */
 export function WizardShell({
   open,
@@ -28,6 +32,8 @@ export function WizardShell({
   busy = false,
   error,
   hideNext = false,
+  extra,
+  done,
 }: {
   open: boolean;
   onClose: () => void;
@@ -44,13 +50,21 @@ export function WizardShell({
   error?: string | null;
   /** The screen answers itself (a pair of large choices) and moves on when one is chosen. */
   hideNext?: boolean;
+  /** A second way on from the last screen, beside the main one ("Save as a draft"). */
+  extra?: React.ReactNode;
+  /**
+   * What happened, in place of the questions, once the last one is answered.
+   * The bar shows the whole way done and the X still closes; there is no other
+   * way out to draw.
+   */
+  done?: React.ReactNode;
 }) {
   const isClient = useIsClient();
   const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    if (open) heading.current?.focus();
-  }, [open, step]);
+    if (open && !done) heading.current?.focus();
+  }, [open, step, done]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,20 +87,22 @@ export function WizardShell({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex flex-col bg-canvas"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-canvas"
     >
-      <div className="flex items-center gap-4 px-4 py-3 sm:px-8">
+      <div className="sticky top-0 z-10 flex items-center gap-4 bg-canvas px-4 py-3 sm:px-8">
         <div
           role="progressbar"
           aria-label="Progress"
           aria-valuemin={1}
           aria-valuemax={total}
-          aria-valuenow={step + 1}
+          aria-valuenow={done ? total : step + 1}
           className="h-1 flex-1 overflow-hidden rounded-full bg-sunken"
         >
           <div
             className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out motion-reduce:transition-none"
-            style={{ width: `${String(((step + 1) / total) * 100)}%` }}
+            style={{
+              width: `${String(((done ? total : step + 1) / total) * 100)}%`,
+            }}
           />
         </div>
         <button
@@ -99,45 +115,52 @@ export function WizardShell({
         </button>
       </div>
 
-      <form
-        className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-8 px-4 pb-16 sm:px-8"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (canNext && !busy && onNext) onNext();
-        }}
-      >
-        <h1
-          ref={heading}
-          tabIndex={-1}
-          className="text-h2 font-semibold text-ink outline-none"
-        >
-          {title}
-        </h1>
-        <div className="flex flex-col gap-4">{children}</div>
-        {error && (
-          <p role="alert" className="text-body-sm text-danger-text">
-            {error}
-          </p>
-        )}
-        <div className="flex items-center gap-3">
-          {onBack && step > 0 && (
-            <Button type="button" variant="ghost" onClick={onBack}>
-              <ArrowLeft aria-hidden="true" className="size-4" />
-              Back
-            </Button>
-          )}
-          {!hideNext && (
-            <Button
-              type="submit"
-              variant="accent"
-              disabled={!canNext}
-              loading={busy}
-            >
-              {nextLabel}
-            </Button>
-          )}
+      {done ? (
+        <div className="m-auto flex w-full max-w-2xl flex-col px-4 py-8 sm:px-8">
+          {done}
         </div>
-      </form>
+      ) : (
+        <form
+          className="m-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8 sm:px-8"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canNext && !busy && onNext) onNext();
+          }}
+        >
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="text-h2 font-semibold text-ink outline-none"
+          >
+            {title}
+          </h1>
+          <div className="flex flex-col gap-4">{children}</div>
+          {error && (
+            <p role="alert" className="text-body-sm text-danger-text">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {onBack && step > 0 && (
+              <Button type="button" variant="ghost" onClick={onBack}>
+                <ArrowLeft aria-hidden="true" className="size-4" />
+                Back
+              </Button>
+            )}
+            {!hideNext && (
+              <Button
+                type="submit"
+                variant="accent"
+                disabled={!canNext}
+                loading={busy}
+              >
+                {nextLabel}
+              </Button>
+            )}
+            {extra}
+          </div>
+        </form>
+      )}
     </div>,
     document.body,
   );

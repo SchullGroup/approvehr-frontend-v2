@@ -11,6 +11,9 @@ import type { ApiGoal } from "@/lib/api/performance";
  * Shared objectives (the company's, a department's) are standing targets that
  * may belong to no cycle, and a company with no open period has nothing to file
  * anything under, so neither is held to it.
+ *
+ * Writing a new one is the wizard's, tested in `objective-wizard.test.tsx`;
+ * what is left here is Edit.
  */
 
 const state = vi.hoisted(() => ({
@@ -43,12 +46,10 @@ vi.mock("@/lib/store/ai", () => ({
   }),
 }));
 
-const { NewKpiDialog, EditGoalDialog } =
-  await import("@/app/(app)/performance/goal-dialogs");
+const { EditGoalDialog } = await import("@/app/(app)/performance/goal-dialogs");
 
 const H1 = { id: "c-h1", name: "H1 2026", stage: "SELF" };
 const H2 = { id: "c-h2", name: "H2 2026", stage: "SELF" };
-const CLOSED = { id: "c-old", name: "H2 2025", stage: "PUBLISHED" };
 
 beforeEach(() => {
   state.cycles = [H1, H2];
@@ -59,123 +60,6 @@ const periodField = () =>
   screen.queryByLabelText(/Appraisal period/) as HTMLSelectElement | null;
 const optionTexts = (select: HTMLElement) =>
   Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
-
-function newKpi(mode: "kpi" | "objective" = "kpi") {
-  const onCreate = vi.fn().mockResolvedValue(undefined);
-  render(
-    <NewKpiDialog open mode={mode} onClose={vi.fn()} onCreate={onCreate} />,
-  );
-  return { onCreate, user: userEvent.setup() };
-}
-
-describe("New KPI", () => {
-  it("asks for an appraisal period, and offers no way to choose none", () => {
-    newKpi();
-    const field = periodField()!;
-    expect(field).not.toBeNull();
-    expect(field.getAttribute("aria-required")).toBe("true");
-    expect(optionTexts(field)).toEqual([
-      "Choose an appraisal period",
-      "H1 2026",
-      "H2 2026",
-    ]);
-    /* "Description" still says (optional); this one must not. */
-    const label = document.querySelector(`label[for="${field.id}"]`);
-    expect(label?.textContent).not.toMatch(/optional/i);
-  });
-
-  it("refuses to create one with no period chosen, and says why", async () => {
-    const { onCreate, user } = newKpi();
-    await user.type(
-      screen.getByLabelText(/Objective title/),
-      "Close five deals",
-    );
-    await user.click(screen.getByRole("button", { name: "Create objective" }));
-
-    expect(onCreate).not.toHaveBeenCalled();
-    expect(screen.getByText(/counts towards nobody's score/)).toBeVisible();
-  });
-
-  it("creates it filed in the period that was chosen", async () => {
-    const { onCreate, user } = newKpi();
-    await user.type(
-      screen.getByLabelText(/Objective title/),
-      "Close five deals",
-    );
-    await user.selectOptions(periodField()!, "c-h2");
-    await user.click(screen.getByRole("button", { name: "Create objective" }));
-
-    expect(onCreate).toHaveBeenCalledTimes(1);
-    expect(onCreate.mock.calls[0]![0]).toMatchObject({
-      title: "Close five deals",
-      reviewCycleId: "c-h2",
-    });
-  });
-
-  it("starts on the one open period when there is only one", async () => {
-    state.cycles = [H1, CLOSED];
-    const { onCreate, user } = newKpi();
-    expect(periodField()!.value).toBe("c-h1");
-
-    await user.type(
-      screen.getByLabelText(/Objective title/),
-      "Close five deals",
-    );
-    await user.click(screen.getByRole("button", { name: "Create objective" }));
-    expect(onCreate.mock.calls[0]![0]).toMatchObject({ reviewCycleId: "c-h1" });
-    /* A published period is a record, and is not offered. */
-    expect(optionTexts(periodField()!)).not.toContain("H2 2025");
-  });
-
-  it("does not hold a company-wide KPI to it", async () => {
-    const { onCreate, user } = newKpi();
-    await user.selectOptions(screen.getByLabelText(/Assigned to/), "company");
-
-    expect(periodField()!.getAttribute("aria-required")).toBeNull();
-    expect(optionTexts(periodField()!)[0]).toBe(
-      "Not part of an appraisal period",
-    );
-    await user.type(screen.getByLabelText(/Objective title/), "Win the tender");
-    await user.click(screen.getByRole("button", { name: "Create objective" }));
-    expect(onCreate).toHaveBeenCalledTimes(1);
-    expect(onCreate.mock.calls[0]![0]).not.toHaveProperty("reviewCycleId");
-  });
-
-  it("leaves a shared objective optional, as it was", () => {
-    newKpi("objective");
-    expect(periodField()!.getAttribute("aria-required")).toBeNull();
-    expect(optionTexts(periodField()!)[0]).toBe(
-      "Not part of an appraisal period",
-    );
-  });
-
-  it("says so, and still saves, when no period is open to file it in", async () => {
-    state.cycles = [CLOSED];
-    const { onCreate, user } = newKpi();
-
-    expect(periodField()).toBeNull();
-    expect(screen.getByText(/No appraisal period is open/)).toBeVisible();
-    await user.type(
-      screen.getByLabelText(/Objective title/),
-      "Close five deals",
-    );
-    await user.click(screen.getByRole("button", { name: "Create objective" }));
-    expect(onCreate).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not offer Create, or the no-period warning, while the periods are still arriving", () => {
-    state.cycles = [];
-    state.loading = true;
-    newKpi();
-
-    expect(
-      screen.getByRole("button", { name: "Create objective" }),
-    ).toBeDisabled();
-    expect(
-      screen.queryByText(/No appraisal period is open/),
-    ).not.toBeInTheDocument();
-  });
-});
 
 const goal = (over: Partial<ApiGoal> = {}): ApiGoal =>
   ({

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
@@ -24,6 +25,7 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
+  Illustration,
   Input,
   Modal,
   ProgressMeter,
@@ -47,6 +49,7 @@ import {
   type DepartmentCard,
 } from "@/lib/performance/objectives-by-department";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { newObjectiveHref } from "@/lib/performance/objective-wizard";
 import { useAction } from "@/lib/use-action";
 import {
   SuggestButton,
@@ -82,11 +85,9 @@ import { ApprovalReasonDialog } from "./approval-dialogs";
 import { goalFacts } from "./goal-facts";
 import {
   averageProgressHint,
-  kpiAddedSaid,
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
-  objectiveCreatedSaid,
   progressLabel,
   readCountLine,
   readCountShort,
@@ -98,7 +99,6 @@ import { SendForAgreementDialog } from "./send-for-agreement";
 import {
   AddMeasureDialog,
   AssignKpiDialog,
-  NewKpiDialog,
   StopKpiDialog,
   EditGoalDialog,
   DeleteGoalDialog,
@@ -183,6 +183,73 @@ const ORDERS = [
 
 type Order = (typeof ORDERS)[number][0];
 
+/** The heading of the empty state, by whose objectives are being read. */
+export const EMPTY_TITLE: Record<KpiScope, string> = {
+  mine: "No objectives yet",
+  team: "Nobody in your team has an objective yet",
+  company: "The company has no objectives yet",
+};
+
+/**
+ * Nothing in this reading at all (owner request, 24 Nov 2026).
+ *
+ * In place of four tiles reading 0, a filter row with nothing to filter and an
+ * empty list: one figure, what an objective is, and the way to write one. The
+ * quieter way in is for several at once.
+ */
+export function EmptyObjectives({
+  scope,
+  href,
+  onAddSeveral,
+  uploadHref = "/performance/kpis/import",
+}: {
+  scope: KpiScope;
+  /** Where New objective goes, or null when this person cannot write one. */
+  href: string | null;
+  /** Opens the window for several at once, when this person may. */
+  onAddSeveral?: () => void;
+  uploadHref?: string;
+}) {
+  return (
+    <Card>
+      <EmptyState
+        art={<Illustration name={href ? "welcome" : "shrug"} height={144} />}
+        title={EMPTY_TITLE[scope]}
+        description="An objective is what somebody aims for, with a target to measure it, and it is agreed before the period it covers."
+        {...(href
+          ? {
+              action: (
+                <div className="flex flex-col items-center gap-3">
+                  <ButtonLink variant="accent" href={href}>
+                    <Plus aria-hidden="true" className="size-4" />
+                    New objective
+                  </ButtonLink>
+                  {onAddSeveral && (
+                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-body-sm">
+                      <button
+                        type="button"
+                        onClick={onAddSeveral}
+                        className="font-medium text-accent-text underline-offset-2 hover:underline"
+                      >
+                        Add several
+                      </button>
+                      <Link
+                        href={uploadHref}
+                        className="font-medium text-accent-text underline-offset-2 hover:underline"
+                      >
+                        Upload objectives
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ),
+            }
+          : {})}
+      />
+    </Card>
+  );
+}
+
 export function KpisTab({
   scope,
   scopes,
@@ -239,29 +306,21 @@ export function KpisTab({
   const toast = useToast();
   const { actingId } = useSession();
 
-  /* `objective` is the top-level button: a new objective, which carries on
-     into the detail below once it exists. `parentId` is "Add a KPI under
-     this", which is a KPI and does not. */
-  const [creating, setCreating] = useState<{
-    parentId?: string;
-    objective?: boolean;
-  } | null>(null);
-  /* The objective just made, whose detail is open on top of the cascade. The
-     API's own answer, held until the reloaded list has it. */
-  const [created, setCreated] = useState<ApiGoal | null>(null);
-  /* Kept after it closes, so `Modal` can run its own exit on the real goal
-     rather than on nothing. */
-  const [shown, setShown] = useState<ApiGoal | null>(null);
-  if (created && created !== shown) setShown(created);
-  const justMade = shown
-    ? (kpis.goals.find((goal) => goal.id === shown.id) ?? shown)
-    : null;
-  /* What a new KPI is going under. The objective just made counts even when
-     the list behind does not have it. */
-  const parentGoal = creating?.parentId
-    ? (kpis.goals.find((goal) => goal.id === creating.parentId) ??
-      (justMade?.id === creating.parentId ? justMade : undefined))
-    : undefined;
+  /* New objective is a page of its own (owner request, 24 Nov 2026), and
+     "Add an objective under this" is the same page started under one. Both
+     come back here: the address carries where they were. */
+  const router = useRouter();
+  const backHere =
+    scope === "company" && department
+      ? `/performance/kpis?scope=company&department=${encodeURIComponent(department)}`
+      : `/performance/kpis?scope=${scope}`;
+  const newObjective = (parentId?: string) =>
+    newObjectiveHref({
+      back: backHere,
+      ...(parentId ? { parent: parentId } : {}),
+    });
+  const addUnder = (parentId: string) => router.push(newObjective(parentId));
+
   /* The window for adding several objectives at once. */
   const [addingMany, setAddingMany] = useState(false);
   const [assigning, setAssigning] = useState<ApiGoal | null>(null);
@@ -557,6 +616,10 @@ export function KpisTab({
   const rootBranches = cascade.filter((node) => node.children.length > 0);
 
   const tracked = kpis.goals.filter((goal) => goal.status !== "DONE");
+  /* Nothing at all in this reading, as an answer and not while it loads or
+     after it failed: the tiles, the filters and an empty list are replaced by
+     one empty state that says what an objective is and offers to write one. */
+  const empty = !kpis.loading && !kpis.error && kpis.goals.length === 0;
   const waiting = kpis.goals.filter(
     (goal) => goal.approval === "AWAITING_APPROVAL",
   );
@@ -611,7 +674,7 @@ export function KpisTab({
               Demo · numbers stay in this browser
             </Badge>
           )}
-          {mutations.editable && canUpload && (
+          {mutations.editable && canUpload && !empty && (
             <ButtonLink
               variant="secondary"
               size="sm"
@@ -624,7 +687,7 @@ export function KpisTab({
           {/* Beside the upload, because it is the same door for fewer rows:
               the same people, the same checks, typed in here instead of in
               Excel. */}
-          {mutations.editable && canUpload && (
+          {mutations.editable && canUpload && !empty && (
             <Button
               variant="secondary"
               size="sm"
@@ -634,15 +697,11 @@ export function KpisTab({
               Add multiple
             </Button>
           )}
-          {mutations.editable && (
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => setCreating({ objective: true })}
-            >
+          {mutations.editable && !empty && (
+            <ButtonLink variant="accent" size="sm" href={newObjective()}>
               <Plus aria-hidden="true" className="size-4" />
               New objective
-            </Button>
+            </ButtonLink>
           )}
         </div>
       </div>
@@ -653,44 +712,57 @@ export function KpisTab({
         onRetry={kpis.reload}
       />
 
-      <StatGrid>
-        <Stat label="Objectives being tracked" value={String(tracked.length)} />
-        <Stat
-          label="Average progress"
-          /* An em dash, not a sentence — see `Stat`'s other callers
+      {empty ? (
+        <EmptyObjectives
+          scope={scope}
+          href={mutations.editable ? newObjective() : null}
+          {...(mutations.editable && canUpload
+            ? { onAddSeveral: () => setAddingMany(true) }
+            : {})}
+        />
+      ) : (
+        <>
+          <StatGrid>
+            <Stat
+              label="Objectives being tracked"
+              value={String(tracked.length)}
+            />
+            <Stat
+              label="Average progress"
+              /* An em dash, not a sentence — see `Stat`'s other callers
              (`advances-screen.tsx`, `payments/history-screen.tsx`): nothing
              tracked is a dash, same size as every other Stat value, not a
              phrase that reads as a different kind of thing in the same row. */
-          value={
-            average === null ? (
-              <span className="text-faint">—</span>
-            ) : (
-              `${average}%`
-            )
-          }
-          {...(averageHint ? { hint: averageHint } : {})}
-        />
-        <Stat
-          label="Needs attention"
-          value={String(attention.length)}
-          {...(attention.length > 0
-            ? { trend: { direction: "down" as const, label: "Behind" } }
-            : {})}
-        />
-        <Stat
-          label="Targets met"
-          /* "0 of 0" is a measurement of a set nobody has created. */
-          value={
-            measures.length === 0 ? (
-              <span className="text-faint">—</span>
-            ) : (
-              `${hit} of ${measures.length}`
-            )
-          }
-        />
-      </StatGrid>
+              value={
+                average === null ? (
+                  <span className="text-faint">—</span>
+                ) : (
+                  `${average}%`
+                )
+              }
+              {...(averageHint ? { hint: averageHint } : {})}
+            />
+            <Stat
+              label="Needs attention"
+              value={String(attention.length)}
+              {...(attention.length > 0
+                ? { trend: { direction: "down" as const, label: "Behind" } }
+                : {})}
+            />
+            <Stat
+              label="Targets met"
+              /* "0 of 0" is a measurement of a set nobody has created. */
+              value={
+                measures.length === 0 ? (
+                  <span className="text-faint">—</span>
+                ) : (
+                  `${hit} of ${measures.length}`
+                )
+              }
+            />
+          </StatGrid>
 
-      {/* Delivery against objectives is one of the four parts an appraisal is
+          {/* Delivery against objectives is one of the four parts an appraisal is
           made of, and only an **agreed** objective counts towards it. Somebody
           whose KPIs are all drafts is somebody who will be unscored on that
           part, so the count is on the page rather than discovered at the end of
@@ -701,144 +773,149 @@ export function KpisTab({
           counts towards — the product explaining its own scoring rules to
           somebody who came to look at their objectives. The two counts are the
           fact; `NoticeLine` carries the argument. */}
-      {waiting.length > 0 && (
-        <NoticeLine tone="warning">
-          <span>
-            {waiting.length === 1
-              ? "1 objective is waiting to be agreed"
-              : `${waiting.length} objectives are waiting to be agreed`}
-          </span>
-          <Link href="/performance/approvals" className={NOTICE_LINK}>
-            See what is waiting
-          </Link>
-        </NoticeLine>
-      )}
-      {unsent.length > 0 && (
-        <NoticeLine tone="warning">
-          {unsent.length === 1
-            ? "1 objective has not been sent to be agreed yet"
-            : `${unsent.length} objectives have not been sent to be agreed yet`}
-        </NoticeLine>
-      )}
+          {waiting.length > 0 && (
+            <NoticeLine tone="warning">
+              <span>
+                {waiting.length === 1
+                  ? "1 objective is waiting to be agreed"
+                  : `${waiting.length} objectives are waiting to be agreed`}
+              </span>
+              <Link href="/performance/approvals" className={NOTICE_LINK}>
+                See what is waiting
+              </Link>
+            </NoticeLine>
+          )}
+          {unsent.length > 0 && (
+            <NoticeLine tone="warning">
+              {unsent.length === 1
+                ? "1 objective has not been sent to be agreed yet"
+                : `${unsent.length} objectives have not been sent to be agreed yet`}
+            </NoticeLine>
+          )}
 
-      <Card>
-        <CardHeader
-          title={
-            showCards
-              ? "By department"
-              : opened !== null
-                ? (openedName ?? "Objectives")
-                : "All objectives"
-          }
-          description={
-            showCards
-              ? "Open a department to see its objectives. Search to find one across all of them."
-              : opened !== null
-                ? "Its objectives, under the company objective they support."
-                : "The company objective is at the top. Team and personal objectives sit under the one they support."
-          }
-          {...(opened !== null && departmentHref
-            ? {
-                action: (
-                  <ButtonLink
-                    variant="ghost"
-                    size="sm"
-                    href={departmentHref(null)}
-                  >
-                    <ArrowLeft aria-hidden="true" className="size-4" />
-                    All departments
-                  </ButtonLink>
-                ),
+          <Card>
+            <CardHeader
+              title={
+                showCards
+                  ? "By department"
+                  : opened !== null
+                    ? (openedName ?? "Objectives")
+                    : "All objectives"
               }
-            : {})}
-        />
-        {kpis.goals.length > 0 && !kpis.loading && (
-          <CardBody className="pb-0">
-            <FilterBar
-              search={search}
-              onSearchChange={setSearch}
-              searchLabel="Search objectives by title or detail"
-              searchPlaceholder="Search objectives…"
-              applied={applied}
-              {...(narrowing || order !== ""
-                ? { onClearAll: clearFilters }
+              description={
+                showCards
+                  ? "Open a department to see its objectives. Search to find one across all of them."
+                  : opened !== null
+                    ? "Its objectives, under the company objective they support."
+                    : "The company objective is at the top. Team and personal objectives sit under the one they support."
+              }
+              {...(opened !== null && departmentHref
+                ? {
+                    action: (
+                      <ButtonLink
+                        variant="ghost"
+                        size="sm"
+                        href={departmentHref(null)}
+                      >
+                        <ArrowLeft aria-hidden="true" className="size-4" />
+                        All departments
+                      </ButtonLink>
+                    ),
+                  }
                 : {})}
-              count={narrowing ? matching.length : undefined}
-              noun={["objective", "objectives"]}
-              sort={
-                <Select
-                  aria-label="Order the list"
-                  value={order}
-                  onChange={(event) =>
-                    setOrder(event.target.value as Order | "")
+            />
+            {kpis.goals.length > 0 && !kpis.loading && (
+              <CardBody className="pb-0">
+                <FilterBar
+                  search={search}
+                  onSearchChange={setSearch}
+                  searchLabel="Search objectives by title or detail"
+                  searchPlaceholder="Search objectives…"
+                  applied={applied}
+                  {...(narrowing || order !== ""
+                    ? { onClearAll: clearFilters }
+                    : {})}
+                  count={narrowing ? matching.length : undefined}
+                  noun={["objective", "objectives"]}
+                  sort={
+                    <Select
+                      aria-label="Order the list"
+                      value={order}
+                      onChange={(event) =>
+                        setOrder(event.target.value as Order | "")
+                      }
+                    >
+                      <option value="">Grouped under the company goal</option>
+                      {ORDERS.map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </Select>
                   }
                 >
-                  <option value="">Grouped under the company goal</option>
-                  {ORDERS.map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              }
-            >
-              <Select
-                aria-label="Filter by agreement"
-                value={approval}
-                onChange={(event) => setApproval(event.target.value)}
-              >
-                <option value="">Any agreement</option>
-                {approvalOptions.map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                aria-label="Filter by progress"
-                value={progress}
-                onChange={(event) => setProgress(event.target.value)}
-              >
-                <option value="">Any progress</option>
-                {(
-                  ["ON_TRACK", "AT_RISK", "OFF_TRACK", "DONE"] as GoalStatus[]
-                ).map((key) => (
-                  <option key={key} value={key}>
-                    {GOAL_STATUS_LABEL[key]}
-                  </option>
-                ))}
-              </Select>
-              {periodOptions.length > 0 && (
-                <Select
-                  aria-label="Filter by appraisal period"
-                  value={period}
-                  onChange={(event) => setPeriod(event.target.value)}
-                >
-                  <option value="">Any period</option>
-                  {periodOptions.map(([id, label]) => (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              {ownerOptions.length > 0 && (
-                <Select
-                  aria-label="Filter by owner"
-                  value={owner}
-                  onChange={(event) => setOwner(event.target.value)}
-                >
-                  <option value="">Anybody</option>
-                  {ownerOptions.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </FilterBar>
-            {(narrowing || order !== "") && (
-              /* Two separate facts, each said only when it is true.
+                  <Select
+                    aria-label="Filter by agreement"
+                    value={approval}
+                    onChange={(event) => setApproval(event.target.value)}
+                  >
+                    <option value="">Any agreement</option>
+                    {approvalOptions.map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    aria-label="Filter by progress"
+                    value={progress}
+                    onChange={(event) => setProgress(event.target.value)}
+                  >
+                    <option value="">Any progress</option>
+                    {(
+                      [
+                        "ON_TRACK",
+                        "AT_RISK",
+                        "OFF_TRACK",
+                        "DONE",
+                      ] as GoalStatus[]
+                    ).map((key) => (
+                      <option key={key} value={key}>
+                        {GOAL_STATUS_LABEL[key]}
+                      </option>
+                    ))}
+                  </Select>
+                  {periodOptions.length > 0 && (
+                    <Select
+                      aria-label="Filter by appraisal period"
+                      value={period}
+                      onChange={(event) => setPeriod(event.target.value)}
+                    >
+                      <option value="">Any period</option>
+                      {periodOptions.map(([id, label]) => (
+                        <option key={id} value={id}>
+                          {label}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                  {ownerOptions.length > 0 && (
+                    <Select
+                      aria-label="Filter by owner"
+                      value={owner}
+                      onChange={(event) => setOwner(event.target.value)}
+                    >
+                      <option value="">Anybody</option>
+                      {ownerOptions.map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </FilterBar>
+                {(narrowing || order !== "") && (
+                  /* Two separate facts, each said only when it is true.
                  -------------------------------------------------------------
                  The figures above are the company's and do not move with a
                  filter: a reader who takes "24 being tracked" as the size of
@@ -847,86 +924,70 @@ export function KpisTab({
                  is a change to *what* they are looking at rather than to how
                  much of it — so it is said whether or not anything is
                  filtered. */
-              <p className="mt-3 text-meta text-muted">
-                {narrowing &&
-                  `Showing ${String(matching.length)} of ${String(pool.length)}. The figures above are for everything, not for what is filtered here.`}
-                {narrowing && order !== "" && " "}
-                {order !== "" &&
-                  "Ordered by date, so objectives are not grouped under their parent while this is on."}
-              </p>
+                  <p className="mt-3 text-meta text-muted">
+                    {narrowing &&
+                      `Showing ${String(matching.length)} of ${String(pool.length)}. The figures above are for everything, not for what is filtered here.`}
+                    {narrowing && order !== "" && " "}
+                    {order !== "" &&
+                      "Ordered by date, so objectives are not grouped under their parent while this is on."}
+                  </p>
+                )}
+              </CardBody>
             )}
-          </CardBody>
-        )}
-        {kpis.loading ? (
-          <CardBody>
-            <LoadState
-              loading
-              error={null}
-              subject="the objectives"
-              skeleton="list"
-            >
-              {null}
-            </LoadState>
-          </CardBody>
-        ) : kpis.error ? null : narrowing && matching.length === 0 ? (
-          /* Distinct from "No KPIs yet". Nothing matching a search is not a
+            {kpis.loading ? (
+              <CardBody>
+                <LoadState
+                  loading
+                  error={null}
+                  subject="the objectives"
+                  skeleton="list"
+                >
+                  {null}
+                </LoadState>
+              </CardBody>
+            ) : kpis.error ? null : narrowing && matching.length === 0 ? (
+              /* Distinct from "No KPIs yet". Nothing matching a search is not a
              company with no objectives, and offering "New objective" to
              somebody who mistyped a name would answer a question they did not
              ask. */
-          <EmptyState
-            mood="search"
-            icon={<Target aria-hidden="true" />}
-            title="Nothing matches that"
-            description={`None of the ${String(pool.length)} objectives match your filters.`}
-            action={
-              <Button variant="ghost" onClick={clearFilters}>
-                Clear the filters
-              </Button>
-            }
-          />
-        ) : kpis.cascade.length === 0 ? (
-          <EmptyState
-            icon={<Target aria-hidden="true" />}
-            title="No objectives yet"
-            description="Start with a company objective, then add each team's objectives under it."
-            action={
-              mutations.editable ? (
-                <Button
-                  variant="accent"
-                  onClick={() => setCreating({ objective: true })}
-                >
-                  New objective
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : showCards ? (
-          directory.loading ? (
-            <CardBody>
-              <LoadState
-                loading
-                error={null}
-                subject="the departments"
-                skeleton="list"
-              >
-                {null}
-              </LoadState>
-            </CardBody>
-          ) : (
-            <CardBody>
-              <DepartmentGrid cards={cards} hrefOf={departmentHref!} />
-            </CardBody>
-          )
-        ) : cascade.length === 0 ? (
-          <EmptyState
-            plain
-            icon={<Target aria-hidden="true" />}
-            title="No objectives here yet"
-            description="Nothing in this department is filed as an objective yet."
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-3">
-            {/* Roots pair up too, on the same rule the branches use.
+              <EmptyState
+                mood="search"
+                icon={<Target aria-hidden="true" />}
+                title="Nothing matches that"
+                description={`None of the ${String(pool.length)} objectives match your filters.`}
+                action={
+                  <Button variant="ghost" onClick={clearFilters}>
+                    Clear the filters
+                  </Button>
+                }
+              />
+            ) : showCards ? (
+              directory.loading ? (
+                <CardBody>
+                  <LoadState
+                    loading
+                    error={null}
+                    subject="the departments"
+                    skeleton="list"
+                  >
+                    {null}
+                  </LoadState>
+                </CardBody>
+              ) : (
+                <CardBody>
+                  <DepartmentGrid cards={cards} hrefOf={departmentHref!} />
+                </CardBody>
+              )
+            ) : cascade.length === 0 ? (
+              <EmptyState
+                plain
+                icon={<Target aria-hidden="true" />}
+                title="No objectives here yet"
+                description="Nothing in this department is filed as an objective yet."
+              />
+            ) : (
+              <CardBody className="flex flex-col gap-3">
+                {/* Roots pair up too, on the same rule the branches use.
                 ------------------------------------------------------------
                 The grid was originally only applied to a node's *children*,
                 which quietly did nothing for the commonest shape there is: a
@@ -941,18 +1002,42 @@ export function KpisTab({
                 under it is a leaf like any other and can sit beside its
                 peers, while a root that heads a cascade stays full width so
                 the things indented beneath it read as beneath it. */}
-            {rootLeaves.length > 0 && (
-              <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
-                {rootLeaves.map((node) => (
-                  <GoalCard
+                {rootLeaves.length > 0 && (
+                  <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
+                    {rootLeaves.map((node) => (
+                      <GoalCard
+                        key={node.id}
+                        goal={node}
+                        depth={node.depth}
+                        editable={mutations.editable}
+                        actingId={actingId}
+                        canPlan={canPlan}
+                        onAddMeasure={setAddingTo}
+                        onAddChild={addUnder}
+                        onAssign={setAssigning}
+                        onComplete={setCompleting}
+                        onStop={setStopping}
+                        onEdit={setEditing}
+                        onDelete={setDeleting}
+                        onShare={shareGoal}
+                        onSubmit={setSending}
+                        onReopen={setReopening}
+                        onRecord={recordMeasure}
+                        onPlan={setPlanning}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {rootBranches.map((node) => (
+                  <GoalBranch
                     key={node.id}
-                    goal={node}
-                    depth={node.depth}
+                    node={node}
                     editable={mutations.editable}
                     actingId={actingId}
                     canPlan={canPlan}
                     onAddMeasure={setAddingTo}
-                    onAddChild={(parentId) => setCreating({ parentId })}
+                    onAddChild={addUnder}
                     onAssign={setAssigning}
                     onComplete={setCompleting}
                     onStop={setStopping}
@@ -965,33 +1050,11 @@ export function KpisTab({
                     onPlan={setPlanning}
                   />
                 ))}
-              </div>
+              </CardBody>
             )}
-
-            {rootBranches.map((node) => (
-              <GoalBranch
-                key={node.id}
-                node={node}
-                editable={mutations.editable}
-                actingId={actingId}
-                canPlan={canPlan}
-                onAddMeasure={setAddingTo}
-                onAddChild={(parentId) => setCreating({ parentId })}
-                onAssign={setAssigning}
-                onComplete={setCompleting}
-                onStop={setStopping}
-                onEdit={setEditing}
-                onDelete={setDeleting}
-                onShare={shareGoal}
-                onSubmit={setSending}
-                onReopen={setReopening}
-                onRecord={recordMeasure}
-                onPlan={setPlanning}
-              />
-            ))}
-          </CardBody>
-        )}
-      </Card>
+          </Card>
+        </>
+      )}
 
       <AddMultipleObjectives
         open={addingMany}
@@ -999,60 +1062,6 @@ export function KpisTab({
         goals={kpis.goals}
         onChanged={kpis.reload}
       />
-
-      <NewKpiDialog
-        open={creating !== null}
-        mode={creating?.objective ? "objective" : "kpi"}
-        parentId={creating?.parentId}
-        parentTitle={parentGoal?.title}
-        onClose={() => setCreating(null)}
-        onCreate={async (body) => {
-          const objective = creating?.objective === true;
-          const outcome = await announced(
-            () => mutations.createGoal(body),
-            (goal) =>
-              objective
-                ? objectiveCreatedSaid(goal, actingId)
-                : kpiAddedSaid(goal, actingId),
-            "the objective",
-          );
-          if (!outcome.ok) return;
-          setCreating(null);
-
-          /* An objective on its own is not much — what comes next is putting
-             KPIs under it. So its detail opens, and that is where "Add a KPI
-             under this", "Give a KPI to people" and "Add a measure" already
-             are. */
-          if (objective) setCreated(outcome.value);
-        }}
-      />
-
-      {/* The objective just made. Read from the list once the reload has it,
-          so it shows the same thing the card behind it will; the API's own
-          answer stands in until then, and for good if this person's view of
-          the cascade does not include it. */}
-      {justMade && (
-        <GoalDetailModal
-          goal={justMade}
-          open={created !== null}
-          onClose={() => setCreated(null)}
-          {...goalFacts(justMade, actingId)}
-          editable={mutations.editable}
-          canPlan={canPlan}
-          onAddMeasure={setAddingTo}
-          onAddChild={(parentId) => setCreating({ parentId })}
-          onAssign={setAssigning}
-          onComplete={setCompleting}
-          onStop={setStopping}
-          onEdit={setEditing}
-          onDelete={setDeleting}
-          onShare={shareGoal}
-          onSubmit={setSending}
-          onReopen={setReopening}
-          onRecord={recordMeasure}
-          onPlan={setPlanning}
-        />
-      )}
 
       <AssignKpiDialog
         open={assigning !== null}
