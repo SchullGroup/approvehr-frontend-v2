@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { Button, ButtonLink } from "./button";
 import { Modal } from "./modal";
 import { cn } from "@/lib/cn";
@@ -253,5 +253,141 @@ export function GetReady({
         </Modal>
       )}
     </section>
+  );
+}
+
+/**
+ * "Get ready", as small as it can be: a ring and "3 of 4" beside the button that
+ * starts the thing, with a tick when everything needed is in. Pressing it opens a
+ * window with each step, what it is set to and the button that goes to it. The
+ * start button itself waits until every needed step is done; an optional step
+ * never holds it back.
+ */
+export function ReadyChip({
+  title = "Get ready",
+  steps,
+}: {
+  title?: string;
+  steps: readonly ReadyStep[];
+}) {
+  const [open, setOpen] = useState(false);
+  const counted = steps.filter((step) => !step.optional);
+  const done = counted.filter((step) => step.done).length;
+  const current = currentStep(steps);
+  const all = counted.length === 0 ? 1 : done / counted.length;
+  const R = 8;
+  const C = 2 * Math.PI * R;
+
+  const run = (action: StepAction): StepAction =>
+    action.onClick
+      ? {
+          ...action,
+          onClick: () => {
+            setOpen(false);
+            action.onClick?.();
+          },
+        }
+      : action;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`${title}: ${String(done)} of ${String(counted.length)} ready`}
+        className="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-body-sm font-medium text-ink transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        <svg
+          viewBox="0 0 20 20"
+          className="size-5 -rotate-90"
+          aria-hidden="true"
+        >
+          <circle
+            cx="10"
+            cy="10"
+            r={R}
+            fill="none"
+            strokeWidth="2.5"
+            className="stroke-sunken"
+          />
+          <circle
+            cx="10"
+            cy="10"
+            r={R}
+            fill="none"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className="stroke-accent transition-[stroke-dashoffset] duration-300 motion-reduce:transition-none"
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - all)}
+          />
+        </svg>
+        <span className="tabular">
+          {done} of {counted.length}
+        </span>
+        {current === null && (
+          <Check aria-hidden="true" className="size-3.5 text-success-text" />
+        )}
+      </button>
+
+      {open && (
+        <Modal
+          open
+          onClose={() => setOpen(false)}
+          title={title}
+          size="md"
+          footer={
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setOpen(false)}
+            >
+              Close
+            </Button>
+          }
+        >
+          <ol className="flex flex-col divide-y divide-line">
+            {steps.map((step) => {
+              const isCurrent = current?.id === step.id;
+              return (
+                <li
+                  key={step.id}
+                  aria-current={isCurrent ? "step" : undefined}
+                  className={cn(
+                    "flex flex-wrap items-center justify-between gap-2 py-2.5",
+                    isCurrent && "-mx-2 rounded-md bg-accent-soft px-2",
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "text-body-sm",
+                        isCurrent ? "font-medium text-ink" : "text-body",
+                      )}
+                    >
+                      {step.label}
+                    </p>
+                    <p className="text-meta text-muted">
+                      {step.done
+                        ? (step.detail ?? "Done")
+                        : step.optional
+                          ? (step.detail ?? "Optional")
+                          : (step.detail ?? "To do")}
+                    </p>
+                  </div>
+                  {isCurrent ? (
+                    <ActionButton action={run(step.action)} />
+                  ) : (
+                    !step.done && (
+                      <ActionButton action={run(step.action)} variant="ghost" />
+                    )
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </Modal>
+      )}
+    </>
   );
 }

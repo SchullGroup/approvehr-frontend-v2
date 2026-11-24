@@ -32,10 +32,12 @@ error state.** Avoid red errors on the app.
 
 Tests: `tests/next-step.test.tsx`. Used by the period page (`periods/[id]/period-screen.tsx`).
 
-## Progress and checklists are one thin line at the top (owner, 24 Nov 2026)
+## Progress and checklists are a ring and a count beside the button (owner, 24 Nov 2026)
 
-A checklist or progress indicator is a single horizontal line at the top of the
-screen: a segment for each step, what is next in a few words ("Next: Questions"),
-and "2 of 4". Pressing it opens a window with the steps and their buttons. It is
-never a card of stacked rows on the page, because the page below it is for what
-the screen is about. `GetReady` in `components/ui/next-step.tsx` is this.
+A checklist is a small ring and "3 of 4" (a tick at "4 of 4") beside the button
+that starts the thing. Pressing it opens a window with the steps, what each is set
+to and the button that goes to it. The start button waits until every needed step
+is done; an optional step never holds it back. It is never a card of stacked rows
+or a wide bar on the page, because the page below is for what the screen is about.
+`ReadyChip` in `components/ui/next-step.tsx` is this; `GetReady` is the same thing
+as a thin line, for a place with no button to sit beside.

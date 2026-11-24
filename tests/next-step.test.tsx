@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
   GetReady,
+  ReadyChip,
   NextStep,
   currentStep,
   type ReadyStep,
@@ -137,5 +138,32 @@ describe("GetReady", () => {
     await open();
     expect(screen.getByText("To do")).toBeVisible();
     expect(container.innerHTML).not.toMatch(/danger|text-warning/);
+  });
+});
+
+describe("ReadyChip", () => {
+  it("is a ring and a count, and opens the steps", async () => {
+    render(<ReadyChip steps={steps()} />);
+    expect(
+      screen.getByRole("button", { name: "Get ready: 1 of 2 ready" }),
+    ).toBeVisible();
+    expect(screen.getByText("1 of 2")).toBeVisible();
+    expect(screen.queryByRole("list")).toBeNull();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: /Get ready/ }));
+    expect(screen.getByText("Questions")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Add questions" })).toHaveAttribute(
+      "href",
+      "/q",
+    );
+  });
+
+  it("gets a tick when everything needed is in", () => {
+    const { container } = render(
+      <ReadyChip steps={steps({ questions: { done: true } })} />,
+    );
+    expect(screen.getByText("2 of 2")).toBeVisible();
+    expect(container.querySelector("svg.lucide-check")).not.toBeNull();
   });
 });

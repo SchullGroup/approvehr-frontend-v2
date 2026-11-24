@@ -47,7 +47,11 @@ import {
   LoadState,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
-import { GetReady, NextStep } from "@/components/performance/next-step";
+import {
+  NextStep,
+  ReadyChip,
+  type ReadyStep,
+} from "@/components/performance/next-step";
 import { fallbackCountLine } from "@/lib/performance/appraiser-fill";
 import {
   askedLine,
@@ -433,6 +437,75 @@ export function PeriodScreen({
     }
   };
 
+  const readySteps: ReadyStep[] =
+    canManage && draft && period
+      ? [
+          {
+            id: "objectives",
+            label: "Objectives",
+            /* Counted when delivery is part of the score: with no objective
+                     set there is nothing to deliver against. */
+            optional: objectivesWeight === 0,
+            done: hasObjectives,
+            detail: !hasObjectives
+              ? objectivesWeight > 0
+                ? `Delivery is ${String(objectivesWeight)}% of the score, and nobody has set an objective yet.`
+                : "Optional. Add them if you want them in the score."
+              : askedObjectives
+                ? [askedLine(askedObjectives), lastAskedLine(askedObjectives)]
+                    .filter(Boolean)
+                    .join(" ")
+                : `Delivery is ${String(objectivesWeight)}% of the score.`,
+            action: !hasObjectives
+              ? {
+                  label: "Set company objectives",
+                  href: "/performance/kpis/new",
+                }
+              : askUnavailable
+                ? { label: "Set objectives", href: "/performance/kpis" }
+                : {
+                    label: "Ask everyone to set objectives",
+                    onClick: () => void askForObjectives(),
+                    loading: askingObjectives,
+                  },
+          },
+          {
+            id: "appraisers",
+            label: "Who appraises whom",
+            done: true,
+            detail: "From the reporting line. Change anyone if you like.",
+            action: {
+              label: "Review",
+              href: `/performance/appraisers?period=${cycleId}`,
+            },
+          },
+          {
+            id: "questions",
+            label: "Questions",
+            done: period.questionCount > 0,
+            detail:
+              period.questionCount > 0
+                ? `${String(period.questionCount)} in the review`
+                : "None yet",
+            action: {
+              label: "Add questions",
+              href: `/performance/periods/${cycleId}/questions`,
+            },
+          },
+          {
+            id: "weights",
+            label: "How the score is made up",
+            done: true,
+            detail: "The company's weights. Change them on the Settings tab.",
+            action: {
+              label: "Review",
+              onClick: () => setPeriodTab("settings"),
+            },
+          },
+        ]
+      : [];
+  const stillToDo = readySteps.some((step) => !step.done && !step.optional);
+
   return (
     <>
       <PageHeader
@@ -460,11 +533,19 @@ export function PeriodScreen({
             {/* One main button, and it is whatever this period needs next. */}
             {/* Not ready (no questions yet) is the Get ready checklist's next
                 step, not a button that refuses. */}
-            {canManage && draft && (period?.questionCount ?? 0) > 0 && (
-              <Button size="sm" onClick={() => setConfirmingStart(true)}>
-                <Play aria-hidden="true" className="size-3.5" />
-                Start period
-              </Button>
+            {canManage && draft && period && (
+              <>
+                <ReadyChip steps={readySteps} />
+                <Button
+                  size="sm"
+                  disabled={stillToDo}
+                  title={stillToDo ? "Finish the steps first" : undefined}
+                  onClick={() => setConfirmingStart(true)}
+                >
+                  <Play aria-hidden="true" className="size-3.5" />
+                  Start period
+                </Button>
+              </>
             )}
             {canManage && nextStage && (
               <Button
@@ -560,82 +641,6 @@ export function PeriodScreen({
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
           {/* One next step, never a stack of warnings (`docs/guided-flows.md`). */}
-          {canManage && draft && period && (
-            <GetReady
-              steps={[
-                {
-                  id: "objectives",
-                  label: "Objectives",
-                  /* Counted when delivery is part of the score: with no objective
-                     set there is nothing to deliver against. */
-                  optional: objectivesWeight === 0,
-                  done: hasObjectives,
-                  detail: !hasObjectives
-                    ? objectivesWeight > 0
-                      ? `Delivery is ${String(objectivesWeight)}% of the score, and nobody has set an objective yet.`
-                      : "Optional. Add them if you want them in the score."
-                    : askedObjectives
-                      ? [
-                          askedLine(askedObjectives),
-                          lastAskedLine(askedObjectives),
-                        ]
-                          .filter(Boolean)
-                          .join(" ")
-                      : `Delivery is ${String(objectivesWeight)}% of the score.`,
-                  action: !hasObjectives
-                    ? {
-                        label: "Set company objectives",
-                        href: "/performance/kpis/new",
-                      }
-                    : askUnavailable
-                      ? { label: "Set objectives", href: "/performance/kpis" }
-                      : {
-                          label: "Ask everyone to set objectives",
-                          onClick: () => void askForObjectives(),
-                          loading: askingObjectives,
-                        },
-                },
-                {
-                  id: "appraisers",
-                  label: "Who appraises whom",
-                  done: true,
-                  detail: "From the reporting line. Change anyone if you like.",
-                  action: {
-                    label: "Review",
-                    href: `/performance/appraisers?period=${cycleId}`,
-                  },
-                },
-                {
-                  id: "questions",
-                  label: "Questions",
-                  done: period.questionCount > 0,
-                  detail:
-                    period.questionCount > 0
-                      ? `${String(period.questionCount)} in the review`
-                      : "None yet",
-                  action: {
-                    label: "Add questions",
-                    href: `/performance/periods/${cycleId}/questions`,
-                  },
-                },
-                {
-                  id: "weights",
-                  label: "How the score is made up",
-                  done: true,
-                  detail:
-                    "The company's weights. Change them on the Settings tab.",
-                  action: {
-                    label: "Review",
-                    onClick: () => setPeriodTab("settings"),
-                  },
-                },
-              ]}
-              final={{
-                label: "Start period",
-                onClick: () => setConfirmingStart(true),
-              }}
-            />
-          )}
           {canManage && running && period && (
             <WhatIsNext
               waiting={nudging ? nudging.names.length : 0}
