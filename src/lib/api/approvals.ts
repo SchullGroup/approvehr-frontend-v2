@@ -522,6 +522,37 @@ export function isDecidableHere(kind: ApprovalKind): boolean {
   return !(kind in REAL_SCREEN);
 }
 
+/**
+ * The four verbs that let somebody decide a leave request at all. The API's
+ * `assertMayDecide` refuses everybody who holds none of them, whoever the request was
+ * routed to, so a reader with none of them can never use an Approve or Decline on a leave
+ * row. `APPROVE_LEAVE_ALL`, `_DEPARTMENT` and `_BRANCH` each imply `APPROVE_LEAVE` on the
+ * server, so a holder of any of them is let through to the relationship checks.
+ *
+ * The branch verb is not in the web's permission catalogue (the Roles screen does not
+ * list it), so the set is read as strings.
+ */
+const LEAVE_DECIDING = [
+  "APPROVE_LEAVE",
+  "APPROVE_LEAVE_ALL",
+  "APPROVE_LEAVE_DEPARTMENT",
+  "APPROVE_LEAVE_BRANCH",
+] as const;
+
+/**
+ * Could this reader's permissions ever let them decide a leave request?
+ *
+ * Only the **floor** is asked here. Whether this person is the line manager, or heads the
+ * department or the office, of the one in the row is a relationship the browser cannot see,
+ * and the API's own refusal says so when it is not. What this stops is the case where no
+ * such relationship could ever help: a manager whose role has no leave-approval permission
+ * is routed requests (the card is shown to whoever `managerId` names) and is then refused
+ * every time.
+ */
+export function mayDecideLeave(permissions: ReadonlySet<string>): boolean {
+  return LEAVE_DECIDING.some((permission) => permissions.has(permission));
+}
+
 /** The screen that can actually decide a row of this kind, or null when
  *  this inbox already is that screen. */
 export function realScreenFor(kind: ApprovalKind): string | null {
