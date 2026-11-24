@@ -147,6 +147,7 @@ export function PeriodWeights({
   disabled = false,
   basis,
   parts: givenParts,
+  hint,
 }: {
   value: WeightText;
   onChange: (next: WeightText) => void;
@@ -168,6 +169,9 @@ export function PeriodWeights({
    * with the company's weights, so it must not be told it was fixed.
    */
   basis?: CycleWeights["basis"];
+  /** A small info icon beside the heading, for the one explanation that is
+   *  still needed (the manager-appraisal note). */
+  hint?: React.ReactNode;
 }) {
   const labelOf = (component: ScoreComponent) =>
     companyDefaults?.rows.find((row) => row.component === component)?.label ??
@@ -189,8 +193,12 @@ export function PeriodWeights({
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="weights-heading">
-      <h3 id="weights-heading" className="text-body-sm font-medium text-ink">
+      <h3
+        id="weights-heading"
+        className="inline-flex items-center gap-2 text-body-sm font-medium text-ink"
+      >
         How the score is made up
+        {hint}
       </h3>
       <WeightsPie
         fixed={readOnly}
