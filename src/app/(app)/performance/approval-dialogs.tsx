@@ -22,7 +22,7 @@ import { ApiError } from "@/lib/api/client";
 
 const MIN_REASON = 3;
 
-export type ApprovalAct = "send_back" | "reject" | "revise";
+export type ApprovalAct = "send_back" | "decline" | "reject" | "revise";
 
 /** What each act does, in the words the person deciding needs before they click. */
 const ACTS: Record<
@@ -34,6 +34,8 @@ const ACTS: Record<
     /** Green is the approval colour, so none of these three carry it. */
     tone: "accent" | "danger";
     help: string;
+    /** The field's label; "Why" unless the act calls it something else. */
+    field?: string;
   }
 > = {
   send_back: {
@@ -43,6 +45,18 @@ const ACTS: Record<
     label: "Send it back",
     tone: "accent",
     help: "They will read this. Say what would make it agreeable.",
+  },
+  /* The queue's one way to say no (owner, 24 Nov 2026). The same send-back as
+     above, worded as the button the approver pressed: the objective goes back
+     to whoever wrote it, who can change it and send it again. */
+  decline: {
+    title: (title) => `Decline "${title}"?`,
+    consequence:
+      "It goes back to whoever wrote it, with your feedback. They can change it and send it again, and it comes back here.",
+    label: "Decline",
+    tone: "accent",
+    help: "They will read this. Say what would make it agreeable.",
+    field: "Feedback",
   },
   reject: {
     title: (title) => `Refuse "${title}"?`,
@@ -89,6 +103,17 @@ export function ApprovalReasonDialog({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+
+  /* Blank on every open: the dialog stays mounted for its exit, and the
+     feedback typed for one objective must never be offered for the next. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setReason("");
+      setFailed(null);
+    }
+  }
 
   if (!act || goalTitle === null) return null;
 
@@ -137,7 +162,7 @@ export function ApprovalReasonDialog({
           {spec.consequence}
         </p>
 
-        <Field label="Why" required help={spec.help}>
+        <Field label={spec.field ?? "Why"} required help={spec.help}>
           <Textarea
             rows={4}
             value={reason}

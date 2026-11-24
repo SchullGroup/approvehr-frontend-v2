@@ -59,6 +59,7 @@ import {
   type ChoiceOptionBody,
   type CreateGoalBody,
   type UpdateGoalBody,
+  type UpdateKeyResultBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
   type ReviewCycleStage,
@@ -1742,6 +1743,16 @@ export function useKpiMutations() {
             "and ones kept in this browser would never reach their reviews.",
         );
         return performanceApi.assignObjective(parentId, body);
+      },
+      [guard],
+    ),
+
+    /* A target's own fields, changed before it is agreed: the wizard's
+       "Edit and resend" (owner request, 24 Nov 2026). */
+    updateKeyResult: useCallback(
+      async (id: string, body: UpdateKeyResultBody) => {
+        guard("Changing a target needs the API.");
+        return performanceApi.updateKeyResult(id, body);
       },
       [guard],
     ),

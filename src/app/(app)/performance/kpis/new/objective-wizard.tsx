@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building2,
@@ -28,13 +28,15 @@ import {
   SuggestionPanel,
 } from "@/components/performance/suggestions";
 import type { ApiGoal, ApiObjectiveSubmitted } from "@/lib/api/performance";
-import { quarterLabel } from "@/lib/api/performance";
+import { performanceApi, quarterLabel } from "@/lib/api/performance";
 import {
   BLANK_OBJECTIVE,
   OBJECTIVE_STEPS,
   STEP_TITLES,
+  draftFromGoal,
   draftIsBlank,
   goalBodyOf,
+  goalChangesOf,
   hasProblems,
   keyResultBodyOf,
   levelFromWhose,
@@ -42,11 +44,18 @@ import {
   needsPeriod,
   periodsTakingObjectives,
   stepProblems,
+  targetChangesOf,
   type ObjectiveDraft,
   type ObjectiveLevel,
   type StepProblems,
   type TargetChoice,
+  type TargetEdit,
 } from "@/lib/performance/objective-wizard";
+import {
+  approvalWords,
+  whoseWords as goalWhose,
+} from "@/lib/performance/objective-queue";
+import { useFetched } from "@/lib/use-fetched";
 import { useCan } from "@/lib/permissions";
 import { useObjectiveSuggestions } from "@/lib/store/ai";
 import { useDepartments } from "@/lib/store/departments";
@@ -62,6 +71,7 @@ import {
 import { useSession } from "@/lib/store/session";
 import { actionMessage } from "@/lib/use-action";
 import {
+  mayEditGoal,
   quarterOptions,
   quarterText,
   useLeadReach,
@@ -103,19 +113,26 @@ type Written = { goal: ApiGoal | null; target: boolean };
 
 type Finished =
   | { kind: "sent"; goal: ApiGoal; sentTo: string[] | undefined }
-  | { kind: "draft"; goal: ApiGoal };
+  | { kind: "draft"; goal: ApiGoal }
+  | { kind: "saved"; goal: ApiGoal };
 
 export function ObjectiveWizard({
   parent,
+  edit = null,
   back,
 }: {
   /** The objective it goes under, from "Add an objective under this". */
   parent: string | null;
+  /**
+   * An objective to change and send again, from "Edit and resend" on one that
+   * was declined. Null for a new one.
+   */
+  edit?: string | null;
   /** Where Cancel and the X go: the Objectives address it was opened from. */
   back: string;
 }) {
   const router = useRouter();
-  const { employeeId, user, actingId } = useSession();
+  const { employeeId, user, actingId, isConnected } = useSession();
   const owner = user?.id ?? (actingId || null);
   const canSetCompanyWide = useCan("EDIT_RECORDS");
   const mutations = useKpiMutations();
@@ -172,7 +189,24 @@ export function ObjectiveWizard({
 
   /* ------------------------------------------------------------ the answers */
 
-  const { kept, keep, discard } = useObjectiveDraft(owner);
+  /* The objective being changed, read once. Its own answers seed the
+     questions, and what is sent back is only what differs from it. */
+  const editing = edit !== null;
+  const loadGoal = useCallback(
+    (signal: AbortSignal) => performanceApi.goal(edit ?? "", signal),
+    [edit],
+  );
+  const original = useFetched<ApiGoal>(
+    `objective-edit:${edit ?? ""}`,
+    editing && isConnected,
+    loadGoal,
+  );
+  const goal = editing ? original.data : null;
+
+  const { kept, keep, discard } = useObjectiveDraft(
+    owner,
+    edit ? `edit:${edit}` : "new",
+  );
   const [draft, setDraft] = useState<ObjectiveDraft>(() => ({
     ...BLANK_OBJECTIVE,
     parentId: parent ?? "",
@@ -186,8 +220,22 @@ export function ObjectiveWizard({
   if (!touched && kept && !resumed) {
     setResumed(true);
     setTouched(true);
-    setDraft({ ...kept.draft, parentId: parent ?? kept.draft.parentId });
+    setDraft({
+      ...BLANK_OBJECTIVE,
+      ...kept.draft,
+      parentId: editing ? kept.draft.parentId : (parent ?? kept.draft.parentId),
+    });
     setStep(Math.min(kept.step, SCREENS - 1));
+  }
+  /* An objective being changed starts on what it says now, unless a draft of
+     the change was carried on first. */
+  const [seeded, setSeeded] = useState(false);
+  if (goal && !seeded) {
+    setSeeded(true);
+    if (!touched) {
+      setTouched(true);
+      setDraft(draftFromGoal(goal, employeeId));
+    }
   }
 
   const [problems, setProblems] = useState<StepProblems>({});
@@ -285,6 +333,11 @@ export function ObjectiveWizard({
     }
     setBusy(how);
     setError(null);
+    if (editing) {
+      if (goal) await finishChange(goal, how);
+      setBusy(null);
+      return;
+    }
     let progress = written;
     try {
       if (!progress.goal) {
@@ -337,10 +390,64 @@ export function ObjectiveWizard({
     }
   };
 
+  /**
+   * Changing an objective that exists: only what differs, then the send.
+   *
+   * Every write here can be repeated, so a press after a failure sends the
+   * same changes again rather than anything twice; a target added to one that
+   * had none is remembered, since that one is a new row.
+   */
+  const finishChange = async (goal: ApiGoal, how: "send" | "draft") => {
+    try {
+      const changes = goalChangesOf(goal, effective, {
+        reviewCycleId,
+        quarter,
+      });
+      if (Object.keys(changes).length > 0) {
+        await mutations.updateGoal(goal.id, changes);
+      }
+      for (const [id, body] of targetChangesOf(goal, effective)) {
+        await mutations.updateKeyResult(id, body);
+      }
+      const targetBody =
+        goal.keyResults.length === 0 ? keyResultBodyOf(effective) : null;
+      if (targetBody && !written.target) {
+        await mutations.addKeyResult(goal.id, targetBody);
+        setWritten({ goal: null, target: true });
+      }
+      discard();
+      if (how === "draft") {
+        setFinished({ kind: "saved", goal });
+        return;
+      }
+      let answer: ApiObjectiveSubmitted | undefined;
+      try {
+        answer = await objectives.submit(goal.id);
+      } catch (caught) {
+        setError(
+          `The changes are saved, but it was not sent to be agreed: ${actionMessage(caught, "the objective")}`,
+        );
+        return;
+      }
+      setFinished({
+        kind: "sent",
+        goal: answer ?? goal,
+        sentTo: Array.isArray(answer?.sentTo) ? answer.sentTo : undefined,
+      });
+    } catch (caught) {
+      setError(actionMessage(caught, "the objective"));
+    }
+  };
+
   /* -------------------------------------------------------------- the words */
 
   const parentGoal = parents.find((goal) => goal.id === effective.parentId);
   const whoseWords = (() => {
+    if (goal) {
+      return goal.ownerId !== null && goal.ownerId === employeeId
+        ? "Yours"
+        : goalWhose(goal);
+    }
     if (level === "company") return "The whole company";
     if (level === "department") {
       const named = departments.find((one) => one.id === departmentId)?.name;
@@ -350,7 +457,17 @@ export function ObjectiveWizard({
     const person = led.find((one) => one.id === personId);
     return person ? person.fullName : "Somebody you lead";
   })();
+  const existingTargets = Object.entries(draft.targets);
   const targetWords = (() => {
+    if (existingTargets.length > 0) {
+      return existingTargets
+        .map(([, one]) =>
+          one.kind === "DONE"
+            ? `Done or not done: ${one.label}`
+            : `${one.label}: from ${one.start || "0"}${one.unit.trim() ? ` ${one.unit.trim()}` : ""} to ${one.value}${one.unit.trim() ? ` ${one.unit.trim()}` : ""}${one.countDown ? ", counting down" : ""}`,
+        )
+        .join("; ");
+    }
     if (draft.target === "LATER" || draft.target === null) {
       return "None yet";
     }
@@ -402,12 +519,17 @@ export function ObjectiveWizard({
               title={
                 copy?.kind === "moment"
                   ? copy.copy.title
-                  : `"${finished.goal.title}" is saved as a draft`
+                  : finished.kind === "saved"
+                    ? `Changes to "${finished.goal.title}" are saved`
+                    : `"${finished.goal.title}" is saved as a draft`
               }
               lead={
                 copy?.kind === "moment"
                   ? copy.copy.lead
-                  : "Nobody is asked to agree it until it is sent. Send it from its card on Objectives."
+                  : finished.kind === "saved" &&
+                      finished.goal.approval === "NEEDS_REVISION"
+                    ? "It stays declined until it is sent to be agreed again. Send it from its card on Objectives."
+                    : "Nobody is asked to agree it until it is sent. Send it from its card on Objectives."
               }
               {...(copy?.kind === "moment"
                 ? { details: copy.copy.details }
@@ -425,6 +547,78 @@ export function ObjectiveWizard({
       </WizardShell>
     );
   }
+
+  /* Changing one: nothing to ask until it has been read, and nothing to ask
+     at all once it is agreed or finished. */
+  if (editing && !goal) {
+    const failed =
+      original.error !== null || (!isConnected && !original.loading);
+    return (
+      <WizardShell
+        open
+        onClose={leave}
+        step={0}
+        total={SCREENS}
+        title={failed ? "That objective did not open" : "Opening the objective"}
+        done={
+          failed ? (
+            <div className="flex flex-col items-start gap-4">
+              <h1 className="text-h2 font-semibold text-ink">
+                That objective did not open
+              </h1>
+              <p className="text-body-sm text-body">
+                {original.error
+                  ? actionMessage(original.error, "the objective")
+                  : "Changing an objective needs the API."}
+              </p>
+              <Button variant="accent" onClick={leave}>
+                Back to objectives
+              </Button>
+            </div>
+          ) : (
+            <p role="status" className="text-body-sm text-muted">
+              Opening the objective…
+            </p>
+          )
+        }
+      >
+        {null}
+      </WizardShell>
+    );
+  }
+  if (goal && !mayEditGoal(goal)) {
+    return (
+      <WizardShell
+        open
+        onClose={leave}
+        step={0}
+        total={SCREENS}
+        title="This objective cannot be changed here"
+        done={
+          <div className="flex flex-col items-start gap-4">
+            <h1 className="text-h2 font-semibold text-ink">
+              This objective cannot be changed here
+            </h1>
+            <p className="text-body-sm text-body">
+              {goal.targetFrozen
+                ? "It is agreed, so it is fixed. To change it, reopen it from its card on Objectives."
+                : `It is ${approvalWords(goal).toLowerCase()}, so there is nothing left to change.`}
+            </p>
+            <Button variant="accent" onClick={leave}>
+              Back to objectives
+            </Button>
+          </div>
+        }
+      >
+        {null}
+      </WizardShell>
+    );
+  }
+
+  const feedback =
+    goal?.approval === "NEEDS_REVISION" && goal.approvalNote
+      ? goal.approvalNote
+      : null;
 
   return (
     <WizardShell
@@ -452,7 +646,7 @@ export function ObjectiveWizard({
             disabled={busy !== null || periodsPending}
             onClick={() => void finish("draft")}
           >
-            Save as a draft
+            {editing ? "Save without sending" : "Save as a draft"}
           </Button>
         ) : undefined
       }
@@ -467,7 +661,11 @@ export function ObjectiveWizard({
             className="font-medium text-accent-text underline-offset-2 hover:underline"
             onClick={() => {
               discard();
-              setDraft({ ...BLANK_OBJECTIVE, parentId: parent ?? "" });
+              setDraft(
+                goal
+                  ? draftFromGoal(goal, employeeId)
+                  : { ...BLANK_OBJECTIVE, parentId: parent ?? "" },
+              );
               setResumed(false);
               setProblems({});
               setStep(0);
@@ -476,6 +674,17 @@ export function ObjectiveWizard({
             Start again
           </button>
         </p>
+      )}
+
+      {/* What the person who declined it said, quietly, on every screen:
+          it is what the change is answering. */}
+      {feedback && (
+        <div className="border-l-2 border-line-strong pl-3 text-body-sm">
+          <p className="text-meta text-muted">Feedback when it was declined</p>
+          <p className="mt-0.5 whitespace-pre-line leading-relaxed text-body">
+            {feedback}
+          </p>
+        </div>
       )}
 
       {screen === "aim" && (
@@ -519,7 +728,12 @@ export function ObjectiveWizard({
             </div>
           )}
 
-          {levels.length > 1 ? (
+          {editing ? (
+            <p className="text-body-sm text-body">
+              <span className="text-muted">Whose: </span>
+              {whoseWords}
+            </p>
+          ) : levels.length > 1 ? (
             <FieldSet legend="Who is it for?">
               <div
                 className={
@@ -564,7 +778,7 @@ export function ObjectiveWizard({
             </FieldSet>
           ) : null}
 
-          {level === "department" && (
+          {!editing && level === "department" && (
             <Field
               label="Department"
               required
@@ -588,7 +802,8 @@ export function ObjectiveWizard({
             </Field>
           )}
 
-          {level === "person" &&
+          {!editing &&
+            level === "person" &&
             (led.length > 0 ? (
               <Field
                 label="Whose objective"
@@ -625,7 +840,32 @@ export function ObjectiveWizard({
         </>
       )}
 
-      {screen === "target" && (
+      {screen === "target" && existingTargets.length > 0 && (
+        <>
+          <p className="text-body-sm text-muted">
+            {existingTargets.length === 1
+              ? "Its target. Change it here; another can be added from its card once this is sent."
+              : "Its targets. Change them here; another can be added from its card once this is sent."}
+          </p>
+          {existingTargets.map(([id, target]) => (
+            <TargetEditor
+              key={id}
+              target={target}
+              problems={problems.targets?.[id]}
+              onChange={(patch) =>
+                update({
+                  targets: {
+                    ...draft.targets,
+                    [id]: { ...target, ...patch },
+                  },
+                })
+              }
+            />
+          ))}
+        </>
+      )}
+
+      {screen === "target" && existingTargets.length === 0 && (
         <>
           <FieldSet
             legend="What kind of target is this?"
@@ -947,6 +1187,77 @@ function ReviewRow({
           Change
         </Button>
       )}
+    </div>
+  );
+}
+
+/** One target the objective already has, its kind fixed and its fields open. */
+function TargetEditor({
+  target,
+  problems,
+  onChange,
+}: {
+  target: TargetEdit;
+  problems: { label?: string; target?: string } | undefined;
+  onChange: (patch: Partial<TargetEdit>) => void;
+}) {
+  if (target.kind === "DONE") {
+    return (
+      <Field
+        label="What does done mean?"
+        required
+        {...(problems?.label ? { error: problems.label } : {})}
+      >
+        <Input
+          value={target.label}
+          onChange={(event) => onChange({ label: event.target.value })}
+        />
+      </Field>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-line p-4">
+      <Field
+        label="What is counted"
+        required
+        {...(problems?.label ? { error: problems.label } : {})}
+      >
+        <Input
+          value={target.label}
+          onChange={(event) => onChange({ label: event.target.value })}
+        />
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Starting value" required>
+          <Input
+            inputMode="decimal"
+            value={target.start}
+            onChange={(event) => onChange({ start: event.target.value })}
+          />
+        </Field>
+        <Field
+          label="Target value"
+          required
+          {...(problems?.target ? { error: problems.target } : {})}
+        >
+          <Input
+            inputMode="decimal"
+            value={target.value}
+            onChange={(event) => onChange({ value: event.target.value })}
+          />
+        </Field>
+        <Field label="Unit" optional>
+          <Input
+            value={target.unit}
+            onChange={(event) => onChange({ unit: event.target.value })}
+          />
+        </Field>
+      </div>
+      <Checkbox
+        label="This number should go down"
+        checked={target.countDown}
+        onChange={(event) => onChange({ countDown: event.target.checked })}
+      />
     </div>
   );
 }

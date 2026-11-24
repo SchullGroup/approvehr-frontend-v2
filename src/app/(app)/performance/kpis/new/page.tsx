@@ -13,17 +13,25 @@ const one = (value: string | string[] | undefined): string | null =>
 
 /**
  * New objective, on its own page rather than in a dialog (owner request, 24
- * Nov 2026). `?parent=<id>` starts it under an objective; `?back=` is the
- * Objectives address to return to, and is ignored unless it is one.
+ * Nov 2026). `?parent=<id>` starts it under an objective; `?edit=<id>` opens
+ * one that was declined, to change and send again; `?back=` is the Objectives
+ * address to return to, and is ignored unless it is one.
  */
 export default async function NewObjectivePage({
   searchParams,
 }: {
   searchParams: Promise<{
     parent?: string | string[];
+    edit?: string | string[];
     back?: string | string[];
   }>;
 }) {
-  const { parent, back } = await searchParams;
-  return <ObjectiveWizard parent={one(parent)} back={safeBack(one(back))} />;
+  const { parent, edit, back } = await searchParams;
+  return (
+    <ObjectiveWizard
+      parent={one(parent)}
+      edit={one(edit)}
+      back={safeBack(one(back))}
+    />
+  );
 }

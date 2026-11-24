@@ -152,7 +152,7 @@ const SCREENS = [
         await import("@/app/(app)/performance/approvals/approvals-screen");
       return <ApprovalsScreen />;
     },
-    empty: "Nothing waiting",
+    empty: "Nothing waiting to be agreed",
     failed: "The objectives waiting on you did not load",
   },
   {

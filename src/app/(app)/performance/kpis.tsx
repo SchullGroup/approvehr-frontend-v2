@@ -50,6 +50,7 @@ import {
 } from "@/lib/performance/objectives-by-department";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { newObjectiveHref } from "@/lib/performance/objective-wizard";
+import { approvalWords } from "@/lib/performance/objective-queue";
 import { useAction } from "@/lib/use-action";
 import {
   SuggestButton,
@@ -451,7 +452,8 @@ export function KpisTab({
   const approvalOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const goal of kpis.goals) {
-      if (!seen.has(goal.approval)) seen.set(goal.approval, goal.approvalLabel);
+      if (!seen.has(goal.approval))
+        seen.set(goal.approval, approvalWords(goal));
     }
     return [...seen];
   }, [kpis.goals]);
@@ -1576,7 +1578,7 @@ export function GoalCard({
                 whichever mattered — the reason this stayed on the card. */}
             <span className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
               <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
-                {goal.approvalLabel}
+                {approvalWords(goal)}
               </Badge>
               <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
                 {GOAL_STATUS_LABEL[goal.status]}
@@ -1586,9 +1588,29 @@ export function GoalCard({
         </button>
 
         {goal.approvalNote && (
-          <p className="mx-3.5 mb-3.5 border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
-            {goal.approvalNote}
-          </p>
+          <div className="mx-3.5 mb-3.5 flex flex-col gap-2">
+            {/* Declined: the feedback is the reason, and where it is changed
+                is the same page an objective is written on (owner, 24 Nov). */}
+            <p className="border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
+              {goal.approval === "NEEDS_REVISION" && (
+                <span className="block text-meta text-muted">
+                  Feedback when it was declined
+                </span>
+              )}
+              {goal.approvalNote}
+            </p>
+            {goal.approval === "NEEDS_REVISION" &&
+              editable &&
+              mayEditGoal(goal) && (
+                <ButtonLink
+                  size="sm"
+                  href={newObjectiveHref({ edit: goal.id })}
+                  className="self-start"
+                >
+                  Edit and resend
+                </ButtonLink>
+              )}
+          </div>
         )}
       </div>
 
@@ -1711,7 +1733,7 @@ function GoalDetailModal({
             {rung}
           </Badge>
           <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
-            {goal.approvalLabel}
+            {approvalWords(goal)}
           </Badge>
           <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
             {GOAL_STATUS_LABEL[goal.status]}
@@ -1824,17 +1846,30 @@ function GoalDetailModal({
               reporting line — so they are offered whatever `editable` says
               about writing goals. Sending your own objective to be agreed is a
               thing you do to your own work. */}
-          {mayBeSubmitted(goal) && (
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={act(() => onSubmit(goal))}
-            >
-              {goal.approval === "NEEDS_REVISION"
-                ? "Send it again"
-                : "Send to be agreed"}
-            </Button>
-          )}
+          {/* A declined one is changed and sent again on the objective's
+              own page, with the feedback beside it. */}
+          {mayBeSubmitted(goal) &&
+            (goal.approval === "NEEDS_REVISION" &&
+            editable &&
+            mayEditGoal(goal) ? (
+              <ButtonLink
+                variant="accent"
+                size="sm"
+                href={newObjectiveHref({ edit: goal.id })}
+              >
+                Edit and resend
+              </ButtonLink>
+            ) : (
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={act(() => onSubmit(goal))}
+              >
+                {goal.approval === "NEEDS_REVISION"
+                  ? "Send it again"
+                  : "Send to be agreed"}
+              </Button>
+            ))}
           {goal.approval === "AGREED" && !done && (
             <Button size="sm" onClick={act(() => onReopen(goal))}>
               Reopen the objective

@@ -46,36 +46,44 @@ export function resetObjectiveDrafts() {
  * `owner` is the signed-in account's id. Null (nobody signed in yet) keeps and
  * returns nothing.
  */
-export function useObjectiveDraft(owner: string | null) {
+export function useObjectiveDraft(
+  owner: string | null,
+  /** Which objective: a new one, or one being changed (`edit:<id>`). */
+  slot: "new" | `edit:${string}` = "new",
+) {
+  /* A new one keeps the account's own key, which is what the first version
+     wrote; one being changed has its own beside it. */
+  const key =
+    owner === null ? null : slot === "new" ? owner : `${owner}|${slot}`;
   const state = useSyncExternalStore(
     store.subscribe,
     store.read,
     store.getServerSnapshot,
   );
-  const kept = owner ? (state.drafts[owner] ?? null) : null;
+  const kept = key ? (state.drafts[key] ?? null) : null;
 
   const keep = useCallback(
     (draft: ObjectiveDraft, step: number) => {
-      if (!owner) return;
+      if (!key) return;
       const now = store.current();
       store.commit({
         drafts: {
           ...now.drafts,
-          [owner]: { draft, step, savedAt: new Date().toISOString() },
+          [key]: { draft, step, savedAt: new Date().toISOString() },
         },
       });
     },
-    [owner],
+    [key],
   );
 
   const discard = useCallback(() => {
-    if (!owner) return;
+    if (!key) return;
     const now = store.current();
-    if (!(owner in now.drafts)) return;
-    const { [owner]: _gone, ...rest } = now.drafts;
+    if (!(key in now.drafts)) return;
+    const { [key]: _gone, ...rest } = now.drafts;
     void _gone;
     store.commit({ drafts: rest });
-  }, [owner]);
+  }, [key]);
 
   return { kept, keep, discard };
 }

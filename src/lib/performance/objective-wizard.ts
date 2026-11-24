@@ -1,7 +1,12 @@
-import type {
-  CreateGoalBody,
-  CreateKeyResultBody,
-  ReviewCycleStage,
+import {
+  isDoneMeasure,
+  type ApiGoal,
+  type CreateGoalBody,
+  type CreateKeyResultBody,
+  type MeasureKind,
+  type ReviewCycleStage,
+  type UpdateGoalBody,
+  type UpdateKeyResultBody,
 } from "@/lib/api/performance";
 import { measureProblems } from "./measure-problems";
 
@@ -23,6 +28,16 @@ export type ObjectiveLevel = "company" | "department" | "person";
 
 /** What kind of target, or none yet. */
 export type TargetChoice = "NUMBER" | "DONE" | "LATER";
+
+/** A target the objective already has, as its inputs hold it (edit only). */
+export type TargetEdit = {
+  kind: MeasureKind;
+  label: string;
+  start: string;
+  value: string;
+  unit: string;
+  countDown: boolean;
+};
 
 /** Everything the wizard collects, as the strings its inputs hold. */
 export type ObjectiveDraft = {
@@ -47,6 +62,11 @@ export type ObjectiveDraft = {
   periodId: string | null;
   /** `""` when it supports nothing above it. */
   parentId: string;
+  /**
+   * The targets an objective being changed already has, by id. Empty for a
+   * new one, whose single target is the fields above.
+   */
+  targets: Record<string, TargetEdit>;
 };
 
 export const BLANK_OBJECTIVE: ObjectiveDraft = {
@@ -64,6 +84,7 @@ export const BLANK_OBJECTIVE: ObjectiveDraft = {
   quarter: "",
   periodId: null,
   parentId: "",
+  targets: {},
 };
 
 export const OBJECTIVE_STEPS = ["aim", "target", "period", "review"] as const;
@@ -153,7 +174,10 @@ export type StepProblems = Partial<
     "title" | "department" | "person" | "target" | "label" | "value" | "period",
     string
   >
->;
+> & {
+  /** An existing target's problems, by its id (edit only). */
+  targets?: Record<string, { label?: string; target?: string }>;
+};
 
 /** What stops this step from moving on. Empty when nothing does. */
 export function stepProblems(
@@ -173,7 +197,20 @@ export function stepProblems(
       found.person = "Choose whose objective it is.";
     }
   }
-  if (step === "target") {
+  if (step === "target" && Object.keys(draft.targets).length > 0) {
+    const targets: NonNullable<StepProblems["targets"]> = {};
+    for (const [id, edit] of Object.entries(draft.targets)) {
+      const found = measureProblems({
+        kind: edit.kind,
+        label: edit.label,
+        start: edit.start,
+        target: edit.value,
+        countDown: edit.countDown,
+      });
+      if (found.label || found.target) targets[id] = found;
+    }
+    if (Object.keys(targets).length > 0) found.targets = targets;
+  } else if (step === "target") {
     if (draft.target === null) {
       found.target = "Choose a kind of target, or add one later.";
     } else if (draft.target !== "LATER") {
@@ -200,7 +237,11 @@ export function stepProblems(
 }
 
 export const hasProblems = (problems: StepProblems) =>
-  Object.values(problems).some((value) => value !== undefined);
+  Object.entries(problems).some(([key, value]) =>
+    key === "targets"
+      ? Object.keys(value as object).length > 0
+      : value !== undefined,
+  );
 
 /**
  * The objective itself, as `POST /performance/goals` takes it.
@@ -280,14 +321,117 @@ export function safeBack(back: string | null | undefined): string {
  */
 export function newObjectiveHref({
   parent,
+  edit,
   back,
 }: {
   parent?: string;
+  /** An objective to change and send again, rather than a new one. */
+  edit?: string;
   back?: string;
 }): string {
   const query = new URLSearchParams();
+  if (edit) query.set("edit", edit);
   if (parent) query.set("parent", parent);
   if (back) query.set("back", back);
   const text = query.toString();
   return text ? `/performance/kpis/new?${text}` : "/performance/kpis/new";
+}
+
+/* ------------------------------------------------------- changing one again */
+
+/**
+ * An objective sent back to its owner, as the wizard's answers, so "Edit and
+ * resend" opens on what was sent (owner request, 24 Nov 2026).
+ */
+export function draftFromGoal(
+  goal: ApiGoal,
+  employeeId: string | null,
+): ObjectiveDraft {
+  return {
+    ...BLANK_OBJECTIVE,
+    title: goal.title,
+    description: goal.description ?? "",
+    level:
+      goal.level === "company"
+        ? "company"
+        : goal.level === "department"
+          ? "department"
+          : "person",
+    departmentId: goal.departmentId ?? "",
+    personId:
+      goal.ownerId === null || goal.ownerId === employeeId
+        ? "me"
+        : goal.ownerId,
+    quarter: goal.dueQuarter ?? "",
+    periodId: goal.reviewCycleId ?? "",
+    parentId: goal.parentId ?? "",
+    targets: Object.fromEntries(
+      goal.keyResults.map((measure) => [
+        measure.id,
+        {
+          kind: isDoneMeasure(measure) ? "DONE" : "NUMBER",
+          label: measure.label,
+          start: measure.startValue,
+          value: measure.targetValue,
+          unit: measure.unit ?? "",
+          countDown: measure.lowerIsBetter,
+        } satisfies TargetEdit,
+      ]),
+    ),
+  };
+}
+
+/**
+ * What changed on the objective itself, as `PATCH /performance/goals/:id`
+ * takes it. Only what differs, so an unchanged field is never sent; a cleared
+ * description, period or parent is `null`. Whose it is is not changed here:
+ * handing an objective to somebody else is a separate act.
+ */
+export function goalChangesOf(
+  goal: ApiGoal,
+  draft: ObjectiveDraft,
+  { reviewCycleId, quarter }: { reviewCycleId: string; quarter: string },
+): UpdateGoalBody {
+  const body: UpdateGoalBody = {};
+  if (draft.title.trim() !== goal.title) body.title = draft.title.trim();
+  const description = draft.description.trim();
+  if (description !== (goal.description ?? "")) {
+    body.description = description === "" ? null : description;
+  }
+  if (quarter && quarter !== goal.dueQuarter) body.dueQuarter = quarter;
+  if (reviewCycleId !== (goal.reviewCycleId ?? "")) {
+    body.reviewCycleId = reviewCycleId === "" ? null : reviewCycleId;
+  }
+  if (draft.parentId !== (goal.parentId ?? "")) {
+    body.parentId = draft.parentId === "" ? null : draft.parentId;
+  }
+  return body;
+}
+
+/** What changed on each existing target, as `PATCH /key-results/:id` takes it. */
+export function targetChangesOf(
+  goal: ApiGoal,
+  draft: ObjectiveDraft,
+): [string, UpdateKeyResultBody][] {
+  const changes: [string, UpdateKeyResultBody][] = [];
+  for (const measure of goal.keyResults) {
+    const edit = draft.targets[measure.id];
+    if (!edit) continue;
+    const body: UpdateKeyResultBody = {};
+    if (edit.label.trim() !== measure.label) body.label = edit.label.trim();
+    if (edit.kind === "NUMBER") {
+      const start = edit.start.trim() || "0";
+      if (start !== measure.startValue) body.startValue = start;
+      if (edit.value.trim() !== measure.targetValue) {
+        body.targetValue = edit.value.trim();
+      }
+      const unit = edit.unit.trim();
+      if (unit !== (measure.unit ?? "")) body.unit = unit === "" ? null : unit;
+      if (edit.countDown !== measure.lowerIsBetter) {
+        body.lowerIsBetter = edit.countDown;
+      }
+    }
+    if (Object.keys(body).length > 0) changes.push([measure.id, body]);
+  }
+  return changes;
 }

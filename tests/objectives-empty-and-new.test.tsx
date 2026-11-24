@@ -65,20 +65,23 @@ vi.mock("@/app/(app)/performance/kpis/import/access", () => ({
 vi.mock("@/app/(app)/performance/add-multiple-objectives", () => ({
   AddMultipleObjectives: () => null,
 }));
-vi.mock("@/lib/store/performance", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/store/performance")>()),
-  useKpis: () => ({
-    goals: state.goals,
-    cascade: [],
-    loading: state.loading,
-    error: null,
-    source: "api",
-    reload: vi.fn(),
-  }),
-  useKpiMutations: () => ({ editable: state.editable }),
-  useObjectiveMutations: () => ({}),
-  useAppraisals: () => ({ cycles: [], loading: false }),
-}));
+vi.mock("@/lib/store/performance", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/store/performance")>();
+  return {
+    ...real,
+    useKpis: () => ({
+      goals: state.goals,
+      cascade: real.toCascade(state.goals),
+      loading: state.loading,
+      error: null,
+      source: "api",
+      reload: vi.fn(),
+    }),
+    useKpiMutations: () => ({ editable: state.editable }),
+    useObjectiveMutations: () => ({}),
+    useAppraisals: () => ({ cycles: [], loading: false }),
+  };
+});
 
 const { KpisTab, EMPTY_TITLE } = await import("@/app/(app)/performance/kpis");
 
@@ -207,5 +210,31 @@ describe("with objectives", () => {
       "/performance/kpis/new?back=%2Fperformance%2Fkpis%3Fscope%3Dmine",
     );
     expect(within(document.body).queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("a declined objective, to its owner", () => {
+  it("says Declined, shows the feedback, and offers Edit and resend on the same page as a new one", () => {
+    state.goals = [
+      goal({
+        id: "g-declined",
+        title: "Cut supplier queries by half",
+        approval: "NEEDS_REVISION",
+        approvalLabel: "Sent back",
+        approvalNote: "Half of what? Say the number this quarter starts at.",
+      }),
+    ];
+    tab("mine");
+    expect(screen.getAllByText("Declined").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Sent back")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Feedback when it was declined"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Half of what? Say the number this quarter starts at."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Edit and resend" }),
+    ).toHaveAttribute("href", "/performance/kpis/new?edit=g-declined");
   });
 });
