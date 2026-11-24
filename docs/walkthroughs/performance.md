@@ -105,7 +105,7 @@ opens is empty, and says so in a sentence.
 | **Weekly tasks**        | `/performance/review-tasks` | Staff log what they did each week against an objective; managers grade it. This is the evidence a delivery score is built from. | Everyone                                                                                                   |
 | **Competency ratings**  | `/performance/skills`       | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                        | Everyone                                                                                                   |
 | **Appraisal periods**   | `/performance/periods`      | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                  | HR / Owner                                                                                                 |
-| **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it or decline it with feedback.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
+| **To agree** (a tab of Objectives) | `/performance/kpis?tab=agree` | The queue. Somebody sent you a target; you agree it or decline it with feedback. The tab shows how many wait on you. | People who lead somebody, and HR / Owner |
 | **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Opens on **All appraisal periods**: everybody's line manager by default. Choose a period to set the exceptions and how much each appraiser's overall rating weighs. | HR / Owner                                                                                                 |
 
 A further item, **My work record** (`/performance/work-record`), sits beside these for a company that has
@@ -955,13 +955,14 @@ be scored.
 
 #### 15. Agree it — as the other person
 
-Sign in as the manager. This is the queue screen, and it has one job. It works like **My approvals**:
+Sign in as the manager. This is the **To agree** tab of Objectives (the last tab in the strip, with a
+count when something waits on you); `/performance/approvals` lands on it. It works like **My approvals**:
 no number cards, a search box and a filter button (person, department, period, level, shown as chips
 once chosen), a **Not grouped** / **By department** / **By person** choice, and one row per objective.
 
 |                |                                                                                |
 | -------------- | ------------------------------------------------------------------------------ |
-| **Where**      | `/performance/approvals`                                                       |
+| **Where**      | `/performance/kpis?tab=agree`                                                  |
 | **Who**        | Line manager · HR / Owner                                                      |
 | **Click**      | **Agree** on the row, then **Agree** on the confirmation                       |
 | **You'll see** | The row leaves the queue and the objective's badge becomes _Agreed_ everywhere |
@@ -1676,7 +1677,7 @@ agree. Never sees a period, a register or a report.
 Everything above, plus four things about other people. Not a role you are given — it follows from
 who reports to you.
 
-1. Agree your reports' objectives on **Objectives to agree**, or decline them with feedback.
+1. Agree your reports' objectives on the **To agree** tab of Objectives, or decline them with feedback.
 2. Set objectives _for_ your reports on **KPIs**.
 3. Write a review of each report when the period reaches manager review, and record their competency
    levels.

@@ -449,7 +449,7 @@ export function sentToAgreeCopy({
       said: {
         title: `"${goal.title}" is waiting to be agreed`,
         detail:
-          "Nobody else was asked to agree it. Anybody who can will find it under Objectives to agree.",
+          "Nobody else was asked to agree it. Anybody who can will find it under To agree, on Objectives.",
         tone: "warning",
       },
     };

@@ -14110,3 +14110,24 @@ reporting line". Search, the filter button and the people count stay.
   period (`GET /performance/appraiser-map`), standing exceptions (`PUT /performance/appraiser-map/:employeeId`,
   applied when a period starts), the default applied automatically on a running period when a manager changes or
   somebody joins, and, optionally, the projected default returned for a draft.
+
+---
+
+# Objectives to agree is a tab of Objectives
+
+Owner, 24 Nov 2026: "merge the objectives and objectives to agree subs into multiple tabs in one page". The Objectives
+page has one flat strip, **My objectives · My team · Whole company · To agree (n)**, and the sidebar has no "Objectives
+to agree" row. To agree is `?tab=agree` (`kpis/kpis-screen.tsx`, `AGREE_TAB`); `/performance/approvals` redirects to it,
+and the Overview's task row, the period page, How it works and the "nobody was asked" toast all point at it. Find's
+"approve objectives", "agree objectives", "to agree" and "sign off" now find Objectives.
+
+- **The queue is read once, by the screen**, and handed to the tab (`ObjectivesToAgree` in `kpis/to-agree.tsx`, the old
+  page's body), so the count on the tab and the list are one answer and a decision moves both.
+- **To agree is offered where the sidebar row was**: to people who lead somebody or hold `EDIT_RECORDS`, while appraisals
+  are on. A `?tab=agree` link for anybody else falls back to their objectives.
+- **The "N objectives are waiting to be agreed · See what is waiting" line is gone** from Objectives ("we shouldn't have
+  this again"); `objectives-by-department.test.tsx` fails if the sentence or the link comes back.
+- **The department cards** have no header sentence and no order dropdown (grouping means nothing over cards); the order
+  is still offered once a department is open.
+- `NavFacts.rows["agrees-objectives"]` stays, unused by any row, because every menu's facts are one shape and seven test
+  files build it.

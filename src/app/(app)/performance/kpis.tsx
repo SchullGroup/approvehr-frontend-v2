@@ -39,7 +39,7 @@ import {
   useToast,
   type AppliedFilter,
 } from "@/components/ui";
-import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
@@ -257,10 +257,16 @@ export function KpisTab({
   onScopeChange,
   department = null,
   departmentHref,
+  strip,
 }: {
   scope: KpiScope;
   scopes: KpiScope[];
   onScopeChange: (scope: KpiScope) => void;
+  /**
+   * The page's tab strip, when the page draws one with more than whose
+   * objectives in it (To agree). Left out, the scopes are drawn here.
+   */
+  strip?: React.ReactNode;
   /** The department open on "Whole company", from the address. Null: the cards. */
   department?: string | null;
   /** Where a department card goes, and where "All departments" goes back to. */
@@ -622,9 +628,6 @@ export function KpisTab({
      after it failed: the tiles, the filters and an empty list are replaced by
      one empty state that says what an objective is and offers to write one. */
   const empty = !kpis.loading && !kpis.error && kpis.goals.length === 0;
-  const waiting = kpis.goals.filter(
-    (goal) => goal.approval === "AWAITING_APPROVAL",
-  );
   const unsent = kpis.goals.filter(
     (goal) => goal.approval === "DRAFT" || goal.approval === "NEEDS_REVISION",
   );
@@ -656,7 +659,9 @@ export function KpisTab({
   const content = (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {scopes.length > 1 ? (
+        {strip !== undefined ? (
+          strip
+        ) : scopes.length > 1 ? (
           <SegmentedControl<KpiScope>
             label="Whose objectives to show"
             value={scope}
@@ -764,29 +769,9 @@ export function KpisTab({
             />
           </StatGrid>
 
-          {/* Delivery against objectives is one of the four parts an appraisal is
-          made of, and only an **agreed** objective counts towards it. Somebody
-          whose KPIs are all drafts is somebody who will be unscored on that
-          part, so the count is on the page rather than discovered at the end of
-          the period.
-
-          A line, not a panel. This was a tinted box headed "Not everything here
-          can be scored yet" over a sentence explaining what an agreed objective
-          counts towards — the product explaining its own scoring rules to
-          somebody who came to look at their objectives. The two counts are the
-          fact; `NoticeLine` carries the argument. */}
-          {waiting.length > 0 && (
-            <NoticeLine tone="warning">
-              <span>
-                {waiting.length === 1
-                  ? "1 objective is waiting to be agreed"
-                  : `${waiting.length} objectives are waiting to be agreed`}
-              </span>
-              <Link href="/performance/approvals" className={NOTICE_LINK}>
-                See what is waiting
-              </Link>
-            </NoticeLine>
-          )}
+          {/* No "N objectives are waiting to be agreed" line here (owner, 24
+              Nov 2026: "we shouldn't have this again"): the To agree tab
+              carries the count. A test fails if it comes back. */}
           {unsent.length > 0 && (
             <NoticeLine tone="warning">
               {unsent.length === 1
@@ -806,7 +791,7 @@ export function KpisTab({
               }
               description={
                 showCards
-                  ? "Open a department to see its objectives. Search to find one across all of them."
+                  ? undefined
                   : opened !== null
                     ? "Its objectives, under the company objective they support."
                     : "The company objective is at the top. Team and personal objectives sit under the one they support."
@@ -839,21 +824,25 @@ export function KpisTab({
                     : {})}
                   count={narrowing ? matching.length : undefined}
                   noun={["objective", "objectives"]}
+                  /* Grouping means nothing over the department cards, so
+                     the order is offered only once a list is showing. */
                   sort={
-                    <Select
-                      aria-label="Order the list"
-                      value={order}
-                      onChange={(event) =>
-                        setOrder(event.target.value as Order | "")
-                      }
-                    >
-                      <option value="">Grouped under the company goal</option>
-                      {ORDERS.map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </Select>
+                    showCards ? undefined : (
+                      <Select
+                        aria-label="Order the list"
+                        value={order}
+                        onChange={(event) =>
+                          setOrder(event.target.value as Order | "")
+                        }
+                      >
+                        <option value="">Grouped under the company goal</option>
+                        {ORDERS.map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                      </Select>
+                    )
                   }
                 >
                   <Select

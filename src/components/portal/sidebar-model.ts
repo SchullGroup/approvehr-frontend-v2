@@ -572,9 +572,12 @@ const KEYWORDS: Record<string, string[]> = {
     "kpis",
     "kpi",
     "metrics",
+    "approve objectives",
+    "agree objectives",
+    "to agree",
+    "sign off",
   ],
   "performance/Competency ratings": ["skills", "competencies", "scores"],
-  "performance/Objectives to agree": ["approve objectives", "sign off"],
   "performance/Who appraises whom": ["appraisers", "reviewers", "360"],
 
   "desk/Help desk": ["tickets", "support", "request", "contact hr", "ask hr"],

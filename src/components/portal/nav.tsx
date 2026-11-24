@@ -9,7 +9,6 @@ import {
   CalendarRange,
   CalendarSearch,
   ChartNoAxesColumn,
-  CheckCheck,
   ClipboardCheck,
   ListChecks,
   Clock,
@@ -90,7 +89,11 @@ export type NavRowFact =
    * inbox could only ever say "Approving requests is not part of your role".
    */
   | "approvals"
-  /** Leads people or holds `EDIT_RECORDS`: Objectives to agree. */
+  /**
+   * Leads people or holds `EDIT_RECORDS`: who agrees objectives. No row uses
+   * it since Objectives to agree became the To agree tab of Objectives (24 Nov
+   * 2026); it is kept because the facts are one shape for every menu.
+   */
   | "agrees-objectives"
   /**
    * Leads people, or holds `EDIT_RECORDS` or `START_EXIT_DEPARTMENT`: Exit
@@ -1065,16 +1068,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Competency ratings",
       icon: <GraduationCap aria-hidden="true" />,
       feature: "appraisals",
-    },
-    {
-      /* Was reachable only from a notification. It is a queue with one job,
-         same shape as Hiring's Applications, and it deserves the same
-         permanent door. */
-      href: "/performance/approvals",
-      label: "Objectives to agree",
-      icon: <CheckCheck aria-hidden="true" />,
-      feature: "appraisals",
-      rows: "agrees-objectives",
     },
     {
       /* `multiAppraiser` cannot be on while `appraisals` is off — the setup

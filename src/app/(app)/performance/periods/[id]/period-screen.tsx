@@ -531,7 +531,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   ? `${noObjectives[0]} has no agreed objective`
                   : `${noObjectives.length} people have no agreed objective: ${noObjectives.join(", ")}`}
               </span>
-              <Link href="/performance/approvals" className={NOTICE_LINK}>
+              <Link href="/performance/kpis?tab=agree" className={NOTICE_LINK}>
                 Agree what is waiting
               </Link>
             </NoticeLine>

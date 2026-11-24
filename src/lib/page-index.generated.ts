@@ -322,11 +322,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Who appraises whom: everybody's line manager by default, and the exceptions period by period."
   },
   {
-    "href": "/performance/approvals",
-    "title": "Objectives to agree",
-    "description": "Objectives waiting for you to agree them, with the target each person will be judged against."
-  },
-  {
     "href": "/performance/fairness",
     "title": "Fairness check",
     "description": "How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager."
