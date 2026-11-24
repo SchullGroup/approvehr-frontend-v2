@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `6bd004de` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `2b373305` (2026-11-24) · regenerate with `npm run docs`, never by hand
 
 **174 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
