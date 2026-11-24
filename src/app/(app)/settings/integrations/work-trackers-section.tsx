@@ -101,7 +101,7 @@ export function WorkTrackersSection({
       <CardHeader
         title="Work trackers"
         level={3}
-        description="Bring finished tickets into the weekly task log, where a manager confirms them before they count towards anyone's objectives."
+        description="Bring finished tickets as evidence of work, where a manager confirms them before they count towards anyone's objectives."
       />
       <CardBody className="flex flex-col gap-3">
         <LoadFailure

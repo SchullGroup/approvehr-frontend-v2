@@ -309,7 +309,7 @@ function HeaderActions({
               notice: (result) =>
                 result.error
                   ? `It stopped early: ${result.error}`
-                  : `${result.stored} tickets stored, ${result.linked} added to weekly tasks` +
+                  : `${result.stored} tickets stored, ${result.linked} added as evidence` +
                     (result.skippedUnmatched
                       ? `, ${result.skippedUnmatched} skipped for unmatched people.`
                       : "."),
@@ -335,12 +335,12 @@ function HeaderActions({
         body={
           <div className="flex flex-col gap-3">
             <p>
-              Syncing stops and the stored access is deleted. Weekly tasks that
-              a manager has already graded stay on people&rsquo;s records.
+              Syncing stops and the stored access is deleted. Records a manager
+              has already confirmed stay on people&rsquo;s records.
             </p>
             <Checkbox
               label="Also delete the imported tickets"
-              description="Removes every ticket and matched person this connection brought in, and any weekly task from it nobody has graded yet."
+              description="Removes every ticket and matched person this connection brought in, and any record from it nobody has confirmed yet."
               checked={purge}
               onChange={(e) => setPurge(e.target.checked)}
             />
@@ -689,7 +689,7 @@ function RulesPanel({
       <CardHeader
         title="Which work counts towards which objective"
         level={3}
-        description={`Point a ${kinds.map((k) => terms.matches[k]?.label.toLowerCase()).join(", ")} at an objective: a person's own, or a company or department one with their objective beneath it. Each finished item is filed there as an ungraded weekly task for their manager to confirm.`}
+        description={`Point a ${kinds.map((k) => terms.matches[k]?.label.toLowerCase()).join(", ")} at an objective: a person's own, or a company or department one with their objective beneath it. Each finished item is filed there as evidence for their manager to confirm.`}
       />
       <CardBody className="flex flex-col gap-5">
         {rules.error && (
@@ -767,7 +767,7 @@ function RulesPanel({
                 success: "Rule added",
                 notice: (result) =>
                   result.linked > 0
-                    ? `${result.linked} of this week's finished tickets were added to weekly tasks straight away.`
+                    ? `${result.linked} of this week's finished tickets were added as evidence straight away.`
                     : null,
                 onDone: () => {
                   setMatchValue("");
@@ -872,7 +872,7 @@ function HistoryPanel({ runs }: { runs: ListRead<ApiSyncRun> }) {
               <TH>How</TH>
               <TH align="right">Read</TH>
               <TH align="right">Stored</TH>
-              <TH align="right">To weekly tasks</TH>
+              <TH align="right">Added as evidence</TH>
               <TH align="right">Unmatched</TH>
               <TH>Result</TH>
             </THead>

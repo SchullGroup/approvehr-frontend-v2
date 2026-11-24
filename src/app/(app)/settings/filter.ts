@@ -509,7 +509,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   {
     href: "/settings/integrations",
     title: "Integrations",
-    description: "Connect Jira so finished tickets reach the weekly task log.",
+    description: "Connect Jira so finished tickets count as evidence of work.",
     group: "system",
     needs: "integrations",
   },
