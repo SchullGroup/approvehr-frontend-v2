@@ -41,3 +41,8 @@ is done; an optional step never holds it back. It is never a card of stacked row
 or a wide bar on the page, because the page below is for what the screen is about.
 `ReadyChip` in `components/ui/next-step.tsx` is this; `GetReady` is the same thing
 as a thin line, for a place with no button to sit beside.
+
+## A way back is always on the left (owner, 24 Nov 2026)
+
+"Back", "All departments" and every other way up a level sit at the extreme left,
+above the title of what is open, never at the right with the actions.

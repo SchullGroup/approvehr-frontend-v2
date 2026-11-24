@@ -366,16 +366,24 @@ describe("Whole company", () => {
     }
   });
 
-  it("gives a department's own objectives larger text and more room than a member's", () => {
+  it("shows a department's own objectives as cards at the normal size, and its members' in a table", () => {
     mount({ department: "fin" });
     const own = screen.getByText("Close the books in five days");
+    expect(own.className).toMatch(/text-body-sm/);
+    expect(own.className).not.toMatch(/text-h4/);
     const member = screen.getByText("Reconcile the bank daily");
-    expect(own.className).toMatch(/text-h4/);
-    expect(member.className).toMatch(/text-body-sm/);
-    const pad = (node: HTMLElement) =>
-      (node.closest("button") as HTMLElement).className;
-    expect(pad(own)).toMatch(/\bp-5\b/);
-    expect(pad(member)).toMatch(/p-3\.5/);
+    expect(member.closest("table")).not.toBeNull();
+    expect(own.closest("table")).toBeNull();
+  });
+
+  it("puts the way back on the left, above the department's name", () => {
+    mount({ department: "fin" });
+    const back = screen.getByRole("link", { name: /All departments/ });
+    const name = screen.getByRole("heading", { name: "Finance" });
+    expect(
+      back.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(back.closest("div")?.className).not.toMatch(/justify-between/);
   });
 
   it("always has Whole company first, even with nothing on it", () => {

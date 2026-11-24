@@ -28,7 +28,14 @@ import {
   FilterBar,
   Select,
   LoadState,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+  TableWrap,
   Textarea,
+  rowClick,
   useToast,
   type AppliedFilter,
 } from "@/components/ui";
@@ -722,14 +729,19 @@ export function KpisTab({
           )}
 
           {opened !== null && departmentHref && (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-h4 font-semibold text-ink">
-                {openedName ?? "Objectives"}
-              </h2>
-              <ButtonLink variant="ghost" size="sm" href={departmentHref(null)}>
+            <div className="flex flex-col items-start gap-1">
+              <ButtonLink
+                variant="ghost"
+                size="sm"
+                href={departmentHref(null)}
+                className="-ml-2"
+              >
                 <ArrowLeft aria-hidden="true" className="size-4" />
                 All departments
               </ButtonLink>
+              <h2 className="text-h4 font-semibold text-ink">
+                {openedName ?? "Objectives"}
+              </h2>
             </div>
           )}
 
@@ -794,12 +806,12 @@ export function KpisTab({
                own objectives (level department) in larger cards, then its
                members' under "Team members" (owner, 24 Nov 2026). */
             (() => {
-              const card = (goal: ApiGoal, emphasis = false) => (
+              const card = (goal: ApiGoal, asRow = false) => (
                 <GoalCard
                   key={goal.id}
                   goal={goal}
                   depth={0}
-                  emphasis={emphasis}
+                  asRow={asRow}
                   editable={mutations.editable}
                   actingId={actingId}
                   canPlan={canPlan}
@@ -841,7 +853,7 @@ export function KpisTab({
                         Department objectives
                       </h3>
                       <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
-                        {departmentGoals.map((goal) => card(goal, true))}
+                        {departmentGoals.map((goal) => card(goal))}
                       </div>
                     </section>
                   )}
@@ -850,9 +862,16 @@ export function KpisTab({
                       <h3 className="text-body-md font-semibold text-ink">
                         Team members
                       </h3>
-                      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {members.map((goal) => card(goal))}
-                      </div>
+                      <TableWrap caption="Team members' objectives">
+                        <THead>
+                          <TH>Objective</TH>
+                          <TH>Owner</TH>
+                          <TH align="right">Progress</TH>
+                          <TH>Agreed</TH>
+                          <TH>Status</TH>
+                        </THead>
+                        <TBody>{members.map((goal) => card(goal, true))}</TBody>
+                      </TableWrap>
                     </section>
                   )}
                 </div>
@@ -1252,9 +1271,12 @@ export function GoalCard({
   onRecord,
   onPlan,
   emphasis = false,
+  asRow = false,
 }: {
   goal: ApiGoal;
   depth: number;
+  /** One row of a table instead of a card: the department's members. */
+  asRow?: boolean;
   /** A department's own objective: larger text and more room (owner, 24 Nov 2026). */
   emphasis?: boolean;
   editable: boolean;
@@ -1282,6 +1304,70 @@ export function GoalCard({
      opening one costs no request and cannot show a different reading of the
      objective from the one on the card behind it. */
   const [open, setOpen] = useState(false);
+
+  if (asRow) {
+    return (
+      <>
+        <TR interactive onClick={rowClick(() => setOpen(true))}>
+          <TD>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-haspopup="dialog"
+              className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              {goal.title}
+            </button>
+          </TD>
+          <TD>
+            <span className="flex items-center gap-2">
+              {goal.ownerName && <Avatar name={goal.ownerName} size="xs" />}
+              <span className="truncate">
+                {goal.ownerName ?? goal.departmentName ?? "No owner"}
+              </span>
+            </span>
+          </TD>
+          <TD align="right">
+            <span className="tabular">
+              {reads?.read === 0
+                ? readCountShort(reads)
+                : `${String(progress)}%`}
+            </span>
+          </TD>
+          <TD>
+            <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
+              {approvalWords(goal)}
+            </Badge>
+          </TD>
+          <TD>
+            <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
+              {GOAL_STATUS_LABEL[goal.status]}
+            </Badge>
+          </TD>
+        </TR>
+        <GoalDetailModal
+          goal={goal}
+          open={open}
+          onClose={() => setOpen(false)}
+          {...facts}
+          editable={editable}
+          canPlan={canPlan}
+          onAddMeasure={onAddMeasure}
+          onAddChild={onAddChild}
+          onAssign={onAssign}
+          onComplete={onComplete}
+          onStop={onStop}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onShare={onShare}
+          onSubmit={onSubmit}
+          onReopen={onReopen}
+          onRecord={onRecord}
+          onPlan={onPlan}
+        />
+      </>
+    );
+  }
 
   return (
     <>
