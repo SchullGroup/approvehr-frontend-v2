@@ -77,6 +77,15 @@ export function permissionPhrase(
   return `the ${quoted.slice(0, -1).join(", ")} or ${quoted[quoted.length - 1]} permission`;
 }
 
+/** The one next step on a refusal: out of the dead end. */
+export function BackHome() {
+  return (
+    <ButtonLink href="/dashboard" variant="secondary">
+      Back to Home
+    </ButtonLink>
+  );
+}
+
 export function NoAccess({
   title,
   what,
@@ -96,11 +105,7 @@ export function NoAccess({
       icon={<ShieldAlert aria-hidden="true" />}
       title={title}
       description={`${what} needs ${permissionPhrase(needed)}. Ask your administrator to add it to your role.`}
-      action={
-        <ButtonLink href="/dashboard" variant="secondary">
-          Back to Home
-        </ButtonLink>
-      }
+      action={<BackHome />}
     />
   );
 }

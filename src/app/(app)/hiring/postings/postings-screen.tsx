@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -112,6 +113,7 @@ export function PostingsScreen() {
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the adverts"
               description="Applications hold a stranger's phone number and salary expectation, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

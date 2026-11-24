@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -85,6 +86,7 @@ export function WebhooksScreen() {
               icon={<Webhook aria-hidden="true" />}
               title="You cannot manage webhooks"
               description="A webhook sends a copy of payroll data to another server, so it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

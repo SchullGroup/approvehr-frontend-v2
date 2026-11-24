@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useEffect, useMemo, useState } from "react";
 import { Lock, ShieldCheck } from "lucide-react";
 import {
@@ -124,6 +125,7 @@ export function AuditScreen(props: ScreenProps = {}) {
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the audit log"
               description="It shows who looked at whose pay, so it is kept to specific people. Ask whoever manages access to add the audit permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

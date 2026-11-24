@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Trash2, Unplug } from "lucide-react";
@@ -179,6 +180,7 @@ export function ConnectionScreen({ id }: { id: string }) {
               icon={<Unplug aria-hidden="true" />}
               title="You cannot manage integrations"
               description="Ask whoever manages settings to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

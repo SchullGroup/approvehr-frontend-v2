@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import Link from "next/link";
 import { MessageSquareText, ShieldAlert } from "lucide-react";
@@ -122,6 +123,7 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
         icon={<ShieldAlert aria-hidden="true" className="size-5" />}
         title="You cannot open the queries register"
         description="Writing, reading and deciding queries is held by the people given the Issue queries or Decide queries permission."
+        action={<BackHome />}
       />
     );
   }

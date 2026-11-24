@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import Link from "next/link";
 import { MessageSquareText } from "lucide-react";
 import {
@@ -47,6 +48,7 @@ export function MyDrafts() {
         icon={<MessageSquareText aria-hidden="true" className="size-5" />}
         title="You cannot draft queries here"
         description={drafts.error.message}
+        action={<BackHome />}
       />
     );
   }

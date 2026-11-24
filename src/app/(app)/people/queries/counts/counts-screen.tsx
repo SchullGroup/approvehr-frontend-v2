@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import { BarChart3, ShieldAlert } from "lucide-react";
 import {
@@ -76,6 +77,7 @@ export function CountsScreen() {
         icon={<ShieldAlert aria-hidden="true" className="size-5" />}
         title="You cannot open the counts"
         description="Counts are for the people given the Issue queries or Decide queries permission."
+        action={<BackHome />}
       />
     );
   }

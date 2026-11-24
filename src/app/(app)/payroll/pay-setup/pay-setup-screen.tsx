@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import {
   Coins,
@@ -130,6 +131,7 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
               "deductions and grades, needs the “View salaries” " +
               "permission. Ask somebody who holds it."
             }
+            action={<BackHome />}
           />
         </PageBody>
       </>

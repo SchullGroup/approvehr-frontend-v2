@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { formatMoney } from "@/components/ui/money-format";
 import { Lock } from "lucide-react";
 import {
@@ -114,6 +115,7 @@ export function ReportsScreen() {
               icon={<Lock aria-hidden="true" />}
               title="You cannot see reports"
               description="Reports show company-wide headcount and operational figures, so it is kept to specific people. Ask whoever manages access to add the export permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>
