@@ -49,6 +49,7 @@ import {
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
 import { GetReady, NextStep } from "@/components/performance/next-step";
+import { fallbackCountLine } from "@/lib/performance/appraiser-fill";
 import {
   askedLine,
   lastAskedLine,
@@ -244,6 +245,12 @@ export function PeriodScreen({
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noObjectives, setNoObjectives] = useState<number>(0);
+  /* What Start said about appraisers, as quiet lines: who has HR as their
+     appraiser (nobody above them recorded), and who has nobody at all. */
+  const [startedWith, setStartedWith] = useState<{
+    fallback: string | null;
+    nobody: number;
+  }>({ fallback: null, nobody: 0 });
   /* "Ask everyone to set objectives": the last answer, and whether this API
      has it at all (a 404 or 410 hides the button for good). */
   const [askedObjectives, setAskedObjectives] =
@@ -302,6 +309,10 @@ export function PeriodScreen({
       /* A count, never the names: people without an objective are an
          invitation to add them, not a failure (owner, 24 Nov 2026). */
       setNoObjectives(result.withoutAgreedObjectives.length);
+      setStartedWith({
+        fallback: fallbackCountLine(result.viaFallback),
+        nobody: result.withoutAppraiser.length,
+      });
       detail.reload();
     } catch (error) {
       failed(error);
@@ -613,6 +624,7 @@ export function PeriodScreen({
               waiting={nudging ? nudging.names.length : 0}
               nextLabel={nextStage ? NEXT_BUTTON[nextStage] : null}
               noObjectives={noObjectives}
+              startedWith={startedWith}
               onNudge={() => setConfirmingNudge(true)}
               onAdvance={() => void advance()}
               advancing={advancing}
@@ -2513,10 +2525,12 @@ function WhatIsNext({
   waiting,
   nextLabel,
   noObjectives,
+  startedWith,
   onNudge,
   onAdvance,
   advancing,
 }: {
+  startedWith: { fallback: string | null; nobody: number };
   waiting: number;
   nextLabel: string | null;
   noObjectives: number;
@@ -2524,10 +2538,16 @@ function WhatIsNext({
   onAdvance: () => void;
   advancing: boolean;
 }) {
-  const invitation =
+  const lines = [
     noObjectives > 0
       ? `${String(noObjectives)} ${noObjectives === 1 ? "person has" : "people have"} no objective yet. Add them if you want them in the score.`
-      : undefined;
+      : null,
+    startedWith.fallback,
+    startedWith.nobody > 0
+      ? `${String(startedWith.nobody)} ${startedWith.nobody === 1 ? "person has" : "people have"} nobody to appraise them yet. Set a department head.`
+      : null,
+  ].filter((line): line is string => line !== null);
+  const invitation = lines.length > 0 ? lines.join(" ") : undefined;
   if (waiting > 0) {
     return (
       <NextStep

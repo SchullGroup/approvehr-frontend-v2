@@ -11,7 +11,12 @@ import {
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { LanguageCheck } from "@/components/performance/language-check";
-import { ratingWordsFrom, type RateBody } from "@/lib/api/performance";
+import { ApiError } from "@/lib/api/client";
+import {
+  performanceApi,
+  ratingWordsFrom,
+  type RateBody,
+} from "@/lib/api/performance";
 import {
   WRITTEN_NEVER_COUNTS,
   answerKindOf,
@@ -174,6 +179,9 @@ export function RecordLevelDialog({
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  /** The API's sentence while this person's self review is not in yet. */
+  const [waiting, setWaiting] = useState<string | null>(null);
+  const [nudged, setNudged] = useState(false);
 
   /**
    * The API's own rule, not a longer list than it will accept.
@@ -292,7 +300,16 @@ export function RecordLevelDialog({
       }
       if (reviewCycleId) body.reviewCycleId = reviewCycleId;
       if (note.trim()) body.note = note.trim();
+      setWaiting(null);
       await onSave(competency, body);
+    } catch (caught) {
+      /* The API holds a rating in a period until the person's self review is
+         sent: not an error, a wait, with a reminder to send. */
+      if (caught instanceof ApiError && caught.status === 409) {
+        setWaiting(caught.message);
+        return;
+      }
+      throw caught;
     } finally {
       setSaving(false);
     }
@@ -319,6 +336,26 @@ export function RecordLevelDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        {waiting && (
+          <NoticeLine tone="muted">
+            <span>Waiting for their self review. {waiting}</span>
+            {reviewCycleId && person && (
+              <button
+                type="button"
+                disabled={nudged}
+                className="font-medium text-accent-text underline-offset-2 hover:underline disabled:opacity-60"
+                onClick={() => {
+                  void performanceApi
+                    .nudgePerson(reviewCycleId, person)
+                    .then(() => setNudged(true))
+                    .catch(() => setNudged(true));
+                }}
+              >
+                {nudged ? "Reminded" : "Nudge"}
+              </button>
+            )}
+          </NoticeLine>
+        )}
         <Field
           label="Employee"
           required

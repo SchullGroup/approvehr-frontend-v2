@@ -617,6 +617,11 @@ export type ApiCycleActivated = ApiCycle & {
    */
   viaDepartmentHead?: string[];
   /**
+   * Who was given HR as appraiser because nobody above them is recorded, by name.
+   * Starting never refuses for this. Absent from a server that does not send it.
+   */
+  viaFallback?: string[];
+  /**
    * Anybody with nothing agreed to be scored against, by name.
    *
    * Named for the same reason. Delivery against objectives is one of the four
@@ -1144,7 +1149,16 @@ export type ApiAppraiser = {
   rating: number | null;
   /** Archived or exited: their share of the mark can never be filled in. */
   unavailable: boolean;
+  /**
+   * Where this appraiser came from. `HR_FALLBACK` is a stand-in: nobody above the
+   * person is recorded, so HR appraises. Absent from a server that does not send
+   * it, and then nothing is claimed about where the appraiser came from.
+   */
+  source?: AppraiserSource;
 };
+
+export type AppraiserSource =
+  "REPORTING_LINE" | "DEPARTMENT_HEAD" | "HR_FALLBACK" | "SET";
 
 /**
  * Exceptions, in the same shape the payroll run uses for blockers.
@@ -1300,6 +1314,10 @@ export type ApiAutoAssigned = {
    * no department head could stand in either.
    */
   withoutManager: string[];
+  /** Who was given HR as appraiser, by name. Absent from an older server. */
+  viaFallback?: string[];
+  /** Only people with no fallback at all. Absent from an older server. */
+  withoutAppraiser?: string[];
   /**
    * The people given their department head as appraiser because nobody is
    * recorded as their manager, by name so they can be checked. Only a server with

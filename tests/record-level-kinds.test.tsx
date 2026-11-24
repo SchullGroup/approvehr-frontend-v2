@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api/client";
 import type { ApiCompetency, RateBody } from "@/lib/api/performance";
 import { RecordLevelDialog } from "@/app/(app)/performance/rating-dialog";
 
@@ -468,5 +469,34 @@ describe("the form's name", () => {
     expect(
       screen.getByRole("dialog", { name: "Record a level" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("a rating that waits for the person's self review", () => {
+  beforeEach(() => {
+    cycles = [{ id: "p-1", name: "H2 2026 Appraisal", stage: "SELF" }];
+  });
+
+  it("says so calmly with a Nudge, keeps what was picked, and is not an error", async () => {
+    const { onSave } = mount();
+    onSave.mockRejectedValue(
+      new ApiError(
+        409,
+        "conflict",
+        "Chidi has not sent their self review yet.",
+      ),
+    );
+    await pickPerson();
+    await pickSkill("Punctuality");
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 4,/ }));
+    await save();
+    expect(
+      await screen.findByText(/Waiting for their self review\./),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Chidi has not sent their self review yet\./),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Nudge" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: /^Rating 4,/ })).toBeChecked();
   });
 });

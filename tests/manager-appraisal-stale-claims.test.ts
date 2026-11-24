@@ -53,8 +53,9 @@ describe("claims about the manager's overall mark", () => {
 
   it("the appraiser map says a chosen appraiser is the only one", () => {
     const map = read("app/(app)/performance/appraiser-map.tsx");
-    expect(map).toContain("As their line manager, and the only appraiser.");
-    expect(map).toContain("as their only appraiser");
+    /* A pick on a row is a set of one at the whole weight, and the toast says so. */
+    expect(map).toContain("as the only appraiser");
+    expect(map).not.toMatch(/the whole mark/);
   });
 });
 

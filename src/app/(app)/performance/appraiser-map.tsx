@@ -718,6 +718,11 @@ function PersonTableRow({
                   : "From the reporting line"}
               </p>
             )}
+            {current?.source === "HR_FALLBACK" && !saving && (
+              <p className="mt-1 text-meta text-muted">
+                HR (no manager recorded)
+              </p>
+            )}
             {failed !== null && (
               <p className="mt-1 text-meta text-danger-text">{failed}</p>
             )}
