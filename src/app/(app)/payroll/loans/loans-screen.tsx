@@ -38,7 +38,6 @@ import { ApiError } from "@/lib/api/client";
 import {
   naira,
   type ApiLoan,
-  type ApiLoanSummary,
   type LoanListParams,
   type LoanStatus,
 } from "@/lib/api/loans";
@@ -399,7 +398,6 @@ export function LoansScreen() {
 
       <PageBody className="flex flex-col gap-6">
         <FeatureOffLine feature="loans" />
-        {seeEverybody && summary && <OwedLine summary={summary} />}
 
         {approvedLoan && (
           <ApprovedLoanCard
@@ -611,47 +609,6 @@ export function LoansScreen() {
         />
       )}
     </>
-  );
-}
-
-/* -------------------------------------------------------------- the summary */
-
-/**
- * What is owed and what payroll takes this month, as one sentence.
- *
- * `Money` rather than a formatted string, so the hide-figures preference covers
- * these two numbers the way it covers every other on the screen.
- */
-function OwedLine({ summary }: { summary: ApiLoanSummary }) {
-  if (summary.activeCount === 0) {
-    return (
-      <p className="text-body-sm text-muted">
-        No loan is being repaid right now.
-      </p>
-    );
-  }
-  const { thisMonth } = summary;
-  return (
-    <p className="text-body-sm text-muted">
-      <Money amount={naira(summary.outstandingKobo)} decimals /> still owed
-      across {summary.activeCount}{" "}
-      {summary.activeCount === 1 ? "loan" : "loans"} ·{" "}
-      {thisMonth.instalmentCount === 0 ? (
-        "nothing comes out of this month’s payroll"
-      ) : (
-        <>
-          <Money amount={naira(thisMonth.deductionKobo)} decimals /> comes out
-          of this month&rsquo;s payroll
-          {thisMonth.arrearsKobo > 0 && (
-            <>
-              , including{" "}
-              <Money amount={naira(thisMonth.arrearsKobo)} decimals /> carried
-              from months it was not taken
-            </>
-          )}
-        </>
-      )}
-    </p>
   );
 }
 

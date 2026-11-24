@@ -146,9 +146,10 @@ export type NavFacts = {
    */
   earlyPay: boolean;
   /**
-   * True when the company has not switched on pay early **and** this reader
-   * cannot switch it on. Optional so every caller from before this question
-   * keeps compiling; absent reads as "show it".
+   * True when the company has not switched on pay early. For everybody: a row
+   * for something that is off leads to a screen that can only say no. Optional
+   * so every caller from before this question keeps compiling; absent reads
+   * as "show it".
    */
   earlyPayHidden?: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */

@@ -205,9 +205,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      with no reports, once per session, and the answer is usually an empty
      list. */
   const inAOneOnOne = useAmIInAOneOnOne(!isManager);
-  /* Whoever sets the pay-early policy still needs the row, or nobody could ever
-     switch it on. */
-  const canSetEarlyPay = hasPermission(permissions, "MANAGE_PAY_STRUCTURE");
 
   /* Signatures: showing to somebody who can send, or who has one of their own.
      ---------------------------------------------------------------------
@@ -240,7 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => ({
       assistantWired,
       earlyPay: features.earlyPay,
-      earlyPayHidden: features.earnedWage === false && !canSetEarlyPay,
+      earlyPayHidden: features.earnedWage === false,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
@@ -269,7 +266,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       assistantWired,
       features.earlyPay,
       features.earnedWage,
-      canSetEarlyPay,
       isManager,
       inAOneOnOne,
       canSendForSignature,
