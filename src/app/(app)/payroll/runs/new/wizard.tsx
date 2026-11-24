@@ -1150,6 +1150,7 @@ export function PayrollRunWizard() {
                   {exceptions.length > 0 && (
                     <ExceptionList
                       exceptions={exceptions}
+                      total={run?.payslips.length}
                       actionFor={actionFor}
                       replaceFixFor={bankInPlace ? BANK_IN_PLACE : undefined}
                     />
