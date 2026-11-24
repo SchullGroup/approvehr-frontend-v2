@@ -550,8 +550,7 @@ describe("with the Manager appraisal part", () => {
     expect(within(row).getByText("30%")).toBeInTheDocument();
     expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
   });
-  it("a draft period draws the API's sentence about its own weights, and says it is about the saved set once something is typed", async () => {
-    const user = userEvent.setup();
+  it("a draft period puts the explanation behind an info icon, and shows nothing without a note", () => {
     render(
       <PeriodWeightsSection
         period={cycle({
@@ -561,15 +560,15 @@ describe("with the Manager appraisal part", () => {
         onChanged={vi.fn()}
       />,
     );
-    expect(screen.getAllByText("THE PERIOD'S NOTE")).toHaveLength(1);
-    expect(screen.queryByText(/Saved now, not yet changed/)).toBeNull();
-    await user.clear(screen.getByLabelText("Manager appraisal"));
-    await user.type(screen.getByLabelText("Manager appraisal"), "30");
-    expect(screen.getByText(/Saved now, not yet changed:/)).toBeInTheDocument();
-    expect(screen.getAllByText("THE PERIOD'S NOTE")).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", {
+        name: "What the manager appraisal weight does",
+      }),
+    ).toHaveLength(1);
+    expect(screen.queryByText("THE PERIOD'S NOTE")).toBeNull();
   });
 
-  it("a started period draws it too, with nothing about saving", () => {
+  it("a started period has the icon too", () => {
     render(
       <PeriodWeightsSection
         period={cycle({
@@ -583,8 +582,11 @@ describe("with the Manager appraisal part", () => {
         onChanged={vi.fn()}
       />,
     );
-    expect(screen.getByText("THE PERIOD'S NOTE")).toBeInTheDocument();
-    expect(screen.queryByText(/Saved now, not yet changed/)).toBeNull();
+    expect(
+      screen.getByRole("button", {
+        name: "What the manager appraisal weight does",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("says nothing where the server sends no note", async () => {

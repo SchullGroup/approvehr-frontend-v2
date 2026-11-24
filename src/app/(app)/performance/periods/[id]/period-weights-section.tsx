@@ -54,13 +54,12 @@ export function PeriodWeightsSection({
             onChange={() => undefined}
             companyDefaults={companyDefaults}
             parts={weights.parts}
+            hint={
+              period.managerAppraisalNote ? (
+                <SavedWeightsNote moved={false} />
+              ) : undefined
+            }
           />
-          {period.managerAppraisalNote && (
-            <SavedWeightsNote
-              note={period.managerAppraisalNote}
-              moved={false}
-            />
-          )}
         </CardBody>
       </Card>
     );
@@ -144,14 +143,16 @@ function DraftWeights({
         onChange={setValue}
         companyDefaults={companyDefaults}
         parts={weights.parts}
+        hint={
+          period.managerAppraisalNote ? (
+            <SavedWeightsNote moved={dirty} />
+          ) : undefined
+        }
         disabled={saving}
         onUseDefaults={() =>
           void run({ weights: null }, "Using your company's weights")
         }
       />
-      {period.managerAppraisalNote && (
-        <SavedWeightsNote note={period.managerAppraisalNote} moved={dirty} />
-      )}
       {error && (
         <p role="alert" className="text-body-sm text-danger-text">
           {error}

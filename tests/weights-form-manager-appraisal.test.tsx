@@ -168,23 +168,26 @@ beforeEach(() => {
 });
 
 describe("the part scored from Manager appraisal", () => {
-  it("draws the API's sentence once, verbatim, beside the part it is about", () => {
+  it("puts the explanation behind one info icon beside the heading, not in a row", () => {
     mount();
-    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    const icons = screen.getAllByRole("button", {
+      name: "What the manager appraisal weight does",
+    });
+    expect(icons).toHaveLength(1);
+    expect(screen.getByText("The parts of the score")).toContainElement(
+      icons[0]!,
+    );
+    expect(screen.queryByText(NOTE)).toBeNull();
+    expect(screen.queryByText(/overall mark before it can be sent/)).toBeNull();
+  });
+
+  it("has no icon on any other part's row", () => {
+    mount();
     expect(
-      within(row("MANAGER_APPRAISAL")!).getByText(NOTE),
-    ).toBeInTheDocument();
-  });
-
-  it("draws it on no other part's row", () => {
-    mount();
-    expect(within(row("OBJECTIVES")!).queryByText(NOTE)).toBeNull();
-  });
-
-  it("says nothing of its own about the double count: no sentence on the page beyond the API's", () => {
-    mount();
-    expect(screen.queryByText(/reaches the score both/i)).toBeNull();
-    expect(screen.queryByText(/counted twice/i)).toBeNull();
+      within(row("OBJECTIVES")!).queryByRole("button", {
+        name: "What the manager appraisal weight does",
+      }),
+    ).toBeNull();
   });
 
   it("never says it is about a moved weight: a row shows the saved one", () => {

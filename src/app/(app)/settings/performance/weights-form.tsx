@@ -415,7 +415,15 @@ function PartsPanel({
           <>
             <Card>
               <CardHeader
-                title="The parts of the score"
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    The parts of the score
+                    {weights?.managerAppraisalNote &&
+                      view.parts.some(
+                        (part) => part.source === MANAGER_SOURCE,
+                      ) && <SavedWeightsNote moved={false} />}
+                  </span>
+                }
                 description={`The score is the weighted average of these parts. ${WEIGHTS_RULE}`}
                 action={
                   <span className="flex flex-wrap items-center gap-3">
@@ -511,20 +519,6 @@ function PartsPanel({
                               {part.description}
                             </p>
                           )}
-                          {/* The API's own sentence about what weighting this part does,
-                        beside the weight that causes it: that a manager's judgement
-                        then reaches the score both through the levels they record
-                        and through this overall mark. It is about the saved set,
-                        which is what this row shows, so it never says "moved". */}
-                          {part.source === MANAGER_SOURCE &&
-                            weights?.managerAppraisalNote && (
-                              <div className="mt-2">
-                                <SavedWeightsNote
-                                  note={weights.managerAppraisalNote}
-                                  moved={false}
-                                />
-                              </div>
-                            )}
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="text-right">

@@ -340,33 +340,6 @@ describe("To do", () => {
     /* And the header still says today's state, which is a different fact. */
     expect(screen.getByText("Not clocked in")).toBeInTheDocument();
   });
-
-  it("shows a reviewer's note on a task, with the grade in words", async () => {
-    mountWith({
-      tasks: {
-        status: "ok",
-        data: {
-          week: { start: "2026-10-19", end: "2026-10-25", daysLeft: 5 },
-          objectives: 2,
-          loggedThisWeek: 3,
-          awaitingGrade: 1,
-          needsAttention: [
-            {
-              id: "t1",
-              goalTitle: "Ship the importer",
-              description: "Wrote the parser",
-              grade: "PARTIALLY_COMPLETED",
-              gradeNote: "Tests are still missing.",
-              gradedAt: "2026-10-20T10:00:00.000Z",
-            },
-          ],
-        },
-      },
-    });
-    expect(await screen.findByText("Ship the importer")).toBeInTheDocument();
-    expect(screen.getByText("Tests are still missing.")).toBeInTheDocument();
-    expect(screen.getByText("Partly done")).toBeInTheDocument();
-  });
 });
 
 /* -------------------------------------------------------- unavailable, absent */
@@ -462,7 +435,7 @@ describe("a section that does not apply draws nothing", () => {
     expect(screen.queryByText("Weekly tasks")).not.toBeInTheDocument();
   });
 
-  it("says nothing logged is nothing logged, when there is something to log against", async () => {
+  it("has no weekly tasks row: they are not a page of Performance any more", async () => {
     const user = userEvent.setup();
     mountWith({
       tasks: {
@@ -477,10 +450,8 @@ describe("a section that does not apply draws nothing", () => {
       },
     });
     await user.click(await glanceTab());
-    expect(
-      screen.getByText("Nothing logged yet this week"),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/1 day\s+left/)).toBeInTheDocument();
+    expect(screen.queryByText("Weekly tasks")).toBeNull();
+    expect(screen.queryByText("Nothing logged yet this week")).toBeNull();
   });
 });
 
