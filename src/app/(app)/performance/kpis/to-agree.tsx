@@ -8,13 +8,10 @@ import {
   Card,
   ConfirmDialog,
   EmptyState,
-  FilterBar,
   Illustration,
-  Select,
   TextLink,
   useToast,
   LoadState,
-  type AppliedFilter,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -28,14 +25,10 @@ import {
   NO_FILTERS,
   filterQueue,
   groupQueue,
-  narrowing as isNarrowing,
   periodOf,
-  queueOptions,
   targetLine,
   whoseWords,
-  type ObjectiveLevelFilter,
   type QueueFilters,
-  type QueueGrouping,
 } from "@/lib/performance/objective-queue";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
@@ -104,7 +97,10 @@ export function ObjectivesToAgree({
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const { flat: departmentList } = useDepartments();
 
-  const [filters, setFilters] = useState<QueueFilters>(NO_FILTERS);
+  const [filters, setFilters] = useState<QueueFilters>({
+    ...NO_FILTERS,
+    group: "department",
+  });
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [agreeing, setAgreeing] = useState<ApiGoal | null>(null);
   const [declining, setDeclining] = useState<ApiGoal | null>(null);
@@ -124,10 +120,6 @@ export function ObjectivesToAgree({
     () => new Map(departmentList.map((one) => [one.id, one.name])),
     [departmentList],
   );
-  const options = useMemo(
-    () => queueOptions(approvals.queue, owners, departmentList),
-    [approvals.queue, owners, departmentList],
-  );
   const shown = useMemo(
     () => filterQueue(approvals.queue, filters, owners),
     [approvals.queue, filters, owners],
@@ -136,8 +128,6 @@ export function ObjectivesToAgree({
     () => groupQueue(shown, filters.group, owners, departmentNames),
     [shown, filters.group, owners, departmentNames],
   );
-  const narrowing = isNarrowing(filters);
-
   if (!features.loading && !features.appraisals) {
     return (
       <div className="flex flex-col gap-6">
@@ -169,56 +159,6 @@ export function ObjectivesToAgree({
       return next;
     });
 
-  const set = (patch: Partial<QueueFilters>) =>
-    setFilters((was) => ({ ...was, ...patch }));
-  const label = (list: [string, string][], key: string) =>
-    list.find(([id]) => id === key)?.[1] ?? key;
-  const LEVEL_WORDS: Record<Exclude<ObjectiveLevelFilter, "">, string> = {
-    company: "The company's",
-    department: "A department's",
-    personal: "One person's",
-  };
-  const applied: AppliedFilter[] = [
-    ...(filters.person
-      ? [
-          {
-            label: "Person",
-            value: label(options.people, filters.person),
-            onClear: () => set({ person: "" }),
-          },
-        ]
-      : []),
-    ...(filters.department
-      ? [
-          {
-            label: "Department",
-            value: label(options.departments, filters.department),
-            onClear: () => set({ department: "" }),
-          },
-        ]
-      : []),
-    ...(filters.period
-      ? [
-          {
-            label: "Period",
-            value: label(options.periods, filters.period),
-            onClear: () => set({ period: "" }),
-          },
-        ]
-      : []),
-    ...(filters.level
-      ? [
-          {
-            label: "Level",
-            value: LEVEL_WORDS[filters.level],
-            onClear: () => set({ level: "" }),
-          },
-        ]
-      : []),
-  ];
-
-  const answered = !approvals.loading && !approvals.error;
-
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -226,89 +166,6 @@ export function ObjectivesToAgree({
           /* At its own width, as on the other tabs, not stretched by the
              column it sits in. */
           <div className="flex flex-wrap items-center gap-3">{strip}</div>
-        )}
-        <p className="text-body-sm text-muted">{AGREE_RULE}</p>
-        {answered && approvals.queue.length > 0 && (
-          <FilterBar
-            search={filters.search}
-            onSearchChange={(search) => set({ search })}
-            searchLabel="Search the objectives waiting by title, person or department"
-            searchPlaceholder="Search objectives…"
-            applied={applied}
-            {...(narrowing || filters.group !== ""
-              ? { onClearAll: () => setFilters(NO_FILTERS) }
-              : {})}
-            count={narrowing ? shown.length : undefined}
-            noun={["objective", "objectives"]}
-            sort={
-              <Select
-                aria-label="Group the list"
-                value={filters.group}
-                onChange={(event) =>
-                  set({ group: event.target.value as QueueGrouping })
-                }
-              >
-                <option value="">Not grouped</option>
-                <option value="department">By department</option>
-                <option value="person">By person</option>
-              </Select>
-            }
-          >
-            {options.people.length > 0 && (
-              <Select
-                aria-label="Filter by person"
-                value={filters.person}
-                onChange={(event) => set({ person: event.target.value })}
-              >
-                <option value="">Anybody</option>
-                {options.people.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-            )}
-            <Select
-              aria-label="Filter by department"
-              value={filters.department}
-              onChange={(event) => set({ department: event.target.value })}
-            >
-              <option value="">Any department</option>
-              {options.departments.map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              aria-label="Filter by period"
-              value={filters.period}
-              onChange={(event) => set({ period: event.target.value })}
-            >
-              <option value="">Any period</option>
-              {options.periods.map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              aria-label="Filter by level"
-              value={filters.level}
-              onChange={(event) =>
-                set({ level: event.target.value as ObjectiveLevelFilter })
-              }
-            >
-              <option value="">Any level</option>
-              {options.levels.map((level) =>
-                level === "" ? null : (
-                  <option key={level} value={level}>
-                    {LEVEL_WORDS[level]}
-                  </option>
-                ),
-              )}
-            </Select>
-          </FilterBar>
         )}
 
         {agreed && (

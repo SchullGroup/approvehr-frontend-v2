@@ -326,24 +326,19 @@ describe("Decline", () => {
 });
 
 describe("finding one", () => {
-  it("searches by title or person and shows how many match", async () => {
-    const user = show();
-    await user.type(
-      screen.getByLabelText(/search the objectives waiting/i),
-      "tunde",
-    );
-    expect(toggleOf("Call twenty customers")).toBeInTheDocument();
+  it("has no search, filter or sentence of rules above the list", () => {
+    show();
     expect(
-      screen.queryByRole("button", { name: /^Reconcile the bank daily/ }),
-    ).not.toBeInTheDocument();
+      screen.queryByLabelText(/search the objectives waiting/i),
+    ).toBeNull();
+    expect(screen.queryByText(/Nobody agrees their own/)).toBeNull();
   });
 
-  it("groups by department, a personal objective under its owner's", async () => {
-    const user = show();
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Group the list" }),
-      "department",
-    );
+  it("groups by department, a personal objective under its owner's, with no dropdown to say so", () => {
+    show();
+    expect(
+      screen.queryByRole("combobox", { name: "Group the list" }),
+    ).toBeNull();
     const finance = screen.getByRole("region", { name: "Finance" });
     expect(
       within(finance).getByRole("button", {
