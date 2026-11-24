@@ -313,6 +313,10 @@ function Row({
         )}
       </TD>
       <TD align="right">
+        {/* Nothing to offer: say why in one quiet line, not an empty menu. */}
+        {!consent.allowed && !stop.allowed && (
+          <span className="text-meta text-muted">{consent.why}</span>
+        )}
         <RowActions
           label={`More actions for ${row.name}`}
           items={[
