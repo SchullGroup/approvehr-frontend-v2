@@ -31,7 +31,7 @@ import {
   Plug,
   ToggleRight,
 } from "lucide-react";
-import { Callout, Input } from "@/components/ui";
+import { Callout, Input, NextStep } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useSettingsSearchHistory } from "@/lib/store/settings-search-history";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
@@ -171,6 +171,10 @@ export function SettingsScreen() {
   const { facts, loading, error, reload } = useSetupChecklist();
   const rows = facts === null ? [] : checklistRows(facts);
   const rowById = new Map(rows.map((row) => [row.id, row]));
+  /* One next step, never a list: the first row that still needs doing. */
+  const nextRow = rows.find(
+    (row) => row.status === "todo" || row.status === "attention",
+  );
 
   const features = useFeatures();
   const has = useServerHas();
@@ -294,6 +298,14 @@ export function SettingsScreen() {
             </button>
             .
           </Callout>
+        )}
+
+        {!filtering && !loading && nextRow && (
+          <NextStep
+            title={`Next: ${nextRow.title}`}
+            detail={nextRow.detail}
+            action={{ label: nextRow.linkLabel, href: nextRow.href }}
+          />
         )}
 
         {showBilling && <BillingCard />}

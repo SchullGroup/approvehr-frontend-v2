@@ -207,7 +207,8 @@ function leaveRow(facts: SetupFacts): ChecklistRow {
       affects:
         "What people can book, what every balance is measured against, and how payroll prorates a month.",
       status: "todo",
-      detail: "No leave types yet, so nobody can book anything.",
+      detail:
+        "Add the usual leave types, with the standard days, so people can book.",
       href: "/settings/leave",
       linkLabel: "Set up leave",
     };
@@ -223,7 +224,7 @@ function leaveRow(facts: SetupFacts): ChecklistRow {
          specific — with no dates on the calendar, payroll and the timesheet
          treat every public holiday as an ordinary working day. */
       status: "attention",
-      detail: `${plural(types, "leave type", "leave types")}, and no public holidays on the ${year} calendar. Every one of them is being treated as an ordinary working day.`,
+      detail: `${plural(types, "leave type", "leave types")}, and no public holidays on the ${year} calendar yet.`,
       href: "/settings/leave",
       linkLabel: "Add the holidays",
     };
