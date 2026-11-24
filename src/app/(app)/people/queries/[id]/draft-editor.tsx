@@ -166,15 +166,17 @@ export function DraftEditor({
       const changed = result.citations.filter(
         (citation) => citation.changed,
       ).length;
+      /* What the issuer has not yet seen comes first, because a toast shows two lines: the warnings
+         were read in the confirmation, and a copy that differs from the preview was not. */
       const notes = [
         result.nobodyToldInProduct === true
           ? "Nobody was told in the product."
           : null,
-        result.warnings.length > 0
-          ? `${result.warnings.length} ${result.warnings.length === 1 ? "thing" : "things"} to check were shown before it was sent.`
-          : null,
         changed > 0
           ? `${changed} ${changed === 1 ? "reference differs" : "references differ"} from the preview you saw.`
+          : null,
+        result.warnings.length > 0
+          ? `${result.warnings.length} ${result.warnings.length === 1 ? "thing" : "things"} to check were shown before it was sent.`
           : null,
       ].filter((note): note is string => note !== null);
       toast.push({

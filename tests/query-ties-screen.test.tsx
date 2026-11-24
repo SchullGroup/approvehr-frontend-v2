@@ -778,6 +778,31 @@ describe("issuing", () => {
     ).toBeInTheDocument();
   });
 
+  it("puts what the issuer has not seen first in the toast, which shows two lines", async () => {
+    const user = userEvent.setup();
+    const flagged = citation({ id: "c-1", frozen: false });
+    actions.issue.mockResolvedValue({
+      ...issued({ citations: [{ ...flagged, frozen: true }] }),
+      warnings: [
+        { code: "cited_day_on_leave", message: "A warning.", dates: [] },
+        { code: "reply_by_on_leave", message: "Another warning.", dates: [] },
+      ],
+      citations: [
+        { id: "c-1", title: "Leave policy, version 1", changed: true },
+      ],
+    });
+    mount(draftWith({ citations: [flagged] }));
+    await issueIt(user);
+    const note = await screen.findByText(
+      /1 reference differs from the preview you saw/,
+    );
+    /* The warnings were read in the confirmation; the changed copy was not, so it leads. */
+    expect(note.textContent?.indexOf("1 reference differs")).toBe(0);
+    expect(note.textContent).toMatch(
+      /^1 reference differs from the preview you saw\. 2 things to check/,
+    );
+  });
+
   it("draws nothing for a server whose answer carries no list, or whose list says none changed", async () => {
     const user = userEvent.setup();
     const one = citation({ id: "c-1", frozen: false });
