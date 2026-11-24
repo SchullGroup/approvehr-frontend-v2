@@ -180,6 +180,9 @@ const show = () => {
   return user;
 };
 
+const enter = async (user: ReturnType<typeof userEvent.setup>, name: string) =>
+  user.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
+
 describe("the page", () => {
   it("has no number cards and no Fill in from the reporting line", () => {
     show();
@@ -197,35 +200,41 @@ describe("the page", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens on All appraisal periods, and asks for no period's map", () => {
+  it("opens on a card for each department, with no search or filter, and asks for no period's map", () => {
     show();
     expect(
-      screen.getByRole("combobox", { name: "Appraisal period" }),
-    ).toHaveValue("");
-    expect(
-      screen.getByRole("option", { name: "All appraisal periods" }),
+      screen.getByRole("button", { name: /^Finance/ }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^No department/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Appraisal period" }),
+    ).toBeNull();
+    expect(screen.queryByPlaceholderText("Search people")).toBeNull();
     expect(state.asked.every((id) => id === null)).toBe(true);
   });
 });
 
 describe("All appraisal periods", () => {
-  it("shows the reporting line for everybody: the manager, else the department's head", () => {
-    show();
+  it("shows each department as the appraiser and the people under them", async () => {
+    const user = show();
+    await enter(user, "Finance");
+    expect(
+      screen.getByRole("combobox", { name: "Appraisal period" }),
+    ).toHaveValue("");
     const rowOf = (name: string) =>
       screen.getByText(name).closest("tr") as HTMLElement;
     expect(
-      within(rowOf("Ada Eze")).getByText("Chidi Obi, their line manager"),
+      within(rowOf("Ada Eze")).getByText("Line manager"),
     ).toBeInTheDocument();
     expect(
-      within(rowOf("Fola Ade")).getByText(
-        "Chidi Obi, head of their department (no manager recorded)",
-      ),
+      within(rowOf("Fola Ade")).getByText("Head of department"),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("Chidi Obi").length).toBeGreaterThan(0);
     expect(
-      within(rowOf("Musa Bello")).getByText(/^HR \(no manager/),
-    ).toBeInTheDocument();
-    expect(countLine()).toBe("4 people");
+      screen.getAllByText(/Appraises \d+ (person|people)/).length,
+    ).toBeGreaterThan(0);
   });
 
   it("says it calmly, once, with one fix, and no filter chip or error", () => {
@@ -243,12 +252,22 @@ describe("All appraisal periods", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/have no appraiser/)).not.toBeInTheDocument();
   });
+
+  it("puts the way back on the left, above the department", async () => {
+    const user = show();
+    await enter(user, "Finance");
+    await user.click(screen.getByRole("button", { name: /All departments/ }));
+    expect(
+      screen.getByRole("button", { name: /^Finance/ }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("one period chosen", () => {
-  it("on one that has not started, shows the appraiser its start will give somebody", () => {
+  it("on one that has not started, shows the appraiser its start will give somebody", async () => {
     state.search = "period=q4";
-    show();
+    const user = show();
+    await enter(user, "Finance");
     const ada = screen.getByRole("combobox", { name: "Appraiser for Ada Eze" });
     expect(ada).toHaveDisplayValue("Chidi Obi");
     expect(screen.getByText("From the reporting line")).toBeInTheDocument();
@@ -257,19 +276,6 @@ describe("one period chosen", () => {
       screen.getByText(
         "1 person has no manager or department head, so HR appraises them.",
       ),
-    ).toBeInTheDocument();
-  });
-
-  it("says there are no exceptions, with a figure, when everybody has their line manager", async () => {
-    state.search = "period=h2";
-    const user = show();
-    await user.click(screen.getByRole("button", { name: /^Filters/ }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Show" }),
-      "exceptions",
-    );
-    expect(
-      screen.getByRole("heading", { name: "No exceptions" }),
     ).toBeInTheDocument();
   });
 });

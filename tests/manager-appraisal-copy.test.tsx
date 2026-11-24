@@ -218,6 +218,9 @@ describe("the appraiser mapping", () => {
         <AppraiserMapTab />
       </ToastProvider>,
     );
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /\d+ (person|people)$/ })[0]!,
+    );
     expect(
       screen.queryByRole("button", { name: /Share the score for/ }),
     ).toBeNull();
@@ -244,6 +247,9 @@ describe("the appraiser mapping", () => {
       <ToastProvider>
         <AppraiserMapTab />
       </ToastProvider>,
+    );
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /\d+ (person|people)$/ })[0]!,
     );
     await userEvent.selectOptions(
       screen.getByLabelText("Appraiser for Ola Test"),

@@ -63,12 +63,12 @@ import {
 } from "@/components/performance/suggestions";
 import { ApiError } from "@/lib/api/client";
 import { useTaskSummarySuggestion } from "@/lib/store/ai";
+import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
   formatMeasure,
   isDoneMeasure,
   isUnread,
-  quarterLabel,
   type ApiGoal,
   type ApiKeyResult,
   type GoalStatus,
@@ -323,7 +323,13 @@ export function KpisTab({
     }
     return byKey;
   }, [directory.people]);
-  const cards = useMemo(
+  /* Whoever cannot read across the company sees the whole company's objectives and
+     their own department's, and nothing else by default. */
+  const seesEveryDepartment = useCan("EDIT_RECORDS");
+  const { employeeId: myId } = useSession();
+  const myDepartment =
+    directory.people.find((person) => person.id === myId)?.departmentId ?? null;
+  const allCards = useMemo(
     () =>
       grouping
         ? departmentCards(
@@ -334,7 +340,22 @@ export function KpisTab({
         : [],
     [grouping, kpis.goals, departmentList, owners],
   );
-  const opened = grouping && department !== null ? department : null;
+  const cards = useMemo(
+    () =>
+      seesEveryDepartment
+        ? allCards
+        : allCards.filter(
+            (card) => card.key === COMPANY_KEY || card.key === myDepartment,
+          ),
+    [allCards, seesEveryDepartment, myDepartment],
+  );
+  const mayOpen = (key: string | null) =>
+    seesEveryDepartment ||
+    key === null ||
+    key === COMPANY_KEY ||
+    key === myDepartment;
+  const opened =
+    grouping && department !== null && mayOpen(department) ? department : null;
   const openedGoals = useMemo(
     () =>
       opened === null ? null : goalsForDepartment(kpis.goals, opened, owners),
@@ -1636,48 +1657,22 @@ function GoalDetailModal({
   return (
     <Modal open={open} onClose={onClose} title={goal.title} size="lg">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
-          <Badge
-            tone={goal.level === "personal" ? "neutral" : "accent"}
-            size="sm"
-          >
-            {rung}
-          </Badge>
-          <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
-            {approvalWords(goal)}
-          </Badge>
-          {goal.targetFrozen && (
-            <InfoTooltip
-              label="Why it is fixed"
-              text="Agreed: the title, period and targets are fixed. Progress can still change."
-            />
-          )}
-          <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-            {GOAL_STATUS_LABEL[goal.status]}
-          </Badge>
-          {goal.companyWide ? (
-            <span>Everyone</span>
-          ) : goal.ownerName ? (
-            <span className="flex items-center gap-1.5">
-              <Avatar name={goal.ownerName} size="xs" />
-              {goal.ownerName}
-            </span>
-          ) : (
-            <span>{goal.departmentName ?? "No owner"}</span>
-          )}
-          {/* The appraisal period is what makes this scoreable; a bare quarter
-              is what companies typed before periods existed and is still
-              allowed. */}
-          <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
-          {goal.revisionCount > 0 && (
-            <span>
-              {goal.revisionCount === 1
-                ? "Reopened once"
-                : `Reopened ${goal.revisionCount} times`}
-            </span>
-          )}
-          {goal.parentTitle && <span>Under {goal.parentTitle}</span>}
-        </div>
+        {(goal.ownerName || goal.targetFrozen) && (
+          <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
+            {goal.ownerName && (
+              <span className="flex items-center gap-1.5">
+                <Avatar name={goal.ownerName} size="xs" />
+                {goal.ownerName}
+              </span>
+            )}
+            {goal.targetFrozen && (
+              <InfoTooltip
+                label="Why it is fixed"
+                text="Agreed: the title, period and targets are fixed. Progress can still change."
+              />
+            )}
+          </div>
+        )}
 
         {/* With nothing read, the label says so and the figure is not drawn: a 0%
             beside "nothing read yet" would be the claim the label denies. */}
@@ -1724,11 +1719,7 @@ function GoalDetailModal({
               ),
             )}
           </ul>
-        ) : (
-          <p className="text-body-sm text-body">
-            No target yet, so its progress has to be entered by hand.
-          </p>
-        )}
+        ) : null}
 
         {/* The finished project tasks linked to this, for whoever is reading it
             to see what went into it. Read-only; nothing here is graded. */}

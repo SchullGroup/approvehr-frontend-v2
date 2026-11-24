@@ -118,7 +118,7 @@ export function PeriodCard({
           className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl"
           style={{
             color: tone,
-            background: `color-mix(in srgb, ${tone} 14%, transparent)`,
+            background: `color-mix(in srgb, ${tone} 14%, var(--color-surface))`,
           }}
         >
           <CalendarRange className="size-5" />

@@ -35,7 +35,7 @@ export function DepartmentTile({
       )}
       style={{
         color: tone,
-        background: `color-mix(in srgb, ${tone} 14%, transparent)`,
+        background: `color-mix(in srgb, ${tone} 14%, var(--color-surface))`,
       }}
     >
       {name.trim().charAt(0).toUpperCase() || "?"}

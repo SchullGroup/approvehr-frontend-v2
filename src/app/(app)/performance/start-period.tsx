@@ -14,6 +14,7 @@ import {
   Checkbox,
   Field,
   Input,
+  Textarea,
   type ButtonSize,
   type ButtonVariant,
 } from "@/components/ui";
@@ -96,6 +97,7 @@ export function StartPeriodDialog({
   const [periodEnd, setPeriodEnd] = useState("");
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [message, setMessage] = useState("");
   const [wholeCompany, setWholeCompany] = useState(true);
   const [scope, setScope] = useState<string[]>([]);
   const [remind, setRemind] = useState(false);
@@ -137,6 +139,7 @@ export function StartPeriodDialog({
             : {}),
           ...(remind ? { remindDaysBefore: 3 } : {}),
           ...(managersAdd ? { managersCanAddQuestions: true } : {}),
+          ...(message.trim() ? { instructions: message.trim() } : {}),
         },
       );
       /* Questions chosen in the wizard go in now, so the person is not left to
@@ -293,13 +296,23 @@ export function StartPeriodDialog({
       )}
 
       {step === 1 && (
-        <Field label="Due date">
-          <Input
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </Field>
+        <>
+          <Field label="Due date">
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+            />
+          </Field>
+          <Field label="Message to staff (optional)">
+            <Textarea
+              rows={3}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Shown above the first question"
+            />
+          </Field>
+        </>
       )}
 
       {step === 2 && (

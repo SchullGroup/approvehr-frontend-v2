@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Network, Plus, Settings2, Trash2 } from "lucide-react";
+import { ArrowLeft, Network, Plus, Settings2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
+  Avatar,
   Button,
   Callout,
-  Card,
-  CardHeader,
   EmptyState,
   Field,
   Input,
@@ -25,14 +24,12 @@ import {
   TR,
   TD,
   TDPrimary,
-  FilterBar,
-  type AppliedFilter,
   LoadState,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
+import { DepartmentCard } from "@/components/ui/department-card";
 import { ApiError } from "@/lib/api/client";
 import {
-  defaultWords,
   draftDefaultOf,
   standingRows,
   hrFallbackLine,
@@ -91,17 +88,6 @@ import {
  * instead of, and the words are the same words. HANDOVER's register is full of
  * client-side rules that were not real rules.
  */
-type AppraiserShow = "all" | "none" | "exceptions" | "several";
-const SHOW_LABEL: Record<AppraiserShow, string> = {
-  all: "Everyone",
-  none: "No appraiser",
-  exceptions: "Not their line manager",
-  several: "Several appraisers",
-};
-/* The standing view has no exceptions to show (the API keeps none without a
-   period), so it offers only these two. */
-const STANDING_SHOWS: AppraiserShow[] = ["all"];
-
 export function AppraiserMapTab() {
   /* The cycle list is fetched here rather than passed down from the screen, so
      opening `/performance` on the KPI tab does not request it. */
@@ -116,9 +102,8 @@ export function AppraiserMapTab() {
   const [chosen, setChosen] = useState<string>(
     useSearchParams()?.get("period") ?? "",
   );
-  const [show, setShow] = useState<AppraiserShow>("all");
-  const [department, setDepartment] = useState("");
-  const [query, setQuery] = useState("");
+  /** `undefined` is the department cards; a name opens that department. */
+  const [dept, setDept] = useState<string | null | undefined>(undefined);
   const [editing, setEditing] = useState<ApiAppraiserMapRow | null>(null);
 
   /* Fetched once for the whole table rather than once per row — a period of two
@@ -192,42 +177,6 @@ export function AppraiserMapTab() {
      the reporting line when it starts, so that is what the row says. */
   const fallbackOf = (row: ApiAppraiserMapRow) =>
     draftDefaultOf(row, cycle?.stage, heads, parents);
-  const appraisedBy = (row: ApiAppraiserMapRow) =>
-    row.appraisers.length > 0 || (fallbackOf(row)?.source ?? "none") !== "none";
-  const exception = (row: ApiAppraiserMapRow) =>
-    row.appraisers.length > 1 ||
-    (row.appraisers.length === 1 &&
-      row.appraisers[0]?.appraiserId !== row.lineManagerId) ||
-    !appraisedBy(row);
-
-  /* Filtered here rather than asked of the server, so the choices (who has
-     nobody, who has several, which department) are all one click away. */
-  const departments = [
-    ...new Set(
-      cycleId === null
-        ? standing.flatMap((row) => (row.department ? [row.department] : []))
-        : (map?.rows ?? []).flatMap((row) =>
-            row.departmentName ? [row.departmentName] : [],
-          ),
-    ),
-  ].sort();
-  const needle = query.trim().toLowerCase();
-  const rows = (map?.rows ?? []).filter((row) => {
-    if (show === "none" && appraisedBy(row)) return false;
-    if (show === "several" && row.appraisers.length < 2) return false;
-    if (show === "exceptions" && !exception(row)) return false;
-    if (department && row.departmentName !== department) return false;
-    if (needle && !row.employeeName.toLowerCase().includes(needle))
-      return false;
-    return true;
-  });
-  const standingShown = standing.filter((row) => {
-    if (show === "none" && row.appraiser.source !== "none") return false;
-    if (department && row.department !== department) return false;
-    if (needle && !row.employeeName.toLowerCase().includes(needle))
-      return false;
-    return true;
-  });
   /* People HR appraises because nothing above them is recorded: a calm
      to-do with one fix, never an error. Nothing is said about a period that
      is over. */
@@ -241,32 +190,6 @@ export function AppraiserMapTab() {
             row.appraisers.length === 0 &&
             (fallbackOf(row)?.source ?? "hr") === "hr",
         ).length;
-  const filtering = show !== "all" || department !== "" || needle !== "";
-  const shows =
-    cycleId === null
-      ? STANDING_SHOWS
-      : (Object.keys(SHOW_LABEL) as AppraiserShow[]);
-  const applied: AppliedFilter[] = [
-    ...(show !== "all"
-      ? [
-          {
-            label: "Show",
-            value: SHOW_LABEL[show],
-            onClear: () => setShow("all"),
-          },
-        ]
-      : []),
-    ...(department
-      ? [
-          {
-            label: "Department",
-            value: department,
-            onClear: () => setDepartment(""),
-          },
-        ]
-      : []),
-  ];
-
   if (!editable) {
     return (
       <Callout tone="warning" title="This needs a connection to the server">
@@ -297,80 +220,76 @@ export function AppraiserMapTab() {
     reload();
   };
 
-  const listed = cycleId === null ? standingShown.length : rows.length;
   const noLine = hrFallbackLine(hrCount);
+
+  /* Departments first. A list of sixty-eight people is a wall; a card for each
+     department opens that department's people, laid out as the appraiser and the
+     people under them. */
+  const nameOfDept = (name: string | null | undefined) =>
+    name ?? "No department";
+  const cards = (() => {
+    const by = new Map<string | null, string[]>();
+    if (cycleId === null) {
+      for (const row of standing) {
+        const key = row.department ?? null;
+        by.set(key, [...(by.get(key) ?? []), row.employeeName]);
+      }
+    } else {
+      for (const row of map?.rows ?? []) {
+        const key = row.departmentName ?? null;
+        by.set(key, [...(by.get(key) ?? []), row.employeeName]);
+      }
+    }
+    return [...by.entries()]
+      .map(([key, people]) => ({ key, people }))
+      .sort((x, y) => nameOfDept(x.key).localeCompare(nameOfDept(y.key)));
+  })();
+
+  /* Inside a department: one block for each appraiser, their people beneath. */
+  type Block = {
+    key: string;
+    name: string | null;
+    rows: ApiAppraiserMapRow[];
+    standingRows: typeof standing;
+  };
+  const blocks: Block[] = (() => {
+    if (dept === undefined) return [];
+    const by = new Map<string, Block>();
+    const add = (key: string, name: string | null) => {
+      const found = by.get(key);
+      if (found) return found;
+      const fresh: Block = { key, name, rows: [], standingRows: [] };
+      by.set(key, fresh);
+      return fresh;
+    };
+    if (cycleId === null) {
+      for (const row of standing) {
+        if ((row.department ?? null) !== dept) continue;
+        const who = row.appraiser;
+        const hr = who.source === "hr" || who.source === "none";
+        add(
+          hr ? "hr" : (who.id ?? who.name ?? "x"),
+          hr ? null : who.name,
+        ).standingRows.push(row);
+      }
+    } else {
+      for (const row of map?.rows ?? []) {
+        if ((row.departmentName ?? null) !== dept) continue;
+        const first = row.appraisers[0];
+        const fallback = fallbackOf(row);
+        const name = first?.appraiserName ?? fallback?.name ?? null;
+        add(first?.appraiserId ?? fallback?.id ?? "hr", name).rows.push(row);
+      }
+    }
+    return [...by.values()].sort((x, y) =>
+      (x.name ?? "~").localeCompare(y.name ?? "~"),
+    );
+  })();
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <Field label="Appraisal period" className="w-64 max-w-full">
-          <Select
-            value={cycleId ?? ""}
-            onChange={(event) => {
-              setChosen(event.target.value);
-              setShow("all");
-            }}
-          >
-            <option value="">All appraisal periods</option>
-            {cycles.map((one) => (
-              <option key={one.id} value={one.id}>
-                {one.name}, {one.stageLabel}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {/* A basis, so on a phone the bar takes a line of its own under the
-            period rather than squeezing beside it and spilling 170px off the
-            screen (UAT 23 Nov, U106: PERF-24, CRAWL-1). */}
-        <FilterBar
-          className="min-w-0 flex-1 basis-80"
-          search={query}
-          onSearchChange={setQuery}
-          searchPlaceholder="Search people"
-          searchLabel="Search people"
-          applied={applied}
-          onClearAll={() => {
-            setShow("all");
-            setDepartment("");
-          }}
-          count={listed}
-          noun={["person", "people"]}
-        >
-          {shows.length > 1 && (
-            <Field label="Show">
-              <Select
-                value={show}
-                onChange={(event) =>
-                  setShow(event.target.value as AppraiserShow)
-                }
-              >
-                {shows.map((key) => (
-                  <option key={key} value={key}>
-                    {SHOW_LABEL[key]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          )}
-          <Field label="Department">
-            <Select
-              value={department}
-              onChange={(event) => setDepartment(event.target.value)}
-            >
-              <option value="">Every department</option>
-              {departments.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </FilterBar>
-      </div>
-
       {/* The one thing still worth saying out loud: people the reporting line
-          gives nobody. A line, not a card, and the filter shows just them. */}
+          gives nobody. A line, not a card. */}
       {noLine !== null && (
         <NoticeLine tone="muted">
           <span>{noLine}</span>
@@ -383,127 +302,157 @@ export function AppraiserMapTab() {
         </NoticeLine>
       )}
 
-      {cycleId === null ? (
-        <Card>
-          <CardHeader
-            title="Who appraises whom"
-            description="Everybody is appraised by their line manager, else the head of their department (or of the department above it), else HR. To give somebody a different appraiser, or several, choose the period."
-          />
-          {cyclesLoading && lookups.length === 0 ? (
-            <LoadState
-              loading
-              error={null}
-              subject="the staff list"
-              skeleton="table"
-            >
-              {null}
-            </LoadState>
-          ) : standingShown.length === 0 ? (
-            <EmptyState
-              {...(filtering
-                ? { mood: "search" as const }
-                : { art: <Illustration name="hand-on-hip" /> })}
-              icon={<Network aria-hidden="true" />}
-              title={filtering ? "Nobody matches" : "Nobody on the staff list"}
-              description={
-                filtering
-                  ? "Change or clear the filters to see more people."
-                  : "Add people first."
-              }
-            />
-          ) : (
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Person</TH>
-                <TH>Appraiser</TH>
-              </THead>
-              <TBody>
-                {standingShown.map((row) => (
-                  <TR key={row.employeeId}>
-                    <TDPrimary
-                      title={row.employeeName}
-                      subtitle={[row.jobTitle, row.department]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    />
-                    <TD className="text-body">{defaultWords(row.appraiser)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
-          )}
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader
-            title="Who appraises whom"
-            description={
-              cycle?.stage === "DRAFT"
-                ? `In ${cycle.name}. Anybody not set here gets their line manager when it starts. Change the exceptions here.`
-                : `In ${cycle?.name ?? "this period"}. Change the exceptions here.`
-            }
-          />
+      {dept === undefined ? (
+        cyclesLoading && lookups.length === 0 ? (
           <LoadState
-            loading={loading}
-            error={error}
-            subject="the appraiser mapping"
-            onRetry={reload}
-            hasData={rows.length > 0}
+            loading
+            error={null}
+            subject="the staff list"
             skeleton="table"
           >
-            {!map || rows.length === 0 ? (
-              show === "exceptions" && department === "" && needle === "" ? (
-                <EmptyState
-                  art={<Illustration name="hand-on-hip" />}
-                  title="No exceptions"
-                  description="Everybody in this period is appraised by their line manager alone."
+            {null}
+          </LoadState>
+        ) : cards.length === 0 ? (
+          <EmptyState
+            art={<Illustration name="hand-on-hip" />}
+            icon={<Network aria-hidden="true" />}
+            title="Nobody on the staff list"
+            description="Add people first."
+          />
+        ) : (
+          <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {cards.map((card) => (
+              <li key={card.key ?? "none"} className="min-w-0">
+                <DepartmentCard
+                  name={nameOfDept(card.key)}
+                  onClick={() => setDept(card.key)}
+                  line={`${String(card.people.length)} ${card.people.length === 1 ? "person" : "people"}`}
+                  members={card.people}
                 />
-              ) : (
-                <EmptyState
-                  compact
-                  icon={<Network aria-hidden="true" />}
-                  title={filtering ? "Nobody matches" : "Nobody in this period"}
-                  description={
-                    filtering
-                      ? "Change or clear the filters to see more people."
-                      : "A period covers everybody who is still employed. Add people first."
-                  }
-                />
-              )
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-col items-start gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2"
+                onClick={() => setDept(undefined)}
+              >
+                <ArrowLeft aria-hidden="true" className="size-4" />
+                All departments
+              </Button>
+              <h2 className="text-h4 font-semibold text-ink">
+                {nameOfDept(dept)}
+              </h2>
+            </div>
+            <Field label="Appraisal period" className="w-64 max-w-full">
+              <Select
+                value={cycleId ?? ""}
+                onChange={(event) => setChosen(event.target.value)}
+              >
+                <option value="">All appraisal periods</option>
+                {cycles.map((one) => (
+                  <option key={one.id} value={one.id}>
+                    {one.name}, {one.stageLabel}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <LoadState
+            loading={cycleId !== null && loading}
+            error={cycleId !== null ? error : null}
+            subject="the appraiser mapping"
+            onRetry={reload}
+            hasData={blocks.length > 0}
+            skeleton="table"
+          >
+            {blocks.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<Network aria-hidden="true" />}
+                title="Nobody here"
+              />
             ) : (
-              <TableWrap className="rounded-none border-0">
-                <THead>
-                  <TH>Person</TH>
-                  <TH>Appraiser</TH>
-                  {/* Off a phone: the person and their appraiser are what the
-                      page is for (U106). */}
-                  <TH align="right" className="hidden sm:table-cell">
-                    Rating
-                  </TH>
-                  <TH align="right">
-                    <span className="sr-only">Split</span>
-                  </TH>
-                </THead>
-                <TBody>
-                  {rows.map((row) => (
-                    <PersonTableRow
-                      key={row.employeeId}
-                      row={row}
-                      people={people}
-                      fallback={fallbackOf(row)}
-                      readOnly={published}
-                      suggest={workInAnswers === true}
-                      onEdit={() => setEditing(row)}
-                      onQuickAssign={(appraiserId) =>
-                        quickAssign(row, appraiserId)
-                      }
-                    />
-                  ))}
-                </TBody>
-              </TableWrap>
+              blocks.map((block) => {
+                const count = block.rows.length + block.standingRows.length;
+                return (
+                  <section key={block.key} className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={block.name ?? "HR"} size="md" />
+                      <div className="min-w-0">
+                        <p className="text-body font-semibold text-ink">
+                          {block.name ?? "HR"}
+                        </p>
+                        <p className="text-meta text-muted">
+                          Appraises {count} {count === 1 ? "person" : "people"}
+                        </p>
+                      </div>
+                    </div>
+                    <TableWrap>
+                      <THead>
+                        <TH>Person</TH>
+                        {cycleId !== null ? (
+                          <>
+                            <TH>Appraiser</TH>
+                            <TH align="right" className="hidden sm:table-cell">
+                              Rating
+                            </TH>
+                            <TH align="right">
+                              <span className="sr-only">Split</span>
+                            </TH>
+                          </>
+                        ) : (
+                          <TH>Appraises as</TH>
+                        )}
+                      </THead>
+                      <TBody>
+                        {cycleId === null
+                          ? block.standingRows.map((row) => (
+                              <TR key={row.employeeId}>
+                                <TDPrimary
+                                  avatar={row.employeeName}
+                                  title={row.employeeName}
+                                  subtitle={row.jobTitle}
+                                />
+                                <TD className="text-body">
+                                  {row.appraiser.source === "manager"
+                                    ? "Line manager"
+                                    : row.appraiser.source === "hr" ||
+                                        row.appraiser.source === "none"
+                                      ? "HR"
+                                      : "Head of department"}
+                                </TD>
+                              </TR>
+                            ))
+                          : block.rows.map((row) => (
+                              <PersonTableRow
+                                key={row.employeeId}
+                                row={row}
+                                people={people}
+                                fallback={fallbackOf(row)}
+                                readOnly={published}
+                                suggest={workInAnswers === true}
+                                onEdit={() => setEditing(row)}
+                                onQuickAssign={(appraiserId) =>
+                                  quickAssign(row, appraiserId)
+                                }
+                              />
+                            ))}
+                      </TBody>
+                    </TableWrap>
+                  </section>
+                );
+              })
             )}
           </LoadState>
-        </Card>
+        </div>
       )}
 
       {editing && cycleId && (
@@ -621,6 +570,7 @@ function PersonTableRow({
   return (
     <TR>
       <TDPrimary
+        avatar={row.employeeName}
         title={row.employeeName}
         subtitle={[row.jobTitle, row.departmentName]
           .filter(Boolean)

@@ -175,6 +175,11 @@ describe("one department's list", () => {
 
 const state = vi.hoisted(() => ({ goals: [] as unknown[] }));
 
+let reads = true;
+vi.mock("@/lib/permissions", async (original) => ({
+  ...(await original<typeof import("@/lib/permissions")>()),
+  useCan: () => reads,
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
   usePathname: () => "/performance/kpis",
@@ -409,5 +414,21 @@ describe("My objectives and My team", () => {
     mount({ scope: "mine" });
     expect(screen.queryByRole("link", { name: /Finance/ })).toBeNull();
     expect(screen.getByText("Reconcile the bank daily")).toBeInTheDocument();
+  });
+});
+
+describe("who sees which departments", () => {
+  it("shows somebody who cannot read across the company the whole company and their own department only", () => {
+    reads = false;
+    try {
+      mount();
+      expect(
+        screen.getByRole("link", { name: /Whole company/ }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Finance/ })).toBeNull();
+      expect(screen.queryByRole("link", { name: /Engineering/ })).toBeNull();
+    } finally {
+      reads = true;
+    }
   });
 });

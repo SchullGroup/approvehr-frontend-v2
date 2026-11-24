@@ -71,7 +71,7 @@ export function Avatar({
         own
           ? {
               color: own,
-              background: `color-mix(in srgb, ${own} 16%, transparent)`,
+              background: `color-mix(in srgb, ${own} 16%, var(--color-surface))`,
             }
           : undefined
       }
