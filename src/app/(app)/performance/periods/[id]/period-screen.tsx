@@ -9,10 +9,13 @@ import {
   ListChecks,
   Grid3x3,
   Play,
-  Scale,
   UserX,
   Users,
 } from "lucide-react";
+import { PAGE_ICONS } from "@/components/portal/nav-icons";
+
+const WhoAppraisesIcon = PAGE_ICONS["/performance/appraisers"]!;
+const FairnessIcon = PAGE_ICONS["/performance/fairness"]!;
 import {
   Badge,
   Button,
@@ -456,7 +459,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 href={`/performance/appraisers?period=${cycleId}`}
                 label="Who appraises whom"
               >
-                <Users aria-hidden="true" className="size-4" />
+                <WhoAppraisesIcon aria-hidden="true" className="size-4" />
               </IconLink>
             )}
             {canSeeFairness && !draft && (
@@ -469,7 +472,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 }
                 badge={flagged}
               >
-                <Scale aria-hidden="true" className="size-4" />
+                <FairnessIcon aria-hidden="true" className="size-4" />
               </IconLink>
             )}
             {canSeeCompany && !draft && (
