@@ -1,17 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GraduationCap } from "lucide-react";
+import { ArrowLeft, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
-  Card,
-  CardBody,
-  CardHeader,
   EmptyState,
-  Stat,
-  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -33,6 +28,9 @@ import {
   useRating,
   useSkills,
 } from "@/lib/store/performance";
+import { DepartmentCard } from "@/components/ui/department-card";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { RecordLevelDialog } from "./rating-dialog";
@@ -73,23 +71,27 @@ export function SkillsTab({
   canSeeCompany,
   isManager,
   initialTab = "mine",
+  recording: controlled,
+  onRecordingChange,
 }: {
   canSeeCompany: boolean;
   isManager: boolean;
   initialTab?: SkillsTabId;
+  /** The page header holds the Record a level button, so the dialog is opened from there. */
+  recording?: boolean;
+  onRecordingChange?: (next: boolean) => void;
 }) {
   const { isConnected, employeeId, actingId } = useSession();
   const me = isConnected ? employeeId : actingId;
 
   const mine = useSkills(me);
   const gaps = useGaps(canSeeCompany || isManager);
-  /* The three figures count what the read returned, which is nothing both
-     before it answers and after it fails: a dash, not a 0. */
-  const mineReady = !mine.loading && !mine.error;
   const rating = useRating();
   const toast = useToast();
 
-  const [recording, setRecording] = useState(false);
+  const [own, setOwn] = useState(false);
+  const recording = controlled ?? own;
+  const setRecording = onRecordingChange ?? setOwn;
   const [tab, changeTab] = useUrlTab<SkillsTabId>(initialTab, SKILLS_TABS);
 
   const grouped = useMemo(() => {
@@ -108,8 +110,6 @@ export function SkillsTab({
       rows: bucket.get(section) ?? [],
     }));
   }, [mine.skills]);
-
-  const summary = mine.skills?.summary ?? { total: 0, rated: 0, gaps: 0 };
 
   const showGaps = canSeeCompany || isManager;
   const items: TabItem[] = [
@@ -132,167 +132,76 @@ export function SkillsTab({
   const panels = (
     <>
       {shown === "mine" && (
-        <div className="flex flex-col gap-6">
-          <StatGrid columns={3}>
-            <Stat
-              label="Competencies on your framework"
-              value={mineReady ? String(summary.total) : "—"}
+        <LoadState
+          loading={mine.loading}
+          error={mine.error}
+          subject="your competency framework"
+          onRetry={mine.reload}
+          hasData={grouped.length > 0}
+          skeleton="list"
+        >
+          {grouped.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<GraduationCap aria-hidden="true" />}
+              title="No framework yet"
+              description="Finish setup and the four standard parts are created for you."
             />
-            <Stat
-              label="Assessed so far"
-              value={mineReady ? `${summary.rated} of ${summary.total}` : "—"}
-            />
-            <Stat
-              label="Below target"
-              value={mineReady ? String(summary.gaps) : "—"}
-            />
-          </StatGrid>
-
-          <Card>
-            <CardHeader title="Your competencies" />
-            <LoadState
-              loading={mine.loading}
-              error={mine.error}
-              subject="your competency framework"
-              onRetry={mine.reload}
-              hasData={grouped.length > 0}
-              skeleton="list"
-            >
-              {grouped.length === 0 ? (
-                <EmptyState
-                  compact
-                  icon={<GraduationCap aria-hidden="true" />}
-                  title="No framework yet"
-                  description="Finish setup and the four standard parts are created for you."
-                />
-              ) : (
-                <CardBody className="flex flex-col gap-6">
-                  {grouped.map((group) => (
-                    <div key={group.category}>
-                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
-                        {group.category}
-                        {group.category === "Leadership" && (
-                          <Badge tone="neutral" size="sm">
-                            Managers only
-                          </Badge>
-                        )}
-                      </p>
-                      <ul className="mt-2.5 flex flex-col gap-2.5">
-                        {group.rows.map((row) => (
-                          <SkillRow key={row.competencyId} row={row} />
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </CardBody>
-              )}
-            </LoadState>
-          </Card>
-        </div>
+          ) : (
+            <div className="flex flex-col gap-8">
+              {grouped.map((group) => (
+                <section key={group.category}>
+                  <p className="flex flex-wrap items-center gap-2 text-body-md font-semibold text-ink">
+                    {group.category}
+                    {group.category === "Leadership" && (
+                      <Badge tone="neutral" size="sm">
+                        Managers only
+                      </Badge>
+                    )}
+                  </p>
+                  <ul className="mt-3 flex flex-col gap-2.5">
+                    {group.rows.map((row) => (
+                      <SkillRow key={row.competencyId} row={row} />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </LoadState>
       )}
       {shown === "gaps" && showGaps && (
-        <Card>
-          <CardHeader title="Where people are below target" />
-          <LoadState
-            loading={gaps.loading}
-            error={gaps.error}
-            subject="the competency gaps"
-            onRetry={gaps.reload}
-            skeleton="table"
-          >
-            {gaps.gaps.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<GraduationCap aria-hidden="true" />}
-                title="Nobody is below target"
-                description="Either everyone is where they should be, or nobody has been assessed yet."
-              />
-            ) : (
-              <>
-                <div className="hidden sm:block">
-                  <TableWrap>
-                    {/* `THead` writes the `<tr>` itself. A `TR` in here nests
-                      one inside another, which is invalid HTML and shows up
-                      as a hydration error rather than as anything visible —
-                      found in the browser console, not by `tsc`. */}
-                    <THead>
-                      <TH>Person</TH>
-                      <TH>Competency</TH>
-                      <TH align="right">Level</TH>
-                      <TH align="right">Target</TH>
-                    </THead>
-                    <TBody>
-                      {gaps.gaps.map((gap) => (
-                        <TR key={`${gap.employeeId}-${gap.competencyId}`}>
-                          <TDPrimary title={gap.employeeName} />
-                          <TD>
-                            {gap.competencyName}
-                            {gap.sectionName && (
-                              <span className="mt-0.5 block text-meta text-muted">
-                                {gap.sectionName}
-                              </span>
-                            )}
-                          </TD>
-                          <TD align="right" className="tabular">
-                            {gap.level} of {gap.scaleMax}
-                          </TD>
-                          <TD align="right" className="tabular">
-                            {gap.target}
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </TableWrap>
-                </div>
-
-                <ul className="divide-y divide-line rounded-lg border border-line bg-surface sm:hidden">
-                  {gaps.gaps.map((gap) => (
-                    <li
-                      key={`${gap.employeeId}-${gap.competencyId}`}
-                      className="flex flex-col gap-2 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-body-sm font-medium text-ink">
-                            {gap.employeeName}
-                          </p>
-                          <p className="mt-0.5 text-meta text-muted">
-                            {gap.competencyName}
-                            {gap.sectionName && ` · ${gap.sectionName}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 text-body-sm text-muted">
-                        <span className="tabular">
-                          Level {gap.level} of {gap.scaleMax}
-                        </span>
-                        <span className="tabular">Target {gap.target}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </LoadState>
-        </Card>
+        <LoadState
+          loading={gaps.loading}
+          error={gaps.error}
+          subject="the competency gaps"
+          onRetry={gaps.reload}
+          skeleton="table"
+        >
+          {gaps.gaps.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<GraduationCap aria-hidden="true" />}
+              title="Nobody is below target"
+              description="Either everyone is where they should be, or nobody has been assessed yet."
+            />
+          ) : (
+            <GapsByDepartment gaps={gaps.gaps} />
+          )}
+        </LoadState>
       )}
     </>
   );
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {DEMO_ENABLED && mine.source === "demo" && (
+      {DEMO_ENABLED && mine.source === "demo" && (
+        <div>
           <Badge tone="warning" size="sm">
             Demo · seeded assessments
           </Badge>
-        )}
-        {(canSeeCompany || isManager) && rating.editable && (
-          <Button variant="accent" size="sm" onClick={() => setRecording(true)}>
-            Record a level
-          </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {items.length > 1 ? (
         <Tabs items={items} value={shown} onChange={changeTab}>
@@ -561,5 +470,108 @@ function Pips({
         );
       })}
     </span>
+  );
+}
+
+type Gap = ReturnType<typeof useGaps>["gaps"][number];
+
+/**
+ * Who is below target, by department.
+ *
+ * A list of everybody below target is long, so it opens on one card for each
+ * department that has somebody, and a card opens that department's people in a
+ * table, each with their initials in a colour of their own.
+ */
+function GapsByDepartment({ gaps }: { gaps: Gap[] }) {
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const { flat: departmentList } = useDepartments();
+  const [open, setOpen] = useState<string | null | undefined>(undefined);
+
+  const departmentOf = useMemo(
+    () => new Map(directory.people.map((p) => [p.id, p.departmentId ?? null])),
+    [directory.people],
+  );
+  const nameOf = (id: string | null) =>
+    id === null
+      ? "No department"
+      : (departmentList.find((one) => one.id === id)?.name ?? "No department");
+
+  const groups = useMemo(() => {
+    const by = new Map<string | null, Gap[]>();
+    for (const gap of gaps) {
+      const key = departmentOf.get(gap.employeeId) ?? null;
+      by.set(key, [...(by.get(key) ?? []), gap]);
+    }
+    return [...by.entries()]
+      .map(([id, rows]) => ({
+        id,
+        rows,
+        people: [...new Set(rows.map((row) => row.employeeName))],
+      }))
+      .sort((a, b) => b.rows.length - a.rows.length);
+  }, [gaps, departmentOf]);
+
+  if (open === undefined) {
+    return (
+      <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {groups.map((group) => (
+          <li key={group.id ?? "none"} className="min-w-0">
+            <DepartmentCard
+              name={nameOf(group.id)}
+              onClick={() => setOpen(group.id)}
+              line={`${String(group.rows.length)} below target`}
+              members={group.people}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  const shown = groups.find((group) => group.id === open)?.rows ?? [];
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col items-start gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2"
+          onClick={() => setOpen(undefined)}
+        >
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          All departments
+        </Button>
+        <h2 className="text-h4 font-semibold text-ink">{nameOf(open)}</h2>
+      </div>
+      <TableWrap caption="People below target">
+        <THead>
+          <TH>Person</TH>
+          <TH>Competency</TH>
+          <TH align="right">Level</TH>
+          <TH align="right">Target</TH>
+        </THead>
+        <TBody>
+          {shown.map((gap) => (
+            <TR key={`${gap.employeeId}-${gap.competencyId}`}>
+              <TDPrimary avatar={gap.employeeName} title={gap.employeeName} />
+              <TD>
+                {gap.competencyName}
+                {gap.sectionName && (
+                  <span className="mt-0.5 block text-meta text-muted">
+                    {gap.sectionName}
+                  </span>
+                )}
+              </TD>
+              <TD align="right" className="tabular">
+                {gap.level} of {gap.scaleMax}
+              </TD>
+              <TD align="right" className="tabular">
+                {gap.target}
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </TableWrap>
+    </div>
   );
 }

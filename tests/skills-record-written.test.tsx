@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
@@ -144,10 +145,28 @@ vi.mock("@/lib/store/performance", () => ({
 
 const { SkillsTab } = await import("@/app/(app)/performance/skills");
 
+/* The button is in the page header, so the harness stands in for it. */
+function Page() {
+  const [recording, setRecording] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setRecording(true)}>
+        Record a level
+      </button>
+      <SkillsTab
+        canSeeCompany
+        isManager
+        recording={recording}
+        onRecordingChange={setRecording}
+      />
+    </>
+  );
+}
+
 const mount = () =>
   render(
     <ToastProvider>
-      <SkillsTab canSeeCompany isManager />
+      <Page />
     </ToastProvider>,
   );
 
@@ -188,12 +207,6 @@ describe("a written answer on somebody's own list", () => {
     expect(screen.getByText("Written")).toBeInTheDocument();
     /* The level beside it is still a level. */
     expect(screen.getByText("Level 4 of 5 · target 5")).toBeInTheDocument();
-  });
-
-  it("counts as assessed, because it has been answered", () => {
-    mineRows = [row({ textValue: "Clear and early." })];
-    mount();
-    expect(screen.getByText("1 of 1")).toBeInTheDocument();
   });
 });
 

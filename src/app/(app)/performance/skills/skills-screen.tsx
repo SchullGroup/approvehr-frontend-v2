@@ -1,10 +1,12 @@
 "use client";
 
 import { ToggleRight } from "lucide-react";
-import { ButtonLink, EmptyState, Spinner } from "@/components/ui";
+import { Button, ButtonLink, EmptyState, Spinner } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
+import { useRating } from "@/lib/store/performance";
+import { useState } from "react";
 import { SkillsTab } from "../skills";
 import { EditCompetenciesButton } from "./edit-competencies-button";
 import type { SkillsTabId } from "./tabs";
@@ -21,6 +23,9 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
   const features = useFeatures();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const isManager = useIsManager();
+  const rating = useRating();
+  const [recording, setRecording] = useState(false);
+  const canRecord = (canSeeCompany || isManager) && rating.editable;
 
   if (features.loading) {
     return (
@@ -60,13 +65,28 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Competency ratings"
-        action={<EditCompetenciesButton />}
+        action={
+          <>
+            <EditCompetenciesButton />
+            {canRecord && (
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setRecording(true)}
+              >
+                Record a level
+              </Button>
+            )}
+          </>
+        }
       />
       <PageBody>
         <SkillsTab
           canSeeCompany={canSeeCompany}
           isManager={isManager}
           initialTab={initialTab}
+          recording={recording}
+          onRecordingChange={setRecording}
         />
       </PageBody>
     </>
