@@ -53,6 +53,7 @@ import {
 } from "@/lib/performance/objectives-by-department";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { newObjectiveHref } from "@/lib/performance/objective-wizard";
+import { askedLine, notSwitchedOn } from "@/lib/performance/notify-objectives";
 import { approvalWords } from "@/lib/performance/objective-queue";
 import { useAction } from "@/lib/use-action";
 import {
@@ -213,6 +214,12 @@ export function EmptyObjectives({
   const periods = useCycleMutations();
   const scoring = useScoringWeights();
   const [asking, setAsking] = useState(false);
+  /* A server that does not have the route: the button goes, and says so once. */
+  const [unavailable, setUnavailable] = useState(false);
+  /* The route needs the permission that manages a period, the same one the
+     period's Get-ready list asks for. Showing the button to anybody else would
+     hand them a refusal. */
+  const mayManage = useCan("MANAGE_SETTINGS");
   /* What objectives are worth in the score, so the page says why they matter. */
   const weight = Math.round(
     (scoring.weights?.rows.find((row) => row.component === "OBJECTIVES")
@@ -220,7 +227,12 @@ export function EmptyObjectives({
   );
   /* Somebody can only be asked in the name of a period, so the button waits for one. */
   const period = appraisals.cycles.find((one) => one.stage !== "PUBLISHED");
-  const mayAsk = href !== null && scope === "company" && period !== undefined;
+  const mayAsk =
+    href !== null &&
+    scope === "company" &&
+    period !== undefined &&
+    mayManage &&
+    !unavailable;
 
   const ask = async () => {
     if (!period) return;
@@ -230,17 +242,27 @@ export function EmptyObjectives({
       toast.push({
         title: "Everyone has been asked",
         tone: "success",
-        detail: `${String(result.notified)} ${result.notified === 1 ? "person was" : "people were"} told in the app.`,
+        detail: askedLine(result),
       });
     } catch (caught) {
-      toast.push({
-        title: "That did not send",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Something went wrong. Try again.",
-      });
+      if (notSwitchedOn(caught)) {
+        setUnavailable(true);
+        toast.push({
+          title: "Asking everyone is not available yet",
+          tone: "info",
+          detail:
+            "This server cannot send it yet. Set the objectives here instead.",
+        });
+      } else {
+        toast.push({
+          title: "That did not send",
+          tone: "danger",
+          detail:
+            caught instanceof ApiError
+              ? caught.message
+              : "Something went wrong. Try again.",
+        });
+      }
     } finally {
       setAsking(false);
     }

@@ -708,6 +708,13 @@ export type ApiAppraisalProgress = {
 export type ApiNotifyObjectives = {
   notified: number;
   alreadyHad: number;
+  /** People with no sign-in cannot be told in the app. Absent from older servers. */
+  noAccount?: number;
+  /**
+   * When people were last asked: now, or the last time when this press asked
+   * nobody because they had all been asked in the day. Absent when nobody has
+   * been asked at all.
+   */
   askedAt?: string;
 };
 

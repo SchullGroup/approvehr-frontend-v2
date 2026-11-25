@@ -14173,3 +14173,29 @@ back to the first tab like any unknown tab. If the page has one tab, the strip i
 - Copy that mentioned it: the kind lines (`answer-kind.ts`), the Record a level dialog's help, and the walkthrough.
 - The design rule worth keeping if it returns: every cell printed its average as text, with the tint only a second
   channel, and a cell with people below target carried an icon and a spoken count.
+
+# "Ask everyone to set theirs" goes quietly where the server cannot do it
+
+Found on 25 November 2026, walking the Performance module as a real user. The empty Objectives screen's **Ask everyone to set theirs**
+button called `POST /performance/cycles/:id/notify-objectives`, a route the backend did not have, so it showed "That did not send" with the
+address it had tried. The route is backend branch `fix/ask-objectives-route-20261125`. This is the web half, and it makes the screen safe either
+way round.
+
+- **A 404 or 410 takes the button away and says so once,** in a calm line ("Asking everyone is not available yet"), the way the period's Get-ready
+  list already did. It no longer shows the address. Any other refusal still shows the server's own sentence and keeps the button.
+- **The button is offered only with `MANAGE_SETTINGS`,** the permission the route needs and the one the period's own page uses, so nobody is handed a
+  refusal.
+- **The result line is the shared one** (`askedLine`): it now also says how many have no sign-in and so could not be asked in the app (`noAccount`, new
+  and optional on `ApiNotifyObjectives`), and tells "everyone was asked in the last day" from "nobody new was asked" by the time the server sends
+  (`askedAt` is present only when people were asked in the day). A server that sends neither reads as before.
+- The toast's detail is two lines at most; the first wording was cut off mid-sentence in a screenshot ("...and tell...") and is shorter.
+
+**Verified.** `tests/empty-objectives-guides.test.tsx` (rewritten, 7 tests) and `tests/notify-objectives.test.ts` (7): 14 pass. Seven deliberate breaks, each
+caught (the permission, the 404 handling, the button staying, a bare count, the server's sentence replaced, no-sign-in people, "everyone was asked" said
+when nobody was left); the first run of that driver passed a bad argument and reported seven false catches, which is why it now refuses a run that ran no
+tests. `tsc --noEmit` is clean and ESLint reports no errors on the files touched. In a browser, against a scratch API running the route (10 of 10 checks):
+the button for the administrator and not the employee, "Asked 9 people.", "Everyone was asked in the last day." on a second press, the button going with a
+calm line when the route is made to answer 404, and the line in the employee's notifications.
+
+**Not exercised:** a deployed server, iOS Safari or any real device, demo mode, the whole vitest suite in one run, `npm run check` in full (the gates that need
+a sibling backend were not run).
