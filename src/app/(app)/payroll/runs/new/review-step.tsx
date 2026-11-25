@@ -927,8 +927,10 @@ function Flags({
   /** No margin above it: it is not sitting under a name. */
   bare?: boolean;
 }) {
-  if (warnings.length === 0) return null;
-  const toFix = warnings.filter((w) => w.severity === "BLOCKER").length;
+  /* Notes about what somebody entered by hand are not drawn here (they were a grey "i" with a paragraph
+     behind it on every row). Only what stops the run gets a mark. */
+  const blockers = warnings.filter((w) => w.severity === "BLOCKER");
+  if (blockers.length === 0) return null;
   return (
     <span
       className={cn(
@@ -937,8 +939,8 @@ function Flags({
       )}
     >
       <AttentionMark
-        tone={toFix > 0 ? "attention" : "info"}
-        text={warnings.map((warning) => warning.message)}
+        tone="attention"
+        text={blockers.map((warning) => warning.message)}
       />
     </span>
   );
