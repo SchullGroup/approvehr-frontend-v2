@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `98fcc8f1` (2026-11-25) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `0bb26c16` (2026-11-25) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
