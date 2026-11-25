@@ -533,7 +533,6 @@ export function ExcludedList({
             {exclusions.length} {exclusions.length === 1 ? "person" : "people"}
           </span>
         }
-        hint="Left off deliberately, with the reason recorded. Everybody here is back on next period's payroll automatically: nothing has to remember to put them there."
       >
         <div className="flex flex-col gap-2.5">
           {exclusions.map((exclusion) => (

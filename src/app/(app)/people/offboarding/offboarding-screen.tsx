@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DoorOpen, ListChecks, UserMinus } from "lucide-react";
+import { DoorOpen, History, ListChecks, UserMinus, Users } from "lucide-react";
 import {
   Badge,
   Button,
@@ -16,6 +16,7 @@ import {
   StatGrid,
   Field,
   FilterBar,
+  RowActions,
   Select,
   LoadState,
 } from "@/components/ui";
@@ -95,6 +96,31 @@ export function OffboardingScreen() {
                 Start an exit
               </Button>
             </Can>
+            {/* The register's views, one press away: who is leaving now, who has left, and everyone. The same
+                choice is in the filter below; it was only ever there, so nobody found the history. */}
+            <RowActions
+              label="More actions for exit management"
+              items={[
+                {
+                  key: "open",
+                  label: "Current exits",
+                  icon: <DoorOpen />,
+                  onSelect: () => setView("open"),
+                },
+                {
+                  key: "closed",
+                  label: "Exit history: people who have left",
+                  icon: <History />,
+                  onSelect: () => setView("closed"),
+                },
+                {
+                  key: "all",
+                  label: "Everyone",
+                  icon: <Users />,
+                  onSelect: () => setView("all"),
+                },
+              ]}
+            />
           </div>
         }
       />
@@ -185,7 +211,7 @@ export function OffboardingScreen() {
               : [
                   {
                     label: "Show",
-                    value: view === "closed" ? "Closed" : "Everyone",
+                    value: view === "closed" ? "Left the company" : "Everyone",
                     onClear: () => setView("open"),
                   },
                 ]
@@ -199,7 +225,7 @@ export function OffboardingScreen() {
               }
             >
               <option value="open">Open</option>
-              <option value="closed">Closed</option>
+              <option value="closed">Left the company</option>
               <option value="all">Everyone</option>
             </Select>
           </Field>

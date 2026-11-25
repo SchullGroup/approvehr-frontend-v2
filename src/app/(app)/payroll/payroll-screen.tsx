@@ -2,16 +2,17 @@
 
 import { BackHome } from "@/components/portal/require-permission";
 import { formatMoney } from "@/components/ui/money-format";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CalendarClock, Play, Receipt, ShieldAlert } from "lucide-react";
+import { Ban, CalendarClock, Play, Receipt, ShieldAlert } from "lucide-react";
 import type { Point } from "@/components/ui";
 import {
   AreaChart,
   Badge,
   ButtonLink,
   AttentionMark,
+  ConfirmDialog,
   Card,
   CardBody,
   CardHeader,
@@ -27,6 +28,7 @@ import {
   TableWrap,
   TextLink,
   rowClick,
+  useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { NOTICE_LINK } from "@/components/portal/notice-line";
@@ -45,10 +47,13 @@ import {
   periodLabel,
   type PayrollRun,
 } from "@/lib/api/payroll";
+import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
+import { OverflowMenu } from "./runs/new/overflow-menu";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import {
   countBySeverity,
+  usePayrollActions,
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
@@ -87,8 +92,58 @@ import { formatDay, todayIn } from "@/lib/time";
 export function PayrollScreen() {
   const router = useRouter();
   const canView = useCan("VIEW_SALARIES");
-  const { runs, loading, error, connected } = usePayrollRuns();
+  const { runs, loading, error, connected, reload } = usePayrollRuns();
   const timeZone = useOrgTimezone();
+  const toast = useToast();
+  const actions = usePayrollActions();
+  const mayRun = useCan("RUN_PAYROLL");
+  /* A payroll nobody has approved can be cancelled from the list. Nothing was paid or settled, so
+     nothing is undone: it is marked cancelled, and preparing the period again starts it over. */
+  const [cancelling, setCancelling] = useState<PayrollRun | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const cancellable = (run: PayrollRun) =>
+    mayRun && (run.status === "DRAFT" || run.status === "IN_REVIEW");
+  const rowMenu = (run: PayrollRun) =>
+    cancellable(run) ? (
+      <OverflowMenu
+        label={`More actions for ${periodLabel(run.period)}`}
+        items={[
+          {
+            key: "cancel",
+            label: "Cancel this payroll",
+            icon: <Ban />,
+            tone: "danger",
+            onSelect: () => setCancelling(run),
+          },
+        ]}
+      />
+    ) : null;
+  async function cancelRun() {
+    if (!cancelling) return;
+    setCancelBusy(true);
+    try {
+      await actions.cancel(cancelling.id);
+      toast.push({
+        title: `${periodLabel(cancelling.period)} cancelled`,
+        tone: "info",
+        detail: "Prepare it again whenever you're ready to start over.",
+      });
+      setCancelling(null);
+      reload();
+    } catch (caught) {
+      setCancelling(null);
+      toast.push({
+        title: "Could not cancel this run",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   /**
    * Net pay per calendar month, with a hole where nothing was run.
@@ -398,6 +453,9 @@ export function PayrollScreen() {
                   <TH align="right">Net</TH>
                   <TH>Status</TH>
                   <TH>Pays</TH>
+                  <TH>
+                    <span className="sr-only">Actions</span>
+                  </TH>
                 </THead>
                 <TBody>
                   {runs.map((run) => (
@@ -426,9 +484,6 @@ export function PayrollScreen() {
                           <>
                             {run.employeeCount} of{" "}
                             {run.employeeCount + run.excludedCount}
-                            <span className="mt-0.5 block text-meta font-normal text-warning-text">
-                              {run.excludedCount} excluded
-                            </span>
                           </>
                         ) : (
                           run.employeeCount
@@ -446,6 +501,7 @@ export function PayrollScreen() {
                       <TD className="tabular text-muted">
                         {formatDay(run.payDate)}
                       </TD>
+                      <TD align="right">{rowMenu(run)}</TD>
                     </TR>
                   ))}
                 </TBody>
@@ -472,7 +528,10 @@ export function PayrollScreen() {
                         </p>
                       )}
                     </div>
-                    <RunStatusBadge status={run.status} />
+                    <span className="flex items-center gap-2">
+                      <RunStatusBadge status={run.status} />
+                      {rowMenu(run)}
+                    </span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
@@ -481,11 +540,6 @@ export function PayrollScreen() {
                         ? `${run.employeeCount} of ${run.employeeCount + run.excludedCount} people`
                         : `${run.employeeCount} people`}
                     </span>
-                    {run.excludedCount > 0 && (
-                      <span className="tabular text-warning-text">
-                        {run.excludedCount} excluded
-                      </span>
-                    )}
                     <span className="tabular">{formatDay(run.payDate)}</span>
                   </div>
 
@@ -502,6 +556,23 @@ export function PayrollScreen() {
             </ul>
           </Card>
         )}
+
+        <ConfirmDialog
+          open={cancelling !== null}
+          onClose={() => setCancelling(null)}
+          onConfirm={() => void cancelRun()}
+          tone="danger"
+          confirmLabel="Cancel this payroll"
+          loading={cancelBusy}
+          title={`Cancel ${cancelling ? periodLabel(cancelling.period) : "this payroll"}?`}
+          body={
+            <p>
+              Nothing has been paid or approved, so there is nothing to undo: it
+              is marked cancelled. You can prepare this period again from
+              scratch whenever you&rsquo;re ready.
+            </p>
+          }
+        />
 
         {!connected && (
           <p className="flex items-start gap-2 text-meta leading-relaxed text-muted">

@@ -85,17 +85,6 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
           <h3 className="text-body-sm font-semibold text-ink">
             Bank payment schedule
           </h3>
-          {/* The one thing worth saying before somebody downloads this: it
-              carries what `payslips.csv` deliberately does not. Said here
-              rather than only discovered on open, since a spreadsheet with
-              account numbers on it is a different thing to keep and to send
-              than one without. */}
-          <p className="mt-0.5 text-meta leading-relaxed text-muted">
-            For when your bank pays directly. One sheet in your bank&apos;s
-            upload layout: account number, account name, bank code, bank name,
-            the amount to pay each person and a narration. It carries account
-            numbers, so keep it as carefully as you would a bank statement.
-          </p>
         </div>
         <Button
           variant="secondary"
