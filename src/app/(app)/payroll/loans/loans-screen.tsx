@@ -52,6 +52,7 @@ import {
 import { monthLabel } from "@/lib/loans/schedule";
 import {
   LOAN_STATUS_LABEL,
+  LOAN_STATUS_WORD as STATUS_WORD,
   finishesLabel,
   useLoanActions,
   useLoans,
@@ -137,19 +138,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "SETTLED", label: "Fully repaid" },
   { id: "DECLINED", label: "Declined" },
 ];
-
-/**
- * The words in a status cell and the tabs, so a row and the tab it is under say
- * the same thing. `LOAN_STATUS_LABEL` is the long form, for a sentence.
- */
-const STATUS_WORD: Record<LoanStatus, string> = {
-  PENDING: "Waiting",
-  APPROVED: "Approved",
-  ACTIVE: "Being repaid",
-  SETTLED: "Fully repaid",
-  DECLINED: "Declined",
-  CONSOLIDATED: "Combined",
-};
 
 /** The API's own allow-list, taken from its params rather than re-typed. */
 type LoanSort = NonNullable<LoanListParams["sort"]>;

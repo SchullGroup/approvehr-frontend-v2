@@ -67,6 +67,14 @@ vi.mock("@/lib/store/loans", async (original) => ({
     loading: false,
     error: null,
   }),
+  usePersonLoans: () => ({
+    others: [],
+    leftOff: 0,
+    folded: [],
+    loading: false,
+    error: null,
+    reload: () => {},
+  }),
 }));
 
 vi.mock("@/lib/store/pay-components", async (original) => ({
