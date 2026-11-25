@@ -50,9 +50,14 @@ describe("the Adjust panel", () => {
     expect(drawer).toMatch(/const own = .*employeeId === me/);
     expect(drawer).toContain("const editable = mayEdit && !own;");
   });
-  it("sends the PAYE reason", () => {
+  it("asks for no reason and no explanation when PAYE is entered by hand", () => {
+    /* Taken off on request (25 Nov 2026): the field and the paragraph above it. */
+    expect(drawer).not.toContain("Why it is entered by hand");
+    expect(drawer).not.toContain(
+      "This replaces the tax worked out from the bands",
+    );
     expect(drawer).toMatch(
-      /setTaxOverride\(runId, \{\s*employeeId,\s*payeKobo,\s*reason,/,
+      /setTaxOverride\(runId, \{\s*employeeId,\s*payeKobo,\s*\}/,
     );
   });
 });

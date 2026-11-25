@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { PayslipRoute } from "./index-table";
@@ -19,7 +20,9 @@ export default function PayslipsPage() {
         title="Payslips"
       />
       <PageBody>
-        <PayslipRoute />
+        <Suspense fallback={null}>
+          <PayslipRoute />
+        </Suspense>
       </PageBody>
     </>
   );

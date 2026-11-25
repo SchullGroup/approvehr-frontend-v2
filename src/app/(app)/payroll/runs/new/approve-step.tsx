@@ -3,18 +3,9 @@
 import { paysFromWallet } from "@/lib/pay/wallet-payout";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useRef } from "react";
-import { cn } from "@/lib/cn";
-import { Callout, Card, CardBody, CardHeader } from "@/components/ui";
-import {
-  ApprovalConsequences,
-  RunStatusBadge,
-  TotalsPanel,
-} from "@/components/payroll/run-panels";
-import {
-  headcountLabel,
-  periodLabel,
-  type PayrollRunDetail,
-} from "@/lib/api/payroll";
+import { Callout } from "@/components/ui";
+import { TotalsPanel } from "@/components/payroll/run-panels";
+import type { PayrollRunDetail } from "@/lib/api/payroll";
 import type { RecordedPayment } from "@/components/payroll/record-paid-dialog";
 import {
   ApprovedMoment,
@@ -70,9 +61,6 @@ export function ApproveStep({
   recordedNow,
   onRecorded,
   onChanged,
-  blockers,
-  warnings,
-  onSeeChecks,
   scheduled,
 }: {
   run: PayrollRunDetail;
@@ -87,10 +75,6 @@ export function ApproveStep({
   onRecorded: (recorded: RecordedPayment) => void;
   /** Re-read the run. */
   onChanged: () => void;
-  blockers: number;
-  warnings: number;
-  /** Back to the Check step, where the list of what is worth a look lives. */
-  onSeeChecks: () => void;
 }) {
   const { settings: paySettings } = usePayrollSettings();
   const payPanel = useRef<HTMLDivElement>(null);
@@ -147,16 +131,6 @@ export function ApproveStep({
 
         <TotalsPanel run={run} />
 
-        <Card>
-          <CardHeader
-            title="What approving does"
-            description="Calculating can be repeated. Approving cannot be undone."
-          />
-          <CardBody>
-            <ApprovalConsequences run={run} />
-          </CardBody>
-        </Card>
-
         {/* Before the decision: the position, stated in advance. A shortfall
             found at the provider is found after the run is approved, the loans
             are settled and the figures are frozen. This never blocks the
@@ -171,55 +145,6 @@ export function ApproveStep({
       </div>
 
       <aside className="flex flex-col gap-5 lg:sticky lg:top-20 lg:h-fit">
-        <Card>
-          <CardHeader title={periodLabel(run.period)} />
-          <CardBody>
-            <dl className="flex flex-col gap-2.5 text-body-sm">
-              <SummaryRow
-                label="Status"
-                value={<RunStatusBadge status={run.status} />}
-              />
-              <SummaryRow
-                label="People on this payroll"
-                value={headcountLabel(run)}
-              />
-              <SummaryRow label="Pays on" value={run.payDate} />
-              <SummaryRow
-                label="Stops payroll"
-                value={
-                  <span
-                    className={cn(
-                      "tabular font-medium",
-                      blockers ? "text-warning-text" : "text-accent-text",
-                    )}
-                  >
-                    {blockers}
-                  </span>
-                }
-              />
-              <SummaryRow
-                label="Worth a look"
-                value={
-                  /* A count with nowhere to go is a dead end. The list is on the
-                     Check step, so a number above nothing says where. */
-                  warnings > 0 ? (
-                    <button
-                      type="button"
-                      onClick={onSeeChecks}
-                      className="inline-flex items-center gap-1.5 rounded-sm font-medium text-accent-text underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text max-sm:min-h-11"
-                    >
-                      <span className="tabular">{warnings}</span>
-                      <span>See them</span>
-                    </button>
-                  ) : (
-                    <span className="tabular">{warnings}</span>
-                  )
-                }
-              />
-            </dl>
-          </CardBody>
-        </Card>
-
         {!canApprove && (
           <Callout tone="warning" title="Somebody else approves this">
             Approving payroll is a separate permission from preparing it, on
@@ -229,21 +154,6 @@ export function ApproveStep({
           </Callout>
         )}
       </aside>
-    </div>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-medium text-ink">{value}</dd>
     </div>
   );
 }
