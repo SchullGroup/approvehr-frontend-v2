@@ -555,7 +555,8 @@ function TodayView({
                 const off = offToday(row);
                 return (
                   <TR key={row.employeeId} interactive>
-                    <TDPrimary avatar={row.employeeName}
+                    <TDPrimary
+                      avatar={row.employeeName}
                       title={
                         <TextLink href={`/people/${row.employeeId}`}>
                           {row.employeeName}
@@ -893,7 +894,8 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
               const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
               return (
                 <TR key={row.employeeId} interactive>
-                  <TDPrimary avatar={row.employeeName}
+                  <TDPrimary
+                    avatar={row.employeeName}
                     title={
                       <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}

@@ -237,7 +237,7 @@ export function PeriodPeople({
                     >
                       {initials(row.employeeName)}
                     </span>
-                    <span className="truncate text-body font-medium text-ink">
+                    <span className="truncate text-body-md font-medium text-ink">
                       {row.employeeName}
                     </span>
                   </span>
