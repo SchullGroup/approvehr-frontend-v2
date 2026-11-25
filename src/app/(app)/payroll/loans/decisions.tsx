@@ -76,6 +76,91 @@ function useFailure() {
 /* ------------------------------------------------------------------ decline */
 
 /**
+ * An administrator stopping a loan that was already approved: made by mistake, or for the wrong person
+ * or amount. It is kept in history as cancelled, with the reason. What was repaid stays repaid.
+ */
+export function CancelLoanModal({
+  loan,
+  onClose,
+  onDone,
+}: {
+  loan: ApiLoan;
+  onClose: () => void;
+  onDone?: () => void;
+}) {
+  const { cancel } = useLoanActions();
+  const toast = useToast();
+  const { failure, clear, capture } = useFailure();
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    setSaving(true);
+    clear();
+    try {
+      await cancel(loan.id, reason.trim());
+      toast.push({
+        title: `Cancelled ${loan.employeeName}'s loan`,
+        tone: "success",
+        detail: "It is in history now. Nothing more comes off their pay.",
+      });
+      onDone?.();
+      onClose();
+    } catch (error) {
+      capture(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title={`Cancel ${loan.employeeName}'s loan`}
+      description={`${money(loan.principalKobo)} over ${loan.termMonths} months. ${money(loan.outstandingKobo)} is still to be repaid.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Keep it
+          </Button>
+          <Button
+            variant="danger"
+            loading={saving}
+            disabled={reason.trim().length < 3}
+            onClick={() => void submit()}
+          >
+            Cancel the loan
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failure && (
+          <Callout tone="danger" title="That did not go through">
+            {failure.message}
+          </Callout>
+        )}
+        <Field
+          label="Why is it being cancelled?"
+          required
+          error={failure?.messageFor("reason")}
+          help="Kept with the loan. Anything already repaid stays on its schedule, and the rest is written off."
+        >
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Approved for the wrong person."
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+/**
  * Declining, or withdrawing your own.
  *
  * The same endpoint either way — the API allows self-decline where it refuses

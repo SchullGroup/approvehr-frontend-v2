@@ -57,6 +57,7 @@ import { ApprovedLoanCard } from "../approved-loan-card";
 import {
   CounterOfferModal,
   RescheduleLoanModal,
+  CancelLoanModal,
   DeclineLoanModal,
   PayInstalmentModal,
   WaiveInstalmentModal,
@@ -116,6 +117,7 @@ const STATUS_TONE: Record<
   SETTLED: "success",
   DECLINED: "neutral",
   CONSOLIDATED: "neutral",
+  CANCELLED: "neutral",
 };
 
 const ROW_TONE: Record<
@@ -298,6 +300,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   } | null>(null);
   const [countering, setCountering] = useState<ApiLoanDetail | null>(null);
   const [declining, setDeclining] = useState<ApiLoanDetail | null>(null);
+  const [cancelling, setCancelling] = useState<ApiLoanDetail | null>(null);
   const [rescheduling, setRescheduling] = useState<ApiLoanDetail | null>(null);
   const [paying, setPaying] = useState<ApiRepayment | null>(null);
   const [waiving, setWaiving] = useState<ApiRepayment | null>(null);
@@ -495,6 +498,29 @@ export function LoanDetailScreen({ id }: { id: string }) {
             >
               Withdraw it
             </Button>
+          ) : (loan.status === "ACTIVE" || loan.status === "APPROVED") &&
+            canDecide &&
+            !own ? (
+            <>
+              {loan.status === "ACTIVE" &&
+                loan.schedule.every(
+                  (row) =>
+                    row.status === "SCHEDULED" &&
+                    row.paidAmountKobo === 0 &&
+                    row.payslipId === null,
+                ) && (
+                  <Button size="sm" onClick={() => setRescheduling(loan)}>
+                    Change first deduction
+                  </Button>
+                )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCancelling(loan)}
+              >
+                Cancel loan
+              </Button>
+            </>
           ) : loan.status === "ACTIVE" &&
             canDecide &&
             loan.schedule.every(
@@ -525,6 +551,17 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
         {/* One person, one loan. These three say so where it matters: on the loan that was folded into
             another, on the loan that took others in, and on an application that is about to. */}
+        {loan.status === "CANCELLED" && (
+          <Callout tone="info" title="This loan was cancelled">
+            {loan.cancelledReason ?? "No reason was recorded."}
+            {loan.cancelledAt
+              ? ` Cancelled on ${formatDate(loan.cancelledAt, timeZone)}.`
+              : ""}{" "}
+            Nothing is deducted for it, and what was repaid before stays on the
+            schedule below.
+          </Callout>
+        )}
+
         {loan.status === "CONSOLIDATED" && (
           <Callout tone="info" title="Combined into one loan">
             What was still owed on this loan
@@ -1028,6 +1065,12 @@ export function LoanDetailScreen({ id }: { id: string }) {
           loan={declining}
           own={own}
           onClose={() => setDeclining(null)}
+        />
+      )}
+      {cancelling && (
+        <CancelLoanModal
+          loan={cancelling}
+          onClose={() => setCancelling(null)}
         />
       )}
       {paying && (

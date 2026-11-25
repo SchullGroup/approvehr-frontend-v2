@@ -135,6 +135,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "PENDING", label: "Waiting" },
   { id: "ACTIVE", label: "Being repaid" },
   { id: "SETTLED", label: "Fully repaid" },
+  { id: "CANCELLED", label: "Cancelled" },
   { id: "DECLINED", label: "Declined" },
 ];
 
@@ -149,6 +150,7 @@ const STATUS_WORD: Record<LoanStatus, string> = {
   SETTLED: "Fully repaid",
   DECLINED: "Declined",
   CONSOLIDATED: "Combined",
+  CANCELLED: "Cancelled",
 };
 
 /** The API's own allow-list, taken from its params rather than re-typed. */

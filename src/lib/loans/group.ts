@@ -78,6 +78,7 @@ const NO_COUNTS = (): Record<LoanStatus, number> => ({
   SETTLED: 0,
   DECLINED: 0,
   CONSOLIDATED: 0,
+  CANCELLED: 0,
 });
 
 /** A loan whose repayments are being taken. */
@@ -86,7 +87,7 @@ const isRecovering = (status: LoanStatus): boolean =>
 
 /** A loan that has been lent: neither still waiting nor turned down. */
 const isLent = (status: LoanStatus): boolean =>
-  status !== "PENDING" && status !== "DECLINED";
+  status !== "PENDING" && status !== "DECLINED" && status !== "CANCELLED";
 
 /**
  * Which status a person's row shows.
@@ -100,6 +101,7 @@ const HEADLINE_ORDER: LoanStatus[] = [
   "ACTIVE",
   "APPROVED",
   "SETTLED",
+  "CANCELLED",
   "DECLINED",
 ];
 
@@ -131,11 +133,15 @@ export function loanFigures(loan: ApiLoan): LoanFigures {
   return {
     borrowedKobo: loan.principalKobo,
     leftKobo:
-      loan.status === "PENDING" || loan.status === "DECLINED"
+      loan.status === "PENDING" ||
+      loan.status === "DECLINED" ||
+      loan.status === "CANCELLED"
         ? null
         : loan.outstandingKobo,
     monthlyKobo:
-      loan.status === "SETTLED" || loan.status === "DECLINED"
+      loan.status === "SETTLED" ||
+      loan.status === "DECLINED" ||
+      loan.status === "CANCELLED"
         ? null
         : loan.monthlyRepaymentKobo,
     finishes: loanFinish(loan),

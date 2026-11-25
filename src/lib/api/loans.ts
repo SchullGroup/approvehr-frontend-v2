@@ -57,7 +57,9 @@ export type LoanStatus =
   | "SETTLED"
   | "DECLINED"
   /** Folded into another loan, which now carries what was still owed on it. Lists leave it out unless asked. */
-  | "CONSOLIDATED";
+  | "CONSOLIDATED"
+  /** Stopped by an administrator after approval. Kept, with who and why, and listed under its own tab. */
+  | "CANCELLED";
 
 /** Mirrors `LoanRepaymentStatus`. `WAIVED` means forgiven, not paid. */
 export type LoanRepaymentStatus = "SCHEDULED" | "PARTIAL" | "PAID" | "WAIVED";
@@ -115,6 +117,10 @@ export type ApiLoan = {
   decidedByName: string | null;
   decidedAt: string | null;
   declinedReason: string | null;
+  /** Set when an administrator cancelled the loan. Absent from an older API. */
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  cancelledReason?: string | null;
   completedAt: string | null;
   createdAt: string;
 };
@@ -319,6 +325,13 @@ export const loansApi = {
   /** The reason is required. "Declined" with nothing against it is a support call. */
   decline: (id: string, reason: string) =>
     request<ApiLoanDetail>(`/loans/${id}/decline`, {
+      method: "POST",
+      body: { reason },
+    }),
+
+  /** An administrator stopping an approved loan. The reason is required. */
+  cancel: (id: string, reason: string) =>
+    request<ApiLoanDetail>(`/loans/${id}/cancel`, {
       method: "POST",
       body: { reason },
     }),

@@ -42,10 +42,16 @@ vi.mock("@/lib/store/session", async (original) => ({
 }));
 
 const loanOnScreen = vi.hoisted(() => ({ current: null as unknown }));
+const cancelLoan = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/store/loans", async (original) => ({
   ...(await original<typeof import("@/lib/store/loans")>()),
-  useLoanActions: () => ({ approve: vi.fn(), pay: vi.fn(), waive: vi.fn() }),
+  useLoanActions: () => ({
+    approve: vi.fn(),
+    pay: vi.fn(),
+    waive: vi.fn(),
+    cancel: cancelLoan,
+  }),
   useLoan: () => ({
     loan: loanOnScreen.current,
     loading: false,
@@ -481,5 +487,41 @@ describe("one person, one loan", () => {
     expect(screen.queryByText(/This loan combines/)).toBeNull();
     expect(screen.queryByText("Combined into one loan")).toBeNull();
     expect(screen.queryByText(/combined with their current/)).toBeNull();
+  });
+
+  it("lets an administrator cancel a loan being repaid, with a reason", async () => {
+    cancelLoan.mockResolvedValue(running({ status: "CANCELLED" }));
+    loanOnScreen.current = running();
+    render(<LoanDetailScreen id="loan-7" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel loan" }));
+    const confirm = screen.getByRole("button", { name: "Cancel the loan" });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Approved for the wrong person" },
+    });
+    fireEvent.click(confirm);
+
+    await vi.waitFor(() =>
+      expect(cancelLoan).toHaveBeenCalledWith(
+        "loan-7",
+        "Approved for the wrong person",
+      ),
+    );
+  });
+
+  it("shows a cancelled loan as history, with the reason, and no way to cancel it again", () => {
+    loanOnScreen.current = running({
+      status: "CANCELLED",
+      outstandingKobo: 0,
+      cancelledAt: "2026-11-26T09:00:00.000Z",
+      cancelledReason: "Approved for the wrong person",
+    });
+    render(<LoanDetailScreen id="loan-7" />);
+
+    expect(screen.getByText("This loan was cancelled")).toBeVisible();
+    expect(screen.getByText(/Approved for the wrong person/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Cancel loan" })).toBeNull();
   });
 });

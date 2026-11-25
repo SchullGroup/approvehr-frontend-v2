@@ -479,6 +479,7 @@ const STATUS_RANK: Record<LoanStatus, number> = {
   SETTLED: 3,
   DECLINED: 4,
   CONSOLIDATED: 5,
+  CANCELLED: 6,
 };
 
 export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
@@ -880,6 +881,8 @@ export type LoanActions = {
   /** `{}` approves exactly as applied for. Fields are a counter-offer. */
   approve: (id: string, body?: ApproveLoanBody) => Promise<ApiLoanDetail>;
   decline: (id: string, reason: string) => Promise<ApiLoanDetail>;
+  /** Stop an approved loan. It goes to history as cancelled, with the reason. */
+  cancel: (id: string, reason: string) => Promise<ApiLoanDetail>;
   /** Move the first deduction. Needs the API: a demo book has nothing to move. */
   reschedule: (id: string, startPeriod: string) => Promise<ApiLoanDetail>;
   pay: (
@@ -1083,6 +1086,39 @@ export function useLoanActions(): LoanActions {
     [isConnected, actingId, displayName, write],
   );
 
+  const cancel = useCallback(
+    async (id: string, reason: string): Promise<ApiLoanDetail> => {
+      if (isConnected) {
+        const loan = await loansApi.cancel(id, reason);
+        bumpRevision();
+        return loan;
+      }
+
+      return write(id, (loan) => {
+        if (loan.status !== "ACTIVE" && loan.status !== "APPROVED") {
+          throw conflict(
+            `That loan is ${loan.status.toLowerCase()}, so it cannot be cancelled. Only a loan being repaid can.`,
+          );
+        }
+        /* What was repaid stays paid; what was still to come is written off with the reason. */
+        return {
+          ...loan,
+          status: "CANCELLED",
+          outstandingKobo: 0,
+          cancelledAt: new Date().toISOString(),
+          cancelledById: actingId,
+          cancelledReason: reason,
+          schedule: loan.schedule.map((row) =>
+            row.status === "SCHEDULED" || row.status === "PARTIAL"
+              ? { ...row, status: "WAIVED" as const }
+              : row,
+          ),
+        };
+      });
+    },
+    [isConnected, actingId, write],
+  );
+
   const pay = useCallback(
     async (
       id: string,
@@ -1245,6 +1281,7 @@ export function useLoanActions(): LoanActions {
     apply,
     approve,
     decline,
+    cancel,
     reschedule,
     pay,
     waive,
@@ -1262,6 +1299,7 @@ export const LOAN_STATUS_LABEL: Record<LoanStatus, string> = {
   SETTLED: "Fully repaid",
   DECLINED: "Declined",
   CONSOLIDATED: "Combined into one loan",
+  CANCELLED: "Cancelled",
 };
 
 export const REPAYMENT_STATUS_LABEL: Record<LoanRepaymentStatus, string> = {
