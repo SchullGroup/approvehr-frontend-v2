@@ -961,36 +961,28 @@ export function PayrollRunWizard() {
                   />
                 </Field>
 
-                {existing && (
+                {/* Said only where there is something to do about it: an approved payroll is frozen, and the
+                    way out of that is to pay somebody outside it. A payroll still being worked needs no
+                    sentence (the stepper below already offers to prepare it again). */}
+                {existing && existingApproved && (
                   <div className="sm:col-span-2">
                     <Callout
                       tone="info"
                       title={`${periodLabel(period)} is already prepared`}
                     >
-                      {/* Two sentences, because one was ambiguous. `and is approved`
-                      appended to `payslipCountLabel` produced "9 of 10 payslips
-                      — 1 excluded and is approved", where the trailing clause
-                      reads as though the *exclusion* had been approved rather
-                      than the payroll. The count gets its own full stop. */}
-                      It has {payslipCountLabel(existing)}.{" "}
-                      {existing.status === "APPROVED" ||
-                      existing.status === "PAID"
-                        ? "It is approved, so its figures are frozen."
-                        : "It is not approved yet: you can prepare it again from the next step."}
-                      {/* The way out of what used to be a dead end. An approved
-                      payroll cannot be re-prepared — correctly — and before
+                      It has {payslipCountLabel(existing)}. It is approved, so
+                      its figures are frozen.
+                      {/* An approved payroll cannot be re-prepared — correctly — and before
                       `sequence` a leaver's final pay had nowhere to go. */}
-                      {existingApproved && (
-                        <span className="mt-3 flex">
-                          <Checkbox
-                            checked={offCycle}
-                            onChange={(event) =>
-                              setOffCycle(event.target.checked)
-                            }
-                            label="Pay somebody outside this payroll"
-                          />
-                        </span>
-                      )}
+                      <span className="mt-3 flex">
+                        <Checkbox
+                          checked={offCycle}
+                          onChange={(event) =>
+                            setOffCycle(event.target.checked)
+                          }
+                          label="Pay somebody outside this payroll"
+                        />
+                      </span>
                     </Callout>
                   </div>
                 )}
