@@ -87,10 +87,10 @@ describe("pages measured at 390px", () => {
     expect(doc).toContain("break-words min-[480px]:truncate");
   });
 
-  it("Who appraises whom puts its filters on a line of their own", () => {
-    expect(source("src/app/(app)/performance/appraiser-map.tsx")).toContain(
-      "min-w-0 flex-1 basis-80",
-    );
+  it("Who appraises whom has no filter bar to squeeze: department cards, then each appraiser's people", () => {
+    const page = source("src/app/(app)/performance/appraiser-map.tsx");
+    expect(page).not.toContain("<FilterBar");
+    expect(page).toContain("sm:grid-cols-2");
   });
 
   it("Employees opens on one summary line, not a chart and four tiles", () => {

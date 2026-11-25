@@ -62,24 +62,18 @@ describe("rows that would only turn the reader away", () => {
   it("are in a manager's, apart from the rota planner they cannot plan", () => {
     const shown = labels(LINE_MANAGER, LEADS);
     expect(shown).toEqual(
-      expect.arrayContaining([
-        "My approvals",
-        "Objectives to agree",
-        "Exit management",
-      ]),
+      expect.arrayContaining(["My approvals", "Exit management"]),
     );
     expect(shown).not.toContain("Shifts");
+    /* A tab of Objectives now, not a row of its own (owner, 24 Nov 2026). */
+    expect(shown).not.toContain("Objectives to agree");
   });
 
   it("are all in HR's, Shifts included", () => {
     expect(labels(HR, LEADS)).toEqual(
-      expect.arrayContaining([
-        "My approvals",
-        "Objectives to agree",
-        "Exit management",
-        "Shifts",
-      ]),
+      expect.arrayContaining(["My approvals", "Exit management", "Shifts"]),
     );
+    expect(labels(HR, LEADS)).not.toContain("Objectives to agree");
   });
 });
 

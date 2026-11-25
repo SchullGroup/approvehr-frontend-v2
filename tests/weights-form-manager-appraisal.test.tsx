@@ -168,23 +168,26 @@ beforeEach(() => {
 });
 
 describe("the part scored from Manager appraisal", () => {
-  it("draws the API's sentence once, verbatim, beside the part it is about", () => {
+  it("puts the explanation behind one info icon beside the heading, not in a row", () => {
     mount();
-    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    const icons = screen.getAllByRole("button", {
+      name: "What the manager appraisal weight does",
+    });
+    expect(icons).toHaveLength(1);
+    expect(screen.getByText("The parts of the score")).toContainElement(
+      icons[0]!,
+    );
+    expect(screen.queryByText(NOTE)).toBeNull();
+    expect(screen.queryByText(/overall mark before it can be sent/)).toBeNull();
+  });
+
+  it("has no icon on any other part's row", () => {
+    mount();
     expect(
-      within(row("MANAGER_APPRAISAL")!).getByText(NOTE),
-    ).toBeInTheDocument();
-  });
-
-  it("draws it on no other part's row", () => {
-    mount();
-    expect(within(row("OBJECTIVES")!).queryByText(NOTE)).toBeNull();
-  });
-
-  it("says nothing of its own about the double count: no sentence on the page beyond the API's", () => {
-    mount();
-    expect(screen.queryByText(/reaches the score both/i)).toBeNull();
-    expect(screen.queryByText(/counted twice/i)).toBeNull();
+      within(row("OBJECTIVES")!).queryByRole("button", {
+        name: "What the manager appraisal weight does",
+      }),
+    ).toBeNull();
   });
 
   it("never says it is about a moved weight: a row shows the saved one", () => {
@@ -267,7 +270,7 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
     await user.click(screen.getByRole("button", { name: "Delete Line view" }));
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Delete the part",
+        name: "Delete part",
       }),
     );
     await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));
@@ -288,54 +291,40 @@ describe("the sentence is about the saved set, so a write reads it again", () =>
 });
 
 describe("what the form tells the overall-score card about the part", () => {
-  const header = {
-    has: (label: string) =>
-      `Forms do not ask for an overall rating, except a manager's form in a period that weights ${label}. Otherwise the answers stand on their own.`,
-    none: "Forms do not ask for an overall rating. The answers stand on their own.",
-    unknown:
-      "Whether each form ends with a page asking for one overall rating.",
-  };
+  const BASE = "People pick one of the rating names below.";
+  const has = (label: string) =>
+    `${BASE} Managers must give one in a period that weights ${label}.`;
 
   it("the company has a part scored from it: the card names the exception, in the company's own word", () => {
     mount("marks");
-    expect(screen.getByText(header.has("Line view"))).toBeInTheDocument();
+    expect(screen.getByText(has("Line view"))).toBeInTheDocument();
     expect(screen.queryByText(/is not counted in it/)).toBeNull();
   });
 
   it("the server lists the source and the company has no part from it yet: the card names it by the source's own name", () => {
     view = viewOf([delivery]);
     mount("marks");
-    expect(
-      screen.getByText(header.has("Manager appraisal")),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/is not counted in it/)).toBeNull();
+    expect(screen.getByText(has("Manager appraisal"))).toBeInTheDocument();
   });
 
-  it("the server does not list the source, so it predates the part: the card says what it always did", () => {
+  it("the server does not list the source, so it predates the part: no exception is named", () => {
     view = viewOf([delivery], { listsManager: false });
     mount("marks");
-    expect(screen.getByText(header.none)).toBeInTheDocument();
-    expect(screen.getByText(/is not counted in it/)).toBeInTheDocument();
+    expect(screen.getByText(BASE)).toBeInTheDocument();
+    expect(screen.queryByText(/Managers must/)).toBeNull();
   });
 
   it.each([
     ["not in yet", "loading"],
     ["failed", "failed"],
   ] as const)(
-    "the parts %s: nothing is known, so the card says nothing about whether forms ask or the score counts",
+    "the parts %s: nothing is known, so the card says nothing about managers or the score counting",
     (_name, state) => {
       read = state;
       mount("marks");
-      expect(screen.getByText(header.unknown)).toBeInTheDocument();
-      expect(screen.queryByText(header.none)).toBeNull();
+      expect(screen.getByText(BASE)).toBeInTheDocument();
+      expect(screen.queryByText(/Managers must/)).toBeNull();
       expect(screen.queryByText(/is not counted in it/)).toBeNull();
-      expect(screen.queryByText(/shown beside the score/)).toBeNull();
-      expect(screen.queryByText(/have to give one/)).toBeNull();
-      expect(
-        screen.getByText(
-          "The person picks one of the names below after the questions.",
-        ),
-      ).toBeInTheDocument();
     },
   );
 });

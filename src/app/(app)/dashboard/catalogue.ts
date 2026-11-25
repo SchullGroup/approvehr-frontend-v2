@@ -163,45 +163,6 @@ const RUNS_THE_COMPANY: readonly RoleTier[] = ["owner", "admin", "custom"];
 export const WIDGETS: readonly WidgetSpec[] = [
   /* ------------------------------------------------------------- attention */
   {
-    id: "needs-you",
-    title: "Needs you",
-    blurb:
-      "Every held-up thing with the button that clears it: approvals waiting, records payroll would refuse, exits and starters part-done.",
-    group: "attention",
-    /* A card in the two-column grid, first in it. When the Today panel beside
-       it has nothing to say it takes the row; when this has nothing it does. */
-    span: "half",
-    source: "dashboard",
-    anyPermission: SEES_COMPANY,
-    /* Off the home page for everybody (23 Nov 2026, the product owner: "remove
-       these cards"). The widget and its rows stay, and it can come back by
-       putting a tier here; nothing else on the page says what is held up, so
-       payroll's own screens carry the approved-but-unpaid prompt. */
-    defaultFor: [],
-  },
-  {
-    /* Staff only (23 Nov 2026). The owner and the administrators lost it with
-       Needs you, on request: it is the card that says "Nothing needs you
-       today" to the people running the company. For staff it is still the one
-       card about the person, and where a notice is read, a policy accepted and
-       a forgotten clock-out put right, and it sits above the clock card, which
-       the panel's own header badge stands in for (clock state, with a link);
-       move it behind `my-clock` with `leadFor` if the daily button should come
-       first.
-
-       `source: "local"` because it reads its own request (`GET /me/today`), which
-       costs the dashboard nothing and fails alone: a failed panel is a card, not
-       the screen. */
-    id: "today",
-    title: "Today",
-    blurb:
-      "What is true for you today: notices to read, policies to accept, when you are paid, what leave you have left, your next one-to-one, and whether you are clocked in.",
-    group: "attention",
-    span: "half",
-    source: "local",
-    defaultFor: ["staff"],
-  },
-  {
     id: "my-queue",
     title: "Waiting on you",
     blurb: "How many decisions are sitting in your own approval queue.",
@@ -214,7 +175,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
        count. The widget also draws nothing for anybody the company-wide
        approvals block was sent to, so a custom role that holds the company
        permissions is covered too. */
-    defaultFor: ["custom", "staff"],
+    defaultFor: [],
   },
 
   /* ---------------------------------------------------------------- people */
@@ -226,7 +187,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "quarter",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "stat-approvals",
@@ -263,7 +224,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "dashboard",
     anyPermission: SEES_COMPANY,
     feature: "attendance",
-    defaultFor: ["owner", "admin", "custom"],
+    defaultFor: [],
   },
   {
     /* Only where the company has turned the measure on, and only for whoever holds
@@ -278,18 +239,18 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "local",
     permission: "MANAGE_SETTINGS",
     feature: "appOpenTracking",
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: [],
   },
   {
     id: "who-is-in",
     title: "Who is in today",
     blurb: "Clocked in, late, on leave and unaccounted for, as one bar.",
     group: "people",
-    span: "half",
+    span: "third",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
     feature: "attendance",
-    defaultFor: ["admin", "custom"],
+    defaultFor: ["owner", "admin", "custom"],
   },
 
   /* ------------------------------------------------------------------- pay */
@@ -299,10 +260,10 @@ export const WIDGETS: readonly WidgetSpec[] = [
     blurb:
       "Net and gross for the current run, its status, and what is left to check.",
     group: "pay",
-    span: "half",
+    span: "third",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "money-owed",
@@ -313,7 +274,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "dashboard",
     permission: "VIEW_SALARIES",
-    defaultFor: ["owner"],
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "hiring",
@@ -325,7 +286,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "dashboard",
     permission: "MANAGE_HIRING",
     feature: "hiring",
-    defaultFor: RUNS_THE_COMPANY,
+    defaultFor: [],
   },
 
   /* ---------------------------------------------------------------- charts */
@@ -337,7 +298,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "half",
     source: "reports",
     anyPermission: SEES_COMPANY,
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "chart-joiners-leavers",
@@ -374,7 +335,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     title: "Headcount by department",
     blurb: "Where everybody sits, largest first.",
     group: "charts",
-    span: "half",
+    span: "full",
     source: "reports",
     anyPermission: SEES_COMPANY,
     feature: "departments",
@@ -401,7 +362,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     source: "reports",
     permission: "VIEW_SALARIES",
     feature: "departments",
-    defaultFor: ["owner"],
+    defaultFor: [],
   },
   {
     id: "chart-gross-breakdown",
@@ -434,7 +395,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     group: "you",
     span: "quarter",
     source: "dashboard",
-    defaultFor: ["owner", "admin", "custom"],
+    defaultFor: ["staff"],
   },
   {
     /* Off for the owner by default, and that is the whole of the difference —
@@ -448,7 +409,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
        was the tallest thing in the row and set the row's height. */
     span: "half",
     source: "dashboard",
-    defaultFor: ["admin", "custom"],
+    defaultFor: ["staff"],
   },
   {
     id: "my-clock",
@@ -478,21 +439,6 @@ export const WIDGETS: readonly WidgetSpec[] = [
 
   /* ----------------------------------------------------------------- tools */
   {
-    id: "appraisals",
-    title: "Appraisals",
-    blurb:
-      "Where the current period has got to, self-reviews in, manager reviews in, scores final, signed off, and the button that starts one.",
-    group: "tools",
-    span: "half",
-    source: "local",
-    feature: "appraisals",
-    /* Off the home page (23 Nov 2026): a card that said "Nobody has been
-       appraised yet" and "No appraisal period is running" to a company that
-       was not appraising anybody. Starting and following a period is on the
-       Performance pages. */
-    defaultFor: [],
-  },
-  {
     id: "assistant",
     title: "Ask about your company",
     blurb:
@@ -501,20 +447,38 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "full",
     slot: "foot",
     source: "local",
-    /* Off the home page (23 Nov 2026). The assistant is one tap away from the
-       orb on every page, so the card said the same thing twice. */
-    defaultFor: [],
+    defaultFor: EVERYONE,
+  },
+  {
+    id: "attendance-by-day",
+    title: "Attendance by day",
+    blurb: "How many people were in on each of the last working days.",
+    group: "people",
+    span: "half",
+    source: "local",
+    anyPermission: SEES_COMPANY,
+    feature: "attendance",
+    defaultFor: ["owner", "admin", "custom"],
+  },
+  {
+    id: "my-objectives",
+    title: "My objectives",
+    blurb: "Your agreed objectives and how far along each one is.",
+    group: "tools",
+    span: "half",
+    source: "local",
+    defaultFor: ["staff"],
   },
   {
     id: "quick-actions",
     title: "Things to start",
     blurb:
-      "The handful of acts people begin from this screen, filtered to what you can do. A menu in the page header.",
+      "The handful of acts people begin from this screen, filtered to what you can do, A menu in the page header.",
     group: "tools",
     span: "full",
     slot: "header",
     source: "local",
-    defaultFor: ["admin", "custom"],
+    defaultFor: ["owner", "admin", "custom"],
   },
   {
     id: "noticeboard",

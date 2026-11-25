@@ -121,7 +121,7 @@ describe("a company with no parts", () => {
     mount();
     expect(screen.getByText("No parts yet")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add the first part" }),
+      screen.getByRole("button", { name: "Add a part" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Delivery against objectives")).toBeNull();
     /* No open boxes on the page until somebody chooses to add or edit. */
@@ -131,9 +131,7 @@ describe("a company with no parts", () => {
   it("adds a part with its own name, source and description, at 0% (its weight is given with the others)", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(
-      screen.getByRole("button", { name: "Add the first part" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Add a part" }));
 
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Name"), "Customer focus");
@@ -159,9 +157,7 @@ describe("a company with no parts", () => {
   it("will not add a part with no name", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(
-      screen.getByRole("button", { name: "Add the first part" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Add a part" }));
     const dialog = screen.getByRole("dialog");
     expect(
       within(dialog).getByRole("button", { name: "Add part" }),
@@ -253,7 +249,7 @@ describe("a company with parts", () => {
       screen.getByRole("button", { name: "Delete Leading people" }),
     );
     expect(screen.getByText("Delete Leading people?")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Delete the part" }));
+    await user.click(screen.getByRole("button", { name: "Delete part" }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith("p-2"));
   });
 

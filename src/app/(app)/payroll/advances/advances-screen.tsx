@@ -269,7 +269,7 @@ function Mine({
             /* The API's own sentence says why not, one hover away. */
             <InfoTooltip
               id="advance-refusal"
-              label="Why you cannot draw"
+              label="Why pay early is not available"
               text={eligibility.refusal}
             />
           )

@@ -377,19 +377,16 @@ describe("the people list", () => {
 });
 
 describe("what HR may do to a row", () => {
-  it("lists recording consent for somebody who opted out themselves, dimmed, with the reason", async () => {
-    const user = await openPeople();
-    const menu = await openMenu(user, "Tunde Bakare");
-
-    const consent = within(menu).getByRole("menuitem", {
-      name: /Record written consent/,
-    });
-    expect(consent).toHaveAttribute("aria-disabled", "true");
-    expect(consent).toHaveTextContent(
-      "They opted out themselves. Only they can opt back in, from the app.",
-    );
-    await user.click(consent);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  it("offers nothing for somebody who opted out themselves, and says why in one line", async () => {
+    await openPeople();
+    expect(
+      screen.queryByRole("button", { name: "More actions for Tunde Bakare" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "They opted out themselves. Only they can opt back in, from the app.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("offers it for an opt-out HR recorded, and asks where the signed form is filed", async () => {
@@ -498,13 +495,10 @@ describe("what HR may do to a row", () => {
     expect(smsApi.recordOptOut).toHaveBeenCalledWith("e1");
   });
 
-  it("has no opt-out to record for somebody who is already out, and says so", async () => {
-    const user = await openPeople();
-    const menu = await openMenu(user, "Tunde Bakare");
-    const item = within(menu).getByRole("menuitem", {
-      name: /Record opt-out/,
-    });
-    expect(item).toHaveAttribute("aria-disabled", "true");
-    expect(item).toHaveTextContent("Already opted out.");
+  it("has no opt-out to record for somebody who is already out: no menu is drawn", async () => {
+    await openPeople();
+    expect(
+      screen.queryByRole("button", { name: "More actions for Tunde Bakare" }),
+    ).not.toBeInTheDocument();
   });
 });

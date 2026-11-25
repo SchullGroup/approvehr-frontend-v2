@@ -17,6 +17,8 @@ import {
   TableWrap,
   TextLink,
   LoadState,
+  NextStep,
+  ProgressMeter,
 } from "@/components/ui";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
@@ -67,6 +69,23 @@ export function IncompleteRecordsScreen() {
       return a.employee.lastName.localeCompare(b.employee.lastName);
     });
 
+  const needPaying = rows.filter((r) => r.blocking.length > 0).length;
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const gap of [...row.blocking, ...row.advisory]) {
+      counts.set(gap.label, (counts.get(gap.label) ?? 0) + 1);
+    }
+  }
+  const byField = [...counts].map(
+    ([label, n]) => `${String(n)} missing ${label}`,
+  );
+  const first = rows[0];
+  const firstGap = first ? (first.blocking[0] ?? first.advisory[0]) : undefined;
+  const nextHref =
+    first && firstGap
+      ? `/people/${first.employee.id}?tab=pay&field=${firstGap.field}`
+      : "/people";
+
   /* A person who cannot be paid carries a mark beside their name saying so.
      Every blocking gap today is a missing bank account, and `payrollGapsFor`
      words its consequence the same way for all of them, so the sentences are
@@ -116,6 +135,22 @@ export function IncompleteRecordsScreen() {
           </Card>
         ) : (
           <>
+            <ProgressMeter
+              value={employees.length - rows.length}
+              max={Math.max(employees.length, 1)}
+              label={`${String(employees.length - rows.length)} of ${String(employees.length)} records complete`}
+              showValue={false}
+              size="sm"
+            />
+            <NextStep
+              title={
+                needPaying > 0
+                  ? `${String(needPaying)} ${needPaying === 1 ? "person needs" : "people need"} bank details before they can be paid`
+                  : `${String(rows.length)} ${rows.length === 1 ? "record has" : "records have"} optional details missing`
+              }
+              detail={byField.join(" · ")}
+              action={{ label: "Fix next", href: nextHref }}
+            />
             <div className="rounded-lg border border-line bg-surface">
               <div className="hidden sm:block">
                 <TableWrap
@@ -130,6 +165,7 @@ export function IncompleteRecordsScreen() {
                     {rows.map(({ employee, blocking, advisory }) => (
                       <TR key={employee.id}>
                         <TDPrimary
+                          avatar={fullName(employee)}
                           title={
                             <TextLink href={`/people/${employee.id}`}>
                               {fullName(employee)}
@@ -147,7 +183,7 @@ export function IncompleteRecordsScreen() {
                                 title={gap.consequence}
                                 className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
                               >
-                                <Badge tone="danger" size="sm">
+                                <Badge tone="neutral" size="sm">
                                   {gap.label}
                                 </Badge>
                               </Link>
@@ -197,7 +233,7 @@ export function IncompleteRecordsScreen() {
                           title={gap.consequence}
                           className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
                         >
-                          <Badge tone="danger" size="sm">
+                          <Badge tone="neutral" size="sm">
                             {gap.label}
                           </Badge>
                         </Link>

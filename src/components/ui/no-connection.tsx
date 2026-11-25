@@ -1,7 +1,7 @@
 "use client";
 
 import { RotateCw, WifiOff } from "lucide-react";
-import { HERO_BLUE, HeroBackdrop } from "./hero-backdrop";
+import { HERO_FROM, HeroBackdrop } from "./hero-backdrop";
 
 /**
  * A crossed-out Wi-Fi symbol in a faint white disc with a white ring, for the blue. A drawn symbol and never a
@@ -45,7 +45,7 @@ export function NoConnectionCard({
     <div
       role="alert"
       className="relative overflow-hidden rounded-xl text-white"
-      style={{ backgroundColor: HERO_BLUE.from }}
+      style={{ backgroundColor: HERO_FROM }}
     >
       <HeroBackdrop />
       <div className="relative flex flex-col items-center gap-3 px-6 py-8 text-center">

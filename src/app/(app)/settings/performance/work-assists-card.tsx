@@ -13,6 +13,13 @@ import {
 } from "@/components/ui";
 import { actionMessage } from "@/lib/use-action";
 import { useFeatureSettings } from "@/lib/store/features";
+import {
+  LOADING,
+  LOAD_FAILED,
+  NOT_ON_SERVER,
+  NO_SERVER,
+  READ_ONLY,
+} from "./setting-copy";
 
 /**
  * Whether the two assists are offered: the list of linked tasks beside Confirm on a done-or-not
@@ -73,11 +80,11 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
       toast.push({
         tone: "success",
         title: next
-          ? "The two assists are now offered"
-          : "The two assists are no longer offered",
+          ? "Task suggestions switched on"
+          : "Task suggestions switched off",
         detail: next
-          ? "It applies to the next thing anybody does. Nothing is filed, submitted or graded by them."
-          : "Nothing is deleted. Tasks closed as won't do and accepted tasks stay as recorded.",
+          ? "Nothing is filed or graded by them."
+          : "Nothing is deleted.",
       });
     } catch (error) {
       setProblem(actionMessage(error, "that setting"));
@@ -89,24 +96,18 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
     <>
       <Card>
         <CardHeader
-          title="Work behind a milestone, and weekly lines"
+          title="Task suggestions"
           level={3}
-          description={
-            on === true
-              ? "Beside Confirm on a done-or-not target, the tasks linked to it are listed, and a person writing a weekly line can start from the tasks they finished that week."
-              : on === false
-                ? "Off. Neither is offered. Tasks closed as won't do and accepted tasks stay as recorded."
-                : "Whether the linked tasks are listed beside Confirm and finished tasks are offered when somebody writes a weekly line."
-          }
+          info="A manager confirming a done-or-not target sees the tasks linked to it. Only people who may confirm see that list, not the person whose objective it is. Nothing is filed, graded or scored. Closing a task as won't do, and accepting one, aren't affected by this switch."
         />
         <CardBody className="flex flex-col gap-4">
           {reading ? (
-            <p className="text-body-sm text-muted">Reading the setting</p>
+            <p className="text-body-sm text-muted">{LOADING}</p>
           ) : switchable ? (
             <>
               <Switch
-                label="Offer the linked tasks beside Confirm, and finished tasks for weekly lines"
-                description="A manager confirming a done-or-not target sees which tasks are linked to it and where each stands. A person writing a weekly line on an agreed objective can add the tasks they finished that week as text to edit. Both are for reading. Neither changes a score."
+                label="Show linked tasks next to Confirm"
+                description="It never changes a score."
                 checked={on}
                 disabled={!features.editable || saving}
                 onChange={(event) => {
@@ -123,71 +124,21 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
               )}
               {projectsOff && (
                 <p className="text-body-sm text-muted">
-                  Projects is switched off, so nothing is offered yet however
-                  this is set. Switch it on under{" "}
+                  Needs Projects. Turn it on in{" "}
                   <TextLink href="/settings/features">Features</TextLink>.
                 </p>
               )}
-              <p className="text-body-sm text-muted">
-                Closing a finished task as won&apos;t do, and accepting one, are
-                not behind this switch. They are recordings, and they change
-                nothing until a person makes one. Turning this off deletes
-                nothing.
-              </p>
               {!features.editable && (
-                <p className="text-body-sm text-muted">
-                  Read-only: changing this needs the Manage settings permission.
-                </p>
+                <p className="text-body-sm text-muted">{READ_ONLY}</p>
               )}
             </>
           ) : failed ? (
-            <p className="text-body-sm text-muted">
-              The setting could not be read, so no switch is shown rather than a
-              guess. Reload the page to try again.
-            </p>
+            <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
           ) : (
             <p className="text-body-sm text-muted">
-              {connected
-                ? "This server has not been updated to offer this setting yet, so the linked tasks and the weekly-line suggestions are not offered until it is."
-                : "Whether these are offered is a company setting kept on the server, so there is nothing to switch here."}
+              {connected ? NOT_ON_SERVER : NO_SERVER}
             </p>
           )}
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="What it does, and what it does not" level={3} />
-        <CardBody className="grid gap-6 text-body-sm text-body sm:grid-cols-2">
-          <div>
-            <p className="font-medium text-ink">What it offers</p>
-            <ul className="mt-2 list-disc pl-5">
-              <li>
-                Beside Confirm on a done-or-not target: the tasks linked to it,
-                open ones first, each with where it stands (open, finished on a
-                date, closed as won&apos;t do, accepted by someone)
-              </li>
-              <li>
-                When a person writes a weekly line on an agreed objective: the
-                tasks they finished that week under it, as text they can edit
-              </li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-medium text-ink">What it never does</p>
-            <ul className="mt-2 list-disc pl-5">
-              <li>Confirm a target, or say that one is done</li>
-              <li>File, submit, grade or score anything</li>
-              <li>Change a score, a band or a rank</li>
-              <li>Save a task title anywhere</li>
-              <li>Offer anything while Projects is switched off</li>
-            </ul>
-          </div>
-          <p className="sm:col-span-2">
-            The list beside Confirm is shown to the people who may confirm the
-            target. The person whose objective it is does not see it. The
-            weekly-line suggestions are read only by the person who owns the
-            objective, from their own finished tasks.
-          </p>
         </CardBody>
       </Card>
 
@@ -196,7 +147,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
       <Modal
         open={asking}
         onClose={close}
-        title="Offer the linked tasks and the weekly-line suggestions?"
+        title="Switch on task suggestions?"
         size="sm"
         footer={
           <>
@@ -219,35 +170,12 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
           </>
         }
       >
-        <div className="text-body-sm leading-relaxed text-body">
-          <div className="flex flex-col gap-3">
-            <p>
-              From now on, beside Confirm on a done-or-not target, the tasks
-              linked to that target are listed with where each stands. And a
-              person writing a weekly line on an agreed objective can add the
-              tasks they finished that week as text, then edit it.
-            </p>
-            <ul className="list-disc pl-5">
-              <li>
-                Nothing is filed, submitted, graded or scored. The person edits
-                the text and sends it themselves, as before.
-              </li>
-              <li>
-                The list never says a target is done and never recommends
-                confirming it. A manager still decides.
-              </li>
-              <li>
-                A task&apos;s title is shown to the person whose task it is, in
-                the weekly line, and is not saved by this.
-              </li>
-              <li>It only works while Projects is switched on.</li>
-            </ul>
-            <p>
-              Closing a task as won&apos;t do and accepting a finished task are
-              not part of this and stay as they are. Turning it off later
-              deletes nothing.
-            </p>
-          </div>
+        <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
+          <p>
+            Managers see the tasks linked to a done-or-not target next to
+            Confirm. The list never says a target is done; a manager still
+            decides. Task titles aren&apos;t saved. It needs Projects.
+          </p>
         </div>
       </Modal>
     </>

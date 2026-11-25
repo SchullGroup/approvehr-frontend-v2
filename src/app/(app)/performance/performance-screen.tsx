@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { LoadState } from "@/components/ui";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { useAppraisals, useScoringWeights } from "@/lib/store/performance";
 import { WhatNeedsYouTab } from "./now";
-import { PeriodCard } from "./periods";
+import { PeriodsTab } from "./periods";
 import { SetupWizard } from "./setup/setup-wizard";
 import { StartPeriodButton, StartPeriodDialog } from "./start-period";
 import { useRouter } from "next/navigation";
@@ -37,6 +36,14 @@ export function PerformanceScreen() {
       <PageBody>
         {canManage ? (
           <AppraisalHome />
+        ) : canSeeCompany ? (
+          <div className="flex flex-col gap-6">
+            <PeriodsTab />
+            <WhatNeedsYouTab
+              canSeeCompany={canSeeCompany}
+              isManager={isManager}
+            />
+          </div>
         ) : (
           <WhatNeedsYouTab
             canSeeCompany={canSeeCompany}
@@ -56,7 +63,6 @@ function AppraisalHome() {
   const [starting, setStarting] = useState(false);
 
   const periods = appraisals.cycles;
-  const open = periods.filter((period) => period.stage !== "PUBLISHED");
   const setUp = periods.length > 0 || scoring.weights?.source === "saved";
 
   return (
@@ -81,36 +87,10 @@ function AppraisalHome() {
           onClick={() => setStarting(true)}
           secondary={<ChangeMarks onClick={() => setSetting(true)} />}
         />
-      ) : open.length === 0 ? (
-        <BigCard
-          title="Start the next appraisal"
-          action="Start an appraisal"
-          onClick={() => setStarting(true)}
-          secondary={
-            <Link
-              href="/performance/periods"
-              className="text-body-sm text-accent-text hover:underline"
-            >
-              See past appraisals
-            </Link>
-          }
-        />
       ) : (
         <div className="flex flex-col gap-4">
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {open.map((period) => (
-              <li key={period.id}>
-                <PeriodCard period={period} />
-              </li>
-            ))}
-          </ul>
+          <PeriodsTab />
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <Link
-              href="/performance/periods"
-              className="text-body-sm text-accent-text hover:underline"
-            >
-              All appraisal periods
-            </Link>
             <ChangeMarks onClick={() => setSetting(true)} />
           </div>
         </div>

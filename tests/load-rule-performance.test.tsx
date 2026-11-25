@@ -77,16 +77,6 @@ const SCREENS = [
     empty: "No appraisal period is open",
     failed: "The appraisal periods did not load",
   },
-  {
-    name: "my tasks",
-    key: "tasks" as const,
-    draw: async () => {
-      const { MyTasksPanel } = await import("@/app/(app)/performance/my-tasks");
-      return <MyTasksPanel />;
-    },
-    empty: "Nothing logged yet",
-    failed: "Your tasks did not load",
-  },
 ];
 
 describe.each(SCREENS)("$name", (screenCase) => {

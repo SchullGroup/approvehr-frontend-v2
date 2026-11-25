@@ -59,7 +59,7 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
         title: "Bank payment schedule downloaded",
         detail:
           missing > 0
-            ? `${String(missing)} ${missing === 1 ? "person has" : "people have"} no account number or bank on file, so the bank cannot pay ${missing === 1 ? "them" : "them"} yet.`
+            ? `${String(missing)} ${missing === 1 ? "person needs" : "people need"} bank details before the bank can pay them.`
             : "One amount per person, ready to send to your bank.",
       });
     } catch (error) {

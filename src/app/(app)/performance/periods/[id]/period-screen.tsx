@@ -5,17 +5,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  CheckCheck,
   ListChecks,
   Grid3x3,
+  Pencil,
+  Plus,
   Play,
-  Scale,
   UserX,
   Users,
 } from "lucide-react";
+import { PAGE_ICONS } from "@/components/portal/nav-icons";
+
+const WhoAppraisesIcon = PAGE_ICONS["/performance/appraisers"]!;
+const FairnessIcon = PAGE_ICONS["/performance/fairness"]!;
 import {
   Badge,
   Button,
+  IconButton,
   ButtonLink,
   Card,
   CardBody,
@@ -23,10 +28,8 @@ import {
   Callout,
   Checkbox,
   ConfirmDialog,
-  Disclosure,
   EmptyState,
   Field,
-  Input,
   Modal,
   RowActions,
   type RowAction,
@@ -45,15 +48,23 @@ import {
   LoadState,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
-import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
-import { standInSentence } from "@/lib/performance/appraiser-fill";
+import {
+  NextStep,
+  ReadyChip,
+  type ReadyStep,
+} from "@/components/performance/next-step";
+import { fallbackCountLine } from "@/lib/performance/appraiser-fill";
+import {
+  askedLine,
+  lastAskedLine,
+  notSwitchedOn,
+} from "@/lib/performance/notify-objectives";
+import type { ApiNotifyObjectives } from "@/lib/api/performance";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
-  EXCEPTION_CODE_SUMMARY,
-  groupExceptionsByCode,
   outOf5FromBp,
   outOf5Label,
   ratingWordsFrom,
@@ -61,8 +72,6 @@ import {
   scoreWords,
   visibleComponents,
   weightLabel,
-  weightsFromNote,
-  type ApiAppraiserMap,
   type ApiComponentScore,
   type ApiCycle,
   type ApiCycleParticipants,
@@ -73,15 +82,16 @@ import {
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import {
-  outstandingIn,
   useCycleMutations,
   useCycleQuestions,
   useCycleRegister,
+  useKpis,
   useRatingScale,
   useReviewFlags,
 } from "@/lib/store/performance";
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
+import { PeriodPeople } from "./period-people";
 import { QuestionsDialog } from "../../period-dialogs";
 import { AskPeersButton, AskPeersDialog } from "./ask-peers";
 import {
@@ -173,7 +183,7 @@ const NEXT_BUTTON: Record<string, string> = {
   CALIBRATION: "Check scores",
 };
 
-type PeriodTabId = "overview" | "questions" | "marks" | "settings";
+type PeriodTabId = "overview" | "people" | "questions" | "marks" | "settings";
 
 /** A quiet icon button that goes somewhere. The name is the tooltip and the label. */
 function IconLink({
@@ -204,7 +214,14 @@ function IconLink({
   );
 }
 
-export function PeriodScreen({ cycleId }: { cycleId: string }) {
+export function PeriodScreen({
+  cycleId,
+  initialTab,
+}: {
+  cycleId: string;
+  /** From `?tab=questions`, so a link can land on the questions. */
+  initialTab?: "questions";
+}) {
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
@@ -223,20 +240,26 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [chosenTab, setPeriodTab] = useState<PeriodTabId | null>(null);
-  const [showingLeft, setShowingLeft] = useState(false);
-  const [showingMakeup, setShowingMakeup] = useState(false);
+  const [chosenTab, setPeriodTab] = useState<PeriodTabId | null>(
+    initialTab ?? null,
+  );
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
-  const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
-  /* Who Start gave their department head, because nobody is recorded as their
-     manager. A policy applied on their behalf, so it is said where it can be
-     checked rather than found afterwards in a manager's list. */
-  const [viaHead, setViaHead] = useState<string[] | null>(null);
-
+  const [noObjectives, setNoObjectives] = useState<number>(0);
+  /* What Start said about appraisers, as quiet lines: who has HR as their
+     appraiser (nobody above them recorded), and who has nobody at all. */
+  const [startedWith, setStartedWith] = useState<{
+    fallback: string | null;
+    nobody: number;
+  }>({ fallback: null, nobody: 0 });
+  /* "Ask everyone to set objectives": the last answer, and whether this API
+     has it at all (a 404 or 410 hides the button for good). */
+  const [askedObjectives, setAskedObjectives] =
+    useState<Partial<ApiNotifyObjectives> | null>(null);
+  const [askingObjectives, setAskingObjectives] = useState(false);
+  const [askUnavailable, setAskUnavailable] = useState(false);
   const period = detail.cycle;
-  const outstanding = outstandingIn(detail.participants);
   const nudging = nudgeAudience(detail.participants);
   const draft = period?.stage === "DRAFT";
   const published = period?.stage === "PUBLISHED";
@@ -284,16 +307,13 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         tone: "success",
         detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told in the app. No emails are sent from here.`,
       });
-      setNoObjectives(
-        result.withoutAgreedObjectives.length > 0
-          ? result.withoutAgreedObjectives
-          : null,
-      );
-      setViaHead(
-        result.viaDepartmentHead && result.viaDepartmentHead.length > 0
-          ? result.viaDepartmentHead
-          : null,
-      );
+      /* A count, never the names: people without an objective are an
+         invitation to add them, not a failure (owner, 24 Nov 2026). */
+      setNoObjectives(result.withoutAgreedObjectives.length);
+      setStartedWith({
+        fallback: fallbackCountLine(result.viaFallback),
+        nobody: result.withoutAppraiser.length,
+      });
       detail.reload();
     } catch (error) {
       failed(error);
@@ -318,12 +338,32 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         tone: "success",
         detail: "Nobody had been sent anything, so there is nothing to undo.",
       });
-      router.push("/performance/periods");
+      router.push("/performance");
     } catch (error) {
       failed(error);
     } finally {
       setDeleting(false);
       setConfirmingDelete(false);
+    }
+  };
+
+  /* What delivery is worth in this period's score, and whether anything exists to
+     deliver against: the first step of a period that counts objectives. */
+  const objectivesWeight = Math.round(
+    (period?.weights?.values.OBJECTIVES ?? 0) / 100,
+  );
+  const companyObjectives = useKpis("company", draft && canManage);
+  const hasObjectives = companyObjectives.goals.length > 0;
+
+  const askForObjectives = async () => {
+    setAskingObjectives(true);
+    try {
+      setAskedObjectives(await periods.notifyObjectives(cycleId));
+    } catch (error) {
+      if (notSwitchedOn(error)) setAskUnavailable(true);
+      else failed(error);
+    } finally {
+      setAskingObjectives(false);
     }
   };
 
@@ -396,15 +436,81 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
     }
   };
 
+  const readySteps: ReadyStep[] =
+    canManage && draft && period
+      ? [
+          {
+            id: "objectives",
+            label: "Objectives",
+            /* Counted when delivery is part of the score: with no objective
+                     set there is nothing to deliver against. */
+            optional: objectivesWeight === 0,
+            done: hasObjectives,
+            detail: !hasObjectives
+              ? objectivesWeight > 0
+                ? `Delivery is ${String(objectivesWeight)}% of the score, and nobody has set an objective yet.`
+                : "Optional. Add them if you want them in the score."
+              : askedObjectives
+                ? [askedLine(askedObjectives), lastAskedLine(askedObjectives)]
+                    .filter(Boolean)
+                    .join(" ")
+                : `Delivery is ${String(objectivesWeight)}% of the score.`,
+            action: !hasObjectives
+              ? {
+                  label: "Set company objectives",
+                  href: "/performance/kpis/new",
+                }
+              : askUnavailable
+                ? { label: "Set objectives", href: "/performance/kpis" }
+                : {
+                    label: "Ask everyone to set objectives",
+                    onClick: () => void askForObjectives(),
+                    loading: askingObjectives,
+                  },
+          },
+          {
+            id: "appraisers",
+            label: "Who appraises whom",
+            done: true,
+            detail: "From the reporting line. Change anyone if you like.",
+            action: {
+              label: "Review",
+              href: `/performance/appraisers?period=${cycleId}`,
+            },
+          },
+          {
+            id: "questions",
+            label: "Questions",
+            done: period.questionCount > 0,
+            detail:
+              period.questionCount > 0
+                ? `${String(period.questionCount)} in the review`
+                : "None yet",
+            action: {
+              label: "Add questions",
+              href: `/performance/periods/${cycleId}/questions`,
+            },
+          },
+          {
+            id: "weights",
+            label: "How the score is made up",
+            done: true,
+            detail: "The company's weights. Change them on the Settings tab.",
+            action: {
+              label: "Review",
+              onClick: () => setPeriodTab("settings"),
+            },
+          },
+        ]
+      : [];
+  const stillToDo = readySteps.some((step) => !step.done && !step.optional);
+
   return (
     <>
       <PageHeader
-        breadcrumb={[
-          { href: "/performance", label: "Performance" },
-          { href: "/performance/periods", label: "Appraisal periods" },
-        ]}
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title={period?.name ?? "Appraisal period"}
-        meta={
+        subline={
           period ? (
             <>
               {periodWords(period.periodStart, period.periodEnd) && (
@@ -424,15 +530,21 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         action={
           <>
             {/* One main button, and it is whatever this period needs next. */}
-            {canManage && draft && (
-              <Button
-                size="sm"
-                disabled={(period?.questionCount ?? 0) === 0}
-                onClick={() => setConfirmingStart(true)}
-              >
-                <Play aria-hidden="true" className="size-3.5" />
-                Start period
-              </Button>
+            {/* Not ready (no questions yet) is the Get ready checklist's next
+                step, not a button that refuses. */}
+            {canManage && draft && period && (
+              <>
+                <ReadyChip steps={readySteps} />
+                <Button
+                  size="sm"
+                  disabled={stillToDo}
+                  title={stillToDo ? "Finish the steps first" : undefined}
+                  onClick={() => setConfirmingStart(true)}
+                >
+                  <Play aria-hidden="true" className="size-3.5" />
+                  Start period
+                </Button>
+              </>
             )}
             {canManage && nextStage && (
               <Button
@@ -462,7 +574,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 href={`/performance/appraisers?period=${cycleId}`}
                 label="Who appraises whom"
               >
-                <Users aria-hidden="true" className="size-4" />
+                <WhoAppraisesIcon aria-hidden="true" className="size-4" />
               </IconLink>
             )}
             {canSeeFairness && !draft && (
@@ -475,7 +587,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 }
                 badge={flagged}
               >
-                <Scale aria-hidden="true" className="size-4" />
+                <FairnessIcon aria-hidden="true" className="size-4" />
               </IconLink>
             )}
             {canSeeCompany && !draft && (
@@ -527,20 +639,16 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               `activateCycle`), so this cannot open the dialog on one person
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
-          {viaHead && (
-            <NoticeLine tone="muted">{standInSentence(viaHead)}</NoticeLine>
-          )}
-          {noObjectives && (
-            <NoticeLine tone="warning">
-              <span>
-                {noObjectives.length === 1
-                  ? `${noObjectives[0]} has no agreed objective`
-                  : `${noObjectives.length} people have no agreed objective: ${noObjectives.join(", ")}`}
-              </span>
-              <Link href="/performance/approvals" className={NOTICE_LINK}>
-                Agree what is waiting
-              </Link>
-            </NoticeLine>
+          {/* One next step, never a stack of warnings (`docs/guided-flows.md`). */}
+          {canManage && running && period && (
+            <WhatIsNext
+              waiting={nudging ? nudging.names.length : 0}
+              nextLabel={nextStage ? NEXT_BUTTON[nextStage] : null}
+              noObjectives={noObjectives}
+              startedWith={startedWith}
+              onAdvance={() => void advance()}
+              advancing={advancing}
+            />
           )}
 
           {/* Not a permission problem and not an outage. Two different sentences,
@@ -595,6 +703,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           <Tabs
             items={[
               ...(questionsTab ? [] : [{ id: "overview", label: "Overview" }]),
+              ...(!draft && canSeeCompany && detail.available
+                ? [{ id: "people", label: "People" }]
+                : []),
               ...(canManage ? [{ id: "questions", label: "Questions" }] : []),
               ...(draft ? [] : [{ id: "marks", label: "Scores" }]),
               ...(canManage ? [{ id: "settings", label: "Settings" }] : []),
@@ -613,20 +724,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   {detail.available && !detail.error && (
                     <>
                       <ProgressStats
-                        rows={outstanding}
                         participants={detail.participants}
                         published={period?.stage === "PUBLISHED"}
                         marked={detail.register?.rows.length ?? null}
-                        onShowLeft={() => setShowingLeft(true)}
                       />
-                      {/* Nobody can be given an appraiser once a period is
-                          published, so a published one lists nobody. */}
-                      {period?.stage !== "PUBLISHED" && (
-                        <NobodyAppraising
-                          cycleId={cycleId}
-                          exceptions={detail.exceptions}
-                        />
-                      )}
                       <MultiAppraiserReviews
                         participants={detail.participants}
                       />
@@ -635,10 +736,32 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 </LoadState>
               </div>
             )}
+            {periodTab === "people" && !draft && (
+              <LoadState
+                loading={detail.loading}
+                error={null}
+                subject="the people"
+                skeleton="list"
+              >
+                {detail.participants && (
+                  <PeriodPeople
+                    rows={detail.participants.rows}
+                    onRemind={
+                      canManage &&
+                      running &&
+                      (nudging === null || anybodyToNudge(nudging))
+                        ? () => setConfirmingNudge(true)
+                        : null
+                    }
+                  />
+                )}
+              </LoadState>
+            )}
             {periodTab === "questions" && period && canManage && (
               <QuestionsPanel
                 cycleId={cycleId}
                 editable={canManage && period.stage !== "PUBLISHED"}
+                draft={draft}
                 onEdit={() => setQuestionsOpen(true)}
               />
             )}
@@ -647,15 +770,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               !detail.loading &&
               !detail.error && (
                 <div className="flex flex-col gap-6">
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowingMakeup(true)}
-                    >
-                      How the score is made up
-                    </Button>
-                  </div>
                   <Register
                     register={detail.register}
                     cycleId={cycleId}
@@ -684,66 +798,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           </Tabs>
         </div>
       </PageBody>
-
-      {showingLeft && (
-        <Modal
-          open
-          onClose={() => setShowingLeft(false)}
-          title="Still to come in"
-          size="md"
-          footer={
-            <>
-              {canManage && running && (
-                <Button
-                  variant="secondary"
-                  disabled={nudging !== null && !anybodyToNudge(nudging)}
-                  onClick={() => {
-                    setShowingLeft(false);
-                    setConfirmingNudge(true);
-                  }}
-                >
-                  Remind everyone
-                </Button>
-              )}
-              <Button onClick={() => setShowingLeft(false)}>Close</Button>
-            </>
-          }
-        >
-          <ul className="flex flex-col gap-2">
-            {outstanding.map((row) => (
-              <li
-                key={`${row.employeeId}-${row.reviewId}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <span className="text-body-sm text-ink">{row.what}</span>
-                <TextLink
-                  href={`/performance/reviews/${row.reviewId}`}
-                  className="text-body-sm"
-                >
-                  Open
-                </TextLink>
-              </li>
-            ))}
-          </ul>
-        </Modal>
-      )}
-
-      {showingMakeup && period && (
-        <Modal
-          open
-          onClose={() => setShowingMakeup(false)}
-          title="How the score is made up"
-          size="md"
-          footer={
-            <Button onClick={() => setShowingMakeup(false)}>Close</Button>
-          }
-        >
-          <PeriodWeightsSection
-            period={period}
-            onChanged={() => detail.reload()}
-          />
-        </Modal>
-      )}
 
       {period && (
         <RenamePeriodDialog
@@ -899,88 +953,21 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The people something is wrong with, by name (UAT 23 Nov, U102 / PERF-23).
- *
- * The period page said people nobody asked were "listed above" and listed
- * nobody: the list had gone in a redesign and only its comment stayed. It is
- * back, from the appraiser map's own exceptions (`NO_APPRAISER` and the rest),
- * one line per kind of problem with the people named, and a link to Who
- * appraises whom, where they are fixed. Nothing to fix draws nothing: the
- * progress above already says what is in.
- *
- * Named and not counted, because a count tells nobody who to go and look at;
- * past eight names the rest are counted, and every one of them is on the page
- * the link opens.
- */
-const NAMED = 8;
-
-function namesInLine(names: string[]): string {
-  if (names.length <= NAMED) {
-    return names.length === 1
-      ? names[0]!
-      : `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
-  }
-  const rest = names.length - NAMED;
-  return `${names.slice(0, NAMED).join(", ")} and ${rest} ${rest === 1 ? "other" : "others"}`;
-}
-
-function NobodyAppraising({
-  cycleId,
-  exceptions,
-}: {
-  cycleId: string;
-  exceptions: ApiAppraiserMap | null;
-}) {
-  if (!exceptions) return null;
-  const flat = exceptions.rows.flatMap((row) =>
-    row.exceptions.map((issue) => ({ ...issue, name: row.employeeName })),
-  );
-  if (flat.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-2">
-      {groupExceptionsByCode(flat).map((group) => {
-        const summary = EXCEPTION_CODE_SUMMARY[
-          group.code as keyof typeof EXCEPTION_CODE_SUMMARY
-        ](group.items.length);
-        return (
-          <NoticeLine key={`${group.code}-${group.severity}`}>
-            <span>
-              {`${summary.replace(/\.$/, "")}: ${namesInLine(group.items.map((item) => item.name))}.`}
-            </span>
-            <Link
-              href={`/performance/appraisers?period=${cycleId}`}
-              className={NOTICE_LINK}
-            >
-              Assign appraisers
-            </Link>
-          </NoticeLine>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
  * Who has not sent a form yet, by name and by what is missing.
  *
  * The counts come from the API and the rows are derived from the same payload, so
  * "12 of 18 self-reviews in" and the list underneath it cannot disagree.
  */
 function ProgressStats({
-  rows,
   participants,
   published,
   marked,
-  onShowLeft,
 }: {
-  rows: { employeeId: string; reviewId: string; what: string }[];
   participants: ApiCycleParticipants | null;
   /** A published period is a record, said in the past tense (U96 / PERF-16). */
   published: boolean;
   /** Who the period's register reads: for a published one, who was in it. */
   marked: number | null;
-  onShowLeft: () => void;
 }) {
   if (!participants) return null;
   /* Who was in a published period is the register's rows, not today's staff
@@ -1029,22 +1016,6 @@ function ProgressStats({
         <Stat label="Self-reviews" value={ratio(selfIn, selfTotal)} />
         <Stat label="Manager reviews" value={ratio(managerIn, managerTotal)} />
       </div>
-      {rows.length === 0 ? (
-        <p className="flex items-center gap-2 text-body-sm text-body">
-          <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
-          Everything has come in.
-        </p>
-      ) : (
-        <button
-          type="button"
-          onClick={onShowLeft}
-          className="self-start text-body-sm font-medium text-accent-text underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          {rows.length === 1
-            ? "1 review still to come in"
-            : `${rows.length} reviews still to come in`}
-        </button>
-      )}
     </div>
   );
 }
@@ -1054,13 +1025,16 @@ function ProgressStats({
  * then any questions written for this period. The competencies come from the
  * company's own list, so there is nothing to set up here beyond what to add.
  */
-function QuestionsPanel({
+export function QuestionsPanel({
   cycleId,
   editable,
+  draft,
   onEdit,
 }: {
   cycleId: string;
   editable: boolean;
+  /** The step-by-step wizard is for a period that has not started. */
+  draft: boolean;
   onEdit: () => void;
 }) {
   const { questions, loading, error, reload } = useCycleQuestions(cycleId);
@@ -1077,43 +1051,31 @@ function QuestionsPanel({
       skeleton="list"
     >
       <div className="flex flex-col gap-6">
-        {editable && (
-          <div className="flex justify-end">
-            <Button size="sm" onClick={onEdit}>
-              {questions.length === 0 ? "Add questions" : "Edit questions"}
-            </Button>
-          </div>
-        )}
         {questions.length === 0 && (
           <EmptyState
             compact
             icon={<ListChecks aria-hidden="true" />}
-            title="No questions yet"
+            title={draft ? "No questions yet" : "No questions in this period"}
           />
         )}
-        {rated.length > 0 && (
+        {(extra.length > 0 || editable) && (
           <Card>
-            <CardHeader title="Rated" />
-            <CardBody>
-              <ul className="flex flex-col gap-2">
-                {rated.map((q) => (
-                  <li
-                    key={q.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-line p-3 text-body-sm text-ink"
-                  >
-                    <span>{q.prompt}</span>
-                    <span className="text-meta text-muted">
-                      {whoAnswers(q.askedOf)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </CardBody>
-          </Card>
-        )}
-        {extra.length > 0 && (
-          <Card>
-            <CardHeader title="Questions" />
+            <CardHeader
+              title="Questions"
+              action={
+                editable ? (
+                  <HeaderIcons
+                    what="questions"
+                    {...(draft
+                      ? {
+                          addHref: `/performance/periods/${cycleId}/questions`,
+                          editHref: `/performance/periods/${cycleId}/questions`,
+                        }
+                      : { onAdd: onEdit, onEdit })}
+                  />
+                ) : undefined
+              }
+            />
             <CardBody className="flex flex-col gap-3">
               <p className="text-meta text-muted">
                 Read by managers. Not part of the score.
@@ -1134,8 +1096,90 @@ function QuestionsPanel({
             </CardBody>
           </Card>
         )}
+        {rated.length > 0 && (
+          <Card>
+            <CardHeader
+              title="Rated"
+              action={
+                editable ? (
+                  <HeaderIcons
+                    what="competencies"
+                    addHref="/performance/skills"
+                    onEdit={onEdit}
+                  />
+                ) : undefined
+              }
+            />
+            <CardBody>
+              <ul className="flex flex-col gap-2">
+                {rated.map((q) => (
+                  <li
+                    key={q.id}
+                    className="flex items-center justify-between gap-3 rounded-md border border-line p-3 text-body-sm text-ink"
+                  >
+                    <span>{q.prompt}</span>
+                    <span className="text-meta text-muted">
+                      {whoAnswers(q.askedOf)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          </Card>
+        )}
       </div>
     </LoadState>
+  );
+}
+
+/**
+ * A plus and a pencil at the right of a card's title: add to it, or change it.
+ * Each goes to the place that does it, as a link where that is a page and as a
+ * button where it opens the editor.
+ */
+function HeaderIcons({
+  what,
+  addHref,
+  editHref,
+  onAdd,
+  onEdit,
+}: {
+  what: string;
+  addHref?: string;
+  editHref?: string;
+  onAdd?: () => void;
+  onEdit?: () => void;
+}) {
+  const icon = "size-9 rounded-md";
+  return (
+    <span className="flex items-center gap-1">
+      {addHref ? (
+        <IconLink href={addHref} label={`Add to the ${what}`}>
+          <Plus aria-hidden="true" className="size-4" />
+        </IconLink>
+      ) : (
+        <IconButton
+          label={`Add to the ${what}`}
+          className={icon}
+          onClick={onAdd}
+        >
+          <Plus aria-hidden="true" className="size-4" />
+        </IconButton>
+      )}
+      {editHref ? (
+        <IconLink href={editHref} label={`Edit the ${what}`}>
+          <Pencil aria-hidden="true" className="size-4" />
+        </IconLink>
+      ) : (
+        <IconButton
+          label={`Edit the ${what}`}
+          className={icon}
+          onClick={onEdit}
+        >
+          <Pencil aria-hidden="true" className="size-4" />
+        </IconButton>
+      )}
+    </span>
   );
 }
 
@@ -1213,8 +1257,6 @@ function PeriodSettings({
           </CardBody>
         </Card>
       )}
-
-      <PeriodFramingEditor period={period} onChanged={onChanged} />
 
       {draft && (
         <Card>
@@ -1367,13 +1409,11 @@ function Register({
     <Card>
       <CardHeader
         title="Where the scores stand"
-        description={
-          register.weightsFrom === "period"
-            ? `${weightsFromNote("period")} Totalling ${weightLabel(register.weightsTotalBp)}. They lock in when the period starts.`
-            : register.weightsFrom === "snapshot"
-              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these scores.`
-              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`
-        }
+        {...(register.weightsFrom === "current"
+          ? {
+              info: `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`,
+            }
+          : {})}
         action={
           <span className="flex flex-wrap gap-2">
             {register.counts.unscored > 0 && (
@@ -1604,18 +1644,16 @@ function MarkActions({
   if (canCalibrate) {
     items.push({
       label: row.calibration ? "Change the moved score" : "Change the score",
-      disabled: row.scoreBp === null,
-      ...(row.scoreBp === null ? { hint: "No score yet" } : {}),
+      /* No score yet: nothing to change, so no item. */
+      available: row.scoreBp !== null,
       onSelect: () => setOpen("calibrate"),
     });
   }
   if (canRequestRevision) {
     items.push({
       label: "Send back",
-      disabled: Boolean(existingRevision),
-      ...(existingRevision
-        ? { hint: "Sent back, waiting for them to send it again" }
-        : {}),
+      /* Already sent back: it is waiting for them, so no second item. */
+      available: !existingRevision,
       onSelect: () => {
         setRevisionSession((n) => n + 1);
         setOpen("revision");
@@ -1918,158 +1956,6 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
  * the period has started, so a stale toggle here would fail loudly rather
  * than silently doing nothing.
  */
-/**
- * What a draft period covers, and what to tell people — editable until it
- * starts.
- *
- * ## Why it is here and not on the start dialog alone
- *
- * The dialog asks for all of this, and somebody creating a period in a hurry
- * skips it. The scope cannot be offered here — the API reads `departmentIds`
- * once, at activation, so a control for it after the fact would silently do
- * nothing — but these four are read every time a form is opened, so they stay
- * editable for as long as the period is a draft and there is no form yet.
- *
- * Behind a reveal, closed, with the current answer in the summary. It is not a
- * blocker: a period with no stated instructions still runs.
- *
- * ## Both dates or neither
- *
- * Checked here, and the API checks the **resulting row** rather than the
- * patch — `{ periodStart: null }` on its own leaves an end with no start, and
- * looks perfectly consistent as a payload. Clearing is `null`, which is why
- * the two dates are sent together as a pair either way.
- */
-function PeriodFramingEditor({
-  period,
-  onChanged,
-}: {
-  period: ApiCycle;
-  onChanged: () => void;
-}) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-
-  const [start, setStart] = useState(period.periodStart ?? "");
-  const [end, setEnd] = useState(period.periodEnd ?? "");
-  const [instructions, setInstructions] = useState(period.instructions ?? "");
-  const [guideUrl, setGuideUrl] = useState(period.guideUrl ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const dirty =
-    start !== (period.periodStart ?? "") ||
-    end !== (period.periodEnd ?? "") ||
-    instructions !== (period.instructions ?? "") ||
-    guideUrl !== (period.guideUrl ?? "");
-
-  const save = async () => {
-    if (Boolean(start) !== Boolean(end)) {
-      setError("A period needs a start and an end. Set both, or clear both.");
-      return;
-    }
-    if (start && end && start > end) {
-      setError("The period ends before it starts.");
-      return;
-    }
-    if (guideUrl.trim() && !/^https?:\/\//i.test(guideUrl.trim())) {
-      setError("A guide link has to start with http:// or https://.");
-      return;
-    }
-    setError(null);
-    setSaving(true);
-    try {
-      await periods.updateCycle(period.id, {
-        /* Sent as a pair, and `null` where cleared — the API's rule is about
-           the row that results, not the fields that arrived. */
-        periodStart: start || null,
-        periodEnd: end || null,
-        instructions: instructions.trim() || null,
-        guideUrl: guideUrl.trim() || null,
-      });
-      onChanged();
-      toast.push({
-        title: "Saved",
-        tone: "success",
-        detail: "Everybody's form will show this above the first question.",
-      });
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not save that. Try again.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Disclosure
-      title="Message to staff"
-      meta={
-        periodWords(period.periodStart, period.periodEnd) ??
-        (period.instructions ? "No dates set" : "Nothing set")
-      }
-      hint="Shown above the first question."
-    >
-      <div className="flex flex-col gap-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field optional label="Period covered, from">
-            <Input
-              type="date"
-              value={start}
-              onChange={(event) => setStart(event.target.value)}
-            />
-          </Field>
-          <Field optional label="to">
-            <Input
-              type="date"
-              value={end}
-              onChange={(event) => setEnd(event.target.value)}
-            />
-          </Field>
-        </div>
-        <Field optional label="Instructions">
-          <Textarea
-            rows={5}
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value)}
-          />
-        </Field>
-        <p className="text-meta text-muted">
-          Plain text. Line breaks are kept, so a blank line makes a new
-          paragraph.
-        </p>
-        <Field optional label="A link to your own guide">
-          <Input
-            type="url"
-            inputMode="url"
-            value={guideUrl}
-            placeholder="https://…"
-            onChange={(event) => setGuideUrl(event.target.value)}
-          />
-        </Field>
-        {error && (
-          <p role="status" className="text-body-sm text-danger-text">
-            {error}
-          </p>
-        )}
-        <div>
-          <Button
-            variant="accent"
-            size="sm"
-            loading={saving}
-            disabled={!dirty}
-            onClick={() => void save()}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </Disclosure>
-  );
-}
 
 function ManagerQuestionsToggle({
   cycleId,
@@ -2482,4 +2368,53 @@ function RevisionDialog({
       </Modal>
     </>
   );
+}
+
+/**
+ * A running period: what is next, as one step. People who have not finished
+ * come first (a reminder), then the move to the next stage. A count of people
+ * with no objective is a quiet invitation under it, never a warning.
+ */
+function WhatIsNext({
+  waiting,
+  nextLabel,
+  noObjectives,
+  startedWith,
+  onAdvance,
+  advancing,
+}: {
+  startedWith: { fallback: string | null; nobody: number };
+  waiting: number;
+  nextLabel: string | null;
+  noObjectives: number;
+  onAdvance: () => void;
+  advancing: boolean;
+}) {
+  const lines = [
+    noObjectives > 0
+      ? `${String(noObjectives)} ${noObjectives === 1 ? "person has" : "people have"} no objective yet. Add them if you want them in the score.`
+      : null,
+    startedWith.fallback,
+    startedWith.nobody > 0
+      ? `${String(startedWith.nobody)} ${startedWith.nobody === 1 ? "person has" : "people have"} nobody to appraise them yet. Set a department head.`
+      : null,
+  ].filter((line): line is string => line !== null);
+  const invitation = lines.length > 0 ? lines.join(" ") : undefined;
+  if (waiting > 0) {
+    return invitation ? (
+      <p className="text-body-sm text-muted">{invitation}</p>
+    ) : null;
+  }
+  if (nextLabel) {
+    return (
+      <NextStep
+        title="Everyone has finished this stage"
+        {...(invitation ? { detail: invitation } : {})}
+        action={{ label: nextLabel, onClick: onAdvance, loading: advancing }}
+      />
+    );
+  }
+  return invitation ? (
+    <p className="text-body-sm text-muted">{invitation}</p>
+  ) : null;
 }

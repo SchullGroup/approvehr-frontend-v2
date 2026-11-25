@@ -52,6 +52,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
+import { YourAppraisal } from "@/components/performance/your-appraisal";
 import { PeriodExceptionNotice, PeriodStatus } from "./period-status";
 import { StartPeriodButton } from "./start-period";
 
@@ -423,6 +424,10 @@ export function WhatNeedsYouTab({
           count is worth a card; a card whose only content is the absence of
           one is furniture. */}
 
+      {/* The one next step on your own appraisal, and your team's. Not for
+          HR, who have the period cards. */}
+      {scored && !canSeeCompany && <YourAppraisal />}
+
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
           to "where do I create an appraisal" cannot be silence. */}
@@ -666,8 +671,8 @@ export function WhatNeedsYouTab({
                         : `${queue.length} objectives are waiting for you to agree them`
                     }
                     detail="An objective has to be agreed before the period it covers."
-                    href="/performance/approvals"
-                    action="Open the queue"
+                    href="/performance/kpis?tab=agree"
+                    action="Open To agree"
                   />
                 )}
 

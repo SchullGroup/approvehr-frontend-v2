@@ -1,24 +1,9 @@
-import type { Metadata } from "next";
-import { ApprovalsScreen } from "./approvals-screen";
-
-export const metadata: Metadata = {
-  title: "Objectives to agree",
-  description:
-    "Objectives waiting for you to agree them, with the target each person will be judged against.",
-};
+import { redirect } from "next/navigation";
 
 /**
- * The objective approval queue.
- *
- * Its own route rather than a tab, because it is a **queue**: a place somebody
- * arrives at from a notification with one job, does the job, and leaves. A tab
- * inside `/performance` would put it behind a screen about something else, and a
- * link in a notification would land on KPIs.
- *
- * One route for every reader, narrowed by the API rather than the URL. A manager
- * sees their reports'; `EDIT_RECORDS` sees the company's; nobody sees their own,
- * because nobody may agree their own. PARITY.md Rule 1.
+ * Objectives to agree is a tab of Objectives now (owner, 24 Nov 2026), not a
+ * page of its own. An old link, a bookmark or the company report lands on it.
  */
 export default function PerformanceApprovalsPage() {
-  return <ApprovalsScreen />;
+  redirect("/performance/kpis?tab=agree");
 }

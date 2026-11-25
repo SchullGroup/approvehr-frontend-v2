@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import { ExternalLink, Eye, Lock, Send, Users } from "lucide-react";
 import {
@@ -85,6 +86,7 @@ export function PostingScreen({
               icon={<Lock aria-hidden="true" />}
               title="You cannot open this advert"
               description="The form decides what strangers are asked, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

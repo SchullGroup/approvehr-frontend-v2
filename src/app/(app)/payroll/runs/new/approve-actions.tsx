@@ -36,7 +36,9 @@ export function ApproveActions({
 }) {
   if (settled) return null;
   const offersSend = canPrepare && canSend;
-  const offersApprove = canApprove || !offersSend;
+  /* Approve is offered only to somebody who can approve. A reader who can
+     neither approve nor send sees neither, not a button that can only fail. */
+  const offersApprove = canApprove;
   return (
     <span className="flex flex-wrap items-center gap-2">
       {offersSend && (
@@ -57,7 +59,7 @@ export function ApproveActions({
           className="max-sm:min-h-11"
           onClick={onApprove}
           loading={busy === "approve"}
-          disabled={!ready || !canApprove || busy !== null}
+          disabled={!ready || busy !== null}
         >
           {busy !== "approve" && (
             <Check aria-hidden="true" className="size-4" />

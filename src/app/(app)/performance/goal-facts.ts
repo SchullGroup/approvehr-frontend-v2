@@ -35,7 +35,6 @@ export type GoalFacts = {
   progress: number;
   done: boolean;
   canShare: boolean;
-  canLogTasks: boolean;
   noPeriod: boolean;
   /**
    * How many of its measures have been read, or null when that is not worth
@@ -48,18 +47,13 @@ export type GoalFacts = {
 /**
  * `actingId` is the signed-in person's own employee id.
  */
-export function goalFacts(goal: ApiGoal, actingId: string | null): GoalFacts {
+export function goalFacts(goal: ApiGoal): GoalFacts {
   const done = goal.status === "DONE";
   return {
     rung: rungLabel(goal),
     progress: goal.measuredProgress ?? goal.progress,
     done,
     canShare: goal.dueQuarter !== null && goal.keyResults.length > 0,
-    /* Only the goal's own owner may log a task against it — the API's own
-       rule (`submitTask` throws for anybody else) — and only once it is
-       agreed, matching the objective/delivery scoring it feeds. */
-    canLogTasks:
-      !done && goal.approval === "AGREED" && actingId === goal.ownerId,
     /* Nothing to agree against: the API refuses to send an objective that
        belongs to no period, because one agreed for no period cannot be agreed
        before it. */

@@ -42,7 +42,9 @@ describe("the /offline page", () => {
 
   it("reopens the app when the browser says the network is back, once per change", () => {
     const { container } = render(<OfflinePage />);
-    const script = container.querySelector("script")?.textContent ?? "";
+    const script = [...container.querySelectorAll("script")]
+      .map((s) => s.textContent)
+      .join("\n");
     expect(script).toContain('addEventListener("online"');
     expect(script).toContain("/dashboard");
   });

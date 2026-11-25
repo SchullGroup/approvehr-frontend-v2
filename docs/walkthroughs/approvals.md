@@ -206,7 +206,7 @@ These are decisions, not accidents. Each one has a reason.
 3. **Requests raised before this change keep their own entries.** Approving one of those approves
    only that field. They look the way they always did.
 4. **It says Reject, not Send back.** A plain no is a no. **Send back** still exists where something is
-   genuinely returned for revision: leave on `/people/leave` and objectives on `/performance/approvals`.
+   genuinely returned for revision: leave on `/people/leave` and objectives on the To agree tab of `/performance/kpis`.
 5. **A reason is required, and it reaches the person.** The box says "They see what you write here",
    and they do: the rejection arrives as a notification carrying it.
 6. **The bank-change safety notice is sent once, for the group.** When a bank change is approved, the

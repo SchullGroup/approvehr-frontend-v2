@@ -108,25 +108,13 @@ describe("what moved off the page", () => {
     ).toContain("noticeboard");
   });
 
-  it("leaves Needs you, Today, Appraisals and the assistant off the home of the people who run the company", () => {
-    /* Taken off on request (23 Nov 2026). The widgets are still in the catalogue; only the default is empty. */
-    for (const tier of ["owner", "admin"] as const) {
-      const ids = sectionsFor(tier, EVERYTHING).flatMap((row) =>
-        row.widgets.map((widget) => widget.id),
-      );
-      for (const gone of ["needs-you", "today", "appraisals", "assistant"]) {
-        expect(ids).not.toContain(gone);
-      }
-      expect(ids).not.toContain("my-queue");
-    }
-  });
-
-  it("still gives a member of staff the queue tile, since they have no Needs you", () => {
+  it("gives a member of staff the clock, leave, pay and objectives", () => {
     const ids = sectionsFor("staff", []).flatMap((row) =>
       row.widgets.map((widget) => widget.id),
     );
-    expect(ids).toContain("my-queue");
-    expect(ids).not.toContain("needs-you");
+    for (const id of ["my-clock", "my-leave", "my-pay", "my-objectives"]) {
+      expect(ids).toContain(id);
+    }
   });
 });
 

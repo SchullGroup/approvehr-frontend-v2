@@ -651,6 +651,7 @@ export function Directory({
                           </TD>
                         )}
                         <TDPrimary
+                          avatar={fullName(e)}
                           title={
                             <TextLink href={`/people/${e.id}`}>
                               {fullName(e)}

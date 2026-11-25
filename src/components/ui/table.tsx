@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Avatar } from "./misc";
 import { AttentionMark } from "./attention-mark";
 import type { SortOrder } from "@/lib/use-list-query";
 
@@ -250,8 +251,11 @@ export function TDPrimary({
   title,
   subtitle,
   mark,
+  avatar,
   className,
 }: {
+  /** A person's name: draws their coloured initials before the title. */
+  avatar?: string;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   /**
@@ -266,13 +270,20 @@ export function TDPrimary({
       scope="row"
       className={cn("px-4 py-3 text-left align-middle font-normal", className)}
     >
-      <span className="block text-body-sm font-medium text-ink">
-        {title}
-        {mark && <AttentionMark text={mark} className="ml-1.5" />}
+      <span className="flex items-center gap-3">
+        {avatar && <Avatar name={avatar} size="sm" />}
+        <span className="min-w-0">
+          <span className="block text-body-sm font-medium text-ink">
+            {title}
+            {mark && <AttentionMark text={mark} className="ml-1.5" />}
+          </span>
+          {subtitle && (
+            <span className="mt-0.5 block text-meta text-muted">
+              {subtitle}
+            </span>
+          )}
+        </span>
       </span>
-      {subtitle && (
-        <span className="mt-0.5 block text-meta text-muted">{subtitle}</span>
-      )}
     </th>
   );
 }

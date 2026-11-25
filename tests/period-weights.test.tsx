@@ -190,11 +190,11 @@ describe("<PeriodWeights />", () => {
     ).toBeInTheDocument();
   });
 
-  it("says what happens to the Weekly tasks share when nobody has graded tasks", () => {
+  it("says what happens to the Weekly tasks share when nobody has linked tasks", () => {
     render(<Harness />);
     expect(
       screen.getByText(
-        "If someone has no graded weekly tasks against this period's objectives, the Weekly tasks share is spread over the other parts.",
+        "If someone has no tasks linked to this period's objectives, the Weekly tasks share is spread over the other parts.",
       ),
     ).toBeInTheDocument();
   });

@@ -2,15 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   Check,
   CornerDownRight,
-  ListPlus,
   Plus,
   Target,
   TrendingDown,
   TrendingUp,
-  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -19,25 +19,41 @@ import {
   Button,
   ButtonLink,
   Card,
-  CardBody,
-  CardHeader,
   ConfirmDialog,
   EmptyState,
+  Illustration,
   Input,
   Modal,
   ProgressMeter,
-  SegmentedControl,
+  RowActions,
   FilterBar,
   Select,
   LoadState,
-  Stat,
-  StatGrid,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+  TableWrap,
   Textarea,
+  rowClick,
   useToast,
   type AppliedFilter,
 } from "@/components/ui";
-import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { DepartmentCard as DepartmentCardView } from "@/components/ui/department-card";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import {
+  COMPANY_KEY,
+  departmentCards,
+  departmentKeyOf,
+  departmentName,
+  goalsForDepartment,
+  type DepartmentCard,
+} from "@/lib/performance/objectives-by-department";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { newObjectiveHref } from "@/lib/performance/objective-wizard";
+import { approvalWords } from "@/lib/performance/objective-queue";
 import { useAction } from "@/lib/use-action";
 import {
   SuggestButton,
@@ -45,12 +61,12 @@ import {
 } from "@/components/performance/suggestions";
 import { ApiError } from "@/lib/api/client";
 import { useTaskSummarySuggestion } from "@/lib/store/ai";
+import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
   formatMeasure,
   isDoneMeasure,
   isUnread,
-  quarterLabel,
   type ApiGoal,
   type ApiKeyResult,
   type GoalStatus,
@@ -59,25 +75,22 @@ import {
   APPROVAL_TONE,
   GOAL_STATUS_LABEL,
   GOAL_STATUS_TONE,
-  toCascade,
-  SCOPE_LABEL,
   mayBeSubmitted,
+  useAppraisals,
+  useCycleMutations,
   useKpiMutations,
   useKpis,
   useObjectiveMutations,
+  useScoringWeights,
   type GoalNode,
   type KpiScope,
 } from "@/lib/store/performance";
-import { AddMultipleObjectives } from "./add-multiple-objectives";
 import { ApprovalReasonDialog } from "./approval-dialogs";
 import { goalFacts } from "./goal-facts";
 import {
-  averageProgressHint,
-  kpiAddedSaid,
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
-  objectiveCreatedSaid,
   progressLabel,
   readCountLine,
   readCountShort,
@@ -89,14 +102,12 @@ import { SendForAgreementDialog } from "./send-for-agreement";
 import {
   AddMeasureDialog,
   AssignKpiDialog,
-  NewKpiDialog,
   StopKpiDialog,
   EditGoalDialog,
   DeleteGoalDialog,
   deleteBlocker,
   mayEditGoal,
 } from "./goal-dialogs";
-import { TaskLogPanel } from "./task-log";
 import { CompletedWork } from "@/components/performance/completed-work";
 import { useCanUploadObjectives } from "./kpis/import/access";
 import { PlanWorkDialog } from "./plan-work-dialog";
@@ -157,64 +168,224 @@ import {
 /** Not a cycle id, so it cannot collide with one. */
 const NO_PERIOD = "none";
 
-/**
- * How the list is ordered, when it is not the cascade's own order.
- *
- * The default is deliberately **not** a date. The cascade sorts by rung —
- * company, then department, then personal — because the indentation is the
- * argument the screen is making, and a date order destroys it. So choosing a
- * date here **flattens the tree on purpose**, and the screen says so: what was
- * asked for is a chronological list, and a list is what it gives.
- */
-const ORDERS = [
-  ["updated", "Changed most recently"],
-  ["created", "Newest first"],
-  ["created-asc", "Oldest first"],
-] as const;
+/** The heading of the empty state, by whose objectives are being read. */
+export const EMPTY_TITLE: Record<KpiScope, string> = {
+  mine: "No objectives yet",
+  team: "Nobody in your team has an objective yet",
+  company: "The company has no objectives yet",
+};
 
-type Order = (typeof ORDERS)[number][0];
+/**
+ * Nothing in this reading at all (owner request, 24 Nov 2026).
+ *
+ * In place of four tiles reading 0, a filter row with nothing to filter and an
+ * empty list: one figure, what an objective is, and the way to write one. The
+ * quieter way in is for several at once.
+ */
+export function EmptyObjectives({
+  scope,
+  href,
+  showUpload = false,
+  uploadHref = "/performance/kpis/import",
+}: {
+  scope: KpiScope;
+  /** Where New objective goes, or null when this person cannot write one. */
+  href: string | null;
+  /** Upload objectives, as the quieter way in, for people who may. */
+  showUpload?: boolean;
+  uploadHref?: string;
+}) {
+  const toast = useToast();
+  const appraisals = useAppraisals();
+  const periods = useCycleMutations();
+  const scoring = useScoringWeights();
+  const [asking, setAsking] = useState(false);
+  /* What objectives are worth in the score, so the page says why they matter. */
+  const weight = Math.round(
+    (scoring.weights?.rows.find((row) => row.component === "OBJECTIVES")
+      ?.weightBp ?? 0) / 100,
+  );
+  /* Somebody can only be asked in the name of a period, so the button waits for one. */
+  const period = appraisals.cycles.find((one) => one.stage !== "PUBLISHED");
+  const mayAsk = href !== null && scope === "company" && period !== undefined;
+
+  const ask = async () => {
+    if (!period) return;
+    setAsking(true);
+    try {
+      const result = await periods.notifyObjectives(period.id);
+      toast.push({
+        title: "Everyone has been asked",
+        tone: "success",
+        detail: `${String(result.notified)} ${result.notified === 1 ? "person was" : "people were"} told in the app.`,
+      });
+    } catch (caught) {
+      toast.push({
+        title: "That did not send",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  return (
+    <Card>
+      <EmptyState
+        art={<Illustration name={href ? "welcome" : "shrug"} height={144} />}
+        title={EMPTY_TITLE[scope]}
+        description={
+          weight > 0
+            ? scope === "company"
+              ? `Delivery against objectives is ${String(weight)}% of an appraisal score. Start with the company's objectives, then ask each department to set theirs.`
+              : `Delivery against objectives is ${String(weight)}% of your appraisal score. Set yours so it counts.`
+            : "An objective is what somebody aims for, with a target to measure it, and it is agreed before the period it covers."
+        }
+        {...(href
+          ? {
+              action: (
+                <div className="flex flex-col items-center gap-3">
+                  <ButtonLink variant="accent" href={href}>
+                    <Plus aria-hidden="true" className="size-4" />
+                    {scope === "company"
+                      ? "Set a company objective"
+                      : "New objective"}
+                  </ButtonLink>
+                  {mayAsk && (
+                    <Button
+                      variant="secondary"
+                      loading={asking}
+                      onClick={() => void ask()}
+                    >
+                      Ask everyone to set theirs
+                    </Button>
+                  )}
+                  {showUpload && (
+                    <Link
+                      href={uploadHref}
+                      className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+                    >
+                      Upload objectives
+                    </Link>
+                  )}
+                </div>
+              ),
+            }
+          : {})}
+      />
+    </Card>
+  );
+}
 
 export function KpisTab({
   scope,
-  scopes,
-  onScopeChange,
+  department = null,
+  departmentHref,
+  strip,
+  headerAction,
 }: {
   scope: KpiScope;
-  scopes: KpiScope[];
-  onScopeChange: (scope: KpiScope) => void;
+  /** Sits at the right of the open department's name row. */
+  headerAction?: React.ReactNode;
+  /**
+   * The page's tab strip, when the page draws one with more than whose
+   * objectives in it (To agree). Left out, the scopes are drawn here.
+   */
+  strip?: React.ReactNode;
+  /** The department open on "Whole company", from the address. Null: the cards. */
+  department?: string | null;
+  /** Where a department card goes, and where "All departments" goes back to. */
+  departmentHref?: (key: string | null) => string;
 }) {
   const kpis = useKpis(scope);
+  /* The whole company opens on one card per department (owner request, 24
+     Nov). A personal objective belongs to its owner's department, which only
+     the staff list knows, so the cards wait for it rather than counting
+     everybody's under "No department" for a moment. */
+  const grouping = scope === "company" && departmentHref !== undefined;
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const { flat: departmentList } = useDepartments();
+  const owners = useMemo(
+    () =>
+      new Map(
+        directory.people.map((person) => [person.id, person.departmentId]),
+      ),
+    [directory.people],
+  );
+  const membersByDepartment = useMemo(() => {
+    const byKey: Record<string, string[]> = {};
+    for (const person of directory.people) {
+      if (!person.departmentId) continue;
+      (byKey[person.departmentId] ??= []).push(person.fullName);
+    }
+    return byKey;
+  }, [directory.people]);
+  /* Whoever cannot read across the company sees the whole company's objectives and
+     their own department's, and nothing else by default. */
+  const seesEveryDepartment = useCan("EDIT_RECORDS");
+  const { employeeId: myId } = useSession();
+  const myDepartment =
+    directory.people.find((person) => person.id === myId)?.departmentId ?? null;
+  const allCards = useMemo(
+    () =>
+      grouping
+        ? departmentCards(
+            kpis.goals,
+            departmentList.filter((one) => !one.archived),
+            owners,
+          )
+        : [],
+    [grouping, kpis.goals, departmentList, owners],
+  );
+  const cards = useMemo(
+    () =>
+      seesEveryDepartment
+        ? allCards
+        : allCards.filter(
+            (card) => card.key === COMPANY_KEY || card.key === myDepartment,
+          ),
+    [allCards, seesEveryDepartment, myDepartment],
+  );
+  const mayOpen = (key: string | null) =>
+    seesEveryDepartment ||
+    key === null ||
+    key === COMPANY_KEY ||
+    key === myDepartment;
+  const opened =
+    grouping && department !== null && mayOpen(department) ? department : null;
+  const openedGoals = useMemo(
+    () =>
+      opened === null ? null : goalsForDepartment(kpis.goals, opened, owners),
+    [opened, kpis.goals, owners],
+  );
+  /* What the list, the search and the filters work over: the open
+     department's objectives, or everybody's. */
+  const pool = openedGoals ?? kpis.goals;
   const mutations = useKpiMutations();
   const objectives = useObjectiveMutations();
   const canUpload = useCanUploadObjectives();
   const toast = useToast();
   const { actingId } = useSession();
 
-  /* `objective` is the top-level button: a new objective, which carries on
-     into the detail below once it exists. `parentId` is "Add a KPI under
-     this", which is a KPI and does not. */
-  const [creating, setCreating] = useState<{
-    parentId?: string;
-    objective?: boolean;
-  } | null>(null);
-  /* The objective just made, whose detail is open on top of the cascade. The
-     API's own answer, held until the reloaded list has it. */
-  const [created, setCreated] = useState<ApiGoal | null>(null);
-  /* Kept after it closes, so `Modal` can run its own exit on the real goal
-     rather than on nothing. */
-  const [shown, setShown] = useState<ApiGoal | null>(null);
-  if (created && created !== shown) setShown(created);
-  const justMade = shown
-    ? (kpis.goals.find((goal) => goal.id === shown.id) ?? shown)
-    : null;
-  /* What a new KPI is going under. The objective just made counts even when
-     the list behind does not have it. */
-  const parentGoal = creating?.parentId
-    ? (kpis.goals.find((goal) => goal.id === creating.parentId) ??
-      (justMade?.id === creating.parentId ? justMade : undefined))
-    : undefined;
-  /* The window for adding several objectives at once. */
-  const [addingMany, setAddingMany] = useState(false);
+  /* New objective is a page of its own (owner request, 24 Nov 2026), and
+     "Add an objective under this" is the same page started under one. Both
+     come back here: the address carries where they were. */
+  const router = useRouter();
+  const backHere =
+    scope === "company" && department
+      ? `/performance/kpis?scope=company&department=${encodeURIComponent(department)}`
+      : `/performance/kpis?scope=${scope}`;
+  const newObjective = (parentId?: string) =>
+    newObjectiveHref({
+      back: backHere,
+      ...(parentId ? { parent: parentId } : {}),
+    });
+  const addUnder = (parentId: string) => router.push(newObjective(parentId));
+
   const [assigning, setAssigning] = useState<ApiGoal | null>(null);
   const [addingTo, setAddingTo] = useState<ApiGoal | null>(null);
   const [stopping, setStopping] = useState<ApiGoal | null>(null);
@@ -255,8 +426,6 @@ export function KpisTab({
   const [owner, setOwner] = useState("");
   /** A cycle id, or `NO_PERIOD` for the objectives that belong to none. */
   const [period, setPeriod] = useState("");
-  /** Empty means the cascade's own rung order. */
-  const [order, setOrder] = useState<Order | "">("");
 
   /* Every write reports its own failure through the one place that decides
      what a failure says — see `lib/use-action.ts`. Worth knowing what changed
@@ -343,7 +512,8 @@ export function KpisTab({
   const approvalOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const goal of kpis.goals) {
-      if (!seen.has(goal.approval)) seen.set(goal.approval, goal.approvalLabel);
+      if (!seen.has(goal.approval))
+        seen.set(goal.approval, approvalWords(goal));
     }
     return [...seen];
   }, [kpis.goals]);
@@ -392,8 +562,8 @@ export function KpisTab({
     period !== "";
 
   const matching = useMemo(() => {
-    if (!narrowing) return kpis.goals;
-    return kpis.goals.filter((goal) => {
+    if (!narrowing) return pool;
+    return pool.filter((goal) => {
       /* Title and description — the same two columns the API's own `q` covers,
          so searching here and searching there cannot come to mean different
          things. */
@@ -420,27 +590,17 @@ export function KpisTab({
       }
       return true;
     });
-  }, [kpis.goals, narrowing, term, approval, progress, owner, period]);
+  }, [pool, narrowing, term, approval, progress, owner, period]);
 
-  const cascade = useMemo(() => {
-    if (order !== "") {
-      /* Flat, every row a root. The card reads correctly at depth 0 — that is
-         the path a company with no nesting already takes — and `parentTitle`
-         on the row keeps the context the indentation was carrying. */
-      const dated = [...matching].sort((a, b) => {
-        if (order === "updated") return b.updatedAt.localeCompare(a.updatedAt);
-        return order === "created"
-          ? b.createdAt.localeCompare(a.createdAt)
-          : a.createdAt.localeCompare(b.createdAt);
-      });
-      return dated.map((goal) => ({ ...goal, children: [], depth: 0 }));
-    }
-    /* `toCascade` already makes a goal whose parent is absent into a root
-       rather than dropping it — the documented behaviour, and exactly what a
-       search result wants: every match visible, with `parentTitle` to say what
-       it sits under. */
-    return narrowing ? toCascade(matching) : kpis.cascade;
-  }, [order, narrowing, matching, kpis.cascade]);
+  /* A flat list, by title: no cascade, no company objective pinned above the
+     rest (owner, 24 Nov 2026). `matching` is the pool narrowed by the search
+     and filters, or the whole pool. */
+  const flat = [...matching].sort((x, y) => x.title.localeCompare(y.title));
+
+  /* The cards stand in for the list until a department is opened, or a
+     search or a filter asks across all of them. */
+  const showCards = grouping && opened === null && !narrowing;
+  const openedName = opened === null ? null : departmentName(cards, opened);
 
   const clearFilters = () => {
     setSearch("");
@@ -448,7 +608,6 @@ export function KpisTab({
     setProgress("");
     setOwner("");
     setPeriod("");
-    setOrder("");
   };
 
   /* `label` is the dimension and `value` is the choice — the chip renders them
@@ -495,102 +654,83 @@ export function KpisTab({
         ]),
   ];
 
-  /* Same rule as `GoalBranch` applies to a node's children, applied to the
-     roots: no ladder between peers, so peers pair up, and anything heading a
-     cascade keeps its own row. */
-  const rootLeaves = cascade.filter((node) => node.children.length === 0);
-  const rootBranches = cascade.filter((node) => node.children.length > 0);
+  /* Nothing at all in this reading, as an answer and not while it loads or
+     after it failed: the filters and an empty list are replaced by one empty
+     state that says what an objective is and offers to write one. */
+  const empty = !kpis.loading && !kpis.error && kpis.goals.length === 0;
 
-  const tracked = kpis.goals.filter((goal) => goal.status !== "DONE");
-  const waiting = kpis.goals.filter(
-    (goal) => goal.approval === "AWAITING_APPROVAL",
+  /* The filter controls, behind the filter icon. */
+  const FILTERS = (
+    <>
+      <Select
+        aria-label="Filter by agreement"
+        value={approval}
+        onChange={(event) => setApproval(event.target.value)}
+      >
+        <option value="">Any agreement</option>
+        {approvalOptions.map(([key, label]) => (
+          <option key={key} value={key}>
+            {label}
+          </option>
+        ))}
+      </Select>
+      <Select
+        aria-label="Filter by progress"
+        value={progress}
+        onChange={(event) => setProgress(event.target.value)}
+      >
+        <option value="">Any progress</option>
+        {(["ON_TRACK", "AT_RISK", "OFF_TRACK", "DONE"] as GoalStatus[]).map(
+          (key) => (
+            <option key={key} value={key}>
+              {GOAL_STATUS_LABEL[key]}
+            </option>
+          ),
+        )}
+      </Select>
+      {periodOptions.length > 0 && (
+        <Select
+          aria-label="Filter by appraisal period"
+          value={period}
+          onChange={(event) => setPeriod(event.target.value)}
+        >
+          <option value="">Any period</option>
+          {periodOptions.map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      )}
+      {ownerOptions.length > 0 && (
+        <Select
+          aria-label="Filter by owner"
+          value={owner}
+          onChange={(event) => setOwner(event.target.value)}
+        >
+          <option value="">Anybody</option>
+          {ownerOptions.map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </Select>
+      )}
+    </>
   );
-  const unsent = kpis.goals.filter(
-    (goal) => goal.approval === "DRAFT" || goal.approval === "NEEDS_REVISION",
-  );
-  const attention = tracked.filter(
-    (goal) => goal.status === "AT_RISK" || goal.status === "OFF_TRACK",
-  );
-  const measures = kpis.goals.flatMap((goal) => goal.keyResults);
-  const hit = measures.filter((measure) => measure.met).length;
-  /* Null, not 0. A mean over nothing is not zero progress — it is no progress
-     recorded, and the two read identically on a Stat while meaning opposite
-     things. Same rule the module's own `period-status.tsx` states with
-     `notYet`. */
-  /* A goal whose measures have all gone unread has no figure, only the 0 it was
-     created with, so it is left out of the mean instead of pulling it down. */
-  const withAFigure = tracked.filter(
-    (goal) => !(goal.keyResults.length > 0 && goal.measuredProgress === null),
-  );
-  const averageHint = averageProgressHint(withAFigure.length, tracked.length);
-  const average =
-    withAFigure.length === 0
-      ? null
-      : Math.round(
-          withAFigure.reduce(
-            (sum, goal) => sum + (goal.measuredProgress ?? goal.progress),
-            0,
-          ) / withAFigure.length,
-        );
 
   const content = (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {scopes.length > 1 ? (
-          <SegmentedControl<KpiScope>
-            label="Whose objectives to show"
-            value={scope}
-            onChange={onScopeChange}
-            options={scopes.map((id) => ({
-              value: id,
-              label: SCOPE_LABEL[id],
-            }))}
-          />
-        ) : (
-          <span className="text-body-sm text-muted">{SCOPE_LABEL[scope]}</span>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
+      {(strip !== undefined || (DEMO_ENABLED && kpis.source === "demo")) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {strip}
           {DEMO_ENABLED && kpis.source === "demo" && (
             <Badge tone="warning" size="sm">
               Demo · numbers stay in this browser
             </Badge>
           )}
-          {mutations.editable && canUpload && (
-            <ButtonLink
-              variant="secondary"
-              size="sm"
-              href="/performance/kpis/import"
-            >
-              <Upload aria-hidden="true" className="size-4" />
-              Upload objectives
-            </ButtonLink>
-          )}
-          {/* Beside the upload, because it is the same door for fewer rows:
-              the same people, the same checks, typed in here instead of in
-              Excel. */}
-          {mutations.editable && canUpload && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setAddingMany(true)}
-            >
-              <ListPlus aria-hidden="true" className="size-4" />
-              Add multiple
-            </Button>
-          )}
-          {mutations.editable && (
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => setCreating({ objective: true })}
-            >
-              <Plus aria-hidden="true" className="size-4" />
-              New objective
-            </Button>
-          )}
         </div>
-      </div>
+      )}
 
       <LoadFailure
         subject="your objectives"
@@ -598,186 +738,57 @@ export function KpisTab({
         onRetry={kpis.reload}
       />
 
-      <StatGrid>
-        <Stat label="Objectives being tracked" value={String(tracked.length)} />
-        <Stat
-          label="Average progress"
-          /* An em dash, not a sentence — see `Stat`'s other callers
-             (`advances-screen.tsx`, `payments/history-screen.tsx`): nothing
-             tracked is a dash, same size as every other Stat value, not a
-             phrase that reads as a different kind of thing in the same row. */
-          value={
-            average === null ? (
-              <span className="text-faint">—</span>
-            ) : (
-              `${average}%`
-            )
-          }
-          {...(averageHint ? { hint: averageHint } : {})}
+      {empty ? (
+        <EmptyObjectives
+          scope={scope}
+          href={mutations.editable ? newObjective() : null}
+          {...(mutations.editable && canUpload ? { showUpload: true } : {})}
         />
-        <Stat
-          label="Needs attention"
-          value={String(attention.length)}
-          {...(attention.length > 0
-            ? { trend: { direction: "down" as const, label: "Behind" } }
-            : {})}
-        />
-        <Stat
-          label="Targets met"
-          /* "0 of 0" is a measurement of a set nobody has created. */
-          value={
-            measures.length === 0 ? (
-              <span className="text-faint">—</span>
-            ) : (
-              `${hit} of ${measures.length}`
-            )
-          }
-        />
-      </StatGrid>
-
-      {/* Delivery against objectives is one of the four parts an appraisal is
-          made of, and only an **agreed** objective counts towards it. Somebody
-          whose KPIs are all drafts is somebody who will be unscored on that
-          part, so the count is on the page rather than discovered at the end of
-          the period.
-
-          A line, not a panel. This was a tinted box headed "Not everything here
-          can be scored yet" over a sentence explaining what an agreed objective
-          counts towards — the product explaining its own scoring rules to
-          somebody who came to look at their objectives. The two counts are the
-          fact; `NoticeLine` carries the argument. */}
-      {waiting.length > 0 && (
-        <NoticeLine tone="warning">
-          <span>
-            {waiting.length === 1
-              ? "1 objective is waiting to be agreed"
-              : `${waiting.length} objectives are waiting to be agreed`}
-          </span>
-          <Link href="/performance/approvals" className={NOTICE_LINK}>
-            See what is waiting
-          </Link>
-        </NoticeLine>
-      )}
-      {unsent.length > 0 && (
-        <NoticeLine tone="warning">
-          {unsent.length === 1
-            ? "1 objective has not been sent to be agreed yet"
-            : `${unsent.length} objectives have not been sent to be agreed yet`}
-        </NoticeLine>
-      )}
-
-      <Card>
-        <CardHeader
-          title="All objectives"
-          description="The company objective is at the top. Team and personal objectives sit under the one they support."
-        />
-        {kpis.goals.length > 0 && !kpis.loading && (
-          <CardBody className="pb-0">
-            <FilterBar
-              search={search}
-              onSearchChange={setSearch}
-              searchLabel="Search objectives by title or detail"
-              searchPlaceholder="Search objectives…"
-              applied={applied}
-              {...(narrowing || order !== ""
-                ? { onClearAll: clearFilters }
-                : {})}
-              count={narrowing ? matching.length : undefined}
-              noun={["objective", "objectives"]}
-              sort={
-                <Select
-                  aria-label="Order the list"
-                  value={order}
-                  onChange={(event) =>
-                    setOrder(event.target.value as Order | "")
-                  }
+      ) : (
+        <>
+          {/* No figures above the list (owner, 24 Nov 2026: "remove
+              objectives being tracked, average progress, just large cards"),
+              and none of the lines that used to sit here about what waits to
+              be agreed: the To agree tab carries that count. */}
+          {opened !== null && departmentHref && (
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col items-start gap-1">
+                <ButtonLink
+                  variant="ghost"
+                  size="sm"
+                  href={departmentHref(null)}
+                  className="-ml-2"
                 >
-                  <option value="">Grouped under the company goal</option>
-                  {ORDERS.map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              }
-            >
-              <Select
-                aria-label="Filter by agreement"
-                value={approval}
-                onChange={(event) => setApproval(event.target.value)}
+                  <ArrowLeft aria-hidden="true" className="size-4" />
+                  All departments
+                </ButtonLink>
+                <h2 className="text-h3 font-semibold text-ink">
+                  {openedName ?? "Objectives"}
+                </h2>
+              </div>
+              {headerAction}
+            </div>
+          )}
+
+          {kpis.goals.length > 0 &&
+            !kpis.loading &&
+            !(grouping && opened === null) &&
+            opened === null && (
+              <FilterBar
+                search={search}
+                onSearchChange={setSearch}
+                searchLabel="Search objectives by title or detail"
+                searchPlaceholder="Search objectives…"
+                applied={applied}
+                {...(narrowing ? { onClearAll: clearFilters } : {})}
+                count={narrowing ? matching.length : undefined}
+                noun={["objective", "objectives"]}
               >
-                <option value="">Any agreement</option>
-                {approvalOptions.map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                aria-label="Filter by progress"
-                value={progress}
-                onChange={(event) => setProgress(event.target.value)}
-              >
-                <option value="">Any progress</option>
-                {(
-                  ["ON_TRACK", "AT_RISK", "OFF_TRACK", "DONE"] as GoalStatus[]
-                ).map((key) => (
-                  <option key={key} value={key}>
-                    {GOAL_STATUS_LABEL[key]}
-                  </option>
-                ))}
-              </Select>
-              {periodOptions.length > 0 && (
-                <Select
-                  aria-label="Filter by appraisal period"
-                  value={period}
-                  onChange={(event) => setPeriod(event.target.value)}
-                >
-                  <option value="">Any period</option>
-                  {periodOptions.map(([id, label]) => (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              {ownerOptions.length > 0 && (
-                <Select
-                  aria-label="Filter by owner"
-                  value={owner}
-                  onChange={(event) => setOwner(event.target.value)}
-                >
-                  <option value="">Anybody</option>
-                  {ownerOptions.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </FilterBar>
-            {(narrowing || order !== "") && (
-              /* Two separate facts, each said only when it is true.
-                 -------------------------------------------------------------
-                 The figures above are the company's and do not move with a
-                 filter: a reader who takes "24 being tracked" as the size of
-                 the list below has been misled by a number that was never
-                 about the list. And a date order flattens the cascade, which
-                 is a change to *what* they are looking at rather than to how
-                 much of it — so it is said whether or not anything is
-                 filtered. */
-              <p className="mt-3 text-meta text-muted">
-                {narrowing &&
-                  `Showing ${String(matching.length)} of ${String(kpis.goals.length)}. The figures above are for everything, not for what is filtered here.`}
-                {narrowing && order !== "" && " "}
-                {order !== "" &&
-                  "Ordered by date, so objectives are not grouped under their parent while this is on."}
-              </p>
+                {FILTERS}
+              </FilterBar>
             )}
-          </CardBody>
-        )}
-        {kpis.loading ? (
-          <CardBody>
+
+          {kpis.loading ? (
             <LoadState
               loading
               error={null}
@@ -786,167 +797,120 @@ export function KpisTab({
             >
               {null}
             </LoadState>
-          </CardBody>
-        ) : kpis.error ? null : narrowing && matching.length === 0 ? (
-          /* Distinct from "No KPIs yet". Nothing matching a search is not a
-             company with no objectives, and offering "New objective" to
-             somebody who mistyped a name would answer a question they did not
-             ask. */
-          <EmptyState
-            mood="search"
-            icon={<Target aria-hidden="true" />}
-            title="Nothing matches that"
-            description={`None of the ${String(kpis.goals.length)} objectives match your filters.`}
-            action={
-              <Button variant="ghost" onClick={clearFilters}>
-                Clear the filters
-              </Button>
-            }
-          />
-        ) : kpis.cascade.length === 0 ? (
-          <EmptyState
-            icon={<Target aria-hidden="true" />}
-            title="No objectives yet"
-            description="Start with a company objective, then add each team's objectives under it."
-            action={
-              mutations.editable ? (
-                <Button
-                  variant="accent"
-                  onClick={() => setCreating({ objective: true })}
-                >
-                  New objective
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-3">
-            {/* Roots pair up too, on the same rule the branches use.
-                ------------------------------------------------------------
-                The grid was originally only applied to a node's *children*,
-                which quietly did nothing for the commonest shape there is: a
-                company whose objectives are a flat list rather than a
-                cascade. Read against a real company with nine objectives and
-                no nesting at all, every card was at depth 0, no node had
-                children, and the grid never rendered — nine full-width cards
-                in one column, which is the exact scroll this change set out
-                to remove.
-
-                So the split is applied here as well: a root with nothing
-                under it is a leaf like any other and can sit beside its
-                peers, while a root that heads a cascade stays full width so
-                the things indented beneath it read as beneath it. */}
-            {rootLeaves.length > 0 && (
-              <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
-                {rootLeaves.map((node) => (
-                  <GoalCard
-                    key={node.id}
-                    goal={node}
-                    depth={node.depth}
-                    editable={mutations.editable}
-                    actingId={actingId}
-                    canPlan={canPlan}
-                    onAddMeasure={setAddingTo}
-                    onAddChild={(parentId) => setCreating({ parentId })}
-                    onAssign={setAssigning}
-                    onComplete={setCompleting}
-                    onStop={setStopping}
-                    onEdit={setEditing}
-                    onDelete={setDeleting}
-                    onShare={shareGoal}
-                    onSubmit={setSending}
-                    onReopen={setReopening}
-                    onRecord={recordMeasure}
-                    onPlan={setPlanning}
-                  />
-                ))}
-              </div>
-            )}
-
-            {rootBranches.map((node) => (
-              <GoalBranch
-                key={node.id}
-                node={node}
-                editable={mutations.editable}
-                actingId={actingId}
-                canPlan={canPlan}
-                onAddMeasure={setAddingTo}
-                onAddChild={(parentId) => setCreating({ parentId })}
-                onAssign={setAssigning}
-                onComplete={setCompleting}
-                onStop={setStopping}
-                onEdit={setEditing}
-                onDelete={setDeleting}
-                onShare={shareGoal}
-                onSubmit={setSending}
-                onReopen={setReopening}
-                onRecord={recordMeasure}
-                onPlan={setPlanning}
+          ) : kpis.error ? null : showCards ? (
+            directory.loading ? (
+              <LoadState
+                loading
+                error={null}
+                subject="the departments"
+                skeleton="list"
+              >
+                {null}
+              </LoadState>
+            ) : (
+              <DepartmentGrid
+                cards={cards}
+                hrefOf={departmentHref!}
+                members={membersByDepartment}
               />
-            ))}
-          </CardBody>
-        )}
-      </Card>
-
-      <AddMultipleObjectives
-        open={addingMany}
-        onClose={() => setAddingMany(false)}
-        goals={kpis.goals}
-        onChanged={kpis.reload}
-      />
-
-      <NewKpiDialog
-        open={creating !== null}
-        mode={creating?.objective ? "objective" : "kpi"}
-        parentId={creating?.parentId}
-        parentTitle={parentGoal?.title}
-        onClose={() => setCreating(null)}
-        onCreate={async (body) => {
-          const objective = creating?.objective === true;
-          const outcome = await announced(
-            () => mutations.createGoal(body),
-            (goal) =>
-              objective
-                ? objectiveCreatedSaid(goal, actingId)
-                : kpiAddedSaid(goal, actingId),
-            "the objective",
-          );
-          if (!outcome.ok) return;
-          setCreating(null);
-
-          /* An objective on its own is not much — what comes next is putting
-             KPIs under it. So its detail opens, and that is where "Add a KPI
-             under this", "Give a KPI to people" and "Add a measure" already
-             are. */
-          if (objective) setCreated(outcome.value);
-        }}
-      />
-
-      {/* The objective just made. Read from the list once the reload has it,
-          so it shows the same thing the card behind it will; the API's own
-          answer stands in until then, and for good if this person's view of
-          the cascade does not include it. */}
-      {justMade && (
-        <GoalDetailModal
-          goal={justMade}
-          open={created !== null}
-          onClose={() => setCreated(null)}
-          {...goalFacts(justMade, actingId)}
-          editable={mutations.editable}
-          canPlan={canPlan}
-          onAddMeasure={setAddingTo}
-          onAddChild={(parentId) => setCreating({ parentId })}
-          onAssign={setAssigning}
-          onComplete={setCompleting}
-          onStop={setStopping}
-          onEdit={setEditing}
-          onDelete={setDeleting}
-          onShare={shareGoal}
-          onSubmit={setSending}
-          onReopen={setReopening}
-          onRecord={recordMeasure}
-          onPlan={setPlanning}
-        />
+            )
+          ) : narrowing && matching.length === 0 ? (
+            <EmptyState
+              mood="search"
+              icon={<Target aria-hidden="true" />}
+              title="Nothing matches that"
+              description={`None of the ${String(pool.length)} objectives match your filters.`}
+              action={
+                <Button variant="ghost" onClick={clearFilters}>
+                  Clear the filters
+                </Button>
+              }
+            />
+          ) : flat.length === 0 ? (
+            <EmptyState
+              plain
+              icon={<Target aria-hidden="true" />}
+              title="No objectives here yet"
+              description="Nothing in this department is filed as an objective yet."
+            />
+          ) : (
+            /* A flat, even grid. An opened department is two sections: its
+               own objectives (level department) in larger cards, then its
+               members' under "Team members" (owner, 24 Nov 2026). */
+            (() => {
+              const card = (goal: ApiGoal, asRow = false) => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  depth={0}
+                  asRow={asRow}
+                  editable={mutations.editable}
+                  actingId={actingId}
+                  canPlan={canPlan}
+                  onAddMeasure={setAddingTo}
+                  onAddChild={addUnder}
+                  onAssign={setAssigning}
+                  onComplete={setCompleting}
+                  onStop={setStopping}
+                  onEdit={setEditing}
+                  onDelete={setDeleting}
+                  onShare={shareGoal}
+                  onSubmit={setSending}
+                  onReopen={setReopening}
+                  onRecord={recordMeasure}
+                  onPlan={setPlanning}
+                />
+              );
+              const split = opened !== null && opened !== COMPANY_KEY;
+              if (!split) {
+                return (
+                  <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
+                    {flat.map((goal) => card(goal))}
+                  </div>
+                );
+              }
+              const own = (goal: ApiGoal) =>
+                departmentKeyOf(goal, owners) === opened;
+              const departmentGoals = flat.filter(
+                (goal) => goal.level === "department" && own(goal),
+              );
+              const members = flat.filter(
+                (goal) => goal.level !== "department" && own(goal),
+              );
+              return (
+                <div className="flex flex-col gap-6">
+                  {departmentGoals.length > 0 && (
+                    <section className="flex flex-col gap-3">
+                      <h3 className="text-body-md font-semibold text-ink">
+                        Department objectives
+                      </h3>
+                      <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
+                        {departmentGoals.map((goal) => card(goal))}
+                      </div>
+                    </section>
+                  )}
+                  {members.length > 0 && (
+                    <section className="flex flex-col gap-3">
+                      <h3 className="text-body-md font-semibold text-ink">
+                        Team members
+                      </h3>
+                      <TableWrap caption="Team members' objectives">
+                        <THead>
+                          <TH>Objective</TH>
+                          <TH>Owner</TH>
+                          <TH align="right">Progress</TH>
+                          <TH>Agreed</TH>
+                          <TH>Status</TH>
+                        </THead>
+                        <TBody>{members.map((goal) => card(goal, true))}</TBody>
+                      </TableWrap>
+                    </section>
+                  )}
+                </div>
+              );
+            })()
+          )}
+        </>
       )}
 
       <AssignKpiDialog
@@ -1142,6 +1106,44 @@ export function KpisTab({
 /* -------------------------------------------------------------------------- */
 
 /** One rung of the ladder, and everything beneath it. */
+/**
+ * One card per department on "Whole company": its name, how many objectives it
+ * has and, only when there are any, how many are behind. Plain text, no chart.
+ * Each card is a link, so it can be opened in a new tab and the address says
+ * which department is open. One to a row on a phone.
+ */
+export function DepartmentGrid({
+  cards,
+  hrefOf,
+  members = {},
+}: {
+  cards: readonly DepartmentCard[];
+  hrefOf: (key: string) => string;
+  /** Names of people in each department, by card key: three faces go on the card. */
+  members?: Record<string, readonly string[]>;
+}) {
+  return (
+    <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {cards.map((card) => (
+        <li key={card.key} className="min-w-0">
+          <DepartmentCardView
+            name={card.name}
+            href={hrefOf(card.key)}
+            line={
+              card.count === 0
+                ? "No objectives yet"
+                : card.count === 1
+                  ? "1 objective"
+                  : `${String(card.count)} objectives`
+            }
+            members={members[card.key] ?? []}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function GoalBranch({
   node,
   editable,
@@ -1289,9 +1291,15 @@ export function GoalCard({
   onReopen,
   onRecord,
   onPlan,
+  emphasis = false,
+  asRow = false,
 }: {
   goal: ApiGoal;
   depth: number;
+  /** One row of a table instead of a card: the department's members. */
+  asRow?: boolean;
+  /** A department's own objective: larger text and more room (owner, 24 Nov 2026). */
+  emphasis?: boolean;
   editable: boolean;
   /** Signed-in person's own employee id — decides who may log a task. */
   actingId: string | null;
@@ -1309,7 +1317,7 @@ export function GoalCard({
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
   onPlan?: ((goal: ApiGoal) => void) | undefined;
 }) {
-  const facts = goalFacts(goal, actingId);
+  const facts = goalFacts(goal);
   const { progress, done, reads } = facts;
 
   /* The detail is a modal, and this is the card's only piece of state.
@@ -1317,6 +1325,70 @@ export function GoalCard({
      opening one costs no request and cannot show a different reading of the
      objective from the one on the card behind it. */
   const [open, setOpen] = useState(false);
+
+  if (asRow) {
+    return (
+      <>
+        <TR interactive onClick={rowClick(() => setOpen(true))}>
+          <TD>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-haspopup="dialog"
+              className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              {goal.title}
+            </button>
+          </TD>
+          <TD>
+            <span className="flex items-center gap-2">
+              {goal.ownerName && <Avatar name={goal.ownerName} size="xs" />}
+              <span className="truncate">
+                {goal.ownerName ?? goal.departmentName ?? "No owner"}
+              </span>
+            </span>
+          </TD>
+          <TD align="right">
+            <span className="tabular">
+              {reads?.read === 0
+                ? readCountShort(reads)
+                : `${String(progress)}%`}
+            </span>
+          </TD>
+          <TD>
+            <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
+              {approvalWords(goal)}
+            </Badge>
+          </TD>
+          <TD>
+            <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
+              {GOAL_STATUS_LABEL[goal.status]}
+            </Badge>
+          </TD>
+        </TR>
+        <GoalDetailModal
+          goal={goal}
+          open={open}
+          onClose={() => setOpen(false)}
+          {...facts}
+          editable={editable}
+          canPlan={canPlan}
+          onAddMeasure={onAddMeasure}
+          onAddChild={onAddChild}
+          onAssign={onAssign}
+          onComplete={onComplete}
+          onStop={onStop}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onShare={onShare}
+          onSubmit={onSubmit}
+          onReopen={onReopen}
+          onRecord={onRecord}
+          onPlan={onPlan}
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -1354,7 +1426,11 @@ export function GoalCard({
           type="button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
-          className="flex w-full flex-col gap-2.5 rounded-lg p-3.5 text-left transition-colors hover:border-accent-line hover:bg-sunken/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+          className={cn(
+            "flex w-full flex-col rounded-lg text-left transition-colors hover:border-accent-line hover:bg-sunken/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+            emphasis ? "gap-3.5 p-5" : "gap-2.5 p-3.5",
+          )}
+          data-emphasis={emphasis ? "true" : undefined}
         >
           <div className="flex w-full items-start justify-between gap-3">
             <div className="flex min-w-0 gap-2.5">
@@ -1364,7 +1440,12 @@ export function GoalCard({
                   className="mt-0.5 size-4 shrink-0 text-faint"
                 />
               )}
-              <p className="min-w-0 text-body-sm font-medium text-ink">
+              <p
+                className={cn(
+                  "min-w-0 font-medium text-ink",
+                  emphasis ? "text-h4" : "text-body-sm",
+                )}
+              >
                 {goal.title}
               </p>
             </div>
@@ -1379,7 +1460,12 @@ export function GoalCard({
               </span>
             ) : (
               <span className="shrink-0 text-right">
-                <span className="tabular block text-body-sm font-medium text-ink">
+                <span
+                  className={cn(
+                    "tabular block font-medium text-ink",
+                    emphasis ? "text-body-lg" : "text-body-sm",
+                  )}
+                >
                   {progress}%
                 </span>
                 {reads && (
@@ -1391,7 +1477,12 @@ export function GoalCard({
             )}
           </div>
 
-          <div className="flex w-full flex-wrap items-center justify-between gap-2 text-meta text-muted">
+          <div
+            className={cn(
+              "flex w-full flex-wrap items-center justify-between gap-2 text-muted",
+              emphasis ? "text-body-sm" : "text-meta",
+            )}
+          >
             <span className="flex min-w-0 items-center gap-1.5">
               {goal.companyWide ? (
                 <span>Everyone</span>
@@ -1415,7 +1506,7 @@ export function GoalCard({
                 whichever mattered — the reason this stayed on the card. */}
             <span className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
               <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
-                {goal.approvalLabel}
+                {approvalWords(goal)}
               </Badge>
               <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
                 {GOAL_STATUS_LABEL[goal.status]}
@@ -1425,9 +1516,29 @@ export function GoalCard({
         </button>
 
         {goal.approvalNote && (
-          <p className="mx-3.5 mb-3.5 border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
-            {goal.approvalNote}
-          </p>
+          <div className="mx-3.5 mb-3.5 flex flex-col gap-2">
+            {/* Declined: the feedback is the reason, and where it is changed
+                is the same page an objective is written on (owner, 24 Nov). */}
+            <p className="border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
+              {goal.approval === "NEEDS_REVISION" && (
+                <span className="block text-meta text-muted">
+                  Feedback when it was declined
+                </span>
+              )}
+              {goal.approvalNote}
+            </p>
+            {goal.approval === "NEEDS_REVISION" &&
+              editable &&
+              mayEditGoal(goal) && (
+                <ButtonLink
+                  size="sm"
+                  href={newObjectiveHref({ edit: goal.id })}
+                  className="self-start"
+                >
+                  Edit and resend
+                </ButtonLink>
+              )}
+          </div>
         )}
       </div>
 
@@ -1485,7 +1596,6 @@ function GoalDetailModal({
   progress,
   done,
   canShare,
-  canLogTasks,
   noPeriod,
   reads,
   editable,
@@ -1510,7 +1620,6 @@ function GoalDetailModal({
   progress: number;
   done: boolean;
   canShare: boolean;
-  canLogTasks: boolean;
   noPeriod: boolean;
   /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
   reads: { read: number; of: number } | null;
@@ -1542,42 +1651,16 @@ function GoalDetailModal({
   return (
     <Modal open={open} onClose={onClose} title={goal.title} size="lg">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
-          <Badge
-            tone={goal.level === "personal" ? "neutral" : "accent"}
-            size="sm"
-          >
-            {rung}
-          </Badge>
-          <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
-            {goal.approvalLabel}
-          </Badge>
-          <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-            {GOAL_STATUS_LABEL[goal.status]}
-          </Badge>
-          {goal.companyWide ? (
-            <span>Everyone</span>
-          ) : goal.ownerName ? (
-            <span className="flex items-center gap-1.5">
-              <Avatar name={goal.ownerName} size="xs" />
-              {goal.ownerName}
-            </span>
-          ) : (
-            <span>{goal.departmentName ?? "No owner"}</span>
-          )}
-          {/* The appraisal period is what makes this scoreable; a bare quarter
-              is what companies typed before periods existed and is still
-              allowed. */}
-          <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
-          {goal.revisionCount > 0 && (
-            <span>
-              {goal.revisionCount === 1
-                ? "Reopened once"
-                : `Reopened ${goal.revisionCount} times`}
-            </span>
-          )}
-          {goal.parentTitle && <span>Under {goal.parentTitle}</span>}
-        </div>
+        {goal.ownerName && (
+          <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
+            {goal.ownerName && (
+              <span className="flex items-center gap-1.5">
+                <Avatar name={goal.ownerName} size="xs" />
+                {goal.ownerName}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* With nothing read, the label says so and the figure is not drawn: a 0%
             beside "nothing read yet" would be the claim the label denies. */}
@@ -1587,7 +1670,7 @@ function GoalDetailModal({
           size="sm"
           tone={
             done
-              ? "ink"
+              ? "success"
               : goal.status === "OFF_TRACK"
                 ? "danger"
                 : goal.status === "AT_RISK"
@@ -1624,32 +1707,11 @@ function GoalDetailModal({
               ),
             )}
           </ul>
-        ) : (
-          <p className="text-body-sm text-body">
-            No target yet, so its progress has to be entered by hand.
-          </p>
-        )}
-
-        {canLogTasks && (
-          <TaskLogPanel goalId={goal.id} keyResults={goal.keyResults} />
-        )}
+        ) : null}
 
         {/* The finished project tasks linked to this, for whoever is reading it
             to see what went into it. Read-only; nothing here is graded. */}
         {open && <CompletedWork goal={goal} />}
-
-        {/* What the freeze actually costs, said before anything is refused —
-            and now directly above the buttons it explains the absence of. The
-            target is frozen and progress is not, and the two halves are easy
-            to confuse into "this KPI is finished". */}
-        {goal.targetFrozen && (
-          <p className="border-t border-line pt-4 text-body-sm text-muted">
-            Agreed, so it is fixed. The title, the period and every
-            target&apos;s figure stay as they are, and no new target can be
-            added, because that would change what delivering this means.
-            Progress numbers can still change.
-          </p>
-        )}
 
         {noPeriod && goal.approval !== "AGREED" && (
           <p className="text-body-sm text-body">
@@ -1658,95 +1720,148 @@ function GoalDetailModal({
           </p>
         )}
 
-        <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-          {/* The lifecycle moves need no permission — the API checks the
-              reporting line — so they are offered whatever `editable` says
-              about writing goals. Sending your own objective to be agreed is a
-              thing you do to your own work. */}
-          {mayBeSubmitted(goal) && (
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={act(() => onSubmit(goal))}
-            >
-              {goal.approval === "NEEDS_REVISION"
-                ? "Send it again"
-                : "Send to be agreed"}
-            </Button>
-          )}
-          {goal.approval === "AGREED" && !done && (
-            <Button size="sm" onClick={act(() => onReopen(goal))}>
-              Reopen the objective
-            </Button>
-          )}
-          {goal.approval === "AGREED" && !done && canPlan && onPlan && (
-            <Button size="sm" onClick={act(() => onPlan(goal))}>
-              Plan work
-            </Button>
-          )}
-
-          {editable && (
-            <>
-              {/* Refused by the API on an agreed objective, so it is not
-                  offered. The sentence above says why rather than leaving a
-                  gap. */}
-              {!goal.targetFrozen && (
-                <Button size="sm" onClick={act(() => onAddMeasure(goal))}>
-                  <Plus aria-hidden="true" className="size-4" />
-                  Add a target
-                </Button>
-              )}
-              <Button size="sm" onClick={act(() => onAddChild(goal.id))}>
-                Add an objective under this
-              </Button>
-              {/* Only on a shared objective. Somebody's personal KPI is not a
-                  thing to give a team, and the API refuses it — so the button
-                  is absent rather than offering a refusal. */}
-              {goal.ownerId === null && (
-                <Button size="sm" onClick={act(() => onAssign(goal))}>
-                  Give an objective to people
-                </Button>
-              )}
-              {canShare && (
-                <Button size="sm" onClick={act(() => onShare(goal))}>
-                  Tell the people affected
-                </Button>
-              )}
-              {!done && (
-                <>
-                  <Button size="sm" onClick={act(() => onComplete(goal))}>
-                    Mark done
+        {/* Two actions at most, then a menu: a row of four buttons asks the reader to
+            choose between things that are not equally likely. In order of how often
+            each is the next thing to do; what does not fit goes under the dots,
+            and the one that cannot be undone goes last. Each is only listed where
+            the API will take it, so none comes back as a refusal. */}
+        {(() => {
+          type Item = {
+            key: string;
+            label: string;
+            onSelect?: () => void;
+            href?: string;
+            tone?: "danger";
+          };
+          const items: Item[] = [];
+          if (mayBeSubmitted(goal)) {
+            items.push(
+              goal.approval === "NEEDS_REVISION" &&
+                editable &&
+                mayEditGoal(goal)
+                ? {
+                    key: "resend",
+                    label: "Edit and resend",
+                    href: newObjectiveHref({ edit: goal.id }),
+                  }
+                : {
+                    key: "submit",
+                    label:
+                      goal.approval === "NEEDS_REVISION"
+                        ? "Send it again"
+                        : "Send to be agreed",
+                    onSelect: act(() => onSubmit(goal)),
+                  },
+            );
+          }
+          if (goal.approval === "AGREED" && !done) {
+            items.push({
+              key: "reopen",
+              label: "Reopen the objective",
+              onSelect: act(() => onReopen(goal)),
+            });
+            if (canPlan && onPlan) {
+              items.push({
+                key: "plan",
+                label: "Plan work",
+                onSelect: act(() => onPlan(goal)),
+              });
+            }
+          }
+          if (editable) {
+            if (!done)
+              items.push({
+                key: "done",
+                label: "Mark done",
+                onSelect: act(() => onComplete(goal)),
+              });
+            if (!goal.targetFrozen) {
+              items.push({
+                key: "target",
+                label: "Add a target",
+                onSelect: act(() => onAddMeasure(goal)),
+              });
+            }
+            if (mayEditGoal(goal))
+              items.push({
+                key: "edit",
+                label: "Edit",
+                onSelect: act(() => onEdit(goal)),
+              });
+            items.push({
+              key: "child",
+              label: "Add an objective under this",
+              onSelect: act(() => onAddChild(goal.id)),
+            });
+            if (goal.ownerId === null) {
+              items.push({
+                key: "assign",
+                label: "Give an objective to people",
+                onSelect: act(() => onAssign(goal)),
+              });
+            }
+            if (canShare)
+              items.push({
+                key: "share",
+                label: "Tell the people affected",
+                onSelect: act(() => onShare(goal)),
+              });
+            if (!done)
+              items.push({
+                key: "stop",
+                label: "Stop this objective",
+                onSelect: act(() => onStop(goal)),
+              });
+            if (deleteBlocker(goal) === null) {
+              items.push({
+                key: "delete",
+                label: "Delete",
+                tone: "danger",
+                onSelect: act(() => onDelete(goal)),
+              });
+            }
+          }
+          const shown = items.slice(0, 2);
+          const more = items.slice(2);
+          if (items.length === 0) return null;
+          return (
+            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+              {shown.map((item, index) =>
+                item.href ? (
+                  <ButtonLink
+                    key={item.key}
+                    variant={index === 0 ? "accent" : "secondary"}
+                    size="sm"
+                    href={item.href}
+                  >
+                    {item.label}
+                  </ButtonLink>
+                ) : (
+                  <Button
+                    key={item.key}
+                    variant={index === 0 ? "accent" : "secondary"}
+                    size="sm"
+                    onClick={item.onSelect}
+                  >
+                    {item.label}
                   </Button>
-                  <Button size="sm" onClick={act(() => onStop(goal))}>
-                    Stop this objective
-                  </Button>
-                </>
+                ),
               )}
-              {/* Each only where the API will take it, so neither comes back
-                  as a refusal. An agreed objective is edited by reopening its
-                  target, and stopped rather than deleted. */}
-              {mayEditGoal(goal) && (
-                <Button size="sm" onClick={act(() => onEdit(goal))}>
-                  Edit
-                </Button>
+              {more.length > 0 && (
+                <RowActions
+                  label="More for this objective"
+                  items={more.map((item) => ({
+                    key: item.key,
+                    label: item.label,
+                    ...(item.href ? { href: item.href } : {}),
+                    ...(item.onSelect ? { onSelect: item.onSelect } : {}),
+                    ...(item.tone ? { tone: item.tone } : {}),
+                  }))}
+                />
               )}
-              {deleteBlocker(goal) === null && (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={act(() => onDelete(goal))}
-                >
-                  Delete
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-        {editable && deleteBlocker(goal) !== null && (
-          <p className="text-body-sm text-muted">
-            {`Not deletable: ${deleteBlocker(goal) ?? ""}`}
-          </p>
-        )}
+            </div>
+          );
+        })()}
       </div>
     </Modal>
   );
@@ -1860,7 +1975,7 @@ export function MeasureRow({
           value={measure.percent}
           showValue
           size="sm"
-          tone={measure.met ? "ink" : "accent"}
+          tone={measure.met ? "success" : "accent"}
         />
       )}
 

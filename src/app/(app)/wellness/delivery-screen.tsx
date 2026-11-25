@@ -25,7 +25,6 @@ import {
   THead,
   TR,
   TableWrap,
-  TextLink,
 } from "@/components/ui";
 import { StatTile, WellnessArt } from "@/components/wellness";
 import { weekStart } from "@/lib/api/shifts";
@@ -404,13 +403,6 @@ function Team({
             hint="Over what is graded"
           />
         </StatGrid>
-      )}
-
-      {waiting > 0 && (
-        <p className="text-body-sm text-muted">
-          {plural(waiting, "task is", "tasks are")} waiting to be graded.{" "}
-          <TextLink href="/performance/review-tasks">Review tasks</TextLink>
-        </p>
       )}
 
       {rows.length === 0 ? (

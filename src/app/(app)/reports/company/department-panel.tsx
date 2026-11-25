@@ -180,7 +180,7 @@ function Results({
                 }`}
           </span>
         </Line>
-        <Line label="Weekly tasks">
+        <Line label="Tasks done">
           <span className="tabular">
             {ofLabel({ n: results.tasks.withLogged, of: results.tasks.people })}{" "}
             logged

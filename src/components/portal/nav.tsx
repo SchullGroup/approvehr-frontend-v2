@@ -9,9 +9,7 @@ import {
   CalendarRange,
   CalendarSearch,
   ChartNoAxesColumn,
-  CheckCheck,
   ClipboardCheck,
-  ClipboardList,
   ListChecks,
   Clock,
   CreditCard,
@@ -34,7 +32,6 @@ import {
   Megaphone,
   MessagesSquare,
   Network,
-  Scale,
   FileChartColumn,
   Receipt,
   ReceiptText,
@@ -57,6 +54,10 @@ import type { FeatureKey } from "@/lib/api/setup";
 import { MODULES, type ModuleId } from "@/lib/marketing/modules";
 import { moduleLocked, type BillingModule } from "@/lib/billing";
 import type { ApiBilling } from "@/lib/api/endpoints";
+import { PAGE_ICONS } from "./nav-icons";
+
+const WhoAppraisesIcon = PAGE_ICONS["/performance/appraisers"]!;
+const FairnessIcon = PAGE_ICONS["/performance/fairness"]!;
 
 /**
  * Badges that are computed from a live store rather than typed in here.
@@ -91,7 +92,11 @@ export type NavRowFact =
    * inbox could only ever say "Approving requests is not part of your role".
    */
   | "approvals"
-  /** Leads people or holds `EDIT_RECORDS`: Objectives to agree. */
+  /**
+   * Leads people or holds `EDIT_RECORDS`: who agrees objectives. No row uses
+   * it since Objectives to agree became the To agree tab of Objectives (24 Nov
+   * 2026); it is kept because the facts are one shape for every menu.
+   */
   | "agrees-objectives"
   /**
    * Leads people, or holds `EDIT_RECORDS` or `START_EXIT_DEPARTMENT`: Exit
@@ -146,9 +151,10 @@ export type NavFacts = {
    */
   earlyPay: boolean;
   /**
-   * True when the company has not switched on pay early **and** this reader
-   * cannot switch it on. Optional so every caller from before this question
-   * keeps compiling; absent reads as "show it".
+   * True when the company has not switched on pay early. For everybody: a row
+   * for something that is off leads to a screen that can only say no. Optional
+   * so every caller from before this question keeps compiling; absent reads
+   * as "show it".
    */
   earlyPayHidden?: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */
@@ -1059,21 +1065,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       always: true,
     },
     {
-      href: "/performance/review-tasks",
-      label: "Weekly tasks",
-      icon: <ClipboardList aria-hidden="true" />,
-      always: true,
-    },
-    {
-      href: "/performance/work-record",
-      label: "My work record",
-      icon: <ListChecks aria-hidden="true" />,
-      /* It lists what somebody finished on the project boards, so it exists for
-         a company that has Projects switched on and for nobody else. */
-      feature: "projects",
-      always: true,
-    },
-    {
       /* `SkillsTab` itself decides mine/team/company; the nav only asks
          whether the company scores competencies at all. */
       href: "/performance/skills",
@@ -1082,32 +1073,12 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "appraisals",
     },
     {
-      /* Matches the old tab's own gate exactly: appraisals on, and either
-         runs a period (`MANAGE_SETTINGS`) or reads across the company
-         (`EDIT_RECORDS`). Staff with neither never had this tab either. */
-      href: "/performance/periods",
-      label: "Appraisal periods",
-      icon: <CalendarRange aria-hidden="true" />,
-      feature: "appraisals",
-      anyPermission: ["MANAGE_SETTINGS", "EDIT_RECORDS"],
-    },
-    {
-      /* Was reachable only from a notification. It is a queue with one job,
-         same shape as Hiring's Applications, and it deserves the same
-         permanent door. */
-      href: "/performance/approvals",
-      label: "Objectives to agree",
-      icon: <CheckCheck aria-hidden="true" />,
-      feature: "appraisals",
-      rows: "agrees-objectives",
-    },
-    {
       /* `multiAppraiser` cannot be on while `appraisals` is off — the setup
          module refuses that combination — so one feature flag is enough to
          carry both. */
       href: "/performance/appraisers",
       label: "Who appraises whom",
-      icon: <Network aria-hidden="true" />,
+      icon: <WhoAppraisesIcon aria-hidden="true" />,
       feature: "multiAppraiser",
       permission: "EDIT_RECORDS",
       needsPeriod: true,
@@ -1117,7 +1088,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          own in Performance, for whoever may see it. */
       href: "/performance/fairness",
       label: "Fairness check",
-      icon: <Scale aria-hidden="true" />,
+      icon: <FairnessIcon aria-hidden="true" />,
       feature: "appraisals",
       permission: "VIEW_FAIRNESS",
       needsPeriod: true,

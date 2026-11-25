@@ -360,7 +360,7 @@ describe("sending an objective to be agreed", () => {
       said: {
         title: '"Ship the billing flow" is waiting to be agreed',
         detail:
-          "Nobody else was asked to agree it. Anybody who can will find it under Objectives to agree.",
+          "Nobody else was asked to agree it. Anybody who can will find it under To agree, on Objectives.",
         tone: "warning",
       },
     });

@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -182,6 +183,7 @@ export function ApplicationsScreen({
               icon={<Lock aria-hidden="true" />}
               title="You cannot see applications"
               description="Each one holds a stranger's phone number and salary expectation, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

@@ -164,7 +164,7 @@ describe("how it is answered", () => {
     show(competency({ answerKind: "BOOLEAN" }));
     expect(
       screen.getByText(
-        /Yes scores 100% and no scores 0%.*left out of the gap list and the heatmap/,
+        /Yes scores 100% and no scores 0%.*left out of the gap list/,
       ),
     ).toBeInTheDocument();
   });

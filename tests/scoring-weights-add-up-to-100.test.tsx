@@ -184,7 +184,7 @@ beforeEach(() => {
 });
 
 describe("the company's parts card", () => {
-  it("says the rule in its description", () => {
+  it("says the rule in its one helper line", () => {
     view = twoParts(6000, 4000);
     mount();
     expect(screen.getByText(new RegExp(WEIGHTS_RULE))).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe("a part's own dialog has no weight", () => {
       expect.objectContaining({ name: "Customer focus", weightBp: 0 }),
     );
     expect(
-      await screen.findByRole("dialog", { name: "Change the weights" }),
+      await screen.findByRole("dialog", { name: "Edit weights" }),
     ).toBeInTheDocument();
   });
 
@@ -254,10 +254,8 @@ describe("the weights editor", () => {
   });
 
   const open = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.click(
-      screen.getByRole("button", { name: "Change the weights" }),
-    );
-    return screen.getByRole("dialog", { name: "Change the weights" });
+    await user.click(screen.getByRole("button", { name: "Edit weights" }));
+    return screen.getByRole("dialog", { name: "Edit weights" });
   };
 
   it("will not save a set that is not 100%, and says by how much", async () => {
@@ -271,7 +269,7 @@ describe("the weights editor", () => {
       within(dialog).getByText("These add up to 110%. Take off 10%."),
     ).toBeInTheDocument();
     const saveButton = within(dialog).getByRole("button", {
-      name: "Save the weights",
+      name: "Save weights",
     });
     expect(saveButton).toBeDisabled();
     await user.clear(delivery);
@@ -293,7 +291,7 @@ describe("the weights editor", () => {
     await user.clear(leading);
     await user.type(leading, "45");
     const saveButton = within(dialog).getByRole("button", {
-      name: "Save the weights",
+      name: "Save weights",
     });
     expect(saveButton).toBeEnabled();
     await user.click(saveButton);
@@ -315,7 +313,7 @@ describe("the weights editor", () => {
     mount();
     const dialog = await open(user);
     const saveButton = within(dialog).getByRole("button", {
-      name: "Save the weights",
+      name: "Save weights",
     });
     expect(saveButton).toBeDisabled();
     const leading = within(dialog).getByLabelText("Leading people");
@@ -336,11 +334,11 @@ describe("deleting a part", () => {
     const confirm = screen.getByRole("dialog");
     expect(confirm).toHaveTextContent("Leading people counts for 40%");
     await user.click(
-      within(confirm).getByRole("button", { name: "Change the weights" }),
+      within(confirm).getByRole("button", { name: "Edit weights" }),
     );
     expect(remove).not.toHaveBeenCalled();
     const editor = await screen.findByRole("dialog", {
-      name: "Change the weights",
+      name: "Edit weights",
     });
     expect(within(editor).getByLabelText("Leading people")).toHaveValue(0);
   });
@@ -355,7 +353,7 @@ describe("deleting a part", () => {
     await user.click(
       screen.getByRole("button", { name: "Delete Leading people" }),
     );
-    await user.click(screen.getByRole("button", { name: "Delete the part" }));
+    await user.click(screen.getByRole("button", { name: "Delete part" }));
     expect(remove).toHaveBeenCalledWith("p-2");
   });
 });

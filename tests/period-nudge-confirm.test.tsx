@@ -38,6 +38,13 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
 vi.mock("@/lib/store/performance", () => ({
+  useKpis: () => ({
+    goals: [],
+    cascade: [],
+    loading: false,
+    error: null,
+    reload: () => {},
+  }),
   outstandingIn: (p: ApiCycleParticipants | null) =>
     (p?.rows ?? []).flatMap((r) => [
       ...(r.self && !r.self.submitted
@@ -172,10 +179,10 @@ beforeEach(() => {
   ]);
 });
 
-/** Reminders now sit behind the "still to come in" link on the Overview. */
+/** Reminders sit on the People tab. */
 async function openReminder(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /still to come in/ }));
-  await user.click(screen.getByRole("button", { name: "Remind everyone" }));
+  await user.click(screen.getByRole("tab", { name: "People" }));
+  await user.click(screen.getByRole("button", { name: "Send a reminder" }));
 }
 
 describe("Reminding people who are late", () => {
@@ -228,15 +235,16 @@ describe("Reminding people who are late", () => {
     expect(screen.queryByText(/No emails are sent/)).not.toBeInTheDocument();
   });
 
-  it("offers nothing when nobody owes a review", () => {
+  it("offers nothing when nobody owes a review", async () => {
     participants = withRows([
       person("Tunde Bakare", true, [
         { name: "Adaeze Okonkwo", submitted: true },
       ]),
     ]);
     mount();
+    await userEvent.setup().click(screen.getByRole("tab", { name: "People" }));
     expect(
-      screen.queryByRole("button", { name: /still to come in/ }),
+      screen.queryByRole("button", { name: "Send a reminder" }),
     ).not.toBeInTheDocument();
   });
 });

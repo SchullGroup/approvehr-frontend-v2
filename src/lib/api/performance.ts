@@ -492,38 +492,6 @@ export type ApiGap = {
   ratedAt: string;
 };
 
-/**
- * Average level per competency per department.
- *
- * `average: null` means nobody in that department has been rated on that
- * competency — again not zero. `rated` is how many ratings the average is over,
- * and a grid that hides it invites somebody to trust a mean of one.
- */
-export type ApiHeatmapCell = {
-  competencyId: string;
-  average: number | null;
-  rated: number;
-  belowTarget: number;
-};
-
-export type ApiHeatmapRow = {
-  departmentId: string | null;
-  departmentName: string;
-  ratedPeople: number;
-  cells: ApiHeatmapCell[];
-};
-
-export type ApiHeatmap = {
-  competencies: {
-    id: string;
-    name: string;
-    scaleMax: number;
-    isCore: boolean;
-  }[];
-  rows: ApiHeatmapRow[];
-  ratedPeople: number;
-};
-
 export type ApiRating = {
   id: string;
   competencyId: string;
@@ -649,6 +617,11 @@ export type ApiCycleActivated = ApiCycle & {
    */
   viaDepartmentHead?: string[];
   /**
+   * Who was given HR as appraiser because nobody above them is recorded, by name.
+   * Starting never refuses for this. Absent from a server that does not send it.
+   */
+  viaFallback?: string[];
+  /**
    * Anybody with nothing agreed to be scored against, by name.
    *
    * Named for the same reason. Delivery against objectives is one of the four
@@ -671,6 +644,59 @@ export type ApiCyclePublished = ApiCycle & {
   unscored: string[];
   /** Written but not finalised, so these people have not been told their mark. */
   notFinalised: string[];
+};
+
+/** One step of the appraisal, in order: questions, core, behavioural, leadership (only when asked), submitted. */
+export type ApiProgressStep = {
+  key: string;
+  label: string;
+  total: number;
+  answered: number;
+  done: boolean;
+};
+
+export type ApiProgressPerson = {
+  employeeId: string;
+  employeeName: string;
+  selfSubmitted: boolean;
+  submitted: boolean;
+  overallRating: number | null;
+  /** The manager's step waits for the self review; the sentence says why. */
+  locked: boolean;
+  lockedReason: string | null;
+  currentStep: string | null;
+  steps: ApiProgressStep[];
+};
+
+/**
+ * `GET /performance/cycles/:id/appraisal-progress`. `mine` is the caller's own
+ * self review, `team` the people they appraise (everybody, for HR) and null when
+ * they appraise nobody, `totals` is HR's. Every part is optional here: a server
+ * that does not have the route answers 404 and the screen says nothing is there.
+ */
+export type ApiAppraisalProgress = {
+  cycleId: string;
+  cycleName: string;
+  stage: ReviewCycleStage;
+  mine: {
+    reviewId: string | null;
+    submitted: boolean;
+    currentStep: string | null;
+    steps: ApiProgressStep[];
+  } | null;
+  team: ApiProgressPerson[] | null;
+  totals?: {
+    people: number;
+    selfSubmitted: number;
+    managerStarted: number;
+    managerSubmitted: number;
+  };
+};
+
+export type ApiNotifyObjectives = {
+  notified: number;
+  alreadyHad: number;
+  askedAt?: string;
 };
 
 export type ApiRemindResult = {
@@ -1123,7 +1149,16 @@ export type ApiAppraiser = {
   rating: number | null;
   /** Archived or exited: their share of the mark can never be filled in. */
   unavailable: boolean;
+  /**
+   * Where this appraiser came from. `HR_FALLBACK` is a stand-in: nobody above the
+   * person is recorded, so HR appraises. Absent from a server that does not send
+   * it, and then nothing is claimed about where the appraiser came from.
+   */
+  source?: AppraiserSource;
 };
+
+export type AppraiserSource =
+  "REPORTING_LINE" | "DEPARTMENT_HEAD" | "HR_FALLBACK" | "SET";
 
 /**
  * Exceptions, in the same shape the payroll run uses for blockers.
@@ -1196,7 +1231,8 @@ export const EXCEPTION_CODE_SUMMARY: Record<
   ApiAppraiserException["code"],
   (count: number) => string
 > = {
-  NO_APPRAISER: (n) => `${people(n)} ${have(n)} no appraiser yet.`,
+  NO_APPRAISER: (n) =>
+    `${people(n)} ${have(n)} no manager or department head, so HR appraises them.`,
   NO_LINE_MANAGER: (n) =>
     `${people(n)} ${have(n)} no line manager on file, so there is nobody to fall back to.`,
   WEIGHTS_NOT_WHOLE: (n) =>
@@ -1278,6 +1314,10 @@ export type ApiAutoAssigned = {
    * no department head could stand in either.
    */
   withoutManager: string[];
+  /** Who was given HR as appraiser, by name. Absent from an older server. */
+  viaFallback?: string[];
+  /** Only people with no fallback at all. Absent from an older server. */
+  withoutAppraiser?: string[];
   /**
    * The people given their department head as appraiser because nobody is
    * recorded as their manager, by name so they can be checked. Only a server with
@@ -1433,9 +1473,11 @@ export function weightsFromNote(from: WeightsFrom): string | null {
  */
 export function visibleComponents<
   T extends Pick<ApiComponentScore, "component" | "excludedBecause">,
->(components: T[]): T[] {
+>(components: T[], options: { projects?: boolean } = {}): T[] {
   return components.filter(
     (part) =>
+      /* Tasks done comes from Projects: a company without Projects has none. */
+      !(options.projects === false && part.component === "TASKS") &&
       !(
         (part.component === "TASKS" ||
           part.component === "MANAGER_APPRAISAL") &&
@@ -1476,6 +1518,12 @@ export type ApiComponentScore = {
   excludedNote: string | null;
   /** How many things were averaged. Zero is why `scoreBp` is null. */
   evidenceCount: number;
+  /**
+   * For Tasks done: how many of the counted tasks (`evidenceCount`) were
+   * finished. Absent from a server that does not send it, and then the line
+   * says what was counted and nothing about how many were done.
+   */
+  done?: number;
 };
 
 /** Exceptions, in the same shape and severities the payroll run uses. */
@@ -2891,10 +2939,6 @@ export const performanceApi = {
       ...signalOf(signal),
     }),
 
-  /** An aggregate over everybody, so it needs `EDIT_RECORDS`. */
-  heatmap: (signal?: AbortSignal) =>
-    request<ApiHeatmap>("/performance/competencies/heatmap", signalOf(signal)),
-
   /** Self, direct report, or `EDIT_RECORDS`. Checked in the service. */
   employeeCompetencies: (employeeId: string, signal?: AbortSignal) =>
     request<ApiEmployeeCompetencies>(
@@ -3137,6 +3181,31 @@ export const performanceApi = {
     request<ApiRemindResult>(`/performance/cycles/${id}/remind`, {
       method: "POST",
     }),
+
+  appraisalProgress: (id: string, signal?: AbortSignal) =>
+    request<ApiAppraisalProgress>(
+      `/performance/cycles/${id}/appraisal-progress`,
+      signalOf(signal),
+    ),
+
+  /** Remind somebody to send their self review. Once a day; a 409 says why not. */
+  nudgePerson: (cycleId: string, employeeId: string) =>
+    request<{ nudged: boolean; employeeId: string }>(
+      `/performance/cycles/${cycleId}/people/${employeeId}/nudge`,
+      { method: "POST" },
+    ),
+
+  /**
+   * Ask everybody in the period to set their objectives (a notification in
+   * the app). Once a day per person; a second press inside the day answers
+   * with `notified: 0` and the counts. `askedAt` is optional. A 404 or 410 is
+   * an API that does not have it switched on.
+   */
+  notifyObjectives: (id: string) =>
+    request<ApiNotifyObjectives>(
+      `/performance/cycles/${id}/notify-objectives`,
+      { method: "POST" },
+    ),
 
   participants: (id: string, signal?: AbortSignal) =>
     request<ApiCycleParticipants>(

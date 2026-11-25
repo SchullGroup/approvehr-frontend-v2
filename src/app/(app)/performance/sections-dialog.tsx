@@ -915,7 +915,7 @@ const SECTION_SOURCES: readonly ScoreComponent[] = [
 /** What a part a section cannot feed is scored from, for its greyed-out option. */
 const SCORED_FROM: Partial<Record<ScoreComponent, string>> = {
   OBJECTIVES: "scored from objectives",
-  TASKS: "scored from graded weekly tasks",
+  TASKS: "scored from tasks finished in Projects",
   MANAGER_APPRAISAL: "scored from the appraisers' overall rating",
 };
 

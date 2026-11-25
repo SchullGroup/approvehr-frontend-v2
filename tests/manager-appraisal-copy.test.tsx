@@ -72,6 +72,14 @@ const MAP: ApiAppraiserMap = {
 
 const setAppraisers = vi.fn(async () => ({}));
 
+/* The page opens on "All appraisal periods" now (owner, 24 Nov 2026); these
+   tests are about one period's rows, so they open on it the way a period's own
+   page links here. */
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams("period=cy1"),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/performance/appraisers",
+}));
 vi.mock("@/lib/store/performance", () => ({
   useScoringWeights: () => ({
     weights: state.weights,
@@ -210,6 +218,9 @@ describe("the appraiser mapping", () => {
         <AppraiserMapTab />
       </ToastProvider>,
     );
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /\d+ (person|people)$/ })[0]!,
+    );
     expect(
       screen.queryByRole("button", { name: /Share the score for/ }),
     ).toBeNull();
@@ -237,39 +248,22 @@ describe("the appraiser mapping", () => {
         <AppraiserMapTab />
       </ToastProvider>,
     );
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /\d+ (person|people)$/ })[0]!,
+    );
     await userEvent.selectOptions(
       screen.getByLabelText("Appraiser for Ola Test"),
       "Hana Test",
     );
     expect(
       await screen.findByText(
-        "As their line manager, and the only appraiser. Change it any time.",
+        "In H2 2026, as the only appraiser. Change it any time.",
       ),
     ).toBeInTheDocument();
     expect(setAppraisers).toHaveBeenCalledWith("cy1", "e-Ola Test", [
       { appraiserId: "id-hana", role: "LINE_MANAGER", weightBp: 10000 },
     ]);
     expect(screen.queryByText(/whole score/)).toBeNull();
-  });
-
-  it("says what Fill in does without claiming a share of the score", async () => {
-    const user = userEvent.setup();
-    render(
-      <ToastProvider>
-        <AppraiserMapTab />
-      </ToastProvider>,
-    );
-    /* The tooltip mounts its panel when it is opened. */
-    await user.click(screen.getByRole("button", { name: "What Fill in does" }));
-    const panel = document.querySelector<HTMLElement>(
-      '[role="presentation"][aria-hidden="true"]',
-    );
-    const text = panel?.textContent ?? "";
-    expect(text).toContain("Gives each person nobody appraises");
-    expect(text).toContain("as their only appraiser");
-    expect(text).not.toMatch(/whole score|of the score/);
-    /* The rest of what it says is unchanged. */
-    expect(text).toContain("On a running period it also writes the forms");
   });
 
   it("describes the feature as deciding how much an appraiser's overall rating weighs, which is true at any weight", () => {

@@ -1,5 +1,3 @@
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiGoal } from "@/lib/api/performance";
 import {
@@ -10,20 +8,9 @@ import {
 } from "@/app/(app)/performance/goal-facts";
 
 /**
- * "New objective" — the top-level button on the KPI screen, which used to say
- * "New KPI" and made a standalone KPI with nowhere to go next.
- *
- * What `tsc` cannot see here, and what each test pins:
- *
- * - **Who is offered what.** A choice the API will refuse is a name put in
- *   front of somebody that does not work, so a department head is offered the
- *   departments they head and a plain employee is offered only themselves.
- * - **Where the select starts.** A head's own department, otherwise the company
- *   for somebody who may set one. Starting on the wrong rung files the
- *   objective somewhere nobody meant.
- * - **A blank form on every open.** The dialog stays mounted for its exit
- *   animation, so without a reset the KPI added under a brand-new objective
- *   opens with the objective's title already typed in it.
+ * The pure choices behind New objective: whose it can be, and which period it
+ * starts in. The form itself is now a page of its own, and its tests are in
+ * `objective-wizard.test.tsx`; the dialog these used to be rendered in is gone.
  */
 
 const state = vi.hoisted(() => ({
@@ -65,8 +52,6 @@ vi.mock("@/lib/store/ai", () => ({
   }),
 }));
 
-const { NewKpiDialog } = await import("@/app/(app)/performance/goal-dialogs");
-
 const ENGINEERING = { id: "d-eng", name: "Engineering", headId: "emp-head" };
 const FINANCE = { id: "d-fin", name: "Finance", headId: "emp-other" };
 
@@ -75,175 +60,6 @@ beforeEach(() => {
   state.employeeId = "emp-head";
   state.departments = [ENGINEERING, FINANCE];
   state.cycles = [];
-});
-
-const whoseSelect = () =>
-  screen.getByRole("combobox", { name: /assigned to/i });
-
-const options = () =>
-  Array.from(whoseSelect().querySelectorAll("option")).map(
-    (option) => option.value,
-  );
-
-describe("the objective form", () => {
-  it("is called an objective, from the title to the button", () => {
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    const dialog = screen.getByRole("dialog");
-    expect(
-      within(dialog).getByRole("heading", { name: "New objective" }),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("button", { name: "Create objective" }),
-    ).toBeInTheDocument();
-    expect(within(dialog).queryByText(/create kpi/i)).not.toBeInTheDocument();
-  });
-
-  /* UAT 23 Nov, U93 / PERF-13: it used to start on the department somebody
-     heads, which filed an employee's own objective as a shared target. */
-  it("offers a department head the department they head, and starts on Mine", () => {
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    expect(options()).toEqual(["dept:d-eng", "me"]);
-    expect(whoseSelect()).toHaveValue("me");
-  });
-
-  it("offers HR the company and every department, starting on Mine", () => {
-    state.permissions = new Set(["EDIT_RECORDS"]);
-    state.employeeId = "emp-hr";
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    expect(options()).toEqual(["company", "dept:d-eng", "dept:d-fin", "me"]);
-    expect(whoseSelect()).toHaveValue("me");
-  });
-
-  it("offers a plain employee only themselves", () => {
-    state.employeeId = "emp-plain";
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    expect(options()).toEqual(["me"]);
-    expect(whoseSelect()).toHaveValue("me");
-  });
-
-  it("files a department objective under the department, owned by nobody", async () => {
-    const onCreate = vi.fn().mockResolvedValue(undefined);
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={onCreate}
-      />,
-    );
-    await userEvent.type(
-      screen.getByRole("textbox", { name: /objective title/i }),
-      "Ship the payments rebuild",
-    );
-    await userEvent.selectOptions(whoseSelect(), "dept:d-eng");
-    await userEvent.click(
-      screen.getByRole("button", { name: "Create objective" }),
-    );
-    expect(onCreate).toHaveBeenCalledTimes(1);
-    expect(onCreate.mock.calls[0]?.[0]).toMatchObject({
-      title: "Ship the payments rebuild",
-      ownerId: null,
-      departmentId: "d-eng",
-    });
-  });
-
-  it("opens blank every time, not on whatever was typed last", async () => {
-    const { rerender } = render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    await userEvent.type(
-      screen.getByRole("textbox", { name: /objective title/i }),
-      "Ship the payments rebuild",
-    );
-    await userEvent.selectOptions(whoseSelect(), "dept:d-eng");
-
-    /* Closed, then opened again — what "Add a KPI under this" does to the very
-       same mounted dialog straight after an objective was made. */
-    rerender(
-      <NewKpiDialog
-        open={false}
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    rerender(
-      <NewKpiDialog open mode="kpi" onClose={vi.fn()} onCreate={vi.fn()} />,
-    );
-
-    expect(
-      screen.getByRole("textbox", { name: /objective title/i }),
-    ).toHaveValue("");
-    expect(screen.getByRole("combobox", { name: /assigned to/i })).toHaveValue(
-      "me",
-    );
-  });
-});
-
-describe("the form for one person's objective", () => {
-  it("says objective (U94), and still starts on the person making it", () => {
-    render(<NewKpiDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
-    const dialog = screen.getByRole("dialog");
-    expect(
-      within(dialog).getByRole("heading", { name: "New objective" }),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("button", { name: "Create objective" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /assigned to/i })).toHaveValue(
-      "me",
-    );
-  });
-
-  it("names the objective it goes under", () => {
-    render(
-      <NewKpiDialog
-        open
-        parentId="g-1"
-        parentTitle="Ship the payments rebuild"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    expect(
-      screen.getByRole("heading", {
-        name: 'New objective under "Ship the payments rebuild"',
-      }),
-    ).toBeInTheDocument();
-  });
 });
 
 describe("whose objective, as a pure choice", () => {
@@ -304,63 +120,6 @@ describe("whose objective, as a pure choice", () => {
 });
 
 describe("the appraisal period a new objective starts in (U93)", () => {
-  const H2 = { id: "c-h2", name: "H2 2026 Appraisal", stage: "SELF" };
-  const DRAFT = { id: "c-q1", name: "Q1 2027 Appraisal", stage: "DRAFT" };
-  const DONE = { id: "c-h1", name: "H1 2026 Appraisal", stage: "PUBLISHED" };
-  const periodSelect = () =>
-    screen.getByRole("combobox", { name: /appraisal period/i });
-
-  it("starts a personal objective in the running period", () => {
-    state.cycles = [DONE, H2, DRAFT];
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    expect(whoseSelect()).toHaveValue("me");
-    expect(periodSelect()).toHaveValue("c-h2");
-  });
-
-  it("files it in that period when created as it opened", async () => {
-    state.cycles = [H2];
-    const onCreate = vi.fn().mockResolvedValue(undefined);
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={onCreate}
-      />,
-    );
-    await userEvent.type(
-      screen.getByRole("textbox", { name: /objective title/i }),
-      "Cut supplier invoice queries by half",
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: "Create objective" }),
-    );
-    expect(onCreate.mock.calls[0]?.[0]).toMatchObject({
-      reviewCycleId: "c-h2",
-    });
-  });
-
-  it("leaves a shared objective out of a period until somebody picks one", async () => {
-    state.cycles = [H2];
-    render(
-      <NewKpiDialog
-        open
-        mode="objective"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    await userEvent.selectOptions(whoseSelect(), "dept:d-eng");
-    expect(periodSelect()).toHaveValue("");
-  });
-
   it("chooses nothing when several periods are open and none is running", () => {
     expect(
       defaultPeriodId([
@@ -423,35 +182,27 @@ describe("what the detail modal is told about a goal", () => {
   });
 
   it("takes measured progress over the stored figure", () => {
-    expect(goalFacts(goal({ progress: 10 }), null).progress).toBe(10);
+    expect(goalFacts(goal({ progress: 10 })).progress).toBe(10);
     expect(
-      goalFacts(goal({ progress: 10, measuredProgress: 40 }), null).progress,
+      goalFacts(goal({ progress: 10, measuredProgress: 40 })).progress,
     ).toBe(40);
   });
 
-  it("lets only the owner log tasks, and only once it is agreed", () => {
+  it("no longer has a way to log a weekly task: work is tracked in Projects", () => {
     const mine = goal({ ownerId: "emp-1", approval: "AGREED" });
-    expect(goalFacts(mine, "emp-1").canLogTasks).toBe(true);
-    expect(goalFacts(mine, "emp-2").canLogTasks).toBe(false);
-    expect(goalFacts({ ...mine, approval: "DRAFT" }, "emp-1").canLogTasks).toBe(
-      false,
-    );
-    expect(goalFacts({ ...mine, status: "DONE" }, "emp-1").canLogTasks).toBe(
-      false,
-    );
+    expect("canLogTasks" in goalFacts(mine)).toBe(false);
   });
 
   it("will not offer to tell people about an objective with no measure", () => {
-    expect(goalFacts(goal(), null).canShare).toBe(false);
-    expect(goalFacts(goal({ dueQuarter: null }), null).canShare).toBe(false);
+    expect(goalFacts(goal()).canShare).toBe(false);
+    expect(goalFacts(goal({ dueQuarter: null })).canShare).toBe(false);
   });
 
   it("says when there is no period to be agreed in", () => {
-    expect(goalFacts(goal(), null).noPeriod).toBe(false);
-    expect(goalFacts(goal({ dueQuarter: null }), null).noPeriod).toBe(true);
+    expect(goalFacts(goal()).noPeriod).toBe(false);
+    expect(goalFacts(goal({ dueQuarter: null })).noPeriod).toBe(true);
     expect(
-      goalFacts(goal({ dueQuarter: null, reviewCycleId: "c-1" }), null)
-        .noPeriod,
+      goalFacts(goal({ dueQuarter: null, reviewCycleId: "c-1" })).noPeriod,
     ).toBe(false);
   });
 });

@@ -37,7 +37,7 @@ import { useCan } from "@/lib/permissions";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { formatTime } from "@/lib/time";
 import { shortDate } from "@/lib/today";
-import { HERO_BLUE } from "@/components/ui/hero-backdrop";
+import { HERO_FROM } from "@/components/ui/hero-backdrop";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
 import { RequestCorrectionDialog } from "@/app/(app)/people/attendance/my-attendance-history";
 
@@ -272,7 +272,7 @@ export function MyClockCard({
     return (
       <div
         className="relative overflow-hidden rounded-xl text-white shadow-sm"
-        style={{ backgroundColor: HERO_BLUE.from }}
+        style={{ backgroundColor: HERO_FROM }}
       >
         <HeroBackdrop />
         <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:items-end sm:justify-between">

@@ -263,7 +263,12 @@ export function PeriodExceptionNotice({
   const appraisers = useAppraiserMap(canSeeCompany ? cycle.id : null, {
     exceptionsOnly: true,
   });
-  const lines = exceptionLines(appraisers.map?.rows ?? []);
+  /* A period that is over says nothing about who was not appraising: the
+     recorded appraisers are on its map, or "Not recorded" (owner, 24 Nov 2026). */
+  const lines =
+    cycle.stage === "PUBLISHED"
+      ? []
+      : exceptionLines(appraisers.map?.rows ?? []);
 
   if (lines.length === 0) return null;
 
@@ -272,14 +277,26 @@ export function PeriodExceptionNotice({
       {lines.map((line) => (
         <NoticeLine
           key={line.code}
-          tone={line.severity === "BLOCKER" ? "accent" : "warning"}
+          tone={
+            line.code === "NO_APPRAISER"
+              ? "muted"
+              : line.severity === "BLOCKER"
+                ? "accent"
+                : "muted"
+          }
         >
           <span>{line.text}</span>
+          {/* Nobody is left with no appraiser by default: the one fix is to
+              say who heads their department. */}
           <Link
-            href={`/performance/periods/${cycle.id}`}
+            href={
+              line.code === "NO_APPRAISER"
+                ? "/people/departments"
+                : `/performance/periods/${cycle.id}`
+            }
             className={NOTICE_LINK}
           >
-            Fix it
+            {line.code === "NO_APPRAISER" ? "Set a department head" : "Fix it"}
           </Link>
         </NoticeLine>
       ))}

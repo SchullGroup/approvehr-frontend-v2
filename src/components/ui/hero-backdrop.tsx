@@ -8,8 +8,19 @@
  * circles keep their shape however wide or tall the box gets. Decorative: hidden from assistive tech.
  *
  * The parent must be `position: relative` and clip (`overflow: hidden`) if it has rounded corners.
+ *
+ * ## In the dark theme
+ *
+ * The gradient reads `--color-hero-from` and `--color-hero-to`, which the dark theme sets a step deeper, so the
+ * card stays the brand blue without being the brightest thing on a dark page. Each falls back to the light pair
+ * below, which is what the offline page draws when the stylesheet is not there; it sets the dark pair itself.
  */
 export const HERO_BLUE = { from: "#1c2872", to: "#4059d3" } as const;
+export const HERO_BLUE_DARK = { from: "#131b4f", to: "#2c3d98" } as const;
+
+/** The gradient's two ends, following the theme, with the light pair as the fallback. */
+export const HERO_FROM = `var(--color-hero-from, ${HERO_BLUE.from})`;
+export const HERO_TO = `var(--color-hero-to, ${HERO_BLUE.to})`;
 
 export function HeroBackdrop() {
   return (
@@ -29,8 +40,8 @@ export function HeroBackdrop() {
     >
       <defs>
         <linearGradient id="ahr-hero-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={HERO_BLUE.from} />
-          <stop offset="1" stopColor={HERO_BLUE.to} />
+          <stop offset="0" style={{ stopColor: HERO_FROM }} />
+          <stop offset="1" style={{ stopColor: HERO_TO }} />
         </linearGradient>
       </defs>
       <rect width="150" height="100" fill="url(#ahr-hero-gradient)" />

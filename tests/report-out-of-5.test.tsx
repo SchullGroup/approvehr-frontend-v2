@@ -1,8 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   DepartmentPerformance,
-  Headline,
   TopPerformers,
 } from "@/app/(app)/performance/periods/[id]/report/report-screen";
 import type {
@@ -56,15 +55,6 @@ const report = {
 } as unknown as ApiCycleReport;
 
 describe("the period report, out of 5", () => {
-  it("gives the average as the API's figure out of 5, not a percentage", () => {
-    render(<Headline report={report} />);
-    const stat = screen
-      .getByText("Average score")
-      .closest("div")!.parentElement!;
-    expect(within(stat).getByText("3.6")).toBeInTheDocument();
-    expect(within(stat).queryByText(/%/)).toBeNull();
-  });
-
   it("names each of the highest scores by its band word and figure", () => {
     render(<TopPerformers register={register} />);
     expect(
@@ -87,69 +77,6 @@ describe("the period report, out of 5", () => {
 
 /* U96 / PERF-16: a published period is a record. */
 describe("the report of a published period", () => {
-  it("says it covered the people frozen when it was published, where the API says it did", () => {
-    render(
-      <Headline
-        report={
-          {
-            ...report,
-            published: true,
-            participantsFrozen: true,
-          } as ApiCycleReport
-        }
-      />,
-    );
-    expect(screen.getByText("People it covered")).toBeInTheDocument();
-    expect(
-      screen.getByText("Frozen when it was published"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Everyone currently employed/)).toBeNull();
-  });
-
-  it("says a period published before the rule still counts today's staff", () => {
-    render(
-      <Headline
-        report={
-          {
-            ...report,
-            published: true,
-            participantsFrozen: false,
-          } as ApiCycleReport
-        }
-      />,
-    );
-    expect(screen.getByText("People in this period")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Everyone currently employed: it was published before a period kept its own list",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Frozen/)).toBeNull();
-  });
-
-  it("makes no claim on a published period from an API that does not say", () => {
-    render(
-      <Headline report={{ ...report, published: true } as ApiCycleReport} />,
-    );
-    expect(screen.queryByText(/Everyone currently employed/)).toBeNull();
-    expect(screen.queryByText(/Frozen/)).toBeNull();
-  });
-
-  it("a running one says it counts everyone currently employed", () => {
-    render(
-      <Headline
-        report={
-          {
-            ...report,
-            published: false,
-            participantsFrozen: false,
-          } as ApiCycleReport
-        }
-      />,
-    );
-    expect(screen.getByText("Everyone currently employed")).toBeInTheDocument();
-  });
-
   it("does not call its highest scores the ones so far", () => {
     render(<TopPerformers register={register} published />);
     expect(

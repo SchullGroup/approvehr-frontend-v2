@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useEffect, useState } from "react";
 import { Bell, Mail } from "lucide-react";
 import {
@@ -112,6 +113,7 @@ export function NotificationSettings() {
               icon={<Bell aria-hidden="true" />}
               title="You cannot manage notifications"
               description="Which alerts the company sends, and to whom, is a settings decision. Ask whoever manages settings to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

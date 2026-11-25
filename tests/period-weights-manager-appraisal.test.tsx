@@ -212,6 +212,13 @@ describe("the editor", () => {
 
   it("does not bring the row back on a reset against a server that has no part", async () => {
     render(<Harness start={weightsToText(SIX)} company={defaults(false)} />);
+    /* Nothing differs from the company's, so there is nothing to reset yet. */
+    expect(
+      screen.queryByRole("button", { name: "Use my company's weights" }),
+    ).toBeNull();
+    const first = screen.getAllByRole("spinbutton")[0] as HTMLElement;
+    await userEvent.clear(first);
+    await userEvent.type(first, "1");
     await userEvent.click(
       screen.getByRole("button", { name: "Use my company's weights" }),
     );

@@ -54,6 +54,7 @@ import {
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
+import { useProjectsGate } from "@/lib/store/project-session";
 import { AppraiserStrip } from "../../review-parts";
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { WorkBehindTheMark } from "@/components/performance/kept-work";
@@ -676,6 +677,7 @@ function ScorePanel({
   /** The company's setting, from the review. See `showsOverallMark`. */
   overallMark: boolean | undefined;
 }) {
+  const projects = useProjectsGate();
   if (loading) {
     return (
       <Card>
@@ -774,7 +776,9 @@ function ScorePanel({
         )}
 
         <ul className="flex flex-col gap-3">
-          {visibleComponents(score.components).map((component) => (
+          {visibleComponents(score.components, {
+            projects: projects.enabled,
+          }).map((component) => (
             <ComponentRow key={component.component} component={component} />
           ))}
         </ul>
@@ -811,22 +815,22 @@ function ScorePanel({
             `PARITY.md` Rule 5: reference-shaped detail goes behind a reveal,
             and what needs acting on stays open. Nothing here needs acting on;
             the exceptions above do, and they are outside it. */}
-        <Disclosure
-          level={4}
-          dense
-          title="How this score is put together"
-          hint="The weights used."
-        >
-          <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
-            <p>
-              {score.weightsFrom === "period"
-                ? weightsFromNote("period")
-                : score.weightsFrom === "snapshot"
-                  ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this score."
+        {score.weightsFrom !== "snapshot" && (
+          <Disclosure
+            level={4}
+            dense
+            title="How this score is put together"
+            hint="The weights used."
+          >
+            <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
+              <p>
+                {score.weightsFrom === "period"
+                  ? weightsFromNote("period")
                   : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this score, even though it has already been given."}
-            </p>
-          </div>
-        </Disclosure>
+              </p>
+            </div>
+          </Disclosure>
+        )}
       </CardBody>
     </Card>
   );

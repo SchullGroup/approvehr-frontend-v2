@@ -46,8 +46,15 @@ const mount = (connected = true, over: Partial<FeatureState> = {}) => {
   );
 };
 
-const THE_SWITCH = /Offer the linked tasks beside Confirm/;
+const THE_SWITCH = /Show linked tasks next to Confirm/;
 const dialog = () => screen.getByRole("dialog");
+const openInfo = () =>
+  userEvent.click(
+    screen.getByRole("button", { name: "About Task suggestions" }),
+  );
+const info = () =>
+  screen.getByText(/A manager confirming a done-or-not target/).textContent ??
+  "";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -62,48 +69,23 @@ beforeEach(() => {
 });
 
 describe("a company that has not chosen", () => {
-  it("is off, and says neither is offered and that the scores stay as recorded", () => {
+  it("is off, and the switch says what it does", () => {
     mount();
     expect(screen.getByRole("switch", { name: THE_SWITCH })).not.toBeChecked();
-    expect(
-      screen.getByText(
-        "Off. Neither is offered. Tasks closed as won't do and accepted tasks stay as recorded.",
-      ),
-    ).toBeInTheDocument();
   });
 
-  it("says won't do and acceptance are not behind the switch, before anybody turns it on", () => {
+  it("says on the switch itself that it changes no score", () => {
     mount();
-    expect(
-      screen.getByText(
-        /Closing a finished task as won't do, and accepting one, are not behind this switch/,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Turning this off deletes nothing/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("It never changes a score.")).toBeInTheDocument();
   });
 
-  it("says on the switch itself that it is for reading and changes no score", () => {
+  it("says behind the info icon that won't do and acceptance are not behind the switch, and that nothing is filed", async () => {
     mount();
-    expect(
-      screen.getByText(/Both are for reading\. Neither changes a score/),
-    ).toBeInTheDocument();
-  });
-
-  it("lists what it never does, including confirming a target and saving a title", () => {
-    mount();
-    expect(screen.getByText("What it never does")).toBeInTheDocument();
-    expect(
-      screen.getByText("Confirm a target, or say that one is done"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("File, submit, grade or score anything"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Save a task title anywhere")).toBeInTheDocument();
-    expect(
-      screen.getByText("Change a score, a band or a rank"),
-    ).toBeInTheDocument();
+    await openInfo();
+    expect(info()).toMatch(
+      /Closing a task as won't do, and accepting one, aren't affected by this switch/,
+    );
+    expect(info()).toMatch(/Nothing is filed, graded or scored/);
   });
 });
 
@@ -112,9 +94,7 @@ describe("turning it on", () => {
     mount();
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     expect(
-      within(dialog()).getByText(
-        "Offer the linked tasks and the weekly-line suggestions?",
-      ),
+      within(dialog()).getByText("Switch on task suggestions?"),
     ).toBeInTheDocument();
     expect(setWorkAssists).not.toHaveBeenCalled();
     /* The switch is the company's saved answer, not what was just pressed. */
@@ -126,23 +106,13 @@ describe("turning it on", () => {
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     const body = within(dialog());
     expect(
-      body.getByText(/the tasks linked to that target are listed/),
+      body.getByText(/the tasks linked to a done-or-not target/),
     ).toBeInTheDocument();
     expect(
-      body.getByText(/Nothing is filed, submitted, graded or scored/),
+      body.getByText(/never says a target is done; a manager still decides/),
     ).toBeInTheDocument();
-    expect(
-      body.getByText(/never says a target is done and never recommends/),
-    ).toBeInTheDocument();
-    expect(body.getByText(/is not saved by this/)).toBeInTheDocument();
-    expect(
-      body.getByText("It only works while Projects is switched on."),
-    ).toBeInTheDocument();
-    expect(
-      body.getByText(
-        /Closing a task as won't do and accepting a finished task are not part of this/,
-      ),
-    ).toBeInTheDocument();
+    expect(body.getByText(/[Tt]ask titles aren't saved/)).toBeInTheDocument();
+    expect(body.getByText(/It needs Projects/)).toBeInTheDocument();
   });
 
   it("sends true only when confirmed, then says what was done and closes", async () => {
@@ -154,7 +124,7 @@ describe("turning it on", () => {
     expect(setWorkAssists).toHaveBeenCalledTimes(1);
     expect(setWorkAssists).toHaveBeenCalledWith(true);
     expect(
-      await screen.findByText("The two assists are now offered"),
+      await screen.findByText("Task suggestions switched on"),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -172,22 +142,14 @@ describe("turning it on", () => {
 describe("turning it off", () => {
   it("is one press with no question, sends false, and says nothing is deleted", async () => {
     mount(true, { workAssists: true });
-    expect(
-      screen.getByText(
-        /Beside Confirm on a done-or-not target, the tasks linked/,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeChecked();
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(setWorkAssists).toHaveBeenCalledWith(false);
     expect(
-      await screen.findByText("The two assists are no longer offered"),
+      await screen.findByText("Task suggestions switched off"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Nothing is deleted. Tasks closed as won't do and accepted tasks stay as recorded.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Nothing is deleted.")).toBeInTheDocument();
   });
 });
 
@@ -196,9 +158,7 @@ describe("who may change it", () => {
     mount(true, { editable: false });
     expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeDisabled();
     expect(
-      screen.getByText(
-        /Read-only: changing this needs the Manage settings permission/,
-      ),
+      screen.getByText("Only people who manage settings can change this."),
     ).toBeInTheDocument();
   });
 
@@ -211,14 +171,16 @@ describe("who may change it", () => {
 describe("when the setting is not known, which is not off", () => {
   it("says it is reading while the store loads, and offers no switch", () => {
     mount(true, { workAssists: null, loading: true });
-    expect(screen.getByText("Reading the setting")).toBeInTheDocument();
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
   it("says it could not be read, and offers no switch", () => {
     mount(true, { workAssists: null, error: new Error("boom") });
     expect(
-      screen.getByText(/The setting could not be read, so no switch is shown/),
+      screen.getByText(
+        "This setting didn't load. Reload the page to try again.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
@@ -226,9 +188,7 @@ describe("when the setting is not known, which is not off", () => {
   it("says a server that predates it has not been updated, and offers no switch", () => {
     mount(true, { workAssists: null });
     expect(
-      screen.getByText(
-        /This server has not been updated to offer this setting yet/,
-      ),
+      screen.getByText(/This server doesn't offer this setting yet/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
@@ -236,9 +196,7 @@ describe("when the setting is not known, which is not off", () => {
   it("says there is no server when there is none, and offers no switch", () => {
     mount(false, { workAssists: null });
     expect(
-      screen.getByText(
-        /is a company setting kept on the server, so there is nothing to switch here/,
-      ),
+      screen.getByText("This setting is kept on the server."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
@@ -253,9 +211,7 @@ describe("Projects", () => {
   it("is said to be off, with a link to switch it on, and the switch is still there", () => {
     mount(true, { flags: { projects: false } });
     expect(
-      screen.getByText(
-        /Projects is switched off, so nothing is offered yet however this is set/,
-      ),
+      screen.getByText(/Needs Projects\. Turn it on in/),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Features" })).toHaveAttribute(
       "href",
@@ -268,9 +224,7 @@ describe("Projects", () => {
 
   it("is not mentioned as a problem when it is on", () => {
     mount();
-    expect(
-      screen.queryByText(/Projects is switched off, so nothing is offered/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Needs Projects/)).not.toBeInTheDocument();
   });
 });
 
@@ -299,31 +253,25 @@ describe("a refusal", () => {
 });
 
 describe("who is shown what", () => {
-  it("says the list beside Confirm is shown to the people who may confirm the target, and that the person whose objective it is does not see it", () => {
+  it("says the list beside Confirm is shown only to the people who may confirm, not to the person whose objective it is", async () => {
     mount();
-    expect(
-      screen.getByText(
-        /The list beside Confirm is shown to the people who may confirm the target\./,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/The person whose objective it is does not see it\./),
-    ).toBeInTheDocument();
+    await openInfo();
+    expect(info()).toMatch(
+      /Only people who may confirm see that list, not the person whose objective it is/,
+    );
   });
 
-  it("does not say the objective's owner reads the list: the screen never shows it to them", () => {
+  it("does not say the objective's owner reads the list: the screen never shows it to them", async () => {
     mount();
-    expect(screen.queryByText(/and by the objective's owner/)).toBeNull();
-    expect(screen.queryByText(/read by the people who may confirm/)).toBeNull();
+    await openInfo();
+    expect(info()).not.toMatch(/and by the objective's owner/);
+    expect(info()).not.toMatch(/read by the people who may confirm/);
   });
 
-  it("still says the weekly-line suggestions are read only by the owner, from their own finished tasks", () => {
+  it("says nothing about weekly lines: they are gone", async () => {
     mount();
-    expect(
-      screen.getByText(
-        /weekly-line suggestions are read only by the person who owns the objective, from their own finished tasks/,
-      ),
-    ).toBeInTheDocument();
+    await openInfo();
+    expect(info()).not.toMatch(/weekly line/i);
   });
 });
 

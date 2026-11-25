@@ -415,7 +415,7 @@ function DepartmentTable({
                 <TH align="right">Average score</TH>
                 <TH>Scores</TH>
                 <TH align="right">Goal progress</TH>
-                <TH align="right">Weekly tasks</TH>
+                <TH align="right">Tasks done</TH>
                 {hasWork && <TH align="right">Project work</TH>}
                 {hasCost && <TH align="right">Gross pay per head</TH>}
               </>

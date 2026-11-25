@@ -779,7 +779,7 @@ describe("project work finished in the cycle", () => {
       within(panel).getByText("6 of 8 finished a task"),
     ).toBeInTheDocument();
     expect(within(panel).getByText("17 tasks in all")).toBeInTheDocument();
-    expect(within(panel).getByText("Weekly tasks")).toBeInTheDocument();
+    expect(within(panel).getByText("Tasks done")).toBeInTheDocument();
     expect(within(panel).getByText("3 of 8 logged")).toBeInTheDocument();
   });
 

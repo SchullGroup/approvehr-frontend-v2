@@ -231,16 +231,18 @@ describe("under a person's KPI", () => {
 });
 
 describe("when there is nothing", () => {
-  it("says so once, plainly, with no warning", async () => {
+  it("draws nothing at all: no box for a sentence that says there is nothing", () => {
     hook.read = read({ groups: [], total: 0, capped: false });
-    render(<CompletedWork goal={kpi} />);
-    await userEvent.click(
-      screen.getByRole("button", { name: /Completed work/ }),
-    );
+    const { container } = render(<CompletedWork goal={kpi} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("is still there to be opened in the approval queue, where it is only asked on opening", () => {
+    hook.read = read({ groups: [], total: 0, capped: false });
+    render(<CompletedWork goal={kpi} lazy />);
     expect(
-      screen.getByText("No finished tasks are linked to this yet."),
+      screen.getByRole("button", { name: /Completed work/ }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("says how many of how many when the list is capped", async () => {
@@ -271,15 +273,10 @@ describe("asking only when wanted", () => {
     expect(hook.calls.at(-1)).toMatchObject({ enabled: true });
   });
 
-  it("draws nothing of the answer while it loads", async () => {
+  it("draws nothing while it loads: the box appears only once there is work in it", () => {
     hook.read = read(null, { loading: true });
-    render(<CompletedWork goal={kpi} />);
-    await userEvent.click(
-      screen.getByRole("button", { name: /Completed work/ }),
-    );
-    expect(screen.queryByText(/Run the October payroll/)).toBeNull();
-    expect(screen.queryByText(/No finished tasks/)).toBeNull();
-    expect(screen.getByLabelText("Loading completed work")).toBeInTheDocument();
+    const { container } = render(<CompletedWork goal={kpi} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
 

@@ -320,13 +320,7 @@ describe("the team", () => {
     expect(screen.getByText("People who logged")).toBeInTheDocument();
     expect(screen.getByText("Tasks graded")).toBeInTheDocument();
     expect(screen.getByText("83%")).toBeInTheDocument();
-    expect(
-      screen.getByText("2 tasks are waiting to be graded."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Review tasks" })).toHaveAttribute(
-      "href",
-      "/performance/review-tasks",
-    );
+    expect(screen.queryByRole("link", { name: "Review tasks" })).toBeNull();
     expect(
       screen.getByText("2 other people logged nothing this week."),
     ).toBeInTheDocument();

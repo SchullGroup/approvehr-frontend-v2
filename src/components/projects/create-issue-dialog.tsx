@@ -38,6 +38,7 @@ import {
   type Priority,
 } from "@/lib/projects/types";
 import { AssigneeList } from "./assignees";
+import { ObjectiveField } from "./objective-field";
 import { useProject } from "./project-context";
 import {
   AttachButton,
@@ -60,6 +61,8 @@ type Draft = {
   dueTime: string;
   /** Everybody on it, the lead first. */
   assigneeIds: string[];
+  /** The objective it counts towards; empty for none. */
+  goalId: string;
 };
 
 /**
@@ -87,6 +90,7 @@ function blank(defaults: Partial<NewIssueInput>): Draft {
     dueDate: "",
     dueTime: "",
     assigneeIds: [],
+    goalId: "",
   };
 }
 
@@ -201,6 +205,7 @@ export function CreateIssueDialog({
       dueDate: draft.dueDate || null,
       dueTime: draft.dueDate && draft.dueTime ? draft.dueTime : null,
       assigneeIds: draft.assigneeIds,
+      ...(draft.goalId ? { goalId: draft.goalId } : {}),
     };
     let result = await actions.createIssue(input, { quiet: true });
     /* The cycle closed while the dialog was open (it was the running one when
@@ -475,6 +480,12 @@ export function CreateIssueDialog({
             </Button>
           )}
         </fieldset>
+
+        <ObjectiveField
+          value={draft.goalId}
+          assigneeId={draft.assigneeIds[0] ?? null}
+          onChange={(next) => set("goalId", next)}
+        />
 
         {connected && !created && (
           <div className="space-y-2">

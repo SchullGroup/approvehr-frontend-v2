@@ -286,9 +286,11 @@ function AllOvertime() {
               title="Overtime is switched off"
               description="Nothing is worked out from the clock, and nothing reaches payroll."
               action={
-                <ButtonLink variant="accent" href="/settings/overtime">
-                  Turn on overtime
-                </ButtonLink>
+                permissions.has("MANAGE_SETTINGS") ? (
+                  <ButtonLink variant="accent" href="/settings/overtime">
+                    Turn on overtime
+                  </ButtonLink>
+                ) : undefined
               }
             />
           </Card>

@@ -3,12 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ApiEmployeeScore,
   ApiFormQuestion,
-  ApiHistoryPoint,
   ApiReviewDetail,
-  ApiScoreHistory,
 } from "@/lib/api/performance";
 import { ReviewScreen } from "@/app/(app)/performance/reviews/[id]/review-screen";
-import { ScoreHistoryScreen } from "@/app/(app)/performance/history/[employeeId]/history-screen";
 
 /**
  * Where the manager's overall mark sits in a score, and what is said beside it.
@@ -326,80 +323,5 @@ describe("the strip above the record", () => {
     expect(screen.getByText("Line manager")).toBeInTheDocument();
     expect(screen.queryByText(/This overall rating/)).toBeNull();
     expect(screen.queryByText(/review counts/i)).toBeNull();
-  });
-});
-
-describe("the history page's appraisers' overall rating", () => {
-  const point = (components: unknown[]): ApiHistoryPoint =>
-    ({
-      cycleId: "c-1",
-      cycleName: "H2 2026 Appraisal",
-      stage: "PUBLISHED",
-      dueDate: null,
-      weightsFrom: "snapshot",
-      scoreBp: 7500,
-      scorePercent: 75,
-      band: "MEETS",
-      bandLabel: "Meets expectations",
-      changeBp: null,
-      components,
-      objectives: {
-        agreed: 1,
-        awaitingApproval: 0,
-        draft: 0,
-        needsRevision: 0,
-        measured: 0,
-      },
-      appraiserMark: mark(2, 5000),
-      signOff: {
-        reviewId: "r-1",
-        submitted: true,
-        finalised: true,
-        finalisedAt: "2026-10-20T09:00:00.000Z",
-        acknowledged: false,
-        acknowledgedAt: null,
-        disputed: false,
-        disputedAt: null,
-        employeeComment: null,
-      },
-      exceptions: [],
-    }) as unknown as ApiHistoryPoint;
-
-  const mount = (components: unknown[]) => {
-    state.history = {
-      employeeId: "emp-1",
-      employeeName: "Emeka Anyanwu",
-      jobTitle: "Engineer",
-      departmentId: null,
-      departmentName: "Product",
-      points: [point(components)],
-      counts: { cycles: 1, scored: 1, unscored: 0 },
-      unscoredCycles: [],
-      trend: null,
-      truncated: false,
-      limit: 12,
-      withheldCycles: 0,
-      withheldNote: null,
-    } as ApiScoreHistory;
-    render(<ScoreHistoryScreen employeeId="emp-1" />);
-  };
-
-  it("keeps saying it is not part of the score where the part is at 0%, or where there is no such part", () => {
-    for (const components of [[objectives, managerPart(0)], [objectives]]) {
-      mount(components);
-      expect(
-        screen.getByText(
-          /\(50% of the weight is in\)\. For reference; it is not part of the score\./,
-        ),
-      ).toBeInTheDocument();
-      cleanup();
-    }
-  });
-
-  it("says what it is scored from where the part carries a weight", () => {
-    mount([objectives, managerPart(3000)]);
-    const text = screen.getByText(/of the weight is in\)/).textContent ?? "";
-    expect(text).toContain("It is what Manager appraisal is scored from.");
-    expect(text).not.toMatch(/reference|not part of the score/);
   });
 });

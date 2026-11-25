@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useMemo } from "react";
 import { ArrowLeft, Lock } from "lucide-react";
 import {
@@ -129,6 +130,7 @@ export function PostingPreview({ id }: { id: string }) {
               icon={<Lock aria-hidden="true" />}
               title="You cannot preview this advert"
               description="Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

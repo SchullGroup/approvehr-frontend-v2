@@ -46,8 +46,12 @@ const mount = (connected = true, over: Partial<FeatureState> = {}) => {
   );
 };
 
-const THE_SWITCH = /Let people use their own project work/;
+const THE_SWITCH = /Let people add their finished work/;
 const dialog = () => screen.getByRole("dialog");
+const openInfo = () =>
+  userEvent.click(
+    screen.getByRole("button", { name: "About Work in review answers" }),
+  );
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -62,44 +66,25 @@ beforeEach(() => {
 });
 
 describe("a company that has not chosen", () => {
-  it("is off, and says nothing can be attached and that what exists stays", () => {
+  it("is off, and the switch says what it does", () => {
     mount();
     expect(screen.getByRole("switch", { name: THE_SWITCH })).not.toBeChecked();
-    expect(
-      screen.getByText(
-        "Off. Nobody can attach project work to an answer. Work already attached stays where it is.",
-      ),
-    ).toBeInTheDocument();
   });
 
-  it("says it is evidence to read and never changes a score, on the switch itself", () => {
+  it("says it never changes a score, on the switch itself", () => {
     mount();
-    expect(
-      screen.getByText(/It is evidence to read and never changes a score/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("It never changes a score.")).toBeInTheDocument();
   });
 
-  it("says what turning it off keeps, before anybody turns it on", () => {
+  it("says behind the info icon what it does, that no title is saved, and what turning it off keeps", async () => {
     mount();
-    expect(
-      screen.getByText(
-        /Turning it off stops anything new\. Everything already written stays/,
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("lists what it never does, and says no title is saved", () => {
-    mount();
-    expect(screen.getByText("What it never does")).toBeInTheDocument();
-    expect(
-      screen.getByText("Save a task title with an attached task"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Change a score, a band or a rank"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Choose anybody for anybody: a person still picks"),
-    ).toBeInTheDocument();
+    await openInfo();
+    const said = screen.getByText(/attach up to five finished tasks/);
+    expect(said).toHaveTextContent(/Task titles aren't saved/);
+    expect(said).toHaveTextContent(/never changes a score/);
+    expect(said).toHaveTextContent(
+      /Turning it off stops anything new and keeps what's there/,
+    );
   });
 });
 
@@ -109,7 +94,7 @@ describe("turning it on", () => {
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     expect(
       within(dialog()).getByText(
-        "Let people use their own work in their review answers?",
+        "Let people add their work to review answers?",
       ),
     ).toBeInTheDocument();
     expect(setWorkInAnswers).not.toHaveBeenCalled();
@@ -122,30 +107,19 @@ describe("turning it on", () => {
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     const body = within(dialog());
     expect(
-      body.getByText(/attach finished tasks from their own list to an answer/),
+      body.getByText(/attach finished tasks from their own list/),
+    ).toBeInTheDocument();
+    expect(body.getByText(/Task titles aren't saved/)).toBeInTheDocument();
+    expect(
+      body.getByText(/flag a wrong item on their list/),
     ).toBeInTheDocument();
     expect(
-      body.getByText(/The task's title is not saved with it/),
+      body.getByText(/colleagues who shared a project are listed first/),
     ).toBeInTheDocument();
-    expect(
-      body.getByText(/flag an item on their list as wrong/),
-    ).toBeInTheDocument();
-    expect(
-      body.getByText(
-        /colleagues who shared a project with the person are listed/,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      body.getByText("It only works while Projects is switched on."),
-    ).toBeInTheDocument();
+    expect(body.getByText(/It needs Projects/)).toBeInTheDocument();
     expect(
       body.getByText(
-        /tell your staff, and check with whoever looks after data protection at your company whether an assessment should be filed first/,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      body.getByText(
-        "Turning it off later stops anything new and keeps everything already written.",
+        /tell your staff and check with whoever handles data protection whether an assessment is needed/,
       ),
     ).toBeInTheDocument();
   });
@@ -177,13 +151,11 @@ describe("turning it on", () => {
     await waitFor(() => expect(setWorkInAnswers).toHaveBeenCalledTimes(1));
     expect(setWorkInAnswers).toHaveBeenCalledWith(true);
     expect(
-      await screen.findByText(
-        "People can now use their own work in their review answers",
-      ),
+      await screen.findByText("Work in review answers switched on"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "It applies to the next thing anybody does. Nothing already written is touched.",
+        "People can add their finished work to their answers from now on.",
       ),
     ).toBeInTheDocument();
   });
@@ -197,11 +169,6 @@ describe("turning it off", () => {
   it("shows it on", () => {
     mount();
     expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeChecked();
-    expect(
-      screen.getByText(
-        "People can attach their own finished project work to the answers in their self-review, and flag an item on their list as wrong.",
-      ),
-    ).toBeInTheDocument();
   });
 
   it("is one press: no question, and the setting is sent as false", async () => {
@@ -216,15 +183,9 @@ describe("turning it off", () => {
     mount();
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     expect(
-      await screen.findByText(
-        "People can no longer add work to their review answers",
-      ),
+      await screen.findByText("Work in review answers switched off"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Everything already written stays, and can still be read by the people who could read it.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Work already added stays.")).toBeInTheDocument();
   });
 });
 
@@ -233,15 +194,15 @@ describe("somebody who may look and not change", () => {
     mount(true, { editable: false });
     expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeDisabled();
     expect(
-      screen.getByText(
-        "Read-only: changing this needs the Manage settings permission.",
-      ),
+      screen.getByText("Only people who manage settings can change this."),
     ).toBeInTheDocument();
   });
 
   it("does not offer the reason to somebody who can change it", () => {
     mount();
-    expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Only people who manage settings/),
+    ).not.toBeInTheDocument();
   });
 
   it("cannot press the switch while a save is running", () => {
@@ -259,7 +220,7 @@ describe("Projects", () => {
   it("is said to be off, with a way to switch it on, and the switch is still there", () => {
     mount(true, { flags: { projects: false } });
     expect(
-      screen.getByText(/Projects is switched off, so nothing is offered yet/),
+      screen.getByText(/Needs Projects\. Turn it on in/),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Features" })).toHaveAttribute(
       "href",
@@ -270,9 +231,7 @@ describe("Projects", () => {
 
   it("says nothing about it while Projects is on", () => {
     mount();
-    expect(
-      screen.queryByText(/Projects is switched off, so nothing is offered yet/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Needs Projects/)).not.toBeInTheDocument();
   });
 });
 
@@ -284,14 +243,16 @@ describe("what the card says when it cannot say", () => {
 
   it("is reading, while the setting is on its way", () => {
     mount(true, { workInAnswers: null, loading: true });
-    expect(screen.getByText("Reading the setting")).toBeInTheDocument();
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
     SWITCHLESS();
   });
 
   it("is a failed read, and offers no switch rather than a guess", () => {
     mount(true, { workInAnswers: null, error: new Error("boom") });
     expect(
-      screen.getByText(/The setting could not be read, so no switch is shown/),
+      screen.getByText(
+        "This setting didn't load. Reload the page to try again.",
+      ),
     ).toBeInTheDocument();
     SWITCHLESS();
   });
@@ -299,20 +260,15 @@ describe("what the card says when it cannot say", () => {
   it("is a server a deploy behind: not off", () => {
     mount(true, { workInAnswers: null });
     expect(
-      screen.getByText(
-        /This server has not been updated to offer this setting yet/,
-      ),
+      screen.getByText(/This server doesn't offer this setting yet/),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/^Off\./)).not.toBeInTheDocument();
     SWITCHLESS();
   });
 
   it("is no server at all", () => {
     mount(false, { workInAnswers: null });
     expect(
-      screen.getByText(
-        /a company setting kept on the server, so there is nothing to switch here/,
-      ),
+      screen.getByText("This setting is kept on the server."),
     ).toBeInTheDocument();
     SWITCHLESS();
   });
@@ -324,10 +280,10 @@ describe("what the card says when it cannot say", () => {
 
   it("says each of the four in its own words and never two at once", () => {
     const sentences = [
-      "Reading the setting",
-      "could not be read",
-      "has not been updated",
-      "nothing to switch here",
+      "Loading…",
+      "didn't load",
+      "doesn't offer this setting",
+      "kept on the server",
     ];
     const states: [boolean, Partial<FeatureState>][] = [
       [true, { workInAnswers: null, loading: true }],

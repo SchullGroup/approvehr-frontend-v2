@@ -12,6 +12,13 @@ import {
 } from "@/components/ui";
 import { actionMessage } from "@/lib/use-action";
 import { useFeatureSettings } from "@/lib/store/features";
+import {
+  LOADING,
+  LOAD_FAILED,
+  NOT_ON_SERVER,
+  NO_SERVER,
+  READ_ONLY,
+} from "./setting-copy";
 
 /**
  * Whether people may use their own finished project work in their review answers.
@@ -68,11 +75,11 @@ export function WorkInAnswersCard({ connected }: { connected: boolean }) {
       toast.push({
         tone: "success",
         title: next
-          ? "People can now use their own work in their review answers"
-          : "People can no longer add work to their review answers",
+          ? "Work in review answers switched on"
+          : "Work in review answers switched off",
         detail: next
-          ? "It applies to the next thing anybody does. Nothing already written is touched."
-          : "Everything already written stays, and can still be read by the people who could read it.",
+          ? "People can add their finished work to their answers from now on."
+          : "Work already added stays.",
       });
     } catch (error) {
       setProblem(actionMessage(error, "that setting"));
@@ -86,22 +93,16 @@ export function WorkInAnswersCard({ connected }: { connected: boolean }) {
         <CardHeader
           title="Work in review answers"
           level={3}
-          description={
-            on === true
-              ? "People can attach their own finished project work to the answers in their self-review, and flag an item on their list as wrong."
-              : on === false
-                ? "Off. Nobody can attach project work to an answer. Work already attached stays where it is."
-                : "Whether people can use their own finished project work in their review answers."
-          }
+          info="People can attach up to five finished tasks to an answer in their own self-review, each with a short note, and flag a wrong item on their list. Colleagues who shared a project are listed first when feedback is asked for. Task titles aren't saved, and it never changes a score. Turning it off stops anything new and keeps what's there."
         />
         <CardBody className="flex flex-col gap-4">
           {reading ? (
-            <p className="text-body-sm text-muted">Reading the setting</p>
+            <p className="text-body-sm text-muted">{LOADING}</p>
           ) : switchable ? (
             <>
               <Switch
-                label="Let people use their own project work in their review answers"
-                description="They can pin finished tasks to an answer with a note, flag an item as wrong, and see colleagues who shared a project first when feedback is asked for. It is evidence to read and never changes a score."
+                label="Let people add their finished work to their review answers"
+                description="It never changes a score."
                 checked={on}
                 disabled={!features.editable || saving}
                 onChange={(event) => {
@@ -118,79 +119,28 @@ export function WorkInAnswersCard({ connected }: { connected: boolean }) {
               )}
               {projectsOff && (
                 <p className="text-body-sm text-muted">
-                  Projects is switched off, so nothing is offered yet however
-                  this is set. Switch it on under{" "}
+                  Needs Projects. Turn it on in{" "}
                   <TextLink href="/settings/features">Features</TextLink>.
                 </p>
               )}
-              <p className="text-body-sm text-muted">
-                Turning it off stops anything new. Everything already written
-                stays, and can still be read by the people who could read it.
-              </p>
               {!features.editable && (
-                <p className="text-body-sm text-muted">
-                  Read-only: changing this needs the Manage settings permission.
-                </p>
+                <p className="text-body-sm text-muted">{READ_ONLY}</p>
               )}
             </>
           ) : failed ? (
-            <p className="text-body-sm text-muted">
-              The setting could not be read, so no switch is shown rather than a
-              guess. Reload the page to try again.
-            </p>
+            <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
           ) : (
             <p className="text-body-sm text-muted">
-              {connected
-                ? "This server has not been updated to offer this setting yet, so people cannot use their work in their review answers until it is."
-                : "Whether people can use their work in their review answers is a company setting kept on the server, so there is nothing to switch here."}
+              {connected ? NOT_ON_SERVER : NO_SERVER}
             </p>
           )}
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="What it does, and what it does not" level={3} />
-        <CardBody className="grid gap-6 text-body-sm text-body sm:grid-cols-2">
-          <div>
-            <p className="font-medium text-ink">What people can do</p>
-            <ul className="mt-2 list-disc pl-5">
-              <li>
-                Attach up to five finished tasks to an answer in their own
-                self-review, each with a note of up to 280 characters
-              </li>
-              <li>Take one off again until they send the review</li>
-              <li>Flag an item on their list as wrong, with a reason</li>
-              <li>
-                See the colleagues who shared a project with someone listed
-                first when feedback is asked for or an appraiser is chosen
-              </li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-medium text-ink">What it never does</p>
-            <ul className="mt-2 list-disc pl-5">
-              <li>Change a score, a band or a rank</li>
-              <li>Save a task title with an attached task</li>
-              <li>Remove anything from the finished-work list</li>
-              <li>Choose anybody for anybody: a person still picks</li>
-              <li>Offer anything while Projects is switched off</li>
-            </ul>
-          </div>
-          <p className="sm:col-span-2">
-            What a person attaches is read by the people who can read the
-            review. A flag is read by the people who can read that person&apos;s
-            work: the person, their manager, an assigned appraiser and HR. Both
-            are for reading beside the answers. The full list of finished work
-            stays one press away, so what somebody chose to show is never the
-            whole picture.
-          </p>
         </CardBody>
       </Card>
 
       <ConfirmDialog
         open={asking}
         onClose={() => setAsking(false)}
-        title="Let people use their own work in their review answers?"
+        title="Let people add their work to review answers?"
         tone="primary"
         confirmLabel="Switch it on"
         loading={saving}
@@ -198,35 +148,18 @@ export function WorkInAnswersCard({ connected }: { connected: boolean }) {
         body={
           <div className="flex flex-col gap-3">
             <p>
-              From now on a person writing their self-review can attach finished
-              tasks from their own list to an answer, each with a note of their
-              own. The task&apos;s title is not saved with it.
-            </p>
-            <ul className="list-disc pl-5">
-              <li>
-                The people who read the review see what was attached beside the
-                answer, and the full list of finished work stays one press away
-                for them.
-              </li>
-              <li>
-                A person can flag an item on their list as wrong. It does not
-                remove the item or change a score.
-              </li>
-              <li>
-                When feedback is asked for, or an appraiser is chosen, the
-                colleagues who shared a project with the person are listed
-                first. Nobody is chosen for anybody.
-              </li>
-              <li>It only works while Projects is switched on.</li>
-            </ul>
-            <p>
-              Before you switch it on, tell your staff, and check with whoever
-              looks after data protection at your company whether an assessment
-              should be filed first. This page does not do that for you.
+              People can attach finished tasks from their own list to their
+              self-review answers, with a note. Task titles aren&apos;t saved.
+              Reviewers see what was attached and can still open the full list.
             </p>
             <p>
-              Turning it off later stops anything new and keeps everything
-              already written.
+              People can also flag a wrong item on their list, and colleagues
+              who shared a project are listed first when feedback is asked for.
+              It needs Projects.
+            </p>
+            <p>
+              Before you switch it on, tell your staff and check with whoever
+              handles data protection whether an assessment is needed.
             </p>
           </div>
         }

@@ -102,6 +102,14 @@ vi.mock("@/lib/api/performance", async (original) => ({
 
 const mutations = vi.hoisted(() => ({ setAppraisers: vi.fn() }));
 let currentMap: ApiAppraiserMap;
+/* The page opens on "All appraisal periods" now (owner, 24 Nov 2026); these
+   tests are about one period's rows, so they open on it the way a period's own
+   page links here. */
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams("period=cy1"),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/performance/appraisers",
+}));
 vi.mock("@/lib/store/performance", () => ({
   useAppraisals: () => ({
     cycles: [{ id: "cy1", name: "H2 2026", stage: "SELF", stageLabel: "Self" }],
@@ -457,6 +465,10 @@ describe("the appraiser map", () => {
       <AppraiserMapTab />
     </ToastProvider>
   );
+  const enter = () =>
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /\d+ (person|people)$/ })[0]!,
+    );
   const select = () =>
     screen.getByRole("combobox", { name: "Appraiser for Femi Balogun" });
   const groupsOf = (element: HTMLElement) =>
@@ -470,6 +482,7 @@ describe("the appraiser map", () => {
 
   it("does not ask for a row until somebody reaches for its list", () => {
     render(tree());
+    enter();
     const mine = shared.calls.filter((call) => call.employeeId === "subject");
     expect(mine.length).toBeGreaterThan(0);
     expect(mine.every((call) => call.enabled === false)).toBe(true);
@@ -479,6 +492,7 @@ describe("the appraiser map", () => {
   describe("reaching for a list that has not been asked about yet", () => {
     it("asks at once, and the list that opens is the list as it was drawn, with nothing moved under the pointer", async () => {
       render(tree());
+      enter();
       await userEvent.click(select());
       expect(shared.calls.at(-1)).toEqual({
         employeeId: "subject",
@@ -491,6 +505,7 @@ describe("the appraiser map", () => {
 
     it("applies it the next time the list is opened, when the person has left it", async () => {
       render(tree());
+      enter();
       await userEvent.click(select());
       await userEvent.tab();
       const texts = optionTexts(select());
@@ -505,6 +520,7 @@ describe("the appraiser map", () => {
     it("keeps the list as it was while it is open even when the answer lands after, and applies it once it is left", async () => {
       shared.colleagues = null;
       const view = render(tree());
+      enter();
       await userEvent.click(select());
       expect(groupsOf(select())).toEqual([]);
       /* The answer lands while the list is open. */
@@ -523,6 +539,7 @@ describe("the appraiser map", () => {
     it("takes what has arrived when the list is pressed again after being dismissed with the focus left on it", async () => {
       shared.colleagues = null;
       const view = render(tree());
+      enter();
       await userEvent.click(select());
       shared.colleagues = colleagues;
       view.rerender(tree());
@@ -541,6 +558,7 @@ describe("the appraiser map", () => {
     it("lets go of the held list when a choice is made, so the next opening has the answer", async () => {
       shared.colleagues = null;
       const view = render(tree());
+      enter();
       await userEvent.click(select());
       shared.colleagues = colleagues;
       view.rerender(tree());
@@ -556,6 +574,7 @@ describe("the appraiser map", () => {
     it("holds when the list is reached by the keyboard too", async () => {
       shared.colleagues = null;
       const view = render(tree());
+      enter();
       act(() => select().focus());
       expect(select()).toHaveFocus();
       shared.colleagues = colleagues;
@@ -571,6 +590,7 @@ describe("the appraiser map", () => {
     it("still follows the answer as it arrives for a list nobody has touched", () => {
       shared.colleagues = null;
       const view = render(tree());
+      enter();
       expect(groupsOf(select())).toEqual([]);
       shared.colleagues = colleagues;
       view.rerender(tree());
@@ -586,6 +606,7 @@ describe("the appraiser map", () => {
 
     it("asks once the pointer has rested for a moment, so the answer is there by the time the list is opened, and the list that opens has it", () => {
       render(tree());
+      enter();
       fireEvent.pointerEnter(select());
       expect(askedFor("subject")).toBe(false);
       act(() => {
@@ -611,6 +632,7 @@ describe("the appraiser map", () => {
         rows: [mapRow("subject", "Femi Balogun"), mapRow("other", "Kemi Ojo")],
       };
       render(tree());
+      enter();
       const first = select();
       const second = screen.getByRole("combobox", {
         name: "Appraiser for Kemi Ojo",
@@ -636,6 +658,7 @@ describe("the appraiser map", () => {
     it("does not ask where the company has the setting off, however long the pointer rests", () => {
       feature.workInAnswers = false;
       render(tree());
+      enter();
       fireEvent.pointerEnter(select());
       act(() => {
         vi.advanceTimersByTime(1000);
@@ -645,6 +668,7 @@ describe("the appraiser map", () => {
 
     it("stops waiting when the row goes away", () => {
       const view = render(tree());
+      enter();
       const cleared = vi.spyOn(window, "clearTimeout");
       fireEvent.pointerEnter(select());
       view.unmount();
@@ -656,6 +680,7 @@ describe("the appraiser map", () => {
   it("never asks where the company has the setting off", async () => {
     feature.workInAnswers = false;
     render(tree());
+    enter();
     await userEvent.click(select());
     expect(shared.calls.every((call) => call.enabled === false)).toBe(true);
     expect(optionTexts(select()).join("|")).not.toContain("Shared");
@@ -665,6 +690,7 @@ describe("the appraiser map", () => {
     const quick = vi.fn();
     mutations.setAppraisers.mockImplementation(quick);
     render(tree());
+    enter();
     await userEvent.click(select());
     /* What a browser does when an option in its open list is clicked: the list is not touched, the
        select reports the choice. */

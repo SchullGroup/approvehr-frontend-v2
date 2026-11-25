@@ -4,7 +4,6 @@ import { CheckCircle2, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   Button,
-  Callout,
   Checkbox,
   Field,
   FieldSet,
@@ -15,21 +14,14 @@ import {
   Textarea,
 } from "@/components/ui";
 import {
-  SuggestButton,
-  SuggestionPanel,
-} from "@/components/performance/suggestions";
-import {
   currentQuarter,
-  parseMeasure,
   type ApiGoal,
-  type CreateGoalBody,
   type CreateKeyResultBody,
   type MeasureKind,
   type UpdateGoalBody,
 } from "@/lib/api/performance";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
-import { useObjectiveSuggestions } from "@/lib/store/ai";
 import {
   useDepartments,
   useHeadedDepartmentIds,
@@ -37,14 +29,11 @@ import {
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { measureProblems } from "@/lib/performance/measure-problems";
+import { NEEDS_PERIOD } from "@/lib/performance/objective-wizard";
 import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
-import {
-  defaultPeriodId,
-  objectiveWhoseChoices,
-  peopleILead,
-  type LeadReach,
-} from "./goal-facts";
+import { peopleILead, type LeadReach } from "./goal-facts";
 
 /**
  * Whose work this caller leads, as the two dialogs below ask it.
@@ -66,7 +55,7 @@ import {
  * department head holds no `EDIT_RECORDS`, so the full list was empty for
  * exactly the people these dialogs are for.
  */
-function useLeadReach(): LeadReach {
+export function useLeadReach(): LeadReach {
   const { employeeId } = useSession();
   const leadsEveryone = useCan("EDIT_RECORDS");
   const headedDepartmentIds = useHeadedDepartmentIds();
@@ -141,396 +130,6 @@ export const quarterText = (quarter: string) => {
 };
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * Whether a KPI has to be filed in an appraisal period, and the one sentence
- * that says so.
- *
- * A KPI is a person's own work, and an objective filed in no period "counts
- * towards nobody's appraisal mark, even once it is agreed": it is tracked,
- * agreed and scored for nobody, with nothing on the screen to say so. So when
- * there is a period to choose, choosing one is not optional.
- *
- * Only a **personal** one, and only while there is a period to choose. A shared
- * objective (the company's, a department's) is a standing target that may
- * belong to no cycle, and a company that has no open period yet has nothing to
- * file anything under, which is said in words rather than by refusing to save.
- *
- * The API still accepts an objective with no period: this is the form's rule,
- * not the server's.
- */
-const NEEDS_PERIOD =
-  "Choose the appraisal period this is scored in. An objective with none counts towards nobody's score, even once it is agreed.";
-
-/**
- * The form for a new KPI, and — in `objective` mode — for a new objective.
- *
- * Same fields, same save, same rules on the API. The mode changes what the
- * form calls itself and who it offers: an objective is the company's, a
- * department's or the maker's own, so it leaves out the list of people a leader
- * could hand a KPI to. That list is the KPI form's, and the next step from a
- * new objective ("Give a KPI to people") does it better, in bulk.
- */
-export function NewKpiDialog({
-  parentId: parentIdProp,
-  parentTitle: parentTitleProp,
-  mode: modeProp = "kpi",
-  open,
-  onClose,
-  onCreate,
-}: {
-  parentId?: string;
-  parentTitle?: string;
-  mode?: "kpi" | "objective";
-  open: boolean;
-  onClose: () => void;
-  onCreate: (body: CreateGoalBody) => Promise<void>;
-}) {
-  /* What this dialog is for, kept while it closes. The caller clears its own
-     state the instant it closes this, and an exit animation that read
-     "New KPI" over a form that said "New objective" a moment ago would be the
-     dialog changing its mind on the way out. */
-  const [mode, setMode] = useState(modeProp);
-  if (open && modeProp !== mode) setMode(modeProp);
-  const [parentId, setParentId] = useState(parentIdProp);
-  if (open && parentIdProp !== parentId) setParentId(parentIdProp);
-  const [parentTitle, setParentTitle] = useState(parentTitleProp);
-  if (open && parentTitleProp !== parentTitle) setParentTitle(parentTitleProp);
-  const objective = mode === "objective";
-
-  const { people } = useEmployeeDirectory({ pageSize: 200 });
-  const { employeeId } = useSession();
-  const reach = useLeadReach();
-  /* A company KPI has no owner and everybody can read it, which is why the API
-     gates it. The option is absent rather than disabled for the same reason. */
-  const canSetCompanyWide = useCan("EDIT_RECORDS");
-
-  /**
-   * The departments this person may file a shared target under.
-   *
-   * The cascade's middle rung, and it rides in the **same control** as the
-   * owner rather than a second field beside it. "Whose is this" has exactly
-   * three kinds of answer — the company's, a department's, or a person's —
-   * so one select is the question, and a separate department picker that only
-   * applies when the owner is nobody would be two controls describing one
-   * choice.
-   *
-   * Only the ones the API will accept: heading it is enough, and
-   * `EDIT_RECORDS` covers all of them. Offering a department the save would
-   * refuse puts a name in front of somebody that does not work.
-   */
-  const { flat: departments } = useDepartments();
-  const mine = departments.filter(
-    (department) =>
-      canSetCompanyWide ||
-      (employeeId !== null && department.headId === employeeId),
-  );
-
-  /**
-   * The appraisal periods an objective can be scored in.
-   *
-   * A published one is absent: its marks are a record, and filing a new
-   * objective into it would change a score somebody has already been told.
-   */
-  const { cycles, loading: periodsLoading } = useAppraisals();
-  const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
-
-  const quarters = quarterOptions(useQuarterToday());
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  /* `null` is "not chosen yet", so the starting answer can follow the
-     departments as they arrive rather than being fixed at mount, before they
-     have loaded. */
-  const [chosenOwner, setChosenOwner] = useState<string | null>(null);
-  const [quarter, setQuarter] = useState(quarters[1] ?? quarters[0] ?? "");
-  /* `null` is "not chosen yet", for the same reason as the owner above: when a
-     KPI has exactly one period to go in, that is the starting answer, and it
-     follows the periods as they arrive instead of being fixed at mount. Empty
-     is a real choice only for a shared objective — see the copy below. */
-  const [chosenPeriod, setChosenPeriod] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [periodError, setPeriodError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  /* A blank form on every open. This dialog stays mounted between uses so its
-     exit can animate, which also means it keeps whatever was typed last time:
-     the second objective somebody makes, or the KPI they add under the one they
-     have just made, would start with the first one's title in it. */
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setTitle("");
-      setDescription("");
-      setChosenOwner(null);
-      setQuarter(quarters[1] ?? quarters[0] ?? "");
-      setChosenPeriod(null);
-      setError(null);
-      setPeriodError(null);
-    }
-  }
-
-  /* The objective form's own list of answers; the KPI form builds its own
-     below. See `objectiveWhoseChoices`. */
-  const whose = objectiveWhoseChoices({
-    departments,
-    employeeId,
-    canSetCompanyWide,
-  });
-  const owner = chosenOwner ?? (objective ? whose.fallback : "me");
-  const personal = owner !== "company" && !owner.startsWith("dept:");
-  const needsPeriod = !objective && personal && openPeriods.length > 0;
-  /* A personal objective or KPI starts in the open period; a shared one does
-     not, because it is scored through the people under it. See
-     `defaultPeriodId`. */
-  const reviewCycleId =
-    chosenPeriod ?? (personal ? defaultPeriodId(openPeriods) : "");
-
-  /**
-   * Suggestions, only under a parent.
-   *
-   * A KPI with no parent has nothing to be suggested *from* — this is the
-   * "turn the company goal into something my team can be held to" case, and
-   * the parent goal is the whole of the grounding. Offering the button on a
-   * top-level KPI would be offering to invent a company's objectives, which is
-   * not a blank page anybody should have filled for them.
-   */
-  const suggestions = useObjectiveSuggestions();
-
-  const submit = async () => {
-    if (title.trim().length < 3) {
-      setError("Give it a title of at least three characters.");
-      return;
-    }
-    if (needsPeriod && reviewCycleId === "") {
-      setPeriodError(NEEDS_PERIOD);
-      return;
-    }
-    setError(null);
-    setSaving(true);
-    try {
-      const body: CreateGoalBody = { title: title.trim() };
-      if (description.trim()) body.description = description.trim();
-      if (parentId) body.parentId = parentId;
-      if (quarter) body.dueQuarter = quarter;
-      if (reviewCycleId) body.reviewCycleId = reviewCycleId;
-      if (owner === "company") body.ownerId = null;
-      else if (owner.startsWith("dept:")) {
-        /* A shared target: nobody owns it, and the department is what makes it
-           a department objective rather than a company one. */
-        body.ownerId = null;
-        body.departmentId = owner.slice("dept:".length);
-      } else if (owner !== "me") body.ownerId = owner;
-      await onCreate(body);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={
-        parentTitle ? `New objective under "${parentTitle}"` : "New objective"
-      }
-      description={
-        objective && !parentTitle
-          ? "Once it is made you can add objectives under it, or give them to people."
-          : undefined
-      }
-      size="md"
-      footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            variant="accent"
-            loading={saving}
-            /* While the company's periods are still arriving there is no way
-               to know whether this has one to be filed in, and a KPI saved in
-               that moment would be filed in none. */
-            disabled={periodsLoading === true && cycles.length === 0}
-            onClick={() => void submit()}
-          >
-            Create objective
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <Field
-          label="Objective title"
-          required
-          {...(error ? { error } : {})}
-          help="Say it the way you would to the person doing it."
-        >
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Fill the two Lagos engineering roles"
-          />
-        </Field>
-
-        {/* Under the field it fills, not above it: the blank page is the thing
-            being helped with, and a suggestion panel above the input would read
-            as the primary way to write a KPI. Typing it yourself is. */}
-        {parentId && (
-          <div className="flex flex-col gap-3">
-            <SuggestButton
-              loading={suggestions.loading}
-              label="Suggest objectives under this goal"
-              onClick={() => void suggestions.ask({ goalId: parentId })}
-            />
-            <SuggestionPanel
-              state={suggestions}
-              onDismiss={suggestions.clear}
-              useLabel="Use this"
-              emptyHint="Edit it before you save."
-              /* The only path from a suggestion into the form, and it lands in
-                 the editable fields rather than in the create call. Measures
-                 are shown on the suggestion and deliberately not applied —
-                 this dialog cannot create one (`AddMeasureDialog` does), and
-                 silently dropping them would be worse than showing them as the
-                 next thing to add. */
-              onUse={(suggestion) => {
-                setTitle(suggestion.title);
-                if (suggestion.detail) setDescription(suggestion.detail);
-                setError(null);
-              }}
-            />
-          </div>
-        )}
-
-        <Field label="Assigned to" required>
-          <Select
-            value={owner}
-            onChange={(event) => setChosenOwner(event.target.value)}
-          >
-            {objective ? (
-              whose.choices.map((choice) => (
-                <option key={choice.value} value={choice.value}>
-                  {choice.label}
-                </option>
-              ))
-            ) : (
-              <>
-                <option value="me">Mine</option>
-                {canSetCompanyWide && (
-                  <option value="company">
-                    The whole company (everyone sees it)
-                  </option>
-                )}
-                {/* The middle rung. A department's target is nobody's
-                    personally, so it lives with "the whole company" rather
-                    than among the names — and each one says which department,
-                    because "a department" without saying which is half a
-                    fact. */}
-                {mine.map((department) => (
-                  <option key={department.id} value={`dept:${department.id}`}>
-                    {department.name}, the whole department
-                  </option>
-                ))}
-                {/* The API's own rule, not a longer list than it will accept,
-                    and not a shorter one either. `createGoal` refuses anybody
-                    who is not the caller, a direct report, somebody in a
-                    department the caller heads, or anybody at all with
-                    EDIT_RECORDS.
-
-                    This used to read `managerId === employeeId`, which was the
-                    rule when the comment was written and is narrower than the
-                    one the API now applies — so a department head was not
-                    offered their own department. `peopleILead` is the
-                    current rule, shared with the assign dialog so the two
-                    cannot drift again.
-
-                    `person.id !== employeeId` stays here rather than in the
-                    helper: this select has its own "me" option above. */}
-                {peopleILead(people, reach)
-                  .filter((person) => person.id !== employeeId)
-                  .map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {person.fullName} · {person.jobTitle}
-                    </option>
-                  ))}
-              </>
-            )}
-          </Select>
-        </Field>
-
-        <Field label="Due quarter" required>
-          <Select
-            value={quarter}
-            onChange={(event) => setQuarter(event.target.value)}
-          >
-            {quarters.map((option) => (
-              <option key={option} value={option}>
-                {quarterText(option)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {openPeriods.length > 0 && (
-          <Field
-            {...(needsPeriod ? { required: true } : { optional: true })}
-            label="Appraisal period"
-            {...(periodError ? { error: periodError } : {})}
-            help={
-              reviewCycleId
-                ? "Counts towards this person's score for that period, once somebody agrees it."
-                : needsPeriod
-                  ? "Pick the period this is scored in."
-                  : "Without an appraisal period, this objective will not count towards anyone's score, even once it is agreed."
-            }
-          >
-            <Select
-              value={reviewCycleId}
-              onChange={(event) => {
-                setChosenPeriod(event.target.value);
-                setPeriodError(null);
-              }}
-            >
-              {needsPeriod ? (
-                reviewCycleId === "" && (
-                  <option value="">Choose an appraisal period</option>
-                )
-              ) : (
-                <option value="">Not part of an appraisal period</option>
-              )}
-              {openPeriods.map((period) => (
-                <option key={period.id} value={period.id}>
-                  {period.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
-
-        {/* Said in words, because there is nothing to choose and nothing to
-            refuse: a company that has not started a period yet is not stopped
-            from writing its KPIs down. Not while the list is still arriving. */}
-        {!objective &&
-          personal &&
-          openPeriods.length === 0 &&
-          periodsLoading !== true && (
-            <Callout tone="warning">
-              No appraisal period is open, so this objective will count towards
-              nobody&apos;s score. Start a period first, then edit the objective
-              to file it in that period.
-            </Callout>
-          )}
-
-        <Field optional label="Description">
-          <Textarea
-            rows={3}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </Field>
-      </div>
-    </Modal>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 
@@ -873,28 +472,15 @@ function AddMeasureForm({
 
   const submit = async () => {
     const found: Record<string, string> = {};
-    if (label.trim().length < 2)
-      found["label"] =
-        step === "DONE"
-          ? "Say what done means, in a few words."
-          : "Name what is being measured.";
-
-    if (step === "NUMBER") {
-      if (!target.trim()) found["target"] = "Set the number you are aiming at.";
-
-      const from = parseMeasure(start.trim() || "0");
-      const to = parseMeasure(target.trim() || "0");
-      if (target.trim() && from === to) {
-        found["target"] =
-          "That is the same as the starting number, so there is nothing to measure.";
-      } else if (target.trim() && countDown && to > from) {
-        found["target"] =
-          "This one counts down, so the target has to be below the starting number.";
-      } else if (target.trim() && !countDown && to < from) {
-        found["target"] =
-          "The target is below the starting number. Tick the box if it is meant to come down.";
-      }
-    }
+    const problems = measureProblems({
+      kind: step === "DONE" ? "DONE" : "NUMBER",
+      label,
+      start,
+      target,
+      countDown,
+    });
+    if (problems.label) found["label"] = problems.label;
+    if (problems.target) found["target"] = problems.target;
 
     setErrors(found);
     if (Object.keys(found).length > 0) return;

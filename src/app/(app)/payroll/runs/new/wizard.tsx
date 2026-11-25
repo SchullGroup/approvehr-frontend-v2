@@ -1002,10 +1002,9 @@ export function PayrollRunWizard() {
           {stepper.index === 0 && (
             <div className="flex flex-col gap-5">
               {!canPrepare && (
-                <Callout tone="warning" title="You cannot run payroll yet">
-                  Preparing payroll needs the &ldquo;Run payroll&rdquo;
-                  permission. Somebody who has it can prepare this period, and
-                  you will still be able to review and approve it.
+                <Callout tone="neutral" title="Waiting for the payroll team">
+                  Somebody who runs payroll prepares this period. You can review
+                  and approve it once they have.
                 </Callout>
               )}
 
@@ -1047,17 +1046,22 @@ export function PayrollRunWizard() {
                   }
                 />
                 <CardBody className="flex flex-wrap items-center gap-3">
-                  <Button
-                    variant={run ? "secondary" : "accent"}
-                    onClick={() => void prepare()}
-                    loading={busy === "prepare"}
-                    disabled={!canPrepare || settled || busy !== null}
-                  >
-                    {busy !== "prepare" && (
-                      <RefreshCw aria-hidden="true" className="size-4" />
-                    )}
-                    {run ? "Run again" : `Run ${periodLabel(period)}`}
-                  </Button>
+                  {/* Absent, not greyed, where it could only do nothing: the
+                      reader may not prepare, or the run is already approved
+                      (its badge above says so). */}
+                  {canPrepare && !settled && (
+                    <Button
+                      variant={run ? "secondary" : "accent"}
+                      onClick={() => void prepare()}
+                      loading={busy === "prepare"}
+                      disabled={busy !== null}
+                    >
+                      {busy !== "prepare" && (
+                        <RefreshCw aria-hidden="true" className="size-4" />
+                      )}
+                      {run ? "Run again" : `Run ${periodLabel(period)}`}
+                    </Button>
+                  )}
                   {run && (
                     <p className="text-meta leading-relaxed text-muted">
                       {payslipCountLabel(run)} · {formatKobo(run.grossKobo)}{" "}
@@ -1151,6 +1155,7 @@ export function PayrollRunWizard() {
                   {exceptions.length > 0 && (
                     <ExceptionList
                       exceptions={exceptions}
+                      total={run?.payslips.length}
                       actionFor={actionFor}
                       replaceFixFor={bankInPlace ? BANK_IN_PLACE : undefined}
                     />

@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useCallback, useState } from "react";
 import { Lock, Star } from "lucide-react";
 import {
@@ -96,6 +97,7 @@ export function TalentPoolScreen() {
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the talent pool"
               description="It holds people's contact details and notes from applications they made, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>

@@ -747,6 +747,7 @@ function DayTable({
               return (
                 <TR key={row.employeeId}>
                   <TDPrimary
+                    avatar={row.employeeName}
                     title={
                       <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
@@ -1035,6 +1036,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 return (
                   <TR key={row.employeeId} interactive>
                     <TDPrimary
+                      avatar={row.employeeName}
                       title={
                         <TextLink href={`/people/${row.employeeId}`}>
                           {row.employeeName}

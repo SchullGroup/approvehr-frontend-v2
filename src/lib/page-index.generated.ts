@@ -317,14 +317,24 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "What is waiting on you, and how the running appraisal period is going."
   },
   {
-    "href": "/performance/appraisers",
-    "title": "Who appraises whom",
-    "description": "Who appraises whom in this period, and how much each appraiser's view counts."
+    "href": "/performance/appraisal-preview",
+    "title": "Appraisal flow preview",
+    "description": "A mock-up of the step-by-step appraisal for an employee, with example answers. Nothing is saved."
   },
   {
-    "href": "/performance/approvals",
-    "title": "Objectives to agree",
-    "description": "Objectives waiting for you to agree them, with the target each person will be judged against."
+    "href": "/performance/appraisal-preview/manager",
+    "title": "Manager appraisal preview",
+    "description": "A mock-up of a manager's team list and the step-by-step appraisal of one person, with example data. Nothing is saved."
+  },
+  {
+    "href": "/performance/appraisals",
+    "title": "Appraisals",
+    "description": "Where your appraisal stands, step by step, and where your team's do."
+  },
+  {
+    "href": "/performance/appraisers",
+    "title": "Who appraises whom",
+    "description": "Who appraises whom: everybody's line manager by default, and the exceptions period by period."
   },
   {
     "href": "/performance/fairness",
@@ -347,9 +357,9 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Give a team its quarter from one spreadsheet: match your own column names, see every row that will not go in and why before anything is saved, and have each objective arrive as a draft for its owner to agree."
   },
   {
-    "href": "/performance/periods",
-    "title": "Appraisal periods",
-    "description": "Every appraisal period, open ones first, and what each one needs next."
+    "href": "/performance/kpis/new",
+    "title": "New objective",
+    "description": "Write an objective one question at a time: the aim, the target, the period it counts in, then send it to be agreed."
   },
   {
     "href": "/performance/periods/new",
@@ -357,19 +367,9 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Describe an appraisal period in a sentence or two and edit the goals and questions that come back. Nothing is created until the last screen."
   },
   {
-    "href": "/performance/review-tasks",
-    "title": "Weekly tasks",
-    "description": "Log what you did toward your objectives, and grade what your team did."
-  },
-  {
     "href": "/performance/skills",
     "title": "Competency ratings",
     "description": "Where people stand against the levels the company set."
-  },
-  {
-    "href": "/performance/work-record",
-    "title": "My work record",
-    "description": "What you finished on the project boards, a day, week, month or quarter at a time."
   },
   {
     "href": "/profile",
@@ -519,7 +519,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "The parts an appraisal score is made of, each with its own name, weight and source, what each rating is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
+    "description": "How an appraisal score is made, what each rating is called, and what work is kept with a final rating."
   },
   {
     "href": "/settings/policies",

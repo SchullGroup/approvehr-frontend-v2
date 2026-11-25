@@ -848,7 +848,7 @@ export function LeaveScreen() {
                       variant="ghost"
                       size="sm"
                     >
-                      Set the entitlements
+                      Change leave days
                     </ButtonLink>
                   ) : undefined
                 }

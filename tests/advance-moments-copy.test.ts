@@ -134,7 +134,7 @@ describe("saving how drawing early works", () => {
       }),
     ).toEqual({
       title: "Pay-early settings saved",
-      detail: "Staff cannot draw pay early.",
+      detail: "Pay early is off for staff.",
     });
   });
 });

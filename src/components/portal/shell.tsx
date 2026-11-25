@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import { Avatar, Badge } from "@/components/ui";
+import { Avatar, Badge, HeaderSlot, HeaderSlotProvider } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import {
@@ -205,9 +205,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      with no reports, once per session, and the answer is usually an empty
      list. */
   const inAOneOnOne = useAmIInAOneOnOne(!isManager);
-  /* Whoever sets the pay-early policy still needs the row, or nobody could ever
-     switch it on. */
-  const canSetEarlyPay = hasPermission(permissions, "MANAGE_PAY_STRUCTURE");
 
   /* Signatures: showing to somebody who can send, or who has one of their own.
      ---------------------------------------------------------------------
@@ -240,7 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => ({
       assistantWired,
       earlyPay: features.earlyPay,
-      earlyPayHidden: features.earnedWage === false && !canSetEarlyPay,
+      earlyPayHidden: features.earnedWage === false,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
@@ -269,7 +266,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       assistantWired,
       features.earlyPay,
       features.earnedWage,
-      canSetEarlyPay,
       isManager,
       inAOneOnOne,
       canSendForSignature,
@@ -580,7 +576,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <CollaboratorGate>
             <VisibleNavContext.Provider value={groups}>
-              <BillingGate>{children}</BillingGate>
+              <BillingGate>
+                <HeaderSlotProvider>{children}</HeaderSlotProvider>
+              </BillingGate>
             </VisibleNavContext.Provider>
           </CollaboratorGate>
         </main>
@@ -984,6 +982,7 @@ export function PageHeader({
   action,
   meta,
   description,
+  subline,
   tabs,
   width = "page",
 }: {
@@ -1008,6 +1007,12 @@ export function PageHeader({
    * the ones somebody clicks once and leaves.
    */
   description?: string;
+  /**
+   * Small facts about what the page is, in a quiet line *below* the title: dates,
+   * a due date. Where `meta` sits beside the title and competes with it, this
+   * reads as the title's own detail.
+   */
+  subline?: React.ReactNode;
   tabs?: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -1151,6 +1156,11 @@ export function PageHeader({
                 <h1 className="text-h3 text-ink">{title}</h1>
                 {meta}
               </div>
+              {subline && (
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-muted">
+                  {subline}
+                </p>
+              )}
               {description && (
                 /* `max-w-2xl` so a sentence does not run the full width of a
                  desktop — a line somebody has to track across 1600px is a line
@@ -1175,7 +1185,13 @@ export function PageHeader({
                row *alone* exceeds the width — the phone case — does it wrap
                internally, which is what we want. Measured on `/people` at 375px:
                501px -> 335px. */
-              <div className="flex flex-wrap items-center gap-2">{action}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* A filter icon that would otherwise sit alone on a row under
+                    this header moves in here, just left of the action
+                    (`FilterBar`, `header-slot.tsx`). */}
+                <HeaderSlot />
+                {action}
+              </div>
             )}
           </div>
 

@@ -96,12 +96,6 @@ vi.mock("@/lib/store/performance", async (importActual) => ({
     error: null,
     reload: () => {},
   }),
-  useHeatmap: () => ({
-    heatmap: null,
-    loading: false,
-    error: null,
-    reload: () => {},
-  }),
   useRating: () => ({ rate: async () => {} }),
 }));
 vi.mock("@/lib/store/assets", async (importActual) => ({
@@ -148,11 +142,19 @@ const SCREENS = [
     set: (loading: boolean, error: unknown) =>
       Object.assign(state.approvals, { loading, error }),
     draw: async () => {
-      const { ApprovalsScreen } =
-        await import("@/app/(app)/performance/approvals/approvals-screen");
-      return <ApprovalsScreen />;
+      const { ObjectivesToAgree } =
+        await import("@/app/(app)/performance/kpis/to-agree");
+      return (
+        <ObjectivesToAgree
+          approvals={
+            state.approvals as unknown as Parameters<
+              typeof ObjectivesToAgree
+            >[0]["approvals"]
+          }
+        />
+      );
     },
-    empty: "Nothing waiting",
+    empty: "Nothing waiting to be agreed",
     failed: "The objectives waiting on you did not load",
   },
   {

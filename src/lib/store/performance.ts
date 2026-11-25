@@ -25,7 +25,6 @@ import {
   type ApiFormQuestion,
   type ApiGap,
   type ApiGoal,
-  type ApiHeatmap,
   type ApiKeyResult,
   type ApiMyReviews,
   type ApiPeerFeedback,
@@ -36,6 +35,7 @@ import {
   type ApiReview,
   type ApiReviewDetail,
   type ApiRevisionRequest,
+  type ApiAppraisalProgress,
   type ApiCycleReport,
   type ApiNineBox,
   type ApiPotentialLevel,
@@ -59,6 +59,7 @@ import {
   type ChoiceOptionBody,
   type CreateGoalBody,
   type UpdateGoalBody,
+  type UpdateKeyResultBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
   type ReviewCycleStage,
@@ -78,6 +79,7 @@ import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 import { useIsManager } from "@/lib/permissions";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { notSwitchedOn } from "@/lib/performance/notify-objectives";
 import { useFetched } from "@/lib/use-fetched";
 
 /**
@@ -90,7 +92,7 @@ import { useFetched } from "@/lib/use-fetched";
  *
  * | | Connected | Demo |
  * |---|---|---|
- * | Read the cascade, the framework, the heatmap, what was said about me | yes | yes, from the seed |
+ * | Read the cascade, the framework, what was said about me | yes | yes, from the seed |
  * | **Update progress on one key result** | yes | **yes, to this browser** |
  * | Answer and send my own review | yes | yes, to this browser |
  * | **Send an objective for approval, agree it, send it back, refuse it, reopen it** | yes | **yes, to this browser** |
@@ -1254,52 +1256,6 @@ function demoGaps(): ApiGap[] {
     );
 }
 
-/** Departments down the side, competencies across the top. Averages in the cells. */
-function demoHeatmap(): ApiHeatmap {
-  const departments = [...new Set(EMPLOYEES.map((e) => e.department))].sort();
-
-  const rows = departments.map((department) => {
-    const people = new Set(
-      EMPLOYEES.filter((e) => e.department === department).map((e) => e.id),
-    );
-    const mine = SEED_RATINGS.filter((r) => people.has(r.employeeId));
-
-    return {
-      departmentId: department,
-      departmentName: department,
-      ratedPeople: new Set(mine.map((r) => r.employeeId)).size,
-      cells: demoCompetencies.map((competency) => {
-        const cell = mine.filter((r) => r.name === competency.name);
-        const average =
-          cell.length === 0
-            ? null
-            : Math.round(
-                (cell.reduce((sum, r) => sum + r.level, 0) / cell.length) * 10,
-              ) / 10;
-        return {
-          competencyId: competency.id,
-          average,
-          rated: cell.length,
-          belowTarget: cell.filter(
-            (r) => r.target !== null && r.level < r.target,
-          ).length,
-        };
-      }),
-    };
-  });
-
-  return {
-    competencies: demoCompetencies.map((c) => ({
-      id: c.id,
-      name: c.name,
-      scaleMax: c.scaleMax,
-      isCore: c.isCore,
-    })),
-    rows: rows.filter((row) => row.ratedPeople > 0),
-    ratedPeople: new Set(SEED_RATINGS.map((r) => r.employeeId)).size,
-  };
-}
-
 const reviewId = (cycleId: string, kind: string) =>
   `${cycleId}-${kind.toLowerCase()}`;
 
@@ -1576,11 +1532,16 @@ export function useKpis(
          rejected `Promise.all` would throw away the company goals that
          answered — emptying a screen that has plenty to show. Same latent bug,
          one hook along. */
-      const [scoped, company] = await Promise.allSettled([
+      const [scoped, company, own] = await Promise.allSettled([
         scope === "mine"
           ? performanceApi.myGoals({ pageSize: PAGE }, signal)
           : performanceApi.teamGoals({ pageSize: PAGE }, signal),
         performanceApi.goals({ companyOnly: true, pageSize: 50 }, signal),
+        /* A manager's own objectives sit beside their team's (owner, 24 Nov
+           2026), and the team read does not hold them. */
+        scope === "team"
+          ? performanceApi.myGoals({ pageSize: PAGE }, signal)
+          : Promise.resolve(null),
       ]);
 
       /* The company read failing leaves nothing worth rendering, so it throws.
@@ -1589,8 +1550,10 @@ export function useKpis(
       if (company.status === "rejected") throw company.reason;
 
       const mine = scoped.status === "fulfilled" ? scoped.value.data : [];
+      const ownGoals =
+        own.status === "fulfilled" && own.value !== null ? own.value.data : [];
       const seen = new Set<string>();
-      return [...company.value.data, ...mine].filter((goal) => {
+      return [...company.value.data, ...mine, ...ownGoals].filter((goal) => {
         if (seen.has(goal.id)) return false;
         seen.add(goal.id);
         return true;
@@ -1742,6 +1705,16 @@ export function useKpiMutations() {
             "and ones kept in this browser would never reach their reviews.",
         );
         return performanceApi.assignObjective(parentId, body);
+      },
+      [guard],
+    ),
+
+    /* A target's own fields, changed before it is agreed: the wizard's
+       "Edit and resend" (owner request, 24 Nov 2026). */
+    updateKeyResult: useCallback(
+      async (id: string, body: UpdateKeyResultBody) => {
+        guard("Changing a target needs the API.");
+        return performanceApi.updateKeyResult(id, body);
       },
       [guard],
     ),
@@ -2969,32 +2942,6 @@ export function useGaps(enabled: boolean): {
   };
 }
 
-/** The department grid. `EDIT_RECORDS` only — an aggregate over everybody. */
-export function useHeatmap(enabled: boolean): {
-  heatmap: ApiHeatmap | null;
-  loading: boolean;
-  error: ApiError | null;
-  reload: () => void;
-} {
-  const { isConnected } = useSession();
-  const load = useCallback(
-    async (signal: AbortSignal) => performanceApi.heatmap(signal),
-    [],
-  );
-  const fetched = useFetched<ApiHeatmap>(
-    "heatmap",
-    enabled && isConnected,
-    load,
-  );
-
-  return {
-    heatmap: isConnected ? fetched.data : enabled ? demoHeatmap() : null,
-    loading: fetched.loading,
-    error: fetched.error,
-    reload: fetched.reload,
-  };
-}
-
 /** The questions on one cycle. `MANAGE_SETTINGS` only. */
 export function useCycleQuestions(cycleId: string | null): {
   questions: ApiQuestion[];
@@ -3392,6 +3339,15 @@ export function useCycleMutations() {
       async (id: string) => {
         guard("Publishing results needs the API. It cannot be undone.");
         return performanceApi.closeCycle(id);
+      },
+      [guard],
+    ),
+
+    /** Ask everybody to set their objectives. Connected only. */
+    notifyObjectives: useCallback(
+      async (id: string) => {
+        guard("Asking people to set objectives needs the API.");
+        return performanceApi.notifyObjectives(id);
       },
       [guard],
     ),
@@ -3981,8 +3937,8 @@ export function useMyAppraisers(
                 "BLOCKER" | "WARNING",
               code: "NO_APPRAISER" as const,
               message: started
-                ? `Nobody is appraising ${name}. They will finish this period with no score.`
-                : `${name} has no appraiser yet. Starting the period will use their line manager, and they have none.`,
+                ? `${name} has no manager or department head recorded, so HR appraises them.`
+                : `${name} has no manager or department head recorded, so HR will appraise them.`,
             },
           ],
     };
@@ -4154,7 +4110,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
       label: "Delivery against objectives",
       weightBp: 4_000,
     },
-    { component: "TASKS", label: "Weekly tasks", weightBp: 0 },
+    { component: "TASKS", label: "Tasks done", weightBp: 0 },
     {
       component: "CORE_COMPETENCY",
       label: "Core competencies",
@@ -4765,6 +4721,53 @@ export function useScoreHistory(
     error: isConnected ? fetched.error : null,
     available: isConnected,
     refusal: HISTORY_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * The appraisal's steps for one period: the caller's own, the team's, and HR's
+ * totals. An API that does not have the route yet answers 404, which is read as
+ * "nothing here", never as a failure: `unavailable` is true and the screen falls
+ * back to what it always showed.
+ */
+export function useAppraisalProgress(cycleId: string | null): {
+  progress: ApiAppraisalProgress | null;
+  loading: boolean;
+  unavailable: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && isConnected;
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      try {
+        return {
+          progress: await performanceApi.appraisalProgress(
+            cycleId ?? "",
+            signal,
+          ),
+          unavailable: false,
+        };
+      } catch (caught) {
+        if (notSwitchedOn(caught)) {
+          return { progress: null, unavailable: true };
+        }
+        throw caught;
+      }
+    },
+    [cycleId],
+  );
+  const fetched = useFetched<{
+    progress: ApiAppraisalProgress | null;
+    unavailable: boolean;
+  }>(`appraisal-progress|${cycleId ?? "none"}`, active, load);
+  return {
+    progress: fetched.data?.progress ?? null,
+    loading: active ? fetched.loading : false,
+    unavailable: !active || (fetched.data?.unavailable ?? false),
+    error: active ? fetched.error : null,
     reload: fetched.reload,
   };
 }

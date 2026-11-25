@@ -1,13 +1,14 @@
 "use client";
 
 import { ToggleRight } from "lucide-react";
-import { ButtonLink, EmptyState, Spinner } from "@/components/ui";
+import { Button, ButtonLink, EmptyState, Spinner } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
+import { useRating } from "@/lib/store/performance";
+import { useState } from "react";
 import { SkillsTab } from "../skills";
 import { EditCompetenciesButton } from "./edit-competencies-button";
-import { StartPeriodButton } from "../start-period";
 import type { SkillsTabId } from "./tabs";
 
 /**
@@ -16,12 +17,15 @@ import type { SkillsTabId } from "./tabs";
  * Gated on `appraisals` — a company that has not turned scored reviews on has
  * no levels to rate anybody against. The nav already hides this item for such
  * a company; this is the direct-link case, answered the same way
- * `/performance/approvals` answers it.
+ * the To agree tab of `/performance/kpis` answers it.
  */
 export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
   const features = useFeatures();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const isManager = useIsManager();
+  const rating = useRating();
+  const [recording, setRecording] = useState(false);
+  const canRecord = (canSeeCompany || isManager) && rating.editable;
 
   if (features.loading) {
     return (
@@ -64,7 +68,15 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
         action={
           <>
             <EditCompetenciesButton />
-            <StartPeriodButton withIcon />
+            {canRecord && (
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setRecording(true)}
+              >
+                Record a level
+              </Button>
+            )}
           </>
         }
       />
@@ -73,6 +85,8 @@ export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
           canSeeCompany={canSeeCompany}
           isManager={isManager}
           initialTab={initialTab}
+          recording={recording}
+          onRecordingChange={setRecording}
         />
       </PageBody>
     </>

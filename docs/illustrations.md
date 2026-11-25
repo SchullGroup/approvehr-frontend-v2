@@ -77,13 +77,39 @@ email confirmed. It ignores `art` when `compact`.
 
 ## Rules for the figures
 
-- **Not recoloured.** White fill, black line, as drawn.
+- **As drawn in the light theme.** White fill, black line, straight on the page.
+- **In the dark theme's indigo in the dark theme.** See "Dark theme" below. Never any other colour.
 - **Whole.** No fade, blur, mask or gradient over a figure.
-- **Bare where the surface is light.** In the dark theme, where black line work cannot be read, `Illustration` puts
-  the figure on the light `well-sticker` tile the Wellness scenes use.
+- **Bare.** No tile behind a figure in either theme. (The dark theme used to put it on a light lavender tile, which
+  was a white box on a dark page; the owner asked on 24 Nov 2026 for every illustration to fit dark mode.)
 - **Decorative.** Empty `alt`, `aria-hidden` on the wrapper: the title and description say everything.
 - **Still.** No motion, so nothing for reduced motion to switch off.
 - **Few.** One figure per screen at most, large and quiet, belonging to what the screen is for. Kene's earlier
   reaction to figures on small cards and grid cards was to have them taken off; do not put one back.
 
 Shown on `/design-system`.
+
+## Dark theme
+
+Every piece of art follows the theme. Nothing draws a light box, a white card or a daylight-bright gradient on a dark
+page.
+
+| Art                                  | Light theme                                    | Dark theme                                                                                 |
+| ------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Open Peeps figures (`Illustration`)  | white fill, black line                         | fill `accent-soft`, line `accent-text`, from `peeps/dark/`                                 |
+| Wellness scenes (`SceneImage`)       | black line and pink on the `well-sticker` tile | line `accent-text`, pink `well-pink-text`, on `well-peri-soft`, from `scenes/dark/`        |
+| Wellness mascots (`WellnessArt`)     | bright `well-*` fills, fixed `well-ink` faces  | the same: built to read on both grounds                                                    |
+| Blue hero gradient (`HeroBackdrop`)  | `hero-from` #1c2872 to `hero-to` #4059d3       | a step deeper: #131b4f to #2c3d98                                                          |
+| Sign-in panel mockups (`AuthVisual`) | white cards, slate ink                         | `surface` cards, `ink` text, `warning-soft` pill (set on the wrapper in `auth-visual.tsx`) |
+| Offline page (`/offline`)            | its own light colours                          | its own dark colours, now that it runs the theme script itself                             |
+
+The dark copies of the line art are files, not filters: `scripts/dark-art.ts` (`npm run art:dark`) writes
+`public/illustrations/peeps/dark/` and `public/wellness/scenes/dark/` from the light files, reading the colours out of the
+dark block of `globals.css`. Each light file may use only the colours that script knows (white and black for a figure,
+black and the pink for a scene); a new colour stops it instead of reaching a dark page unchanged. `npm run check` runs
+`verify-dark-art`, which fails when a dark copy is missing or no longer matches its light file and the tokens, and
+`verify-contrast` checks the dark line against every ground it is drawn on (3:1, a graphical object) and white text on
+both ends of the hero gradient in both themes. `Illustration` and `SceneImage` draw both files and show one: the hidden
+one has no box, so a lazy image never fetches it.
+
+User content is not art and is drawn as uploaded: a company logo, a photo, a notice's picture.

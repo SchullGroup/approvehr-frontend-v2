@@ -1,10 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Field, Modal, Select, Textarea } from "@/components/ui";
+import {
+  Button,
+  Field,
+  Modal,
+  RatingScale,
+  Select,
+  Textarea,
+} from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { LanguageCheck } from "@/components/performance/language-check";
-import type { RateBody } from "@/lib/api/performance";
+import { ApiError } from "@/lib/api/client";
+import {
+  performanceApi,
+  ratingWordsFrom,
+  type RateBody,
+} from "@/lib/api/performance";
 import {
   WRITTEN_NEVER_COUNTS,
   answerKindOf,
@@ -19,6 +31,7 @@ import {
 import {
   useAppraisals,
   useFramework,
+  useRatingScale,
   useSections,
   useSkills,
 } from "@/lib/store/performance";
@@ -40,8 +53,8 @@ import { defaultPeriodId } from "./goal-facts";
  * no period is invisible to the score. This dialog had no period field at all
  * and was the only caller of `rate` in the app, which made the competency
  * components — 55% of every mark, core plus behavioural plus leadership —
- * permanently `NO_DATA`. Rating somebody saved, filled the gap table and the
- * heatmap, and moved no mark, with nothing on screen saying why.
+ * permanently `NO_DATA`. Rating somebody saved, filled the gap table
+ * and moved no mark, with nothing on screen saying why.
  *
  * Both readings are real, which is why this is a choice rather than a default:
  * a rating inside a period is the assessment of record for it, and one without
@@ -166,6 +179,9 @@ export function RecordLevelDialog({
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  /** The API's sentence while this person's self review is not in yet. */
+  const [waiting, setWaiting] = useState<string | null>(null);
+  const [nudged, setNudged] = useState(false);
 
   /**
    * The API's own rule, not a longer list than it will accept.
@@ -245,6 +261,7 @@ export function RecordLevelDialog({
     kind === "TEXT" && errors["answer"] ? writtenAnswerProblem(words) : null;
   const scaleMax = chosen?.scaleMax ?? 5;
   const steps = Array.from({ length: scaleMax }, (_, index) => index + 1);
+  const levelWords = ratingWordsFrom(useRatingScale().scale.levels);
   const personName = people.find((one) => one.id === person)?.fullName;
 
   const submit = async () => {
@@ -283,7 +300,16 @@ export function RecordLevelDialog({
       }
       if (reviewCycleId) body.reviewCycleId = reviewCycleId;
       if (note.trim()) body.note = note.trim();
+      setWaiting(null);
       await onSave(competency, body);
+    } catch (caught) {
+      /* The API holds a rating in a period until the person's self review is
+         sent: not an error, a wait, with a reminder to send. */
+      if (caught instanceof ApiError && caught.status === 409) {
+        setWaiting(caught.message);
+        return;
+      }
+      throw caught;
     } finally {
       setSaving(false);
     }
@@ -310,6 +336,26 @@ export function RecordLevelDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        {waiting && (
+          <NoticeLine tone="muted">
+            <span>Waiting for their self review. {waiting}</span>
+            {reviewCycleId && person && (
+              <button
+                type="button"
+                disabled={nudged}
+                className="font-medium text-accent-text underline-offset-2 hover:underline disabled:opacity-60"
+                onClick={() => {
+                  void performanceApi
+                    .nudgePerson(reviewCycleId, person)
+                    .then(() => setNudged(true))
+                    .catch(() => setNudged(true));
+                }}
+              >
+                {nudged ? "Reminded" : "Nudge"}
+              </button>
+            )}
+          </NoticeLine>
+        )}
         <Field
           label="Employee"
           required
@@ -377,17 +423,19 @@ export function RecordLevelDialog({
               required
               {...(errors["level"] ? { error: errors["level"] } : {})}
             >
-              <Select
-                value={level}
-                placeholder="Pick a level"
-                onChange={(event) => setLevel(event.target.value)}
-              >
-                {steps.map((step) => (
-                  <option key={step} value={String(step)}>
-                    {step} of {scaleMax}
-                  </option>
-                ))}
-              </Select>
+              <RatingScale
+                name="current-level"
+                label="Current level"
+                levels={steps.map((step) => ({
+                  level: step,
+                  label:
+                    scaleMax === 5
+                      ? (levelWords(step) ?? String(step))
+                      : `${String(step)} of ${String(scaleMax)}`,
+                }))}
+                value={level ? Number(level) : null}
+                onChange={(next) => setLevel(String(next))}
+              />
             </Field>
             <Field
               optional
@@ -515,10 +563,10 @@ export function RecordLevelDialog({
                   ? "Filed under that period. Each person has one answer per period, so writing it again replaces this one."
                   : "Counts towards this person's score for that period. Each person has one rating per period, so rating them again corrects this one."
                 : kind === "RATING"
-                  ? "This will not affect any appraisal score. It is a snapshot of where they are now, and it fills the competency gap table and heatmap."
+                  ? "This will not affect any appraisal score. It is a snapshot of where they are now, and it fills the competency gap table."
                   : kind === "TEXT"
                     ? "A snapshot of where they are now."
-                    : "This will not affect any appraisal score. It is a snapshot of where they are now, and it does not appear in the competency gap table or heatmap, which are about levels."
+                    : "This will not affect any appraisal score. It is a snapshot of where they are now, and it does not appear in the competency gap table, which is about levels."
             }
           >
             <Select

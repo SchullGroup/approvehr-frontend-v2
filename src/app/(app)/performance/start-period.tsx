@@ -14,8 +14,7 @@ import {
   Checkbox,
   Field,
   Input,
-  Modal,
-  SuccessMoment,
+  Textarea,
   type ButtonSize,
   type ButtonVariant,
 } from "@/components/ui";
@@ -32,7 +31,7 @@ import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
 import { useAssistantAvailable } from "@/lib/store/ai";
-import { useCycleMutations } from "@/lib/store/performance";
+import { useAppraisals, useCycleMutations } from "@/lib/store/performance";
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
 
@@ -59,7 +58,7 @@ import { todayIn } from "@/lib/time";
  * a person.
  */
 
-const STEPS = 5;
+const STEPS = 6;
 
 export function StartPeriodDialog({
   open,
@@ -69,9 +68,22 @@ export function StartPeriodDialog({
   open: boolean;
   onClose: () => void;
   /** The new period. The caller decides what to show next. */
-  onCreated: (period: { id: string; name: string }) => void;
+  onCreated: (period: {
+    id: string;
+    name: string;
+    /** Where to go next: the questions wizard, or the period itself once its questions are in. */
+    next: "questions" | "period";
+  }) => void;
 }) {
   const periods = useCycleMutations();
+  const appraisals = useAppraisals();
+  /* The latest earlier period that already has questions, to offer as a start. */
+  const earlier =
+    appraisals.cycles.find((one) => one.questionCount > 0) ?? null;
+  const [source, setSource] = useState<"earlier" | "standard" | "write" | null>(
+    null,
+  );
+  const questionsFrom = source ?? (earlier ? "earlier" : "write");
   const assistant = useAssistantAvailable();
   const departments = useDepartments();
 
@@ -85,6 +97,7 @@ export function StartPeriodDialog({
   const [periodEnd, setPeriodEnd] = useState("");
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [message, setMessage] = useState("");
   const [wholeCompany, setWholeCompany] = useState(true);
   const [scope, setScope] = useState<string[]>([]);
   const [remind, setRemind] = useState(false);
@@ -126,9 +139,25 @@ export function StartPeriodDialog({
             : {}),
           ...(remind ? { remindDaysBefore: 3 } : {}),
           ...(managersAdd ? { managersCanAddQuestions: true } : {}),
+          ...(message.trim() ? { instructions: message.trim() } : {}),
         },
       );
-      onCreated({ id: created.id, name: created.name });
+      /* Questions chosen in the wizard go in now, so the person is not left to
+         find the next step. A failure here does not undo the period: it opens on
+         its questions, where they can be added by hand. */
+      let next: "questions" | "period" = "questions";
+      try {
+        if (questionsFrom === "earlier" && earlier) {
+          await periods.copyQuestions(created.id, earlier.id);
+          next = "period";
+        } else if (questionsFrom === "standard") {
+          await periods.addStandardQuestions(created.id);
+          next = "period";
+        }
+      } catch {
+        next = "period";
+      }
+      onCreated({ id: created.id, name: created.name, next });
     } catch (caught) {
       setError(actionMessage(caught, "the period"));
     } finally {
@@ -148,6 +177,7 @@ export function StartPeriodDialog({
     "Is this for the whole company?",
     "Remind people who haven't finished?",
     "Can managers add their own questions?",
+    "What should people be asked?",
   ];
 
   return (
@@ -266,13 +296,23 @@ export function StartPeriodDialog({
       )}
 
       {step === 1 && (
-        <Field label="Due date">
-          <Input
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </Field>
+        <>
+          <Field label="Due date">
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+            />
+          </Field>
+          <Field label="Message to staff (optional)">
+            <Textarea
+              rows={3}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Shown above the first question"
+            />
+          </Field>
+        </>
       )}
 
       {step === 2 && (
@@ -349,6 +389,31 @@ export function StartPeriodDialog({
           </BigChoice>
         </div>
       )}
+
+      {step === 5 && (
+        <div className="flex flex-col gap-3">
+          {earlier && (
+            <BigChoice
+              selected={questionsFrom === "earlier"}
+              onClick={() => setSource("earlier")}
+            >
+              Use the questions from {earlier.name}
+            </BigChoice>
+          )}
+          <BigChoice
+            selected={questionsFrom === "standard"}
+            onClick={() => setSource("standard")}
+          >
+            Use our standard questions
+          </BigChoice>
+          <BigChoice
+            selected={questionsFrom === "write"}
+            onClick={() => setSource("write")}
+          >
+            Write them next
+          </BigChoice>
+        </div>
+      )}
     </WizardShell>
   );
 }
@@ -394,7 +459,6 @@ export function StartPeriodButton({
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
-  const [made, setMade] = useState<{ id: string; name: string } | null>(null);
 
   /* Absent, not disabled. A company that has not turned appraisals on has no
      business being shown the door to them, and somebody who cannot run one
@@ -419,34 +483,15 @@ export function StartPeriodButton({
           onClose={() => setOpen(false)}
           onCreated={(period) => {
             setOpen(false);
-            setMade(period);
+            /* The wizard goes on: to the questions when they still need
+               writing, to the period once they are in. */
+            router.push(
+              period.next === "questions"
+                ? `/performance/periods/${period.id}/questions`
+                : `/performance/periods/${period.id}`,
+            );
           }}
         />
-      )}
-
-      {made && (
-        <Modal open onClose={() => setMade(null)} title={made.name} size="sm">
-          <SuccessMoment
-            title="Appraisal period created"
-            actions={
-              <>
-                <Button variant="ghost" onClick={() => setMade(null)}>
-                  Close
-                </Button>
-                <Button
-                  variant="accent"
-                  onClick={() => {
-                    const id = made.id;
-                    setMade(null);
-                    router.push(`/performance/periods/${id}`);
-                  }}
-                >
-                  View period
-                </Button>
-              </>
-            }
-          />
-        </Modal>
       )}
     </>
   );

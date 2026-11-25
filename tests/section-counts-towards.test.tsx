@@ -140,7 +140,7 @@ describe("what a section counts towards", () => {
       .map((option) => option.textContent);
     expect(labels).toEqual([
       "No part of the score (ratings are only recorded)",
-      "C (scored from graded weekly tasks, not from a section)",
+      "C (scored from tasks finished in Projects, not from a section)",
       "A",
       "Our values",
       "How I did",
@@ -183,7 +183,7 @@ describe("what a section counts towards", () => {
         .map((option) => option.textContent),
     ).toEqual([
       "No part of the score (ratings are only recorded)",
-      "C (scored from graded weekly tasks, not from a section)",
+      "C (scored from tasks finished in Projects, not from a section)",
     ]);
   });
 });

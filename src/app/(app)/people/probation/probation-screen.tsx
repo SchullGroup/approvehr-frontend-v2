@@ -116,6 +116,7 @@ export function ProbationScreen() {
               {[...overdue, ...upcoming].map((row) => (
                 <TR key={row.employeeId}>
                   <TDPrimary
+                    avatar={row.name}
                     title={
                       <Link
                         href={`/people/${row.employeeId}`}
@@ -187,6 +188,7 @@ export function ProbationScreen() {
               {needsADate.map((row) => (
                 <TR key={row.employeeId}>
                   <TDPrimary
+                    avatar={row.name}
                     title={
                       <Link
                         href={`/people/${row.employeeId}?tab=employment`}

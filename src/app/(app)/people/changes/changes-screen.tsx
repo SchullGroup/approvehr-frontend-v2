@@ -166,6 +166,7 @@ export function ChangesScreen() {
               {waiting.map((row) => (
                 <TR key={row.id}>
                   <TDPrimary
+                    avatar={row.name}
                     className="whitespace-nowrap"
                     title={
                       <Link
@@ -242,6 +243,7 @@ export function ChangesScreen() {
               {agreed.map((row) => (
                 <TR key={row.id}>
                   <TDPrimary
+                    avatar={row.name}
                     className="whitespace-nowrap"
                     title={
                       <Link
