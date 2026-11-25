@@ -714,7 +714,7 @@ export function AdjustDrawer({
           placeholder="PAYE"
           saveLabel="Enter it by hand"
           {...(person.payeOverridden
-            ? { undoLabel: "Undo: use the bands instead" }
+            ? { undoLabel: "Calculate automatically" }
             : {})}
           saving={busy}
           error={error}
