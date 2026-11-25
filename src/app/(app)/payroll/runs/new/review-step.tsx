@@ -13,7 +13,6 @@ import {
   CardHeader,
   EmptyState,
   Input,
-  SegmentedControl,
   Select,
   SortableTH,
   TBody,
@@ -49,7 +48,6 @@ import {
   loanTotal,
   visiblePayslips,
   warningsByPerson,
-  type ReviewFilter,
   type ReviewView,
   type SortColumn,
 } from "./review-model";
@@ -165,7 +163,6 @@ export function ReviewStep({
   }, [lineSummary, run.id, lineKey]);
   const typedDeductions = typed?.key === lineKey ? typed.deductions : null;
   const typedUnknown = typed?.key === lineKey && typed.deductions === null;
-  const typedPending = typed?.key !== lineKey;
 
   /* -------------------------------------------------------- which columns */
 
@@ -202,16 +199,6 @@ export function ReviewStep({
   const visible = useMemo(
     () => visiblePayslips(payslips, view, typedDeductions, warnings),
     [payslips, view, typedDeductions, warnings],
-  );
-  const adjustedCount = useMemo(
-    () =>
-      payslips.filter((slip) => adjustmentsOf(slip, typedDeductions).length > 0)
-        .length,
-    [payslips, typedDeductions],
-  );
-  const warningCount = useMemo(
-    () => payslips.filter((slip) => warnings.has(slip.employeeId)).length,
-    [payslips, warnings],
   );
 
   /* Any change to what is shown starts the list from its top again. */
@@ -296,26 +283,6 @@ export function ReviewStep({
                 className="pl-9 max-sm:h-11"
               />
             </div>
-
-            <SegmentedControl<ReviewFilter>
-              label="Which payslips to show"
-              value={view.filter}
-              onChange={(filter) => change({ ...view, filter })}
-              className="max-sm:[&>button]:min-h-11"
-              options={[
-                { value: "all", label: `All (${String(payslips.length)})` },
-                {
-                  value: "adjusted",
-                  label: typedPending
-                    ? "With adjustments"
-                    : `With adjustments (${String(adjustedCount)})`,
-                },
-                {
-                  value: "warnings",
-                  label: `With notes (${String(warningCount)})`,
-                },
-              ]}
-            />
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 md:hidden">
