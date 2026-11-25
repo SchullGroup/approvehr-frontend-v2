@@ -1103,9 +1103,6 @@ export function PayrollRunWizard() {
               recordedNow={recordedNow}
               onRecorded={setRecordedNow}
               onChanged={detail.reload}
-              blockers={counts.blockers}
-              warnings={counts.warnings}
-              onSeeChecks={() => stepper.goTo(0)}
               scheduled={scheduled}
             />
           )}
