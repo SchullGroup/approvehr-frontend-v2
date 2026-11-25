@@ -17,7 +17,6 @@ import {
   Ban,
   ChevronLeft,
   ChevronRight,
-  FileSpreadsheet,
   RefreshCw,
 } from "lucide-react";
 import {
@@ -65,13 +64,10 @@ import {
   periodLabel,
   type PayrollRunDetail,
   type PreparedRun,
-  type Payslip,
   type RunException,
   type RunExclusion,
-  type LineSummaryByEmployee,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
-import { SheetPanel } from "./sheet-panel";
 import { blockerPerson } from "./blocker-person";
 import { periodFromParam } from "./period-param";
 import type { ApprovedRunFacts } from "./approved-moment";
@@ -87,8 +83,6 @@ import { useScheduledAllowances } from "@/lib/store/scheduled-allowances";
 import { ReviewStep } from "./review-step";
 import { DEFAULT_REVIEW_VIEW, type ReviewView } from "./review-model";
 import type { RecordedPayment } from "@/components/payroll/record-paid-dialog";
-import type { SheetRowSource } from "@/lib/payroll/adjustment-sheet";
-import type { Employee } from "@/lib/types";
 import {
   useEmployeeDirectory,
   useEmployeeMutations,
@@ -277,7 +271,6 @@ export function PayrollRunWizard() {
   const [recordedNow, setRecordedNow] = useState<RecordedPayment | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   /**
    * Stands in for `MissingPayTable`'s own button — see the note on that
@@ -368,45 +361,6 @@ export function PayrollRunWizard() {
   const reviewSettled =
     (reviewRun?.status === "APPROVED" || reviewRun?.status === "PAID") &&
     !offCycle;
-
-  /**
-   * Fetched when the sheet panel opens, not before — it is one extra request
-   * on a screen most visits never open, and the whole reason it exists is to
-   * answer "what does everyone already carry" honestly (see `LineSummary`'s
-   * own note in `api/payroll.ts`). `null` while loading; the panel shows
-   * that as "reading the payroll" rather than starting every bonus and
-   * deduction cell blank and asking somebody to trust it.
-   */
-  const [sheetLineSummary, setSheetLineSummary] = useState<{
-    bonuses: LineSummaryByEmployee;
-    deductions: LineSummaryByEmployee;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!sheetOpen || !run) return;
-    /* No synchronous reset here: the panel is only mounted while `sheetOpen`
-       is true, so there is nothing stale on screen to clear when this effect
-       starts — closing and reopening unmounts and remounts it. The one gap
-       is switching `run.id` while the panel stays open, which the modal does
-       not allow to happen. */
-    let cancelled = false;
-    actions
-      .lineSummary(run.id)
-      .then((result) => {
-        if (!cancelled) setSheetLineSummary(result);
-      })
-      .catch(() => {
-        /* Same "empty is honest" fallback the action itself uses offline —
-           a failed read here should not stop the sheet from opening with
-           blank bonus/deduction cells, only from claiming to know more than
-           it does. */
-        if (!cancelled) setSheetLineSummary({ bonuses: {}, deductions: {} });
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheetOpen, run?.id]);
 
   const allExceptions = useMemo(() => run?.exceptions ?? [], [run]);
   /* `missing_pay` and `missing_tax_state` each get a section of their own
@@ -1010,29 +964,6 @@ export function PayrollRunWizard() {
                   }
                   action={
                     <div className="flex items-center gap-2">
-                      {/* One button, not the disclosure this used to be — see
-                      SheetPanel's own doc comment for the reasoning. Sitting
-                      in this card's header rather than lower on the page is
-                      the point: it is the first thing here once a run exists,
-                      not something to find by scrolling past the exceptions.
-                      Gated on `run` for the same reason the panel always was
-                      — there is nothing to download or upload until a run
-                      exists, so the button is absent rather than a click that
-                      would open onto nothing. */}
-                      {run && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setSheetOpen(true)}
-                        >
-                          <FileSpreadsheet
-                            aria-hidden="true"
-                            className="size-3.5"
-                          />
-                          Work in a spreadsheet
-                        </Button>
-                      )}
                       {run && <RunStatusBadge status={run.status} />}
                     </div>
                   }
@@ -1056,8 +987,10 @@ export function PayrollRunWizard() {
                   )}
                   {run && (
                     <p className="text-meta leading-relaxed text-muted">
-                      {payslipCountLabel(run)} · {formatKobo(run.grossKobo)}{" "}
-                      gross
+                      {run.excludedCount > 0
+                        ? `${String(run.excludedCount)} excluded · `
+                        : ""}
+                      {formatKobo(run.grossKobo)} gross
                     </p>
                   )}
                   {approvedAlready && offCycle && (
@@ -1069,50 +1002,6 @@ export function PayrollRunWizard() {
                   )}
                 </CardBody>
               </Card>
-
-              {/* The spreadsheet, behind the button in the card header above.
-              -----------------------------------------------------------------
-              This sat as an always-present, closed-by-default disclosure
-              between the Calculate card and the exception list — visible, but
-              one more thing on a page already asking somebody to read a list
-              of what is wrong. A single button opening a modal is a clearer
-              front door: templates and upload both live behind it, and
-              nothing about the page changes until somebody has actually come
-              here to do this.
-
-              Fourth instance of the class this codebase keeps recording: the
-              capability was built, correct, and where nobody was looking. */}
-              {run && (
-                <SheetPanel
-                  open={sheetOpen}
-                  runId={run.id}
-                  period={run.period.slice(0, 7)}
-                  sources={
-                    sheetLineSummary
-                      ? sheetSources(
-                          run.payslips,
-                          directory.employees,
-                          sheetLineSummary,
-                        )
-                      : null
-                  }
-                  editable={canPrepare && !settled}
-                  onClose={() => setSheetOpen(false)}
-                  onApplied={(summary) => {
-                    /* The toast, not a message inside the panel: applying rebuilds
-                   the run and unmounts that subtree, so anything the panel
-                   held would be gone before it could be read. */
-                    setSheetOpen(false);
-                    toast.push({
-                      title: "Sheet applied",
-                      tone: "success",
-                      detail: `${summary}. The payroll has been worked out again.`,
-                    });
-                    void prepare();
-                    directory.reload();
-                  }}
-                />
-              )}
 
               <DiscrepancyPanel discrepancies={discrepancies} />
 
@@ -1769,53 +1658,4 @@ function MissingTaxStateSection({
       </div>
     </Disclosure>
   );
-}
-
-/**
- * The run, as the spreadsheet's rows.
- *
- * Hours come back out of the label the API wrote — `"Overtime, entered by hand
- * (6.00h at 1.5x)"` — because `Payslip` carries lines and money, not the
- * minutes behind them. Reading a figure out of a label is a fragility this
- * codebase has been bitten by before, so it is confined to one function with
- * one regex, and it fails to `null` rather than to a guess: a sheet that came
- * down with a blank overtime cell asks somebody to type the hours again, which
- * is recoverable. A sheet that came down with the *wrong* hours in it is not.
- *
- * Bonus and deduction come from `lineSummary`, not the payslip's own lines —
- * deliberately, and not for the reason overtime uses a label regex at all.
- * A bonus line is labelled `"Bonus"` or `"Bonus — {reason}"`, which is
- * matchable; a deduction line is labelled `line.reason || "Deduction"`, so
- * when a reason is given the label **is** the reason, indistinguishable from
- * any other deduction line (a loan repayment, PAYE) that happens to share
- * text. `payrollApi.lineSummary` answers both from the underlying
- * `PayrollBonus` / `PayrollDeductionLine` rows directly, and says "many"
- * rather than guess when a person carries more than one — see `LineSummary`.
- */
-function sheetSources(
-  payslips: readonly Payslip[],
-  employees: readonly Employee[],
-  lineSummary: {
-    bonuses: LineSummaryByEmployee;
-    deductions: LineSummaryByEmployee;
-  } | null,
-): SheetRowSource[] {
-  const byId = new Map(employees.map((e) => [e.id, e]));
-  return payslips.map((payslip) => {
-    const overtime = payslip.lines.find((l) =>
-      l.label.startsWith("Overtime, entered by hand"),
-    );
-    const hours = overtime
-      ? /\(([\d.]+)h/.exec(overtime.label)?.[1]
-      : undefined;
-    return {
-      payslip,
-      employee: byId.get(payslip.employeeId),
-      overtimeHours: hours === undefined ? null : Number(hours),
-      bonus: lineSummary?.bonuses[payslip.employeeId] ?? { state: "none" },
-      deduction: lineSummary?.deductions[payslip.employeeId] ?? {
-        state: "none",
-      },
-    };
-  });
 }

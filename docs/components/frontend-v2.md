@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `0e2e663f` (2026-11-24) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `53a1ab80` (2026-11-25) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -14,19 +14,19 @@ component, and so does a symbol exported through an `export { … }` list.
 
 | Group                                                                                              |    Files | Components |   Hooks | Functions |
 | -------------------------------------------------------------------------------------------------- | -------: | ---------: | ------: | --------: |
-| [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       43 |        101 |       7 |        14 |
+| [Design system — `src/components/ui`](#design-system--srccomponentsui)                             |       45 |        104 |       7 |        15 |
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       47 |         46 |       1 |        21 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       23 |         51 |       0 |         6 |
-| [Module components — `src/components/*`](#module-components--srccomponents)                        |      175 |        258 |      12 |        56 |
+| [Module components — `src/components/*`](#module-components--srccomponents)                        |      175 |        258 |      12 |        57 |
 | [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       79 |          0 |       0 |       308 |
 | [Data hooks — `src/lib/store`](#data-hooks--srclibstore)                                           |      107 |          0 |     390 |       103 |
 | [Seed data — `src/lib/mock`](#seed-data--srclibmock)                                               |       10 |          0 |       0 |        21 |
 | [Domain helpers — `src/lib/*`](#domain-helpers--srclib)                                            |      254 |          0 |      59 |      1105 |
 | [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        6 |          0 |       6 |         1 |
-| [Screens — `/dashboard`](#screens--dashboard)                                                      |       13 |         11 |       0 |         6 |
+| [Screens — `/dashboard`](#screens--dashboard)                                                      |       15 |         14 |       0 |         6 |
 | [Screens — `/people`](#screens--people)                                                            |      143 |        155 |       0 |        32 |
 | [Screens — `/payroll`](#screens--payroll)                                                          |       82 |         83 |       2 |        46 |
-| [Screens — `/performance`](#screens--performance)                                                  |       95 |        113 |       4 |        70 |
+| [Screens — `/performance`](#screens--performance)                                                  |       96 |        114 |       4 |        70 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
 | [Screens — `/projects`](#screens--projects)                                                        |       38 |         37 |       0 |         4 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1420** |   **1181** | **483** |  **1852** |
+| **Total**                                                                                          | **1425** |   **1188** | **483** |  **1854** |
 
 ---
 
@@ -56,6 +56,7 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 | `src/components/ui/card.tsx`                 | `Card`, `CardHeader`, `CardBody`, `CardFooter`, `LinkCard`, `Stat`, `StatGrid`                 | —                                    | —                                                                                             | —                  |
 | `src/components/ui/chart.tsx`                | `AreaChart`, `BarChart`, `ColumnChart`, `StackedBar`, `DonutChart`, `Sparkline`, `FunnelChart` | —                                    | `missingCount`                                                                                | 1 const · 2 types  |
 | `src/components/ui/choice.tsx`               | `Checkbox`, `Radio`, `RadioCard`, `Switch`                                                     | —                                    | —                                                                                             | 3 types            |
+| `src/components/ui/department-card.tsx`      | `DepartmentTile`, `DepartmentCard`                                                             | —                                    | —                                                                                             | 1 const            |
 | `src/components/ui/disclosure.tsx`           | `Disclosure`                                                                                   | —                                    | —                                                                                             | —                  |
 | `src/components/ui/drag-into.tsx`            | `DragGhost`                                                                                    | `useDragInto`                        | `scrollParent`                                                                                | 1 type             |
 | `src/components/ui/feedback.tsx`             | `EmptyState`, `Skeleton`, `SkeletonText`, `Spinner`, `ThinkingState`                           | —                                    | —                                                                                             | 1 const · 1 type   |
@@ -74,7 +75,8 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 | `src/components/ui/money-format.ts`          | —                                                                                              | —                                    | `formatMoney`                                                                                 | 1 const · 1 type   |
 | `src/components/ui/money-privacy-toggle.tsx` | `MoneyPrivacyToggle`                                                                           | —                                    | —                                                                                             | —                  |
 | `src/components/ui/money.tsx`                | `Money`, `MoneyHidden`                                                                         | —                                    | —                                                                                             | —                  |
-| `src/components/ui/next-step.tsx`            | `NextStep`, `GetReady`                                                                         | —                                    | `currentStep`                                                                                 | 2 types            |
+| `src/components/ui/name-tone.ts`             | —                                                                                              | —                                    | `nameTone`                                                                                    | —                  |
+| `src/components/ui/next-step.tsx`            | `NextStep`, `GetReady`, `ReadyChip`                                                            | —                                    | `currentStep`                                                                                 | 2 types            |
 | `src/components/ui/no-connection.tsx`        | `ConnectionGlyph`, `NoConnectionCard`                                                          | —                                    | —                                                                                             | —                  |
 | `src/components/ui/pagination.tsx`           | `Pagination`                                                                                   | —                                    | —                                                                                             | —                  |
 | `src/components/ui/picker.tsx`               | `Picker`                                                                                       | —                                    | —                                                                                             | 2 types            |
@@ -295,7 +297,7 @@ Shared pieces owned by one module but used from more than one screen.
 | `src/components/performance/completed-work.tsx`            | `CompletedWork`                                                                                                                         | —                                 | —                                                                                                                    | —                 |
 | `src/components/performance/kept-work.tsx`                 | `WorkBehindTheMark`                                                                                                                     | —                                 | `keptUntilLine`                                                                                                      | —                 |
 | `src/components/performance/language-check.tsx`            | `LanguageCheck`                                                                                                                         | —                                 | —                                                                                                                    | —                 |
-| `src/components/performance/period-weights.tsx`            | `PeriodWeights`                                                                                                                         | —                                 | `companyPartsOf`, `weightsToText`, `weightsFromText`, `periodWeightsProblem`                                         | 1 type            |
+| `src/components/performance/period-weights.tsx`            | `PeriodWeights`                                                                                                                         | —                                 | `companyPartsOf`, `weightsToText`, `weightsFromText`, `periodWeightsProblem`, `weightsDifferFromCompany`             | 1 type            |
 | `src/components/performance/pin-work-dialog.tsx`           | `PinWorkDialog`                                                                                                                         | —                                 | —                                                                                                                    | 1 type            |
 | `src/components/performance/pins-read.tsx`                 | `PinRow`, `PinsRead`                                                                                                                    | —                                 | —                                                                                                                    | —                 |
 | `src/components/performance/record-check.tsx`              | `StatusBadge`, `NotePanel`, `RecordCheck`                                                                                               | —                                 | `pct`, `points`, `exactPct`, `exactPoints`                                                                           | 1 const           |
@@ -871,21 +873,23 @@ Generic hooks not tied to one data source.
 
 Screen components for the dashboard module, including its dialogs and panels.
 
-| File                                              | Components              | Hooks | Functions                                                          | Also              |
-| ------------------------------------------------- | ----------------------- | ----- | ------------------------------------------------------------------ | ----------------- |
-| `src/app/(app)/dashboard/announcements-panel.tsx` | `AnnouncementsPanel`    | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/app-use-card.tsx`        | `AppUseCard`            | —     | `recentWeeks`                                                      | 1 type            |
-| `src/app/(app)/dashboard/appraisals-card.tsx`     | `AppraisalsCard`        | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/birthday-line.tsx`       | `BirthdayLine`          | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/catalogue.ts`            | —                       | —     | `widgetById`, `availableWidgets`, `defaultLayout`, `resolveLayout` | 4 const · 6 types |
-| `src/app/(app)/dashboard/complete-details.tsx`    | `CompleteDetailsPrompt` | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/dashboard-screen.tsx`    | `DashboardScreen`       | —     | `dashboardSections`                                                | 1 const · 2 types |
-| `src/app/(app)/dashboard/header.tsx`              | `DashboardHeader`       | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/page.tsx`                | `DashboardPage`         | —     | —                                                                  | 1 const           |
-| `src/app/(app)/dashboard/quick-actions.tsx`       | `QuickActions`          | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/setup-guide.tsx`         | `SetupCard`             | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/today-panel.tsx`         | `TodayPanel`            | —     | —                                                                  | —                 |
-| `src/app/(app)/dashboard/widgets.tsx`             | —                       | —     | —                                                                  | 1 const · 1 type  |
+| File                                              | Components                         | Hooks | Functions                                                          | Also              |
+| ------------------------------------------------- | ---------------------------------- | ----- | ------------------------------------------------------------------ | ----------------- |
+| `src/app/(app)/dashboard/announcements-panel.tsx` | `AnnouncementsPanel`               | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/app-use-card.tsx`        | `AppUseCard`                       | —     | `recentWeeks`                                                      | 1 type            |
+| `src/app/(app)/dashboard/appraisals-card.tsx`     | `AppraisalsCard`                   | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/attendance-by-day.tsx`   | `AttendanceByDay`                  | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/birthday-line.tsx`       | `BirthdayLine`                     | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/catalogue.ts`            | —                                  | —     | `widgetById`, `availableWidgets`, `defaultLayout`, `resolveLayout` | 4 const · 6 types |
+| `src/app/(app)/dashboard/complete-details.tsx`    | `CompleteDetailsPrompt`            | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/dashboard-screen.tsx`    | `DashboardScreen`                  | —     | `dashboardSections`                                                | 1 const · 2 types |
+| `src/app/(app)/dashboard/header.tsx`              | `DashboardHeader`                  | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/my-objectives-card.tsx`  | `MyObjectivesCard`                 | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/page.tsx`                | `DashboardPage`                    | —     | —                                                                  | 1 const           |
+| `src/app/(app)/dashboard/quick-actions.tsx`       | `QuickActionTiles`, `QuickActions` | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/setup-guide.tsx`         | `SetupCard`                        | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/today-panel.tsx`         | `TodayPanel`                       | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/widgets.tsx`             | —                                  | —     | —                                                                  | 1 const · 1 type  |
 
 ---
 
@@ -1199,6 +1203,7 @@ Screen components for the performance module, including its dialogs and panels.
 | `src/app/(app)/performance/periods/[id]/nudge.ts`                         | —                                                                                                       | —                                 | `nudgeAudience`, `anybodyToNudge`, `nudgeMessage`, `nudgeTitle`, `peerLine`                                                                                                                                                                                                                                                                               | 1 type            |
 | `src/app/(app)/performance/periods/[id]/outstanding-rows.ts`              | —                                                                                                       | —                                 | `outstandingFormsFrom`, `visibleForms`, `progressOf`                                                                                                                                                                                                                                                                                                      | 2 const · 2 types |
 | `src/app/(app)/performance/periods/[id]/page.tsx`                         | `PeriodPage`                                                                                            | —                                 | —                                                                                                                                                                                                                                                                                                                                                         | 1 const           |
+| `src/app/(app)/performance/periods/[id]/period-people.tsx`                | `PeriodPeople`                                                                                          | —                                 | —                                                                                                                                                                                                                                                                                                                                                         | —                 |
 | `src/app/(app)/performance/periods/[id]/period-screen.tsx`                | `PeriodScreen`, `QuestionsPanel`, `RegisterRow`                                                         | —                                 | `breakdownSentence`                                                                                                                                                                                                                                                                                                                                       | —                 |
 | `src/app/(app)/performance/periods/[id]/period-stage.ts`                  | —                                                                                                       | —                                 | `stageIndex`, `primaryActionFor`, `menuFor`, `tabsFor`, `resolveTab`, `publishFacts`                                                                                                                                                                                                                                                                      | 5 const · 3 types |
 | `src/app/(app)/performance/periods/[id]/period-weights-section.tsx`       | `PeriodWeightsSection`                                                                                  | —                                 | —                                                                                                                                                                                                                                                                                                                                                         | —                 |
