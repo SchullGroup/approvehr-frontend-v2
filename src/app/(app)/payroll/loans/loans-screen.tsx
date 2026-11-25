@@ -614,7 +614,8 @@ export function LoansScreen() {
 
 /* ------------------------------------------------------------ the book view */
 
-const dash = <span className="text-muted">—</span>;
+/* An absent figure is an empty cell, not a mark: a blank says "nothing here" and cannot be read as a zero. */
+const dash = null;
 
 /** A kobo figure written out in full, or the dash for one that is absent. */
 const money = (kobo: number | null) =>
@@ -622,7 +623,7 @@ const money = (kobo: number | null) =>
 
 /** What the Finishes cell says when there is no month to give. */
 const whenNoFinish = (loan: ApiLoan | null): string =>
-  loan?.status === "PENDING" ? "Once approved" : "—";
+  loan?.status === "PENDING" ? "Once approved" : "";
 
 /** "1 fully repaid, 1 declined": the loans the status badge's "+n" stands for. */
 function otherStatuses(person: LoanPerson): string {
@@ -1077,9 +1078,8 @@ function OwnLoans({
                         repayable here would read as a debt that exists,
                         and on an interest-bearing application it would
                         show more than the row says was borrowed. */}
-                    {loan.status === "PENDING" || loan.status === "DECLINED" ? (
-                      <span className="text-muted">—</span>
-                    ) : (
+                    {loan.status === "PENDING" ||
+                    loan.status === "DECLINED" ? null : (
                       <Money amount={naira(loan.outstandingKobo)} decimals />
                     )}
                   </TD>
@@ -1089,7 +1089,7 @@ function OwnLoans({
                   <TD>
                     {finishes ?? (
                       <span className="text-muted">
-                        {loan.status === "PENDING" ? "Once approved" : "—"}
+                        {loan.status === "PENDING" ? "Once approved" : ""}
                       </span>
                     )}
                   </TD>
@@ -1133,9 +1133,8 @@ function OwnLoans({
               <div className="flex items-center justify-between gap-3">
                 <span className="text-body-sm text-muted">Left to pay</span>
                 <span className="tabular text-body-sm font-medium text-ink">
-                  {loan.status === "PENDING" || loan.status === "DECLINED" ? (
-                    "—"
-                  ) : (
+                  {loan.status === "PENDING" ||
+                  loan.status === "DECLINED" ? null : (
                     <Money amount={naira(loan.outstandingKobo)} decimals />
                   )}
                 </span>
@@ -1148,8 +1147,7 @@ function OwnLoans({
               </div>
               <p className="text-meta text-muted">
                 Finishes{" "}
-                {finishes ??
-                  (loan.status === "PENDING" ? "once approved" : "—")}
+                {finishes ?? (loan.status === "PENDING" ? "once approved" : "")}
               </p>
 
               {rowAction(loan)}

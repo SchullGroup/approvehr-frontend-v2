@@ -193,7 +193,7 @@ function AmountCell({
   return (
     <span className="inline-flex flex-col items-end">
       {entry.amountKobo === 0 && entry.movedOnKobo > 0 ? (
-        <span className="text-muted">—</span>
+        <span className="sr-only">Moved to the next instalment</span>
       ) : (
         <Money amount={naira(entry.amountKobo)} decimals />
       )}
@@ -725,9 +725,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                             <AmountCell entry={entry} note={facts.note} />
                           </TD>
                           <TD align="right">
-                            {row.paidAmountKobo === 0 ? (
-                              <span className="text-muted">—</span>
-                            ) : (
+                            {row.paidAmountKobo === 0 ? null : (
                               <Money
                                 amount={naira(row.paidAmountKobo)}
                                 decimals
@@ -845,9 +843,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-body-sm text-muted">Paid</span>
                       <span className="tabular text-body-sm font-medium text-ink">
-                        {row.paidAmountKobo === 0 ? (
-                          "—"
-                        ) : (
+                        {row.paidAmountKobo === 0 ? null : (
                           <Money amount={naira(row.paidAmountKobo)} decimals />
                         )}
                       </span>

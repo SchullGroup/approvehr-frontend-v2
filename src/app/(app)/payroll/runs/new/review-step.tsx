@@ -893,7 +893,7 @@ function Figure({
   always?: boolean;
 }) {
   if (kobo <= 0 && !marked && !always) {
-    return <span className="text-faint">—</span>;
+    return null;
   }
   return (
     <span className="inline-flex items-center justify-end gap-1.5">
