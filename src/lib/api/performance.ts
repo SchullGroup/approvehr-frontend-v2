@@ -887,7 +887,20 @@ export type ApiReview = {
   subjectName: string;
   authorId: string | null;
   authorName: string | null;
+  /** One appraiser's overall mark. Not the rating the person is told: see `outcome`. */
   rating: number | null;
+  /**
+   * The rating a person is told, which is the period's score of record and not any
+   * one appraiser's mark (UAT 23 Nov, U36 / PERF-2; and F42 of the Performance test,
+   * where an Overview said "Exceeds Expectations", one appraiser's mark, for a
+   * person whose record said "Meets Expectations, 3.1"). On a manager's review once
+   * it is final or the period is published: the company's band word and the score on
+   * the 1.0 to 5.0 scale, each `null` when nothing was recorded. `null` on any other
+   * form. Sent by the review itself and by the rows of the person's own list
+   * (`aboutMe`); absent from an older API. Read it through `outcomeWords`, and
+   * decide which line to print with `ratingToRead`.
+   */
+  outcome?: { bandLabel: string | null; scoreOutOf5: number | null } | null;
   summary: string | null;
   submitted: boolean;
   submittedAt: string | null;
@@ -1000,15 +1013,6 @@ export type ApiFormQuestion = {
 export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
-  /**
-   * The one answer a person is given (UAT 23 Nov, U36 / PERF-2: "Exceeds
-   * Expectations", "Overall score 41.94%" and "Meets expectations" on three
-   * screens). On a manager's review once it is final or the period is
-   * published: the score of record as the company's band word and on the 1.0 to
-   * 5.0 scale. Null before then and on any other form; absent from an older
-   * API. Read it through `outcomeWords`.
-   */
-  outcome?: { bandLabel: string | null; scoreOutOf5: number | null } | null;
   /**
    * Whether the company's appraisal forms end with an overall mark: its setting
    * in Appraisal scoring, sent with the form so the page that draws it needs no
@@ -4304,6 +4308,25 @@ export function outcomeWords(
     outcome.scoreOutOf5 === null ? null : outOf5Label(outcome.scoreOutOf5),
   ].filter((part): part is string => Boolean(part));
   return parts.length === 0 ? null : parts.join(" · ");
+}
+
+/**
+ * The rating a person reads for one final review, as one line, or null where there
+ * is none to read.
+ *
+ * The period's score of record when the API sent one ("Meets Expectations · 3.1"):
+ * that is the one answer a person is given, and it is what their record says. A
+ * review's own `rating` is one appraiser's mark, and announcing it as "your rating"
+ * is what made an Overview say "Exceeds Expectations" over a record that said
+ * "Meets Expectations" (F42). It is the line only where the API sent no figure to
+ * read, which is an API from before the list rows carried `outcome`, and a person
+ * nothing was recorded for. The row still says who it is from, beside it.
+ */
+export function ratingToRead(
+  review: Pick<ApiReview, "rating" | "outcome">,
+  ratingWords: (level: number | null | undefined) => string | null,
+): string | null {
+  return outcomeWords(review.outcome) ?? ratingWords(review.rating);
 }
 
 /**

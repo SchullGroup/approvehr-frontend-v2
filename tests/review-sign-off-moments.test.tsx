@@ -127,6 +127,7 @@ describe("making a rating final", () => {
       <FinaliseDialog
         open
         review={detail}
+        scoreNow="Meets Expectations · 3.1"
         onClose={onClose}
         onConfirm={async () => ({ subjectNotified: true })}
       />,
@@ -149,7 +150,7 @@ describe("making a rating final", () => {
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText(
-        'The rating for H1 2026 is "Meets Expectations".',
+        'The rating for H1 2026 is "Meets Expectations · 3.1".',
       ),
     ).toBeInTheDocument();
     expect(

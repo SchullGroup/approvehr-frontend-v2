@@ -67,11 +67,20 @@ function keptLine(first: string, kept: KeptCopy): string {
  * about a mark that was not given: "has no overall mark" would read as a gap in
  * a form that never had a place for one. It defaults to true, which is the old
  * wording, so a caller that does not know says what it always said.
+ *
+ * `ratingLabel` is the rating the person will read: the period's score of record,
+ * "Meets Expectations · 3.1". It is not this review's own mark, which is one
+ * appraiser's (`authorMark`): announcing that as "the rating" is what let a
+ * confirmation say "Exceeds Expectations" over a record that said "Meets
+ * Expectations" (F42). Where no score can be quoted but the author gave a mark,
+ * the lead says the person will read the score and does not claim the form had no
+ * rating.
  */
 export function finalisedCopy({
   subjectName,
   cycleName,
   ratingLabel,
+  authorMark = null,
   subjectNotified,
   markShown = true,
   recommended = false,
@@ -80,6 +89,8 @@ export function finalisedCopy({
   subjectName: string;
   cycleName: string;
   ratingLabel: string | null;
+  /** This review's own overall mark and whose it is. Defaults to none, the old wording. */
+  authorMark?: { who: string; label: string } | null;
   subjectNotified: boolean | undefined;
   markShown?: boolean;
   /** Whether HR's recommendation went with it. Defaults to no, the old wording. */
@@ -97,6 +108,11 @@ export function finalisedCopy({
   }
   if (recommended) details.push("Your recommendation is saved with it.");
   if (kept) details.push(keptLine(first, kept));
+  if (authorMark) {
+    details.push(
+      `${authorMark.who}'s own overall rating, "${authorMark.label}", stays with the review.`,
+    );
+  }
   details.push("It cannot be changed.");
   /* Not for somebody who could not be told: with no sign-in there is nowhere
      for them to give one, and the line would promise an answer that cannot come. */
@@ -108,9 +124,11 @@ export function finalisedCopy({
     title: `${subjectName}'s rating is final`,
     lead: ratingLabel
       ? `The rating for ${cycleName} is "${ratingLabel}".`
-      : markShown
-        ? `${cycleName} has no overall rating, so ${first} will read the answers.`
-        : `${first} will read the answers.`,
+      : authorMark
+        ? `${first} will read the score for ${cycleName}.`
+        : markShown
+          ? `${cycleName} has no overall rating, so ${first} will read the answers.`
+          : `${first} will read the answers.`,
     details,
   };
 }
