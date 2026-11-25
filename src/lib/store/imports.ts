@@ -212,6 +212,11 @@ export type CheckOutcome = {
   /** People who would import with a recommended field empty. */
   flagged: number;
   /**
+   * Invitation emails importing this would send (U54, employees). `null` when
+   * the server does not say, which is no claim either way.
+   */
+  toInvite?: number | null;
+  /**
    * A company-level fact: the organisation has no PAYE state of its own, and
    * at least one row in this file had no `tax_state` cell to fall back from
    * it either. Every such row fails identically, so the screen says so once,
@@ -539,8 +544,9 @@ export function useImport(
    * folds the decisions into the fingerprint, so a batch checked with "skip" and
    * applied with "update" is refused rather than quietly landing the other one.
    *
-   * Every duplicate row gets an entry here — `update`, by default, the moment
-   * the check reveals it (see the seeding effect in `CheckReport`). There is
+   * Every duplicate row gets an entry here the moment the check reveals it
+   * (see the seeding effect in `CheckReport`): `update` when the file's name
+   * agrees with the matched person's, `skip` when it does not (U12). There is
    * no "undecided" state any more: the customer's job is to opt specific
    * people OUT, not to answer for every one of them, which is what made this
    * screen one click per row instead of one click for the file. A row is only
@@ -568,26 +574,30 @@ export function useImport(
   );
 
   /**
-   * Fills in "update" for rows a person has not touched, without disturbing
-   * one they have. Called once a check reveals which rows are duplicates, so
-   * the default is "update" from the first render of the report rather than
-   * a blank the customer has to fill in themselves — and called again after
-   * every recheck, where it is a no-op for rows already decided and a fresh
-   * default for any new duplicate the recheck turned up.
+   * Fills in each row's default for rows a person has not touched, without
+   * disturbing one they have. Called once a check reveals which rows are
+   * duplicates, so the default is there from the first render of the report
+   * rather than a blank the customer has to fill in themselves, and called
+   * again after every recheck, where it is a no-op for rows already decided
+   * and a fresh default for any new duplicate the recheck turned up.
    */
-  const seedDecisions = useCallback((rows: readonly number[]) => {
-    setDecisions((prior) => {
-      let changed = false;
-      const next = { ...prior };
-      for (const row of rows) {
-        if (!(row in next)) {
-          next[row] = "update";
-          changed = true;
+  const seedDecisions = useCallback(
+    (defaults: Readonly<Record<number, "skip" | "update">>) => {
+      setDecisions((prior) => {
+        let changed = false;
+        const next = { ...prior };
+        for (const [key, action] of Object.entries(defaults)) {
+          const row = Number(key);
+          if (!(row in next)) {
+            next[row] = action;
+            changed = true;
+          }
         }
-      }
-      return changed ? next : prior;
-    });
-  }, []);
+        return changed ? next : prior;
+      });
+    },
+    [],
+  );
 
   /**
    * Which of the file's rows to send, by row number, or null for all of them.
@@ -819,6 +829,7 @@ export function useImport(
        exactly as the API keyed it. The screen turns a key into a callout. */
     const missing = new Map<string, Set<string>>();
     let toCreate = 0;
+    let toInvite: number | null = null;
     let toUpdate = 0;
     let toSkip = 0;
     let flagged = 0;
@@ -860,6 +871,8 @@ export function useImport(
         });
         toCreate += answer.toCreate;
         toUpdate += answer.toUpdate;
+        if (typeof answer.toInvite === "number")
+          toInvite = (toInvite ?? 0) + answer.toInvite;
         toSkip += answer.toSkip;
         flagged += answer.flagged;
         if (answer.missingOrgTaxState) missingOrgTaxState = true;
@@ -949,6 +962,7 @@ export function useImport(
       missingOrgTaxState,
       fixCount,
       authoritative: true,
+      toInvite,
     });
     return true;
   }, [
@@ -974,96 +988,110 @@ export function useImport(
    * requests and a result nobody can act on. Whatever landed, landed: the API
    * writes each part in a transaction, so there is no half-part.
    */
-  const runImport = useCallback(async (): Promise<boolean> => {
-    if (!check || !check.authoritative || check.parts.length === 0)
-      return false;
-    /* A correction typed after the check is a correction the API has not seen.
+  const runImport = useCallback(
+    async (options: { sendInvitations?: boolean } = {}): Promise<boolean> => {
+      if (!check || !check.authoritative || check.parts.length === 0)
+        return false;
+      /* A correction typed after the check is a correction the API has not seen.
        Applying now would import the unmended row while the screen showed it as
        mended — so this refuses, and the screen offers the re-check instead. */
-    if (Object.keys(fixes).length !== check.fixCount) return false;
-    setError(null);
+      if (Object.keys(fixes).length !== check.fixCount) return false;
+      setError(null);
 
-    const rows = mapped.current;
-    const columns = reverseHeadings(dictionary, mapping);
-    const problems: RowLine[] = [];
-    const notes = new Set<string>();
-    const notImported: number[] = [];
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    const extras: Record<string, number> = {};
-    let applied = 0;
-    let failure: ApplyOutcome["failure"] = null;
+      const rows = mapped.current;
+      const columns = reverseHeadings(dictionary, mapping);
+      const problems: RowLine[] = [];
+      const notes = new Set<string>();
+      const notImported: number[] = [];
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+      const extras: Record<string, number> = {};
+      let applied = 0;
+      let failure: ApplyOutcome["failure"] = null;
 
-    let sent = 0;
-    for (const part of check.parts) {
-      const first = part.rowNumbers[0] ?? 0;
-      const last = part.rowNumbers[part.rowNumbers.length - 1] ?? 0;
-      setProgress({
-        label:
-          check.parts.length > 1
-            ? `Importing rows ${first} to ${last} of ${check.rowsChecked}`
-            : `Importing ${check.rowsChecked} rows`,
-        /* Rows finished, counted rather than estimated from the part index —
+      let sent = 0;
+      for (const part of check.parts) {
+        const first = part.rowNumbers[0] ?? 0;
+        const last = part.rowNumbers[part.rowNumbers.length - 1] ?? 0;
+        setProgress({
+          label:
+            check.parts.length > 1
+              ? `Importing rows ${first} to ${last} of ${check.rowsChecked}`
+              : `Importing ${check.rowsChecked} rows`,
+          /* Rows finished, counted rather than estimated from the part index —
            parts are not all the same size once a 413 has halved one. */
-        done: sent,
-        total: check.rowsChecked,
-      });
-
-      try {
-        const answer = await api.apply(dictionary.slug, part.batchId, {
-          confirm: true,
-          rows: part.rowNumbers.map((number) => rows[number - 1] as ImportRow),
-          decisions: decisionsFor(part.rowNumbers, decisions),
-          ...contextBody,
+          done: sent,
+          total: check.rowsChecked,
         });
-        applied += 1;
-        sent += part.rowNumbers.length;
-        created += answer.created;
-        updated += answer.updated;
-        skipped += answer.skipped;
-        /* Only the keys this answer actually carried. Seeding them at zero would
+
+        try {
+          const answer = await api.apply(dictionary.slug, part.batchId, {
+            confirm: true,
+            rows: part.rowNumbers.map(
+              (number) => rows[number - 1] as ImportRow,
+            ),
+            decisions: decisionsFor(part.rowNumbers, decisions),
+            /* Holding the invitations back is chosen at the confirm button
+             (U54). It is not part of the check, so it goes on the apply alone. */
+            ...(options.sendInvitations === false
+              ? {
+                  context: {
+                    ...("context" in contextBody ? contextBody.context : {}),
+                    sendInvitations: "false",
+                  },
+                }
+              : contextBody),
+          });
+          applied += 1;
+          sent += part.rowNumbers.length;
+          created += answer.created;
+          updated += answer.updated;
+          skipped += answer.skipped;
+          /* Only the keys this answer actually carried. Seeding them at zero would
            turn "not applicable to this entity" into a reported count of none. */
-        for (const key of EXTRA_KEYS) {
-          const value = answer[key];
-          if (typeof value === "number")
-            extras[key] = (extras[key] ?? 0) + value;
-        }
-        answer.notes.forEach((note) => notes.add(note));
-        for (const report of answer.skippedRows) {
-          const line = translate(report, part.rowNumbers, columns);
-          problems.push(line);
-          notImported.push(line.row);
-        }
-      } catch (thrown) {
-        failure = { part: part.index, message: messageOf(thrown) };
-        /* This part and everything after it. Said as row numbers, because that
+          for (const key of EXTRA_KEYS) {
+            const value = answer[key];
+            if (typeof value === "number")
+              extras[key] = (extras[key] ?? 0) + value;
+          }
+          answer.notes.forEach((note) => notes.add(note));
+          for (const report of answer.skippedRows) {
+            const line = translate(report, part.rowNumbers, columns);
+            problems.push(line);
+            notImported.push(line.row);
+          }
+        } catch (thrown) {
+          failure = { part: part.index, message: messageOf(thrown) };
+          /* This part and everything after it. Said as row numbers, because that
            is what somebody has to go and re-import. */
-        for (const rest of check.parts.slice(part.index - 1)) {
-          notImported.push(...rest.rowNumbers);
+          for (const rest of check.parts.slice(part.index - 1)) {
+            notImported.push(...rest.rowNumbers);
+          }
+          break;
         }
-        break;
       }
-    }
 
-    setProgress(null);
-    problems.sort((a, b) => a.row - b.row);
-    notImported.sort((a, b) => a - b);
+      setProgress(null);
+      problems.sort((a, b) => a.row - b.row);
+      notImported.sort((a, b) => a - b);
 
-    setResult({
-      created,
-      updated,
-      skipped,
-      extras,
-      notes: [...notes],
-      problems,
-      notImported: [...new Set(notImported)],
-      partsApplied: applied,
-      partsTotal: check.parts.length,
-      failure,
-    });
-    return failure === null;
-  }, [check, dictionary, mapping, fixes, decisions, contextBody]);
+      setResult({
+        created,
+        updated,
+        skipped,
+        extras,
+        notes: [...notes],
+        problems,
+        notImported: [...new Set(notImported)],
+        partsApplied: applied,
+        partsTotal: check.parts.length,
+        failure,
+      });
+      return failure === null;
+    },
+    [check, dictionary, mapping, fixes, decisions, contextBody],
+  );
 
   /**
    * Try again with only the rows that did not land.

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Briefcase, Plus, TriangleAlert } from "lucide-react";
@@ -850,7 +851,7 @@ function OfferCard({
         <p className="flex items-baseline gap-2">
           <Money amount={naira(offer.grossMonthlyKobo)} decimals size="lg" />
           <span className="text-body-sm text-muted">
-            a month, from {offer.startDate}
+            a month, from {formatDay(offer.startDate)}
           </span>
         </p>
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3.5">

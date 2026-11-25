@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sourceNote } from "@/lib/demo";
 import { toCsv, type CsvRow } from "@/lib/csv";
@@ -11,24 +10,13 @@ import { useCan } from "@/lib/permissions";
 import { useRowSelection } from "@/lib/use-row-selection";
 import { BulkAssignBar } from "@/components/people/bulk-assign-bar";
 import { ExportButton } from "@/components/portal/export-button";
-import {
-  Banknote,
-  Building2,
-  MoreHorizontal,
-  Plus,
-  RotateCcw,
-  Search,
-  ShieldAlert,
-  Users,
-} from "lucide-react";
+import { Plus, RotateCcw, Search, ShieldAlert } from "lucide-react";
 import {
   Checkbox,
   Badge,
   ButtonLink,
   Button,
-  BarChart,
   Card,
-  CardHeader,
   CardBody,
   EmptyState,
   Field,
@@ -40,8 +28,6 @@ import {
   LoadState,
   useHasAnswered,
   SortableTH,
-  Stat,
-  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -60,7 +46,6 @@ import {
   useEmployeeDirectory,
   useEmployeeMutations,
 } from "@/lib/store/employees-api";
-import { naira } from "@/lib/api/payroll";
 import { useDepartments } from "@/lib/store/departments";
 import { useWorkLocations } from "@/lib/store/work-locations";
 import { useListQuery } from "@/lib/use-list-query";
@@ -68,15 +53,11 @@ import {
   fullName,
   missingForPayroll,
   payrollFieldsForDisplay,
-  payrollGapsFor,
   type Employee,
   type EmploymentStatus,
-  type PayrollGap,
 } from "@/lib/types";
-import { MissingDetailsDialog } from "@/components/people/missing-details-dialog";
 import { useOrgTimezone } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
-import { useDismiss } from "@/hooks/use-dismiss";
+import { formatDay, todayIn } from "@/lib/time";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
@@ -174,7 +155,6 @@ export function Directory({
   };
 
   /** Id of the row whose "fill in missing details" dialog is open. */
-  const [filling, setFilling] = useState<string | null>(null);
 
   const scope = useMemo(
     () => ({
@@ -386,6 +366,7 @@ export function Directory({
     return (
       <div className="flex flex-col gap-6">
         <EmptyState
+          plain
           icon={<ShieldAlert aria-hidden="true" />}
           title="You do not have access to the employee directory"
           description="This needs Edit records, which your role does not hold. Ask whoever manages your company's roles if you need it."
@@ -397,104 +378,48 @@ export function Directory({
   return (
     <div className="flex flex-col gap-6">
       {/* Which source the numbers came from, stated rather than implied. */}
-      <div className="flex flex-wrap items-center gap-2">
-        {sourceNote(connected) && (
+      {sourceNote(connected) && (
+        <div className="flex flex-wrap items-center gap-2">
           <Badge tone="warning" size="sm" dot>
             {sourceNote(connected)}
           </Badge>
-        )}
-      </div>
-
-      {/* ---- Where people stand ----------------------------------------
-          `byStatus` has been on every directory response since the endpoint
-          existed and no screen read it — the eight statuses were visible one
-          badge at a time, down a table, so "how many are still on probation"
-          meant counting rows.
-
-          It follows the filter, like every tile beside it, so filtering to one
-          department narrows this too. Absent while the server has not answered:
-          an empty chart under a real headcount would read as nobody having a
-          status at all. */}
-      {statusPoints.length > 1 && (
-        <Card>
-          <CardHeader
-            title="Where people stand"
-            description={
-              applied.length > 0 || view !== "active"
-                ? "Across what is filtered below."
-                : undefined
-            }
-          />
-          <CardBody>
-            <BarChart
-              colorBy="series"
-              format={(n) => String(n)}
-              caption="Headcount by employment status"
-              points={statusPoints}
-            />
-          </CardBody>
-        </Card>
+        </div>
       )}
 
-      <StatGrid>
-        <Stat
-          label="Employees"
-          value={count(summary.total)}
-          icon={<Users aria-hidden="true" />}
-          {...(applied.length > 0 || view !== "active"
-            ? { hint: "matching what is filtered below" }
-            : {})}
-        />
-        <Stat
-          label="Departments"
-          value={count(summary.departments)}
-          icon={<Building2 aria-hidden="true" />}
-        />
-        <Stat
-          label="Monthly gross"
-          /* `size="xl"` (text-h3), matching the plain strings the three cards
-             beside it pass, which inherit Stat's own text-h3. `className` cannot
-             do this — Money puts it on the outer span while the size class sits
-             on the inner one, so the inner wins. */
-          /* The API sums this in the database, in integer kobo. `naira` is the
-             one conversion on the way to a screen — never a float multiply, and
-             never a sum of naira. */
-          value={
-            summary.grossMonthlyKobo === undefined ? (
-              "—"
-            ) : (
-              <Money
-                amount={naira(summary.grossMonthlyKobo)}
-                compact
-                size="xl"
-              />
-            )
-          }
-          icon={<Banknote aria-hidden="true" />}
-        />
-        {/* Wrapped rather than given an `href` prop — `Stat` has none, and no
-            other clickable-stat pattern exists yet in this app to follow. */}
-        <Link
-          href="/people/incomplete"
-          /* `min-w-0` because this link is the GRID ITEM and `Stat` inside it is
-                 not. A `1fr` track floors at the widest item's min-content, and a
-                 grid track is shared — so this one wrapper without the class made
-                 all four stat cards 489px wide inside a 335px row and gave the
-                 whole page a sideways scroll at 375px. The three bare `Stat`s
-                 beside it already carried it; only the clickable one did not. */
-          className="block h-full min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-        >
-          <Stat
-            label="Records incomplete"
-            value={count(summary.incomplete)}
-            icon={<ShieldAlert aria-hidden="true" />}
-            className="h-full transition-colors hover:border-accent-line"
-            /* No verdict line and no caption under the count: the page it links
-               to ("Records incomplete") says what is missing and what blocks pay.
-               Kene asked for both lines to go (18 Nov 2026). */
-          />
-        </Link>
-      </StatGrid>
+      {/* One line, not a chart and four tiles (UAT 23 Nov, L20: HR-24): on a
+          phone they pushed the list two screens down. It follows the filter,
+          like the list. Absent figures are left out rather than shown as 0. */}
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-muted">
+        <span>
+          <span className="font-semibold text-ink tabular">
+            {count(summary.onPayroll ?? summary.total)}
+          </span>{" "}
+          {(summary.onPayroll ?? summary.total) === 1 ? "person" : "people"}
+          {(applied.length > 0 || view !== "active") && " matching"}
+        </span>
+        {statusPoints
+          .filter((point) => point.label !== STATUS.active.label)
+          .map((point) => (
+            <span key={point.label}>
+              <span aria-hidden="true">· </span>
+              {point.value} {point.label.toLowerCase()}
+            </span>
+          ))}
+        {summary.notOnPayroll ? (
+          <span>
+            <span aria-hidden="true">· </span>
+            {summary.notOnPayroll} not on payroll
+          </span>
+        ) : null}
+        {summary.incomplete ? (
+          <span>
+            <span aria-hidden="true">· </span>
+            <TextLink href="/people/incomplete">
+              {count(summary.incomplete)} incomplete
+            </TextLink>
+          </span>
+        ) : null}
+      </p>
 
       <FilterBar
         search={list.search}
@@ -588,6 +513,7 @@ export function Directory({
         {rows.length === 0 ? (
           <Card>
             <EmptyState
+              mood={applied.length > 0 ? "search" : "nothing"}
               icon={<Search aria-hidden="true" />}
               title={
                 view === "archived"
@@ -689,11 +615,14 @@ export function Directory({
                     Started
                   </SortableTH>
                   <TH>Status</TH>
-                  <TH align="right">Actions</TH>
+                  {view === "archived" && (
+                    <TH align="right">
+                      <span className="sr-only">Restore</span>
+                    </TH>
+                  )}
                 </THead>
                 <TBody>
                   {rows.map((e) => {
-                    const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
                     return (
                       <TR
                         key={e.id}
@@ -722,6 +651,7 @@ export function Directory({
                           </TD>
                         )}
                         <TDPrimary
+                          avatar={fullName(e)}
                           title={
                             <TextLink href={`/people/${e.id}`}>
                               {fullName(e)}
@@ -737,23 +667,42 @@ export function Directory({
                         >
                           <Money amount={e.grossMonthly} />
                         </TD>
-                        <TD className="tabular text-muted">{e.startDate}</TD>
+                        <TD className="tabular text-muted">
+                          {formatDay(e.startDate)}
+                        </TD>
                         <TD>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <Badge tone={STATUS[e.status].tone} size="sm" dot>
                               {STATUS[e.status].label}
                             </Badge>
+                            {e.notOnPayroll && (
+                              <Badge
+                                tone="neutral"
+                                size="sm"
+                                {...(e.notOnPayrollReason
+                                  ? { title: e.notOnPayrollReason }
+                                  : {})}
+                              >
+                                Not on payroll
+                              </Badge>
+                            )}
                           </div>
                         </TD>
-                        <TD align="right">
-                          <DirectoryRowAction
-                            employee={e}
-                            gaps={gaps}
-                            archived={view === "archived"}
-                            onFillMissing={() => setFilling(e.id)}
-                            onRestore={() => void restoreEmployee(e)}
-                          />
-                        </TD>
+                        {view === "archived" && (
+                          <TD align="right">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => void restoreEmployee(e)}
+                            >
+                              <RotateCcw
+                                aria-hidden="true"
+                                className="size-3.5"
+                              />
+                              Restore
+                            </Button>
+                          </TD>
+                        )}
                       </TR>
                     );
                   })}
@@ -763,7 +712,6 @@ export function Directory({
 
             <ul className="divide-y divide-line sm:hidden">
               {rows.map((e) => {
-                const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
                 return (
                   <li
                     key={e.id}
@@ -799,25 +747,33 @@ export function Directory({
                           {e.jobTitle} · {e.employeeNo}
                         </p>
                       </div>
-                      <DirectoryRowAction
-                        employee={e}
-                        gaps={gaps}
-                        archived={view === "archived"}
-                        onFillMissing={() => setFilling(e.id)}
-                        onRestore={() => void restoreEmployee(e)}
-                      />
+                      {view === "archived" && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void restoreEmployee(e)}
+                        >
+                          <RotateCcw aria-hidden="true" className="size-3.5" />
+                          Restore
+                        </Button>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Badge tone={STATUS[e.status].tone} size="sm" dot>
                         {STATUS[e.status].label}
                       </Badge>
+                      {e.notOnPayroll && (
+                        <Badge tone="neutral" size="sm">
+                          Not on payroll
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
                       <span>{e.department}</span>
                       <span>{e.location}</span>
-                      <span className="tabular">{e.startDate}</span>
+                      <span className="tabular">{formatDay(e.startDate)}</span>
                     </div>
 
                     <div className="tabular font-medium text-ink">
@@ -827,18 +783,6 @@ export function Directory({
                 );
               })}
             </ul>
-
-            <MissingDetailsDialog
-              open={filling !== null}
-              employee={
-                filling ? (rows.find((e) => e.id === filling) ?? null) : null
-              }
-              onClose={() => setFilling(null)}
-              onSaved={() => {
-                setFilling(null);
-                reload();
-              }}
-            />
 
             <Pagination
               page={list.page}
@@ -912,107 +856,3 @@ const count = (value: number | undefined): string =>
 /** A switcher option, with its count only once the count is known. */
 const label = (text: string, value: number | undefined): string =>
   value === undefined || value === 0 ? text : `${text} (${value})`;
-
-/**
- * The row's trailing control, shared by the desktop `<TD>` and the mobile
- * `<li>` so the two cannot offer different actions for the same row: restore
- * on the archived view, the overflow menu everywhere else.
- */
-function DirectoryRowAction({
-  employee,
-  gaps,
-  archived,
-  onFillMissing,
-  onRestore,
-}: {
-  employee: Employee;
-  gaps: PayrollGap[];
-  archived: boolean;
-  onFillMissing: () => void;
-  onRestore: () => void;
-}) {
-  if (archived) {
-    return (
-      <Button size="sm" variant="secondary" onClick={onRestore}>
-        <RotateCcw aria-hidden="true" className="size-3.5" />
-        Restore
-      </Button>
-    );
-  }
-  return (
-    <RowActions employee={employee} gaps={gaps} onFillMissing={onFillMissing} />
-  );
-}
-
-/**
- * The row's overflow menu. Renders nothing when there is nothing to put in
- * it — same rule as `attendance-screen.tsx`'s own `RowActions`, which this
- * copies rather than reinvents: a menu button that opens onto an empty list
- * is worse than no button.
- *
- * One item today. The next row action this table grows belongs here too,
- * rather than as a second button beside it — that is the whole reason this
- * is a menu and not a ghost button with the pension-PIN gap's name on it.
- */
-function RowActions({
-  employee,
-  gaps,
-  onFillMissing,
-}: {
-  employee: Employee;
-  gaps: PayrollGap[];
-  onFillMissing: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const { mounted, closing } = useDismiss(open, 170);
-
-  if (gaps.length === 0) return null;
-
-  return (
-    <div className="relative inline-block text-left">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={`Actions for ${fullName(employee)}`}
-        className="rounded-md p-1.5 hover:bg-canvas"
-      >
-        <MoreHorizontal aria-hidden="true" className="size-4 text-muted" />
-      </button>
-
-      {mounted && (
-        <>
-          <div
-            className={
-              closing
-                ? "pointer-events-none fixed inset-0 z-40"
-                : "fixed inset-0 z-40"
-            }
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-            role="menu"
-            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onFillMissing();
-              }}
-              className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
-            >
-              Fill in missing details
-              <span className="block text-meta text-muted">
-                {gaps.map((g) => g.label).join(", ")}
-              </span>
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}

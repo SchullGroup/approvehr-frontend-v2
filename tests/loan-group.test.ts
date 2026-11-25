@@ -306,6 +306,7 @@ describe("the status a person's row shows", () => {
       ACTIVE: 1,
       SETTLED: 2,
       DECLINED: 0,
+      CONSOLIDATED: 0,
     });
   });
 

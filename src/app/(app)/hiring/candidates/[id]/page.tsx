@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { APPLICATIONS, cardById } from "@/lib/mock/hiring";
 import { fullName } from "@/lib/types";
@@ -46,5 +47,11 @@ export default async function CandidatePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <CandidateScreen id={id} />;
+  /* The screen reads `?kind=` from the address, which a prerendered page can
+     only do inside a Suspense boundary. */
+  return (
+    <Suspense>
+      <CandidateScreen id={id} />
+    </Suspense>
+  );
 }

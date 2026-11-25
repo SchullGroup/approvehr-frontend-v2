@@ -80,6 +80,7 @@ export function SmsScreen() {
       <PageBody className="flex flex-col gap-6">
         {!isConnected ? (
           <EmptyState
+            plain
             icon={<MessageSquare aria-hidden="true" />}
             title="Not available offline"
             description="Text messages need a signed-in company account."

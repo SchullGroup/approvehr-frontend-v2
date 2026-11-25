@@ -26,16 +26,18 @@ import {
   Money,
   ProgressMeter,
   Spinner,
-  StackedBar,
 } from "@/components/ui";
 import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { AnnouncementsPanel } from "./announcements-panel";
 import { AppUseCard } from "./app-use-card";
-import { TodayPanel } from "./today-panel";
+import { DepartmentCard } from "@/components/ui/department-card";
+import { AttendanceByDay } from "./attendance-by-day";
+import { MyObjectivesCard } from "./my-objectives-card";
 import { QuickActions } from "./quick-actions";
-import { AppraisalsCard } from "./appraisals-card";
-import { formatKobo, periodLabel } from "@/lib/api/payroll";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { formatKobo } from "@/lib/api/payroll";
 import {
   employmentTypeLabel,
   naira,
@@ -45,7 +47,7 @@ import {
 } from "@/lib/api/insights";
 import { cn } from "@/lib/cn";
 import { useCan } from "@/lib/permissions";
-import { formatDate } from "@/lib/time";
+import { formatMonth } from "@/lib/time";
 
 /**
  * One component per catalogue entry.
@@ -120,122 +122,6 @@ function ChartLoading({ title }: { title: string }) {
     </Panel>
   );
 }
-
-/* -------------------------------------------------------------- attention */
-
-const NeedsYou: WidgetComponent = ({ dashboard }) => {
-  const { headcount, approvals, exits, onboarding, payroll } = dashboard;
-  const canAddEmployee = useCan("EDIT_RECORDS");
-  /* Saying that the money went out is `APPROVE_PAYROLL`, the same permission
-     that approved the run, so the row is for the people who can act on it. */
-  const canApprovePayroll = useCan("APPROVE_PAYROLL");
-  if (!headcount || !approvals) return null;
-
-  /* Absent means no permission; zero means nothing held up. Both draw nothing,
-     and the check is presence-then-value so the code keeps them apart. */
-  const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
-  const onboardingHeldUp = onboarding ? onboarding.withMandatoryOutstanding : 0;
-  const nobodyOnPayroll = headcount.active === 0;
-  /* `APPROVED` is already "nobody has confirmed this was paid": a run only
-     reaches `PAID` through a completed payment batch, which is what recording a
-     bank payment completes. It is true of a company paying from the wallet as
-     much as one paying from its own bank (a wallet run is debited at approval
-     and stays `APPROVED` until its batch completes), so the row is worded for
-     both and does not need to know which this is. It reads the dashboard's own
-     block, which is this month's payroll only: an older run left unpaid is on
-     the payroll home, not here. */
-  const awaitingPayment =
-    canApprovePayroll &&
-    payroll !== null &&
-    payroll !== undefined &&
-    payroll.status === "APPROVED";
-
-  const anything =
-    approvals.waiting > 0 ||
-    headcount.incomplete > 0 ||
-    exitsHeldUp > 0 ||
-    onboardingHeldUp > 0 ||
-    (payroll !== null && payroll !== undefined && payroll.blockers > 0) ||
-    awaitingPayment ||
-    (nobodyOnPayroll && canAddEmployee);
-
-  /* "Needs you" promises every line on it is one click from being dealt with.
-     A card saying nothing needs you is furniture on the screen with the least
-     room for it. */
-  if (!anything) return null;
-
-  return (
-    <Card as="article">
-      <CardHeader title="Needs you" level={3} />
-      <CardBody>
-        <ul className="divide-y divide-line">
-          {nobodyOnPayroll && canAddEmployee && (
-            <Row
-              href="/people/new"
-              label="Nobody's on the payroll yet"
-              detail="Add your first person to start paying them"
-              action="Add employee"
-            />
-          )}
-          {approvals.waiting > 0 && (
-            <Row
-              href="/approvals"
-              label={`${String(approvals.waiting)} ${approvals.waiting === 1 ? "request" : "requests"} waiting for a decision`}
-              detail={
-                approvals.overdue > 0
-                  ? `${String(approvals.overdue)} past the deadline`
-                  : undefined
-              }
-              action="Open approvals"
-              urgent={approvals.overdue > 0}
-            />
-          )}
-          {headcount.incomplete > 0 && (
-            <Row
-              href="/people"
-              label={`${String(headcount.incomplete)} ${headcount.incomplete === 1 ? "person" : "people"} cannot be paid yet`}
-              detail="No account number or no pension PIN on file"
-              action="Fix records"
-              urgent
-            />
-          )}
-          {exits && exitsHeldUp > 0 && (
-            <Row
-              href="/people/offboarding"
-              label={`${String(exitsHeldUp)} ${exitsHeldUp === 1 ? "person is" : "people are"} leaving with things still outstanding`}
-              detail={`Equipment, access or final pay not signed off · ${String(exitsHeldUp)} of ${String(exits.open)} open ${exits.open === 1 ? "exit" : "exits"}`}
-              action="Open exits"
-            />
-          )}
-          {onboarding && onboardingHeldUp > 0 && (
-            <Row
-              href="/people/onboarding"
-              label={`${String(onboardingHeldUp)} ${onboardingHeldUp === 1 ? "starter has" : "starters have"} mandatory checklist items outstanding`}
-              detail={`${String(onboardingHeldUp)} of ${String(onboarding.open)} active ${onboarding.open === 1 ? "starter" : "starters"} not yet complete`}
-              action="Open onboarding"
-            />
-          )}
-          {payroll && payroll.blockers > 0 && (
-            <Row
-              href="/payroll"
-              label={`${payroll.period} payroll has ${String(payroll.blockers)} ${payroll.blockers === 1 ? "problem" : "problems"} to fix`}
-              detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
-              action="Open payroll"
-              urgent
-            />
-          )}
-          {awaitingPayment && (
-            <Row
-              href={`/payroll/runs/new?period=${payroll.period}&step=approve`}
-              label={`${periodLabel(payroll.period)} payroll is approved, waiting for payment to go out`}
-              action="Open the payment"
-            />
-          )}
-        </ul>
-      </CardBody>
-    </Card>
-  );
-};
 
 const MyQueue: WidgetComponent = ({ dashboard }) => {
   const me = dashboard.me;
@@ -354,43 +240,18 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
       title="Who is in today"
       description={`Of ${String(today.expected)} expected.`}
     >
-      <StackedBar
-        total={today.expected}
-        format={(n) => String(n)}
-        segments={[
-          {
-            label: "Clocked in",
-            value: today.clockedIn,
-            color: "var(--color-cat-1)",
-          },
-          ...(today.late > 0
-            ? [
-                {
-                  label: "Late",
-                  value: today.late,
-                  color:
-                    "color-mix(in srgb, var(--color-cat-4) 55%, var(--color-surface))",
-                },
-              ]
-            : []),
-          ...(today.onLeave > 0
-            ? [
-                {
-                  label: "On leave",
-                  value: today.onLeave,
-                  color: "var(--color-cat-3)",
-                },
-              ]
-            : []),
-          ...(today.unaccountedFor > 0
-            ? [
-                {
-                  label: "Not accounted for",
-                  value: today.unaccountedFor,
-                  color: "var(--color-cat-4)",
-                },
-              ]
-            : []),
+      <DonutChart
+        size={168}
+        thickness={20}
+        centre={{
+          value: `${String(Math.round(((today.clockedIn + today.late) / Math.max(today.expected, 1)) * 100))}%`,
+          label: "in today",
+        }}
+        points={[
+          { label: "Clocked in", value: today.clockedIn },
+          { label: "Late", value: today.late },
+          { label: "On leave", value: today.onLeave },
+          { label: "Not accounted for", value: today.unaccountedFor },
         ]}
         caption={`Of ${String(today.expected)} expected today: ${String(today.clockedIn)} clocked in, ${String(today.late)} late, ${String(today.onLeave)} on leave, ${String(today.unaccountedFor)} not accounted for.`}
       />
@@ -399,6 +260,14 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
 };
 
 /* -------------------------------------------------------------------- pay */
+
+/** How far a run has got, out of four: made, reviewed, approved, paid. */
+const RUN_STEP: Record<string, number> = {
+  DRAFT: 1,
+  IN_REVIEW: 2,
+  APPROVED: 3,
+  PAID: 4,
+};
 
 const PayrollMonth: WidgetComponent = ({ dashboard }) => {
   const payroll = dashboard.payroll;
@@ -438,6 +307,26 @@ const PayrollMonth: WidgetComponent = ({ dashboard }) => {
             Net pay for {payroll.employeeCount}{" "}
             {payroll.employeeCount === 1 ? "person" : "people"}
           </p>
+          <div
+            role="progressbar"
+            aria-label="How far this month's payroll has got"
+            aria-valuemin={0}
+            aria-valuemax={4}
+            aria-valuenow={RUN_STEP[payroll.status] ?? 0}
+            className="flex gap-1.5"
+          >
+            {[1, 2, 3, 4].map((step) => (
+              <span
+                key={step}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full",
+                  step <= (RUN_STEP[payroll.status] ?? 0)
+                    ? "bg-accent"
+                    : "bg-sunken",
+                )}
+              />
+            ))}
+          </div>
           <ButtonLink href="/payroll" variant="secondary" size="sm">
             Open payroll
           </ButtonLink>
@@ -604,16 +493,31 @@ const HeadcountByDepartment: WidgetComponent = ({
   reports,
   reportsLoading,
 }) => {
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const { flat: departments } = useDepartments();
   if (reportsLoading) return <ChartLoading title="Headcount by department" />;
   const rows = reports?.headcount?.byDepartment ?? [];
   if (rows.length === 0) return null;
+  const faces = (name: string) => {
+    const id = departments.find((one) => one.name === name)?.id;
+    return directory.people
+      .filter((person) => id !== undefined && person.departmentId === id)
+      .map((person) => person.fullName);
+  };
   return (
-    <Panel title="Headcount by department" description="Largest first.">
-      <BarChart
-        points={rows.map((row) => ({ label: row.name, value: row.count }))}
-        format={(n) => String(n)}
-        caption="How many people sit in each department."
-      />
+    <Panel title="Headcount by department">
+      <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => (
+          <li key={row.name} className="min-w-0">
+            <DepartmentCard
+              name={row.name}
+              href="/people/departments"
+              line={`${String(row.count)} ${row.count === 1 ? "person" : "people"}`}
+              members={faces(row.name)}
+            />
+          </li>
+        ))}
+      </ul>
     </Panel>
   );
 };
@@ -797,16 +701,12 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
 
 const MyClock: WidgetComponent = () => <MyClockCard hero />;
 
-/* Both read their own request, so neither takes the dashboard's payload. See
-   `TodayPanel` and `AppUseCard`: each draws nothing when it has nothing to say. */
-const Today: WidgetComponent = () => <TodayPanel />;
 const AppUse: WidgetComponent = () => <AppUseCard />;
 
-/* ------------------------------------------------------------------ tools */
-
-const Appraisals: WidgetComponent = () => <AppraisalsCard />;
 const Assistant: WidgetComponent = () => <AskPanel />;
 const Actions: WidgetComponent = () => <QuickActions />;
+const AttendanceByDayWidget: WidgetComponent = () => <AttendanceByDay />;
+const MyObjectives: WidgetComponent = () => <MyObjectivesCard />;
 const Noticeboard: WidgetComponent = ({ dashboard }) => (
   <AnnouncementsPanel board={dashboard.announcements} />
 );
@@ -822,8 +722,6 @@ const Noticeboard: WidgetComponent = ({ dashboard }) => (
  * either nothing or a card nobody can remove.
  */
 export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
-  "needs-you": NeedsYou,
-  today: Today,
   "my-queue": MyQueue,
   "stat-headcount": StatHeadcount,
   "stat-approvals": StatApprovals,
@@ -846,40 +744,12 @@ export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "my-pay": MyPay,
   "my-leave": MyLeave,
   "my-clock": MyClock,
-  appraisals: Appraisals,
   assistant: Assistant,
   "quick-actions": Actions,
+  "attendance-by-day": AttendanceByDayWidget,
+  "my-objectives": MyObjectives,
   noticeboard: Noticeboard,
 };
-
-/* ------------------------------------------------------------------ pieces */
-
-function Row({
-  href,
-  label,
-  action,
-}: {
-  href: string;
-  label: string;
-  detail?: string;
-  action: string;
-  urgent?: boolean;
-}) {
-  /* A list with dividers, as the Today panel beside it is, rather than a stack
-     of bordered boxes: two cards that are both lists of "a thing and the button
-     for it" should read as the same kind of list. The label may take two lines
-     and no more; the button keeps its place at the end. */
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3">
-      <p className="min-w-40 flex-1 text-body-sm font-medium text-ink">
-        {label}
-      </p>
-      <ButtonLink href={href} variant="secondary" size="sm">
-        {action}
-      </ButtonLink>
-    </li>
-  );
-}
 
 /**
  * A single figure, as a link to the screen it came from.
@@ -1042,22 +912,7 @@ function Owed({
   );
 }
 
-/**
- * `2026-08` as `Aug 2026`. Short, because it is an axis label as often as
- * prose. Always UTC: a `YYYY-MM` period has no time-of-day, so there is no
- * moment for the company's zone to relocate — the day/month/year that
- * `formatDate` gives is sliced down to month+year rather than reached for
- * with a fresh Intl call, so this stays covered by the guardrail too.
- */
+/** `2026-08` as `Aug 2026`: the one month format (`formatMonth`, lib/time). */
 function monthLabel(period: string): string {
-  const [year, month] = period.split("-");
-  if (!year || !month) return period;
-  const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
-  /* NaN-guarded before formatDate, not after: formatDate returns "—" for an
-     unparseable date, and "—".split(" ") is a one-element array, so reading
-     [1] and calling .slice on it would throw instead of degrading — the
-     same shape format.ts's monthLabel guards against. */
-  if (Number.isNaN(date.getTime())) return period;
-  const [, longMonth, y] = formatDate(date, "UTC").split(" ");
-  return `${longMonth.slice(0, 3)} ${y}`;
+  return formatMonth(period);
 }

@@ -106,7 +106,6 @@ const SECTION_OF: Record<string, string> = {
   "core-hr/Probation": "Lifecycle",
   "core-hr/Promotions": "Lifecycle",
   "core-hr/Exit management": "Lifecycle",
-  "core-hr/Surveys": "Engagement",
   "core-hr/One-to-ones": "Engagement",
   "core-hr/Documents": "Records",
   "core-hr/Signatures": "Records",
@@ -128,10 +127,10 @@ const SECTION_OF: Record<string, string> = {
   "hiring/Job adverts": "Pipeline",
   "hiring/Applications": "Pipeline",
   "hiring/Talent pool": "Pipeline",
-  "hiring/Interviews": "Interviews and offers",
-  "hiring/My interviews": "Interviews and offers",
-  "hiring/Offers": "Interviews and offers",
-  "hiring/Hired": "Interviews and offers",
+  "hiring/Interviews": "Interview to hire",
+  "hiring/My interviews": "Interview to hire",
+  "hiring/Offers": "Interview to hire",
+  "hiring/Hired": "Interview to hire",
   "hiring/Hiring settings": "Setup",
 };
 
@@ -423,7 +422,7 @@ const KEYWORDS: Record<string, string[]> = {
   /* The words the module speaks now, then the ones it used to: somebody who
      types "sprint" or "backlog" still finds it. See `lib/projects/terms.ts`. */
   projects: ["work"],
-  "projects/All projects": [
+  "projects/My projects": [
     "tasks",
     "kanban",
     "board",
@@ -462,13 +461,6 @@ const KEYWORDS: Record<string, string[]> = {
   ],
   "core-hr/Onboarding": ["new hire", "new starter", "joiner", "induction"],
   "core-hr/Probation": ["confirmation", "trial period", "confirm"],
-  "core-hr/Surveys": [
-    "feedback",
-    "pulse",
-    "questionnaire",
-    "engagement",
-    "poll",
-  ],
   "core-hr/Promotions": ["promote", "raise", "transfer", "regrade", "career"],
   "core-hr/Exit management": [
     "offboarding",
@@ -564,17 +556,28 @@ const KEYWORDS: Record<string, string[]> = {
   ],
   "time/Overtime": ["extra hours", "after hours"],
 
-  "performance/Overview": ["performance", "appraisal"],
-  "performance/KPIs": ["goals", "okrs", "targets", "objectives", "metrics"],
-  "performance/Weekly tasks": ["review tasks", "to do", "weekly"],
-  "performance/Competency ratings": ["skills", "competencies", "scores"],
-  "performance/Appraisal periods": [
+  "performance/Overview": [
+    "performance",
+    "appraisal",
+    "appraisal periods",
     "review cycle",
     "cycle",
     "appraisals",
     "annual review",
   ],
-  "performance/Objectives to agree": ["approve objectives", "sign off"],
+  "performance/Objectives": [
+    "goals",
+    "okrs",
+    "targets",
+    "kpis",
+    "kpi",
+    "metrics",
+    "approve objectives",
+    "agree objectives",
+    "to agree",
+    "sign off",
+  ],
+  "performance/Competency ratings": ["skills", "competencies", "scores"],
   "performance/Who appraises whom": ["appraisers", "reviewers", "360"],
 
   "desk/Help desk": ["tickets", "support", "request", "contact hr", "ask hr"],
@@ -591,7 +594,7 @@ const KEYWORDS: Record<string, string[]> = {
   ],
 
   "settings/Settings": ["configuration", "company", "preferences", "features"],
-  "settings/Roles": ["permissions", "access", "admins", "security"],
+  "settings/Access": ["permissions", "roles", "admins", "security"],
 };
 
 /** Exposed so a test can hold every key to a door that exists. */

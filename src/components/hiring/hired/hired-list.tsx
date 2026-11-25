@@ -71,6 +71,7 @@ import {
 } from "./hired-dialogs";
 import { ExportDialog } from "./export-dialog";
 import { HireStateBadge } from "./state-badge";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /**
  * The Hired list: everybody whose offer was accepted, and what became of them.
@@ -598,7 +599,7 @@ export function HiredList({ initialJob = "" }: { initialJob?: string }) {
 
   const nameOf = (person: HiredPerson) =>
     person.applicationId ? (
-      <TextLink href={`/hiring/candidates/${person.applicationId}`}>
+      <TextLink href={candidateHref(person.applicationId, "application")}>
         {person.name}
       </TextLink>
     ) : (
@@ -797,6 +798,7 @@ export function HiredList({ initialJob = "" }: { initialJob?: string }) {
         {list.rows.length === 0 && !stale ? (
           <Card>
             <EmptyState
+              mood={narrowed ? "search" : "nothing"}
               icon={<UserCheck aria-hidden="true" />}
               title={narrowed ? "Nobody matches" : "Nobody has been hired yet"}
               description={

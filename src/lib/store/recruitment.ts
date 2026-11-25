@@ -1,5 +1,6 @@
 "use client";
 
+import type { CandidateIdKind } from "@/lib/hiring/candidate-href";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -1118,6 +1119,8 @@ export type RealPipelineState = {
 export function useRealPipelineApplication(
   id: string | undefined,
   candidateId: string | null | undefined,
+  /** What the link said `id` is (`candidateHref`). Null tries each kind. */
+  kind: CandidateIdKind | null = null,
 ): RealPipelineState {
   const { isConnected, isLoading } = useSession();
   /* Keyed on identity alone — not on `nonce` too — so `matched` below stays
@@ -1177,7 +1180,9 @@ export function useRealPipelineApplication(
       };
 
       try {
-        if (id) {
+        /* A careers-page application id is neither of the two below: it is
+           found through the candidate the careers record names. */
+        if (id && (kind === null || kind === "application")) {
           try {
             application = await recruitmentApi.getApplication(
               id,
@@ -1200,7 +1205,7 @@ export function useRealPipelineApplication(
            common case — the board linking an application id — still costs one
            request. A 404 here is an id that is neither, which is the answer
            the screen is about to give anyway. */
-        if (!application && id) {
+        if (!application && id && (kind === null || kind === "candidate")) {
           try {
             application = await throughCandidate(id);
           } catch (error) {
@@ -1227,7 +1232,7 @@ export function useRealPipelineApplication(
        purely to retrigger this one (a manual `reload()` and the app-wide
        revalidation bus respectively), which is why both are still
        dependencies despite not appearing in the body above `identity`. */
-  }, [active, id, candidateId, identity, nonce, revalidation]);
+  }, [active, id, candidateId, kind, identity, nonce, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 

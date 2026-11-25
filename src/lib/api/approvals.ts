@@ -92,6 +92,23 @@ type WireKind =
   | "EMPLOYMENT_CHANGE"
   | "HOLIDAY";
 
+/**
+ * The facts a person deciding leave needs, on a leave row (U22, SELF-6).
+ *
+ * `daysLeft` is the balance before this request and `daysLeftAfter` once it is
+ * taken; both `null` when the type keeps no balance for them. Absent on a row
+ * from a server that predates it, which then reads exactly as it did.
+ */
+export type ApprovalLeaveFacts = {
+  reason: string | null;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  daysLeft: number | null;
+  daysLeftAfter: number | null;
+};
+
 type WireStatus = "PENDING" | "APPROVED" | "DECLINED" | "WITHDRAWN";
 
 type WireApproval = {
@@ -114,6 +131,7 @@ type WireApproval = {
    *  specific; a role sentence ("anyone who can approve payroll") when it
    *  was not, which today is every payroll run, loan and expense claim. */
   sentTo?: string;
+  leave?: ApprovalLeaveFacts;
 };
 
 type WireSummary = {
@@ -166,6 +184,8 @@ export type ApprovalRow = {
   /** Present only on rows from `approvalsApi.sentByMe` — see the note on
    *  the wire type this is copied from. */
   sentTo?: string;
+  /** On a leave row from a server that sends it (U22). */
+  leave?: ApprovalLeaveFacts;
 };
 
 export type ApprovalSummary = {
@@ -238,6 +258,7 @@ function toRow(wire: WireApproval): ApprovalRow {
     decidedAt: wire.decidedAt,
     decisionNote: wire.decisionNote,
     ...(wire.sentTo ? { sentTo: wire.sentTo } : {}),
+    ...(wire.leave ? { leave: wire.leave } : {}),
   };
 }
 
@@ -511,11 +532,46 @@ const REAL_SCREEN: Partial<Record<ApprovalKind, string>> = {
   expense: "/payroll/expenses",
   requisition: "/hiring",
   offer: "/hiring/offers",
+  /* The API refuses these from the queue ("employment_changes cannot be
+     decided from the approvals queue"), so Approve here did nothing (U17).
+     Decided on Promotions and transfers, which opens on the change. */
+  employment_change: "/people/changes",
 };
 
 /** False for the three kinds that `decide()` now refuses outright (422). */
 export function isDecidableHere(kind: ApprovalKind): boolean {
   return !(kind in REAL_SCREEN);
+}
+
+/**
+ * The four verbs that let somebody decide a leave request at all. The API's
+ * `assertMayDecide` refuses everybody who holds none of them, whoever the request was
+ * routed to, so a reader with none of them can never use an Approve or Decline on a leave
+ * row. `APPROVE_LEAVE_ALL`, `_DEPARTMENT` and `_BRANCH` each imply `APPROVE_LEAVE` on the
+ * server, so a holder of any of them is let through to the relationship checks.
+ *
+ * The branch verb is not in the web's permission catalogue (the Roles screen does not
+ * list it), so the set is read as strings.
+ */
+const LEAVE_DECIDING = [
+  "APPROVE_LEAVE",
+  "APPROVE_LEAVE_ALL",
+  "APPROVE_LEAVE_DEPARTMENT",
+  "APPROVE_LEAVE_BRANCH",
+] as const;
+
+/**
+ * Could this reader's permissions ever let them decide a leave request?
+ *
+ * Only the **floor** is asked here. Whether this person is the line manager, or heads the
+ * department or the office, of the one in the row is a relationship the browser cannot see,
+ * and the API's own refusal says so when it is not. What this stops is the case where no
+ * such relationship could ever help: a manager whose role has no leave-approval permission
+ * is routed requests (the card is shown to whoever `managerId` names) and is then refused
+ * every time.
+ */
+export function mayDecideLeave(permissions: ReadonlySet<string>): boolean {
+  return LEAVE_DECIDING.some((permission) => permissions.has(permission));
 }
 
 /** The screen that can actually decide a row of this kind, or null when

@@ -187,7 +187,37 @@ export type QueueItem = {
   /** True once that deadline has gone past. */
   pastDeadline?: boolean;
   ref?: QueueRef;
+  /** On a leave row the server described (U22): what the decider needs. */
+  leave?: QueueLeave;
 };
+
+export type QueueLeave = {
+  reason: string | null;
+  daysLeft: number | null;
+  daysLeftAfter: number | null;
+};
+
+/**
+ * The reason and the balance, as the card says them (U22, SELF-6).
+ *
+ * A balance is said only where the type keeps one: `null` is "this type keeps
+ * no balance for them", never zero days left.
+ */
+export function leaveFacts(leave: QueueLeave): {
+  reason: string | null;
+  balance: string | null;
+} {
+  const days = (n: number) => `${String(n)} ${n === 1 ? "day" : "days"}`;
+  const reason = leave.reason?.trim() ? leave.reason.trim() : null;
+  if (leave.daysLeft === null || leave.daysLeftAfter === null) {
+    return { reason, balance: null };
+  }
+  const after =
+    leave.daysLeftAfter < 0
+      ? `${String(-leave.daysLeftAfter)} over after this`
+      : `${String(leave.daysLeftAfter)} after this`;
+  return { reason, balance: `${days(leave.daysLeft)} left, ${after}` };
+}
 
 /**
  * Which module an approval belongs to, by who acts on it.
@@ -290,7 +320,10 @@ export function queueItemFromApproval(
           `/people/offboarding/${row.subjectId}`
         : row.subjectType === "requisitions"
           ? `/hiring/requisitions/${row.subjectId}`
-          : HREF[row.kind];
+          : row.subjectType === "employment_changes"
+            ? /* Opens that change's decide dialog (U17). */
+              `/people/changes?change=${row.subjectId}`
+            : HREF[row.kind];
 
   return {
     id: row.id,
@@ -306,6 +339,15 @@ export function queueItemFromApproval(
     ...(label ? { deadline: label } : {}),
     ...(isPastDeadline(row.deadlineAt) ? { pastDeadline: true } : {}),
     ref: { store: "approval", id: row.id },
+    ...(row.leave
+      ? {
+          leave: {
+            reason: row.leave.reason,
+            daysLeft: row.leave.daysLeft,
+            daysLeftAfter: row.leave.daysLeftAfter,
+          },
+        }
+      : {}),
   };
 }
 

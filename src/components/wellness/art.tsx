@@ -620,7 +620,10 @@ export function WellnessArt({
  * The Open Doodles scenes (CC0, Pablo Stanley), for the places a person is
  * doing something rather than a character reacting: running, resting, a coffee.
  * Static files in `public/wellness/scenes/`, loaded lazily, never in the JS.
- * Black line art, so they sit on a light sticker in both themes.
+ * Black line art on a light sticker in the light theme. In the dark theme the
+ * copy in `scenes/dark/` is drawn instead (the line in `accent-text`, the pink in
+ * `well-pink-text`, written by `scripts/dark-art.ts`) on the dark peri wash, so
+ * no light tile sits on a dark page.
  */
 export type SceneName =
   "strolling" | "meditating" | "chilling" | "coffee" | "ice-cream";
@@ -637,13 +640,16 @@ export function SceneImage({
   return (
     <span
       aria-hidden="true"
+      data-scene={name}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-2xl bg-well-sticker p-2",
+        "[[data-theme=dark]_&]:bg-well-peri-soft",
         className,
       )}
     >
-      {/* The scenes are decorative line art in a fixed palette; `next/image`
-          would add a loader for files that are already small static SVGs. */}
+      {/* The scenes are decorative line art; `next/image` would add a loader
+          for files that are already small static SVGs. One file per theme: the
+          hidden one has no box, so a lazy image never fetches it. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`/wellness/scenes/${name}.svg`}
@@ -653,7 +659,18 @@ export function SceneImage({
         loading="lazy"
         decoding="async"
         draggable={false}
-        className="select-none object-contain"
+        className="select-none object-contain [[data-theme=dark]_&]:hidden"
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/wellness/scenes/dark/${name}.svg`}
+        alt=""
+        width={size}
+        height={Math.round(size * 0.75)}
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        className="hidden select-none object-contain [[data-theme=dark]_&]:block"
       />
     </span>
   );

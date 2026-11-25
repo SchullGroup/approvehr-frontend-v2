@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RequirePermission } from "@/components/portal/require-permission";
 import { OnboardingScreen } from "./onboarding-screen";
 
 export const metadata: Metadata = {
@@ -7,5 +8,14 @@ export const metadata: Metadata = {
 };
 
 export default function OnboardingPage() {
-  return <OnboardingScreen />;
+  return (
+    <RequirePermission
+      permission="EDIT_RECORDS"
+      pageTitle="Onboarding"
+      title="You cannot see onboarding"
+      what="Seeing who is starting"
+    >
+      <OnboardingScreen />
+    </RequirePermission>
+  );
 }

@@ -4,7 +4,7 @@ import { RolesScreen } from "./roles-screen";
 import { ROLES_TABS } from "./tabs";
 
 export const metadata: Metadata = {
-  title: "Roles and permissions",
+  title: "Access",
   description:
     "Who can see salaries, approve payroll, or export employee data.",
 };

@@ -8,13 +8,18 @@ import {
   Input,
   Modal,
   SearchPicker,
+  Select,
   useToast,
   type PickerOption,
 } from "@/components/ui";
 import { QUERY_LIMITS } from "@/lib/api/queries";
 import { useCan } from "@/lib/permissions";
 import { useEmployeeSearch } from "@/lib/store/employees-api";
-import { useQueriesSwitch, useQueryActions } from "@/lib/store/queries";
+import {
+  useQueriesSwitch,
+  useQueryActions,
+  useQueryTemplates,
+} from "@/lib/store/queries";
 import { useSession } from "@/lib/store/session";
 import { actionMessage } from "@/lib/use-action";
 import { useOpenSession } from "@/lib/use-open-session";
@@ -37,21 +42,32 @@ import { useOpenSession } from "@/lib/use-open-session";
  */
 export function StartQueryButton() {
   const canIssue = useCan("ISSUE_QUERIES");
+  const canDraft = useCan("DRAFT_QUERIES");
   const queries = useQueriesSwitch();
   const { isConnected } = useSession();
   const [open, setOpen] = useState(false);
 
-  if (!canIssue || !queries.on || !isConnected) return null;
+  /* A line manager drafts and does not issue: the same dialog, said as what it is for them. */
+  const drafting = !canIssue && canDraft;
+  if ((!canIssue && !canDraft) || !queries.on || !isConnected) return null;
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Issue a query</Button>
-      <StartQueryDialog open={open} onClose={() => setOpen(false)} />
+      <Button onClick={() => setOpen(true)}>
+        {drafting ? "Draft a query" : "Issue a query"}
+      </Button>
+      <StartQueryDialog
+        open={open}
+        drafting={drafting}
+        onClose={() => setOpen(false)}
+      />
     </>
   );
 }
 
 export function StartQueryDialog(props: {
   open: boolean;
+  /** A line manager drafting: HR reviews and issues what they write. */
+  drafting?: boolean;
   onClose: () => void;
 }) {
   const session = useOpenSession(props.open);
@@ -60,9 +76,11 @@ export function StartQueryDialog(props: {
 
 function StartQueryForm({
   open,
+  drafting = false,
   onClose,
 }: {
   open: boolean;
+  drafting?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -73,13 +91,18 @@ function StartQueryForm({
 
   const [person, setPerson] = useState<PickerOption | null>(null);
   const [subjectLine, setSubjectLine] = useState("");
+  /* A template's id, or "" for a blank draft. */
+  const [templateId, setTemplateId] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  const ready =
-    person !== null &&
-    subjectLine.trim().length >= 3 &&
-    subjectLine.trim().length <= QUERY_LIMITS.subjectLine.max;
+  /* With a template the subject line is optional: the template's own is used, and what is typed
+     here wins over it. */
+  const subjectOk =
+    subjectLine.trim().length <= QUERY_LIMITS.subjectLine.max &&
+    (templateId !== "" || subjectLine.trim().length >= 3) &&
+    (subjectLine.trim() === "" || subjectLine.trim().length >= 3);
+  const ready = person !== null && subjectOk;
 
   /* Not while the request is out: closing would leave the draft made and nothing on screen to
      say where it is. */
@@ -92,10 +115,16 @@ function StartQueryForm({
     setBusy(true);
     setProblem(null);
     try {
-      const draft = await actions.create({
-        subjectId: person.value,
-        subjectLine: subjectLine.trim(),
-      });
+      const typed = subjectLine.trim();
+      const draft = await actions.create(
+        templateId !== ""
+          ? {
+              subjectId: person.value,
+              templateId,
+              ...(typed !== "" ? { subjectLine: typed } : {}),
+            }
+          : { subjectId: person.value, subjectLine: typed },
+      );
       /* The toast says an act was done and never what the letter is about. */
       toast.push({ tone: "success", title: "Draft started" });
       onClose();
@@ -110,7 +139,7 @@ function StartQueryForm({
     <Modal
       open={open}
       onClose={close}
-      title="Issue a query"
+      title={drafting ? "Draft a query" : "Issue a query"}
       size="sm"
       footer={
         <>
@@ -125,8 +154,9 @@ function StartQueryForm({
     >
       <div className="flex flex-col gap-4">
         <p className="text-body-sm text-body">
-          This starts a draft. Only people who work queries can read it, and
-          nobody is told anything until you issue it.
+          {drafting
+            ? "This starts a draft about somebody who reports to you. You write the letter and HR reviews and issues it. Nobody is told anything until then."
+            : "This starts a draft. Only people who work queries can read it, and nobody is told anything until you issue it."}
         </p>
         <Field label="Who is it for" required>
           <SearchPicker
@@ -142,10 +172,16 @@ function StartQueryForm({
             aria-label="Who is it for"
           />
         </Field>
+        <TemplatePicker value={templateId} onChange={setTemplateId} />
         <Field
           label="Subject line"
-          required
-          help="A short title, printed on the letter. It is never shown in a notification or an email."
+          required={templateId === ""}
+          optional={templateId !== ""}
+          help={
+            templateId !== ""
+              ? "Leave it blank to use the template's own. What you type here is used instead. It is never shown in a notification or an email."
+              : "A short title, printed on the letter. It is never shown in a notification or an email."
+          }
         >
           <Input
             value={subjectLine}
@@ -165,5 +201,44 @@ function StartQueryForm({
         )}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * "Start from a template", from the company's own list.
+ *
+ * Its own component, rendered inside the dialog, so the list is read when the dialog is open and
+ * not each time the register is. **There is no wording of ours here**: the options are the names a
+ * company wrote, and the sentence beside them is the server's (counsel should read whatever a
+ * company adopts). A company with no templates sees no picker at all, never an empty one.
+ */
+function TemplatePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const templates = useQueryTemplates(false);
+  const rows = templates.data?.rows ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <Field
+      label="Start from a template"
+      optional
+      help={
+        templates.data?.note ??
+        "These are your company's own words. Have counsel read them before they are used."
+      }
+    >
+      <Select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">A blank draft</option>
+        {rows.map((row) => (
+          <option key={row.id} value={row.id}>
+            {row.name}
+          </option>
+        ))}
+      </Select>
+    </Field>
   );
 }

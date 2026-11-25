@@ -293,6 +293,7 @@ function List() {
           matching.length === 0 &&
           filtering && (
             <EmptyState
+              mood="search"
               icon={<FolderKanban />}
               title="No projects match these filters"
               description="Try another name or department, or clear the filters to see every project."

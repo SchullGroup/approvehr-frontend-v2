@@ -114,6 +114,12 @@ export function IssueCard({
               {issue.title}
             </button>
 
+            {issue.objective?.state === "LINKED" && issue.objective.title && (
+              <p className="break-words text-meta text-muted">
+                Objective: {issue.objective.title}
+              </p>
+            )}
+
             {(epic || labels.length > 0) && (
               <div className="flex flex-wrap gap-1.5">
                 {epic && <EpicChip title={epic.title} />}
@@ -127,8 +133,16 @@ export function IssueCard({
               <TypeIcon type={issue.type} />
               <IssueKey issueKey={issue.key} done={done} />
               <FinishTag wontDo={issue.wontDo} accepted={issue.accepted} />
-              {overdue && issue.dueDate && (
-                <span className="whitespace-nowrap text-meta font-medium text-warning-text">
+              {/* The date, plainly, wherever there is one: it is what counts
+                  against the person for the score. Overdue is the same text in a
+                  stronger weight, never a banner. */}
+              {issue.dueDate && (
+                <span
+                  className={cn(
+                    "whitespace-nowrap text-meta",
+                    overdue ? "font-medium text-warning-text" : "text-muted",
+                  )}
+                >
                   Due {dueLabel(issue, today, "card")}
                 </span>
               )}

@@ -181,7 +181,7 @@ describe("linking the ones chosen", () => {
     expect(screen.getByText("1 chosen")).toBeInTheDocument();
   });
 
-  it("makes one call for all the chosen tasks, with the objective and no measure", async () => {
+  it("makes one call for all the chosen tasks, with the objective and no target", async () => {
     const { actions } = mount();
     bulk.run.mockResolvedValue({ changed: 2, failed: [] });
     await choose(/Cart drawer slides in/);
@@ -213,7 +213,7 @@ describe("linking the ones chosen", () => {
     expect(actions.patchIssue).not.toHaveBeenCalled();
   });
 
-  it("sends the measure when one is chosen", async () => {
+  it("sends the target when one is chosen", async () => {
     mount();
     bulk.run.mockResolvedValue({ changed: 1, failed: [] });
     await choose(/Cart drawer slides in/);
@@ -226,7 +226,7 @@ describe("linking the ones chosen", () => {
       "Lift checkout (Chidi Nwosu)",
     );
     await userEvent.selectOptions(
-      within(dialog).getByRole("combobox", { name: /Measure/ }),
+      within(dialog).getByRole("combobox", { name: /Target/ }),
       "Conversion",
     );
     await userEvent.click(

@@ -66,7 +66,7 @@ import {
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { dayIn, todayIn } from "@/lib/time";
 import { DeleteProjectDialog } from "./settings-view";
-import { DEFAULT_VIEW, PROJECT_VIEWS, viewById } from "./views";
+import { DEFAULT_VIEW, viewById, viewsFor } from "./views";
 
 /**
  * `/projects/[id]`: one project, its tabs, and the drawer.
@@ -118,6 +118,7 @@ export function ProjectScreen({ id }: { id: string }) {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<FolderKanban />}
             title="This project is not here"
             description="It may have been deleted, or it may not be part of your access. You see the projects you are on, and the ones in programs you have been given."
@@ -240,9 +241,10 @@ function ProjectShell({
     programs.data?.programs.find((p) => p.id === project.programId)?.name ??
     null;
 
-  /* Settings are for people who manage the project; for everybody else the tab
-     is absent, and a link to it opens the board. */
-  const offered = PROJECT_VIEWS.filter((v) => v.id !== "settings" || canManage);
+  /* Settings are for people who manage the project, and a simple board has no
+     Plan, Timeline or Progress (see `viewsFor`); a link to a tab that is not
+     offered opens the board. */
+  const offered = viewsFor(project.type, canManage);
   const asked = viewById(params.get("view") ?? DEFAULT_VIEW);
   const view = offered.some((v) => v.id === asked.id)
     ? asked

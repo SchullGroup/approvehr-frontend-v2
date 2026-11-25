@@ -36,6 +36,18 @@ describe("withLegacyExpansion", () => {
     expect(set.has("DECIDE_QUERIES")).toBe(false);
   });
 
+  it("never gives the drafting permission: it is held by nobody on the day, so no old role implies it", () => {
+    for (const held of [
+      ["EDIT_RECORDS"],
+      ["EDIT_RECORDS", "MANAGE_SETTINGS", "APPROVE_LEAVE_ALL"],
+      ["ISSUE_QUERIES", "DECIDE_QUERIES"],
+    ] as const) {
+      expect(
+        withLegacyExpansion(toPermissionSet([...held])).has("DRAFT_QUERIES"),
+      ).toBe(false);
+    }
+  });
+
   it("does not widen the other direction", () => {
     const set = withLegacyExpansion(toPermissionSet(["ISSUE_QUERIES"]));
     expect(set.has("EDIT_RECORDS")).toBe(false);

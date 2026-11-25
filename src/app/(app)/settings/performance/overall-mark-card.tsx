@@ -2,12 +2,18 @@
 
 import { Card, CardBody, CardHeader, Switch, useToast } from "@/components/ui";
 import {
-  overallMarkHeader,
   overallMarkSavedTitle,
   overallMarkSwitchNote,
   type ManagerAppraisalPart,
 } from "@/lib/performance/overall-mark-wording";
 import { useFeatureSettings } from "@/lib/store/features";
+import {
+  LOADING,
+  LOAD_FAILED,
+  NOT_ON_SERVER,
+  NO_SERVER,
+  READ_ONLY,
+} from "./setting-copy";
 
 /**
  * Whether an appraisal form ends with an overall mark.
@@ -43,9 +49,9 @@ import { useFeatureSettings } from "@/lib/store/features";
  * A manager's overall mark used to be shown beside the score and never counted,
  * and this card said so. It counts where a period weights the Manager appraisal
  * part, and then a manager's form asks for it **whatever this switch says**, and
- * needs it. So where the server has that part the card says, in the header, in
- * the line under the switch and in the toast, that the switch is about what a form
- * offers and names the exception, and says nothing about whether the mark counts:
+ * needs it. So where the server has that part the card names the exception in
+ * the line under the switch and in the toast, and says nothing about whether the
+ * mark counts:
  * that is the weights tab's, in the API's words. A server that predates the part
  * has no such exception, and the card says what it always did. **Where the weights
  * are not in yet, or could not be read, nothing is known** and the card says
@@ -92,8 +98,7 @@ export function OverallMarkCard({
       toast.push({
         tone: "success",
         title: overallMarkSavedTitle(next, managerAppraisal),
-        detail:
-          "It applies to the next form anybody opens. Marks already given are not touched.",
+        detail: "Applies to forms opened from now on.",
       });
       onChanged();
     } catch (error) {
@@ -108,42 +113,31 @@ export function OverallMarkCard({
   return (
     <Card>
       <CardHeader
-        title="Overall mark on appraisals"
+        title="Overall rating"
         level={3}
-        description={overallMarkHeader(on, managerAppraisal)}
+        info="It applies to forms opened from now on. A rating already given never changes."
       />
       <CardBody className="flex flex-col gap-4">
         {reading ? (
-          <p className="text-body-sm text-muted">Reading the setting</p>
+          <p className="text-body-sm text-muted">{LOADING}</p>
         ) : switchable ? (
           <>
             <Switch
-              label="Ask for an overall mark at the end of an appraisal"
+              label="Ask for an overall rating at the end of each appraisal"
               description={overallMarkSwitchNote(managerAppraisal)}
               checked={on}
               disabled={!features.editable || features.saving === "overallMark"}
               onChange={(event) => void set(event.target.checked)}
             />
-            <p className="text-body-sm text-muted">
-              It applies to the next form anybody opens. A mark already given is
-              never removed or changed.
-            </p>
             {!features.editable && (
-              <p className="text-body-sm text-muted">
-                Read-only: changing this needs the Manage settings permission.
-              </p>
+              <p className="text-body-sm text-muted">{READ_ONLY}</p>
             )}
           </>
         ) : failed ? (
-          <p className="text-body-sm text-muted">
-            The setting could not be read, so no switch is shown rather than a
-            guess. Reload the page to try again.
-          </p>
+          <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
         ) : (
           <p className="text-body-sm text-muted">
-            {connected
-              ? "This server has not been updated to offer this setting yet, so there is nothing to switch. Forms do not ask for an overall mark until it is."
-              : "Whether forms ask for an overall mark is a company setting kept on the server, so there is nothing to switch here."}
+            {connected ? NOT_ON_SERVER : NO_SERVER}
           </p>
         )}
       </CardBody>

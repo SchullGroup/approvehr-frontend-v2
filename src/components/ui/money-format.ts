@@ -29,23 +29,27 @@ export function formatMoney(
   options: { compact?: boolean; decimals?: boolean } = {},
 ): string {
   const { compact = false, decimals = false } = options;
+  /* A minus goes before the naira sign, as a true minus: "−₦80,000", never
+     "₦-80,000" (UAT 23 Nov, L16: NC-32). */
+  const sign = amount < 0 ? "−" : "";
+  const size = Math.abs(amount);
 
-  if (compact && Math.abs(amount) >= 1000) {
+  if (compact && size >= 1000) {
     const units = [
       { limit: 1_000_000_000, suffix: "b" },
       { limit: 1_000_000, suffix: "m" },
       { limit: 1_000, suffix: "k" },
     ];
     for (const { limit, suffix } of units) {
-      if (Math.abs(amount) >= limit) {
-        const scaled = amount / limit;
+      if (size >= limit) {
+        const scaled = size / limit;
         const text = scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1);
-        return `${SYMBOLS[currency]}${text.replace(/\.0$/, "")}${suffix}`;
+        return `${sign}${SYMBOLS[currency]}${text.replace(/\.0$/, "")}${suffix}`;
       }
     }
   }
 
-  return `${SYMBOLS[currency]}${amount.toLocaleString("en-NG", {
+  return `${sign}${SYMBOLS[currency]}${size.toLocaleString("en-NG", {
     minimumFractionDigits: decimals ? 2 : 0,
     maximumFractionDigits: decimals ? 2 : 0,
   })}`;

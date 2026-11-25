@@ -68,7 +68,10 @@ import {
   Textarea,
   Timeline,
   useToast,
+  type EmptyMood,
 } from "@/components/ui";
+import { MOOD_FIGURE } from "@/components/ui/feedback";
+import type { PeepName } from "@/lib/peeps";
 
 /* -------------------------------------------------------------------------- */
 
@@ -604,10 +607,22 @@ export function FeedbackDemo() {
         <p className="mt-3 max-w-prose text-body-sm text-muted">
           Open Peeps figures (CC0), drawn as they are and never recoloured, on
           the page itself; in the dark theme they get the light Wellness
-          sticker. For the good-news empty state and the plainly finished flow
-          only: never in a card in a grid, on an error, a missing permission or
-          a part-done outcome.
+          sticker. A full-size empty state draws one by its <code>mood</code>
+          (the default follows its action), and a finished flow can take one.
+          Never in a card in a grid, on a compact state, an error, a missing
+          permission, a record that is not there or a part-done outcome: those
+          keep their icon (<code>plain</code>).
         </p>
+        <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
+          {(Object.entries(MOOD_FIGURE) as [EmptyMood, PeepName][]).map(
+            ([mood, figure]) => (
+              <li key={mood} className="flex flex-col items-center gap-2">
+                <Illustration name={figure} height={96} />
+                <span className="text-meta text-muted">{mood}</span>
+              </li>
+            ),
+          )}
+        </ul>
       </Row>
 
       <Row label="No connection">

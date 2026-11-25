@@ -8,15 +8,14 @@ import {
   Button,
   ButtonLink,
   EmptyState,
-  IconButton,
+  RowActions,
   SegmentedControl,
   LoadState,
   Skeleton,
   useToast,
   type BadgeTone,
-  Illustration,
+  type EmptyMood,
 } from "@/components/ui";
-import type { PeepName } from "@/lib/peeps";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { dayHeading, dayKey, fullStamp, timeLabel } from "@/lib/audit/language";
@@ -110,24 +109,37 @@ const VERBS: Record<string, { decisive: string; neutral: string }> = {
 
 const FALLBACK_VERB = { decisive: "Open", neutral: "Open" };
 
+/**
+ * Notifications that are the message and nothing more, so the row has no button.
+ *
+ * A birthday greeting arrives with `actionHref: "/dashboard"`, and the greeting on
+ * the dashboard is there for one day. A button to it would be a link to nowhere
+ * from the second morning on, and there is nothing there to open the day it
+ * arrives either: the words are already in the row. Matched on `entityType`, what
+ * the message is about, and never on `ruleId`, which is the event key only until a
+ * company adds a rule row of its own and is that row's id after.
+ */
+const MESSAGE_ONLY = new Set(["birthday"]);
+
 const EMPTY_COPY: Record<
   InboxTab,
-  { title: string; description: string; art?: PeepName }
+  { title: string; description: string; mood: EmptyMood }
 > = {
   all: {
     title: "Nothing here yet",
     description:
       "Approvals, payslips and filing reminders will appear here as they happen.",
+    mood: "nothing",
   },
   action: {
     title: "Nothing needs you",
     description: "Anything waiting on your decision will appear here.",
-    art: "coffee-break",
+    mood: "caught-up",
   },
   unread: {
     title: "All read",
     description: "New messages will appear here as they arrive.",
-    art: "coffee-break",
+    mood: "caught-up",
   },
 };
 
@@ -222,9 +234,7 @@ export function NotificationsInbox() {
             <div className="rounded-xl border border-line bg-surface">
               <EmptyState
                 icon={<BellOff aria-hidden="true" />}
-                {...(EMPTY_COPY[tab].art
-                  ? { art: <Illustration name={EMPTY_COPY[tab].art} /> }
-                  : {})}
+                mood={EMPTY_COPY[tab].mood}
                 title={EMPTY_COPY[tab].title}
                 description={EMPTY_COPY[tab].description}
               />
@@ -309,6 +319,10 @@ function Row({
   const verbs =
     (item.entityType ? VERBS[item.entityType] : undefined) ?? FALLBACK_VERB;
   const verb = decisive ? verbs.decisive : verbs.neutral;
+  const destination =
+    item.entityType !== null && MESSAGE_ONLY.has(item.entityType)
+      ? null
+      : item.actionHref;
 
   return (
     <li
@@ -358,9 +372,9 @@ function Row({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
-        {item.actionHref && (
+        {destination && (
           <ButtonLink
-            href={item.actionHref}
+            href={destination}
             variant={decisive ? "accent" : "secondary"}
             size="sm"
             onClick={onOpen}
@@ -368,24 +382,28 @@ function Row({
             {verb}
           </ButtonLink>
         )}
-        {!item.read && (
-          <IconButton
-            label={`Mark “${item.title}” read`}
-            size="sm"
-            disabled={busy}
-            onClick={onMarkRead}
-          >
-            <Check aria-hidden="true" className="size-4" />
-          </IconButton>
-        )}
-        <IconButton
-          label={`Remove “${item.title}”`}
-          size="sm"
+        {/* One button and one menu, not three small buttons on a phone
+            (UAT 23 Nov, L29: SELF-22). */}
+        <RowActions
+          label={`More for “${item.title}”`}
           disabled={busy}
-          onClick={onDismiss}
-        >
-          <X aria-hidden="true" className="size-4" />
-        </IconButton>
+          items={[
+            ...(!item.read
+              ? [
+                  {
+                    label: "Mark read",
+                    icon: <Check aria-hidden="true" className="size-4" />,
+                    onSelect: onMarkRead,
+                  },
+                ]
+              : []),
+            {
+              label: "Remove",
+              icon: <X aria-hidden="true" className="size-4" />,
+              onSelect: onDismiss,
+            },
+          ]}
+        />
       </div>
     </li>
   );

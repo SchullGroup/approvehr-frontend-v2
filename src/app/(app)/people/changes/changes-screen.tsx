@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { TrendingUp } from "lucide-react";
 import {
   Badge,
@@ -28,6 +29,9 @@ import {
   useEmploymentChanges,
 } from "@/lib/store/employment-changes";
 import { money } from "@/lib/pay/flags";
+import { LinkedQueryLine } from "@/components/queries/linked-query";
+import { readableDate } from "@/lib/audit/language";
+import { useGrades } from "@/lib/store/grades";
 import { ProposeChangeDialog } from "./propose-dialog";
 import { DecideChangeDialog } from "./decide-dialog";
 
@@ -51,12 +55,22 @@ export function ChangesScreen() {
   const { rows, loading, error, unavailable, reload } = useEmploymentChanges();
   const [proposing, setProposing] = useState(false);
   const [deciding, setDeciding] = useState<ApiEmploymentChangeRow | null>(null);
+  /* `?change=<id>` is where My approvals sends somebody to decide a promotion
+     or pay change (U17): the change opens in its decide dialog. Derived, not
+     copied into state, so it opens on the first paint once the rows are in;
+     closing it is remembered so it does not open again. */
+  const linked = useSearchParams().get("change");
+  const [linkClosed, setLinkClosed] = useState(false);
 
   /* Two separate calls rather than `canEdit && canApprove`: `&&`
      short-circuits, which makes the second a conditional hook and changes the
      hook order on any render where the first is false. `attendance-screen.tsx`
      carries the same warning. */
   const canApprove = useCan("APPROVE_EMPLOYMENT_CHANGE");
+  /* So a regrade names the grade (UAT 23 Nov, L13: HR-27). The read is gated on
+     the pay permissions inside the hook; without them it stays "a new grade". */
+  const grades = useGrades();
+  const gradeNames = new Map(grades.rows.map((g) => [g.id, g.name]));
 
   /* The one loading and failure rule, as a gate over the whole screen: both
      cards below say things about what is waiting and what is agreed, and a
@@ -76,6 +90,11 @@ export function ChangesScreen() {
   }
 
   const waiting = rows.filter((row) => row.status === "PENDING_APPROVAL");
+  const fromLink =
+    linked && !linkClosed && canApprove
+      ? (waiting.find((row) => row.id === linked) ?? null)
+      : null;
+  const open = deciding ?? fromLink;
   const agreed = rows.filter((row) => row.status === "SCHEDULED");
   /* A scheduled change whose date has passed means the sweep has not run. Worth
      seeing, because the alternative is inferring it from two timestamps. */
@@ -94,9 +113,9 @@ export function ChangesScreen() {
           tone="warning"
           title={`${overdueToApply.length} agreed ${overdueToApply.length === 1 ? "change has" : "changes have"} passed their date and not been written`}
         >
-          These should have taken effect by now. The job that writes them runs
-          daily, if this is still here tomorrow, the worker is not running, and
-          the people below are being paid on their old terms.
+          They should have taken effect by now, and until they are written the
+          people below are paid on their old terms. If this is still here
+          tomorrow, tell whoever looks after ApproveHR.
         </Callout>
       )}
 
@@ -125,6 +144,7 @@ export function ChangesScreen() {
           <CardBody className="text-body-sm text-muted">Loading…</CardBody>
         ) : waiting.length === 0 ? (
           <EmptyState
+            mood="caught-up"
             icon={<TrendingUp aria-hidden="true" className="size-5" />}
             title="Nothing waiting"
             description={
@@ -146,6 +166,8 @@ export function ChangesScreen() {
               {waiting.map((row) => (
                 <TR key={row.id}>
                   <TDPrimary
+                    avatar={row.name}
+                    className="whitespace-nowrap"
                     title={
                       <Link
                         href={`/people/${row.employeeId}`}
@@ -160,12 +182,27 @@ export function ChangesScreen() {
                     <div className="flex flex-col gap-1">
                       <Badge tone="neutral">{row.kindLabel}</Badge>
                       <span className="text-body-sm text-muted">
-                        {summarise(row)}
+                        {summarise(row, gradeNames)}
                       </span>
                     </div>
                   </TD>
-                  <TD className="tabular-nums">{row.effectiveOn}</TD>
-                  <TD className="text-body-sm text-muted">{row.note}</TD>
+                  <TD className="tabular-nums whitespace-nowrap">
+                    {readableDate(row.effectiveOn)}
+                  </TD>
+                  <TD className="max-w-xs text-body-sm text-muted">
+                    <span
+                      className="line-clamp-2"
+                      title={row.note ?? undefined}
+                    >
+                      {row.note}
+                    </span>
+                    {/* The query it followed, only where the server sent one. */}
+                    <LinkedQueryLine
+                      queryId={row.queryId}
+                      reference={row.queryReference}
+                      className="mt-1 text-meta text-muted"
+                    />
+                  </TD>
                   <TD className="text-right">
                     {canApprove && (
                       <Button
@@ -206,6 +243,8 @@ export function ChangesScreen() {
               {agreed.map((row) => (
                 <TR key={row.id}>
                   <TDPrimary
+                    avatar={row.name}
+                    className="whitespace-nowrap"
                     title={
                       <Link
                         href={`/people/${row.employeeId}`}
@@ -220,23 +259,19 @@ export function ChangesScreen() {
                     <div className="flex flex-col gap-1">
                       <Badge tone="neutral">{row.kindLabel}</Badge>
                       <span className="text-body-sm text-muted">
-                        {summarise(row)}
+                        {summarise(row, gradeNames)}
                       </span>
                     </div>
                   </TD>
-                  <TD className="tabular-nums">
-                    {row.daysUntilEffective < 0 ? (
-                      <Badge tone="warning">{row.effectiveOn} — overdue</Badge>
-                    ) : (
-                      <span>
-                        {row.effectiveOn}
-                        <span className="text-muted">
-                          {row.daysUntilEffective === 0
-                            ? " (today)"
-                            : ` (in ${row.daysUntilEffective} days)`}
-                        </span>
-                      </span>
-                    )}
+                  <TD className="tabular-nums whitespace-nowrap">
+                    {readableDate(row.effectiveOn)}
+                    <span className="block text-meta text-muted">
+                      {row.daysUntilEffective < 0
+                        ? "Late, not written yet"
+                        : row.daysUntilEffective === 0
+                          ? "Today"
+                          : `In ${row.daysUntilEffective} ${row.daysUntilEffective === 1 ? "day" : "days"}`}
+                    </span>
                   </TD>
                   <TD className="text-right">
                     <Can permission="EDIT_RECORDS">
@@ -258,8 +293,14 @@ export function ChangesScreen() {
       )}
 
       {proposing && <ProposeChangeDialog onClose={() => setProposing(false)} />}
-      {deciding && (
-        <DecideChangeDialog row={deciding} onClose={() => setDeciding(null)} />
+      {open && (
+        <DecideChangeDialog
+          row={open}
+          onClose={() => {
+            setDeciding(null);
+            setLinkClosed(true);
+          }}
+        />
       )}
     </div>
   );
@@ -274,7 +315,10 @@ export function ChangesScreen() {
  * naming a department would cost this screen a second read, and the kind badge
  * beside it already says which sort of move it is.
  */
-export function summarise(row: ApiEmploymentChangeRow): string {
+export function summarise(
+  row: ApiEmploymentChangeRow,
+  gradeNames?: ReadonlyMap<string, string>,
+): string {
   const to = row.toValue;
   if (!to) return "";
   const parts: string[] = [];
@@ -285,7 +329,10 @@ export function summarise(row: ApiEmploymentChangeRow): string {
     parts.push(`${money(to.grossMonthlyKobo)} a month`);
   }
   if (to.departmentId !== undefined) parts.push("new department");
-  if (to.salaryGradeId !== undefined) parts.push("new grade");
+  if (to.salaryGradeId !== undefined) {
+    const grade = to.salaryGradeId ? gradeNames?.get(to.salaryGradeId) : null;
+    parts.push(grade ? `to ${grade}` : "new grade");
+  }
   if (to.managerId !== undefined) parts.push("new manager");
   if (to.workLocationId !== undefined) parts.push("new office");
   return parts.join(" · ");

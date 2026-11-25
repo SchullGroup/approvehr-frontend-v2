@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { DECIDING_PERMISSIONS } from "@/components/portal/nav";
 import { Button } from "@/components/ui";
 import { useDismiss } from "@/hooks/use-dismiss";
 import type { FeatureKey } from "@/lib/api/setup";
@@ -97,10 +97,8 @@ type Step = {
    * reader they personally can turn one on, which is exactly the ability the
    * settings step further down is already withheld from them for.
    *
-   * `canApprove` is for the approvals step, for the same reason in reverse: a
-   * non-approver still has real business on that screen — tracking what they
-   * themselves sent in — so the step stays for everyone, and only the
-   * sentence changes to match what they can actually do there.
+   * `canApprove` decides whether the approvals step is shown at all: the
+   * sidebar draws My approvals only for somebody who decides something.
    */
   body: string | ((ctx: StepBodyCtx) => string);
   /** Tried in order — the first rendered and visible one is pointed at. */
@@ -148,7 +146,37 @@ function visibleSteps(
    Only 5 and 6 are reachable — `MANAGE_SETTINGS` is the one thing left that
    changes the length — and the numeral is there so a seventh step cannot
    make this render "undefined things". */
-const WORD: Record<number, string> = { 5: "Five", 6: "Six" };
+const WORD: Record<number, string> = {
+  3: "Three",
+  4: "Four",
+  5: "Five",
+  6: "Six",
+};
+
+/** The width the header search appears at (`md:flex` in `shell.tsx`). */
+const WIDE = "(min-width: 768px)";
+
+/**
+ * Whether the header search is on screen. A phone has no search in its header,
+ * so the step about it is left out there (UAT 23 Nov, L28: SELF-19). Read
+ * through `useSyncExternalStore` so a rotation is heard, and `true` on the
+ * server, where there is no screen to ask.
+ */
+function useWideScreen(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      if (typeof window.matchMedia !== "function") return () => undefined;
+      const query = window.matchMedia(WIDE);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    /* A browser with no `matchMedia` is treated as wide: the step stays. */
+    () =>
+      typeof window.matchMedia !== "function" ||
+      window.matchMedia(WIDE).matches,
+    () => true,
+  );
+}
 
 /**
  * Exported so a test can hold every step's targets to something the sidebar
@@ -199,21 +227,23 @@ export const TOUR_STEPS: readonly Step[] = [
       '[data-tour="nav-item:/people/leave"]',
       '[data-tour="nav-group:time"]',
       '[data-tour="nav"]',
+      /* On a phone the sidebar is behind the menu button, so that is what
+         this points at rather than at nothing (UAT 23 Nov, L28). */
+      '[data-tour="nav-toggle"]',
     ],
     always: true,
   },
   {
     id: "approvals",
     title: "Waiting on you, and sent by you",
-    body: ({ canApprove }) =>
-      canApprove
-        ? "Leave, expenses, staff loans and payroll all put what needs a " +
-          "decision in this one queue, oldest deadline first, so there is " +
-          "no module to remember to check."
-        : "Approving isn't part of your role, and this screen says so if " +
-          "you ever wonder. Switch to Sent by you to see where a leave " +
-          "request, or anything else you've sent off, currently stands, " +
-          "without having to ask.",
+    /* Only for somebody who decides something: the sidebar has no My approvals
+       row for anybody else (UAT 23 Nov, U57), so there is nothing to point at. */
+    /* Worded for anybody who decides something, not only an administrator: a
+       line manager deciding leave alone was told staff loans and payroll came
+       here too (UAT 23 Nov, L28: SELF-19). */
+    body:
+      "Whatever needs your decision lands in this one queue, oldest " +
+      "deadline first, so there is no module to remember to check.",
     target: ['[data-tour="nav-item:/approvals"]', '[data-tour="nav"]'],
     always: true,
   },
@@ -231,11 +261,10 @@ export const TOUR_STEPS: readonly Step[] = [
   },
   {
     id: "settings",
-    title: "What is still to set up",
+    title: "Every setting in one place",
     body:
-      "Settings keeps a checklist of what a payroll needs before it can run: " +
-      "work locations, leave, pay, who can approve, and marks off what you " +
-      "have already done.",
+      "Settings lists every page in six groups, and says beside each setup " +
+      "page whether it is done.",
     /* Settings is its own link when it is all this person has under that name,
        and a row that opens Settings and Roles when they have both. */
     target: [
@@ -266,7 +295,7 @@ export function GuidedTour() {
      someone's manager, or somebody holding only `APPROVE_LOANS`, has real
      work in that queue and would never have been told about it. */
   const canApprove =
-    isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+    isManager || hasAnyPermission(permissions, DECIDING_PERMISSIONS);
   const canSettings = hasPermission(permissions, "MANAGE_SETTINGS");
 
   /**
@@ -309,17 +338,26 @@ export function GuidedTour() {
     return () => window.removeEventListener(TOUR_OPEN, onOpen);
   }, []);
 
+  const wide = useWideScreen();
   const steps = useMemo(
-    () => visibleSteps(TOUR_STEPS, permissions, features),
-    [permissions, features],
+    () =>
+      visibleSteps(TOUR_STEPS, permissions, features).filter(
+        (step) =>
+          (step.id !== "approvals" || canApprove) &&
+          (step.id !== "search" || wide),
+      ),
+    [permissions, features, canApprove, wide],
   );
 
   /* Auto-opens only for a real account that has not seen it. `features` is
      read so the sidebar has settled before anything points at it — a tour that
      opens mid-load points at a nav that is about to change size. */
-  const unseen = isConnected && !tourSeen && !features.loading;
-  /* `steps.length === 0` can't happen today — welcome, nav, yours, approvals
-     and search all carry `always: true` — but folding it into `useDismiss`'s
+  /* Not for somebody who sets the company up (UAT 23 Nov, U43, NC-17): they
+     have just finished the setup wizard, and a tour on top of it was the second
+     of three layers. They can still take it from the account menu. */
+  const unseen = isConnected && !tourSeen && !features.loading && !canSettings;
+  /* `steps.length === 0` can't happen today — welcome, nav, yours and search
+     all carry `always: true` — but folding it into `useDismiss`'s
      input rather than a second early return keeps the "should this be open"
      question in one place. */
   const wantOpen = (asked ?? unseen) && steps.length > 0;
@@ -359,9 +397,15 @@ export function GuidedTour() {
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <Button variant="ghost" size="sm" onClick={close}>
-          {last ? "Done" : "Skip"}
-        </Button>
+        {/* One way out on the last step, Done, rather than Done beside Finish
+            (UAT 23 Nov, L28). */}
+        {last ? (
+          <span />
+        ) : (
+          <Button variant="ghost" size="sm" onClick={close}>
+            Skip
+          </Button>
+        )}
         <div className="flex gap-2">
           {index > 0 && (
             <Button
@@ -377,7 +421,7 @@ export function GuidedTour() {
             size="sm"
             onClick={() => (last ? close() : setStepId(steps[index + 1]!.id))}
           >
-            {last ? "Finish" : "Next"}
+            {last ? "Done" : "Next"}
           </Button>
         </div>
       </div>

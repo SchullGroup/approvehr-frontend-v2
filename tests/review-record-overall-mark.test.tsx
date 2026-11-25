@@ -128,7 +128,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("showsOverallMark", () => {
-  it("shows none given only where the company asks for a mark", () => {
+  it("shows none given only where the company asks for a score", () => {
     expect(showsOverallMark({ rating: null, overallMark: true })).toBe(true);
     expect(showsOverallMark({ rating: null, overallMark: false })).toBe(false);
   });
@@ -137,30 +137,30 @@ describe("showsOverallMark", () => {
     expect(showsOverallMark({ rating: null })).toBe(false);
   });
 
-  it("shows a mark that was given, whatever the setting says now", () => {
+  it("shows a score that was given, whatever the setting says now", () => {
     expect(showsOverallMark({ rating: 4, overallMark: false })).toBe(true);
     expect(showsOverallMark({ rating: 4 })).toBe(true);
     expect(showsOverallMark({ rating: 4, overallMark: true })).toBe(true);
   });
 
-  it("does not take a mark of nought for an absence", () => {
+  it("does not take a score of nought for an absence", () => {
     /* Not a value the scale produces, but the check is `!== null`, never
        falsiness: absent is absent and zero is a number. */
     expect(showsOverallMark({ rating: 0, overallMark: false })).toBe(true);
   });
 });
 
-describe("a manager's record where the company does not ask for an overall mark", () => {
+describe("a manager's record where the company does not ask for an overall rating", () => {
   beforeEach(() => {
     state.review = review({ overallMark: false });
     state.score = score(null);
   });
 
-  it("says nothing about an overall mark nobody could give", () => {
+  it("says nothing about an overall rating nobody could give", () => {
     mount();
-    expect(screen.queryByText("Overall mark")).toBeNull();
+    expect(screen.queryByText("Overall rating")).toBeNull();
     expect(screen.queryByText("None given")).toBeNull();
-    expect(screen.queryByText(/No overall mark/)).toBeNull();
+    expect(screen.queryByText(/No overall rating/)).toBeNull();
     expect(screen.queryByText("Appraisers' overall rating")).toBeNull();
   });
 
@@ -176,17 +176,17 @@ describe("a manager's record where the company does not ask for an overall mark"
     expect(screen.getByText("Objectives agreed")).toBeInTheDocument();
   });
 
-  it("still shows a mark that was given before the setting was switched off", () => {
+  it("still shows a score that was given before the setting was switched off", () => {
     state.review = review({ overallMark: false, rating: 4 });
     state.score = score(7500);
     mount();
-    expect(screen.getByText("Overall mark")).toBeInTheDocument();
+    expect(screen.getByText("Overall rating")).toBeInTheDocument();
     expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
     expect(screen.getByText("Appraisers' overall rating")).toBeInTheDocument();
   });
 });
 
-describe("a manager's record where the company asks for an overall mark", () => {
+describe("a manager's record where the company asks for an overall rating", () => {
   beforeEach(() => {
     state.review = review({ overallMark: true });
     state.score = score(null);
@@ -194,15 +194,15 @@ describe("a manager's record where the company asks for an overall mark", () => 
 
   it("says none was given, rather than leaving the row out", () => {
     mount();
-    expect(screen.getByText("Overall mark")).toBeInTheDocument();
+    expect(screen.getByText("Overall rating")).toBeInTheDocument();
     expect(screen.getByText("None given")).toBeInTheDocument();
     expect(
-      screen.getByText("No overall mark. The answers stand on their own."),
+      screen.getByText("No overall rating. The answers stand on their own."),
     ).toBeInTheDocument();
     expect(screen.getByText("Appraisers' overall rating")).toBeInTheDocument();
   });
 
-  it("shows the mark in the company's own words when there is one", () => {
+  it("shows the score in the company's own words when there is one", () => {
     state.review = review({ overallMark: true, rating: 3 });
     mount();
     expect(screen.queryByText("None given")).toBeNull();
@@ -214,7 +214,7 @@ describe("a record from a server that does not send the setting", () => {
   it("is treated as off, so it does not show an empty row either", () => {
     state.review = review();
     mount();
-    expect(screen.queryByText("Overall mark")).toBeNull();
+    expect(screen.queryByText("Overall rating")).toBeNull();
     expect(screen.queryByText("None given")).toBeNull();
   });
 });
@@ -241,9 +241,9 @@ describe("a self-review's record", () => {
       screen.getByText("Shown beside the manager's review."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/does not count towards the final mark/),
+      screen.queryByText(/does not count towards the final score/),
     ).toBeNull();
-    expect(screen.queryByText("Overall mark")).toBeNull();
+    expect(screen.queryByText("Overall rating")).toBeNull();
     expect(screen.getByText("Written by")).toBeInTheDocument();
   });
 
@@ -254,12 +254,12 @@ describe("a self-review's record", () => {
       screen.getByRole("heading", { name: "The self-rating" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/does not count towards the final mark unless/),
+      screen.getByText(/does not count towards the final score unless/),
     ).toBeInTheDocument();
     expect(screen.getByText("None given")).toBeInTheDocument();
   });
 
-  it("stays the self-rating when a mark was given, whatever the setting says now", () => {
+  it("stays the self-rating when a score was given, whatever the setting says now", () => {
     state.review = {
       ...(state.review as object),
       overallMark: false,
@@ -273,7 +273,7 @@ describe("a self-review's record", () => {
   });
 });
 
-describe("the overall marks beside each other, on a manager's record with the self review in", () => {
+describe("the overall ratings beside each other, on a manager's record with the self review in", () => {
   const selfReview = (over: Partial<ApiReviewDetail> = {}) =>
     review({
       id: "r-self",
@@ -284,15 +284,15 @@ describe("the overall marks beside each other, on a manager's record with the se
       ...over,
     });
 
-  it("has no row for either overall mark where the company does not ask and nobody gave one", () => {
+  it("has no row for either overall rating where the company does not ask and nobody gave one", () => {
     state.review = review({ overallMark: false });
     state.self = selfReview({ overallMark: false });
     mount();
     expect(
       screen.getByRole("heading", { name: "Self review and manager review" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Overall mark")).toBeNull();
-    expect(screen.queryByText("Their overall mark")).toBeNull();
+    expect(screen.queryByText("Overall rating")).toBeNull();
+    expect(screen.queryByText("Their overall rating")).toBeNull();
   });
 
   it("is one row, with the manager's and the person's, and none given where the company asks and they gave none", () => {
@@ -300,27 +300,27 @@ describe("the overall marks beside each other, on a manager's record with the se
     state.self = selfReview({ overallMark: true });
     mount();
     /* One row, not the manager's in the top card and both again below. */
-    expect(screen.getAllByText("Overall mark")).toHaveLength(1);
-    const row = within(screen.getByText("Overall mark").closest("li")!);
+    expect(screen.getAllByText("Overall rating")).toHaveLength(1);
+    const row = within(screen.getByText("Overall rating").closest("li")!);
     expect(row.getByText("Exceeds Expectations")).toBeInTheDocument();
     expect(row.getByText("None given")).toBeInTheDocument();
   });
 
-  it("shows the mark they gave, whatever the setting says now", () => {
+  it("shows the score they gave, whatever the setting says now", () => {
     state.review = review({ overallMark: false });
     state.self = selfReview({ overallMark: false, rating: 5 });
     mount();
-    const row = within(screen.getByText("Overall mark").closest("li")!);
+    const row = within(screen.getByText("Overall rating").closest("li")!);
     expect(row.getByText("Exceptional")).toBeInTheDocument();
   });
 
-  it("keeps the manager's own mark in the top card when there is no self review to put beside it", () => {
+  it("keeps the manager's own score in the top card when there is no self review to put beside it", () => {
     state.review = review({ overallMark: true, rating: 4 });
     state.self = null;
     mount();
-    expect(screen.getAllByText("Overall mark")).toHaveLength(1);
+    expect(screen.getAllByText("Overall rating")).toHaveLength(1);
     expect(
-      screen.getByText("Overall mark").closest(".rounded-lg"),
+      screen.getByText("Overall rating").closest(".rounded-lg"),
     ).not.toBeNull();
   });
 });
@@ -339,20 +339,20 @@ describe("making a rating final", () => {
       />,
     );
 
-  it("does not tell the manager there is no overall mark where the company does not ask for one", () => {
+  it("does not tell the manager there is no overall rating where the company does not ask for one", () => {
     renderDialog({ overallMark: false });
     const dialog = screen.getByRole("dialog");
     expect(
       within(dialog).getByText(/They will read the answers\./),
     ).toBeInTheDocument();
-    expect(within(dialog).queryByText(/no overall mark/i)).toBeNull();
+    expect(within(dialog).queryByText(/no overall rating/i)).toBeNull();
   });
 
   it("still says so where the company asks and none was given", () => {
     renderDialog({ overallMark: true });
     expect(
       within(screen.getByRole("dialog")).getByText(
-        /This form has no overall mark, so they will read the answers\./,
+        /This form has no overall rating, so they will read the answers\./,
       ),
     ).toBeInTheDocument();
   });
@@ -366,23 +366,23 @@ describe("making a rating final", () => {
     ).toBeInTheDocument();
   });
 
-  it("says the same in the account of what it recorded, where the company does not ask for a mark", async () => {
+  it("says the same in the account of what it recorded, where the company does not ask for a score", async () => {
     const user = userEvent.setup();
     renderDialog({ overallMark: false });
     await user.click(screen.getByRole("button", { name: "Make it final" }));
     expect(
       await screen.findByText("Emeka will read the answers."),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/no overall mark/i)).toBeNull();
+    expect(screen.queryByText(/no overall rating/i)).toBeNull();
   });
 
-  it("keeps saying there is no overall mark in that account where the company asks for one", async () => {
+  it("keeps saying there is no overall rating in that account where the company asks for one", async () => {
     const user = userEvent.setup();
     renderDialog({ overallMark: true });
     await user.click(screen.getByRole("button", { name: "Make it final" }));
     expect(
       await screen.findByText(
-        "Year-end review 2026 has no overall mark, so Emeka will read the answers.",
+        "Year-end review 2026 has no overall rating, so Emeka will read the answers.",
       ),
     ).toBeInTheDocument();
   });
@@ -396,7 +396,7 @@ describe("the statement that a rating is final", () => {
     subjectNotified: true,
   };
 
-  it("leaves out a mark that does not exist where the company does not ask", () => {
+  it("leaves out a score that does not exist where the company does not ask", () => {
     expect(finalisedCopy({ ...base, markShown: false }).lead).toBe(
       "Emeka will read the answers.",
     );
@@ -404,7 +404,7 @@ describe("the statement that a rating is final", () => {
 
   it("keeps the old wording where the company asks, and where nobody says", () => {
     const old =
-      "Year-end review 2026 has no overall mark, so Emeka will read the answers.";
+      "Year-end review 2026 has no overall rating, so Emeka will read the answers.";
     expect(finalisedCopy({ ...base, markShown: true }).lead).toBe(old);
     expect(finalisedCopy(base).lead).toBe(old);
   });

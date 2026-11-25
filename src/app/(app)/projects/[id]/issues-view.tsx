@@ -54,6 +54,7 @@ import {
   TAB_LABEL,
   TASK,
   count as countNoun,
+  isSimpleBoard,
 } from "@/lib/projects/terms";
 import { PRIORITY_LABEL } from "@/lib/projects/types";
 import { effectiveStatus, isDone } from "@/lib/projects/workflow";
@@ -79,6 +80,11 @@ export function IssuesView() {
     actions,
   } = useProject();
   const [sort, setSort] = useState(DEFAULT_SORT);
+  /* A simple board has no effort and no cycles (U104), so neither column, unless
+     a task already carries one: a value somebody set is not hidden. */
+  const simple = isSimpleBoard(project.type);
+  const effortColumn = !simple || issues.some((i) => i.points !== null);
+  const cycleColumn = !simple || issues.some((i) => i.sprintId !== null);
   const mayLink = useMayLinkIssue();
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [linking, setLinking] = useState(false);
@@ -245,8 +251,8 @@ export function IssuesView() {
           {th("status", STAGE.One)}
           {th("assignee", "Assignee")}
           {th("priority", "Priority")}
-          {th("points", EFFORT.One, "right")}
-          {th("sprint", CYCLE.One)}
+          {effortColumn && th("points", EFFORT.One, "right")}
+          {cycleColumn && th("sprint", CYCLE.One)}
           {th("due", "Due")}
           {th("updated", "Updated")}
         </THead>
@@ -320,12 +326,16 @@ export function IssuesView() {
                     {PRIORITY_LABEL[issue.priority]}
                   </span>
                 </TD>
-                <TD align="right" className="tabular">
-                  {issue.points ?? ""}
-                </TD>
-                <TD className="whitespace-nowrap text-muted">
-                  {sprint?.name ?? ""}
-                </TD>
+                {effortColumn && (
+                  <TD align="right" className="tabular">
+                    {issue.points ?? ""}
+                  </TD>
+                )}
+                {cycleColumn && (
+                  <TD className="whitespace-nowrap text-muted">
+                    {sprint?.name ?? ""}
+                  </TD>
+                )}
                 <TD
                   className={cn(
                     "tabular whitespace-nowrap",
@@ -343,7 +353,11 @@ export function IssuesView() {
           {rows.length === 0 && (
             <TR>
               <TD
-                colSpan={selectable ? 11 : 10}
+                colSpan={
+                  (selectable ? 11 : 10) -
+                  (effortColumn ? 0 : 1) -
+                  (cycleColumn ? 0 : 1)
+                }
                 className="py-8 text-center text-muted"
               >
                 {isFiltering(filter)

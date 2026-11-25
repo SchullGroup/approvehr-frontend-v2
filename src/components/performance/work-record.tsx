@@ -225,7 +225,7 @@ function Record({ record }: { record: ApiWorkRecord }) {
                     : row.goalId === null
                       ? "Not linked to an objective"
                       : row.keyResultTitle
-                        ? `${row.title} · KPI: ${row.keyResultTitle}`
+                        ? `${row.title} · Target: ${row.keyResultTitle}`
                         : row.title}
                 </p>
                 <p className="tabular text-body-sm text-muted">

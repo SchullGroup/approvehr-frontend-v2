@@ -14,43 +14,23 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import { OvertimePolicyFields } from "@/app/(app)/settings/overtime/form";
 import { PayrollSettingsForm } from "@/app/(app)/settings/payroll/form";
 import { PensionSchemePanel } from "./pension-scheme-panel";
 
 /**
- * What a payroll run carries besides salary — the Extras tab of Pay setup.
+ * Payroll settings: the Settings tab of Pay setup, and their one home (U80).
  *
- * ## Why this tab exists
+ * The same forms used to render here and on /settings/payroll, and this tab
+ * told people either page would do: two doors onto one value, and two pages
+ * called Pay setup (PAY-26, NC-30). /settings/payroll now leads here, so there
+ * is one door.
  *
- * The two tabs beside it hold the **standing** things pay is made of: a
- * transport allowance somebody gets every month, a cooperative deduction that
- * comes off every month. Overtime, the payroll rates and bases, and a bonus
- * are the rest of what decides a payslip, and each used to live only on its
- * own standalone settings page — a detour away from the module a company
- * actually works pay up in.
+ * Overtime is not repeated here any more. Its policy is a Time & Leave matter
+ * (when overtime counts and at what rate) and keeps its own page; this tab links
+ * to it. A bonus has no policy to speak of, so it keeps its single switch.
  *
- * ## Comprehensive on purpose, and how the risk in that is held
- *
- * This tab now renders the same forms `/settings/overtime` and
- * `/settings/payroll` render — `OvertimePolicyFields` and
- * `PayrollSettingsForm`, imported rather than rebuilt, and neither standalone
- * page is removed. Two doors onto one value is a deliberate trade, accepted
- * knowingly rather than by accident: the alternative was a second copy of the
- * same fields that could come to say something different from the one
- * somebody last saved. What actually closes that risk is architectural, not a
- * policy — every field here reads and writes through the identical hook
- * (`useOvertimePolicy()`, `usePayrollSettings()`) its standalone page already
- * uses, so there is one underlying value with two doors onto it, never two
- * copies that can drift apart in the data.
- *
- * A bonus has no policy to speak of — it is a one-off, decided per person on
- * one payroll rather than a standing rate — so it keeps its own single switch
- * here instead of growing a form with nothing to hold.
- *
- * The company's own payout account is a different entity from anything above
- * — who the money leaves from, not who or how much it pays — so it stays a
- * link to its own settings page rather than a field on this one.
+ * The company's own payout account is who the money leaves from, not who or
+ * how much it pays, so it stays a link to its own settings page.
  */
 
 export function ExtrasPanel() {
@@ -58,24 +38,28 @@ export function ExtrasPanel() {
 
   return (
     <div className="grid gap-4">
-      <Card>
-        <CardHeader
-          title="What a payroll carries, besides salary"
-          description="Everything below reads and writes through the same settings as the standalone pages, change it here or there, it's one value either way."
-          level={3}
-        />
-      </Card>
-
-      <OvertimePolicyFields />
+      <PayrollSettingsForm />
       <BonusSwitch canEdit={canEdit} />
       <WalletPayoutSwitch canEdit={canEdit} />
-      <PayrollSettingsForm />
       <PensionSchemePanel canEdit={canEdit} />
 
       <Card>
         <CardHeader
+          title="Overtime"
+          description="When overtime counts and what it pays are set with the rest of Time & Leave."
+          level={3}
+        />
+        <CardBody>
+          <TextLink href="/settings/overtime" className="text-body-sm">
+            Open overtime settings
+          </TextLink>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
           title="Payout account"
-          description="Where the company's own payroll payments are sent from, a different setting from anything above, so it stays on its own page."
+          description="Where the company's own payroll payments are sent from."
           level={3}
         />
         <CardBody>

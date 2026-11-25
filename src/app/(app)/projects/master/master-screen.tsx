@@ -38,6 +38,7 @@ import {
   UNASSIGNED,
   UNASSIGNED_ID,
   count,
+  nounFor,
   type MasterViewId,
 } from "@/lib/projects/terms";
 import {
@@ -368,6 +369,14 @@ function WorkloadTab() {
   const people = [...merged.values()].sort(
     (a, b) => b.open - a.open || a.name.localeCompare(b.name),
   );
+  /* Projects in no program have no per-person count on the API, so the bars
+     cannot include them; the Open figure above does. Said, rather than
+     "Nothing open" beside "Open 12" (UAT 23 Nov, U104 / PERF-32). */
+  const outside = rollup.data?.unassigned ?? null;
+  const outsideLine =
+    outside && outside.open > 0
+      ? `${outside.open} open ${nounFor(outside.open, "task")} ${outside.open === 1 ? "is" : "are"} in ${count(outside.projects, "project")} outside any program. This view counts tasks by person only inside programs; they are all under All tasks.`
+      : null;
   const loading = list.status === "loading" || rollups.status === "loading";
   const error =
     list.status === "error"
@@ -412,7 +421,9 @@ function WorkloadTab() {
             description="Open tasks by person across every program, the busiest first. A name opens that person's tasks."
           />
           <CardBody>
-            {people.length === 0 ? (
+            {people.length === 0 && outsideLine ? (
+              <p className="text-body-sm text-body">{outsideLine}</p>
+            ) : people.length === 0 ? (
               <EmptyState
                 compact
                 icon={<Users />}
@@ -435,6 +446,7 @@ function WorkloadTab() {
                   {programsLeftOut > 0
                     ? ` This reads the ${WORKLOAD_PROGRAMS} programs with the most open tasks; ${programsLeftOut} quieter ${programsLeftOut === 1 ? "program is" : "programs are"} not counted.`
                     : ""}
+                  {outsideLine ? ` ${outsideLine}` : ""}
                 </p>
               </>
             )}

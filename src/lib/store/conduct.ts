@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import {
   useCallback,
   useEffect,
@@ -95,6 +96,24 @@ export const LEVEL_ORDER: DisciplinaryLevel[] = [
 ];
 
 /**
+ * The levels a new warning may be recorded at.
+ *
+ * Not Dismissal (U48): recording it started no exit, no final pay and no
+ * checklist, so somebody was "dismissed" on paper and still employed. Ending
+ * somebody's employment is an exit, and the warning form links to one.
+ */
+export const OFFERED_LEVELS: DisciplinaryLevel[] = LEVEL_ORDER.filter(
+  (level) => level !== "DISMISSAL",
+);
+
+/** The offered levels, plus the record's own when it is no longer offered. */
+export function levelsToOffer(current: DisciplinaryLevel): DisciplinaryLevel[] {
+  return OFFERED_LEVELS.includes(current)
+    ? OFFERED_LEVELS
+    : [...OFFERED_LEVELS, current];
+}
+
+/**
  * One line per level, for the picker.
  *
  * Says what the level *is* in the working life of a small company — not what
@@ -121,24 +140,7 @@ export const LEVEL_TONE: Record<DisciplinaryLevel, BadgeTone> = {
 
 /** `2026-08-19` → `19 Aug 2026`. Long enough to be unambiguous on a legal record. */
 export function dayLabel(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  return formatDay(iso);
 }
 
 /**

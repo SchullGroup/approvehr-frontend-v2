@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { NineBoxScreen } from "./nine-box-screen";
 
 export const metadata: Metadata = {
-  title: "Nine-box",
+  title: "Talent map",
   description:
-    "Performance against potential for one appraisal period, with anyone the grid cannot place listed by name.",
+    "Who is ready for more, who to grow, and who needs a conversation, for one appraisal period.",
 };
 
 /**

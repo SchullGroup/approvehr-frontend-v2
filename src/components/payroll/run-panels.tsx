@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import { sourceNote } from "@/lib/demo";
 import {
@@ -21,6 +22,7 @@ import {
   CardBody,
   CardHeader,
   Modal,
+  ProgressMeter,
   type BadgeTone,
 } from "@/components/ui";
 import {
@@ -106,11 +108,14 @@ export function RunStatusBadge({ status }: { status: PayrollRunStatus }) {
  */
 export function ExceptionList({
   exceptions,
+  total,
   onRecheck,
   actionFor,
   replaceFixFor,
 }: {
   exceptions: RunException[];
+  /** How many people are on the run, so the progress line can say "52 of 60 ready". */
+  total?: number;
   /** Shown beside the heading when re-preparing is the way to clear these. */
   onRecheck?: React.ReactNode;
   /**
@@ -153,25 +158,26 @@ export function ExceptionList({
       <CardHeader
         title={
           blockers.length > 0
-            ? "Fix these before approving"
+            ? "Before you approve"
             : "Worth a look before approving"
         }
         action={onRecheck}
       />
       <CardBody className="flex flex-col gap-2.5">
-        {/* Blockers stay as rows, one each.
+        {/* Blockers: one progress line, the counts as plain text, ONE button.
             -------------------------------
-            They stop the run, there are rarely many, and each names a different
-            person to go and fix. Folding them away would hide the only thing on
-            this screen that has to be dealt with before anybody is paid. */}
-        {groupByCode(blockers).map((group) => (
-          <BlockerGroup
-            key={group.code}
-            group={group}
+            They stop the run, so they are not folded away, but they are not a
+            wall either: a count per kind and a single **Fix them** that opens
+            the people, each with the way to fix them. Names live in the
+            dialog, never on the page. */}
+        {blockers.length > 0 && (
+          <BlockerSummary
+            blockers={blockers}
+            total={total}
             actionFor={actionFor}
-            hideFix={replaceFixFor?.has(group.code) ?? false}
+            hideFix={(code) => replaceFixFor?.has(code) ?? false}
           />
-        ))}
+        )}
 
         {/* Warnings are grouped and closed.
             -------------------------------
@@ -271,57 +277,69 @@ function groupTitle(group: ExceptionGroup): string {
 }
 
 /**
- * One kind of blocker, as a single calm line.
+ * What stops the run, as a count and one next step.
  *
- * Fifty-two people with no bank account used to be fifty-two red boxes down the
- * page, which read as the system being broken. It is one thing, fifty-two times:
- * a line that says what and how many, and a button that opens the list in a
- * dialog with each person and the way to fix them. A lone blocker is still its
- * own row.
+ * Fifty-two people with no bank account used to be fifty-two red boxes, then
+ * one red box per kind. It is one thing to do: a progress line ("52 of 60
+ * ready"), a plain line per kind with its count, and one primary button that
+ * opens everybody with the way to fix each. Nothing here is red.
  */
-function BlockerGroup({
-  group,
+function BlockerSummary({
+  blockers,
+  total,
   actionFor,
   hideFix,
 }: {
-  group: ExceptionGroup;
-  actionFor?: (exception: RunException) => React.ReactNode;
-  hideFix: boolean;
+  blockers: RunException[];
+  total?: number | undefined;
+  actionFor?: ((exception: RunException) => React.ReactNode) | undefined;
+  hideFix: (code: string) => boolean;
 }) {
   const [open, setOpen] = useState(false);
-
-  if (group.rows.length === 1) {
-    return (
-      <ExceptionRow
-        exception={group.rows[0]!}
-        action={actionFor?.(group.rows[0]!)}
-        hideFix={hideFix}
-      />
-    );
-  }
-
+  const groups = groupByCode(blockers);
+  const people = new Set(
+    blockers.map((row) => row.employeeId).filter((id) => id !== null),
+  ).size;
+  const count = people > 0 ? people : blockers.length;
+  const ready =
+    total !== undefined && total >= count ? total - count : undefined;
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface p-3">
-        <p className="min-w-0 text-body-sm text-ink">{groupTitle(group)}</p>
-        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-          Review and fix
-        </Button>
+      <div className="flex flex-col gap-3 rounded-md border border-line bg-surface p-3">
+        {ready !== undefined && total !== undefined && (
+          <ProgressMeter
+            value={ready}
+            max={Math.max(total, 1)}
+            label={`${String(ready)} of ${String(total)} ready`}
+            showValue={false}
+            size="sm"
+          />
+        )}
+        <ul className="flex flex-col gap-1 text-body-sm text-muted">
+          {groups.map((group) => (
+            <li key={group.code}>{groupTitle(group)}</li>
+          ))}
+        </ul>
+        <div className="flex justify-end">
+          <Button size="sm" variant="accent" onClick={() => setOpen(true)}>
+            Fix them
+          </Button>
+        </div>
       </div>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={groupTitle(group)}
+        title={`${String(count)} to fix before approving`}
         size="lg"
         footer={<Button onClick={() => setOpen(false)}>Done</Button>}
       >
         <div className="flex flex-col gap-2">
-          {group.rows.map((exception) => (
+          {blockers.map((exception) => (
             <ExceptionRow
               key={exception.id}
               exception={exception}
               action={actionFor?.(exception)}
-              hideFix={hideFix}
+              hideFix={hideFix(exception.code)}
               plain
             />
           ))}
@@ -540,7 +558,7 @@ export function ExcludedList({
                   {exclusion.decidedBy
                     ? `Decided by ${exclusion.decidedBy}`
                     : "Decided by somebody with no employee record"}{" "}
-                  on {exclusion.excludedAt.slice(0, 10)}
+                  on {formatDay(exclusion.excludedAt)}
                 </p>
               </div>
               {onPutBack && (

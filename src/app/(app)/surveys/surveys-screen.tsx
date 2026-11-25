@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import { ClipboardList, EyeOff } from "lucide-react";
 import {
@@ -49,8 +50,10 @@ import { ResultsPanel } from "./results-panel";
  */
 export function SurveysScreen() {
   const mine = useMySurveys();
-  const running = useSurveys();
   const canManage = useCan("MANAGE_SETTINGS");
+  /* The company's list is the administrator's: anybody else was refused it
+     on every visit, with a console error (UAT 23 Nov, SELF-25). */
+  const running = useSurveys(canManage);
   const [answering, setAnswering] = useState<string | null>(null);
   const [showing, setShowing] = useState<ApiSurvey | null>(null);
 
@@ -120,7 +123,7 @@ export function SurveysScreen() {
                       {invite.questionCount}{" "}
                       {invite.questionCount === 1 ? "question" : "questions"}
                       {invite.closesAt
-                        ? ` · closes ${invite.closesAt.slice(0, 10)}`
+                        ? ` · closes ${formatDay(invite.closesAt)}`
                         : ""}
                     </p>
                   </div>
@@ -194,6 +197,7 @@ function RunningPanel({
       >
         {state.surveys.length === 0 ? (
           <EmptyState
+            mood="documents"
             icon={<ClipboardList aria-hidden="true" className="size-5" />}
             title="None yet"
             description="A survey is a set of questions, a list of people to ask, and a decision about whether the answers carry a name."

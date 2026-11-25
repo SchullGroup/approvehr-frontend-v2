@@ -175,6 +175,57 @@ describe("the tag", () => {
   });
 });
 
+describe("a card's objective and due date", () => {
+  const base = (patch: Partial<Issue>): Issue => ({
+    ...sampleData().issues.find((i) => i.key === "CHK-10")!,
+    ...patch,
+  });
+  const draw = (issue: Issue) =>
+    render(
+      <IssueCard
+        issue={issue}
+        epic={null}
+        people={people as never}
+        statuses={[]}
+        today="2026-11-12"
+        done={false}
+        subtasks={null}
+        dragging={false}
+        canMove={false}
+        onGrab={vi.fn()}
+        onOpen={vi.fn()}
+        onMove={vi.fn()}
+      />,
+    );
+
+  it("shows the due date even when it is not late, and the objective as text", () => {
+    draw(
+      base({
+        dueDate: "2026-12-12",
+        objective: {
+          state: "LINKED",
+          source: "TASK",
+          goalId: "g1",
+          title: "Grow revenue",
+          level: "company",
+          keyResultId: null,
+          keyResultTitle: null,
+          visible: true,
+          message: "Linked",
+        },
+      }),
+    );
+    expect(screen.getByText(/^Due /)).toBeVisible();
+    expect(screen.getByText("Objective: Grow revenue")).toBeVisible();
+  });
+
+  it("draws neither for a task with no date and no objective", () => {
+    draw(base({ dueDate: null }));
+    expect(screen.queryByText(/^Due /)).toBeNull();
+    expect(screen.queryByText(/^Objective:/)).toBeNull();
+  });
+});
+
 describe("the board's card", () => {
   const issueWith = (patch: Partial<Issue>): Issue => ({
     ...sampleData().issues.find((i) => i.key === "CHK-10")!,
@@ -254,6 +305,31 @@ describe("the backlog's row", () => {
   it("says nothing for a task nobody marked", () => {
     backlog(issueWith({}));
     expect(screen.queryByText("Won't do")).toBeNull();
+  });
+  it("says the objective and the due date in plain text on a row", () => {
+    backlog(
+      issueWith({
+        dueDate: "2026-12-12",
+        objective: {
+          state: "LINKED",
+          source: "TASK",
+          goalId: "g1",
+          title: "Grow revenue",
+          level: "company",
+          keyResultId: null,
+          keyResultTitle: null,
+          visible: true,
+          message: "Linked",
+        },
+      }),
+    );
+    expect(screen.getByText("Grow revenue")).toBeVisible();
+    expect(screen.getByText(/^Due .*12/)).toBeVisible();
+  });
+
+  it("says nothing about an objective or a date a task does not have", () => {
+    backlog(issueWith({ dueDate: null }));
+    expect(screen.queryByText(/^Due /)).toBeNull();
   });
 });
 

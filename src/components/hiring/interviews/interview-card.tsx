@@ -5,6 +5,7 @@ import { Badge, Button } from "@/components/ui";
 import { INTERVIEW_KIND_LABEL } from "@/lib/api/recruitment";
 import type { CalendarFile } from "@/lib/hiring/interviews/gateway";
 import type { InterviewView } from "@/lib/hiring/interviews/model";
+import { hasStarted } from "@/lib/hiring/interviews/timing";
 import { candidateWasInvited } from "@/lib/hiring/interviews/words";
 import { formatWeekdayTime, zoneLabel } from "@/lib/time";
 import { CalendarMenu } from "./calendar-menu";
@@ -41,9 +42,16 @@ export function InterviewCard({
   scorecardActions,
   scorecardPanel,
   reminders,
+  now,
   className,
 }: {
   interview: InterviewView & { saving?: boolean };
+  /**
+   * The time now, as an ISO instant (the gateway's). Mark complete is offered
+   * only once the interview has started (U91 / PERF-30). Absent offers it, as
+   * before.
+   */
+  now?: string;
   timeZone: string;
   canManage: boolean;
   busy?: boolean;
@@ -128,14 +136,16 @@ export function InterviewCard({
         )}
         {scheduled && (
           <>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => onComplete(interview)}
-            >
-              Mark complete
-            </Button>
+            {(now === undefined || hasStarted(interview, Date.parse(now))) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => onComplete(interview)}
+              >
+                Mark complete
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"

@@ -72,8 +72,8 @@ let fetchMock: ReturnType<typeof vi.fn>;
 async function pages() {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_API_URL", API);
-  const list = (await import("@/app/(marketing)/careers/[org]/page")).default;
-  const one = (await import("@/app/(marketing)/careers/[org]/[role]/page"))
+  const list = (await import("@/app/(careers)/careers/[org]/page")).default;
+  const one = (await import("@/app/(careers)/careers/[org]/[role]/page"))
     .default;
   return { list, one };
 }
@@ -230,7 +230,7 @@ describe("the list of open roles", () => {
   it("offers no retry on a build with no API behind it, because none would help", async () => {
     vi.resetModules();
     vi.stubEnv("NEXT_PUBLIC_API_URL", "");
-    const list = (await import("@/app/(marketing)/careers/[org]/page")).default;
+    const list = (await import("@/app/(careers)/careers/[org]/page")).default;
     render(await list({ params: Promise.resolve({ org: "acme" }) }));
 
     const notice = screen.getByTestId("careers-notice");

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useCloseOnEscape } from "@/hooks/use-close-on-escape";
 import Link from "next/link";
 import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -8,7 +9,9 @@ import {
   Badge,
   ButtonLink,
   Card,
+  Button,
   CardBody,
+  GetReady,
   CardHeader,
   SegmentedControl,
   Skeleton,
@@ -30,6 +33,7 @@ import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { type ApiRosterRow } from "@/lib/api/attendance";
+import { useWorkLocations } from "@/lib/store/attendance";
 import {
   addDays,
   hoursLabel,
@@ -238,6 +242,8 @@ export function AttendanceScreen() {
                 inline here and no longer is. Its own settings are reachable
                 from `AttendanceSettingsButton` in the header rather than a
                 second bar repeated inline here. */}
+            {canEditRecords && <SetUpAttendance />}
+
             <MyClockCard showFailure={false} />
 
             {/* Everybody clocks in above. Everybody else's day is a different
@@ -465,6 +471,13 @@ function TodayView({
   const unexplained = absent.filter((row) => !offToday(row)).length;
   const restDays = absent.length - unexplained;
 
+  /* Nobody in yet is the ordinary start of a day, not 64 rows of the same
+     words. The count above already says it; the list is one press away. */
+  const nobodyIn =
+    roster.rows.length > 0 && roster.rows.every((row) => !row.clockIn);
+  const [showList, setShowList] = useState(false);
+  const collapsed = nobodyIn && !showList;
+
   return (
     <>
       <StatGrid>
@@ -511,7 +524,23 @@ function TodayView({
             actions. Five columns of that is unreadable under 375px, so below
             `sm` this becomes a card per person instead. `RosterStatusDetails`
             is the one copy of what those lines say, read by both. */}
-        <div className="hidden sm:block">
+        {collapsed && (
+          <CardBody>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-body-sm text-muted">
+                {`${roster.rows.length} not clocked in yet.`}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowList(true)}
+              >
+                Show the list
+              </Button>
+            </div>
+          </CardBody>
+        )}
+        <div className={collapsed ? "hidden" : "hidden sm:block"}>
           <TableWrap className="rounded-none border-0">
             <THead>
               <TH>Employee</TH>
@@ -527,6 +556,7 @@ function TodayView({
                 return (
                   <TR key={row.employeeId} interactive>
                     <TDPrimary
+                      avatar={row.employeeName}
                       title={
                         <TextLink href={`/people/${row.employeeId}`}>
                           {row.employeeName}
@@ -579,7 +609,7 @@ function TodayView({
           </TableWrap>
         </div>
 
-        <ul className="divide-y divide-line sm:hidden">
+        <ul className={collapsed ? "hidden" : "divide-y divide-line sm:hidden"}>
           {roster.rows.map((row) => {
             const shift = rota.shiftOn(row.employeeId, roster.date);
             const off = offToday(row);
@@ -715,6 +745,8 @@ function RowActions({
 }) {
   const [open, setOpen] = useState(false);
   const { mounted, closing } = useDismiss(open, 170);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useCloseOnEscape(open, () => setOpen(false), trigger);
   const canApproveLeave = row.status === "ABSENT" && !off;
 
   if (!canApproveLeave && !canCorrect) return null;
@@ -722,6 +754,7 @@ function RowActions({
   return (
     <div className="relative inline-block text-left">
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -862,6 +895,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
               return (
                 <TR key={row.employeeId} interactive>
                   <TDPrimary
+                    avatar={row.employeeName}
                     title={
                       <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
@@ -957,5 +991,37 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
         </TBody>
       </TableWrap>
     </Card>
+  );
+}
+
+/**
+ * First use: one next step until there is somewhere to clock in. Shown to
+ * people who set the company up, and only while the offices list has been read
+ * and is empty (never while loading, never on a failed read).
+ */
+export function SetUpAttendance() {
+  const { locations, loading, error } = useWorkLocations();
+  if (loading || error !== null || locations.length > 0) return null;
+  return (
+    <GetReady
+      title="Set up attendance"
+      steps={[
+        {
+          id: "office",
+          label: "Add your office",
+          detail: "Where people clock in. Add a fence later if you want one.",
+          done: false,
+          action: { label: "Add office", href: "/settings/locations" },
+        },
+        {
+          id: "staff",
+          label: "Invite your staff",
+          detail: "They can clock in once they have signed in.",
+          done: false,
+          optional: true,
+          action: { label: "Invite staff", href: "/people" },
+        },
+      ]}
+    />
   );
 }

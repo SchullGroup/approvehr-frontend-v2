@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { FileQuestion } from "lucide-react";
 import {
-  Badge,
   Card,
   CardHeader,
   EmptyState,
@@ -26,14 +25,8 @@ import {
   periodLabel,
   type OwnPayslip,
 } from "@/lib/api/payroll";
-import { deliveryOf, useMyPayslips } from "@/lib/store/payroll";
+import { useMyPayslips } from "@/lib/store/payroll";
 import { useSession } from "@/lib/store/session";
-
-const DELIVERY_LABEL: Record<ReturnType<typeof deliveryOf>, string> = {
-  not_sent: "Not sent",
-  sent: "Sent",
-  opened: "Opened",
-};
 
 /**
  * "Payslips", for whoever does not hold `VIEW_SALARIES`.
@@ -89,7 +82,6 @@ export function MyPayslipIndex() {
                     <TH>Month</TH>
                     <TH align="right">Gross</TH>
                     <TH align="right">Net pay</TH>
-                    <TH>Status</TH>
                   </THead>
                   <TBody>
                     {payslips.map((slip: OwnPayslip) => {
@@ -113,19 +105,6 @@ export function MyPayslipIndex() {
                           </TD>
                           <TD align="right">
                             <Money amount={naira(slip.netKobo)} decimals />
-                          </TD>
-                          <TD>
-                            <Badge
-                              tone={
-                                deliveryOf(slip) === "opened"
-                                  ? "success"
-                                  : "info"
-                              }
-                              size="sm"
-                              dot
-                            >
-                              {DELIVERY_LABEL[deliveryOf(slip)]}
-                            </Badge>
                           </TD>
                         </TR>
                       );
@@ -152,15 +131,6 @@ export function MyPayslipIndex() {
                             {STATUS_LABEL[slip.run.status]}
                           </p>
                         </div>
-                        <Badge
-                          tone={
-                            deliveryOf(slip) === "opened" ? "success" : "info"
-                          }
-                          size="sm"
-                          dot
-                        >
-                          {DELIVERY_LABEL[deliveryOf(slip)]}
-                        </Badge>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-body-sm text-muted">Gross</span>

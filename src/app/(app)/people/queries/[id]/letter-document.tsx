@@ -106,6 +106,22 @@ export function LetterDocument({ detail }: { detail: ApiQueryDetail }) {
             <p className="whitespace-pre-line break-words">{detail.question}</p>
           </div>
         )}
+        {detail.citations.length > 0 && (
+          <div>
+            <p className="font-semibold">
+              Records this letter refers to, as they stood when it was issued
+            </p>
+            {/* The server's one line for each, printed as text. The copies themselves are read
+                on screen, and nothing here is made into a link. */}
+            <ul className="list-disc pl-5">
+              {detail.citations.map((citation) => (
+                <li key={citation.id} className="break-words">
+                  {citation.title}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {detail.replyBy && (
           <p className="font-semibold">
             Please reply by {formatDateTime(detail.replyBy, timeZone)}.

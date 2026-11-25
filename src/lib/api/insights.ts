@@ -206,6 +206,12 @@ export type ReportsData = {
   headcount?: {
     byDepartment: { name: string; count: number }[];
     byEmploymentType: { type: string; count: number }[];
+    /**
+     * The one base both lists and `workforce.headcountNow` count (UAT 23 Nov,
+     * U95 / PERF-15: four headcounts on one page): the people employed on
+     * `asOf`, `total` of them, by `rule`. Absent from an older API.
+     */
+    base?: { asOf: string; total: number; rule: string };
   };
   operationalLoad?: {
     leaveRequests: number;

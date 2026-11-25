@@ -313,20 +313,22 @@ function Row({
         )}
       </TD>
       <TD align="right">
+        {/* Nothing to offer: say why in one quiet line, not an empty menu. */}
+        {!consent.allowed && !stop.allowed && (
+          <span className="text-meta text-muted">{consent.why}</span>
+        )}
         <RowActions
           label={`More actions for ${row.name}`}
           items={[
             {
               label: "Record written consent",
               onSelect: onConsent,
-              disabled: !consent.allowed,
-              ...(consent.allowed ? {} : { hint: consent.why }),
+              available: consent.allowed,
             },
             {
               label: "Record opt-out",
               onSelect: onOptOut,
-              disabled: !stop.allowed,
-              ...(stop.allowed ? {} : { hint: stop.why }),
+              available: stop.allowed,
             },
           ]}
         />

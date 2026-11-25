@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useState } from "react";
 import Link from "next/link";
 import { CalendarClock } from "lucide-react";
@@ -94,6 +95,7 @@ export function ProbationScreen() {
           <CardBody className="text-body-sm text-muted">Loading…</CardBody>
         ) : due.length === 0 ? (
           <EmptyState
+            mood="all-clear"
             icon={<CalendarClock aria-hidden="true" className="size-5" />}
             title="No probations ending"
             description="Nobody's probation ends in the next 30 days, and none have been missed."
@@ -114,6 +116,7 @@ export function ProbationScreen() {
               {[...overdue, ...upcoming].map((row) => (
                 <TR key={row.employeeId}>
                   <TDPrimary
+                    avatar={row.name}
                     title={
                       <Link
                         href={`/people/${row.employeeId}`}
@@ -126,7 +129,9 @@ export function ProbationScreen() {
                     mark={row.daysRemaining < 0 ? ALREADY_ENDED : null}
                   />
                   <TD>{row.jobTitle}</TD>
-                  <TD className="tabular-nums">{row.probationEndsAt}</TD>
+                  <TD className="tabular-nums">
+                    {formatDay(row.probationEndsAt)}
+                  </TD>
                   <TD>
                     {row.daysRemaining < 0 ? (
                       <Badge tone="danger">
@@ -183,6 +188,7 @@ export function ProbationScreen() {
               {needsADate.map((row) => (
                 <TR key={row.employeeId}>
                   <TDPrimary
+                    avatar={row.name}
                     title={
                       <Link
                         href={`/people/${row.employeeId}?tab=employment`}
@@ -194,7 +200,7 @@ export function ProbationScreen() {
                     subtitle={row.employeeNo}
                   />
                   <TD>{row.jobTitle}</TD>
-                  <TD className="tabular-nums">{row.startDate}</TD>
+                  <TD className="tabular-nums">{formatDay(row.startDate)}</TD>
                   <TD className="tabular-nums">
                     {row.daysSinceStart >= 365 ? (
                       <Badge tone="danger">

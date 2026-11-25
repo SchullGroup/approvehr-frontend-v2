@@ -3,12 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ApiEmployeeScore,
   ApiFormQuestion,
-  ApiHistoryPoint,
   ApiReviewDetail,
-  ApiScoreHistory,
 } from "@/lib/api/performance";
 import { ReviewScreen } from "@/app/(app)/performance/reviews/[id]/review-screen";
-import { ScoreHistoryScreen } from "@/app/(app)/performance/history/[employeeId]/history-screen";
 
 /**
  * Where the manager's overall mark sits in a score, and what is said beside it.
@@ -241,7 +238,7 @@ describe("the record page's appraisers' overall rating", () => {
     ).toBeInTheDocument();
   });
 
-  it("lists the part among what the mark is made of only where it carries a weight", () => {
+  it("lists the part among what the score is made of only where it carries a weight", () => {
     mount([objectives, managerPart(0)]);
     expect(
       screen.queryByText("Manager appraisal", { selector: "span" }),
@@ -254,7 +251,7 @@ describe("the record page's appraisers' overall rating", () => {
       within(list as HTMLElement).getByText("Manager appraisal"),
     ).toBeInTheDocument();
     expect(
-      within(list as HTMLElement).getByText("Based on 1 overall mark"),
+      within(list as HTMLElement).getByText("Based on 1 overall rating"),
     ).toBeInTheDocument();
   });
 
@@ -266,12 +263,12 @@ describe("the record page's appraisers' overall rating", () => {
         included: false,
         effectiveWeightBp: 0,
         excludedBecause: "NO_APPRAISER_MARK",
-        excludedNote: "No appraiser has sent an overall mark yet.",
+        excludedNote: "No appraiser has sent an overall rating yet.",
         evidenceCount: 0,
       }),
     ]);
     expect(
-      screen.getByText("No appraiser has sent an overall mark yet."),
+      screen.getByText("No appraiser has sent an overall rating yet."),
     ).toBeInTheDocument();
     expect(screen.getByText("Nothing recorded")).toBeInTheDocument();
     expect(
@@ -297,107 +294,34 @@ describe("the strip above the record", () => {
     render(<ReviewScreen reviewId="r-1" />);
   };
 
-  it("says what the overall mark is worth, from the period's share", () => {
+  it("says what the overall rating is worth, from the period's share", () => {
     mount({ appraiser: appraiser(3000) });
     expect(
-      screen.getByText("This overall mark counts for 30% of the mark."),
+      screen.getByText("This overall rating counts for 30% of the score."),
     ).toBeInTheDocument();
   });
 
-  it("says it does not count where the form asks for a mark and the period does not weight the part", () => {
+  it("says it does not count where the form asks for a score and the period does not weight the part", () => {
     mount({ overallMark: true, appraiser: appraiser(0) });
     expect(
-      screen.getByText("This overall mark does not count towards the score."),
+      screen.getByText("This overall rating does not count towards the score."),
     ).toBeInTheDocument();
   });
 
-  it("says nothing about the mark where the form does not ask for one", () => {
+  it("says nothing about the score where the form does not ask for one", () => {
     mount({ overallMark: false, appraiser: appraiser(0) });
     expect(screen.getByText("Line manager")).toBeInTheDocument();
     expect(
-      screen.queryByText("This overall mark does not count towards the score."),
+      screen.queryByText(
+        "This overall rating does not count towards the score.",
+      ),
     ).toBeNull();
   });
 
   it("makes no claim from a server that does not say, and never says the review counts", () => {
     mount({ appraiser: appraiser() });
     expect(screen.getByText("Line manager")).toBeInTheDocument();
-    expect(screen.queryByText(/This overall mark/)).toBeNull();
+    expect(screen.queryByText(/This overall rating/)).toBeNull();
     expect(screen.queryByText(/review counts/i)).toBeNull();
-  });
-});
-
-describe("the history page's appraisers' overall mark", () => {
-  const point = (components: unknown[]): ApiHistoryPoint =>
-    ({
-      cycleId: "c-1",
-      cycleName: "H2 2026 Appraisal",
-      stage: "PUBLISHED",
-      dueDate: null,
-      weightsFrom: "snapshot",
-      scoreBp: 7500,
-      scorePercent: 75,
-      band: "MEETS",
-      bandLabel: "Meets expectations",
-      changeBp: null,
-      components,
-      objectives: {
-        agreed: 1,
-        awaitingApproval: 0,
-        draft: 0,
-        needsRevision: 0,
-        measured: 0,
-      },
-      appraiserMark: mark(2, 5000),
-      signOff: {
-        reviewId: "r-1",
-        submitted: true,
-        finalised: true,
-        finalisedAt: "2026-10-20T09:00:00.000Z",
-        acknowledged: false,
-        acknowledgedAt: null,
-        disputed: false,
-        disputedAt: null,
-        employeeComment: null,
-      },
-      exceptions: [],
-    }) as unknown as ApiHistoryPoint;
-
-  const mount = (components: unknown[]) => {
-    state.history = {
-      employeeId: "emp-1",
-      employeeName: "Emeka Anyanwu",
-      jobTitle: "Engineer",
-      departmentId: null,
-      departmentName: "Product",
-      points: [point(components)],
-      counts: { cycles: 1, scored: 1, unscored: 0 },
-      unscoredCycles: [],
-      trend: null,
-      truncated: false,
-      limit: 12,
-      withheldCycles: 0,
-      withheldNote: null,
-    } as ApiScoreHistory;
-    render(<ScoreHistoryScreen employeeId="emp-1" />);
-  };
-
-  it("keeps saying it is not part of the score where the part is at 0%, or where there is no such part", () => {
-    for (const components of [[objectives, managerPart(0)], [objectives]]) {
-      mount(components);
-      expect(
-        screen.getByText(
-          /\(50% of the weight is in\)\. For reference; it is not part of the score\./,
-        ),
-      ).toBeInTheDocument();
-      cleanup();
-    }
-  });
-
-  it("says what it is scored from where the part carries a weight", () => {
-    mount([objectives, managerPart(3000)]);
-    const text = screen.getByText(/of the weight is in\)/).textContent ?? "";
-    expect(text).toContain("It is what Manager appraisal is scored from.");
-    expect(text).not.toMatch(/reference|not part of the score/);
   });
 });

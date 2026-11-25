@@ -122,14 +122,14 @@ describe("a rating was made final", () => {
     expect(copy.details[1]).toMatch(/answer/);
   });
 
-  it("says a form with no overall mark gave none, and does not invent one", () => {
+  it("says a form with no overall rating gave none, and does not invent one", () => {
     const copy = finalisedCopy({
       ...base,
       ratingLabel: null,
       subjectNotified: true,
     });
     expect(copy.lead).toBe(
-      "H1 2026 has no overall mark, so Chidi will read the answers.",
+      "H1 2026 has no overall rating, so Chidi will read the answers.",
     );
   });
 });
@@ -142,7 +142,7 @@ describe("a rating was acknowledged", () => {
     commented: false,
   };
 
-  it("carries the mark and the day it was recorded", () => {
+  it("carries the score and the day it was recorded", () => {
     const copy = acknowledgedCopy(base);
     expect(copy.title).toBe("Your acknowledgement is recorded");
     expect(copy.lead).toBe(
@@ -166,7 +166,7 @@ describe("a rating was acknowledged", () => {
     expect(acknowledgedCopy(base).details.join(" ")).not.toMatch(/comment/);
   });
 
-  it("does not invent a mark for a form that gave none", () => {
+  it("does not invent a score for a form that gave none", () => {
     expect(acknowledgedCopy({ ...base, ratingLabel: null }).lead).toBe(
       "You saw your appraisal for H1 2026 on 9 Oct 2026.",
     );
@@ -178,7 +178,7 @@ describe("a rating was acknowledged", () => {
 });
 
 describe("the voice", () => {
-  it("has no exclamation marks and no celebration", () => {
+  it("has no exclamation scores and no celebration", () => {
     const everything = JSON.stringify([
       finalisedCopy({
         subjectName: "A B",

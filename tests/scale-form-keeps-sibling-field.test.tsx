@@ -49,12 +49,12 @@ vi.mock("@/lib/store/performance", () => ({
 import { RatingScaleForm } from "@/app/(app)/settings/performance/scale-form";
 
 const wordOf = (level: number) =>
-  screen.getByLabelText(`What level ${String(level)} is called`);
+  screen.getByLabelText(`Level ${String(level)} name`);
 
-/* One "What it means" box per level, highest level first (the form reads from
+/* One meaning box per level, highest level first (the form reads from
    best to worst), so level 3 is the third box from the top. */
 const meaningOf = (level: number) =>
-  screen.getAllByLabelText(/What it means/)[5 - level] as HTMLTextAreaElement;
+  screen.getAllByLabelText(/meaning/)[5 - level] as HTMLTextAreaElement;
 
 describe("a level's word and its meaning are edited separately", () => {
   it("keeps the meaning when the word is changed", async () => {
@@ -95,7 +95,7 @@ describe("a level's word and its meaning are edited separately", () => {
     render(<RatingScaleForm />);
 
     await user.type(wordOf(3), " well");
-    await user.click(screen.getByRole("button", { name: /^Save the scale/ }));
+    await user.click(screen.getByRole("button", { name: /^Save names/ }));
 
     expect(save).toHaveBeenCalledTimes(1);
     const sent = save.mock.calls[0]?.[0] as {

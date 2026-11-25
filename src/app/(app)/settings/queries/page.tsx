@@ -5,7 +5,7 @@ import { QueriesSettingsScreen } from "./queries-settings-screen";
 export const metadata: Metadata = {
   title: "Queries",
   description:
-    "Whether queries are switched on, the usual reply time, and who may decide a query they issued.",
+    "Whether queries are switched on, the usual reply time, who may decide a query they issued, whether managers may draft, and the company's own letter templates.",
 };
 
 export default function QueriesSettingsPage() {

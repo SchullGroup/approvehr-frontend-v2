@@ -1,14 +1,13 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "@/lib/api/client";
+import { ToastProvider } from "@/components/ui";
 
 /**
- * The requisition wizard's process step used to collect screening questions and
- * send them nowhere ("Not asked of applicants yet, and not saved"). It now holds
- * the real form builder, and once the role and its draft advert exist, the form
- * goes onto the advert. Every hook the wizard reads is faked; what is under test
- * is what the wizard does with the form.
+ * The requisition wizard no longer holds the advert's application form (UAT 23
+ * Nov, U99 / PERF-19). The same editor was on the wizard's process step and on
+ * the advert, two places for one set of questions. It is on the advert only, and
+ * the wizard says so. Every hook the wizard reads is faked.
  */
 
 const push = vi.fn();
@@ -28,6 +27,18 @@ vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
 }));
 
+vi.mock("@/lib/store/work-locations", () => ({
+  useWorkLocations: () => ({
+    locations: [
+      { id: "loc-hq", name: "Lagos HQ" },
+      { id: "loc-abk", name: "Abeokuta site" },
+    ],
+    loading: false,
+    error: null,
+    source: "api",
+    create: vi.fn(),
+  }),
+}));
 vi.mock("@/lib/store/departments", () => ({
   useDepartments: () => ({
     flat: [{ id: "dept-1", name: "Finance" }],
@@ -124,8 +135,12 @@ const pick = async (
 /** Fill the first two steps and arrive at the process step. */
 async function toProcess(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
+  await user.type(
+    screen.getByLabelText(/About the role/),
+    "Runs the monthly payroll and answers staff questions about pay.",
+  );
   await pick(user, /Department/, "Finance");
-  await user.selectOptions(screen.getByLabelText(/Location/), "Lagos, NG");
+  await user.selectOptions(screen.getByLabelText(/Location/), "Lagos HQ");
   await user.click(screen.getByRole("button", { name: /Continue/ }));
   await user.type(screen.getByLabelText(/Band minimum/), "650000");
   await user.type(screen.getByLabelText(/Band maximum/), "900000");
@@ -141,23 +156,6 @@ async function toReview(user: ReturnType<typeof userEvent.setup>) {
   await user.selectOptions(screen.getByLabelText(/^Recruiter/), "emp-1");
   await user.click(screen.getByRole("button", { name: /Continue/ }));
 }
-
-/** The question box of the n-th question card. */
-const questionBox = (n: number) =>
-  within(
-    screen.getByRole("region", { name: new RegExp(`^Question ${n}:`) }),
-  ).getByLabelText(/^Question/);
-
-const addQuestion = async (
-  user: ReturnType<typeof userEvent.setup>,
-  kind: RegExp,
-) =>
-  user.click(
-    within(screen.getByRole("group", { name: "Add a question" })).getByRole(
-      "button",
-      { name: kind },
-    ),
-  );
 
 beforeEach(() => {
   push.mockReset();
@@ -177,234 +175,44 @@ beforeEach(() => {
 });
 
 describe("the process step", () => {
-  it("holds the real builder, not a note saying questions go nowhere", async () => {
+  it("holds no second editor for the application form", async () => {
     const user = userEvent.setup();
     render(<RequisitionWizard />);
     await toProcess(user);
-
-    expect(screen.getByText("The application form")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Add a question" })).toBeNull();
     expect(
-      screen.getByRole("group", { name: "Add a question" }),
+      screen.queryByRole("button", { name: /Preview the form/ }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/What applicants are asked is set on the advert/),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Not asked of applicants yet/),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/the application form takes no questions today/),
-    ).not.toBeInTheDocument();
-  });
-
-  it("states what a knockout is where the switch is", async () => {
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await addQuestion(user, /^Yes or no/);
-    expect(
-      screen.getByRole("switch", { name: "Knockout question" }),
-    ).toHaveAccessibleDescription(
-      "A knockout flags the application for a person to review. It never rejects anyone.",
-    );
-  });
-
-  it("previews the form as an applicant sees it, and says nothing is sent", async () => {
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await addQuestion(user, /^Short answer/);
-    await user.type(questionBox(1), "Current job title");
-    await user.click(screen.getByRole("button", { name: "Preview the form" }));
-
-    const dialog = await screen.findByRole("dialog");
-    expect(
-      within(dialog).getByLabelText(/Current job title/),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByTestId("apply-mode-note")).toHaveTextContent(
-      /Nothing you do here is sent or saved/,
-    );
-  });
-
-  it("marks an unfinished question when Continue is pressed, instead of silently doing nothing", async () => {
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await addQuestion(user, /^Short answer/);
-
-    await user.click(screen.getByRole("button", { name: /Continue/ }));
-    expect(await screen.findByText("Write the question.")).toBeInTheDocument();
-    expect(screen.getByText("The application form")).toBeInTheDocument();
-
-    await user.type(questionBox(1), "Current job title");
-    await user.click(screen.getByRole("button", { name: /Continue/ }));
-    expect(await screen.findByLabelText(/Hiring manager/)).toBeInTheDocument();
-  });
-
-  it("will not offer a file question where there is nowhere to store the file", async () => {
-    getSettings.mockResolvedValue(settings(false));
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole("group", { name: "Add a question" })).getByRole(
-          "button",
-          { name: /^File/ },
-        ),
-      ).toBeDisabled(),
-    );
   });
 });
 
-describe("saving the role", () => {
-  it("puts the form on the advert once it exists, in the order built, and says the advert's form is real", async () => {
+describe("saving", () => {
+  it("writes the role and its draft advert, and no form", async () => {
     const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await addQuestion(user, /^Yes or no/);
-    await user.type(questionBox(1), "Right to work in Nigeria?");
-    await user.click(screen.getByRole("switch", { name: "Required" }));
-    await user.click(screen.getByRole("switch", { name: "Knockout question" }));
-    await addQuestion(user, /^Long answer/);
-    await user.type(questionBox(2), "Why this job?");
-    await toReview(user);
-
-    expect(screen.getByText("Form questions")).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: /Save as draft advert/ }),
+    render(
+      <ToastProvider>
+        <RequisitionWizard />
+      </ToastProvider>,
     );
-
-    await waitFor(() => expect(putForm).toHaveBeenCalledTimes(1));
-    const [postingId, body] = putForm.mock.calls[0] as [
-      string,
-      { questions: Record<string, unknown>[] },
-    ];
-    expect(postingId).toBe("advert-9");
-    expect(body.questions.map((q) => q["label"])).toEqual([
-      "Right to work in Nigeria?",
-      "Why this job?",
-    ]);
-    expect(body.questions[0]).toMatchObject({
-      kind: "YES_NO",
-      required: true,
-      knockout: { flagWhen: false },
-    });
-    expect(body.questions[0]).not.toHaveProperty("id");
-    expect(body.questions[1]).toMatchObject({
-      kind: "LONG_TEXT",
-      maxWords: 150,
-    });
-    /* The form is written after the advert it belongs to exists. */
-    expect(createAdvert.mock.invocationCallOrder[0]!).toBeLessThan(
-      putForm.mock.invocationCallOrder[0]!,
-    );
-    expect(push).toHaveBeenCalledWith("/hiring/requisitions/req-9");
-  });
-
-  it("keeps the yes-or-no questions on the requisition as its own screening questions, and only those", async () => {
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
     await toProcess(user);
-    await addQuestion(user, /^Yes or no/);
-    await user.type(questionBox(1), "Right to work in Nigeria?");
-    await user.click(screen.getByRole("switch", { name: "Knockout question" }));
-    await addQuestion(user, /^Long answer/);
-    await user.type(questionBox(2), "Why this job?");
     await toReview(user);
     await user.click(
       screen.getByRole("button", { name: /Save as draft advert/ }),
     );
 
-    await waitFor(() => expect(createRequisition).toHaveBeenCalledTimes(1));
-    const body = createRequisition.mock.calls[0]?.[0] as {
-      screeningQuestions?: {
-        id?: string;
-        question: string;
-        knockout: boolean;
-      }[];
-    };
-    expect(body.screeningQuestions).toEqual([
-      expect.objectContaining({
-        question: "Right to work in Nigeria?",
-        knockout: true,
-      }),
-    ]);
-  });
-
-  it("sends no screening questions with the requisition when there are no yes-or-no ones", async () => {
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await addQuestion(user, /^Long answer/);
-    await user.type(questionBox(1), "Why this job?");
-    await toReview(user);
-    await user.click(
-      screen.getByRole("button", { name: /Save as draft advert/ }),
-    );
-    await waitFor(() => expect(createRequisition).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(createAdvert).toHaveBeenCalledTimes(1));
+    expect(putForm).not.toHaveBeenCalled();
     expect(createRequisition.mock.calls[0]?.[0]).not.toHaveProperty(
       "screeningQuestions",
     );
-  });
-
-  it("sends no form at all when it was left as the API would start it", async () => {
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await toReview(user);
-    await user.click(
-      screen.getByRole("button", { name: /Save as draft advert/ }),
-    );
-    await waitFor(() => expect(createAdvert).toHaveBeenCalled());
-    expect(putForm).not.toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith("/hiring/requisitions/req-9");
-  });
-
-  it("sends the standard switches too, even with no questions, when they were changed", async () => {
-    const user = userEvent.setup();
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await user.click(
-      within(
-        screen.getByRole("radiogroup", { name: "Phone number" }),
-      ).getByRole("radio", { name: "Required" }),
-    );
-    await toReview(user);
-    await user.click(
-      screen.getByRole("button", { name: /Save as draft advert/ }),
-    );
-    await waitFor(() => expect(putForm).toHaveBeenCalledTimes(1));
-    expect(putForm.mock.calls[0]?.[1]).toMatchObject({
-      settings: {
-        phoneMode: "REQUIRED",
-        cvMode: "OPTIONAL",
-        coverNoteMode: "OPTIONAL",
-      },
-      questions: [],
-    });
-  });
-
-  it("keeps the role and the advert when the form is refused, says so, and sends them to the advert to set it up again", async () => {
-    const user = userEvent.setup();
-    putForm.mockRejectedValueOnce(
-      new ApiError(
-        400,
-        "validation_failed",
-        "A form can have at most 20 questions.",
+    expect(
+      await screen.findByText(
+        /Set the advert's application questions on the advert/,
       ),
-    );
-    render(<RequisitionWizard />);
-    await toProcess(user);
-    await addQuestion(user, /^Short answer/);
-    await user.type(questionBox(1), "Current job title");
-    await toReview(user);
-    await user.click(
-      screen.getByRole("button", { name: /Save as draft advert/ }),
-    );
-
-    await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/hiring/postings/advert-9"),
-    );
-    expect(createRequisition).toHaveBeenCalledTimes(1);
-    expect(createAdvert).toHaveBeenCalledTimes(1);
-    expect(push).not.toHaveBeenCalledWith("/hiring/requisitions/req-9");
+    ).toBeInTheDocument();
+    expect(push).toHaveBeenCalledWith("/hiring/requisitions/req-9");
   });
 });

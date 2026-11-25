@@ -239,6 +239,9 @@ const BASE_FLAGS: FeatureFlags = {
      until a company turns this on, and the app does not even send the event
      while it is off. */
   appOpenTracking: false,
+  /* Off, matching the schema. Switching it on emails every employee once a year,
+     which is the company's decision and nobody else's. */
+  birthdayGreetings: false,
 };
 
 /** The schema's own default, and what renders before the real row arrives. */
@@ -351,11 +354,11 @@ export const FEATURE_COPY: Record<
      the question somebody switching one off is actually asking. */
   taxSetup: {
     label: "Tax details",
-    line: "Ask for a PAYE state, a TIN and declared rent. Off means payslips show no PAYE.",
+    line: "Ask for a PAYE state, a TIN and declared rent. Off only stops asking: PAYE is set under Payroll settings.",
   },
   pensionSetup: {
     label: "Pension and NHF",
-    line: "Ask for an RSA PIN, a pension provider and an NHF number. Off means no pension is deducted or remitted.",
+    line: "Ask for an RSA PIN, a pension provider and an NHF number. Off only stops asking: pension and NHF are set under Payroll settings.",
   },
   bankDetails: {
     label: "Bank accounts",
@@ -366,14 +369,14 @@ export const FEATURE_COPY: Record<
      management", and everybody recognises "two managers judging one person". */
   multiAppraiser: {
     label: "More than one appraiser per person",
-    line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser's share decides how much their overall mark weighs.",
+    line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser's share decides how much their overall rating weighs.",
   },
   /* Named for what it does rather than what it is called. "Two-factor
      authentication" is a phrase people have learnt to skip past; "a code from
      your email" is the thing that will actually happen to them. */
   twoFactor: {
-    label: "Ask for a code from email",
-    line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
+    label: "Ask for a code before important actions",
+    line: "Anybody who turns two-factor on is asked for a code at sign-in either way. This decides whether chosen actions, such as approving payroll, also need one.",
   },
   /* Says what is kept and, in the same breath, what is not: a switch that
      records when people use a tool is read first as surveillance, and the
@@ -381,6 +384,15 @@ export const FEATURE_COPY: Record<
   appOpenTracking: {
     label: "Count days people open the app",
     line: "Keeps one mark per person per day, with no time or device. HR sees team totals only, never one person's days.",
+  },
+  /* Says who is told and who is not, because the first thing a person asks of a
+     switch that emails everyone is whether their manager sees their date of
+     birth. They do not: nothing about a birthday goes to anybody but the person.
+     It also says there is no opt-out yet, since that is true and a company
+     deciding should know it. */
+  birthdayGreetings: {
+    label: "Birthday greetings",
+    line: "On each person's birthday, they get an email from the company and a greeting in ApproveHR. Nobody else is told. It is off until you switch it on. Everyone with a date of birth and a work email is included, and nobody can opt out yet.",
   },
   /* Rendered on `/settings/leave` rather than `/settings/features` — see
      `WORKFLOW_FEATURE_KEYS`. The copy lives here anyway so the label and the
@@ -424,9 +436,9 @@ export const SKIP_CONSEQUENCE: Record<
   string
 > = {
   taxSetup:
-    "Skip this and their payslip will not show PAYE, and nothing is filed to a state revenue service until you add it.",
+    "PAYE is still deducted, using the company's state. Their tax filing is incomplete until you add a TIN.",
   pensionSetup:
-    "Skip this and no pension is deducted or remitted for them, and the payroll run will hold them back until an RSA PIN is added.",
+    "Pension is still deducted. Their pension schedule is incomplete until you add an RSA PIN, but it does not hold back their pay.",
   bankDetails:
     "Skip this and payroll has nowhere to send the money: you can add the account before the run.",
 };
@@ -857,6 +869,9 @@ function fromApi(features: ApiFeatures): State {
       /* Optional on the wire, and a company that was never asked is a company
          without it. */
       smsDigest: features.smsDigest ?? false,
+      /* Optional on the wire, and a company that was never asked is a company
+         without it. */
+      birthdayGreetings: features.birthdayGreetings ?? false,
       /* Optional on the wire, and a company that was never asked is a company without it. */
       queries: features.queries ?? false,
     },
@@ -1109,6 +1124,7 @@ export function useFeatureSettings() {
           probationTracking: features.probationTracking,
           appOpenTracking: features.appOpenTracking ?? false,
           smsDigest: features.smsDigest ?? false,
+          birthdayGreetings: features.birthdayGreetings ?? false,
           queries: features.queries ?? false,
           headcountBand: features.headcountBand,
         };

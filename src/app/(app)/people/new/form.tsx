@@ -56,6 +56,8 @@ import {
 import { useWorkLocations } from "@/lib/store/attendance";
 import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
+import { useJobRoles } from "@/lib/store/job-roles";
+import { titleForRole } from "./job-role";
 import { useRoles } from "@/lib/store/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
 import { AccountVerificationHint } from "@/components/payments/account-verification";
@@ -66,7 +68,7 @@ import {
   PENSION_PROVIDERS,
   isOtherPensionProvider,
 } from "@/lib/reference/lists";
-import { koboFromDecimal, naira } from "@/lib/api/payroll";
+import { koboFromDecimal, naira, wasDeducted } from "@/lib/api/payroll";
 import { QuoteWorkings } from "@/components/payroll/quote-workings";
 import { usePayslipQuote } from "@/lib/store/payslip-quote";
 import { RECORD_FIELD_KEYS, type RecordFieldKey } from "@/lib/api/setup";
@@ -295,6 +297,10 @@ export function NewEmployeeForm() {
   /* Both modes, so the manager picker offers real colleagues either way. */
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const departments = useDepartments();
+  /* The Job roles catalogue, offered as a choice beside the free-text title
+     (U47). Live ones only: an archived role is not one to hire into. */
+  const jobRoles = useJobRoles();
+  const liveJobRoles = jobRoles.roles.filter((role) => !role.archived);
   const accessRoles = useRoles();
   const locations = useWorkLocations();
 
@@ -684,7 +690,7 @@ export function NewEmployeeForm() {
       title: "Draft saved",
       tone: "success",
       detail:
-        "Come back to Add a new staff to pick it up. In this browser only. It will not be here on another device.",
+        "Come back to Add an employee to pick it up. In this browser only. It will not be here on another device.",
     });
   }
 
@@ -808,6 +814,7 @@ export function NewEmployeeForm() {
       firstName: draft.firstName.trim(),
       lastName: draft.lastName.trim(),
       jobTitle: draft.jobTitle.trim(),
+      ...(draft.jobRoleId ? { jobRoleId: draft.jobRoleId } : {}),
       startDate: draft.startDate,
       /* Omitted, not zeroed, when nobody has agreed a figure. */
       ...(gross === null ? {} : { grossMonthly: gross }),
@@ -856,6 +863,7 @@ export function NewEmployeeForm() {
       ...(draft.email.trim() ? { email: draft.email.trim() } : {}),
       ...(draft.phone.trim() ? { phone: draft.phone.trim() } : {}),
       ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
+      ...(draft.gender ? { gender: draft.gender } : {}),
       ...(draft.middleName.trim()
         ? { middleName: draft.middleName.trim() }
         : {}),
@@ -905,6 +913,7 @@ export function NewEmployeeForm() {
       email: draft.email.trim() || null,
       phone: draft.phone.trim() || null,
       dateOfBirth: draft.dateOfBirth || null,
+      ...(draft.gender ? { gender: draft.gender } : {}),
       jobTitle: draft.jobTitle.trim(),
       /* The local store holds display names, so the id picked above is turned
          back into the name it belongs to. */
@@ -1073,6 +1082,7 @@ export function NewEmployeeForm() {
           </Card>
         ) : (
           <form
+            noValidate
             /* A real form, so Enter submits the step the way a keyboard user
                expects. Every control that is not the primary action therefore
                carries type="button" — `Button` sets no default type, and an
@@ -1142,7 +1152,7 @@ export function NewEmployeeForm() {
                       type="email"
                       value={draft.email}
                       onChange={(e) => set("email", e.target.value)}
-                      placeholder="name@schulltech.com"
+                      placeholder="e.g. name@yourcompany.com"
                     />
                   </Field>
 
@@ -1185,7 +1195,7 @@ export function NewEmployeeForm() {
                       type="tel"
                       value={draft.phone}
                       onChange={(e) => set("phone", e.target.value)}
-                      placeholder="+234 803 000 0000"
+                      placeholder="e.g. +234 803 000 0000"
                     />
                   </Field>
                   <Field
@@ -1200,6 +1210,23 @@ export function NewEmployeeForm() {
                       onChange={(e) => set("dateOfBirth", e.target.value)}
                     />
                   </Field>
+                  {/* Optional, and it decides which leave they are offered:
+                      without it everybody was offered maternity and paternity
+                      leave alike (U55). */}
+                  <Field label="Gender" optional error={errorFor("gender")}>
+                    <Select
+                      data-employee-field="gender"
+                      value={draft.gender}
+                      onChange={(e) =>
+                        set("gender", e.target.value as EmployeeDraft["gender"])
+                      }
+                    >
+                      <option value="">Not said</option>
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                      <option value="other">Other</option>
+                    </Select>
+                  </Field>
                   <Field
                     label="Home address"
                     optional
@@ -1209,7 +1236,7 @@ export function NewEmployeeForm() {
                       data-employee-field="addressLine"
                       value={draft.addressLine}
                       onChange={(e) => set("addressLine", e.target.value)}
-                      placeholder="14 Bishop Oluwole Street, Victoria Island, Lagos"
+                      placeholder="e.g. 14 Bishop Oluwole Street, Lagos"
                     />
                   </Field>
                   <Field label="NIN" optional error={errorFor("nin")}>
@@ -1219,7 +1246,7 @@ export function NewEmployeeForm() {
                       digits={11}
                       value={draft.nin}
                       onChange={(e) => set("nin", e.target.value)}
-                      placeholder="12345678901"
+                      placeholder="11 digits"
                     />
                   </Field>
                   <Field
@@ -1247,7 +1274,7 @@ export function NewEmployeeForm() {
                       data-employee-field="lgaOfOrigin"
                       value={draft.lgaOfOrigin}
                       onChange={(e) => set("lgaOfOrigin", e.target.value)}
-                      placeholder="Ikeduru"
+                      placeholder="e.g. Ikeduru"
                     />
                   </Field>
                   <Field label="Religion" optional error={errorFor("religion")}>
@@ -1255,7 +1282,7 @@ export function NewEmployeeForm() {
                       data-employee-field="religion"
                       value={draft.religion}
                       onChange={(e) => set("religion", e.target.value)}
-                      placeholder="Christianity"
+                      placeholder="e.g. Christianity"
                     />
                   </Field>
                   <Field
@@ -1304,6 +1331,42 @@ export function NewEmployeeForm() {
                   description="With this and their name, payroll can pay them. Everything after this step is optional."
                 />
                 <CardBody className="grid gap-5 sm:grid-cols-2">
+                  {connected && liveJobRoles.length > 0 && (
+                    <Field
+                      label="Job role"
+                      optional
+                      help="From your Job roles. It fills the job title, which you can still change."
+                    >
+                      <Select
+                        data-employee-field="jobRoleId"
+                        value={draft.jobRoleId}
+                        onChange={(e) => {
+                          const nextId = e.target.value;
+                          const title = (id: string) =>
+                            liveJobRoles.find((role) => role.id === id)
+                              ?.title ?? "";
+                          setDraft((d) => ({
+                            ...d,
+                            jobRoleId: nextId,
+                            jobTitle: nextId
+                              ? titleForRole(
+                                  d.jobTitle,
+                                  title(d.jobRoleId),
+                                  title(nextId),
+                                )
+                              : d.jobTitle,
+                          }));
+                        }}
+                      >
+                        <option value="">None</option>
+                        {liveJobRoles.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.title}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
                   <Field
                     label="Job title"
                     required
@@ -1313,7 +1376,7 @@ export function NewEmployeeForm() {
                       data-employee-field="jobTitle"
                       value={draft.jobTitle}
                       onChange={(e) => set("jobTitle", e.target.value)}
-                      placeholder="Software Engineer"
+                      placeholder="e.g. Software Engineer"
                       autoFocus
                     />
                   </Field>
@@ -1339,7 +1402,7 @@ export function NewEmployeeForm() {
                       data-employee-field="grossMonthly"
                       value={draft.grossMonthly}
                       onChange={(e) => set("grossMonthly", e.target.value)}
-                      placeholder="850,000"
+                      placeholder="e.g. 850,000"
                     />
                   </Field>
                   <Field
@@ -1501,7 +1564,7 @@ export function NewEmployeeForm() {
                             digits={10}
                             value={draft.bankAccount}
                             onChange={(e) => set("bankAccount", e.target.value)}
-                            placeholder="0123456789"
+                            placeholder="10 digits"
                           />
                         </Field>
                         <div className="sm:col-span-2">
@@ -1603,7 +1666,7 @@ export function NewEmployeeForm() {
                             digits={10}
                             value={draft.tin}
                             onChange={(e) => set("tin", e.target.value)}
-                            placeholder="1234567890"
+                            placeholder="10 digits"
                           />
                         </Field>
                         <Field
@@ -1617,7 +1680,7 @@ export function NewEmployeeForm() {
                             inputMode="numeric"
                             value={draft.annualRent}
                             onChange={(e) => set("annualRent", e.target.value)}
-                            placeholder="1,800,000"
+                            placeholder="e.g. 1,800,000"
                           />
                         </Field>
                       </div>
@@ -1653,7 +1716,7 @@ export function NewEmployeeForm() {
                             data-employee-field="pensionPin"
                             value={draft.pensionPin}
                             onChange={(e) => set("pensionPin", e.target.value)}
-                            placeholder="PEN000000000"
+                            placeholder="PEN and 12 digits"
                           />
                         </Field>
                         <Field label="Pension provider">
@@ -1769,6 +1832,20 @@ export function NewEmployeeForm() {
                         <Money key="gross" amount={gross} />,
                       ],
                       ["Department", departmentName ?? "Not assigned"],
+                      [
+                        "Reports to",
+                        (() => {
+                          const manager = directory.employees.find(
+                            (e) => e.id === draft.managerId,
+                          );
+                          return manager ? fullName(manager) : "No manager";
+                        })(),
+                      ],
+                      [
+                        "Employment type",
+                        types.find((t) => t.value === draft.employmentType)
+                          ?.label ?? "—",
+                      ],
                     ]}
                   />
                   {hasExtras && (
@@ -2226,7 +2303,7 @@ function ReviewBlock({
  * and nothing on screen could have told you which one you were looking at. With
  * no API there is now no figure, which is the honest version of the same state.
  */
-function FirstPayslip({
+export function FirstPayslip({
   grossKobo,
   annualRentKobo,
 }: {
@@ -2276,9 +2353,17 @@ function FirstPayslip({
           <>
             <Row label="Gross" value={naira(slip.grossKobo)} strong />
             <div className="h-px bg-line" />
-            <Row label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
-            <Row label="NHF" value={-naira(slip.nhfKobo)} />
-            <Row label="PAYE" value={-naira(slip.payeKobo)} />
+            {/* A deduction the company does not operate has no row, rather
+                than a "₦0" that reads as a figure (U53). */}
+            {wasDeducted(slip.operates, "pension") && (
+              <Row label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
+            )}
+            {wasDeducted(slip.operates, "nhf") && (
+              <Row label="NHF" value={-naira(slip.nhfKobo)} />
+            )}
+            {wasDeducted(slip.operates, "paye") && (
+              <Row label="PAYE" value={-naira(slip.payeKobo)} />
+            )}
             <div className="h-px bg-line" />
             <Row label="Net monthly" value={naira(slip.netKobo)} strong />
             <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
@@ -2330,7 +2415,10 @@ function Row({
             : "tabular text-body-sm text-body"
         }
       >
-        <Money amount={Math.round(value)} />
+        {/* To the kobo, as the run computes it: rounding here made the
+            preview and the payslip disagree by 50 kobo (U53). */}
+        {value < 0 ? "−" : null}
+        <Money amount={Math.abs(value)} decimals />
       </span>
     </div>
   );

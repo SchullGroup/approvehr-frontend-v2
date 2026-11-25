@@ -60,6 +60,41 @@ import type { ScreeningSummary } from "@/lib/hiring/screening/model";
 /** Mirrors `JobPostingStatus`. */
 export type PostingStatus = "DRAFT" | "PUBLISHED" | "CLOSED";
 
+/** Whether an advert is live, as the API words it. See `liveOf`. */
+export type LiveState = "DRAFT" | "LIVE" | "CLOSED";
+
+/**
+ * Whether an advert is live, and the word for it, for every screen that shows
+ * one (UAT 23 Nov, U90 / PERF-10).
+ *
+ * The status alone said "Live" beside the advert's own "Live adverts 0", because
+ * a published advert past its closing date is still `PUBLISHED`. The API now
+ * says it once (`liveState`, `liveLabel`); an API that predates that is read
+ * the same way from `status` and `acceptingApplications`, which it already
+ * sends. Writes (publish, close) still go by `status`: they change it.
+ */
+export function liveOf(posting: {
+  status: PostingStatus;
+  acceptingApplications?: boolean;
+  liveState?: LiveState;
+  liveLabel?: string;
+}): { state: LiveState; label: string } {
+  if (posting.liveState && posting.liveLabel) {
+    return { state: posting.liveState, label: posting.liveLabel };
+  }
+  if (posting.status === "DRAFT") return { state: "DRAFT", label: "Draft" };
+  if (posting.status === "PUBLISHED" && posting.acceptingApplications !== false)
+    return { state: "LIVE", label: "Live" };
+  return { state: "CLOSED", label: "Closed" };
+}
+
+/** The badge tone for each state. */
+export const LIVE_TONE: Record<LiveState, "neutral" | "success" | "warning"> = {
+  DRAFT: "neutral",
+  LIVE: "success",
+  CLOSED: "warning",
+};
+
 /** Mirrors `JobApplicationStatus`. `WITHDRAWN` is set by nothing in this API yet. */
 export type ApplicationStatus =
   "RECEIVED" | "ADVANCED" | "DECLINED" | "WITHDRAWN";
@@ -132,6 +167,14 @@ export type ApiPosting = {
   closesOn: string | null;
   /** False once the closing day has passed, whatever the status says. */
   acceptingApplications: boolean;
+  /**
+   * One live state from the status and the closing date (UAT 23 Nov, U90 /
+   * PERF-10): a published advert past its closing date is `CLOSED`. Absent from
+   * an API that predates it; read it through `liveOf`, never `status`.
+   */
+  liveState?: LiveState;
+  /** "Draft", "Live", "Closed" or "Closed on 20 Nov 2026". Absent with `liveState`. */
+  liveLabel?: string;
   requisitionId: string | null;
   requisitionReference: string | null;
   requisitionStatus: RequisitionStatus | null;

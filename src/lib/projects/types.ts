@@ -490,6 +490,8 @@ export type NewIssueInput = {
   startDate?: string | null;
   dueDate?: string | null;
   dueTime?: string | null;
+  /** The objective this task counts towards (optional). */
+  goalId?: string | null;
 };
 
 export type IssuePatch = Partial<{

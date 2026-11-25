@@ -130,6 +130,7 @@ const detailOf = (
   clashes: [],
   balance: null,
   reduced: false,
+  clashesAmong: "company",
   history,
   ...over,
 });
@@ -184,7 +185,7 @@ describe("a request that was sent back", () => {
   it("says why, on the request, to the person who filed it", () => {
     render(<LeaveScreen />);
     const dialog = within(panel());
-    expect(dialog.getByText("Why it was sent back")).toBeInTheDocument();
+    expect(dialog.getByText("Why it was declined")).toBeInTheDocument();
     /* In the row and as a line of the history: the reason is on screen. */
     expect(
       dialog.getAllByText(/Two people are already off that week\./).length,
@@ -197,7 +198,7 @@ describe("a request that was sent back", () => {
       within(panel()).getByRole("list", { name: "What happened" }),
     ).getAllByRole("listitem");
     expect(items[0]).toHaveTextContent("Requested");
-    expect(items[1]).toHaveTextContent("Sent back");
+    expect(items[1]).toHaveTextContent("Declined");
     expect(items[1]).toHaveTextContent("Fatima Bello, HR manager");
   });
 
@@ -230,7 +231,7 @@ describe("a request whose API sends no history", () => {
       ],
     );
     render(<LeaveScreen />);
-    expect(within(panel()).queryByText("Why it was sent back")).toBeNull();
+    expect(within(panel()).queryByText("Why it was declined")).toBeNull();
     expect(within(panel()).queryByText("Decision note")).toBeNull();
     /* Still said once, as a line of what happened. */
     expect(within(panel()).getByText("“Enjoy the rest.”")).toBeInTheDocument();
@@ -377,13 +378,11 @@ describe("a manager reading the request they decide", () => {
     expect(dialog.queryByRole("button", { name: /^Remove/ })).toBeNull();
   });
 
-  it("is offered Approve and Send back while it is waiting", () => {
+  it("is offered Approve and Decline while it is waiting", () => {
     render(<LeaveScreen />);
     const dialog = within(panel());
     expect(dialog.getByRole("button", { name: "Approve" })).toBeInTheDocument();
-    expect(
-      dialog.getByRole("button", { name: "Send back" }),
-    ).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Decline" })).toBeInTheDocument();
   });
 
   it("approves with no note as a plain approval", async () => {
@@ -439,18 +438,18 @@ describe("a manager reading the request they decide", () => {
 
   it("will not send it back without a reason, and asks before sending", async () => {
     render(<LeaveScreen />);
-    fireEvent.click(within(panel()).getByRole("button", { name: "Send back" }));
+    fireEvent.click(within(panel()).getByRole("button", { name: "Decline" }));
     const dialog = within(modal());
-    fireEvent.click(dialog.getByRole("button", { name: "Send it back" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Decline" }));
     expect(
-      await dialog.findByText("Write a line so they know what to change."),
+      await dialog.findByText("Write a line so they know why."),
     ).toBeInTheDocument();
     expect(decide).not.toHaveBeenCalled();
 
     fireEvent.change(dialog.getByRole("textbox"), {
       target: { value: "Two people are already off that week." },
     });
-    fireEvent.click(dialog.getByRole("button", { name: "Send it back" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Decline" }));
     await waitFor(() =>
       expect(decide).toHaveBeenCalledWith(
         "r1",
@@ -467,12 +466,12 @@ describe("a manager reading the request they decide", () => {
       ]),
     );
     render(<LeaveScreen />);
-    fireEvent.click(within(panel()).getByRole("button", { name: "Send back" }));
+    fireEvent.click(within(panel()).getByRole("button", { name: "Decline" }));
     const dialog = within(modal());
     fireEvent.change(dialog.getByRole("textbox"), {
       target: { value: "no" },
     });
-    fireEvent.click(dialog.getByRole("button", { name: "Send it back" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Decline" }));
     expect(
       await dialog.findByText("Say why, so they know what to change."),
     ).toBeInTheDocument();
@@ -495,7 +494,7 @@ describe("a manager reading the request they decide", () => {
     render(<LeaveScreen />);
     const dialog = within(panel());
     expect(dialog.queryByRole("button", { name: "Approve" })).toBeNull();
-    expect(dialog.queryByRole("button", { name: "Send back" })).toBeNull();
+    expect(dialog.queryByRole("button", { name: "Decline" })).toBeNull();
     expect(
       dialog.getByText("With HR now. They make the final decision."),
     ).toBeInTheDocument();
@@ -513,7 +512,7 @@ describe("a manager reading the request they decide", () => {
     );
     render(<LeaveScreen />);
     expect(
-      within(panel()).queryByRole("button", { name: /Approve|Send back|Undo/ }),
+      within(panel()).queryByRole("button", { name: /Approve|Decline|Undo/ }),
     ).toBeNull();
   });
 });
@@ -584,7 +583,7 @@ describe("the person whose leave it is", () => {
     detail = detailOf(request("pending"));
     render(<LeaveScreen />);
     expect(
-      within(panel()).queryByRole("button", { name: /^(Approve|Send back)/ }),
+      within(panel()).queryByRole("button", { name: /^(Approve|Decline)/ }),
     ).toBeNull();
   });
 });

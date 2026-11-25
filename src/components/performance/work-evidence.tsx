@@ -123,7 +123,7 @@ export function WorkEvidence({
             <TH>Ticket</TH>
             <TH>Status</TH>
             <TH>Finished</TH>
-            <TH>Weekly task</TH>
+            <TH>Task</TH>
           </THead>
           <TBody>
             {shown.map((task) => (

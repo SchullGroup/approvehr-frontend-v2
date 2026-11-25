@@ -86,6 +86,7 @@ export function InterviewsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see interviews"
               description="An interview record names a candidate and what was said about them, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."

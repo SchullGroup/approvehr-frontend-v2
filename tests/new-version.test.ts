@@ -92,10 +92,10 @@ describe("what starting one does, before it is pressed", () => {
   const effects = (to: "RATING" | "BOOLEAN" | "CHOICE" | null) =>
     newVersionEffects({ name: "Teamwork", ratingCount: 12, to });
 
-  it("says the old one keeps its ratings and every mark made from them, and is retired", () => {
+  it("says the old one keeps its ratings and every score made from them, and is retired", () => {
     const [first] = effects("BOOLEAN");
     expect(first).toContain("Teamwork keeps its 12 ratings");
-    expect(first).toContain("every mark made from them stays as it is");
+    expect(first).toContain("every score made from them stays as it is");
     expect(first).toContain("marked retired");
   });
 
@@ -106,11 +106,11 @@ describe("what starting one does, before it is pressed", () => {
       to: null,
     });
     expect(one[0]).toContain(
-      "keeps its 1 rating, and every mark made from it stays as it is",
+      "keeps its 1 rating, and every score made from it stays as it is",
     );
     expect(one[0]).not.toContain("from them");
     expect(effects("BOOLEAN")[0]).toContain(
-      "12 ratings, and every mark made from them",
+      "12 ratings, and every score made from them",
     );
   });
 
@@ -174,13 +174,13 @@ describe("what happened", () => {
 
   it("names the new one, how it is answered and what the old one kept, under the name the API gave it", () => {
     expect(startedLine(result(), "RATING")).toBe(
-      "Teamwork is now answered as a level on a scale. Teamwork (retired) keeps its 12 ratings and every mark made from them.",
+      "Teamwork is now answered as a level on a scale. Teamwork (retired) keeps its 12 ratings and every score made from them.",
     );
   });
 
-  it("agrees in number here too: one rating is kept with the marks made from it", () => {
+  it("agrees in number here too: one rating is kept with the scores made from it", () => {
     expect(startedLine(result({ ratingsKept: 1 }), "BOOLEAN")).toBe(
-      "Teamwork is now answered as a yes or no. Teamwork (retired) keeps its 1 rating and every mark made from it.",
+      "Teamwork is now answered as a yes or no. Teamwork (retired) keeps its 1 rating and every score made from it.",
     );
   });
 

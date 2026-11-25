@@ -251,7 +251,7 @@ describe("what an answer recorded on a subsection counts towards", () => {
   it("is a warning when the subsection is filed under no section", () => {
     expect(directCounts({ kind: "RATING", section: null })).toEqual({
       tone: "warning",
-      text: "This subsection is not filed under a section, so a level recorded on it counts towards no part of the mark.",
+      text: "This subsection is not filed under a section, so a level recorded on it counts towards no part of the score.",
     });
   });
 
@@ -262,7 +262,7 @@ describe("what an answer recorded on a subsection counts towards", () => {
     });
     expect(counts).toEqual({
       tone: "warning",
-      text: "Key result area is not weighted, so an answer recorded on this counts towards no part of the mark.",
+      text: "Key result area is not weighted, so an answer recorded on this counts towards no part of the score.",
     });
     expect(counts?.text).not.toMatch(/0%/);
   });
@@ -275,7 +275,7 @@ describe("what an answer recorded on a subsection counts towards", () => {
       }),
     ).toEqual({
       tone: "muted",
-      text: "Core competency is 40% of the mark, and an answer recorded here counts towards it.",
+      text: "Core competency is 40% of the score, and an answer recorded here counts towards it.",
     });
     expect(
       directCounts({
@@ -314,15 +314,11 @@ describe("the words for each kind", () => {
 
   it("say, for the two that have no level, where they are not shown", () => {
     /* HR is not left wondering where a yes-or-no subsection went in the gap list
-       and the heatmap, which are about levels and are filtered to levels. */
-    expect(kindLine("BOOLEAN", 5)).toContain(
-      "left out of the gap list and the heatmap",
-    );
-    expect(kindLine("CHOICE", 5)).toContain(
-      "left out of the gap list and the heatmap",
-    );
+       which is about levels and is filtered to levels. */
+    expect(kindLine("BOOLEAN", 5)).toContain("left out of the gap list");
+    expect(kindLine("CHOICE", 5)).toContain("left out of the gap list");
     expect(kindLine("RATING", 5)).toContain("1 to 5");
-    expect(kindLine("RATING", 5)).toContain("gap list and the heatmap");
+    expect(kindLine("RATING", 5)).toContain("in the gap list");
     expect(kindLine("RATING", 5)).not.toContain("left out");
   });
 

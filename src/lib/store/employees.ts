@@ -202,6 +202,27 @@ export type FieldError = { field: keyof Employee; message: string };
  * statutory bodies actually accept, so a record that passes here is one
  * payroll can file with — that is the whole point of validating at all.
  */
+/** Misspellings of the mail domains staff most often use, and what was meant. */
+const DOMAIN_TYPOS: Readonly<Record<string, string>> = {
+  "gmial.com": "gmail.com",
+  "gmai.com": "gmail.com",
+  "gmal.com": "gmail.com",
+  "gamil.com": "gmail.com",
+  "gmail.co": "gmail.com",
+  "gmail.con": "gmail.com",
+  "gmail.cm": "gmail.com",
+  "yaho.com": "yahoo.com",
+  "yahooo.com": "yahoo.com",
+  "yahoo.co": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+  "hotmial.com": "hotmail.com",
+  "hotmal.com": "hotmail.com",
+  "hotmail.co": "hotmail.com",
+  "outlok.com": "outlook.com",
+  "outloo.com": "outlook.com",
+  "outlook.co": "outlook.com",
+};
+
 export function validateEmployee(patch: Partial<Employee>): FieldError[] {
   const errors: FieldError[] = [];
   const has = (k: keyof Employee) => patch[k] !== undefined;
@@ -219,6 +240,17 @@ export function validateEmployee(patch: Partial<Employee>): FieldError[] {
         field: "email",
         message: "That is not a valid email address.",
       });
+    } else {
+      /* An invitation to a misspelt mailbox goes nowhere and says nothing
+         (L26): "gmial.com" used to pass. */
+      const [local, domain = ""] = patch.email.trim().split("@");
+      const meant = DOMAIN_TYPOS[domain.toLowerCase()];
+      if (meant) {
+        errors.push({
+          field: "email",
+          message: `Did you mean ${local}@${meant}?`,
+        });
+      }
     }
   }
 

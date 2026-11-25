@@ -1,6 +1,7 @@
 "use client";
 
 import { History } from "lucide-react";
+import { LinkedQueryLine } from "@/components/queries/linked-query";
 import {
   Badge,
   Card,
@@ -73,6 +74,7 @@ export function EmploymentHistoryPanel({ employeeId }: { employeeId: string }) {
       >
         {changes.length === 0 ? (
           <EmptyState
+            plain
             icon={<History aria-hidden="true" className="size-5" />}
             title="Nothing recorded yet"
             description="Confirmations, promotions, transfers and pay changes appear here as they happen, including ones made straight on this record."
@@ -107,6 +109,11 @@ export function EmploymentHistoryPanel({ employeeId }: { employeeId: string }) {
                       {change.note}
                     </p>
                   )}
+                  <LinkedQueryLine
+                    queryId={change.queryId}
+                    reference={change.queryReference}
+                    className="mt-2 text-meta text-muted"
+                  />
                 </li>
               ))}
             </ol>

@@ -1,7 +1,7 @@
 "use client";
 
 import { ShieldAlert } from "lucide-react";
-import { EmptyState, Skeleton } from "@/components/ui";
+import { ButtonLink, EmptyState, Skeleton } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   hasAnyPermission,
@@ -77,6 +77,15 @@ export function permissionPhrase(
   return `the ${quoted.slice(0, -1).join(", ")} or ${quoted[quoted.length - 1]} permission`;
 }
 
+/** The one next step on a refusal: out of the dead end. */
+export function BackHome() {
+  return (
+    <ButtonLink href="/dashboard" variant="secondary">
+      Back to Home
+    </ButtonLink>
+  );
+}
+
 export function NoAccess({
   title,
   what,
@@ -92,9 +101,11 @@ export function NoAccess({
     : [permission as PermissionKey];
   return (
     <EmptyState
+      plain
       icon={<ShieldAlert aria-hidden="true" />}
       title={title}
-      description={`${what} needs ${permissionPhrase(needed)}. Ask somebody who holds it.`}
+      description={`${what} needs ${permissionPhrase(needed)}. Ask your administrator to add it to your role.`}
+      action={<BackHome />}
     />
   );
 }

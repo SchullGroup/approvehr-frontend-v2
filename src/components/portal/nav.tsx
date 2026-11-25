@@ -9,9 +9,7 @@ import {
   CalendarRange,
   CalendarSearch,
   ChartNoAxesColumn,
-  CheckCheck,
   ClipboardCheck,
-  ClipboardList,
   ListChecks,
   Clock,
   CreditCard,
@@ -34,7 +32,6 @@ import {
   Megaphone,
   MessagesSquare,
   Network,
-  Scale,
   FileChartColumn,
   Receipt,
   ReceiptText,
@@ -57,6 +54,10 @@ import type { FeatureKey } from "@/lib/api/setup";
 import { MODULES, type ModuleId } from "@/lib/marketing/modules";
 import { moduleLocked, type BillingModule } from "@/lib/billing";
 import type { ApiBilling } from "@/lib/api/endpoints";
+import { PAGE_ICONS } from "./nav-icons";
+
+const WhoAppraisesIcon = PAGE_ICONS["/performance/appraisers"]!;
+const FairnessIcon = PAGE_ICONS["/performance/fairness"]!;
 
 /**
  * Badges that are computed from a live store rather than typed in here.
@@ -84,7 +85,48 @@ export type NavRowFact =
   | "interviews"
   | "team-tasks"
   /** Holds the Master grant (`SEE_ALL_WORK`): the Overview row of Projects. */
-  | "master-view";
+  | "master-view"
+  /**
+   * Decides something somebody else asked for: leads people, or holds one of
+   * `DECIDING_PERMISSIONS`. My approvals is absent for everybody else, whose
+   * inbox could only ever say "Approving requests is not part of your role".
+   */
+  | "approvals"
+  /**
+   * Leads people or holds `EDIT_RECORDS`: who agrees objectives. No row uses
+   * it since Objectives to agree became the To agree tab of Objectives (24 Nov
+   * 2026); it is kept because the facts are one shape for every menu.
+   */
+  | "agrees-objectives"
+  /**
+   * Leads people, or holds `EDIT_RECORDS` or `START_EXIT_DEPARTMENT`: Exit
+   * management. An employee hands in their notice from "Leaving" on their own
+   * profile, which is one place for it rather than two.
+   */
+  | "exits"
+  /** Has somebody reporting to them: My team (U22). */
+  | "my-team";
+
+/**
+ * The permissions that put somebody else's request in front of you.
+ *
+ * Wider than the inbox's own `APPROVE_PERMISSIONS` on purpose: this decides
+ * whether the door is shown at all, and a door that appears for somebody with
+ * a hiring or promotion approval is better than one that is missing for them.
+ * `EDIT_RECORDS` is here because HR decides record changes and probation
+ * confirmations from the same inbox.
+ */
+export const DECIDING_PERMISSIONS: readonly PermissionKey[] = [
+  "APPROVE_LEAVE",
+  "APPROVE_LEAVE_ALL",
+  "APPROVE_LEAVE_DEPARTMENT",
+  "APPROVE_PAYROLL",
+  "APPROVE_LOANS",
+  "APPROVE_EXPENSES",
+  "APPROVE_HIRING",
+  "APPROVE_EMPLOYMENT_CHANGE",
+  "EDIT_RECORDS",
+];
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -109,9 +151,10 @@ export type NavFacts = {
    */
   earlyPay: boolean;
   /**
-   * True when the company has not switched on pay early **and** this reader
-   * cannot switch it on. Optional so every caller from before this question
-   * keeps compiling; absent reads as "show it".
+   * True when the company has not switched on pay early. For everybody: a row
+   * for something that is off leads to a screen that can only say no. Optional
+   * so every caller from before this question keeps compiling; absent reads
+   * as "show it".
    */
   earlyPayHidden?: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */
@@ -140,6 +183,10 @@ export const NOTHING_ANSWERED_YET: NavFacts = {
     interviews: false,
     "team-tasks": false,
     "master-view": false,
+    approvals: false,
+    "agrees-objectives": false,
+    exits: false,
+    "my-team": false,
   },
   collaborator: false,
 };
@@ -320,6 +367,13 @@ export type NavItem = {
    * was never built.
    */
   locked?: boolean;
+
+  /**
+   * Greyed out and not a link until the company has run its first appraisal
+   * period: the page is about a period, and with none it would open on nothing.
+   * It stays in the list so it can be found, and says when it opens.
+   */
+  needsPeriod?: boolean;
 };
 
 export type NavGroup = {
@@ -379,6 +433,7 @@ const PERSONAL: NavItem[] = [
     label: "My approvals",
     icon: <ClipboardCheck aria-hidden="true" />,
     badgeSource: "approvals",
+    rows: "approvals",
     always: true,
   },
   {
@@ -464,7 +519,10 @@ export const PROJECT_ITEMS: NavItem[] = [
        claim the Master view or the program pages, which are their own rows, so
        it never lights beside them. */
     href: "/projects",
-    label: "All projects",
+    /* "My projects": it lists the projects you are on, and "All projects"
+       read as the company's beside an Overview that counted more (UAT 23 Nov,
+       U104 / PERF-32). */
+    label: "My projects",
     icon: <FolderKanban aria-hidden="true" />,
     activeExcept: [
       "/projects/master",
@@ -566,6 +624,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Network aria-hidden="true" />,
     },
     {
+      /* A line manager's own people, without pay (U22). A full record carries
+         pay, so a manager could not open one, and had no page for their team. */
+      href: "/people/team",
+      label: "My team",
+      icon: <Users aria-hidden="true" />,
+      rows: "my-team",
+      always: true,
+    },
+    {
       /* Restored alongside the status field on the create form (see
          `people/new/form.tsx`) so a new hire can actually be put into
          ONBOARDING and this tab has something to show. */
@@ -590,17 +657,10 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <CalendarCheck aria-hidden="true" />,
       permission: "EDIT_RECORDS",
     },
-    {
-      /* **No permission**, and that is the point: every employee answers
-         surveys and a permission gate would hide the screen from the audience
-         it exists for. `MANAGE_SETTINGS` decides what the same route *shows* —
-         one route, narrowed by role rather than by URL, PARITY Rule 1. The
-         feature flag is what hides it from a company that does not run them. */
-      href: "/surveys",
-      label: "Surveys",
-      icon: <ClipboardList aria-hidden="true" />,
-      feature: "surveys",
-    },
+    /* Surveys has no row until a survey can be made here (UAT 23 Nov, U45,
+       HR-11): the screen lists and answers surveys, and there is no way to
+       start or publish one. Somebody asked to answer one is sent a
+       notification that opens /surveys, which still works. */
     {
       /* After Probation and before Exit management: joined, confirmed,
          promoted, left. `EDIT_RECORDS` because proposing a change is editing a
@@ -630,6 +690,10 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/offboarding",
       label: "Exit management",
       icon: <DoorOpen aria-hidden="true" />,
+      /* UAT 23 Nov (SELF-12, NC-37): an employee met a resignation form here and
+         again as "Leaving" on their profile. The profile is now the one place to
+         hand in notice; this row is for the people who work exits. */
+      rows: "exits",
     },
     {
       /* The register of written queries, for the people who write them and the people who
@@ -643,8 +707,29 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/queries",
       label: "Queries",
       icon: <MessageSquareText aria-hidden="true" />,
-      anyPermission: ["ISSUE_QUERIES", "DECIDE_QUERIES"],
+      /* `DRAFT_QUERIES` is the line manager's: the same row opens their own drafts and nothing
+         else. Held by nobody on the day, so the row is not in front of anybody who was not
+         given it. Whether the company has switched manager drafting on is the server's to say
+         (`GET /queries/my-drafts` answers 403 with its own sentence), so the page asks and the
+         row does not guess. */
+      anyPermission: ["ISSUE_QUERIES", "DECIDE_QUERIES", "DRAFT_QUERIES"],
       feature: "queries",
+    },
+    {
+      /* No permission, because none of them is the question: a one-to-one is
+         readable by its two participants, which is a property of the rows.
+         That much was always right. What followed from it was not — the item
+         was `always: true`, so every employee carried a sidebar row whose only
+         control offered the whole directory and had each choice refused.
+
+         `rows` asks the rows instead: showing to somebody who manages people,
+         or who is already in one as the report. Everybody else has nothing
+         behind this door yet, and the honest sidebar says so by not having
+         it. It comes back the moment their manager starts one. */
+      href: "/people/one-on-ones",
+      label: "One-to-ones",
+      icon: <MessagesSquare aria-hidden="true" />,
+      rows: "one-on-ones",
     },
     {
       /* The HR register — what is on file and what is outstanding. The
@@ -678,22 +763,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <FileSignature aria-hidden="true" />,
       rows: "signatures",
     },
-    {
-      /* No permission, because none of them is the question: a one-to-one is
-         readable by its two participants, which is a property of the rows.
-         That much was always right. What followed from it was not — the item
-         was `always: true`, so every employee carried a sidebar row whose only
-         control offered the whole directory and had each choice refused.
 
-         `rows` asks the rows instead: showing to somebody who manages people,
-         or who is already in one as the report. Everybody else has nothing
-         behind this door yet, and the honest sidebar says so by not having
-         it. It comes back the moment their manager starts one. */
-      href: "/people/one-on-ones",
-      label: "One-to-ones",
-      icon: <MessagesSquare aria-hidden="true" />,
-      rows: "one-on-ones",
-    },
     {
       /* Laptops, phones and SIM cards. Gated to the register's audience
          because a staff member's own kit already renders on `/profile`, and
@@ -945,6 +1015,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Shifts",
       icon: <CalendarRange aria-hidden="true" />,
       feature: "shifts",
+      /* The rota planner. Somebody on shifts reads their own rota, and answers
+         cover requests, on their profile (`MyRota`). `EDIT_RECORDS` because the
+         API gives its holders the rota permissions too. */
+      anyPermission: [
+        "MANAGE_ROTA",
+        "MANAGE_SHIFTS",
+        "APPROVE_SHIFT_SWAP",
+        "EDIT_RECORDS",
+      ],
     },
     {
       href: "/people/leave",
@@ -981,23 +1060,8 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     },
     {
       href: "/performance/kpis",
-      label: "KPIs",
+      label: "Objectives",
       icon: <TrendingUp aria-hidden="true" />,
-      always: true,
-    },
-    {
-      href: "/performance/review-tasks",
-      label: "Weekly tasks",
-      icon: <ClipboardList aria-hidden="true" />,
-      always: true,
-    },
-    {
-      href: "/performance/work-record",
-      label: "My work record",
-      icon: <ListChecks aria-hidden="true" />,
-      /* It lists what somebody finished on the project boards, so it exists for
-         a company that has Projects switched on and for nobody else. */
-      feature: "projects",
       always: true,
     },
     {
@@ -1009,42 +1073,25 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "appraisals",
     },
     {
-      /* Matches the old tab's own gate exactly: appraisals on, and either
-         runs a period (`MANAGE_SETTINGS`) or reads across the company
-         (`EDIT_RECORDS`). Staff with neither never had this tab either. */
-      href: "/performance/periods",
-      label: "Appraisal periods",
-      icon: <CalendarRange aria-hidden="true" />,
-      feature: "appraisals",
-      anyPermission: ["MANAGE_SETTINGS", "EDIT_RECORDS"],
-    },
-    {
-      /* Was reachable only from a notification. It is a queue with one job,
-         same shape as Hiring's Applications, and it deserves the same
-         permanent door. */
-      href: "/performance/approvals",
-      label: "Objectives to agree",
-      icon: <CheckCheck aria-hidden="true" />,
-      feature: "appraisals",
-    },
-    {
       /* `multiAppraiser` cannot be on while `appraisals` is off — the setup
          module refuses that combination — so one feature flag is enough to
          carry both. */
       href: "/performance/appraisers",
       label: "Who appraises whom",
-      icon: <Network aria-hidden="true" />,
+      icon: <WhoAppraisesIcon aria-hidden="true" />,
       feature: "multiAppraiser",
       permission: "EDIT_RECORDS",
+      needsPeriod: true,
     },
     {
       /* Was reachable only from inside one appraisal period. A module of its
          own in Performance, for whoever may see it. */
       href: "/performance/fairness",
       label: "Fairness check",
-      icon: <Scale aria-hidden="true" />,
+      icon: <FairnessIcon aria-hidden="true" />,
       feature: "appraisals",
       permission: "VIEW_FAIRNESS",
+      needsPeriod: true,
     },
   ],
 
@@ -1105,9 +1152,10 @@ const SETTINGS_ITEMS: NavItem[] = [
     icon: <Settings aria-hidden="true" />,
     permission: "MANAGE_SETTINGS",
   },
+  /* "Access", not "Roles": "role" also means a job and a vacancy (U58). */
   {
     href: "/settings/roles",
-    label: "Roles",
+    label: "Access",
     icon: <ShieldCheck aria-hidden="true" />,
     permission: "MANAGE_ROLES",
   },
@@ -1352,4 +1400,45 @@ export function visibleNav(
       };
     })
     .filter((group) => group.items.length > 0);
+}
+
+/* -------------------------------------------------------------------------- */
+
+const HOME = { href: "/dashboard", label: "Home" } as const;
+
+/** Every href the sidebar could ever show anybody, before any gate. */
+const NAV_HREFS: ReadonlySet<string> = new Set(
+  NAV.flatMap((group) => group.items.map((item) => item.href)),
+);
+
+/**
+ * Whether a link to `href` leads somewhere this reader may go.
+ *
+ * Only a sidebar route can be judged here: a record, a period or a payslip is
+ * not a door in the nav, and the page behind it answers for itself. `visible`
+ * is `visibleNav`'s answer for the reader, or `null` when nothing has said
+ * (a page rendered outside the shell), which leaves every link as it was.
+ */
+export function navRouteReachable(
+  href: string,
+  visible: readonly NavGroup[] | null,
+): boolean {
+  if (visible === null || !NAV_HREFS.has(href)) return true;
+  return visible.some((group) =>
+    group.items.some((item) => item.href === href && item.locked !== true),
+  );
+}
+
+/**
+ * Where a page's "Back to …" link goes for this reader.
+ *
+ * UAT 23 Nov (SELF-12, U57): an employee's payslip said "Back to Monthly
+ * payroll" and a one-to-one said "Back to People", and both opened onto pages
+ * that turn them away. A parent the reader cannot open is replaced by Home.
+ */
+export function backTarget(
+  crumb: { href: string; label: string },
+  visible: readonly NavGroup[] | null,
+): { href: string; label: string } {
+  return navRouteReachable(crumb.href, visible) ? crumb : HOME;
 }

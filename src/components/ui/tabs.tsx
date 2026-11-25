@@ -4,6 +4,17 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Badge } from "./badge";
+import { Select } from "./input";
+
+/**
+ * More tabs than a phone shows. Past this many, a phone gets a dropdown of
+ * every section instead of a strip cut off at "Co…" with the rest scrolled out
+ * of sight (UAT 23 Nov, L29: SELF-22). From `sm` up it is the strip as before.
+ */
+const PHONE_DROPDOWN_AFTER = 4;
+
+const optionLabel = (label: string, count?: number) =>
+  count === undefined ? label : `${label} (${String(count)})`;
 
 /*
  * Tabs follow the ARIA authoring practice: roving tabindex, arrow key
@@ -125,13 +136,33 @@ export function Tabs({
     buttons?.[nextIndex]?.focus();
   }
 
+  const long = items.length > PHONE_DROPDOWN_AFTER;
+
   return (
     <div className={className}>
+      {long && (
+        <div className="border-b border-line pb-3 sm:hidden">
+          <Select
+            aria-label="Section"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {optionLabel(item.label, item.count)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
       <div
         ref={listRef}
         role="tablist"
         onKeyDown={onKeyDown}
-        className="scroll-x flex gap-1 border-b border-line"
+        className={cn(
+          "scroll-x flex gap-1 border-b border-line",
+          long && "hidden sm:flex",
+        )}
       >
         {items.map((item) => {
           const selected = item.id === value;
@@ -227,41 +258,72 @@ export function LinkTabs({
     }
   }, [activeHref]);
 
+  const long = items.length > PHONE_DROPDOWN_AFTER;
+  /* Through the tab's own link, so the dropdown navigates exactly as a press
+     on the tab does, with no second way of moving between sections. */
+  const go = (href: string) =>
+    navRef.current
+      ?.querySelector<HTMLAnchorElement>(`a[href="${CSS.escape(href)}"]`)
+      ?.click();
+  const activeItem = items.find((item) => item.href === activeHref);
+
   return (
-    <nav
-      ref={navRef}
-      aria-label={label}
-      className={cn("scroll-x flex gap-1 border-b border-line", className)}
-    >
-      {items.map((item) => {
-        const active = activeHref === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 text-body-sm font-medium",
-              "transition-colors duration-150 -mb-px border-b-2",
-              active
-                ? "border-accent text-ink"
-                : "border-transparent text-muted hover:text-ink hover:border-line-strong",
-            )}
+    <>
+      {long && (
+        <div className={cn("border-b border-line pb-3 sm:hidden", className)}>
+          <Select
+            aria-label={label}
+            value={activeItem?.href ?? ""}
+            onChange={(event) => go(event.target.value)}
           >
-            {item.label}
-            {item.count !== undefined && (
-              <Badge
-                tone={active ? "accent" : "neutral"}
-                size="sm"
-                className="tabular font-semibold"
-              >
-                {item.count}
-              </Badge>
-            )}
-          </Link>
-        );
-      })}
-    </nav>
+            {!activeItem && <option value="">Choose a section</option>}
+            {items.map((item) => (
+              <option key={item.href} value={item.href}>
+                {optionLabel(item.label, item.count)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+      <nav
+        ref={navRef}
+        aria-label={label}
+        className={cn(
+          "scroll-x flex gap-1 border-b border-line",
+          long && "hidden sm:flex",
+          className,
+        )}
+      >
+        {items.map((item) => {
+          const active = activeHref === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 text-body-sm font-medium",
+                "transition-colors duration-150 -mb-px border-b-2",
+                active
+                  ? "border-accent text-ink"
+                  : "border-transparent text-muted hover:text-ink hover:border-line-strong",
+              )}
+            >
+              {item.label}
+              {item.count !== undefined && (
+                <Badge
+                  tone={active ? "accent" : "neutral"}
+                  size="sm"
+                  className="tabular font-semibold"
+                >
+                  {item.count}
+                </Badge>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }
 

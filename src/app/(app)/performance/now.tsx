@@ -52,6 +52,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
+import { YourAppraisal } from "@/components/performance/your-appraisal";
 import { PeriodExceptionNotice, PeriodStatus } from "./period-status";
 import { StartPeriodButton } from "./start-period";
 
@@ -423,6 +424,10 @@ export function WhatNeedsYouTab({
           count is worth a card; a card whose only content is the absence of
           one is furniture. */}
 
+      {/* The one next step on your own appraisal, and your team's. Not for
+          HR, who have the period cards. */}
+      {scored && !canSeeCompany && <YourAppraisal />}
+
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
           to "where do I create an appraisal" cannot be silence. */}
@@ -432,8 +437,8 @@ export function WhatNeedsYouTab({
             title="Appraisals are switched off"
             description={
               canManagePeriods
-                ? "KPIs work without them. Turn them on to add appraisal periods, a mark made from objectives and skills, and a record of what each person was told."
-                : "Your company does not run formal appraisals. KPIs still work."
+                ? "Objectives work without them. Turn them on to add appraisal periods, a score made from objectives and competencies, and a record of what each person was told."
+                : "Your company does not run formal appraisals. Objectives still work."
             }
             action={
               canManagePeriods ? (
@@ -484,7 +489,7 @@ export function WhatNeedsYouTab({
                     {review.cycleName}
                     {review.rating !== null
                       ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall mark"}
+                      : " · no overall rating"}
                   </p>
                   <p className="mt-1 text-meta text-muted">
                     {review.finalisedAt
@@ -666,8 +671,8 @@ export function WhatNeedsYouTab({
                         : `${queue.length} objectives are waiting for you to agree them`
                     }
                     detail="An objective has to be agreed before the period it covers."
-                    href="/performance/approvals"
-                    action="Open the queue"
+                    href="/performance/kpis?tab=agree"
+                    action="Open To agree"
                   />
                 )}
 
@@ -681,7 +686,7 @@ export function WhatNeedsYouTab({
                     }
                     detail={objectiveNames(toSend)}
                     href="/performance/kpis"
-                    action="Open your KPIs"
+                    action="Open your objectives"
                   />
                 )}
 
@@ -802,7 +807,7 @@ export function WhatNeedsYouTab({
                         somebody records a rating, so the subject sees it when it is
                         final and not before — the API refuses it either way. */}
                       <span className="text-meta text-muted">
-                        You will see the mark when it is final
+                        You will see the score when it is final
                       </span>
                     </div>
                   ))}
@@ -837,7 +842,7 @@ export function WhatNeedsYouTab({
           score for these weights to describe. */}
       {scored && (
         <Disclosure
-          title="How a mark is made"
+          title="How a score is made"
           hint="How much each part counts for, and what each point on the scale means."
           level={2}
         >
@@ -930,7 +935,7 @@ export function WhatNeedsYouTab({
                     {review.subjectName}
                     {review.rating !== null
                       ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall mark"}
+                      : " · no overall rating"}
                   </p>
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
                     <span>{review.cycleName}</span>

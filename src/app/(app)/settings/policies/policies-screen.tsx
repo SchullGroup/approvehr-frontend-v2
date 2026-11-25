@@ -178,6 +178,7 @@ export function PoliciesScreen() {
           {policies.policies.length === 0 ? (
             <Card>
               <EmptyState
+                mood={query ? "search" : "documents"}
                 icon={<BookOpen aria-hidden="true" />}
                 title={query ? "Nothing matched" : "No sections yet"}
                 description={
