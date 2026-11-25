@@ -10,7 +10,7 @@ import { Button } from "@/components/ui";
  * pressed Continue only to look had already asked for approval, and nothing on
  * the screen said so. Asking is now its own button, "Send for approval", which
  * the preparer presses when the run is ready. A preparer who cannot approve
- * sees only that, not a greyed Approve; one who can approve sees both.
+ * sees only that, not a greyed Approve; one who can approve sees Approve alone.
  */
 export function ApproveActions({
   settled,
@@ -35,7 +35,10 @@ export function ApproveActions({
   onSend: () => void;
 }) {
   if (settled) return null;
-  const offersSend = canPrepare && canSend;
+  /* Only somebody who cannot approve is asked to send it on: whoever holds the approval permission approves
+     the run themselves, and a "Send for approval" beside Approve would be asking somebody else to do what
+     they can do now. */
+  const offersSend = canPrepare && canSend && !canApprove;
   /* Approve is offered only to somebody who can approve. A reader who can
      neither approve nor send sees neither, not a button that can only fail. */
   const offersApprove = canApprove;
@@ -43,7 +46,7 @@ export function ApproveActions({
     <span className="flex flex-wrap items-center gap-2">
       {offersSend && (
         <Button
-          variant={canApprove ? "secondary" : "accent"}
+          variant="accent"
           className="max-sm:min-h-11"
           onClick={onSend}
           loading={busy === "send"}

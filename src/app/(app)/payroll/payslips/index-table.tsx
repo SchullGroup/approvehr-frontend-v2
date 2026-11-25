@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { payslipsCsv } from "@/lib/api/exports";
 import { useCan } from "@/lib/permissions";
 import { ExportButton } from "@/components/portal/export-button";
@@ -162,7 +162,13 @@ function PayslipIndex() {
 
   /* Derived rather than stored: the newest run until somebody picks another,
      which needs no effect and cannot go stale when the list reloads. */
-  const runId = chosen ?? runs[0]?.id ?? null;
+  /* `?run=` is where a payslip sends you back to: the month you were looking at, not the newest. Ignored
+     if it names a run this company does not have. */
+  const fromAddress = useSearchParams().get("run");
+  const named = runs.some((option) => option.id === fromAddress)
+    ? fromAddress
+    : null;
+  const runId = chosen ?? named ?? runs[0]?.id ?? null;
   /* The run's headline figures come from the list, not from a second request.
      `PayrollRun` already carries the status, the totals, the pay date and the
      excluded count — everything the panel on the right renders. */
