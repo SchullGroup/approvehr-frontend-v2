@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { useCloseOnEscape } from "@/hooks/use-close-on-escape";
 import {
   CheckCircle2,
   ChevronDown,
@@ -123,7 +124,8 @@ function BulkCreateWindow({
     itemName: surface.itemName,
     onChanged: surface.onChanged,
   });
-  const [layout, setLayout] = useBulkLayout();
+  const [chosenLayout, setLayout] = useBulkLayout();
+  const layout = surface.onlyLayout ?? chosenLayout;
   const { push } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   /* One set of suggestion lists for the whole window, whatever the layout. */
@@ -339,12 +341,16 @@ function BulkCreateWindow({
             className="m-0 flex min-w-0 flex-col gap-5 border-0 p-0"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <SegmentedControl
-                label="How the list is laid out"
-                value={layout}
-                onChange={setLayout}
-                options={[...BULK_LAYOUTS]}
-              />
+              {surface.onlyLayout ? (
+                <span />
+              ) : (
+                <SegmentedControl
+                  label="How the list is laid out"
+                  value={layout}
+                  onChange={setLayout}
+                  options={[...BULK_LAYOUTS]}
+                />
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 {!readOnly && (
                   <Button size="sm" onClick={() => fileInput.current?.click()}>
@@ -542,9 +548,13 @@ function DownloadMenu({
 }) {
   const [open, setOpen] = useState(false);
   const { mounted, closing } = useDismiss(open, 170);
+  const trigger = useRef<HTMLButtonElement>(null);
+  /* Inside the bulk-create dialog: the first Escape closes this menu only. */
+  useCloseOnEscape(open, () => setOpen(false), trigger);
   return (
     <div className="relative inline-block text-left">
       <Button
+        ref={trigger}
         size={small ? "sm" : "md"}
         disabled={disabled}
         aria-haspopup="menu"

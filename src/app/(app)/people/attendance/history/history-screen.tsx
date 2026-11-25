@@ -259,6 +259,7 @@ export function HistoryScreen({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="Attendance history is not part of your access"
               description="This is the company's who-came-in calendar, not your own. Only a manager or somebody who can edit records can open it."
@@ -746,6 +747,7 @@ function DayTable({
               return (
                 <TR key={row.employeeId}>
                   <TDPrimary
+                    avatar={row.employeeName}
                     title={
                       <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
@@ -1034,6 +1036,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 return (
                   <TR key={row.employeeId} interactive>
                     <TDPrimary
+                      avatar={row.employeeName}
                       title={
                         <TextLink href={`/people/${row.employeeId}`}>
                           {row.employeeName}

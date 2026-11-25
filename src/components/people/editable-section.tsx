@@ -218,6 +218,15 @@ export type EditableField = {
    * while read-only: there is nothing being typed to confirm.
    */
   extraWhileEditing?: (draft: EmployeePatch) => React.ReactNode;
+  /**
+   * Not edited in this section. While editing, the field keeps its read-only
+   * value with this beside it, and Save never sends it.
+   *
+   * For pay, job title and department on the record page: a change to any of
+   * them goes through "Propose a change", so it is approved before it is
+   * written (U14), and this is the link to it.
+   */
+  locked?: React.ReactNode;
 };
 
 export function EditableSection({
@@ -380,6 +389,7 @@ export function EditableSection({
     const bad: SectionError[] = [];
 
     for (const f of fields) {
+      if (f.locked) continue;
       if (f.type === "money") {
         const typed = (text[String(f.key)] ?? "").replace(/[^\d.]/g, "").trim();
         /* Emptied means withdrawn, which is `null` rather than `0`. */
@@ -432,7 +442,9 @@ export function EditableSection({
 
     const found = validateEmployee(patch);
     const missing = fields
-      .filter((f) => f.required && !String(draft[f.key] ?? "").trim())
+      .filter(
+        (f) => f.required && !f.locked && !String(draft[f.key] ?? "").trim(),
+      )
       .map((f) => ({
         field: f.key,
         message: `${f.label} is required.`,
@@ -489,7 +501,7 @@ export function EditableSection({
   const renderField = (f: EditableField) => {
     const value = valueOf(f);
 
-    if (!editing) {
+    if (!editing || f.locked) {
       return (
         <div key={String(f.key)}>
           <dt className="text-meta text-muted">{f.label}</dt>
@@ -502,7 +514,7 @@ export function EditableSection({
                     : "text-muted"
                 }
               >
-                {f.emptyLabel ?? "Not provided"}
+                {f.emptyLabel ?? "Not recorded"}
               </span>
             ) : f.type === "money" ? (
               <Money amount={naira(Number(value))} />
@@ -512,6 +524,7 @@ export function EditableSection({
               String(value)
             )}
           </dd>
+          {editing && f.locked ? <dd className="mt-1">{f.locked}</dd> : null}
         </div>
       );
     }

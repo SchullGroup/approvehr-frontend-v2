@@ -122,6 +122,7 @@ export function RegisterTable({
 
       {items.length === 0 ? (
         <EmptyState
+          plain={loading}
           icon={<Laptop aria-hidden="true" />}
           title={loading ? "Loading…" : "Nothing here"}
           description={

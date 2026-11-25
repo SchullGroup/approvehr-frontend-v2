@@ -77,6 +77,14 @@ const billingBase: ApiBilling = {
 
 const owner = new Set<PermissionKey>(rolePermissions("role-owner"));
 
+/* Somebody who decides other people's requests, agrees objectives and works
+   exits: a line manager by their reports, HR and the owner by their grants. */
+const leads = {
+  approvals: true,
+  "agrees-objectives": true,
+  exits: true,
+} as const;
+
 /* ---- the people the programs rules are about ----------------------------- */
 
 const SCENE_BOOK = sampleBook({
@@ -147,7 +155,7 @@ export const PERSONAS: Persona[] = [
       "VIEW_EQUIPMENT_DEPARTMENT",
     ]),
     features: everythingOn,
-    facts: facts({ "one-on-ones": true }),
+    facts: facts({ "one-on-ones": true, ...leads }),
   },
   {
     name: "HR manager",
@@ -159,6 +167,7 @@ export const PERSONAS: Persona[] = [
       "one-on-ones": true,
       signatures: true,
       "team-tasks": true,
+      ...leads,
     }),
   },
   {
@@ -169,6 +178,7 @@ export const PERSONAS: Persona[] = [
       "one-on-ones": true,
       signatures: true,
       "team-tasks": true,
+      ...leads,
     }),
   },
   {
@@ -191,7 +201,7 @@ export const PERSONAS: Persona[] = [
       surveys: false,
       projects: false,
     },
-    facts: facts({ "one-on-ones": true, signatures: true }),
+    facts: facts({ "one-on-ones": true, signatures: true, ...leads }),
   },
   {
     name: "billing-locked company",
@@ -202,6 +212,7 @@ export const PERSONAS: Persona[] = [
       signatures: true,
       interviews: true,
       "team-tasks": true,
+      ...leads,
     }),
     billing: billingBase,
   },
@@ -254,6 +265,7 @@ export const PERSONAS: Persona[] = [
       "one-on-ones": true,
       signatures: true,
       "team-tasks": true,
+      ...leads,
     }),
     programs: programsNavFor("p-05", { editRecords: true }),
   },

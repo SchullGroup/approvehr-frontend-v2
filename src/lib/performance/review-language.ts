@@ -256,7 +256,7 @@ export function reviewLanguageFindings(
       `\\b(?:${PERSON_CONTRACTED}|(?:${subjects})\\s+${COPULA})${HEDGE}\\s+(?:${TRAITS.map(escape).join("|")})\\b`,
       "character",
       "This describes the person rather than their work.",
-      "Name what happened, and when. A mark should be backed by something you can point to.",
+      "Name what happened, and when. A rating should be backed by something you can point to.",
     ),
     ...findAll(
       text,
@@ -270,14 +270,14 @@ export function reviewLanguageFindings(
       `\\b(?:${SENSITIVE_WORDS.map(escape).join("|")})\\b`,
       "sensitive",
       "This is a personal characteristic, not performance.",
-      "It has no bearing on a mark, and in a dispute this document is the evidence. Take it out.",
+      "It has no bearing on a rating, and in a dispute this document is the evidence. Take it out.",
     ),
     ...findAll(
       text,
       `\\b(?:${COMPARISONS.map(escape).join("|")})\\b`,
       "comparison",
       "This measures them against a colleague.",
-      "A mark is against what they agreed to deliver, not against somebody else's year.",
+      "A rating is against what they agreed to deliver, not against somebody else's year.",
     ),
   ];
 

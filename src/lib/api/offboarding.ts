@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { request, requestPaged } from "@/lib/api/client";
 
 /**
@@ -171,6 +172,9 @@ export type ApiExit = {
   declinedReason: string | null;
   completedAt: string | null;
   createdAt: string;
+  /** The query this followed, as a note. HR only, and absent on a server a deploy behind. */
+  queryId?: string | null;
+  queryReference?: string | null;
   progress: ApiExitProgress;
   groups: ApiExitGroup[];
   interview: ApiExitInterview | null;
@@ -324,6 +328,8 @@ export type StartExitBody = {
   lastWorkingDay: string;
   /** When they told us. Defaults to today server-side. */
   noticeGivenOn?: string;
+  /** A note that this followed a query. The server refuses it for any exit that is not a termination. */
+  queryId?: string;
 };
 
 /**
@@ -575,7 +581,7 @@ export const offboardingApi = {
  * loan balance is noise on a screen whose job is "there is money outstanding".
  */
 export function formatKobo(kobo: number): string {
-  return `₦${Math.round(kobo / 100).toLocaleString("en-NG")}`;
+  return formatMoney(Math.round(kobo / 100));
 }
 
 /**

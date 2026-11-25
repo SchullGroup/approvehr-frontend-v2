@@ -227,6 +227,7 @@ export function OffboardingScreen() {
           {exits.rows.length === 0 ? (
             <Card>
               <EmptyState
+                mood={query.trim() ? "search" : "nothing"}
                 icon={<DoorOpen aria-hidden="true" />}
                 /* "Nobody is leaving" is a statement about the company, and only
                  somebody who can read the whole register may make it. Anybody

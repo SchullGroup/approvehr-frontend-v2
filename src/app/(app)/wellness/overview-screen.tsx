@@ -224,7 +224,7 @@ function ConsentCard({
             <span className="text-meta text-muted">
               {consent.withdrawnAt
                 ? `You turned this off on ${formatDateShort(consent.withdrawnAt, timeZone)}.`
-                : `Wording ${version}`}
+                : null}
             </span>
             <Button
               variant="accent"

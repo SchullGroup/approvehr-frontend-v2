@@ -50,6 +50,29 @@ export function standInSentence(
 }
 
 /**
+ * Who was given HR as appraiser because nobody above them is recorded, or `null`
+ * where nobody was or the server did not say. One quiet line, not a warning.
+ */
+export function fallbackSentence(
+  names: readonly string[] | undefined,
+): string | null {
+  if (!names || names.length === 0) return null;
+  return `${nameList(names)} ${names.length === 1 ? "is" : "are"} appraised by HR (no manager recorded).`;
+}
+
+/**
+ * The same, as a count and not names: on a page that must not list people in a
+ * line, and the names are on the appraisers screen.
+ */
+export function fallbackCountLine(
+  names: readonly string[] | undefined,
+): string | null {
+  if (!names || names.length === 0) return null;
+  const n = names.length;
+  return `${String(n)} ${n === 1 ? "person is" : "people are"} appraised by HR (no manager recorded).`;
+}
+
+/**
  * The people still without an appraiser, and why, or `null` when there are none.
  *
  * `serverKnowsHeads` is whether the response carried `viaDepartmentHead` at all.

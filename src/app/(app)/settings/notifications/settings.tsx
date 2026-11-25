@@ -1,7 +1,8 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useEffect, useState } from "react";
-import { Bell, Mail, TriangleAlert } from "lucide-react";
+import { Bell, Mail } from "lucide-react";
 import {
   Badge,
   Callout,
@@ -108,9 +109,11 @@ export function NotificationSettings() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Bell aria-hidden="true" />}
               title="You cannot manage notifications"
               description="Which alerts the company sends, and to whom, is a settings decision. Ask whoever manages settings to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>
@@ -452,8 +455,7 @@ function Rules() {
                 />
                 <span>
                   Email goes to the work address on the employee record. Someone
-                  with no email on file gets the in-app notification only, which
-                  is one reason the record-completeness meter exists.
+                  with no email on file gets the in-app notification only.
                 </span>
               </p>
               <p className="flex gap-2.5">
@@ -465,18 +467,6 @@ function Rules() {
                   In-app notifications appear in the bell in the top bar and
                   stay until actioned. Approvals are never cleared by being
                   read.
-                </span>
-              </p>
-              <p className="flex gap-2.5">
-                <TriangleAlert
-                  aria-hidden="true"
-                  className="mt-0.5 size-4 shrink-0 text-faint"
-                />
-                <span>
-                  Sending is not wired up in this prototype: there is no mail
-                  server behind it. These are the rules the product will send
-                  on, recorded honestly rather than demonstrated with a fake
-                  inbox.
                 </span>
               </p>
             </CardBody>

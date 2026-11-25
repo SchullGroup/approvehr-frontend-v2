@@ -154,14 +154,14 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
     headline: {
       rule: "H1",
       sentence:
-        "4 of the 6 marks the Fairness check flagged still need a decision, so H2 2026 appraisal results cannot be published yet.",
+        "4 of the 6 scores the Fairness check flagged still need a decision, so H2 2026 appraisal results cannot be published yet.",
       figure: { n: 4, of: 6 },
       firstStep: {
         sentence:
-          "Decide on the 4 open marks. Let each stand, move it, or ask the manager.",
+          "Decide on the 4 open scores. Let each stand, move it, or ask the manager.",
         action: {
           id: "flags",
-          label: "Decide on 4 flagged marks",
+          label: "Decide on 4 flagged scores",
           href: "/performance/periods/c-1/fairness",
         },
       },
@@ -170,7 +170,7 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
       cells: [
         {
           key: "marks",
-          label: "Marks",
+          label: "Scores",
           n: 57,
           of: 61,
           note: "people have one",
@@ -196,8 +196,8 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
           why: "The Fairness check does not read them.",
         },
         {
-          what: "Final marks",
-          why: "H2 2026 appraisal has not been published, so marks can still move.",
+          what: "Final scores",
+          why: "H2 2026 appraisal has not been published, so scores can still move.",
         },
       ],
     },
@@ -206,11 +206,11 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
         id: "F8",
         axis: "results",
         status: "blocks",
-        statusLabel: "Blocks a mark",
-        title: "4 of 61 people have no mark",
+        statusLabel: "Blocks a score",
+        title: "4 of 61 people have no score",
         figure: { n: 4, of: 61 },
         evidence: ["Score register, H2 2026 appraisal, 2026-10-23."],
-        ifNothingChanges: "They finish with no mark.",
+        ifNothingChanges: "They finish with no score.",
         act: { label: "Open the period", href: "/performance/periods/c-1" },
       },
       {
@@ -218,7 +218,7 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
         axis: "results",
         status: "info",
         statusLabel: "Worth knowing",
-        title: "Highest mark in each department",
+        title: "Highest score in each department",
         figure: { n: 2, of: 3 },
         evidence: ["Score register, H2 2026 appraisal, 2026-10-23."],
         lines: [
@@ -226,20 +226,21 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
             department: "Engineering",
             employeeId: "e-1",
             name: "Zed Person",
-            basis: "Highest of the 7 marks in Engineering, 85.2%, 1 appraiser.",
+            basis:
+              "Highest of the 7 scores in Engineering, 85.2%, 1 appraiser.",
             marksMayMove: true,
           },
           {
             department: "Finance",
             employeeId: "e-2",
             name: "Abe Person",
-            basis: "Highest of the 12 marks in Finance, 82.5%, 1 appraiser.",
+            basis: "Highest of the 12 scores in Finance, 82.5%, 1 appraiser.",
             marksMayMove: true,
           },
         ],
         caveats: [
-          "These departments are rated by different managers. Marks are not adjusted for that.",
-          "H2 2026 appraisal has not been published, so marks can still move.",
+          "These departments are rated by different managers. Scores are not adjusted for that.",
+          "H2 2026 appraisal has not been published, so scores can still move.",
         ],
         act: {
           label: "Open the nine-box",
@@ -252,7 +253,7 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
         status: "blocks",
         statusLabel: "Blocks publishing",
         title:
-          "4 of the 6 marks the Fairness check flagged still need a decision",
+          "4 of the 6 scores the Fairness check flagged still need a decision",
         figure: { n: 4, of: 6 },
         evidence: ["Fairness check, H2 2026 appraisal, 2026-10-23."],
         ifNothingChanges:
@@ -266,7 +267,7 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
     strengths: [
       {
         id: "matches",
-        title: "42 of the 57 marks match the evidence behind them",
+        title: "42 of the 57 scores match the evidence behind them",
         figure: { n: 42, of: 57 },
         evidence: "Fairness check, H2 2026 appraisal.",
       },
@@ -274,7 +275,7 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
     actions: [
       {
         id: "flags",
-        label: "Decide on 4 flagged marks",
+        label: "Decide on 4 flagged scores",
         href: "/performance/periods/c-1/fairness",
       },
       {
@@ -288,7 +289,7 @@ function report(over: Partial<CompanyReport> = {}): CompanyReport {
       company: { people: 11, markMeanBp: 5996, goalProgressMean: 64 },
       notShown: 1,
       caveat:
-        "These departments are rated by different managers. Marks are not adjusted for that. See the Fairness check.",
+        "These departments are rated by different managers. Scores are not adjusted for that. See the Fairness check.",
     },
     rules: { minGroup: 5 },
     ...over,
@@ -305,7 +306,7 @@ const people: DepartmentPeople = {
       jobTitle: "Engineer",
       markBp: 8518,
       bandLabel: "Exceeds",
-      why: ["Highest of the 7 marks in Engineering, 85.2%, 1 appraiser"],
+      why: ["Highest of the 7 scores in Engineering, 85.2%, 1 appraiser"],
     },
     {
       employeeId: "e-2",
@@ -313,12 +314,12 @@ const people: DepartmentPeople = {
       jobTitle: "Engineer",
       markBp: null,
       bandLabel: null,
-      why: ["No mark", "No appraiser"],
+      why: ["No score", "No appraiser"],
     },
   ],
   caveats: [
-    "These departments are rated by different managers. Marks are not adjusted for that.",
-    "H2 2026 appraisal has not been published, so marks can still move.",
+    "These departments are rated by different managers. Scores are not adjusted for that.",
+    "H2 2026 appraisal has not been published, so scores can still move.",
   ],
 };
 
@@ -364,7 +365,7 @@ describe("who sees it", () => {
     expect(
       screen.getByText("This report covers the whole company"),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/4 of the 6 marks/)).toBeNull();
+    expect(screen.queryByText(/4 of the 6 scores/)).toBeNull();
   });
 
   it("says so when there is no live system, rather than drawing an empty report", () => {
@@ -377,11 +378,11 @@ describe("who sees it", () => {
 });
 
 describe("the top of the page", () => {
-  it("says the period, that its marks can still move, and that it is worked out by rules", () => {
+  it("says the period, that its scores can still move, and that it is worked out by rules", () => {
     mount();
     // The period is named in the masthead and again in the evidence lines.
     expect(screen.getAllByText(/H2 2026 appraisal/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Marks can still move\./)).toBeInTheDocument();
+    expect(screen.getByText(/Scores can still move\./)).toBeInTheDocument();
     expect(
       screen.getByText(/Worked out from ApproveHR records by fixed rules/),
     ).toBeInTheDocument();
@@ -391,12 +392,12 @@ describe("the top of the page", () => {
     mount();
     // The headline comes first; the finding that says the same thing comes after it.
     const headings = screen.getAllByRole("heading", {
-      name: /4 of the 6 marks the Fairness check flagged/,
+      name: /4 of the 6 scores the Fairness check flagged/,
     });
     expect(headings.length).toBeGreaterThan(0);
-    expect(screen.getByText(/Decide on the 4 open marks/)).toBeInTheDocument();
+    expect(screen.getByText(/Decide on the 4 open scores/)).toBeInTheDocument();
     const buttons = screen.getAllByRole("link", {
-      name: "Decide on 4 flagged marks",
+      name: "Decide on 4 flagged scores",
     });
     expect(buttons[0]).toHaveAttribute(
       "href",
@@ -466,10 +467,10 @@ describe("the findings", () => {
   it("writes the status as plain text and gives an 'if nothing changes' only where the API sent one", () => {
     mount();
     expect(screen.getAllByText("Blocks publishing").length).toBeGreaterThan(0);
-    expect(screen.getByText("They finish with no mark.")).toBeInTheDocument();
+    expect(screen.getByText("They finish with no score.")).toBeInTheDocument();
     // F10 had no consequence, so no 'If nothing changes' appears under it.
     const f10 = screen
-      .getByText("Highest mark in each department.")
+      .getByText("Highest score in each department.")
       .closest("article")!;
     expect(within(f10).queryByText("If nothing changes.")).toBeNull();
   });
@@ -477,7 +478,7 @@ describe("the findings", () => {
   it("draws the named lines by department, in the order sent, with their basis and caveats", () => {
     mount();
     const f10 = screen
-      .getByText("Highest mark in each department.")
+      .getByText("Highest score in each department.")
       .closest("article")!;
     const names = within(f10)
       .getAllByRole("link")
@@ -486,13 +487,13 @@ describe("the findings", () => {
     // Engineering first (as sent), so Zed before Abe: never re-sorted by name or score here.
     expect(names).toEqual(["Zed Person", "Abe Person"]);
     expect(
-      within(f10).getByText(/Highest of the 7 marks in Engineering, 85.2%/),
+      within(f10).getByText(/Highest of the 7 scores in Engineering, 85.2%/),
     ).toBeInTheDocument();
     expect(
       within(f10).getByText(/rated by different managers/),
     ).toBeInTheDocument();
     expect(
-      within(f10).getByText(/has not been published, so marks can still move/),
+      within(f10).getByText(/has not been published, so scores can still move/),
     ).toBeInTheDocument();
     expect(
       within(f10).getByRole("link", { name: "Zed Person" }),
@@ -560,7 +561,7 @@ describe("the departments tab", () => {
     mount("departments");
     expect(screen.queryByText("Gross pay per head")).toBeNull();
     expect(
-      screen.getAllByText("Average mark against goal progress")[0],
+      screen.getAllByText("Average score against goal progress")[0],
     ).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).toBeNull();
   });
@@ -582,7 +583,7 @@ describe("the departments tab", () => {
     mount("departments");
     expect(screen.getByText("Gross pay per head")).toBeInTheDocument();
     expect(
-      screen.getAllByText("Average mark against gross pay per head")[0],
+      screen.getAllByText("Average score against gross pay per head")[0],
     ).toBeInTheDocument();
     const row = screen
       .getAllByRole("button", { name: "Engineering" })[0]!
@@ -610,10 +611,10 @@ describe("the departments tab", () => {
     ).toBeInTheDocument();
   });
 
-  it("says marks are not adjusted for how each manager rates, with a link to the Fairness check", () => {
+  it("says scores are not adjusted for how each manager rates, with a link to the Fairness check", () => {
     mount("departments");
     expect(
-      screen.getByText(/Marks are not adjusted for that\./),
+      screen.getByText(/Scores are not adjusted for that\./),
     ).toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: "Open the Fairness check" }).length,
@@ -633,13 +634,13 @@ describe("the departments tab", () => {
       within(panel).getByText("Everyone in this department"),
     ).toBeInTheDocument();
     expect(within(panel).getByText("Zed Person")).toBeInTheDocument();
-    expect(within(panel).getByText("No mark")).toBeInTheDocument();
+    expect(within(panel).getByText("No score")).toBeInTheDocument();
     expect(
-      within(panel).getByText("Sorted by name, not by mark."),
+      within(panel).getByText("Sorted by name, not by score."),
     ).toBeInTheDocument();
     expect(
       within(panel).getByText(
-        /has not been published, so marks can still move/,
+        /has not been published, so scores can still move/,
       ),
     ).toBeInTheDocument();
     // The F10 finding that names this department offers the nine-box too, so
@@ -778,11 +779,11 @@ describe("project work finished in the cycle", () => {
       within(panel).getByText("6 of 8 finished a task"),
     ).toBeInTheDocument();
     expect(within(panel).getByText("17 tasks in all")).toBeInTheDocument();
-    expect(within(panel).getByText("Weekly tasks")).toBeInTheDocument();
+    expect(within(panel).getByText("Tasks done")).toBeInTheDocument();
     expect(within(panel).getByText("3 of 8 logged")).toBeInTheDocument();
   });
 
-  it("is calm: no alarm styling, no exclamation mark, no word about idleness or a shortfall", async () => {
+  it("is calm: no alarm styling, no exclamation score, no word about idleness or a shortfall", async () => {
     withWork({ withFinishedWork: 0, tasksFinished: 0 });
     const user = userEvent.setup();
     mount("departments");
@@ -815,14 +816,27 @@ describe("the PDF", () => {
     window.print = vi.fn();
   });
 
-  it("offers Download PDF only with EXPORT_DATA", () => {
+  /* UAT 23 Nov, L12 / PERF-34: it opens the print dialog, and it said
+     "Download PDF". */
+  it("does not call the print dialog a download", () => {
+    state.perms = new Set(["EDIT_RECORDS", "EXPORT_DATA"]);
     mount();
     expect(screen.queryByRole("button", { name: /Download PDF/ })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers Print or save as PDF only with EXPORT_DATA", () => {
+    mount();
+    expect(
+      screen.queryByRole("button", { name: /Print or save as PDF/ }),
+    ).toBeNull();
     cleanupDom();
     state.perms = new Set(["EDIT_RECORDS", "EXPORT_DATA"]);
     mount();
     expect(
-      screen.getByRole("button", { name: /Download PDF/ }),
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
     ).toBeInTheDocument();
   });
 
@@ -830,7 +844,9 @@ describe("the PDF", () => {
     state.perms = new Set(["EDIT_RECORDS", "EXPORT_DATA"]);
     const user = userEvent.setup();
     mount();
-    await user.click(screen.getByRole("button", { name: /Download PDF/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
+    );
     expect(printApi).toHaveBeenCalledTimes(1);
     expect(printApi.mock.calls[0]![0]).toBe("c-1");
     expect(printApi.mock.calls[0]![1]).toContain("findings");
@@ -845,7 +861,9 @@ describe("the PDF", () => {
     printApi.mockRejectedValue(new Error("down"));
     const user = userEvent.setup();
     mount();
-    await user.click(screen.getByRole("button", { name: /Download PDF/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Print or save as PDF/ }),
+    );
     expect(window.print).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
@@ -855,14 +873,14 @@ describe("the PDF", () => {
     const paper = layouts.map((node) => node.textContent ?? "").join(" ");
     expect(paper).toContain("Schull");
     expect(paper).toContain("Company reports");
-    expect(paper).toContain("4 of 61 people have no mark");
+    expect(paper).toContain("4 of 61 people have no score");
     expect(paper).toContain("What is working");
     expect(paper).toContain("Priority actions");
     expect(paper).toContain("Complete 52 staff records");
     expect(paper).toContain("Method and privacy");
     expect(paper).toContain("carries no names");
     // The finding that names people is left out, and so are the people.
-    expect(paper).not.toContain("Highest mark in each department");
+    expect(paper).not.toContain("Highest score in each department");
     expect(paper).not.toContain("Zed Person");
     expect(paper).not.toContain("Abe Person");
     for (const layout of layouts) {

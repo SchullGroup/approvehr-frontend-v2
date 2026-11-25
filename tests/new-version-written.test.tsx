@@ -103,7 +103,7 @@ describe("what starting one says, before it is pressed", () => {
   const effects = (to: Parameters<typeof newVersionEffects>[0]["to"]) =>
     newVersionEffects({ name: "Communication", ratingCount: 12, to });
 
-  it("says, for their own words, the thing that is different: it never counts towards a mark", () => {
+  it("says, for their own words, the thing that is different: it never counts towards a score", () => {
     const lines = effects("TEXT");
     expect(lines).toHaveLength(4);
     expect(lines[3]).toBe(WRITTEN_NEVER_COUNTS);
@@ -128,7 +128,7 @@ describe("what starting one says, before it is pressed", () => {
   });
 
   describe("when the subsection being replaced was written", () => {
-    it("does not say marks stay, because none was ever made from its words", () => {
+    it("does not say scores stay, because none was ever made from its words", () => {
       const [first] = newVersionEffects({
         name: "Communication",
         ratingCount: 12,
@@ -138,7 +138,7 @@ describe("what starting one says, before it is pressed", () => {
       expect(first).toBe(
         "Communication keeps its 12 ratings. It is marked retired and leaves this list.",
       );
-      expect(first).not.toContain("every mark");
+      expect(first).not.toContain("every score");
     });
 
     it("agrees in number", () => {
@@ -167,7 +167,7 @@ describe("what starting one says, before it is pressed", () => {
   });
 
   describe("when it was another kind, or the kind is not said", () => {
-    it("keeps saying every mark made from the ratings stays as it is", () => {
+    it("keeps saying every score made from the ratings stays as it is", () => {
       for (const from of ["RATING", "BOOLEAN", "CHOICE", undefined] as const) {
         const [first] = newVersionEffects({
           name: "Communication",
@@ -175,7 +175,7 @@ describe("what starting one says, before it is pressed", () => {
           from,
           to: "TEXT",
         });
-        expect(first).toContain("every mark made from them stays as it is");
+        expect(first).toContain("every score made from them stays as it is");
       }
     });
   });
@@ -192,13 +192,13 @@ describe("what happened", () => {
     expect(answeredAsWords("TEXT")).toBe("a written answer");
   });
 
-  it("names the new version as answered in words, and says what the old one kept, marks included", () => {
+  it("names the new version as answered in words, and says what the old one kept, scores included", () => {
     expect(startedLine(result(12), "TEXT")).toBe(
-      "Communication is now answered as a written answer. Communication (retired) keeps its 12 ratings and every mark made from them.",
+      "Communication is now answered as a written answer. Communication (retired) keeps its 12 ratings and every score made from them.",
     );
   });
 
-  it("does not claim marks for a retired subsection that was written", () => {
+  it("does not claim scores for a retired subsection that was written", () => {
     expect(startedLine(result(12), "RATING", "TEXT")).toBe(
       "Communication is now answered as a level on a scale. Communication (retired) keeps its 12 ratings.",
     );
@@ -308,13 +308,13 @@ describe("the dialog", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Communication is now answered as a written answer. Communication (retired) keeps its 12 ratings and every mark made from them.",
+        "Communication is now answered as a written answer. Communication (retired) keeps its 12 ratings and every score made from them.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(notes[0] as string)).toBeInTheDocument();
   });
 
-  it("does not claim marks when the one it retired was written", async () => {
+  it("does not claim scores when the one it retired was written", async () => {
     newCompetencyVersion.mockResolvedValue({
       competency: competency({
         id: "c2",
@@ -333,7 +333,7 @@ describe("the dialog", () => {
         "Communication keeps its 3 ratings. It is marked retired and leaves this list.",
       ),
     ).toBeVisible();
-    expect(screen.queryByText(/every mark made from/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/every score made from/)).not.toBeInTheDocument();
 
     await userEvent.click(confirm());
     /* And after it, in the line that says what happened. */
@@ -344,10 +344,10 @@ describe("the dialog", () => {
     ).toBeInTheDocument();
   });
 
-  it("still says marks stay for a subsection that was a level", () => {
+  it("still says scores stay for a subsection that was a level", () => {
     show(competency({ answerKind: "RATING" }));
     expect(
-      screen.getByText(/every mark made from them stays as it is/),
+      screen.getByText(/every score made from them stays as it is/),
     ).toBeVisible();
   });
 });

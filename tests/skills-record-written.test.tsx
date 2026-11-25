@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
@@ -70,7 +71,6 @@ let mineRows: ApiCompetencyRow[];
 let rate: Mock<(id: string, body: RateBody) => Promise<unknown>>;
 let reloadMine: Mock<() => void>;
 let reloadGaps: Mock<() => void>;
-let reloadHeatmap: Mock<() => void>;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => {}, back: () => {}, replace: () => {} }),
@@ -91,6 +91,7 @@ vi.mock("@/lib/store/employees-api", () => ({
   useEmployeeDirectory: () => ({ employees: [], people: PEOPLE }),
 }));
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   CATEGORY_ORDER: ["Core competency"],
   useFramework: () => ({
     competencies: COMPETENCIES,
@@ -104,6 +105,7 @@ vi.mock("@/lib/store/performance", () => ({
     loading: false,
     error: null,
   }),
+  useSections: () => ({ sections: [], loading: false, reload: () => {} }),
   useAppraisals: () => ({ cycles: [], loading: false }),
   useSkills: (employeeId: string | null) => {
     /* The signed-in person's own list is the screen's; everybody else's is what the
@@ -135,12 +137,6 @@ vi.mock("@/lib/store/performance", () => ({
     error: null,
     reload: reloadGaps,
   }),
-  useHeatmap: () => ({
-    heatmap: null,
-    loading: false,
-    error: null,
-    reload: reloadHeatmap,
-  }),
   useRating: () => ({
     editable: true,
     rate: (id: string, body: RateBody) => rate(id, body),
@@ -149,10 +145,28 @@ vi.mock("@/lib/store/performance", () => ({
 
 const { SkillsTab } = await import("@/app/(app)/performance/skills");
 
+/* The button is in the page header, so the harness stands in for it. */
+function Page() {
+  const [recording, setRecording] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setRecording(true)}>
+        Record a level
+      </button>
+      <SkillsTab
+        canSeeCompany
+        isManager
+        recording={recording}
+        onRecordingChange={setRecording}
+      />
+    </>
+  );
+}
+
 const mount = () =>
   render(
     <ToastProvider>
-      <SkillsTab canSeeCompany isManager />
+      <Page />
     </ToastProvider>,
   );
 
@@ -163,7 +177,7 @@ const inDialog = () => within(dialog());
 const pickPerson = () =>
   userEvent.selectOptions(inDialog().getByLabelText(/Employee/), "e-chidi");
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(inDialog().getByLabelText(/Which skill/), name);
+  userEvent.selectOptions(inDialog().getByLabelText(/Which competency/), name);
 const save = () =>
   userEvent.click(inDialog().getByRole("button", { name: "Save it" }));
 
@@ -172,7 +186,6 @@ beforeEach(() => {
   rate = vi.fn().mockResolvedValue({});
   reloadMine = vi.fn();
   reloadGaps = vi.fn();
-  reloadHeatmap = vi.fn();
 });
 
 describe("a written answer on somebody's own list", () => {
@@ -195,12 +208,6 @@ describe("a written answer on somebody's own list", () => {
     /* The level beside it is still a level. */
     expect(screen.getByText("Level 4 of 5 · target 5")).toBeInTheDocument();
   });
-
-  it("counts as assessed, because it has been answered", () => {
-    mineRows = [row({ textValue: "Clear and early." })];
-    mount();
-    expect(screen.getByText("1 of 1")).toBeInTheDocument();
-  });
 });
 
 describe("recording a written answer", () => {
@@ -222,10 +229,9 @@ describe("recording a written answer", () => {
     });
     expect(await screen.findByText("Answer recorded")).toBeInTheDocument();
     expect(screen.queryByText("Level recorded")).not.toBeInTheDocument();
-    /* All three: the gap table and the heatmap are what a new answer moves. */
+    /* Both: the gap table is what a new answer moves. */
     expect(reloadMine).toHaveBeenCalledTimes(1);
     expect(reloadGaps).toHaveBeenCalledTimes(1);
-    expect(reloadHeatmap).toHaveBeenCalledTimes(1);
     await waitFor(() =>
       expect(
         screen.queryByRole("dialog", { name: "Record a level" }),
@@ -238,9 +244,8 @@ describe("recording a written answer", () => {
     await openDialog();
     await pickPerson();
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(
-      inDialog().getByLabelText(/Current level/),
-      "4",
+    await userEvent.click(
+      inDialog().getByRole("radio", { name: /^Rating 4,/ }),
     );
     await save();
 

@@ -54,7 +54,7 @@ const goal = (
     keyResults: keyResults.map((measure, index) => ({
       id: `m-${String(index)}`,
       goalId: "g-1",
-      label: `Measure ${String(index + 1)}`,
+      label: `Target ${String(index + 1)}`,
       kind: "NUMBER",
       unit: null,
       startValue: "0",
@@ -109,12 +109,12 @@ describe("the window an objective opens into", () => {
     expect(dialog.queryByText("0%")).not.toBeInTheDocument();
     expect(
       dialog.getByText(
-        "Its measure has not been read. Nothing is counted yet, so the figure above is not a result.",
+        "Its target has not been read. Nothing is counted yet, so the figure above is not a result.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("says how much of a figure is a reading when some measures are read", async () => {
+  it("says how much of a figure is a reading when some targets are read", async () => {
     const dialog = await open(
       goal(
         [{ lastReadAt: STAMP }, { lastReadAt: null }, { lastReadAt: null }],
@@ -125,29 +125,29 @@ describe("the window an objective opens into", () => {
       ),
     );
     expect(
-      dialog.getByText("Progress, from the measures read so far"),
+      dialog.getByText("Progress, from the targets read so far"),
     ).toBeInTheDocument();
     expect(dialog.getByText("40%")).toBeInTheDocument();
     expect(
       dialog.getByText(
-        "1 of 3 measures read. The others are left out of the figure above until somebody enters a reading.",
+        "1 of 3 targets read. The others are left out of the figure above until somebody enters a reading.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("labels it as before, and says nothing more, when every measure is read", async () => {
+  it("labels it as before, and says nothing more, when every target is read", async () => {
     const dialog = await open(
       goal([{ lastReadAt: STAMP }, { lastReadAt: STAMP }], {
         measuredProgress: 40,
         progress: 40,
       }),
     );
-    expect(dialog.getByText("Progress, from 2 measures")).toBeInTheDocument();
-    expect(dialog.queryByText(/measures read\./)).not.toBeInTheDocument();
+    expect(dialog.getByText("Progress, from 2 targets")).toBeInTheDocument();
+    expect(dialog.queryByText(/targets read\./)).not.toBeInTheDocument();
   });
 });
 
-describe("an objective whose measures nobody has read", () => {
+describe("an objective whose targets nobody has read", () => {
   it("does not print the 0% it was made with", () => {
     show(goal([{ lastReadAt: null }, { lastReadAt: null }]));
     expect(screen.getByText("No reading yet")).toBeInTheDocument();
@@ -155,7 +155,7 @@ describe("an objective whose measures nobody has read", () => {
   });
 });
 
-describe("an objective with some measures read", () => {
+describe("an objective with some targets read", () => {
   it("keeps its figure and says how much of it is a reading", () => {
     show(
       goal(
@@ -172,7 +172,7 @@ describe("an objective with some measures read", () => {
 });
 
 describe("an objective that needs no such line", () => {
-  it("says nothing when every measure is read", () => {
+  it("says nothing when every target is read", () => {
     show(
       goal([{ lastReadAt: STAMP }, { lastReadAt: STAMP }], {
         measuredProgress: 40,
@@ -184,7 +184,7 @@ describe("an objective that needs no such line", () => {
     expect(screen.queryByText("No reading yet")).not.toBeInTheDocument();
   });
 
-  it("shows the figure somebody entered by hand when it has no measures", () => {
+  it("shows the figure somebody entered by hand when it has no targets", () => {
     show(goal([], { progress: 25 }));
     expect(screen.getByText("25%")).toBeInTheDocument();
     expect(screen.queryByText("No reading yet")).not.toBeInTheDocument();

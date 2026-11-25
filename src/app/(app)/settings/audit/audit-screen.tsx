@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useEffect, useMemo, useState } from "react";
 import { Lock, ShieldCheck } from "lucide-react";
 import {
@@ -120,9 +121,11 @@ export function AuditScreen(props: ScreenProps = {}) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the audit log"
               description="It shows who looked at whose pay, so it is kept to specific people. Ask whoever manages access to add the audit permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>
@@ -432,6 +435,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
           {trail.entries.length === 0 ? (
             <Card>
               <EmptyState
+                mood={filtered ? "search" : "nothing"}
                 icon={<ShieldCheck aria-hidden="true" />}
                 title={
                   filtered

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, FileText, ShieldCheck } from "lucide-react";
 import { Badge, Button, type BadgeTone } from "@/components/ui";
+import { QueryOriginLine } from "@/components/queries/linked-query";
 import { cn } from "@/lib/cn";
 import {
   CATEGORY_LABEL,
@@ -72,10 +73,13 @@ export function RequestRow({
   request,
   /** Shown above the name when the row is not already inside one person's file. */
   showPerson = false,
+  /** Staff screens only: a link back to the query it was asked under. Never on the person's own. */
+  showQuery = false,
   actions,
 }: {
   request: ApiDocumentRequest;
   showPerson?: boolean;
+  showQuery?: boolean;
   actions?: React.ReactNode;
 }) {
   const timeZone = useOrgTimezone();
@@ -111,6 +115,12 @@ export function RequestRow({
         </p>
         {secondary && (
           <p className="mt-0.5 text-body-sm text-muted">{secondary}</p>
+        )}
+        {showQuery && (
+          <QueryOriginLine
+            queryId={request.queryId}
+            className="mt-0.5 text-meta text-muted"
+          />
         )}
       </div>
       {actions && (

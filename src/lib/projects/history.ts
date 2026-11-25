@@ -88,7 +88,7 @@ export function formatValue(
       return lookup.goalTitle?.(text) ?? "an objective";
     case "keyResultId":
       /* Never the id: a measure inside the linked objective. */
-      return "a measure";
+      return "a target";
     case "priority":
       return PRIORITY_LABEL[text as Priority] ?? text;
     case "type":

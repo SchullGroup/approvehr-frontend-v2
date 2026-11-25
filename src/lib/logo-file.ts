@@ -85,6 +85,48 @@ export type PreparedLogo = {
 
 export class LogoError extends Error {}
 
+/** The first bytes each raster type starts with. */
+const SIGNATURES: Readonly<Record<string, readonly (number | null)[]>> = {
+  "image/png": [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  "image/jpeg": [0xff, 0xd8, 0xff],
+  "image/gif": [0x47, 0x49, 0x46, 0x38],
+  /* "RIFF", four bytes of length, then "WEBP". */
+  "image/webp": [
+    0x52,
+    0x49,
+    0x46,
+    0x46,
+    null,
+    null,
+    null,
+    null,
+    0x57,
+    0x45,
+    0x42,
+    0x50,
+  ],
+};
+
+/**
+ * True when the file's first bytes are the picture its type claims (L34). A
+ * renamed text file said "image/png" and was saved as the company logo.
+ */
+export function matchesSignature(head: Uint8Array, type: string): boolean {
+  const signature = SIGNATURES[type];
+  if (!signature) return false;
+  return (
+    head.length >= signature.length &&
+    signature.every((byte, index) => byte === null || head[index] === byte)
+  );
+}
+
+async function headOf(file: File): Promise<Uint8Array> {
+  return new Uint8Array(await file.slice(0, 16).arrayBuffer());
+}
+
+const NOT_A_PICTURE =
+  "That file is not a picture we can open. Choose the logo itself, as a PNG, JPEG or SVG.";
+
 /** Elements that cannot appear in a stored logo, whatever renders it. */
 const BANNED_ELEMENTS = new Set([
   "script",
@@ -342,8 +384,17 @@ export async function prepareLogo(file: File): Promise<PreparedLogo> {
     };
   }
 
+  if (!matchesSignature(await headOf(file), file.type)) {
+    throw new LogoError(NOT_A_PICTURE);
+  }
+
   const dataUri = await readAsDataUri(file);
+  /* Opened before it is kept, so a damaged file is refused here rather than
+     shown as a broken image on every payslip (L34). */
+  const image = await loadImage(dataUri).catch(() => {
+    throw new LogoError(NOT_A_PICTURE);
+  });
   if (dataUri.length <= LOGO_DATA_URI_BUDGET) return { dataUri, note: null };
 
-  return fitByRedrawing(await loadImage(dataUri), file.size);
+  return fitByRedrawing(image, file.size);
 }

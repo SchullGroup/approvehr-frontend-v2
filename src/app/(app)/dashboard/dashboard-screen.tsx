@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { LoadFailure, LoadState } from "@/components/ui";
 import { PageBody } from "@/components/portal/shell";
@@ -13,8 +13,9 @@ import { usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
+import { BirthdayLine } from "./birthday-line";
 import { CompleteDetailsPrompt } from "./complete-details";
-import { SetupGuide } from "./setup-guide";
+import { SetupCard } from "./setup-guide";
 import { DashboardHeader } from "./header";
 import { WIDGET_COMPONENTS } from "./widgets";
 import {
@@ -181,7 +182,13 @@ export function DashboardScreen() {
       />
 
       <PageBody>
-        <SetupPrompt />
+        {/* Under the greeting, and nothing on every day but one. The wrapper
+            takes itself out of the page when the line draws nothing, so there
+            is no gap above the rows on an ordinary day. */}
+        <div className="mb-4 empty:hidden">
+          <BirthdayLine />
+        </div>
+        <SetupCard />
         <CompleteDetailsPrompt />
 
         <div className="flex flex-col gap-4">
@@ -308,25 +315,4 @@ export function dashboardSections(
     { key: "foot", widgets: foot },
   ];
   return rows.filter((row) => row.widgets.length > 0);
-}
-
-/**
- * The first-visit walk-through, and nothing else.
- *
- * There used to be a line above the widgets counting what was still to set up,
- * with a link to the next step and "Walk me through it". It was removed on
- * request: it sat on the dashboard for as long as anything was outstanding. The
- * setup list still lives at `/settings`. The guide keeps its own
- * once-per-browser offer, and renders nothing when there is nothing to walk
- * through or the reader cannot act on it.
- */
-function SetupPrompt() {
-  const [guiding, setGuiding] = useState(false);
-  return (
-    <SetupGuide
-      open={guiding}
-      onOpen={() => setGuiding(true)}
-      onClose={() => setGuiding(false)}
-    />
-  );
 }

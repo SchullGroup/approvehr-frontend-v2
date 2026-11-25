@@ -102,12 +102,19 @@ export function markPageWords(
   >,
 ): { title: string; lead: string } {
   if (!required) {
+    /* Where the period weights the part at nothing the answer moves no score,
+       and the page says so rather than leaving it to be guessed (U36 /
+       PERF-2: a question that counted 0% read as if it decided the rating).
+       A share the server did not send makes no claim. */
     return {
-      title: "Is there an overall mark?",
-      lead: "Optional. Leave it if the answers say enough.",
+      title: "Is there an overall rating?",
+      lead:
+        appraiser?.markShareBp === 0
+          ? "Optional, and it does not change the score. Leave it if the answers say enough."
+          : "Optional. Leave it if the answers say enough.",
     };
   }
-  const title = "Your overall mark";
+  const title = "Your overall rating";
   const share = appraiser?.markShareBp;
   if (appraiser && share !== undefined && share > 0) {
     if (appraiser.appraiserCount > 1) {
@@ -120,7 +127,7 @@ export function markPageWords(
     }
     return {
       title,
-      lead: `Needed. It counts for ${weightLabel(share)} of the mark in this period.`,
+      lead: `Needed. It counts for ${weightLabel(share)} of the score in this period.`,
     };
   }
   return { title, lead: "Needed. This period counts it towards the score." };
@@ -163,13 +170,13 @@ export function stillNeededLine(
 ): string | null {
   if (questions === 0) {
     return markMissing
-      ? "The overall mark still needs an answer before this can go."
+      ? "The overall rating still needs an answer before this can go."
       : null;
   }
   const counted =
     questions === 1 ? "1 question" : `${String(questions)} questions`;
   if (markMissing) {
-    return `${counted} and the overall mark still need an answer before this can go.`;
+    return `${counted} and the overall rating still need an answer before this can go.`;
   }
   return questions === 1
     ? "1 question still needs an answer before this can go."

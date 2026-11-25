@@ -114,6 +114,7 @@ export function DocumentsScreen() {
         <PageHeader title="Documents" />
         <PageBody>
           <EmptyState
+            plain
             icon={<FileText aria-hidden="true" />}
             title="This is the HR register"
             description="Your own documents, and anything the company is asking you for, are on your documents page."
@@ -331,6 +332,7 @@ export function DocumentsScreen() {
                 <>
                   {register.requests.map((request) => (
                     <RequestRow
+                      showQuery
                       key={request.id}
                       request={request}
                       showPerson

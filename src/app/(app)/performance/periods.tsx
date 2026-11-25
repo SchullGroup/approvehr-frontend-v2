@@ -1,227 +1,164 @@
 "use client";
 
-import { CalendarRange } from "lucide-react";
-import {
-  Badge,
-  ButtonLink,
-  Card,
-  CardBody,
-  CardHeader,
-  Disclosure,
-  EmptyState,
-  TextLink,
-  LoadState,
-} from "@/components/ui";
+import Link from "next/link";
+import { useState } from "react";
+import { CalendarClock, CalendarRange } from "lucide-react";
+import { EmptyState, LoadState, Tabs } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { dayLabel, type ApiCycle } from "@/lib/api/performance";
 import { useAppraisals } from "@/lib/store/performance";
+import { departmentTone } from "@/components/ui/department-card";
+import { periodWords } from "./review-parts";
 
 /**
- * The appraisal periods, as a list of periods and nothing else.
+ * The appraisal periods, as large cards.
  *
- * ## Why the actions left this screen
- *
- * They used to be here: add the questions, start it, nudge the late ones,
- * publish the results — six controls on a row, in a card at the bottom of a tab
- * called *Appraisals*. So the one screen that answers "what periods are there"
- * also tried to answer "what shall I do to this one", and the second answer
- * squeezed the first into a strip nobody found. A product owner read the module
- * and could not locate the periods at all.
- *
- * Each row is now one link to `/performance/periods/[id]`, which is where a
- * period is run. That is `PARITY.md` Rule 5 at its plainest — a screen answers
- * one question — and it is also the only arrangement in which the row can say
- * what the period needs next rather than offering everything it might ever need.
- *
- * ## Finished periods are behind a reveal, with their count on the line
- *
- * A closed period is a record: nothing on it needs doing, and after three years
- * there are more of them than of anything else. The open ones are above, always.
- * The closed line carries the count, because a section whose summary carries no
- * count has to be opened before anybody learns whether it mattered.
+ * A card says three things: the name, the dates, and how far along it is. No
+ * status word, no counts and no button, because the whole card is the way in and
+ * what to do next is the period page's job. Running periods are under **Open**;
+ * published ones, which are a record, are under **History**.
  */
 export function PeriodsTab() {
   const appraisals = useAppraisals();
+  const [tab, setTab] = useState<"open" | "history">("open");
 
   const periods = appraisals.cycles;
-  const live = periods.filter((period) => period.stage !== "PUBLISHED");
-  const finished = periods.filter((period) => period.stage === "PUBLISHED");
+  const open = periods.filter((period) => period.stage !== "PUBLISHED");
+  const history = periods.filter((period) => period.stage === "PUBLISHED");
+  const shown = tab === "open" ? open : history;
 
   return (
-    <div className="flex flex-col gap-6">
-      {DEMO_ENABLED && appraisals.source === "demo" && (
-        <div>
-          <Badge tone="warning" size="sm">
-            Demo · this browser only
-          </Badge>
-        </div>
-      )}
-
-      <Card>
-        <CardHeader title="Open periods" />
-        <LoadState
-          loading={appraisals.loading}
-          error={appraisals.error}
-          subject="the appraisal periods"
-          onRetry={appraisals.reload}
-          hasData={live.length > 0}
-          skeleton="list"
-        >
-          {live.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<CalendarRange aria-hidden="true" />}
-              title="No appraisal period is open"
-              description="Start one, write the questions, then start it. Nobody is asked anything until you do."
-            />
-          ) : (
-            <CardBody className="flex flex-col gap-2">
-              {live.map((period) => (
-                <PeriodRow key={period.id} period={period} />
-              ))}
-            </CardBody>
-          )}
-        </LoadState>
-      </Card>
-
-      {finished.length > 0 && (
-        <Disclosure
-          title="Finished periods"
-          meta={
-            <Badge tone="neutral" size="sm">
-              {finished.length === 1
-                ? "1 period"
-                : `${finished.length} periods`}
-            </Badge>
-          }
-          hint="Published, and a record now. The marks in them cannot move."
-          level={2}
-        >
-          <div className="flex flex-col gap-2">
-            {finished.map((period) => (
-              <PeriodRow key={period.id} period={period} />
+    <LoadState
+      loading={appraisals.loading}
+      error={appraisals.error}
+      subject="the appraisal periods"
+      onRetry={appraisals.reload}
+      hasData={periods.length > 0}
+      skeleton="list"
+    >
+      <Tabs
+        items={[
+          { id: "open", label: "Open", count: open.length },
+          { id: "history", label: "History", count: history.length },
+        ]}
+        value={tab}
+        onChange={(id) => setTab(id as "open" | "history")}
+      >
+        {shown.length === 0 ? (
+          <EmptyState
+            compact
+            icon={<CalendarRange aria-hidden="true" />}
+            title={
+              tab === "open"
+                ? "No appraisal period is open"
+                : "Nothing here yet"
+            }
+          />
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {shown.map((period) => (
+              <li key={period.id}>
+                <PeriodCard period={period} />
+              </li>
             ))}
-          </div>
-        </Disclosure>
-      )}
-
-      <p className="text-body-sm text-muted">
-        How much each part of an appraisal counts towards a mark is set in{" "}
-        <TextLink href="/settings/performance">settings</TextLink>, and locked
-        in for a period the moment it starts.
-      </p>
-    </div>
+          </ul>
+        )}
+      </Tabs>
+    </LoadState>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
+/** The four steps a period moves through after it starts. */
+const STEPS = ["SELF", "MANAGER", "CALIBRATION", "PUBLISHED"] as const;
+
 /**
- * Where this period sits in the sequence, without asking the API anything.
- *
- * ## Stages, not counts
- *
- * The full rail on `/performance` carries figures, and it buys them with
- * `GET /cycles/:id/report` — the heaviest read in the module. One per row here
- * would make a list of eight periods eight reports, so this deliberately shows
- * only what `ApiCycle.stage` already says: which of the four stages this period
- * has reached. The badge beside it names that stage; this says how far through
- * the four it is, which is the thing a list of periods cannot otherwise tell
- * you — a period "at manager review" is halfway, and one "at calibration" is
- * nearly done, and those read identically as words.
- *
- * A draft fills nothing: it has not started, and the row's own button says so.
+ * How far along a period is, as a share of the way through, with nothing asked
+ * of the API: the stage it has reached already says it. A draft has not started
+ * and fills nothing.
  */
-const STAGE_SEQUENCE = ["SELF", "MANAGER", "CALIBRATION", "PUBLISHED"] as const;
-
-function StageRail({ period }: { period: ApiCycle }) {
-  const reached = STAGE_SEQUENCE.indexOf(
-    period.stage as (typeof STAGE_SEQUENCE)[number],
-  );
-
-  return (
-    <span
-      className="flex w-24 shrink-0 gap-0.5"
-      role="img"
-      aria-label={
-        reached < 0
-          ? "Not started"
-          : `Stage ${String(reached + 1)} of ${String(STAGE_SEQUENCE.length)}: ${period.stageLabel}`
-      }
-    >
-      {STAGE_SEQUENCE.map((stage, i) => (
-        <span
-          key={stage}
-          className={cn(
-            "h-1.5 flex-1 rounded-full",
-            reached < 0
-              ? "bg-sunken"
-              : i < reached
-                ? "bg-accent"
-                : i === reached
-                  ? "bg-accent-text"
-                  : "bg-sunken",
-          )}
-        />
-      ))}
-    </span>
-  );
+export function progressOf(period: Pick<ApiCycle, "stage">): number {
+  const reached = STEPS.indexOf(period.stage as (typeof STEPS)[number]);
+  return reached < 0 ? 0 : (reached + 1) / STEPS.length;
 }
 
 /**
- * One period, with the one thing it needs next.
- *
- * The label on the link is the state, not a menu: a draft needs setting up, a
- * running period needs chasing, a published one is read. A row offering all
- * three makes the reader work out which applies, which is the job the row was
- * supposed to do for them.
+ * One period, as a card. Shared by the periods list and the Overview, so a
+ * period looks the same wherever it is met.
  */
-function PeriodRow({ period }: { period: ApiCycle }) {
-  const draft = period.stage === "DRAFT";
-  const published = period.stage === "PUBLISHED";
+export function PeriodCard({
+  period,
+  className,
+}: {
+  period: ApiCycle;
+  className?: string;
+}) {
+  const share = progressOf(period);
+  const dates = periodWords(period.periodStart, period.periodEnd);
+  const started = share > 0;
+  const finished = period.stage === "PUBLISHED";
+  /* Each period keeps its own light colour, taken from its name, so a list of them
+     is easy to tell apart at a glance and the same period is the same colour on
+     the Overview and here. */
+  const tone = departmentTone(period.name);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
-      <div className="min-w-0">
-        <p className="text-body-sm font-medium text-ink">{period.name}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-          <StageRail period={period} />
-          <Badge tone={published ? "neutral" : "info"} size="sm" dot>
-            {period.stageLabel}
-          </Badge>
-          <span>
-            {period.questionCount === 1
-              ? "1 question"
-              : `${period.questionCount} questions`}
-          </span>
-          {/* Absent, not zero: a draft has written no forms yet, and "0 forms"
-              beside a period nobody has started reads as a failure. */}
-          {!draft && (
-            <span>
-              {period.reviewCount === 1
-                ? "1 form"
-                : `${period.reviewCount} forms`}
-            </span>
-          )}
-          {period.dueDate && (
-            <span>Answers due {dayLabel(period.dueDate)}</span>
-          )}
-        </p>
+    <Link
+      href={`/performance/periods/${period.id}`}
+      className={cn(
+        "group flex h-full min-h-48 flex-col gap-5 rounded-2xl border border-line p-5 shadow-sm transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2",
+        finished ? "bg-sunken" : "bg-surface",
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            color: tone,
+            background: `color-mix(in srgb, ${tone} 14%, var(--color-surface))`,
+          }}
+        >
+          <CalendarRange className="size-5" />
+        </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <ButtonLink
-          variant={draft ? "accent" : "secondary"}
-          size="sm"
-          href={`/performance/periods/${period.id}`}
-        >
-          {draft
-            ? "Set it up and start it"
-            : published
-              ? "See how it came out"
-              : "Open the period"}
-        </ButtonLink>
+      <div className="min-w-0">
+        <p className="text-h4 font-semibold text-ink">{period.name}</p>
+        {dates && <p className="mt-0.5 text-body-sm text-muted">{dates}</p>}
       </div>
-    </div>
+
+      <div className="mt-auto flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-body-sm text-muted">Progress</span>
+          {started && (
+            <span className="tabular text-h3 font-semibold text-ink">
+              {Math.round(share * 100)}%
+            </span>
+          )}
+        </div>
+        <div
+          role="progressbar"
+          aria-label={`${period.name} progress`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(share * 100)}
+          className="h-1.5 w-full overflow-hidden rounded-full bg-sunken"
+        >
+          <div
+            className="h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none"
+            style={{ width: `${String(share * 100)}%`, background: tone }}
+          />
+        </div>
+        {period.dueDate && (
+          <p className="flex items-center gap-1.5 text-meta text-muted">
+            <CalendarClock aria-hidden="true" className="size-3.5" />
+            Due {dayLabel(period.dueDate)}
+          </p>
+        )}
+      </div>
+    </Link>
   );
 }

@@ -488,10 +488,10 @@ export function LocationForm({
               </Disclosure>
 
               {partial && (
-                <Callout tone="warning" title="The fence is not finished">
+                <Callout tone="warning" title="Finish the fence">
                   {pin === null
                     ? "Place the pin on the map or enter the coordinates."
-                    : `${GEOFENCE_ALL_OR_NOTHING} Choose a radius, or switch the check off: a fence with a piece missing decides nothing and would turn clock-ins down with no visible cause.`}
+                    : `${GEOFENCE_ALL_OR_NOTHING} Choose a radius, or switch the check off.`}
                 </Callout>
               )}
 

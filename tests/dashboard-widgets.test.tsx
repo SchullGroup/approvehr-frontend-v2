@@ -216,26 +216,35 @@ describe("the catalogue and the components agree", () => {
     expect(bad.map((widget) => widget.id)).toEqual([]);
   });
 
-  it("does not put the owner's own leave balance on their dashboard", () => {
-    /* The product owner's own words: "The owner does not need to see leave
-       left." An HR manager is also somebody with days to book, so the admin
-       tiers keep it, and the owner can add it from the drawer. */
-    expect(widgetById("my-leave")?.defaultFor).not.toContain("owner");
-    expect(widgetById("my-leave")?.defaultFor).toContain("admin");
+  it("puts no hiring or app-use card on anybody's default dashboard", () => {
+    expect(widgetById("hiring")?.defaultFor).toEqual([]);
+    expect(widgetById("app-use")?.defaultFor).toEqual([]);
   });
 
-  it("keeps the staff home to the day: no leave types, no last payslip", () => {
-    /* Asked for on 2026-11-17: the staff home leads with the clock. Both cards
-       are still in the drawer for somebody who wants them. */
-    expect(widgetById("my-leave")?.defaultFor).not.toContain("staff");
-    expect(widgetById("my-pay")?.defaultFor).not.toContain("staff");
-    expect(widgetById("my-clock")?.defaultFor).toContain("staff");
+  it("opens the admin home on the cards the product owner chose (24 Nov 2026)", () => {
+    for (const id of [
+      "stat-headcount",
+      "payroll-month",
+      "who-is-in",
+      "attendance-by-day",
+      "money-owed",
+      "quick-actions",
+    ]) {
+      expect(widgetById(id)?.defaultFor).toContain("owner");
+    }
+  });
+
+  it("opens the staff home on the clock, leave, latest payslip and objectives", () => {
+    for (const id of ["my-clock", "my-leave", "my-pay", "my-objectives"]) {
+      expect(widgetById(id)?.defaultFor).toContain("staff");
+    }
     expect(widgetById("my-clock")?.leadFor).toContain("staff");
   });
 
-  it("gives the owner appraisals as a card rather than a header button", () => {
-    expect(widgetById("appraisals")?.defaultFor).toContain("owner");
-    expect(widgetById("appraisals")?.feature).toBe("appraisals");
+  it("has no Needs you, Today or Appraisals card: the home is being redesigned", () => {
+    for (const id of ["needs-you", "today", "appraisals"]) {
+      expect(widgetById(id)).toBeUndefined();
+    }
   });
 });
 

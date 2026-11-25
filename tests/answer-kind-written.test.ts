@@ -58,9 +58,9 @@ describe("the fourth way a subsection can be answered", () => {
 });
 
 describe("the one sentence for what a written answer is", () => {
-  it("says it is read by people and never counts towards the mark", () => {
+  it("says it is read by people and never counts towards the score", () => {
     expect(WRITTEN_NEVER_COUNTS).toBe(
-      "A written answer is read by people and never counts towards the mark.",
+      "A written answer is read by people and never counts towards the score.",
     );
   });
 
@@ -70,8 +70,13 @@ describe("the one sentence for what a written answer is", () => {
   });
 
   it("does not promise a target, a gap or a score, which words cannot have", () => {
+    /* "never counts towards the score" names the score only to say no. */
+    const line = kindLine("TEXT", 5).replace(
+      "never counts towards the score",
+      "",
+    );
     for (const word of [/target/i, /gap/i, /heatmap/i, /scores?\b/i, /%/]) {
-      expect(kindLine("TEXT", 5)).not.toMatch(word);
+      expect(line).not.toMatch(word);
     }
   });
 
@@ -166,13 +171,13 @@ describe("the limit on a written answer", () => {
     expect(writtenAnswerProblem(WORDS(length))).toBe(expected);
   });
 
-  it("is not an answer when it is nothing but spaces, which is how the server measures it", () => {
+  it("is not an answer when it is nothing but spaces, which is how the server targets it", () => {
     expect(writtenAnswerProblem("   ")).toBe(WRITTEN_ANSWER_BLANK);
     expect(writtenAnswerProblem(" \n\t ")).toBe(WRITTEN_ANSWER_BLANK);
     expect(WRITTEN_ANSWER_BLANK).toBe("Write the answer in words.");
   });
 
-  it("measures the trimmed answer, so spaces round 4,000 characters do not count against it", () => {
+  it("targets the trimmed answer, so spaces round 4,000 characters do not count against it", () => {
     expect(writtenAnswerProblem(`   ${WORDS(4000)}   `)).toBeNull();
     expect(writtenAnswerProblem(`   ${WORDS(4001)}   `)).toBe(
       WRITTEN_ANSWER_TOO_LONG,

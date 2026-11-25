@@ -75,4 +75,10 @@ export type BulkSurface = {
   refusalWithoutApi: string;
   /** Called once something has been created, so the screen behind can reload. */
   onChanged: () => void;
+  /**
+   * One layout only, with no switch. "Add several objectives" offered three
+   * layouts of thirteen fields each (UAT 23 Nov, U105 / PERF-26); it is a table.
+   * Absent offers all three, as before.
+   */
+  onlyLayout?: "stacked" | "pages" | "table";
 };

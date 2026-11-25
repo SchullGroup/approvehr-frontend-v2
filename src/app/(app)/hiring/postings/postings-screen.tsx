@@ -1,5 +1,7 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
+import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -42,11 +44,14 @@ import {
   type RowActionItem,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { PublishAdvertDialog } from "@/components/hiring/publish-advert-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
   EMPLOYMENT_TYPE_LABEL,
   careersPath,
   careersUrl,
+  LIVE_TONE,
+  liveOf,
   naira,
   requisitionClosedNote,
   type ApiPosting,
@@ -104,9 +109,11 @@ export function PostingsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see the adverts"
               description="Applications hold a stranger's phone number and salary expectation, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>
@@ -119,24 +126,15 @@ export function PostingsScreen() {
 
 /* -------------------------------------------------------------------------- */
 
+/* A filter on the stored status, so "Published" and not "Live": a published
+   advert past its closing date is in it, and its row says "Closed on …"
+   (U90 / PERF-10). */
 const STATUS_FILTERS: { value: PostingStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
-  { value: "PUBLISHED", label: "Live" },
+  { value: "PUBLISHED", label: "Published" },
   { value: "DRAFT", label: "Drafts" },
   { value: "CLOSED", label: "Closed" },
 ];
-
-const STATUS_LABEL: Record<PostingStatus, string> = {
-  DRAFT: "Draft",
-  PUBLISHED: "Live",
-  CLOSED: "Closed",
-};
-
-const STATUS_TONE: Record<PostingStatus, "neutral" | "success" | "warning"> = {
-  DRAFT: "neutral",
-  PUBLISHED: "success",
-  CLOSED: "warning",
-};
 
 /**
  * A pay range, written out in full.
@@ -170,6 +168,15 @@ function Adverts() {
   const [editing, setEditing] = useState<ApiPosting | null>(null);
   const [creating, setCreating] = useState(false);
   const [closing, setClosing] = useState<ApiPosting | null>(null);
+  /* Kept apart from whether the dialog is open, so its title and preview do
+     not blank while it closes. */
+  const [publishing, setPublishing] = useState<ApiPosting | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const askToPublish = (posting: ApiPosting) => {
+    setPublishing(posting);
+    setPublishOpen(true);
+  };
   const [copied, setCopied] = useState<string | null>(null);
 
   const postings = usePostings(status === "ALL" ? {} : { status });
@@ -383,6 +390,7 @@ function Adverts() {
           >
             {rows.length === 0 ? (
               <EmptyState
+                mood={postings.postings.length === 0 ? "start" : "search"}
                 icon={<Megaphone aria-hidden="true" />}
                 title={
                   postings.postings.length === 0
@@ -427,12 +435,7 @@ function Adverts() {
                           copied={copied === posting.id}
                           onCopy={() => void copyLink(posting)}
                           onEdit={() => setEditing(posting)}
-                          onPublish={() =>
-                            void run(
-                              () => postings.publish(posting.id),
-                              `${posting.title} is live`,
-                            )
-                          }
+                          onPublish={() => askToPublish(posting)}
                           onClose={() => setClosing(posting)}
                         />
                       ))}
@@ -450,12 +453,7 @@ function Adverts() {
                       copied={copied === posting.id}
                       onCopy={() => void copyLink(posting)}
                       onEdit={() => setEditing(posting)}
-                      onPublish={() =>
-                        void run(
-                          () => postings.publish(posting.id),
-                          `${posting.title} is live`,
-                        )
-                      }
+                      onPublish={() => askToPublish(posting)}
                       onClose={() => setClosing(posting)}
                     />
                   ))}
@@ -493,6 +491,25 @@ function Adverts() {
         onUpdate={(id: string, body: UpdatePostingBody) =>
           run(() => postings.update(id, body), "Advert saved")
         }
+      />
+
+      <PublishAdvertDialog
+        posting={publishing}
+        open={publishOpen}
+        busy={publishBusy}
+        onClose={() => setPublishOpen(false)}
+        onPublish={() => {
+          if (!publishing) return;
+          const advert = publishing;
+          setPublishBusy(true);
+          void run(
+            () => postings.publish(advert.id),
+            `${advert.title} is live`,
+          ).then((done) => {
+            setPublishBusy(false);
+            if (done) setPublishOpen(false);
+          });
+        }}
       />
 
       <ConfirmDialog
@@ -559,7 +576,10 @@ function advertActions({
   onPublish,
   onClose,
 }: AdvertProps): RowActionItem[] {
-  const isLive = posting.status === "PUBLISHED";
+  /* Copying a link and opening the page follow whether it is live; closing
+     follows the stored status, which is what Close changes. */
+  const isLive = liveOf(posting).state === "LIVE";
+  const published = posting.status === "PUBLISHED";
   return [
     {
       label: "Form and links",
@@ -595,7 +615,7 @@ function advertActions({
           ...(posting.status === "CLOSED"
             ? [{ label: "Publish again", onSelect: onPublish }]
             : []),
-          ...(isLive ? [{ label: "Close", onSelect: onClose }] : []),
+          ...(published ? [{ label: "Close", onSelect: onClose }] : []),
         ]
       : []),
   ];
@@ -624,8 +644,8 @@ function AdvertRow(props: AdvertProps) {
       <TDPrimary title={posting.title} subtitle={advertSubtitle(posting)} />
 
       <TD>
-        <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
-          {STATUS_LABEL[posting.status]}
+        <Badge tone={LIVE_TONE[liveOf(posting).state]} size="sm" dot>
+          {liveOf(posting).label}
         </Badge>
       </TD>
 
@@ -660,7 +680,7 @@ function AdvertRow(props: AdvertProps) {
 
       <TD>
         <span className="tabular whitespace-nowrap text-body-sm text-body">
-          {posting.closesOn ?? "Open"}
+          {posting.closesOn ? formatDay(posting.closesOn) : "Open"}
         </span>
       </TD>
 
@@ -684,8 +704,8 @@ function AdvertCard(props: AdvertProps) {
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           {posting.title}
-          <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
-            {STATUS_LABEL[posting.status]}
+          <Badge tone={LIVE_TONE[liveOf(posting).state]} size="sm" dot>
+            {liveOf(posting).label}
           </Badge>
         </p>
         <p className="mt-0.5 text-meta text-muted">

@@ -7,6 +7,8 @@ import { ApiError } from "@/lib/api/client";
 import {
   employees as employeesApi,
   isFullEmployeeRow,
+  type ApiEmployee,
+  type ApiEmployeeLookup,
 } from "@/lib/api/endpoints";
 import { invitesApi, type BulkInviteResult } from "@/lib/api/invites";
 import { permissionsApi } from "@/lib/api/permissions";
@@ -33,7 +35,7 @@ import {
  * So the orchestration moved here and both screens mount it. One copy of "load
  * everybody who cannot sign in, load the roles, default to Employee, send" —
  * because two copies drift until one of them stops defaulting to the right role
- * or stops filtering out people who already have an account.
+ * or stops leaving out people who already have an account.
  *
  * ## The question this answers for a company on day one
  *
@@ -47,6 +49,35 @@ import {
  * three hundred people with their emails and no `role` column gets three
  * hundred records and no logins, and the fix is this button.
  */
+/**
+ * Who the dialog offers: everybody still employed who has no account.
+ *
+ * It used to filter on `canLogin`, which the add-employee form sets to true
+ * whenever a work email is given, before any invitation exists. So a person
+ * added that way and never invited vanished from this list (U15). `access` is
+ * the API's own answer to "is there an account"; `canLogin` is only the
+ * fallback for a server that does not send it. A starter still onboarding is
+ * offered; a leaver is not.
+ */
+export function inviteCandidatesFrom(
+  rows: readonly (ApiEmployee | ApiEmployeeLookup)[],
+): InviteCandidate[] {
+  return rows
+    .filter(isFullEmployeeRow)
+    .filter((person) => person.status !== "EXITED")
+    .filter((person) =>
+      person.access ? person.access.state === "NONE" : !person.canLogin,
+    )
+    .map((person) => ({
+      employeeId: person.id,
+      name: `${person.firstName} ${person.lastName}`,
+      jobTitle: person.jobTitle,
+      /* The address already on their record. Ticking somebody fills the box
+         rather than asking for an email the import already stored. */
+      email: person.email,
+    }));
+}
+
 export function BulkInviteButton({
   label = "Invite staff",
   variant = "secondary",
@@ -93,22 +124,10 @@ export function BulkInviteButton({
     setBanner(null);
     try {
       const [directory, roleList] = await Promise.all([
-        employeesApi.list({ status: "ACTIVE", pageSize: 200 }),
+        employeesApi.list({ pageSize: 200 }),
         permissionsApi.roles(),
       ]);
-      setCandidates(
-        directory.data
-          .filter(isFullEmployeeRow)
-          .filter((person) => !person.canLogin)
-          .map((person) => ({
-            employeeId: person.id,
-            name: `${person.firstName} ${person.lastName}`,
-            jobTitle: person.jobTitle,
-            /* The address already on their record. Ticking somebody fills the
-               box rather than asking for an email the import already stored. */
-            email: person.email,
-          })),
-      );
+      setCandidates(inviteCandidatesFrom(directory.data));
       setRoles(
         roleList.roles.map((role) => ({ id: role.id, name: role.name })),
       );

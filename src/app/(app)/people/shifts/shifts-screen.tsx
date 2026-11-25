@@ -119,6 +119,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
   /* The grid is rota work. Defining a shift is not — see the note above. */
   const canEdit = useCan("MANAGE_ROTA");
   const canManageShifts = useCan("MANAGE_SHIFTS");
+  const canSwitchModules = useCan("MANAGE_SETTINGS");
 
   /* Connected, the data is real and so is the date. In demo mode the seed is a
      fixed snapshot and `TODAY` is its "now". Mirrors `leave-screen.tsx`, which
@@ -191,13 +192,16 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
         <PageHeader title="Shifts" />
         <PageBody>
           <EmptyState
+            plain
             icon={<ToggleRight aria-hidden="true" />}
             title="Shifts are switched off"
             description="Rotas, night duty and weekend cover instead of one working pattern."
             action={
-              <ButtonLink variant="accent" href="/settings/features">
-                Turn shifts on
-              </ButtonLink>
+              canSwitchModules ? (
+                <ButtonLink variant="accent" href="/settings/features">
+                  Turn shifts on
+                </ButtonLink>
+              ) : undefined
             }
           />
         </PageBody>

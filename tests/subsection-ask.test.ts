@@ -95,7 +95,7 @@ describe("what choosing it means, in one line", () => {
       "Recorded when the manager sends their review.",
     );
     expect(ASKED_CONSEQUENCE.employee).toBe(
-      "Their own answer counts towards the mark.",
+      "Their own answer counts towards the score.",
     );
     expect(ASKED_CONSEQUENCE.both).toBe(
       "The manager's answer counts. The employee's is shown beside it.",

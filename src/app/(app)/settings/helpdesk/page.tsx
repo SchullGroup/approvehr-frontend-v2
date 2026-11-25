@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RequirePermission } from "@/components/portal/require-permission";
 import { HelpdeskSettingsScreen } from "./helpdesk-screen";
 
 export const metadata: Metadata = {
@@ -8,5 +9,14 @@ export const metadata: Metadata = {
 };
 
 export default function HelpdeskSettingsPage() {
-  return <HelpdeskSettingsScreen />;
+  return (
+    <RequirePermission
+      permission="MANAGE_SETTINGS"
+      pageTitle="Help desk"
+      title="You cannot change the help desk"
+      what="Changing the help desk"
+    >
+      <HelpdeskSettingsScreen />
+    </RequirePermission>
+  );
 }

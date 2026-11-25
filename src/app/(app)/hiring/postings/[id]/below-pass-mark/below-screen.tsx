@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useState } from "react";
 import { Flag, Inbox, Lock, Mail } from "lucide-react";
 import {
@@ -62,6 +63,7 @@ import { usePermissions } from "@/lib/permissions";
 import { usePosting } from "@/lib/store/careers-form";
 import { formatDateShort } from "@/lib/time";
 import { useDebounced } from "@/lib/use-debounced";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /**
  * The people below the pass mark, for a person to confirm.
@@ -128,9 +130,11 @@ export function BelowScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot open this list"
               description="It holds applicants' details and is where people are turned down, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>
@@ -431,6 +435,9 @@ function Below({ id }: { id: string }) {
             >
               {rows.length === 0 && !stale ? (
                 <EmptyState
+                  mood={
+                    narrowed ? "search" : noPassMark ? "start" : "all-clear"
+                  }
                   icon={<Inbox aria-hidden="true" />}
                   title={
                     narrowed
@@ -606,7 +613,7 @@ function BelowRowView({
           />
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-              <TextLink href={`/hiring/candidates/${row.id}`}>
+              <TextLink href={candidateHref(row.id, "applicant")}>
                 {row.name}
               </TextLink>
               {!row.fitHidden && <FitBadge fit={row.summary.fit} />}

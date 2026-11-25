@@ -102,12 +102,14 @@ let rowsOf: Record<string, ApiCompetencyRow[]>;
 let cycles: { id: string; name: string; stage: string }[];
 
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   useFramework: () => ({
     competencies: COMPETENCIES,
     groups: GROUPS,
     loading: false,
     error: null,
   }),
+  useSections: () => ({ sections: [], loading: false, reload: () => {} }),
   useAppraisals: () => ({ cycles, loading: false }),
   useSkills: (employeeId: string | null) => {
     const rows = employeeId ? (rowsOf[employeeId] ?? []) : [];
@@ -146,7 +148,7 @@ const mount = () => {
 const pickPerson = (id = "e-chidi") =>
   userEvent.selectOptions(screen.getByLabelText(/Employee/), id);
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(screen.getByLabelText(/Which skill/), name);
+  userEvent.selectOptions(screen.getByLabelText(/Which competency/), name);
 const words = () => screen.getByLabelText(/Answer/) as HTMLTextAreaElement;
 const write = (text: string) => userEvent.type(words(), text);
 /** Pasted, because typing four thousand characters one key at a time is not a test. */
@@ -523,14 +525,19 @@ describe("the appraisal period", () => {
     });
   });
 
-  it("says, with none chosen, that it is a snapshot, and promises nothing about a mark", async () => {
+  it("says, with none chosen, that it is a snapshot, and promises nothing about a score", async () => {
     mount();
     await pickSkill("Communication");
+    /* It starts in the running period (U93), so choose none. */
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Appraisal period/),
+      "",
+    );
     expect(
       screen.getByText("A snapshot of where they are now."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/This will not affect any appraisal mark/),
+      screen.queryByText(/This will not affect any appraisal score/),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/Counts towards/)).not.toBeInTheDocument();
   });
@@ -548,7 +555,7 @@ describe("the appraisal period", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/Counts towards this person's mark/),
+      screen.queryByText(/Counts towards this person's score/),
     ).not.toBeInTheDocument();
   });
 
@@ -560,7 +567,7 @@ describe("the appraisal period", () => {
       "p-1",
     );
     expect(
-      screen.getByText(/Counts towards this person's mark for that period/),
+      screen.getByText(/Counts towards this person's score for that period/),
     ).toBeInTheDocument();
   });
 
@@ -648,7 +655,7 @@ describe("changing the skill", () => {
     await pickSkill("Communication");
     await write("Typed for the written one.");
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(screen.getByLabelText(/Current level/), "4");
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 4,/ }));
     await save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());

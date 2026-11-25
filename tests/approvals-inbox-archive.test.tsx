@@ -5,7 +5,7 @@ import { ToastProvider } from "@/components/ui";
 import type { QueueItem } from "@/lib/workflows/queue";
 
 /**
- * Archiving and filtering in the approvals inbox.
+ * Filtering in the approvals inbox, and the absence of archiving.
  *
  * QA's complaint: a day when everybody is asked to update their account fills
  * the inbox with approvals the approver is not ready to decide, and the chips
@@ -60,7 +60,7 @@ vi.mock("@/lib/store/approvals-api", () => ({
 vi.mock("@/lib/permissions", () => ({
   hasAnyPermission: () => true,
   useIsManager: () => true,
-  usePermissions: () => ({ permissions: [] }),
+  usePermissions: () => ({ permissions: new Set(["APPROVE_LEAVE"]) }),
 }));
 
 const { ApprovalInbox } = await import("@/app/(app)/approvals/inbox");
@@ -98,21 +98,16 @@ describe("the inbox filters", () => {
   });
 });
 
-describe("archiving", () => {
-  it("puts the approval away without deciding it", async () => {
+describe("no archive", () => {
+  it("offers Approve and Decline, and no Archive button", () => {
     show();
-    await userEvent.click(
-      screen.getByRole("button", {
-        name: "Archive Bank details. Femi Balogun",
-      }),
-    );
-    expect(setArchived).toHaveBeenCalledWith(row, true);
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Decline" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Archive/ })).toBeNull();
   });
 
-  it("has a My archive view", () => {
+  it("has no My archive view", () => {
     show();
-    expect(
-      screen.getByRole("radio", { name: "My archive" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "My archive" })).toBeNull();
   });
 });

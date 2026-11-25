@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { AlertTriangle, Check, Plus, ShieldAlert } from "lucide-react";
 import {
@@ -19,14 +20,20 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import {
+  LinkedQueryField,
+  LinkedQueryLine,
+} from "@/components/queries/linked-query";
+import { useOpenSession } from "@/lib/use-open-session";
 import { ApiError } from "@/lib/api/client";
 import type { ApiAction, DisciplinaryLevel } from "@/lib/api/conduct";
 import { useCan } from "@/lib/permissions";
 import {
   LEVEL_HINT,
   LEVEL_LABEL,
-  LEVEL_ORDER,
   LEVEL_TONE,
+  OFFERED_LEVELS,
+  levelsToOffer,
   actionStatus,
   dayLabel,
   lapseLabel,
@@ -70,9 +77,12 @@ import { formatDateShort, todayIn } from "@/lib/time";
 export function ConductPanel({
   employeeId,
   className,
+  onStartExit,
 }: {
   employeeId: string;
   className?: string;
+  /** Opens the record's own "Record their exit", where it is offered. */
+  onStartExit?: (() => void) | undefined;
 }) {
   const { employeeId: me } = useSession();
   const canEdit = useCan("EDIT_RECORDS");
@@ -214,6 +224,14 @@ export function ConductPanel({
         employeeId={employeeId}
         employeeName={conduct.record.employee.name || "this person"}
         onClose={() => setRecording(false)}
+        onStartExit={
+          onStartExit
+            ? () => {
+                setRecording(false);
+                onStartExit();
+              }
+            : undefined
+        }
         onSave={async (body) => {
           let told: boolean | null = null;
           const ok = await run(async () => {
@@ -348,6 +366,13 @@ export function ActionRow({
               </>
             )}
           </p>
+          {/* Drawn only where the server sent the id, which it does for the person this is
+              about and for whoever edits records. */}
+          <LinkedQueryLine
+            queryId={action.queryId}
+            reference={action.queryReference}
+            className="mt-1 text-meta text-muted"
+          />
         </div>
 
         <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:shrink-0">
@@ -386,13 +411,14 @@ const MIN_SUMMARY = 5;
  * The last line before the button says who will be able to see this. One line —
  * not a paragraph about data protection.
  */
-function RecordWarningModal({
-  open,
-  employeeId,
-  employeeName,
-  onClose,
-  onSave,
-}: {
+function RecordWarningModal(props: RecordWarningProps) {
+  /* A new form each time it opens: a query chosen for one warning must never be left chosen for
+     the next, and a half-typed warning is not kept for another person. */
+  const session = useOpenSession(props.open, props.employeeId);
+  return <RecordWarningForm key={session} {...props} />;
+}
+
+type RecordWarningProps = {
   /* Controlled by `ConductPanel`, which owns the "Record a warning" button.
      This modal now stays mounted at all times so its own exit animation can
      run when `open` goes false — see `setup-guide.tsx` for the pattern. */
@@ -400,6 +426,7 @@ function RecordWarningModal({
   employeeId: string;
   employeeName: string;
   onClose: () => void;
+  onStartExit?: (() => void) | undefined;
   onSave: (body: {
     employeeId: string;
     level: DisciplinaryLevel;
@@ -408,8 +435,18 @@ function RecordWarningModal({
     detail?: string;
     outcome?: string;
     expiresOn?: string;
+    queryId?: string;
   }) => Promise<void>;
-}) {
+};
+
+function RecordWarningForm({
+  open,
+  employeeId,
+  employeeName,
+  onClose,
+  onSave,
+  onStartExit,
+}: RecordWarningProps) {
   const timeZone = useOrgTimezone();
   /* The real clock, in the company's zone, not the demo's `TODAY`: an
      incident is dated against the company's own day, not whichever browser
@@ -423,6 +460,7 @@ function RecordWarningModal({
   const [detail, setDetail] = useState("");
   const [outcome, setOutcome] = useState("");
   const [expiresOn, setExpiresOn] = useState("");
+  const [queryId, setQueryId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const dateProblem =
@@ -469,6 +507,7 @@ function RecordWarningModal({
                   ...(detail.trim() ? { detail: detail.trim() } : {}),
                   ...(outcome.trim() ? { outcome: outcome.trim() } : {}),
                   ...(expiresOn ? { expiresOn } : {}),
+                  ...(queryId !== "" ? { queryId } : {}),
                 }).finally(() => setBusy(false));
               }}
             >
@@ -484,7 +523,7 @@ function RecordWarningModal({
             How serious is it?
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
-            {LEVEL_ORDER.map((option) => (
+            {OFFERED_LEVELS.map((option) => (
               <RadioCard
                 key={option}
                 name="conduct-level"
@@ -496,6 +535,27 @@ function RecordWarningModal({
               />
             ))}
           </div>
+          {/* Dismissal is not a level here (U48): ending employment is an
+              exit, with its final pay and checklist. */}
+          <p className="mt-1 text-meta text-muted">
+            Ending their employment?{" "}
+            {onStartExit ? (
+              <button
+                type="button"
+                className="font-medium text-accent-text underline-offset-2 hover:underline"
+                onClick={onStartExit}
+              >
+                Start an exit
+              </button>
+            ) : (
+              <Link
+                href="/people/offboarding"
+                className="font-medium text-accent-text underline-offset-2 hover:underline"
+              >
+                Start an exit
+              </Link>
+            )}
+          </p>
         </fieldset>
 
         <Field
@@ -573,6 +633,14 @@ function RecordWarningModal({
             }}
           />
         </Field>
+
+        {/* A note that this followed a query about the same person. Nothing is drawn for
+            somebody who does not work queries, or when there is no query to link. */}
+        <LinkedQueryField
+          subjectId={employeeId}
+          value={queryId}
+          onChange={setQueryId}
+        />
       </div>
     </Modal>
   );
@@ -779,7 +847,7 @@ function EditActionModal({
                 How serious is it?
               </legend>
               <div className="grid gap-2 sm:grid-cols-2">
-                {LEVEL_ORDER.map((option) => (
+                {levelsToOffer(level).map((option) => (
                   <RadioCard
                     key={option}
                     name="conduct-level-edit"

@@ -90,7 +90,9 @@ export function Pagination({
         {label}
       </p>
 
-      <div className="flex items-center gap-3">
+      {/* Wraps, so on a phone the page-size picker and the pager stack rather
+          than run 40px off a 390px screen (UAT 23 Nov, U85: CRAWL-1). */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         {onPageSizeChange && known && total > pageSizes[0]! && (
           <label className="flex items-center gap-2 text-meta text-muted">
             <span className="whitespace-nowrap">Per page</span>

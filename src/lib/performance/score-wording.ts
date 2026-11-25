@@ -29,7 +29,8 @@ type Part = Pick<
   | "effectiveWeightBp"
   | "included"
   | "evidenceCount"
->;
+> &
+  Partial<Pick<ApiComponentScore, "done">>;
 
 /**
  * The parts that gave up a weight: left out of this mark although the company
@@ -87,17 +88,21 @@ export function setAtNote(part: Part): string | null {
  * different parts, and "things" is none of them.
  */
 export function evidenceLine(
-  part: Pick<Part, "component" | "evidenceCount">,
+  part: Pick<Part, "component" | "evidenceCount"> & Partial<Pick<Part, "done">>,
 ): string {
   const n = part.evidenceCount;
   if (n === 0) return "Nothing recorded for this";
+  if (part.component === "TASKS" && typeof part.done === "number") {
+    const late = Math.max(n - part.done, 0);
+    return `Tasks done: ${String(part.done)} of ${String(n)}${late > 0 ? ` (${String(late)} overdue)` : ""}`;
+  }
   const unit =
     part.component === "OBJECTIVES"
       ? ["agreed objective", "agreed objectives"]
       : part.component === "TASKS"
-        ? ["graded task", "graded tasks"]
+        ? ["linked task", "linked tasks"]
         : part.component === "MANAGER_APPRAISAL"
-          ? ["overall mark", "overall marks"]
+          ? ["overall rating", "overall ratings"]
           : ["rating", "ratings"];
   return `Based on ${String(n)} ${n === 1 ? unit[0] : unit[1]}`;
 }
@@ -188,13 +193,13 @@ export function appraiserStripLine(args: {
   const others = appraiser.appraiserCount - 1;
   const shared = others > 0;
   const alongside = `alongside ${String(others)} ${others === 1 ? "other" : "others"}`;
-  const whose = mine ? "Your overall mark" : "This overall mark";
+  const whose = mine ? "Your overall rating" : "This overall rating";
   const share = appraiser.markShareBp;
 
   if (share !== undefined && share > 0) {
     return shared
-      ? `${whose} counts for ${weightLabel(appraiser.weightBp)} of what the appraisers say, ${alongside}. What they say is ${weightLabel(share)} of the mark.`
-      : `${whose} counts for ${weightLabel(share)} of the mark.`;
+      ? `${whose} counts for ${weightLabel(appraiser.weightBp)} of what the appraisers say, ${alongside}. What they say is ${weightLabel(share)} of the score.`
+      : `${whose} counts for ${weightLabel(share)} of the score.`;
   }
   if (share === 0 && asksMark) {
     return `${whose} does not count towards the score${shared ? `, ${alongside}` : ""}.`;
@@ -203,3 +208,14 @@ export function appraiserStripLine(args: {
     ? `${mine ? "Your" : "This appraiser's"} share among the ${String(appraiser.appraiserCount)} appraisers is ${weightLabel(appraiser.weightBp)}.`
     : null;
 }
+
+/**
+ * The one sentence about how weights become shares (UAT 23 Nov, L14 / PERF-39).
+ *
+ * How it works said the shares add up to 100%, the period page said the weights
+ * do not have to, and Settings saved 110%. The owner chose one rule: the
+ * weights add up to 100% everywhere, so a part's weight is its share of the
+ * score. Every screen that explains a weight says it with this sentence.
+ */
+export const WEIGHTS_RULE =
+  "A part's weight is its share of the score, so the weights add up to 100%.";

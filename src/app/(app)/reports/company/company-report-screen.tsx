@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Users } from "lucide-react";
+import { Printer, Users } from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -154,8 +154,11 @@ export function CompanyReportScreen({
                       void savePdf();
                     }}
                   >
-                    <Download aria-hidden="true" className="size-4" />
-                    Download PDF
+                    {/* It opens the browser's print dialog, where "Save as
+                        PDF" is one of the choices: it said "Download PDF" and
+                        downloaded nothing (UAT 23 Nov, L12 / PERF-34). */}
+                    <Printer aria-hidden="true" className="size-4" />
+                    Print or save as PDF
                   </Button>
                 )}
               </div>
@@ -168,9 +171,10 @@ export function CompanyReportScreen({
         {!canSee ? (
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="This report covers the whole company"
-              description="It compares everyone's marks, so it is only open to people who can see every employee's record."
+              description="It compares everyone's scores, so it is only open to people who can see every employee's record."
               action={
                 <ButtonLink href="/performance" variant="secondary">
                   Your own performance
@@ -181,6 +185,7 @@ export function CompanyReportScreen({
         ) : !detail.available ? (
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="Company reports need the live system"
               description="Every figure in them is counted over the whole company by the server, so there is nothing to show without it."
@@ -255,7 +260,7 @@ function Masthead({ report, zone }: { report: CompanyReport; zone: string }) {
         <>
           <span className="font-medium text-ink">{cycle.name}.</span>{" "}
           {cycle.stageLabel}
-          {cycle.marksMayMove ? ". Marks can still move." : "."}{" "}
+          {cycle.marksMayMove ? ". Scores can still move." : "."}{" "}
         </>
       ) : null}
       Worked out from ApproveHR records by fixed rules,{" "}
@@ -265,7 +270,7 @@ function Masthead({ report, zone }: { report: CompanyReport; zone: string }) {
 }
 
 const RULE_NAME: Record<HeadlineRule, string> = {
-  H1: "marks flagged by the Fairness check that still need a decision",
+  H1: "scores flagged by the Fairness check that still need a decision",
   H2: "people with no appraiser",
   H3: "people with no agreed objective",
   H4: "a gap between groups that the Fairness check flags",

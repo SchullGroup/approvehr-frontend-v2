@@ -549,13 +549,13 @@ export function CheckStep({
               onClick={() => onEdit("mark")}
               className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
             >
-              <p className="text-meta font-medium text-muted">Overall mark</p>
+              <p className="text-meta font-medium text-muted">Overall rating</p>
               <p className="mt-1 text-body-sm leading-relaxed text-ink">
                 {mark
                   ? (words(Number(mark)) ?? mark)
                   : markRequired
                     ? "Not given yet"
-                    : "No overall mark"}
+                    : "No overall rating"}
               </p>
               {markMissing && (
                 <span className="mt-1.5 block">
@@ -600,4 +600,66 @@ export function CheckStep({
 /** Used by the form's footer, so the wording of the last button lives with the pages. */
 export function sendLabel(languageSeen: boolean, hasFindings: boolean): string {
   return languageSeen && hasFindings ? "Send anyway" : "Send it";
+}
+
+/** How far could they go: the three answers a manager can give. */
+export const POTENTIAL_OPTIONS = [
+  { value: "HIGH", label: "Ready for a bigger role", key: "1" },
+  { value: "MEDIUM", label: "Could grow in this role", key: "2" },
+  { value: "LOW", label: "Happy where they are", key: "3" },
+] as const;
+
+export const POTENTIAL_WORDS: Record<string, string> = Object.fromEntries(
+  POTENTIAL_OPTIONS.map((option) => [option.value, option.label]),
+);
+
+/** Why "Ready for a bigger role" needs a sentence behind it. */
+export const POTENTIAL_REASON_MIN = 10;
+
+export function PotentialStep({
+  firstName,
+  potential,
+  reason,
+  onPick,
+  onClear,
+  onReason,
+}: {
+  firstName: string;
+  potential: string;
+  reason: string;
+  onPick: (value: string) => void;
+  onClear: () => void;
+  onReason: (next: string) => void;
+}) {
+  return (
+    <Frame headingId={HEADING} title={`How far could ${firstName} go?`}>
+      <div className="flex flex-col gap-3">
+        <PickList
+          name="potential"
+          options={[...POTENTIAL_OPTIONS]}
+          value={potential || undefined}
+          onPick={onPick}
+        />
+        {potential === "HIGH" && (
+          <WriteBox
+            labelledBy={HEADING}
+            value={reason}
+            onChange={onReason}
+            placeholder="What you have seen that puts them here."
+          />
+        )}
+        {potential && (
+          <p className="text-meta text-muted">
+            <button
+              type="button"
+              onClick={onClear}
+              className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
+            >
+              Leave it blank instead
+            </button>
+          </p>
+        )}
+      </div>
+    </Frame>
+  );
 }

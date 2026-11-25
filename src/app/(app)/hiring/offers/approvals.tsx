@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { useMemo, useState } from "react";
 import { Check, Info, Lock, ThumbsDown } from "lucide-react";
 import {
@@ -98,6 +99,7 @@ export function OfferApprovals() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see offers"
               description="An offer names the candidate and states their exact salary and notice period, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
@@ -174,6 +176,7 @@ function Approvals() {
     return (
       <Card>
         <EmptyState
+          mood="caught-up"
           icon={<Check aria-hidden="true" />}
           title="No offers waiting on you"
           description="Offers appear here once a recruiter has prepared one and needs sign-off."
@@ -370,7 +373,7 @@ function OfferCard({
           <DescriptionList
             columns={1}
             items={[
-              { term: "Start date", value: offer.startDate },
+              { term: "Start date", value: formatDay(offer.startDate) },
               {
                 term: "Interview average",
                 value: avg !== null ? `${avg.toFixed(1)} / 5` : "—",

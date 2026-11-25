@@ -13,6 +13,13 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { useFeatureSettings } from "@/lib/store/features";
+import {
+  LOADING,
+  LOAD_FAILED,
+  NOT_ON_SERVER,
+  NO_SERVER,
+  READ_ONLY,
+} from "./setting-copy";
 
 /**
  * How long the work behind a final rating is kept.
@@ -85,12 +92,12 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
         tone: "success",
         title:
           value === null
-            ? "New ratings keep no record of the work behind them"
-            : `The work behind a final rating is kept for ${plural(value)}`,
+            ? "Work is no longer kept with final ratings"
+            : `Work is kept with final ratings for ${plural(value)}`,
         detail:
           value === null
-            ? "A record already kept stays until its own date."
-            : "It applies to ratings made final from now on. A record already kept keeps its own date.",
+            ? "Records already kept stay until their own date."
+            : "Applies to ratings made final from now on.",
       });
     } catch (error) {
       setProblem(
@@ -108,32 +115,30 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
         <CardHeader
           title="Work kept with a final rating"
           level={3}
-          description={
-            typeof months === "number"
-              ? `The finished work behind each rating is kept for ${plural(months)} from the day the rating is made final, then removed.`
-              : months === null
-                ? "Nothing is kept. The finished work beside a rating is read as it stands, so it can change after the rating is final."
-                : "How long the finished work behind a final rating is kept."
-          }
+          info="Kept: which tasks the person finished in the cycle, when, whether on time, and who set them. Never kept: task titles, descriptions, comments or files. Only people who can read the review see it, and it never changes a score. Check with your legal adviser how long to keep it."
         />
         <CardBody className="flex flex-col gap-4">
           {reading ? (
-            <p className="text-body-sm text-muted">Reading the setting</p>
+            <p className="text-body-sm text-muted">{LOADING}</p>
           ) : available ? (
             <>
+              <p className="text-body-sm text-ink">
+                {typeof months === "number"
+                  ? `Kept for ${plural(months)} after a rating is final.`
+                  : "Not kept."}
+              </p>
               <div className="flex flex-wrap items-end gap-3">
                 <Field
-                  label="Months"
-                  help="A whole number from 1 to 120. Leave it empty to keep nothing."
+                  label="Months to keep"
                   className="w-40"
                   {...(typed !== null && text.trim() !== "" && !valid
-                    ? { error: "A whole number of months, 1 to 120." }
+                    ? { error: "Enter a whole number from 1 to 120." }
                     : {})}
                 >
                   <Input
                     inputMode="numeric"
                     value={text}
-                    placeholder="Keep nothing"
+                    placeholder="1 to 120"
                     disabled={!features.editable}
                     onChange={(event) => setTyped(event.target.value)}
                   />
@@ -147,7 +152,7 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
                     setAsking(true);
                   }}
                 >
-                  Set this period
+                  {valid && next !== null ? `Keep for ${plural(next)}` : "Save"}
                 </Button>
                 {typeof months === "number" && (
                   <Button
@@ -155,7 +160,7 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
                     disabled={!features.editable || saving}
                     onClick={() => void save(null)}
                   >
-                    Stop keeping records
+                    Stop keeping work
                   </Button>
                 )}
               </div>
@@ -164,59 +169,17 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
                   {problem}
                 </p>
               )}
-              <p className="text-body-sm text-muted">
-                How long is right is a decision for your company and its legal
-                advice, so none is suggested. It applies to ratings made final
-                from now on; a record already kept keeps the date it was given.
-              </p>
               {!features.editable && (
-                <p className="text-body-sm text-muted">
-                  Read-only: changing this needs the Manage settings permission.
-                </p>
+                <p className="text-body-sm text-muted">{READ_ONLY}</p>
               )}
             </>
           ) : failed ? (
-            <p className="text-body-sm text-muted">
-              The setting could not be read, so no control is shown rather than
-              a guess. Reload the page to try again.
-            </p>
+            <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
           ) : (
             <p className="text-body-sm text-muted">
-              {connected
-                ? "This server has not been updated to offer this setting yet, so nothing is kept with a rating."
-                : "How long work is kept with a rating is a company setting kept on the server, so there is nothing to set here."}
+              {connected ? NOT_ON_SERVER : NO_SERVER}
             </p>
           )}
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="What is kept, and what is not" level={3} />
-        <CardBody className="grid gap-6 text-body-sm text-body sm:grid-cols-2">
-          <div>
-            <p className="font-medium text-ink">Kept, for the period</p>
-            <ul className="mt-2 list-disc pl-5">
-              <li>Which tasks the person finished in the cycle</li>
-              <li>When each was finished, and whether it met its due date</li>
-              <li>Who set each one, when somebody else did</li>
-              <li>Whether each sat under an objective</li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-medium text-ink">Never kept</p>
-            <ul className="mt-2 list-disc pl-5">
-              <li>Task titles, descriptions, comments or files</li>
-              <li>Time spent, or points</li>
-              <li>Anything, for a company that has not set a period</li>
-              <li>Anything, while Projects is switched off</li>
-            </ul>
-          </div>
-          <p className="sm:col-span-2">
-            It is read by the people who can read the review and the
-            person&apos;s work: the person, their manager, an assigned appraiser
-            and HR. It is evidence to read beside a rating and never changes a
-            mark. A formal dispute of the rating keeps it a full period longer.
-          </p>
         </CardBody>
       </Card>
 
@@ -225,11 +188,11 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
         onClose={() => setAsking(false)}
         title={
           question === null
-            ? "Set the period?"
-            : `Keep the work behind each final rating for ${plural(question)}?`
+            ? "Keep work with final ratings?"
+            : `Keep work with final ratings for ${plural(question)}?`
         }
-        body="From now on, when a rating is made final, the tasks the person finished in the cycle are kept with it: which task, when it was finished, whether it met its due date and who set it. Task titles are not kept. Each record is removed that long after the rating was made final, and a formal dispute keeps it a full period longer. Ratings already final are not touched."
-        confirmLabel="Start keeping it"
+        body="When a rating is made final, the tasks the person finished in the cycle are kept with it: when each was finished, whether on time, and who set it. Task titles aren't kept. A disputed rating keeps it one period longer. Ratings already final don't change."
+        confirmLabel="Keep it"
         loading={saving}
         onConfirm={() => question !== null && void save(question)}
       />

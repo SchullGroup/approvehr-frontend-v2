@@ -9,6 +9,7 @@ import {
   TextLink,
 } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
+import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 import { useFramework, useScoringWeights } from "@/lib/store/performance";
 
 /**
@@ -78,7 +79,7 @@ export function HowItWorksBody() {
         <p className="mt-1">
           A half, a quarter, a probation. Starting one gives every employee a
           form and tells them it is open. Everything below happens inside it,
-          and a person&rsquo;s mark belongs to one period rather than to the
+          and a person&rsquo;s score belongs to one period rather than to the
           year.
         </p>
       </div>
@@ -88,14 +89,14 @@ export function HowItWorksBody() {
           Objectives are what people aim at
         </p>
         <p className="mt-1">
-          A target with a number on it, filed against the period. It has to be{" "}
+          An aim with a number on it, filed against the period. It has to be{" "}
           <strong className="font-medium text-ink">agreed before</strong> the
           period it covers, on{" "}
-          <TextLink href="/performance/approvals">
-            the objectives queue
+          <TextLink href="/performance/kpis?tab=agree">
+            To agree, on Objectives
           </TextLink>
-          , and only agreed ones are ever scored. A target agreed after the
-          result is known is not a target.
+          , and only agreed ones are ever scored. An objective agreed after the
+          result is known is not an objective.
         </p>
       </div>
 
@@ -114,12 +115,9 @@ export function HowItWorksBody() {
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
-          Objectives and competencies make up the mark
+          Objectives and competencies make up the score
         </p>
-        <p className="mt-1">
-          Each part counts for a share of the mark, and the shares always add up
-          to 100%.
-        </p>
+        <p className="mt-1">{WEIGHTS_RULE}</p>
 
         {loading ? (
           <p className="mt-2 flex items-center gap-2 text-muted">
@@ -162,15 +160,14 @@ export function HowItWorksBody() {
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
-          Weekly tasks can count too
+          Tasks done can count too
         </p>
         <p className="mt-1">
-          Weekly tasks count toward the mark only when the period gives them a
-          weight. They use the manager&rsquo;s grades on tasks logged against
-          the period&rsquo;s objectives: Completed counts in full, Partly
-          completed counts half, and Not completed and Rejected count nothing.
-          Someone with no graded tasks has that share spread over the other
-          parts.
+          Tasks done is part of the score only when the period gives it a
+          weight. It comes from the tasks in Projects that are linked to the
+          period&rsquo;s objectives: the ones finished, out of the ones finished
+          or due by the end of the period. Someone with no linked tasks has that
+          share spread over the other parts.
         </p>
       </div>
 
@@ -180,12 +177,12 @@ export function HowItWorksBody() {
             {managerPart.label} can count too
           </p>
           <p className="mt-1">
-            {managerPart.label} counts toward the mark only when the period
-            gives it a weight. It uses the overall mark each appraiser gave,
+            {managerPart.label} counts toward the score only when the period
+            gives it a weight. It uses the overall rating each appraiser gave,
             weighted by their share when a person has more than one. In a period
-            that weights it, a manager&rsquo;s form asks for an overall mark and
-            needs one. Someone whose appraisers have sent none has that share
-            spread over the other parts.
+            that weights it, a manager&rsquo;s form asks for an overall rating
+            and needs one. Someone whose appraisers have sent none has that
+            share spread over the other parts.
           </p>
         </div>
       )}
@@ -195,14 +192,12 @@ export function HowItWorksBody() {
           Finished project work shows up too
         </p>
         <p className="mt-1">
-          When people finish tasks in Projects, those tasks appear on their{" "}
-          <TextLink href="/performance/work-record">work record</TextLink> and
-          in their reviews, whether or not a task is linked to an objective.
-          Anybody who may can link a task to an objective or a KPI, and then it
-          also shows under that objective, so whoever reads the objective sees
-          the work that went into it. Linking is optional. Finished tasks are
-          there to read beside the answers. They are not graded and they do not
-          change the mark.
+          When people finish tasks in Projects, those tasks appear in their
+          reviews, whether or not a task is linked to an objective. Anybody who
+          may can link a task to an objective, and then it also shows under that
+          objective, so whoever reads the objective sees the work that went into
+          it. Linking is optional. Finished tasks are there to read beside the
+          answers. They are not graded and they do not change the score.
         </p>
       </div>
 
@@ -212,8 +207,8 @@ export function HowItWorksBody() {
         </p>
         <p className="mt-1">
           They are copied onto the period the moment it starts. Changing them
-          later cannot change a mark that has already been given, so a mark from
-          two years ago still adds up.
+          later cannot change a score that has already been given, so a score
+          from two years ago still adds up.
         </p>
       </div>
 
@@ -224,7 +219,7 @@ export function HowItWorksBody() {
         <p className="mt-1">
           A part with nothing behind it (no agreed objective, no competency
           ratings, or leadership for someone who manages nobody) is left out of
-          the mark, and the other parts share its weight. The screens say which
+          the score, and the other parts share its weight. The screens say which
           part was left out and for how many people.{" "}
           <span className="text-ink">
             &ldquo;Scored 0&rdquo; and &ldquo;nothing was recorded&rdquo; are
@@ -238,10 +233,10 @@ export function HowItWorksBody() {
           Then the person is told, and replies
         </p>
         <p className="mt-1">
-          The appraiser makes the mark final and the employee reads it. They
-          either acknowledge it or formally disagree, and both are recorded with
-          a date. Acknowledging is not agreeing, and the screen says so before
-          they do it.
+          The appraiser makes the rating final and the employee reads it, then
+          acknowledges that they have seen it, which is recorded with a date.
+          Acknowledging is not agreeing, and the screen says so before they do
+          it. Somebody who does not accept their rating tells HR.
         </p>
       </div>
     </div>

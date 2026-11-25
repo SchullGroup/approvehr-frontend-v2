@@ -1,18 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, GraduationCap, Grid3x3 } from "lucide-react";
+import { ArrowLeft, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
-  Card,
-  CardBody,
-  CardHeader,
   EmptyState,
-  Stat,
-  StatGrid,
-  Tag,
   TBody,
   TD,
   TDPrimary,
@@ -26,15 +20,17 @@ import {
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
+import type { ApiCompetencyRow } from "@/lib/api/performance";
 import { KIND_BADGE, answerKindOf } from "@/lib/performance/answer-kind";
 import {
   CATEGORY_ORDER,
   useGaps,
-  useHeatmap,
   useRating,
   useSkills,
 } from "@/lib/store/performance";
+import { DepartmentCard } from "@/components/ui/department-card";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { RecordLevelDialog } from "./rating-dialog";
@@ -75,24 +71,27 @@ export function SkillsTab({
   canSeeCompany,
   isManager,
   initialTab = "mine",
+  recording: controlled,
+  onRecordingChange,
 }: {
   canSeeCompany: boolean;
   isManager: boolean;
   initialTab?: SkillsTabId;
+  /** The page header holds the Record a level button, so the dialog is opened from there. */
+  recording?: boolean;
+  onRecordingChange?: (next: boolean) => void;
 }) {
   const { isConnected, employeeId, actingId } = useSession();
   const me = isConnected ? employeeId : actingId;
 
   const mine = useSkills(me);
   const gaps = useGaps(canSeeCompany || isManager);
-  /* The three figures count what the read returned, which is nothing both
-     before it answers and after it fails: a dash, not a 0. */
-  const mineReady = !mine.loading && !mine.error;
-  const grid = useHeatmap(canSeeCompany);
   const rating = useRating();
   const toast = useToast();
 
-  const [recording, setRecording] = useState(false);
+  const [own, setOwn] = useState(false);
+  const recording = controlled ?? own;
+  const setRecording = onRecordingChange ?? setOwn;
   const [tab, changeTab] = useUrlTab<SkillsTabId>(initialTab, SKILLS_TABS);
 
   const grouped = useMemo(() => {
@@ -112,11 +111,9 @@ export function SkillsTab({
     }));
   }, [mine.skills]);
 
-  const summary = mine.skills?.summary ?? { total: 0, rated: 0, gaps: 0 };
-
   const showGaps = canSeeCompany || isManager;
   const items: TabItem[] = [
-    { id: "mine", label: "Your skills" },
+    { id: "mine", label: "Your competencies" },
     ...(showGaps
       ? [
           {
@@ -127,7 +124,6 @@ export function SkillsTab({
           },
         ]
       : []),
-    ...(canSeeCompany ? [{ id: "heatmap", label: "Heatmap" }] : []),
   ];
   /* A `?tab=` for something this reader may not see falls back to their own
      skills rather than an empty panel. */
@@ -136,230 +132,76 @@ export function SkillsTab({
   const panels = (
     <>
       {shown === "mine" && (
-        <div className="flex flex-col gap-6">
-          <StatGrid columns={3}>
-            <Stat
-              label="Skills on your framework"
-              value={mineReady ? String(summary.total) : "—"}
+        <LoadState
+          loading={mine.loading}
+          error={mine.error}
+          subject="your competency framework"
+          onRetry={mine.reload}
+          hasData={grouped.length > 0}
+          skeleton="list"
+        >
+          {grouped.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<GraduationCap aria-hidden="true" />}
+              title="No framework yet"
+              description="Finish setup and the four standard parts are created for you."
             />
-            <Stat
-              label="Assessed so far"
-              value={mineReady ? `${summary.rated} of ${summary.total}` : "—"}
-            />
-            <Stat
-              label="Below target"
-              value={mineReady ? String(summary.gaps) : "—"}
-            />
-          </StatGrid>
-
-          <Card>
-            <CardHeader title="Your skills" />
-            <LoadState
-              loading={mine.loading}
-              error={mine.error}
-              subject="your skills framework"
-              onRetry={mine.reload}
-              hasData={grouped.length > 0}
-              skeleton="list"
-            >
-              {grouped.length === 0 ? (
-                <EmptyState
-                  compact
-                  icon={<GraduationCap aria-hidden="true" />}
-                  title="No framework yet"
-                  description="Finish setup and the four standard parts are created for you."
-                />
-              ) : (
-                <CardBody className="flex flex-col gap-6">
-                  {grouped.map((group) => (
-                    <div key={group.category}>
-                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
-                        {group.category}
-                        {group.category === "Leadership" && (
-                          <Badge tone="neutral" size="sm">
-                            Managers only
-                          </Badge>
-                        )}
-                      </p>
-                      <ul className="mt-2.5 flex flex-col gap-2.5">
-                        {group.rows.map((row) => (
-                          <SkillRow key={row.competencyId} row={row} />
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </CardBody>
-              )}
-            </LoadState>
-          </Card>
-        </div>
+          ) : (
+            <div className="flex flex-col gap-8">
+              {grouped.map((group) => (
+                <section key={group.category}>
+                  <p className="flex flex-wrap items-center gap-2 text-body-md font-semibold text-ink">
+                    {group.category}
+                    {group.category === "Leadership" && (
+                      <Badge tone="neutral" size="sm">
+                        Managers only
+                      </Badge>
+                    )}
+                  </p>
+                  <ul className="mt-3 flex flex-col gap-2.5">
+                    {group.rows.map((row) => (
+                      <SkillRow key={row.competencyId} row={row} />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </LoadState>
       )}
       {shown === "gaps" && showGaps && (
-        <Card>
-          <CardHeader title="Where people are below target" />
-          <LoadState
-            loading={gaps.loading}
-            error={gaps.error}
-            subject="the skill gaps"
-            onRetry={gaps.reload}
-            skeleton="table"
-          >
-            {gaps.gaps.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<GraduationCap aria-hidden="true" />}
-                title="Nobody is below target"
-                description="Either everyone is where they should be, or nobody has been assessed yet."
-              />
-            ) : (
-              <>
-                <div className="hidden sm:block">
-                  <TableWrap>
-                    {/* `THead` writes the `<tr>` itself. A `TR` in here nests
-                      one inside another, which is invalid HTML and shows up
-                      as a hydration error rather than as anything visible —
-                      found in the browser console, not by `tsc`. */}
-                    <THead>
-                      <TH>Person</TH>
-                      <TH>Skill</TH>
-                      <TH align="right">Level</TH>
-                      <TH align="right">Target</TH>
-                    </THead>
-                    <TBody>
-                      {gaps.gaps.map((gap) => (
-                        <TR key={`${gap.employeeId}-${gap.competencyId}`}>
-                          <TDPrimary title={gap.employeeName} />
-                          <TD>
-                            {gap.competencyName}
-                            {gap.sectionName && (
-                              <span className="mt-0.5 block text-meta text-muted">
-                                {gap.sectionName}
-                              </span>
-                            )}
-                          </TD>
-                          <TD align="right" className="tabular">
-                            {gap.level} of {gap.scaleMax}
-                          </TD>
-                          <TD align="right" className="tabular">
-                            {gap.target}
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </TableWrap>
-                </div>
-
-                <ul className="divide-y divide-line rounded-lg border border-line bg-surface sm:hidden">
-                  {gaps.gaps.map((gap) => (
-                    <li
-                      key={`${gap.employeeId}-${gap.competencyId}`}
-                      className="flex flex-col gap-2 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-body-sm font-medium text-ink">
-                            {gap.employeeName}
-                          </p>
-                          <p className="mt-0.5 text-meta text-muted">
-                            {gap.competencyName}
-                            {gap.sectionName && ` · ${gap.sectionName}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 text-body-sm text-muted">
-                        <span className="tabular">
-                          Level {gap.level} of {gap.scaleMax}
-                        </span>
-                        <span className="tabular">Target {gap.target}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </LoadState>
-        </Card>
-      )}
-
-      {shown === "heatmap" && canSeeCompany && (
-        <Card>
-          <CardHeader
-            title="Department heatmap"
-            description="Average level per skill, per department."
-          />
-          <LoadState
-            loading={grid.loading}
-            error={grid.error}
-            subject="the department heatmap"
-            onRetry={grid.reload}
-            skeleton="table"
-          >
-            {!grid.heatmap || grid.heatmap.rows.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<Grid3x3 aria-hidden="true" />}
-                title="Nothing assessed yet"
-                description="Record a level for somebody and the grid fills in."
-              />
-            ) : (
-              <CardBody className="flex flex-col gap-4">
-                <Legend />
-                <div className="scroll-x">
-                  <table className="w-full border-collapse text-body-sm">
-                    <thead>
-                      <tr>
-                        <th
-                          scope="col"
-                          className="sticky left-0 z-10 bg-surface p-2 text-left font-medium text-muted"
-                        >
-                          Department
-                        </th>
-                        {grid.heatmap.competencies.map((competency) => (
-                          <th
-                            scope="col"
-                            key={competency.id}
-                            className="min-w-28 p-2 text-left align-bottom font-medium text-muted"
-                          >
-                            {competency.name}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {grid.heatmap.rows.map((row) => (
-                        <HeatRow
-                          key={row.departmentId ?? "none"}
-                          row={row}
-                          scaleMax={
-                            grid.heatmap?.competencies[0]?.scaleMax ?? 5
-                          }
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardBody>
-            )}
-          </LoadState>
-        </Card>
+        <LoadState
+          loading={gaps.loading}
+          error={gaps.error}
+          subject="the competency gaps"
+          onRetry={gaps.reload}
+          skeleton="table"
+        >
+          {gaps.gaps.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<GraduationCap aria-hidden="true" />}
+              title="Nobody is below target"
+              description="Either everyone is where they should be, or nobody has been assessed yet."
+            />
+          ) : (
+            <GapsByDepartment gaps={gaps.gaps} />
+          )}
+        </LoadState>
       )}
     </>
   );
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {DEMO_ENABLED && mine.source === "demo" && (
+      {DEMO_ENABLED && mine.source === "demo" && (
+        <div>
           <Badge tone="warning" size="sm">
             Demo · seeded assessments
           </Badge>
-        )}
-        {(canSeeCompany || isManager) && rating.editable && (
-          <Button variant="accent" size="sm" onClick={() => setRecording(true)}>
-            Record a level
-          </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {items.length > 1 ? (
         <Tabs items={items} value={shown} onChange={changeTab}>
@@ -381,17 +223,26 @@ export function SkillsTab({
                 body.level === undefined ? "Answer recorded" : "Level recorded",
               tone: "success",
             });
-            /* All three reads, not one. `mine` is the signed-in person's own
+            /* Both reads, not one. `mine` is the signed-in person's own
                skills and `rateCompetency` refuses a self-rating, so it is the
                one panel on this screen a save here can never change — while
-               the gap table and the heatmap are exactly what a new level
-               moves. Reloading only `mine` left both of those showing the
-               figures from before the save until somebody refreshed. */
+               the gap table is exactly what a new level moves. Reloading only
+               `mine` left it showing the figures from before the save until
+               somebody refreshed. */
             mine.reload();
             gaps.reload();
-            grid.reload();
             setRecording(false);
           } catch (error) {
+            /* Rated inside a period before the person has sent their self
+               review: the dialog says so calmly, with a reminder, instead of a
+               refusal here. */
+            if (
+              error instanceof ApiError &&
+              error.status === 409 &&
+              body.reviewCycleId
+            ) {
+              throw error;
+            }
             toast.push({
               title: "That did not work",
               tone: "danger",
@@ -622,86 +473,105 @@ function Pips({
   );
 }
 
-/* -------------------------------------------------------------------------- */
+type Gap = ReturnType<typeof useGaps>["gaps"][number];
 
-/** Four bands. The key to the tint, which is never the only signal. */
-function Legend() {
-  const bands = [
-    { label: "Under 2.5", className: "bg-warning-soft text-warning-text" },
-    { label: "2.5 to 3.4", className: "bg-sunken text-body" },
-    { label: "3.5 to 4.4", className: "bg-accent-soft text-accent-text" },
-    { label: "4.5 and above", className: "bg-accent-line text-accent-text" },
-  ];
-  return (
-    <ul className="flex flex-wrap items-center gap-2">
-      {bands.map((band) => (
-        <li key={band.label}>
-          <Tag className={band.className}>{band.label}</Tag>
-        </li>
-      ))}
-    </ul>
+/**
+ * Who is below target, by department.
+ *
+ * A list of everybody below target is long, so it opens on one card for each
+ * department that has somebody, and a card opens that department's people in a
+ * table, each with their initials in a colour of their own.
+ */
+function GapsByDepartment({ gaps }: { gaps: Gap[] }) {
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const { flat: departmentList } = useDepartments();
+  const [open, setOpen] = useState<string | null | undefined>(undefined);
+
+  const departmentOf = useMemo(
+    () => new Map(directory.people.map((p) => [p.id, p.departmentId ?? null])),
+    [directory.people],
   );
-}
+  const nameOf = (id: string | null) =>
+    id === null
+      ? "No department"
+      : (departmentList.find((one) => one.id === id)?.name ?? "No department");
 
-function bandFor(average: number): string {
-  if (average < 2.5) return "bg-warning-soft text-warning-text";
-  if (average < 3.5) return "bg-sunken text-body";
-  if (average < 4.5) return "bg-accent-soft text-accent-text";
-  return "bg-accent-line text-accent-text";
-}
+  const groups = useMemo(() => {
+    const by = new Map<string | null, Gap[]>();
+    for (const gap of gaps) {
+      const key = departmentOf.get(gap.employeeId) ?? null;
+      by.set(key, [...(by.get(key) ?? []), gap]);
+    }
+    return [...by.entries()]
+      .map(([id, rows]) => ({
+        id,
+        rows,
+        people: [...new Set(rows.map((row) => row.employeeName))],
+      }))
+      .sort((a, b) => b.rows.length - a.rows.length);
+  }, [gaps, departmentOf]);
 
-function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {
+  if (open === undefined) {
+    return (
+      <ul className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {groups.map((group) => (
+          <li key={group.id ?? "none"} className="min-w-0">
+            <DepartmentCard
+              name={nameOf(group.id)}
+              onClick={() => setOpen(group.id)}
+              line={`${String(group.rows.length)} below target`}
+              members={group.people}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  const shown = groups.find((group) => group.id === open)?.rows ?? [];
   return (
-    <tr>
-      <th
-        scope="row"
-        className="sticky left-0 z-10 border-t border-line bg-surface p-2 text-left align-middle font-medium text-ink"
-      >
-        {row.departmentName}
-        <span className="mt-0.5 block text-meta font-normal text-muted">
-          {row.ratedPeople === 1 ? "1 person" : `${row.ratedPeople} people`}
-        </span>
-      </th>
-      {row.cells.map((cell) => (
-        <td
-          key={cell.competencyId}
-          className="border-t border-line p-1 align-middle"
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col items-start gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2"
+          onClick={() => setOpen(undefined)}
         >
-          {cell.average === null ? (
-            <span className="flex h-11 items-center justify-center rounded-sm border border-line bg-canvas text-body-sm text-muted">
-              <span aria-hidden="true">&mdash;</span>
-              <span className="sr-only">Not assessed</span>
-            </span>
-          ) : (
-            <span
-              className={cn(
-                "tabular flex h-11 flex-col items-center justify-center rounded-sm border border-line text-body-sm font-medium",
-                bandFor(cell.average),
-              )}
-            >
-              <span>
-                {cell.average}
-                <span className="sr-only"> out of {scaleMax}</span>
-              </span>
-              {cell.belowTarget > 0 ? (
-                <span className="flex items-center gap-1 text-meta font-normal">
-                  <AlertTriangle aria-hidden="true" className="size-3" />
-                  {cell.belowTarget}
-                  <span className="sr-only">
-                    {cell.belowTarget === 1
-                      ? " person below target"
-                      : " people below target"}
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          All departments
+        </Button>
+        <h2 className="text-h4 font-semibold text-ink">{nameOf(open)}</h2>
+      </div>
+      <TableWrap caption="People below target">
+        <THead>
+          <TH>Person</TH>
+          <TH>Competency</TH>
+          <TH align="right">Level</TH>
+          <TH align="right">Target</TH>
+        </THead>
+        <TBody>
+          {shown.map((gap) => (
+            <TR key={`${gap.employeeId}-${gap.competencyId}`}>
+              <TDPrimary avatar={gap.employeeName} title={gap.employeeName} />
+              <TD>
+                {gap.competencyName}
+                {gap.sectionName && (
+                  <span className="mt-0.5 block text-meta text-muted">
+                    {gap.sectionName}
                   </span>
-                </span>
-              ) : (
-                <span className="text-meta font-normal">
-                  {cell.rated === 1 ? "1 rated" : `${cell.rated} rated`}
-                </span>
-              )}
-            </span>
-          )}
-        </td>
-      ))}
-    </tr>
+                )}
+              </TD>
+              <TD align="right" className="tabular">
+                {gap.level} of {gap.scaleMax}
+              </TD>
+              <TD align="right" className="tabular">
+                {gap.target}
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </TableWrap>
+    </div>
   );
 }

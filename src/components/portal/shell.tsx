@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useCloseOnEscape } from "@/hooks/use-close-on-escape";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -16,15 +24,25 @@ import {
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import { Avatar, Badge } from "@/components/ui";
+import { Avatar, Badge, HeaderSlot, HeaderSlotProvider } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
-import { NAV, visibleNav, type BadgeSource, type NavFacts } from "./nav";
+import {
+  DECIDING_PERMISSIONS,
+  NAV,
+  backTarget,
+  navRouteReachable,
+  visibleNav,
+  type NavGroup,
+  type BadgeSource,
+  type NavFacts,
+} from "./nav";
 import { SidebarNav } from "./sidebar";
 import { SessionRoleBadge } from "./role-badge";
 import {
   hasAnyPermission,
   hasPermission,
+  useCan,
   useIsManager,
   usePermissions,
 } from "@/lib/permissions";
@@ -60,6 +78,13 @@ import { useDismiss } from "@/hooks/use-dismiss";
  * The active route is marked with a soft accent tint plus aria-current, so the
  * position is available to assistive technology and not only to the eye.
  */
+/**
+ * The sidebar's answer for the signed-in reader, for the page headers under it:
+ * a "Back to …" link must not point at a page the sidebar hides from them.
+ * `null` outside the shell, which leaves every link as written.
+ */
+const VisibleNavContext = createContext<readonly NavGroup[] | null>(null);
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   /* Desktop only: hide the sidebar for a full-width page. Remembered per browser. */
@@ -180,9 +205,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      with no reports, once per session, and the answer is usually an empty
      list. */
   const inAOneOnOne = useAmIInAOneOnOne(!isManager);
-  /* Whoever sets the pay-early policy still needs the row, or nobody could ever
-     switch it on. */
-  const canSetEarlyPay = hasPermission(permissions, "MANAGE_PAY_STRUCTURE");
 
   /* Signatures: showing to somebody who can send, or who has one of their own.
      ---------------------------------------------------------------------
@@ -215,7 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => ({
       assistantWired,
       earlyPay: features.earlyPay,
-      earlyPayHidden: features.earnedWage === false && !canSetEarlyPay,
+      earlyPayHidden: features.earnedWage === false,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
@@ -228,6 +250,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
            row that opened a page saying "not part of your access". */
         "master-view":
           programsNav.seesAll && hasPermission(permissions, "SEE_ALL_WORK"),
+        approvals:
+          isManager || hasAnyPermission(permissions, DECIDING_PERMISSIONS),
+        "agrees-objectives":
+          isManager || hasPermission(permissions, "EDIT_RECORDS"),
+        exits:
+          isManager ||
+          hasPermission(permissions, "EDIT_RECORDS") ||
+          hasPermission(permissions, "START_EXIT_DEPARTMENT"),
+        "my-team": isManager,
       },
       collaborator,
     }),
@@ -235,7 +266,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       assistantWired,
       features.earlyPay,
       features.earnedWage,
-      canSetEarlyPay,
       isManager,
       inAOneOnOne,
       canSendForSignature,
@@ -545,7 +575,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <HolidayBanner />
           </div>
           <CollaboratorGate>
-            <BillingGate>{children}</BillingGate>
+            <VisibleNavContext.Provider value={groups}>
+              <BillingGate>
+                <HeaderSlotProvider>{children}</HeaderSlotProvider>
+              </BillingGate>
+            </VisibleNavContext.Provider>
           </CollaboratorGate>
         </main>
       </div>
@@ -667,9 +701,16 @@ function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
   const [open, setOpen] = useState(false);
   const { mounted, closing } = useDismiss(open, 170);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useCloseOnEscape(open, () => setOpen(false), trigger);
   /* Invited to help hire: no personnel file, so no profile and no documents of their
      own to open, and no sidebar to take a tour of. */
   const collaborator = useIsCollaborator();
+  /* The company's Settings hub is the administrator's. Everybody else is sent to
+     the two pages under it that are theirs (UAT 23 Nov, SELF-12: "Settings" in
+     the account menu opened onto "You cannot open Settings"). */
+  const managesSettings = useCan("MANAGE_SETTINGS");
+  const ownSettingsOnly = collaborator || !managesSettings;
 
   /* No seed fallback. `UserMenu` only renders behind `AuthGate`, so a missing
      name means the session is mid-load rather than absent — and borrowing a
@@ -687,6 +728,7 @@ function UserMenu() {
   return (
     <div className="relative">
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -796,13 +838,23 @@ function UserMenu() {
               </>
             )}
             <Link
-              href={collaborator ? "/settings/security" : "/settings"}
+              href={ownSettingsOnly ? "/settings/security" : "/settings"}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
             >
-              {collaborator ? "Password and security" : "Settings"}
+              {ownSettingsOnly ? "Password and security" : "Settings"}
             </Link>
+            {ownSettingsOnly && !collaborator && (
+              <Link
+                href="/settings/appearance"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+              >
+                Appearance
+              </Link>
+            )}
             {/* Dismissing the tour is not a decision anybody should be stuck
                 with, and this is the only way back to it. */}
             {!collaborator && (
@@ -930,6 +982,7 @@ export function PageHeader({
   action,
   meta,
   description,
+  subline,
   tabs,
   width = "page",
 }: {
@@ -954,6 +1007,12 @@ export function PageHeader({
    * the ones somebody clicks once and leaves.
    */
   description?: string;
+  /**
+   * Small facts about what the page is, in a quiet line *below* the title: dates,
+   * a due date. Where `meta` sits beside the title and competes with it, this
+   * reads as the title's own detail.
+   */
+  subline?: React.ReactNode;
   tabs?: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -974,13 +1033,15 @@ export function PageHeader({
    * Comparing the last crumb's href against the current path is what tells
    * the two apart without asking every call site to say which shape it used.
    */
-  const backCrumb =
+  const visible = useContext(VisibleNavContext);
+  const parentCrumb =
     breadcrumb && breadcrumb.length > 0
       ? breadcrumb[breadcrumb.length - 1]!.href === pathname &&
         breadcrumb.length > 1
         ? breadcrumb[breadcrumb.length - 2]!
         : breadcrumb[breadcrumb.length - 1]!
       : null;
+  const backCrumb = parentCrumb ? backTarget(parentCrumb, visible) : null;
 
   /*
    * One way back and one trail, never two saying the same thing.
@@ -1073,9 +1134,13 @@ export function PageHeader({
                               /
                             </span>
                           )}
-                          <Link href={crumb.href} className="hover:text-ink">
-                            {crumb.label}
-                          </Link>
+                          {navRouteReachable(crumb.href, visible) ? (
+                            <Link href={crumb.href} className="hover:text-ink">
+                              {crumb.label}
+                            </Link>
+                          ) : (
+                            <span>{crumb.label}</span>
+                          )}
                         </li>
                       ))}
                     </ol>
@@ -1091,6 +1156,11 @@ export function PageHeader({
                 <h1 className="text-h3 text-ink">{title}</h1>
                 {meta}
               </div>
+              {subline && (
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-muted">
+                  {subline}
+                </p>
+              )}
               {description && (
                 /* `max-w-2xl` so a sentence does not run the full width of a
                  desktop — a line somebody has to track across 1600px is a line
@@ -1115,7 +1185,13 @@ export function PageHeader({
                row *alone* exceeds the width — the phone case — does it wrap
                internally, which is what we want. Measured on `/people` at 375px:
                501px -> 335px. */
-              <div className="flex flex-wrap items-center gap-2">{action}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* A filter icon that would otherwise sit alone on a row under
+                    this header moves in here, just left of the action
+                    (`FilterBar`, `header-slot.tsx`). */}
+                <HeaderSlot />
+                {action}
+              </div>
             )}
           </div>
 

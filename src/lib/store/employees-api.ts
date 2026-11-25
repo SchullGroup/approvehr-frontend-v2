@@ -465,6 +465,14 @@ function sortLocally(rows: Employee[], params: EmployeeListParams): Employee[] {
 export type DirectorySummary = {
   /** People matching the filter. Absent — not zero — until the server answers. */
   total: number | undefined;
+  /**
+   * Of those, how many are paid through payroll and how many are not (the company's administrator,
+   * a director who draws nothing). `total` stays the number of rows in the table; a headline
+   * "Employees" reads `onPayroll`. Absent until the server answers, and from an API that predates
+   * the flag.
+   */
+  onPayroll: number | undefined;
+  notOnPayroll: number | undefined;
   departments: number | undefined;
   /** Integer kobo. Summed by the database, or over the demo's own array. */
   grossMonthlyKobo: number | undefined;
@@ -554,8 +562,11 @@ export function useDirectorySummary(
       parsed,
       archivedIds,
     );
+    const unpaid = rows.filter((e) => e.notOnPayroll === true).length;
     return {
       total: rows.length,
+      onPayroll: rows.length - unpaid,
+      notOnPayroll: unpaid,
       departments: new Set(
         rows.map((e) => e.department).filter((name) => Boolean(name)),
       ).size,
@@ -595,6 +606,8 @@ export function useDirectorySummary(
      way to tell it from a request in flight. */
   return {
     total: row?.total,
+    onPayroll: row?.onPayroll,
+    notOnPayroll: row?.notOnPayroll,
     departments: row?.departments,
     grossMonthlyKobo: row?.grossMonthlyKobo,
     incomplete: row?.payrollBlockedInFilter,
@@ -846,6 +859,10 @@ export function useEmployeeMutations() {
         workLocationId?: string;
         /** Email them an invitation. See `EmployeePatch.invite`. */
         invite?: boolean;
+        /** The access the invitation carries. Omitted means the Employee role. */
+        accessRoleId?: string;
+        /** The Job roles catalogue row somebody chose (U47). */
+        jobRoleId?: string;
       },
     ) => {
       if (!isConnected) {
@@ -872,7 +889,9 @@ export function useEmployeeMutations() {
            a decision. The API refuses only if the company has no state either,
            and says where to set one. */
         ...(draft.taxState ? { taxState: draft.taxState } : {}),
-        ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
+        ...(draft.middleName ? { middleName: draft.middleName } : {}),
+        ...(draft.gender ? { gender: draft.gender } : {}),
+        ...(draft.jobRoleId ? { jobRoleId: draft.jobRoleId } : {}),
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
         ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
@@ -901,6 +920,10 @@ export function useEmployeeMutations() {
           : {}),
         ...(draft.managerId ? { managerId: draft.managerId } : {}),
         ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
+        /* The form asked for these and they used to be dropped here, so no
+           invitation went out and the chosen access was ignored (U15). */
+        ...(draft.invite ? { invite: true } : {}),
+        ...(draft.accessRoleId ? { accessRoleId: draft.accessRoleId } : {}),
         /* Upper case on the wire, lower case in `Employee` — the same seam as
            `update` below. */
         ...(draft.status ? { status: draft.status.toUpperCase() } : {}),
@@ -987,6 +1010,7 @@ export function useEmployeeMutations() {
         bankAccount,
         nin,
         phone,
+        personalEmail,
         ...rest
       } = fields;
 
@@ -1028,6 +1052,14 @@ export function useEmployeeMutations() {
           : { bankAccount: bankAccount === "" ? null : bankAccount }),
         ...(nin === undefined ? {} : { nin: nin === "" ? null : nin }),
         ...(phone === undefined ? {} : { phone: phone === "" ? null : phone }),
+        ...(personalEmail === undefined
+          ? {}
+          : {
+              personalEmail:
+                personalEmail === "" || personalEmail === null
+                  ? null
+                  : personalEmail,
+            }),
         /* The enums are upper case on the wire and lower case in `Employee` —
            `toEmployee` lower-cases on the way in, so this is the way back. */
         ...(status ? { status: status.toUpperCase() } : {}),

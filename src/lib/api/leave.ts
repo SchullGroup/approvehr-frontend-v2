@@ -161,6 +161,8 @@ type WireDetail = WireRequest & {
   }[];
   balance?: WireBalance | null;
   reduced?: boolean;
+  /** Whose leave `clashes` is drawn from (U22). Absent on an older API. */
+  clashesAmong?: "company" | "team";
   history?: {
     kind: WireHistoryKind;
     at: string;
@@ -351,6 +353,12 @@ export type LeaveDetail = {
   /** The reader is somebody who decides it, not its owner and not HR: the
    *  cover and the balance were withheld from them on purpose. */
   reduced: boolean;
+  /**
+   * Whose leave `clashes` covers (U22): `"team"` for a manager, who is told
+   * about their own team and nobody else; `"company"` for HR. `null` on an
+   * older API, which says nothing about it.
+   */
+  clashesAmong: "company" | "team" | null;
   /** What happened to it, in order. Empty for an API that predates it, and in
    *  demo mode. */
   history: LeaveHistoryEntry[];
@@ -580,6 +588,12 @@ function toBalance(wire: WireBalance): LeaveBalanceRow {
 
 function toDetail(wire: WireDetail): LeaveDetail {
   const reduced = wire.reduced === true;
+  const clashesAmong = wire.clashesAmong ?? null;
+  /* A reduced read from a server that names whose leave it covers (U22) is
+     an answer, not a withholding: the manager is told about their own team,
+     and the balance. Without `clashesAmong` it is the old reduced read, and
+     both stay withheld. */
+  const answered = !reduced || clashesAmong !== null;
   return {
     request: toRow(wire),
     /* Withheld is withheld, however it arrives. The API's own words for a
@@ -591,7 +605,7 @@ function toDetail(wire: WireDetail): LeaveDetail {
        `reduced` decides, and an absent list (an API that predates the field) is
        "not said" too. `?? []` would be the same claim made quietly. */
     clashes:
-      !reduced && wire.clashes
+      answered && wire.clashes
         ? wire.clashes.map((clash) => ({
             id: clash.id,
             employeeId: clash.employeeId,
@@ -601,8 +615,9 @@ function toDetail(wire: WireDetail): LeaveDetail {
             status: statusOf(clash.status),
           }))
         : null,
-    balance: !reduced && wire.balance ? toBalance(wire.balance) : null,
+    balance: answered && wire.balance ? toBalance(wire.balance) : null,
     reduced,
+    clashesAmong,
     history: (wire.history ?? []).map((entry) => ({
       kind: entry.kind,
       at: entry.at.slice(0, 10),
@@ -729,6 +744,26 @@ export const leaveApi = {
     request<{ name: string }>(`/leave/types/${id}/permanent`, {
       method: "DELETE",
     }),
+
+  /**
+   * The company's switched-off leave types (U46), so one can be turned back on
+   * after the page has been left. Manage settings only. `null` from a server
+   * that ignores `includeArchived` (it sends no `archivedAt` on any row), which
+   * can say nothing about what is switched off.
+   */
+  archivedTypes: async (
+    signal?: AbortSignal,
+  ): Promise<{ id: string; name: string }[] | null> => {
+    const rows = await request<(WireType & { archivedAt?: string | null })[]>(
+      "/leave/types",
+      { query: { includeArchived: true }, ...(signal ? { signal } : {}) },
+    );
+    if (rows.length > 0 && rows.every((row) => row.archivedAt === undefined))
+      return null;
+    return rows
+      .filter((row) => typeof row.archivedAt === "string")
+      .map((row) => ({ id: row.id, name: row.name }));
+  },
 
   restoreType: (id: string): Promise<{ name: string }> =>
     request<{ name: string }>(`/leave/types/${id}/restore`, { method: "POST" }),

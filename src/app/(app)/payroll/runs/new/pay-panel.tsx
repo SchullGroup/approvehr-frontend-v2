@@ -1,5 +1,6 @@
 "use client";
 
+import { paysFromWallet } from "@/lib/pay/wallet-payout";
 import { useState } from "react";
 import {
   ArrowDownToLine,
@@ -119,7 +120,9 @@ export function PayPanel({
   /* A company that pays from its own bank account is offered the bank file and
      nothing else: no wallet button, no explanation of a wallet it does not use. */
   const { settings: paySettings } = usePayrollSettings();
-  const walletPayout = paySettings.payout.wallet;
+  /* The wallet only where a payout can actually run: with no provider or
+     funding account the Pay button did nothing (U30). */
+  const walletPayout = paysFromWallet(paySettings.payout.wallet, run);
   /* Saying that money left the company is a finance act, so it is the approver's
      permission and not the preparer's: the same gate the API puts on
      `mark-paid`, and the same one `release-panel.tsx` reads as `canApprove`. */

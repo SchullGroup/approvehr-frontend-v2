@@ -144,16 +144,6 @@ export function SignaturesScreen() {
       <PageHeader
         breadcrumb={[{ href: "/people", label: "People" }]}
         title="Signatures"
-        /* Said on the screen, because the name does not say it — and the
-           feedback on this module opened with "why did we add signatures".
-           Two audiences, two sentences: somebody who can send needs to know
-           what sending does, and somebody who cannot needs to know why a
-           document is in front of them and that nobody can sign it for them. */
-        description={
-          canManage
-            ? "Send a document to someone and record that they signed it. Nobody else can sign in their place, not even their manager."
-            : "A document somebody sent you to read and sign. Nobody else can sign it for you, not even your manager."
-        }
         action={
           /* Absent without the permission rather than present and refusing —
              the API answers a send from anybody else with a 422 naming
@@ -218,6 +208,7 @@ export function SignaturesScreen() {
              exactly that reason; this one hadn't been. */
           <Card>
             <EmptyState
+              mood={tab === "mine" ? "caught-up" : "nothing"}
               icon={<FileSignature aria-hidden="true" />}
               title={
                 tab === "mine"

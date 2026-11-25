@@ -149,7 +149,7 @@ function Results({
   return (
     <DrawerSection title="Results">
       <dl className="divide-y divide-line">
-        <Line label="Average mark">
+        <Line label="Average score">
           <span className="tabular font-medium">
             {markOrDash(results.markMeanBp)}
           </span>
@@ -157,7 +157,7 @@ function Results({
             {ofLabel({ n: results.scored, of: row.people })} scored
           </span>
         </Line>
-        <Line label="Marks by band">
+        <Line label="Scores by band">
           <span className="text-meta text-muted">
             {bands.length === 0
               ? DASH
@@ -180,7 +180,7 @@ function Results({
                 }`}
           </span>
         </Line>
-        <Line label="Weekly tasks">
+        <Line label="Tasks done">
           <span className="tabular">
             {ofLabel({ n: results.tasks.withLogged, of: results.tasks.people })}{" "}
             logged
@@ -247,7 +247,7 @@ function Process({ row }: { row: ShownDepartment }) {
           </span>
         </Line>
         {process.flagged && (
-          <Line label="Flagged marks decided">
+          <Line label="Flagged scores decided">
             <span className="tabular">
               {process.flagged.total === 0
                 ? "None flagged"
@@ -269,12 +269,12 @@ function Fairness({ row }: { row: ShownDepartment }) {
   return (
     <DrawerSection title="Fairness">
       <p className="text-body-sm text-ink">
-        Average mark {gapSentence(row.fairness.gapBp)}
+        Average score {gapSentence(row.fairness.gapBp)}
         {range ? ` (likely range ${range} points)` : ""}.
       </p>
       <p className="mt-1 text-meta text-muted">
         {row.fairness.flagged
-          ? "The Fairness check flags this gap. A gap can come from the work or from how marks were given."
+          ? "The Fairness check flags this gap. A gap can come from the work or from how scores were given."
           : "The Fairness check does not flag this gap."}
       </p>
     </DrawerSection>
@@ -374,7 +374,7 @@ function People({
             {state.people.caveats.map((line) => (
               <li key={line}>{line}</li>
             ))}
-            <li>Sorted by name, not by mark.</li>
+            <li>Sorted by name, not by score.</li>
           </ul>
           <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-meta">
             {nineBoxHref && (

@@ -1,26 +1,10 @@
-import type { Metadata } from "next";
-import { PageBody, PageHeader } from "@/components/portal/shell";
-import { PayrollSettingsForm } from "./form";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Payroll settings",
-  description:
-    "Working month, salary structure, statutory rates and the checks that stop payroll.",
-};
-
+/**
+ * Payroll settings have one home: the Settings tab of Pay setup (U80, PAY-26).
+ * This page rendered the same form a second time under a second name, so it
+ * now leads there, and every link to it keeps working.
+ */
 export default function PayrollSettingsPage() {
-  return (
-    <>
-      <PageHeader
-        breadcrumb={[
-          { href: "/settings", label: "Settings" },
-          { href: "/settings/payroll", label: "Pay setup" },
-        ]}
-        title="Payroll settings"
-      />
-      <PageBody>
-        <PayrollSettingsForm />
-      </PageBody>
-    </>
-  );
+  redirect("/payroll/pay-setup?tab=settings");
 }

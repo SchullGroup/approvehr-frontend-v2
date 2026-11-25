@@ -105,6 +105,7 @@ function Opened({ id }: { id: string }) {
         <PageBody>
           {fromMyTasks ? (
             <EmptyState
+              plain
               icon={<ListChecks />}
               title="This task is not here any more"
               description="This task was removed or you're no longer on its project."
@@ -144,6 +145,7 @@ function Opened({ id }: { id: string }) {
         >
           {target && target.kind !== "board" && !open && (
             <EmptyState
+              plain
               icon={<ListChecks />}
               title="The task is closed"
               description="Open it again, or go back to your tasks."

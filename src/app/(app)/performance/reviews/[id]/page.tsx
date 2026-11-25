@@ -4,7 +4,7 @@ import { ReviewScreen } from "./review-screen";
 export const metadata: Metadata = {
   title: "Appraisal",
   description:
-    "One appraisal: the mark, what it is made of, who gave it, and the employee's reply.",
+    "One appraisal: the score, what it is made of, who gave it, and the employee's reply.",
 };
 
 /**

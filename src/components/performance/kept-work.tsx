@@ -264,7 +264,7 @@ function KeptRecord({
           </span>
         ) : undefined
       }
-      hint={`Finished on the project boards, ${period}, as it stood on ${formatDateShort(record.frozenAt, timeZone)}, when the rating was made final. It does not change if tasks are reopened or removed later, and it does not change the mark.`}
+      hint={`Finished on the project boards, ${period}, as it stood on ${formatDateShort(record.frozenAt, timeZone)}, when the rating was made final. It does not change if tasks are reopened or removed later, and it does not change the score.`}
       open={open}
       onToggle={() => setChoice(!open)}
     >

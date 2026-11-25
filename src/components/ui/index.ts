@@ -60,6 +60,7 @@ export {
 
 export { Pagination } from "./pagination";
 export { FilterBar } from "./filter-bar";
+export { HeaderSlot, HeaderSlotProvider, useHeaderSlot } from "./header-slot";
 export { ToggleFilter } from "./toggle-filter";
 export type { AppliedFilter } from "./filter-bar";
 
@@ -70,6 +71,7 @@ export {
   Spinner,
   ThinkingState,
 } from "./feedback";
+export type { EmptyMood } from "./feedback";
 
 export {
   LoadState,
@@ -113,3 +115,11 @@ export type { Point, Segment } from "./chart";
 
 export { BubbleChart } from "./bubble-chart";
 export type { BubbleChartProps, BubblePoint } from "./bubble-chart";
+export { NextStep, GetReady, currentStep } from "./next-step";
+export type { StepAction, ReadyStep } from "./next-step";
+export {
+  RatingScale,
+  RatingLegend,
+  legendOf,
+  type ScaleLevel,
+} from "./rating-scale";

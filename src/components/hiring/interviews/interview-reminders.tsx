@@ -1,10 +1,12 @@
 "use client";
 
 import { Badge, Switch } from "@/components/ui";
+import type { InterviewStatus } from "@/lib/api/recruitment";
 import type { InterviewView } from "@/lib/hiring/interviews/model";
 import {
   followsQueuedInvitation,
   groupReminders,
+  notNeeded,
   pausedLine,
   reasonOf,
   recipientsWords,
@@ -44,12 +46,14 @@ function Rows({
   groups,
   zone,
   now,
+  interviewStatus,
   muted = false,
 }: {
   groups: ReminderGroup[];
   zone: string;
   /** The time now, in milliseconds. */
   now: number;
+  interviewStatus: InterviewStatus;
   muted?: boolean;
 }) {
   const when = (iso: string) =>
@@ -57,7 +61,12 @@ function Rows({
   return (
     <ul className="flex flex-col gap-2">
       {groups.map((group) => {
-        const status = reminderStatus(group.status);
+        /* A closed interview's waiting reminder will be skipped when it falls
+           due, so it says so rather than "Planned". */
+        const closed = notNeeded(group, interviewStatus);
+        const status = closed
+          ? { label: "Not needed", tone: "neutral" as const }
+          : reminderStatus(group.status);
         const reason = reasonOf(group.reason);
         return (
           <li
@@ -74,7 +83,9 @@ function Rows({
             </div>
             <p className="text-meta text-muted">{recipientsWords(group)}</p>
             <p className="tabular text-meta text-muted">
-              {whenWords(group, when, now)}
+              {closed
+                ? `Was planned for ${when(group.dueAt)}`
+                : whenWords(group, when, now)}
             </p>
             {reason && <p className="text-body-sm text-body">{reason}</p>}
           </li>
@@ -141,14 +152,27 @@ export function InterviewReminders({
         </p>
       )}
 
-      {current.length > 0 && <Rows groups={current} zone={zone} now={clock} />}
+      {current.length > 0 && (
+        <Rows
+          groups={current}
+          zone={zone}
+          now={clock}
+          interviewStatus={interview.status}
+        />
+      )}
 
       {earlier.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <p className="text-meta text-muted">
             Planned for an earlier version of this interview
           </p>
-          <Rows groups={earlier} zone={zone} now={clock} muted />
+          <Rows
+            groups={earlier}
+            zone={zone}
+            now={clock}
+            interviewStatus={interview.status}
+            muted
+          />
         </div>
       )}
     </div>

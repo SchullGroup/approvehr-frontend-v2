@@ -78,6 +78,8 @@ export function RepairsPanel({
 
       {repairs.length === 0 ? (
         <EmptyState
+          plain={loading}
+          mood="all-clear"
           icon={<Wrench aria-hidden="true" />}
           title={loading ? "Loading…" : "Nothing in the workshop"}
           description={

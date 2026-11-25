@@ -90,9 +90,9 @@ export function CalibrateDialog({
         reason: reason.trim(),
       });
       toast.push({
-        title: `${employeeName}'s mark is now ${String(value)}%`,
+        title: `${employeeName}'s score is now ${String(value)}%`,
         tone: "success",
-        detail: "The mark the answers produced is kept beside it.",
+        detail: "The score the answers produced is kept beside it.",
       });
       onClose();
       onChanged();
@@ -100,7 +100,7 @@ export function CalibrateDialog({
       setFailed(
         caught instanceof ApiError
           ? caught.message
-          : "Could not change that mark.",
+          : "Could not change that score.",
       );
     } finally {
       setBusy(false);
@@ -113,7 +113,7 @@ export function CalibrateDialog({
     try {
       await periods.clearCalibration(cycleId, employeeId);
       toast.push({
-        title: `${employeeName}'s mark is back to what the answers produced`,
+        title: `${employeeName}'s score is back to what the answers produced`,
         tone: "success",
       });
       onClose();
@@ -122,7 +122,7 @@ export function CalibrateDialog({
       setFailed(
         caught instanceof ApiError
           ? caught.message
-          : "Could not put that mark back.",
+          : "Could not put that score back.",
       );
     } finally {
       setBusy(false);
@@ -134,7 +134,7 @@ export function CalibrateDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Change ${employeeName}'s mark`}
+      title={`Change ${employeeName}'s score`}
       description={`The answers gave ${scoreLabel(computedBp)}.`}
       size="sm"
       footer={
@@ -167,7 +167,7 @@ export function CalibrateDialog({
           offEvidence.expectedBp !== null && (
             <Callout
               tone="warning"
-              title="This mark doesn't match the evidence"
+              title="This score doesn't match the evidence"
             >
               The evidence suggests {scoreLabel(offEvidence.expectedBp)}, a gap
               of {exactPoints(offEvidence.gapBp)}. Check the evidence on the
@@ -176,7 +176,7 @@ export function CalibrateDialog({
           )}
 
         {existing && (
-          <Callout tone="neutral" title="This mark has already been changed">
+          <Callout tone="neutral" title="This score has already been changed">
             Now {scoreLabel(existing.calibratedBp)}, from{" "}
             {scoreLabel(existing.originalBp)}
             {existing.calibratedByName
@@ -186,7 +186,11 @@ export function CalibrateDialog({
           </Callout>
         )}
 
-        <Field label="New mark" required {...(failed ? { error: failed } : {})}>
+        <Field
+          label="New score"
+          required
+          {...(failed ? { error: failed } : {})}
+        >
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -205,7 +209,7 @@ export function CalibrateDialog({
         <Field
           label="Why"
           required
-          help="This is kept with the mark and is what explains it if anybody asks later."
+          help="This is kept with the score and is what explains it if anybody asks later."
         >
           <Textarea
             rows={3}
@@ -217,7 +221,7 @@ export function CalibrateDialog({
         </Field>
 
         <p className="text-meta text-muted">
-          The mark the answers produced is kept beside this one, not replaced.
+          The score the answers produced is kept beside this one, not replaced.
         </p>
       </div>
     </Modal>

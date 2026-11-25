@@ -170,20 +170,22 @@ describe("what it says", () => {
     expect(within(row).getByText("Late")).toBeInTheDocument();
   });
 
-  it("states what the period is and that it does not change the mark", () => {
+  it("states what the period is and that it does not change the score", () => {
     render(<WorkThisCycle {...props} />);
     expect(
       screen.getByText(
-        /1 Jul 2026 to 31 Dec 2026\. For reading beside the answers; it does not change the mark\./,
+        /1 Jul 2026 to 31 Dec 2026\. For reading beside the answers; it does not change the score\./,
       ),
     ).toBeInTheDocument();
   });
 
   it("has no number that looks like a score: no percentage, rate, rating or grade", () => {
     render(<WorkThisCycle {...props} />);
-    expect(document.body.textContent).not.toMatch(
-      /%|rate|rating|score|grade|waiting|points|effort/i,
-    );
+    /* "it does not change the score" names the score to say it is not touched
+       (the word for the percentage since U94); nothing else may. */
+    expect(
+      document.body.textContent?.replace("it does not change the score", ""),
+    ).not.toMatch(/%|rate|rating|score|grade|waiting|points|effort/i);
     expect(document.body.textContent).not.toMatch(/!/);
   });
 
@@ -325,12 +327,12 @@ describe("what it says", () => {
     ).toHaveAttribute("href", "/performance/history/bola");
   });
 
-  it("points your own review at your own work record", () => {
+  it("points your own review at the history, there being no page of your own", () => {
     hook.read = ok(work({ capped: true, total: 90 }));
     render(<WorkThisCycle {...props} own />);
     expect(
       screen.getByRole("link", { name: "Open the work record" }),
-    ).toHaveAttribute("href", "/performance/work-record");
+    ).toHaveAttribute("href", "/performance/history/bola");
   });
 
   it("asks for the right person, cycle and dates, once", () => {

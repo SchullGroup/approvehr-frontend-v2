@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -191,8 +192,8 @@ function SupportingFileSwitch({
 }: {
   type: TypeRow;
   available: boolean | null;
-  /** "Required" under a column headed Supporting file; in words on a phone. */
-  label: string;
+  /** Hidden under a column headed File required; in words on a phone. */
+  label: React.ReactNode;
   onChange: (
     patch: Partial<
       Pick<TypeRow, "attachmentPolicy" | "attachmentRequiredOverDays">
@@ -265,7 +266,7 @@ function ReasonSwitch({
   onChange,
 }: {
   type: TypeRow;
-  label: string;
+  label: React.ReactNode;
   onChange: (reasonRequired: boolean) => void;
 }) {
   if (type.reasonRequired === null) return null;
@@ -327,9 +328,11 @@ export function LeavePolicyForm({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot manage leave policies"
               description="Entitlement here is what every balance in the product measures against, so changing it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              action={<BackHome />}
             />
           </Card>
         </PageBody>
@@ -376,6 +379,12 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   const rollover = useLeaveRollover();
   const carryOver = rollover ? carryOverLine(rollover, timeZone) : null;
   const available = filesAvailable(fileLimits);
+  /* With nowhere private to keep a file, the supporting-file setting is not
+     offered (UAT 23 Nov, U5): asking for a medical certificate that cannot be
+     attached, or can only go somewhere public, helps nobody. A type that already
+     requires one keeps its switch, so HR can turn the requirement off. */
+  const offersFile = (type: TypeRow) =>
+    available !== false || type.attachmentPolicy === "REQUIRED";
 
   /**
    * Whether the last edit has landed.
@@ -448,6 +457,30 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   const [switchedOff, setSwitchedOff] = useState<
     { id: string; name: string; total: number }[]
   >([]);
+  /**
+   * Every switched-off type, from the server (U46): it now lists them with
+   * `includeArchived`. `null` until it answers, and from a server that cannot,
+   * in which case this visit's list above is all there is.
+   */
+  const [serverOff, setServerOff] = useState<
+    { id: string; name: string }[] | null
+  >(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    leaveApi
+      .archivedTypes()
+      .then((rows) => {
+        if (!cancelled) setServerOff(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setServerOff(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, tick]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -502,6 +535,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   }));
 
   const types = isConnected ? (fetched?.rows ?? []) : demoRows;
+  const showFileColumn = isConnected && types.some(offersFile);
   const typesLoading = isConnected && fetched === null;
 
   async function editType(
@@ -678,6 +712,16 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     }
   }
 
+  /* The server's list when it has one, with the request count from a switch-off
+     made in this visit; otherwise this visit's list alone. */
+  const offList: { id: string; name: string; total: number }[] =
+    serverOff === null
+      ? switchedOff
+      : serverOff.map((row) => ({
+          ...row,
+          total: switchedOff.find((r) => r.id === row.id)?.total ?? 0,
+        }));
+
   async function restoreType(row: { id: string; name: string }) {
     try {
       await leaveApi.restoreType(row.id);
@@ -786,8 +830,12 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                             <TH>Accrual</TH>
                             <TH align="right">Carry over</TH>
                             <TH align="right">Notice (days)</TH>
-                            {isConnected && <TH>Reason</TH>}
-                            {isConnected && <TH>Supporting file</TH>}
+                            {/* "Required" said once, here, rather than beside
+                                every switch: the word in each row is what took
+                                the table 25px past its card at 1440px (UAT 23
+                                Nov, L21: HR-25). */}
+                            {isConnected && <TH>Reason required</TH>}
+                            {showFileColumn && <TH>File required</TH>}
                             <TH>Who</TH>
                             {isConnected && (
                               <TH align="right">
@@ -808,7 +856,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={365}
                                     value={type.entitled}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} days per year`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -843,7 +891,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={type.entitled}
                                     value={type.carryOverMax}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} carry-over maximum`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -861,7 +909,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     min={0}
                                     max={90}
                                     value={type.minNoticeDays}
-                                    className="w-20 text-right"
+                                    className="w-16 text-right"
                                     aria-label={`${type.name} minimum notice in days`}
                                     onChange={(e) => {
                                       const next = Number(e.target.value);
@@ -886,7 +934,11 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     ) : (
                                       <ReasonSwitch
                                         type={type}
-                                        label="Required"
+                                        label={
+                                          <span className="sr-only">
+                                            Required
+                                          </span>
+                                        }
                                         onChange={(reasonRequired) =>
                                           void editType(type, {
                                             reasonRequired,
@@ -896,16 +948,22 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     )}
                                   </TD>
                                 )}
-                                {isConnected && (
+                                {showFileColumn && (
                                   <TD>
-                                    <SupportingFileSwitch
-                                      type={type}
-                                      available={available}
-                                      label="Required"
-                                      onChange={(patch) =>
-                                        void editType(type, patch)
-                                      }
-                                    />
+                                    {offersFile(type) && (
+                                      <SupportingFileSwitch
+                                        type={type}
+                                        available={available}
+                                        label={
+                                          <span className="sr-only">
+                                            Required
+                                          </span>
+                                        }
+                                        onChange={(patch) =>
+                                          void editType(type, patch)
+                                        }
+                                      />
+                                    )}
                                   </TD>
                                 )}
                                 <TD>
@@ -1066,14 +1124,16 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                         void editType(type, { reasonRequired })
                                       }
                                     />
-                                    <SupportingFileSwitch
-                                      type={type}
-                                      available={available}
-                                      label="Supporting file required"
-                                      onChange={(patch) =>
-                                        void editType(type, patch)
-                                      }
-                                    />
+                                    {offersFile(type) && (
+                                      <SupportingFileSwitch
+                                        type={type}
+                                        available={available}
+                                        label="Supporting file required"
+                                        onChange={(patch) =>
+                                          void editType(type, patch)
+                                        }
+                                      />
+                                    )}
                                   </div>
                                 )}
 
@@ -1141,15 +1201,19 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                 type list filters archived rows out with no way to ask for them, so
                 this is restore's whole reach — and the card says so rather than
                 letting the button's disappearance on reload read as a bug. */}
-                {switchedOff.length > 0 && (
+                {offList.length > 0 && (
                   <Card>
                     <CardHeader
-                      title="Switched off just now"
+                      title={
+                        serverOff === null
+                          ? "Switched off just now"
+                          : "Switched off"
+                      }
                       level={3}
                       description="Off, not deleted: every request already raised keeps its record. Turn one back on and it reappears in the booking form with its entitlement unchanged."
                     />
                     <CardBody className="flex flex-col gap-3">
-                      {switchedOff.map((row) => (
+                      {offList.map((row) => (
                         <div
                           key={row.id}
                           className="flex flex-wrap items-center justify-between gap-3"
@@ -1181,12 +1245,13 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                           </Button>
                         </div>
                       ))}
-                      <p className="text-meta leading-relaxed text-muted">
-                        This list lasts as long as this page: the server does
-                        not yet let the interface see switched-off types, so
-                        leaving here puts turning one back on out of reach until
-                        it does.
-                      </p>
+                      {serverOff === null && (
+                        <p className="text-meta leading-relaxed text-muted">
+                          This list lasts as long as this page: this server does
+                          not let the interface see switched-off types, so
+                          leaving here puts turning one back on out of reach.
+                        </p>
+                      )}
                     </CardBody>
                   </Card>
                 )}
@@ -1597,28 +1662,30 @@ function AddLeaveTypeForm({
           {error?.where === "reason" && <FormRefusal text={error.message} />}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Switch
-            label="Ask for a supporting file"
-            description={
-              noFiles
-                ? FILES_UNAVAILABLE
-                : fileOn
-                  ? "People must attach a file (a medical certificate, say) to ask for this leave."
-                  : "People can ask for this leave without attaching a file."
-            }
-            checked={fileOn}
-            disabled={noFiles}
-            onChange={(e) => setAskFile(e.target.checked)}
-          />
-          {fileOn && (
-            <p className="text-meta text-muted">
-              To ask for one only after a number of days, set that in the table
-              once the type is added.
-            </p>
-          )}
-          {error?.where === "file" && <FormRefusal text={error.message} />}
-        </div>
+        {!noFiles && (
+          <div className="flex flex-col gap-1.5">
+            <Switch
+              label="Ask for a supporting file"
+              description={
+                noFiles
+                  ? FILES_UNAVAILABLE
+                  : fileOn
+                    ? "People must attach a file (a medical certificate, say) to ask for this leave."
+                    : "People can ask for this leave without attaching a file."
+              }
+              checked={fileOn}
+              disabled={noFiles}
+              onChange={(e) => setAskFile(e.target.checked)}
+            />
+            {fileOn && (
+              <p className="text-meta text-muted">
+                To ask for one only after a number of days, set that in the
+                table once the type is added.
+              </p>
+            )}
+            {error?.where === "file" && <FormRefusal text={error.message} />}
+          </div>
+        )}
 
         {error?.where === "form" && <FormRefusal text={error.message} />}
       </div>

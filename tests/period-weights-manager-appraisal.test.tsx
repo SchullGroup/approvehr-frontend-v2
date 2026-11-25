@@ -117,7 +117,7 @@ describe("the text a period's weights are typed as", () => {
       CORE_COMPETENCY: 0,
       BEHAVIOURAL_COMPETENCY: 0,
       LEADERSHIP: 0,
-      MANAGER_APPRAISAL: 100,
+      MANAGER_APPRAISAL: 10000,
       SELF_ASSESSMENT: 0,
     });
     expect(periodWeightsProblem(text)).toBeNull();
@@ -135,10 +135,10 @@ describe("the text a period's weights are typed as", () => {
         SELF_ASSESSMENT: 0,
       });
     expect(periodWeightsProblem(zero(true))).toBe(
-      "Give at least one part a weight above 0%.",
+      "The weights have to add up to 100%.",
     );
     expect(periodWeightsProblem(zero(false))).toBe(
-      "Give at least one part a weight above 0%.",
+      "The weights have to add up to 100%.",
     );
   });
 
@@ -165,23 +165,23 @@ describe("the editor", () => {
     render(<Harness start={weightsToText(SIX)} company={defaults(false)} />);
     expect(rowLabels()).toHaveLength(6);
     expect(screen.queryByText(/Manager appraisal/)).toBeNull();
-    expect(screen.queryByText(/overall mark/i)).toBeNull();
+    expect(screen.queryByText(/overall rating/i)).toBeNull();
   });
 
   it("counts the new row in the total as it is typed", async () => {
     render(<Harness start={weightsToText(SEVEN)} company={defaults(true)} />);
     expect(
-      within(screen.getByTestId("weights-total")).getByText("100%"),
+      within(screen.getByTestId("pie-total")).getByText("100%"),
     ).toBeInTheDocument();
     const field = screen.getByRole("spinbutton", { name: "Manager appraisal" });
     await userEvent.clear(field);
     await userEvent.type(field, "30");
     expect(
-      within(screen.getByTestId("weights-total")).getByText("130%"),
+      within(screen.getByTestId("pie-total")).getByText("130%"),
     ).toBeInTheDocument();
   });
 
-  it("says what happens to the share where no appraiser has sent a mark, in the company's own name for the part", () => {
+  it("says what happens to the share where no appraiser has sent a score, in the company's own name for the part", () => {
     render(
       <Harness
         start={weightsToText(SEVEN)}
@@ -190,7 +190,7 @@ describe("the editor", () => {
     );
     expect(
       screen.getByText(
-        "If no appraiser has sent an overall mark for someone, the Line view share is spread over the other parts.",
+        "If no appraiser has sent an overall rating for someone, the Line view share is spread over the other parts.",
       ),
     ).toBeInTheDocument();
     expect(rowLabels()).toContain("Line view");
@@ -203,7 +203,7 @@ describe("the editor", () => {
     await userEvent.type(field, "40");
     expect(field).toHaveValue(40);
     await userEvent.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     expect(
       screen.getByRole("spinbutton", { name: "Manager appraisal" }),
@@ -212,8 +212,15 @@ describe("the editor", () => {
 
   it("does not bring the row back on a reset against a server that has no part", async () => {
     render(<Harness start={weightsToText(SIX)} company={defaults(false)} />);
+    /* Nothing differs from the company's, so there is nothing to reset yet. */
+    expect(
+      screen.queryByRole("button", { name: "Use my company's weights" }),
+    ).toBeNull();
+    const first = screen.getAllByRole("spinbutton")[0] as HTMLElement;
+    await userEvent.clear(first);
+    await userEvent.type(first, "1");
     await userEvent.click(
-      screen.getByRole("button", { name: "Use the weights in Settings" }),
+      screen.getByRole("button", { name: "Use my company's weights" }),
     );
     expect(rowLabels()).toHaveLength(6);
   });

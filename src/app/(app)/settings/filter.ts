@@ -89,9 +89,19 @@ export const PAGE_WORDS: Readonly<Record<string, readonly string[]>> = {
     "departments",
     "turn off",
     "turn on",
+    "fields",
+    "employee record",
+    "bank details",
   ],
   "/settings/job-roles": ["job titles", "positions", "competencies"],
-  "/settings/queries": ["letters", "reply", "written"],
+  "/settings/queries": [
+    "letters",
+    "reply",
+    "written",
+    "templates",
+    "managers",
+    "draft",
+  ],
   "/settings/required-details": [
     "profile",
     "next of kin",
@@ -131,6 +141,10 @@ export const PAGE_WORDS: Readonly<Record<string, readonly string[]>> = {
     "appraisal",
     "weights",
     "rating",
+    "score",
+    "overall rating",
+    /* The words these screens used before the UAT rename (U94), kept so a
+       search by the old word still finds the page. */
     "marks",
     "overall mark",
     "self-assessment",
@@ -142,7 +156,52 @@ export const PAGE_WORDS: Readonly<Record<string, readonly string[]>> = {
   "/settings/ai": ["ai", "assistant", "gemini", "claude", "key", "suggestions"],
   "/settings/integrations": ["jira", "accounting", "connect", "tickets"],
   "/settings/audit": ["log", "history", "who changed", "trail"],
-  "/people": ["directory", "staff", "employees", "access"],
+  "/settings/company": [
+    "logo",
+    "rc number",
+    "registration",
+    "address",
+    "tin",
+    "tax state",
+    "paye state",
+    "entity",
+    "entities",
+  ],
+  "/settings/locations": [
+    "office",
+    "offices",
+    "branch",
+    "branches",
+    "geofence",
+    "clock in",
+    "remote",
+  ],
+  "/settings/leave": [
+    "holidays",
+    "public holidays",
+    "annual",
+    "sick",
+    "entitlement",
+    "carry over",
+    "accrual",
+    "time off",
+    "vacation",
+    "balance",
+  ],
+  "/settings/payroll": [
+    "pension",
+    "nhf",
+    "paye",
+    "tax",
+    "salary",
+    "deductions",
+    "payslip",
+    "working days",
+  ],
+  "/settings/bank-accounts": ["bank", "salary account", "payout"],
+  "/payroll/pay-setup": ["allowances", "deductions", "grades", "salary bands"],
+  "/settings/roles": ["permissions", "roles", "admin", "approver", "who can"],
+  "/people/departments": ["department", "teams", "org structure", "head"],
 };
 
 /**
@@ -214,45 +273,8 @@ export const BILLING: Searchable = {
   words: ["plan", "trial", "subscribe", "subscription", "renew", "invoice"],
 };
 
-/**
- * The module each entry belongs to, shown first on a search result so a hit
- * reads "Time and attendance, Overtime" and not a bare title. Static text, one
- * word or two, kept beside the keywords because both are about finding a page.
- */
-export const PAGE_MODULE: Readonly<Record<string, string>> = {
-  "/settings/features": "Company",
-  "/settings/job-roles": "People",
-  "/settings/queries": "People",
-  "/settings/required-details": "People",
-  "/settings/announcements": "Communication",
-  "/settings/security": "Security",
-  "/settings/helpdesk": "Help desk",
-  "/settings/knowledge": "Help desk",
-  "/settings/policies": "People",
-  "/settings/attendance": "Time and attendance",
-  "/settings/devices": "Time and attendance",
-  "/settings/overtime": "Time and attendance",
-  "/settings/performance": "Performance",
-  "/settings/notifications": "Communication",
-  "/settings/sms": "Communication",
-  "/settings/appearance": "Personal",
-  "/settings/ai": "Integrations",
-  "/settings/integrations": "Integrations",
-  "/settings/audit": "Security",
-  "/people": "People",
-};
-
-export const ROW_MODULE: Readonly<Record<string, string>> = {
-  company: "Company",
-  locations: "Company",
-  "record-fields": "People",
-  leave: "Leave",
-  pay: "Payroll",
-  roles: "Security",
-  "payroll-checks": "Payroll",
-};
-
-export const BILLING_MODULE = "Billing";
+/** Billing sits in the Pay group. */
+export const BILLING_MODULE = "Pay";
 
 /** The first sentence, so a result carries a small description and not a paragraph. */
 export function firstSentence(text: string): string {
@@ -261,131 +283,253 @@ export function firstSentence(text: string): string {
 }
 
 /**
+ * The six groups the Settings page is laid out in (UAT 23 Nov, U43: HR-9,
+ * NC-17). The hub used to be 19 unsorted cards whose names did not match the
+ * pages they opened, with the main setup pages reachable only through a small
+ * "Setting up" chip. Every page is now listed once, in one of these, under the
+ * title the page itself carries.
+ */
+export const SETTINGS_GROUPS = [
+  { id: "company", title: "Company" },
+  { id: "people", title: "People" },
+  { id: "time", title: "Time and leave" },
+  { id: "pay", title: "Pay" },
+  { id: "access", title: "Access" },
+  { id: "system", title: "System" },
+] as const;
+
+export type SettingsGroupId = (typeof SETTINGS_GROUPS)[number]["id"];
+
+/**
+ * A page listed only once it can be used (UAT 23 Nov, U52, HR-17). Until then
+ * it says "not set up on this server" and nothing a customer does changes
+ * that, so it is not offered at all.
+ */
+export type SettingsNeeds = "assistant" | "sms" | "integrations";
+
+export type SettingsPage = {
+  href: string;
+  /** The page's own title, as its header and the browser tab say it. */
+  title: string;
+  description: string;
+  group: SettingsGroupId;
+  /** The setup checklist row this page answers, whose state is shown beside it. */
+  row?: string;
+  /** Hidden while the company has this switched off. */
+  feature?: "departments" | "appraisals";
+  needs?: SettingsNeeds;
+};
+
+/**
  * The settings pages, as data, so the screen and the global search read one
  * list. The screen adds the icons; the search adds nothing it should not show.
  */
-export const SETTINGS_PAGES: readonly {
-  href: string;
-  title: string;
-  description: string;
-}[] = [
+export const SETTINGS_PAGES: readonly SettingsPage[] = [
+  {
+    href: "/settings/company",
+    title: "Company profile",
+    description:
+      "Legal entities, RC numbers, registered addresses, tax states and the logo on every payslip.",
+    group: "company",
+    row: "company",
+  },
+  {
+    href: "/settings/locations",
+    title: "Work locations",
+    description:
+      "The offices, branches and sites people clock in at, and the area around each one.",
+    group: "company",
+    row: "locations",
+  },
+  {
+    href: "/people/departments",
+    title: "Departments and teams",
+    description:
+      "Your org structure: departments, the teams inside them, and who leads each one.",
+    group: "company",
+    feature: "departments",
+  },
   {
     href: "/settings/features",
-    title: "What this company uses",
+    title: "Turn on more features",
     description:
-      "Switch modules on and off, loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
-  },
-  {
-    href: "/settings/job-roles",
-    title: "Job roles",
-    description:
-      "What jobs this company has, what each one involves, and what people on it are judged against. Job titles stay free text until you add some.",
-  },
-  {
-    href: "/settings/queries",
-    title: "Queries",
-    description:
-      "Whether queries are switched on, the usual time to reply, and whether the person who issued a query may decide it when nobody else can.",
-  },
-  {
-    href: "/settings/required-details",
-    title: "Required details",
-    description:
-      "Which personal details every member of staff must fill in on My profile, such as date of birth or next of kin, and who still has gaps.",
+      "Switch modules on and off: loans, expenses, hiring, shifts, attendance. A module switched off leaves the menu, and its data is kept.",
+    group: "company",
   },
   {
     href: "/settings/announcements",
     title: "Noticeboard",
     description:
       "Notices everybody sees on their dashboard. Publishing is what makes one visible; a draft appears nowhere.",
+    group: "company",
   },
   {
-    href: "/settings/security",
-    title: "Sign-in security",
+    href: "/settings/policies",
+    title: "Handbook",
     description:
-      "Two-factor sign-in, and which actions need a code from email. Off until you turn it on.",
+      "Your company policies, the version in force, and who has accepted each one.",
+    group: "company",
+  },
+  {
+    href: "/settings/job-roles",
+    title: "Job roles",
+    description:
+      "What jobs this company has, what each one involves, and what people on it are judged against.",
+    group: "people",
+  },
+  {
+    href: "/settings/required-details",
+    title: "Required details",
+    description:
+      "Which personal details every member of staff must fill in on My profile, such as date of birth or next of kin, and who still has gaps.",
+    group: "people",
+  },
+  {
+    href: "/settings/queries",
+    title: "Queries",
+    description:
+      "Whether queries are switched on, the usual time to reply, whether managers may draft, and the company's own letter templates.",
+    group: "people",
+  },
+  {
+    href: "/settings/performance",
+    title: "Appraisal scoring",
+    description:
+      "How much each part of an appraisal counts, what each rating is called, and whether forms end with an overall rating. The weights add up to 100%, and they are frozen onto an appraisal period when it starts.",
+    group: "people",
   },
   {
     href: "/settings/helpdesk",
     title: "Help desk",
     description:
       "What people can raise a request about, and how quickly you have promised to answer.",
+    group: "people",
   },
   {
     href: "/settings/knowledge",
-    title: "Knowledge base",
+    title: "Help articles",
     description:
       "Write and publish help articles, and see the searches that found nothing.",
+    group: "people",
   },
   {
-    href: "/settings/policies",
-    title: "Policies",
+    href: "/settings/leave",
+    title: "Leave policies",
     description:
-      "Documents people have to read and acknowledge, and who has not yet.",
+      "Leave types, entitlements, carry-over and the public holidays.",
+    group: "time",
+    row: "leave",
   },
   {
     href: "/settings/attendance",
     title: "Working hours",
     description:
       "The shift everybody's clock-in is measured against, the grace before it counts as late, and which weekdays are working days.",
+    group: "time",
+  },
+  {
+    href: "/settings/overtime",
+    title: "Overtime policy",
+    description:
+      "Whether overtime is paid, from how many minutes, and the weekday, weekend and public-holiday rates.",
+    group: "time",
   },
   {
     href: "/settings/devices",
     title: "Biometric terminals",
     description:
-      "The clock-in machines on your walls, and which person each one's enrolment numbers mean. A tap from one beats a clock-in somebody typed themselves.",
+      "The clock-in machines on your walls, and which person each one's enrolment numbers mean.",
+    group: "time",
   },
   {
-    href: "/settings/overtime",
-    title: "Overtime",
+    href: "/settings/payroll",
+    title: "Payroll settings",
     description:
-      "Whether overtime is paid, from how many minutes, and the weekday, weekend and public-holiday rates.",
+      "Working month, salary structure, statutory rates and the checks that stop payroll.",
+    group: "pay",
+    row: "pay",
   },
   {
-    href: "/settings/performance",
-    title: "Appraisal scoring",
+    href: "/settings/bank-accounts",
+    title: "Bank accounts",
     description:
-      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. Each part counts in proportion to the total, and the weights are frozen onto an appraisal period when it starts.",
+      "The accounts salaries are paid out of. Exactly one is the salary account.",
+    group: "pay",
+  },
+  {
+    href: "/payroll/pay-setup",
+    title: "Pay setup",
+    description:
+      "Allowances, deductions and salary grades, with what each one does to tax, pension and take-home pay.",
+    group: "pay",
+  },
+  {
+    href: "/settings/roles",
+    title: "Access",
+    description:
+      "Who can see salaries, approve payroll, change settings or export staff data.",
+    group: "access",
+    row: "roles",
+  },
+  {
+    href: "/settings/security",
+    title: "Sign-in security",
+    description:
+      "Two-factor sign-in, and which actions need a code from email. Off until you turn it on.",
+    group: "access",
+  },
+  {
+    href: "/settings/audit",
+    title: "Audit log",
+    description: "Who changed what, and when.",
+    group: "access",
   },
   {
     href: "/settings/notifications",
     title: "Notifications",
     description: "What triggers an email, and who receives approval reminders.",
+    group: "system",
   },
   {
     href: "/settings/sms",
     title: "Text messages",
     description:
       "A weekly text of counts and a link, only for people who opt in.",
+    group: "system",
+    needs: "sms",
+  },
+  {
+    href: "/settings/ai",
+    title: "Assistant settings",
+    description:
+      "Suggested objectives, drafted progress notes and development areas, and what is sent to the assistant.",
+    group: "system",
+    needs: "assistant",
+  },
+  {
+    href: "/settings/integrations",
+    title: "Integrations",
+    description: "Connect Jira so finished tickets count as evidence of work.",
+    group: "system",
+    needs: "integrations",
   },
   {
     href: "/settings/appearance",
     title: "Appearance",
     description:
       "Light or dark, or match your device. Does not follow you to another one.",
-  },
-  {
-    href: "/settings/ai",
-    title: "Assistant",
-    description:
-      "Suggested objectives, drafted progress notes and development areas. Off until a key is set, and this is the only screen that says so, because a form with no assistant renders no button at all.",
-  },
-  {
-    href: "/settings/integrations",
-    title: "Integrations",
-    description:
-      "Connect Jira so finished tickets reach the weekly task log. Accounting, devices and sign-on are on the way.",
-  },
-  {
-    href: "/settings/audit",
-    title: "Audit trail",
-    description:
-      "Who changed what, and when. Every settings change on this page lands here.",
-  },
-  {
-    href: "/people",
-    title: "People",
-    description:
-      "The directory. Who has access is decided by the role on their account, under Roles and access above.",
+    group: "system",
   },
 ];
+
+/**
+ * The group each page is in, shown first on a search result so a hit reads
+ * "Time and leave, Overtime policy" and not a bare title. The header search
+ * reads it too.
+ */
+export const PAGE_MODULE: Readonly<Record<string, string>> = Object.fromEntries(
+  SETTINGS_PAGES.map((page) => [
+    page.href,
+    SETTINGS_GROUPS.find((group) => group.id === page.group)!.title,
+  ]),
+);

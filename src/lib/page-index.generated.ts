@@ -159,7 +159,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/payroll/pay-setup",
     "title": "Pay setup",
-    "description": "Allowances, deductions and salary grades in one place, with what each one does to tax, pension and take-home pay."
+    "description": "Allowances, deductions, payroll settings and salary grades in one place, with what each one does to tax, pension and take-home pay."
   },
   {
     "href": "/payroll/payments",
@@ -292,6 +292,11 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Written queries to staff, their one written reply, and the outcome recorded on each."
   },
   {
+    "href": "/people/queries/counts",
+    "title": "Query counts",
+    "description": "How many queries were served in a year, by where they stand and by month, with small figures withheld."
+  },
+  {
     "href": "/people/shifts",
     "title": "Shifts",
     "description": "Who works when: nights, earlies and weekend cover, and the cover requests waiting on an answer."
@@ -302,33 +307,48 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Documents waiting on your signature, and documents sent for signature, each identified by the fingerprint of its exact bytes."
   },
   {
+    "href": "/people/team",
+    "title": "My team",
+    "description": "The people you lead: who they are, how to reach them and their leave, with nothing about pay."
+  },
+  {
     "href": "/performance",
     "title": "Performance",
     "description": "What is waiting on you, and how the running appraisal period is going."
   },
   {
-    "href": "/performance/appraisers",
-    "title": "Who appraises whom",
-    "description": "Who appraises whom in this period, and how much each appraiser's view counts."
+    "href": "/performance/appraisal-preview",
+    "title": "Appraisal flow preview",
+    "description": "A mock-up of the step-by-step appraisal for an employee, with example answers. Nothing is saved."
   },
   {
-    "href": "/performance/approvals",
-    "title": "Objectives to agree",
-    "description": "Objectives waiting for you to agree them, with the target each person will be judged against."
+    "href": "/performance/appraisal-preview/manager",
+    "title": "Manager appraisal preview",
+    "description": "A mock-up of a manager's team list and the step-by-step appraisal of one person, with example data. Nothing is saved."
+  },
+  {
+    "href": "/performance/appraisals",
+    "title": "Appraisals",
+    "description": "Where your appraisal stands, step by step, and where your team's do."
+  },
+  {
+    "href": "/performance/appraisers",
+    "title": "Who appraises whom",
+    "description": "Who appraises whom: everybody's line manager by default, and the exceptions period by period."
   },
   {
     "href": "/performance/fairness",
     "title": "Fairness check",
-    "description": "How an appraisal period's marks compare by gender, age, time at the company, location, contract type, department and manager."
+    "description": "How an appraisal period's scores compare by gender, age, time at the company, location, contract type, department and manager."
   },
   {
     "href": "/performance/how-it-works",
     "title": "How appraisals work",
-    "description": "What a period is, what a mark is made of, and what happens when one is given."
+    "description": "What a period is, what a score is made of, and what happens when one is given."
   },
   {
     "href": "/performance/kpis",
-    "title": "KPIs",
+    "title": "Objectives",
     "description": "What people are aiming at, and how far along it is, yours, your team's, or the company's."
   },
   {
@@ -337,9 +357,9 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Give a team its quarter from one spreadsheet: match your own column names, see every row that will not go in and why before anything is saved, and have each objective arrive as a draft for its owner to agree."
   },
   {
-    "href": "/performance/periods",
-    "title": "Appraisal periods",
-    "description": "Every appraisal period, open ones first, and what each one needs next."
+    "href": "/performance/kpis/new",
+    "title": "New objective",
+    "description": "Write an objective one question at a time: the aim, the target, the period it counts in, then send it to be agreed."
   },
   {
     "href": "/performance/periods/new",
@@ -347,19 +367,9 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Describe an appraisal period in a sentence or two and edit the goals and questions that come back. Nothing is created until the last screen."
   },
   {
-    "href": "/performance/review-tasks",
-    "title": "Weekly tasks",
-    "description": "Log what you did toward your objectives, and grade what your team did."
-  },
-  {
     "href": "/performance/skills",
     "title": "Competency ratings",
     "description": "Where people stand against the levels the company set."
-  },
-  {
-    "href": "/performance/work-record",
-    "title": "My work record",
-    "description": "What you finished on the project boards, a day, week, month or quarter at a time."
   },
   {
     "href": "/profile",
@@ -507,14 +517,9 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "Whether overtime is paid, the grace before it counts, the daily cap, and the weekday, weekend and public holiday rates."
   },
   {
-    "href": "/settings/payroll",
-    "title": "Payroll settings",
-    "description": "Working month, salary structure, statutory rates and the checks that stop payroll."
-  },
-  {
     "href": "/settings/performance",
     "title": "Appraisal scoring",
-    "description": "The parts an appraisal mark is made of, each with its own name, weight and source, what each mark is called, how long the work behind a final rating is kept, and whether people may use their own finished work in their review answers. The parts and the names are frozen onto an appraisal period when it starts."
+    "description": "How an appraisal score is made, what each rating is called, and what work is kept with a final rating."
   },
   {
     "href": "/settings/policies",
@@ -524,7 +529,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/settings/queries",
     "title": "Queries",
-    "description": "Whether queries are switched on, the usual reply time, and who may decide a query they issued."
+    "description": "Whether queries are switched on, the usual reply time, who may decide a query they issued, whether managers may draft, and the company's own letter templates."
   },
   {
     "href": "/settings/required-details",
@@ -533,18 +538,13 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   },
   {
     "href": "/settings/roles",
-    "title": "Roles and permissions",
+    "title": "Access",
     "description": "Who can see salaries, approve payroll, or export employee data."
   },
   {
     "href": "/settings/security",
     "title": "Sign-in security",
     "description": "Two-factor sign-in, the actions that need a code, and your recovery codes."
-  },
-  {
-    "href": "/settings/setup",
-    "title": "Setting up your company",
-    "description": "What is still to set up, and what each step changes in the product."
   },
   {
     "href": "/settings/sms",

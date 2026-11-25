@@ -21,8 +21,12 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDay, todayIn } from "@/lib/time";
 import {
   SHARED_NOTES_NOTE,
+  meetingState,
+  oneOnOneTitle,
   type ApiItemKind,
   type ApiOneOnOneItem,
   type ApiOneOnOneMeeting,
@@ -55,6 +59,7 @@ export function OneOnOneScreen({ seriesId }: { seriesId: string }) {
   const mine = useMyOneOnOnes();
   const read = useOneOnOneMeetings(seriesId);
   const [scheduling, setScheduling] = useState(false);
+  const { employeeId: me } = useSession();
 
   const series = mine.data?.find((each) => each.id === seriesId) ?? null;
 
@@ -65,7 +70,7 @@ export function OneOnOneScreen({ seriesId }: { seriesId: string }) {
           { href: "/people", label: "People" },
           { href: "/people/one-on-ones", label: "One-to-ones" },
         ]}
-        title={series ? series.employeeName : "One-to-one"}
+        title={series ? oneOnOneTitle(series, me) : "One-to-one"}
         meta={
           <span className="inline-flex items-center gap-1 text-meta text-faint">
             <Lock aria-hidden="true" className="size-3.5" />
@@ -153,6 +158,7 @@ function Meeting({
   const [adding, setAdding] = useState(false);
 
   const dirty = notes !== (meeting.notes ?? "");
+  const state = meetingState(meeting, todayIn(useOrgTimezone()));
 
   const run = async (work: () => Promise<unknown>, done: string) => {
     setBusy(true);
@@ -180,14 +186,19 @@ function Meeting({
       <CardHeader
         level={2}
         title={meeting.scheduledFor}
-        description={
-          meeting.heldAt
-            ? "Held"
-            : "In the diary, not marked as held yet, so it does not count towards coverage."
-        }
+        {...(state === "held"
+          ? {}
+          : {
+              description:
+                "Not marked as held, so it does not count towards coverage.",
+            })}
         action={
-          <Badge tone={meeting.heldAt ? "success" : "neutral"} size="sm" dot>
-            {meeting.heldAt ? "Held" : "Coming up"}
+          <Badge tone={state === "held" ? "success" : "neutral"} size="sm" dot>
+            {state === "held"
+              ? "Held"
+              : state === "missed"
+                ? "Not marked as held"
+                : "Coming up"}
           </Badge>
         }
       />
@@ -232,7 +243,7 @@ function Meeting({
                 )
               }
             />
-            {!meeting.heldAt && (
+            {state === "upcoming" && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -349,7 +360,9 @@ function Item({
             {item.ownerName}
           </Badge>
           {item.dueDate && (
-            <span className="text-meta text-faint">by {item.dueDate}</span>
+            <span className="text-meta text-faint">
+              by {formatDay(item.dueDate)}
+            </span>
           )}
         </>
       ) : (

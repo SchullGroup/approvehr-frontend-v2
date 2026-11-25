@@ -1,5 +1,6 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
 import {
   BellRing,
   ClipboardCheck,
@@ -148,9 +149,11 @@ export function NotYours() {
   return (
     <Card>
       <EmptyState
+        plain
         icon={<Lock aria-hidden="true" />}
         title="You cannot change these"
         description="They apply to the whole company, so they are kept to administrators."
+        action={<BackHome />}
       />
     </Card>
   );

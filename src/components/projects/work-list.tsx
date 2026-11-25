@@ -50,6 +50,7 @@ import { useProgramProjects } from "@/lib/store/programs";
 import { usePeople } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort, todayIn } from "@/lib/time";
+import { useCan } from "@/lib/permissions";
 
 /**
  * A page of tasks across projects, with the filters that narrow it.
@@ -361,7 +362,7 @@ function useProjectChoices(
   const inProgram = useProgramProjects(target, false, scoped);
   const everything = useProjectList("all");
   /* The Archive offers the archived projects too, which no live list holds. */
-  const archived = useArchivedProjects(archive);
+  const archived = useArchivedProjects(archive, useCan("EDIT_RECORDS"));
   const extra = archive
     ? archived.projects.filter((p) =>
         scope.unassigned
@@ -413,6 +414,7 @@ function Results({
     >
       {!hasRows ? (
         <EmptyState
+          mood={narrowed ? "search" : "nothing"}
           icon={<ListChecks />}
           title={
             narrowed

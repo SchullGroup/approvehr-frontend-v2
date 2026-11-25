@@ -26,7 +26,7 @@ const written = (over: Partial<Filing> = {}): Filing => ({
 });
 
 const SAID =
-  "Answers to questions written here do not count towards the mark. Nor does the written answer recorded on Communication.";
+  "Answers to questions written here do not count towards the score. Nor does the written answer recorded on Communication.";
 
 describe("a question filed under a written subsection", () => {
   it("says neither it nor a written answer recorded on the subsection counts", () => {
@@ -50,7 +50,7 @@ describe("a question filed under a written subsection", () => {
   it("does not quote the section's weight, which it cannot give a written answer", () => {
     const note = filingNote(written());
     expect(note.text).not.toMatch(/\d+%/);
-    expect(note.text).not.toContain("of the mark, and it comes from");
+    expect(note.text).not.toContain("of the score, and it comes from");
     expect(note.text).not.toContain("comes from");
   });
 
@@ -79,7 +79,7 @@ describe("a question filed under a written subsection", () => {
 });
 
 describe("a question filed under any other kind of subsection", () => {
-  it("still says where the mark comes from, in the words of its kind", () => {
+  it("still says where the score comes from, in the words of its kind", () => {
     expect(filingNote({ ...written(), answerKind: "RATING" }).text).toContain(
       "it comes from the level recorded on Communication",
     );

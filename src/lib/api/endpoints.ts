@@ -216,11 +216,23 @@ export const auth = {
    * The caller must show them and must not discard them silently — they are
    * ten live credentials and the only way in if the email never arrives.
    */
-  enrolTwoFactor: () =>
+  enrolTwoFactor: (challengeId: string, code: string) =>
     /* `/enrol`, not `/two-factor` — that path is the sign-in completion, and
-       mounting both on it made enrolment unreachable. */
+       mounting both on it made enrolment unreachable. A wrong code is a 401
+       about the code, not the session (`codeCheck`, U10). */
     request<{ recoveryCodes: string[]; enabledAt: string }>(
       "/auth/two-factor/enrol",
+      { method: "POST", body: { challengeId, code }, codeCheck: true },
+    ),
+
+  /**
+   * Email the code that turning two-factor on asks for (U10). Two-factor stays
+   * off until that code is typed, so somebody whose email does not arrive
+   * cannot lock themselves out. 409 if it is already on.
+   */
+  sendTwoFactorEnrolCode: () =>
+    request<{ challengeId: string; expiresAt: string; delivery: string }>(
+      "/auth/two-factor/enrol/code",
       { method: "POST" },
     ),
 
@@ -322,6 +334,8 @@ export type ApiEmployee = {
   middleName: string | null;
   fullName: string;
   email: string | null;
+  /** Absent from an API that predates it (U16). */
+  personalEmail?: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   gender: string | null;
@@ -357,6 +371,12 @@ export type ApiEmployee = {
    * is — ask `GET /invites` for the pending half.
    */
   canLogin: boolean;
+  /**
+   * Never paid through payroll, set by hand on the record. Optional because an API that predates it
+   * does not send it, and absent reads as paid. See `Employee.notOnPayroll`.
+   */
+  notOnPayroll?: boolean;
+  notOnPayrollReason?: string | null;
   /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
   grossMonthlyKobo: number | null;
   /**
@@ -505,6 +525,13 @@ export type ApiOrgChart = {
  */
 export type EmployeeSummary = {
   total: number;
+  /**
+   * Of `total`, how many are paid through payroll and how many are not. `total` is the rows the
+   * table pages through and keeps counting everybody; a headline "Employees" reads `onPayroll`.
+   * Optional because an API that predates the flag does not send them.
+   */
+  onPayroll?: number;
+  notOnPayroll?: number;
   archived: number;
   payrollBlocked: number;
   payrollBlockedInFilter: number;
@@ -847,6 +874,9 @@ export type ApiEmploymentChange = {
   note: string | null;
   fromValue: ApiFieldSnapshot | null;
   toValue: ApiFieldSnapshot | null;
+  /** The query this followed, as a note. Staff only, and absent on a server a deploy behind. */
+  queryId?: string | null;
+  queryReference?: string | null;
 };
 
 /** A row in the in-flight queue. Carries the person, so a list needs no join. */
@@ -872,6 +902,9 @@ export type ApiEmploymentChangeRow = {
   note: string | null;
   fromValue: ApiFieldSnapshot | null;
   toValue: ApiFieldSnapshot | null;
+  /** The query this followed, as a note. Staff only, and absent on a server a deploy behind. */
+  queryId?: string | null;
+  queryReference?: string | null;
 };
 
 export type ApiEmploymentChangeDetail = ApiEmploymentChangeRow & {
@@ -890,6 +923,8 @@ export type EmploymentChangeBody = {
   effectiveOn: string;
   to: ApiFieldSnapshot;
   note: string;
+  /** A note that this followed a query. The server refuses it for any change that moves pay. */
+  queryId?: string;
 };
 
 export type ProbationDecisionBody =
@@ -1398,6 +1433,9 @@ export function toEmployee(api: ApiEmployee): Employee {
     lastName: api.lastName,
     middleName: api.middleName,
     email: api.email,
+    ...(api.personalEmail === undefined
+      ? {}
+      : { personalEmail: api.personalEmail }),
     phone: api.phone,
     dateOfBirth: api.dateOfBirth,
     ...(api.gender ? { gender: api.gender as Employee["gender"] } : {}),
@@ -1415,6 +1453,12 @@ export function toEmployee(api: ApiEmployee): Employee {
     salaryGradeId: api.salaryGradeId,
     payeManualOverride: api.payeManualOverride,
     canLogin: api.canLogin,
+    ...(api.notOnPayroll === undefined
+      ? {}
+      : { notOnPayroll: api.notOnPayroll }),
+    ...(api.notOnPayrollReason === undefined
+      ? {}
+      : { notOnPayrollReason: api.notOnPayrollReason }),
     grossMonthly:
       api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
     ...(api.hasBankAccount !== undefined

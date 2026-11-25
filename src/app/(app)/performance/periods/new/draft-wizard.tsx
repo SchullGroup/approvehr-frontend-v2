@@ -44,6 +44,7 @@ import {
   type WeightText,
 } from "@/components/performance/period-weights";
 import { weightSetFromRows } from "@/lib/api/performance";
+import { StartPeriodDialog } from "../../start-period";
 
 /**
  * A whole appraisal period, from a paragraph.
@@ -193,7 +194,7 @@ function DraftingPanel({
     "Writing questions in plain English. Edit anything before you save.",
     "Aligning review questions with your competency framework.",
     "Every suggestion is a starting point, not a final decision.",
-    "Measures are left blank on purpose: targets are yours to set.",
+    "Target figures are left blank on purpose: they are yours to set.",
     "Goals are drafted so that the whole company could be held to them.",
   ];
   const insightIndex = Math.floor(tick / 8) % INSIGHTS.length;
@@ -371,6 +372,7 @@ export function DraftPeriodWizard() {
         />
         <PageBody>
           <EmptyState
+            plain
             title="Not yours to run"
             description="Starting an appraisal period is done by whoever runs them. Ask them to open one."
           />
@@ -394,37 +396,33 @@ export function DraftPeriodWizard() {
     );
   }
 
-  /* Absent, not disabled. With no assistant there is nothing this screen can
-     do, and the dialog on `/performance` is the path that still works. */
+  /* With no assistant the page is the form by hand, open at once, with one line
+     saying why (UAT 23 Nov, L8 / PERF-27). It used to open on a full-page "No
+     assistant is connected" with a button to go and find the form elsewhere. */
   if (!assistant.available) {
     return (
       <>
         <PageHeader
           breadcrumb={[{ href: "/performance", label: "Performance" }]}
-          title="Draft a period"
+          title="Start an appraisal period"
         />
         <PageBody>
-          <EmptyState
-            icon={<Sparkles aria-hidden="true" />}
-            title="No assistant is connected"
-            description={
-              assistant.reason ??
-              "This screen drafts a period from a description, which needs an assistant. Starting one by hand works exactly as it did."
-            }
-            action={
-              <div className="flex flex-wrap gap-2">
-                <ButtonLink href="/performance" variant="accent">
-                  Start one by hand
-                </ButtonLink>
-                {canManage && (
-                  <ButtonLink href="/settings/ai" variant="secondary">
-                    About the assistant
-                  </ButtonLink>
-                )}
-              </div>
-            }
-          />
+          <p className="text-body-sm text-muted">
+            No assistant is connected, so the period is set up by hand.
+          </p>
         </PageBody>
+        <StartPeriodDialog
+          open
+          onClose={() => router.push("/performance")}
+          onCreated={(period) => {
+            toast.push({
+              title: `${period.name} created`,
+              tone: "success",
+              detail: "Add the questions, then start it.",
+            });
+            router.push(`/performance/periods/${period.id}`);
+          }}
+        />
       </>
     );
   }
@@ -641,7 +639,7 @@ export function DraftPeriodWizard() {
           <Card>
             <CardHeader
               title="The company goals"
-              description="Edit anything. Delete what you would not have written. Each measure needs a target from you. A measure without a figure is not created."
+              description="Edit anything. Delete what you would not have written. Each target needs a figure from you. A target without a figure is not created."
             />
             <CardBody className="flex flex-col gap-4">
               {goalDraft.outcome?.available === false ? (
@@ -709,10 +707,10 @@ export function DraftPeriodWizard() {
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
                           <p className="min-w-0 flex-1 text-meta font-semibold text-muted">
-                            Measures
+                            Targets
                           </p>
                           <p className="w-32 shrink-0 text-meta font-semibold text-muted">
-                            Target
+                            Figure
                           </p>
                         </div>
                         {goal.measures.map((measure, at) => (
@@ -733,7 +731,7 @@ export function DraftPeriodWizard() {
                               inputMode="decimal"
                               value={measure.target}
                               placeholder="You set this"
-                              aria-label={`Target for ${measure.label}`}
+                              aria-label={`Figure for ${measure.label}`}
                               onChange={(event) =>
                                 setTarget(goal.id, at, event.target.value)
                               }
@@ -873,7 +871,7 @@ export function DraftPeriodWizard() {
                   <dd className="text-ink">{goals.length}</dd>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <dt className="text-muted">Measures with a target</dt>
+                  <dt className="text-muted">Targets with a figure</dt>
                   <dd className="text-ink">{measuresWithTargets.length}</dd>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -885,10 +883,10 @@ export function DraftPeriodWizard() {
               {/* Named rather than dropped. A measure that silently did not
                   appear is one somebody discovers is missing at the appraisal. */}
               {measuresWithout.length > 0 && (
-                <Callout tone="warning" title="Some measures have no target">
+                <Callout tone="warning" title="Some targets have no figure">
                   {measuresWithout.length === 1
-                    ? "1 measure has no target typed, so it will not be created: "
-                    : `${measuresWithout.length} measures have no target typed, so they will not be created: `}
+                    ? "1 target has no figure typed, so it will not be created: "
+                    : `${measuresWithout.length} targets have no figure typed, so they will not be created: `}
                   {measuresWithout.map((measure) => measure.label).join(", ")}.
                   You can add them on the goal once you know the figures.
                 </Callout>

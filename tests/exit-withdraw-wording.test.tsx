@@ -189,39 +189,26 @@ describe("somebody taking back their own exit request", () => {
   });
 });
 
-describe("HR taking back somebody else's", () => {
+describe("HR ending somebody else's", () => {
   beforeEach(() => {
     held = new Set(["EDIT_RECORDS"]);
     signedInAs = "hr1";
   });
 
-  it("names the person and the request, and says so again afterwards", async () => {
+  /* U48 (HR-21): HR used to see three ways to end one exit side by side.
+     Withdrawing is the person changing their mind, so only they are offered
+     it; HR closes the exit or cancels it. */
+  it("offers Close and Cancel, and not Withdraw", () => {
     mount();
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Withdraw exit request" }),
-    );
-
-    const dialog = await screen.findByRole("dialog");
     expect(
-      within(dialog).getByRole("heading", {
-        name: "Withdraw Emeka's exit request",
-      }),
+      screen.getByRole("button", { name: "Cancel this exit" }),
     ).toBeInTheDocument();
-    /* Not "Cancel the exit": nothing is cancelled here that was not asked for,
-       and the other half of this flow, "Not going ahead", is somebody refusing. */
     expect(
-      within(dialog).queryByRole("button", { name: "Cancel the exit" }),
+      screen.queryByRole("button", { name: "Withdraw exit request" }),
     ).toBeNull();
-
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Withdraw exit request" }),
-    );
-
     expect(
-      await screen.findByText("Emeka's exit request has been withdrawn"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Emeka is staying")).toBeNull();
+      screen.queryByRole("button", { name: "Not going ahead" }),
+    ).toBeNull();
   });
 });
 

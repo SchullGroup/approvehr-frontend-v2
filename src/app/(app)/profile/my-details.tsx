@@ -261,12 +261,6 @@ const CHOICES: Record<ChoiceField, readonly (readonly [string, string])[]> = {
   ],
 };
 
-const TIER_NOTE = {
-  immediate: "Saved as soon as you press save.",
-  approval:
-    "Payroll checks these before they change: your salary is paid on them.",
-};
-
 export function MyDetails({
   me,
   only,
@@ -339,9 +333,19 @@ export function MyDetails({
       null,
   );
   const [busy, setBusy] = useState(false);
+  /* The API's own message for each field it refused, shown under that field
+     rather than only in a toast (U61). Cleared as the field is changed. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const set = (key: keyof Draft, value: string) =>
+  const set = (key: keyof Draft, value: string) => {
     setDraft((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => {
+      if (!(key in current)) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
 
   /* Only what moved. Sending the whole draft would raise an approval for every
      sensitive field on the record every time somebody corrects their phone. */
@@ -387,13 +391,24 @@ export function MyDetails({
     setBusy(false);
 
     if (!result.ok) {
+      const onFields = Object.fromEntries(
+        (result.error?.fieldErrors ?? []).map((one) => [
+          one.field,
+          one.message,
+        ]),
+      );
+      setFieldErrors(onFields);
       toast.push({
         title: "That did not save",
         tone: "danger",
-        detail: result.error?.message ?? SELF_SERVICE_OFFLINE,
+        detail:
+          Object.keys(onFields).length > 0
+            ? "Check the fields marked below."
+            : (result.error?.message ?? SELF_SERVICE_OFFLINE),
       });
       return;
     }
+    setFieldErrors({});
 
     const { applied, pending: raised, refused } = result.outcome;
     pending.reload();
@@ -547,7 +562,10 @@ export function MyDetails({
                     )}
                   </span>
                 }
-                hint={group.hint ?? TIER_NOTE[group.tier]}
+                /* The card's own description says once which details payroll
+                   checks; it is not repeated on every section (UAT 23 Nov,
+                   L15: SELF-20). */
+                hint={group.hint}
               >
                 <div className="grid gap-3 sm:grid-cols-2">
                   {group.fields.flatMap((key) => {
@@ -556,6 +574,7 @@ export function MyDetails({
                         key={key}
                         label={LABEL[key]}
                         required={isRequired(key)}
+                        error={fieldErrors[key]}
                         {...(waiting.has(key)
                           ? {
                               /* The API's own masked summary — "••••4471 →

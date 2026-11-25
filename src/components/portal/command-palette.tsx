@@ -219,7 +219,7 @@ export function CommandPalette({
             )}
             {roleResults.length > 0 && (
               <ResultGroup
-                title="Roles"
+                title="Access"
                 results={roleResults}
                 offset={pageResults.length + peopleResults.length}
                 activeIndex={activeIndex}

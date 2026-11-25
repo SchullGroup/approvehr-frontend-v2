@@ -519,6 +519,7 @@ export function PipelineWorkspace({
         </div>
       ) : board.error ? (
         <EmptyState
+          plain
           icon={<TriangleAlert aria-hidden="true" />}
           title="Could not load this pipeline"
           description={board.error.message}
@@ -530,6 +531,7 @@ export function PipelineWorkspace({
         />
       ) : empty ? (
         <EmptyState
+          mood={narrowed ? "search" : "waiting"}
           icon={<UserRoundPlus aria-hidden="true" />}
           title={narrowed ? "Nobody matches" : "No candidates yet"}
           description={

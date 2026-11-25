@@ -295,14 +295,14 @@ describe("a question written from under a subsection", () => {
     expect(reloadQuestions).toHaveBeenCalled();
   });
 
-  it("says where the mark comes from, in the words of how that subsection is answered", async () => {
+  it("says where the score comes from, in the words of how that subsection is answered", async () => {
     mount();
     await openSubsection("Teamwork");
     await questionsTab();
 
     expect(
       screen.getByText(
-        "Answers to questions written here do not count towards the mark. Core competency is 40% of the mark, and it comes from the answer recorded on Teamwork, under Competency ratings.",
+        "Answers to questions written here do not count towards the score. Core competency is 40% of the score, and it comes from the answer recorded on Teamwork, under Competency ratings.",
       ),
     ).toBeInTheDocument();
   });

@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { ToastProvider } from "@/components/ui";
@@ -30,6 +36,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/api/leave", async (original) => ({
   ...(await original<typeof import("@/lib/api/leave")>()),
   leaveApi: {
+    /* This screen also lists switched-off types (U46); none here. */
+    archivedTypes: async () => [],
     types: (...args: unknown[]) => mocks.types(...args),
     updateType: (...args: unknown[]) => mocks.updateType(...args),
   },
@@ -120,7 +128,8 @@ async function open(rows: LeaveTypeRow[]) {
       <LeavePolicyForm />
     </ToastProvider>,
   );
-  await screen.findAllByLabelText(FILE_SWITCH);
+  /* The type's name is on every row, whichever switches it carries. */
+  await screen.findAllByText(rows[0]?.name ?? "");
 }
 
 /** Opens the phone card for a type: it mounts its fields only once open. */
@@ -262,16 +271,13 @@ describe("the supporting-file switch", () => {
 });
 
 describe("where a file cannot be attached at all", () => {
-  it("does not let it be switched on, and says why beside the switch, in words", async () => {
+  it("is not offered at all, and the column goes (UAT 23 Nov, U5)", async () => {
     mocks.limits = limits({ storage: false });
     await open([type()]);
-    expect(table(FILE_SWITCH).disabled).toBe(true);
-    /* Plain text on the row, not behind an icon. */
+    expect(screen.queryByRole("switch", { name: FILE_SWITCH })).toBeNull();
     expect(
-      screen.getAllByText(
-        "This server cannot store files yet, so a file cannot be required.",
-      ).length,
-    ).toBeGreaterThan(0);
+      screen.queryByRole("columnheader", { name: "Supporting file" }),
+    ).toBeNull();
   });
 
   it("keeps showing a type that is already required as on, and lets it be switched off", async () => {
@@ -302,11 +308,11 @@ describe("where a file cannot be attached at all", () => {
     expect(screen.queryByText(/cannot store files yet/)).toBeNull();
   });
 
-  it("does not allow it where the server takes links and this build has nowhere to send them", async () => {
+  it("is not offered where the server takes links and this build has nowhere to send them", async () => {
     vi.stubEnv("NEXT_PUBLIC_LINKED_UPLOAD_URL", "");
     mocks.limits = limits({ storage: false, links: true });
     await open([type()]);
-    expect(table(FILE_SWITCH).disabled).toBe(true);
+    expect(screen.queryByRole("switch", { name: FILE_SWITCH })).toBeNull();
   });
 });
 
@@ -391,5 +397,43 @@ describe("in the demo", () => {
     expect(screen.queryAllByLabelText(/reason required/)).toHaveLength(0);
     expect(screen.queryByText("Reason")).toBeNull();
     expect(screen.queryByText("Supporting file")).toBeNull();
+  });
+});
+
+/**
+ * UAT 23 Nov, L21 (HR-25): at 1440px the types table was 1167px inside a
+ * 1142px card, so the row menu was cut off, and "Required" was written in
+ * every row. The headers say it once now, and the number fields are narrower.
+ */
+describe("the types table at desktop width", () => {
+  const typesTable = () =>
+    screen
+      .getAllByRole("table")
+      .find((t) => within(t).queryByText("Days a year"))!;
+
+  it("says Required once, in the column headers", async () => {
+    await open([type({ attachmentPolicy: "REQUIRED", reasonRequired: true })]);
+    const grid = typesTable();
+    expect(
+      within(grid).getByRole("columnheader", { name: "Reason required" }),
+    ).toBeInTheDocument();
+    expect(
+      within(grid).getByRole("columnheader", { name: "File required" }),
+    ).toBeInTheDocument();
+    const shown = within(grid)
+      .queryAllByText("Required")
+      .filter((node) => !node.closest(".sr-only"));
+    expect(shown).toEqual([]);
+  });
+
+  it("keeps the number fields narrow", async () => {
+    await open([type()]);
+    for (const label of [
+      "Sick days per year",
+      "Sick carry-over maximum",
+      "Sick minimum notice in days",
+    ]) {
+      expect(table(label).className).toContain("w-16");
+    }
   });
 });

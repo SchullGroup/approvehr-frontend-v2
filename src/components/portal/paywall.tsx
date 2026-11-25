@@ -72,6 +72,7 @@ export function Paywall({
       <div className="px-5 py-6 sm:px-7">
         <Card>
           <EmptyState
+            plain
             icon={<CreditCard aria-hidden="true" />}
             title={headingFor(billing, timeZone)}
             description={

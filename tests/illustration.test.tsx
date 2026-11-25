@@ -6,7 +6,7 @@ import { PEEPS, type PeepName } from "@/lib/peeps";
 
 /**
  * The Open Peeps figures: decorative, drawn as they are, and only in the two slots made for them.
- * `docs/illustrations.md` in the mobile app and HANDOVER.md here say where one belongs.
+ * `docs/illustrations.md` says where one belongs; `tests/empty-state-figures.test.tsx` covers the empty-state mechanism.
  */
 
 const names = Object.keys(PEEPS) as PeepName[];
@@ -71,9 +71,10 @@ describe("the slots a figure goes in", () => {
     expect(screen.getByText("Nothing waiting on you")).toBeTruthy();
   });
 
-  it("EmptyState without art keeps its icon", () => {
+  it("a plain EmptyState keeps its icon", () => {
     const { container } = render(
       <EmptyState
+        plain
         icon={<span data-testid="icon" />}
         title="Nothing here yet"
       />,

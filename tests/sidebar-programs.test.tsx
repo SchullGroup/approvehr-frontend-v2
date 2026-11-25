@@ -75,7 +75,7 @@ describe("the rows under Projects, by person", () => {
       [
         "Overview",
         "My tasks",
-        "All projects",
+        "My projects",
         "Archive",
         "Operations",
         "Technology",
@@ -87,7 +87,7 @@ describe("the rows under Projects, by person", () => {
       [
         "My tasks",
         "Team tasks",
-        "All projects",
+        "My projects",
         "Archive",
         "Operations",
         "All programs",
@@ -95,22 +95,22 @@ describe("the rows under Projects, by person", () => {
     ],
     [
       "program read",
-      ["My tasks", "All projects", "Archive", "Operations", "All programs"],
+      ["My tasks", "My projects", "Archive", "Operations", "All programs"],
     ],
     [
       "program write",
-      ["My tasks", "All projects", "Archive", "Operations", "All programs"],
+      ["My tasks", "My projects", "Archive", "Operations", "All programs"],
     ],
     [
       "project-only member",
-      ["My tasks", "All projects", "Archive", "Technology", "All programs"],
+      ["My tasks", "My projects", "Archive", "Technology", "All programs"],
     ],
     [
       "HR with programs",
       [
         "My tasks",
         "Team tasks",
-        "All projects",
+        "My projects",
         "Archive",
         "Operations",
         "Technology",
@@ -319,9 +319,9 @@ describe("where you are", () => {
     expect(lit(container)).toEqual(["Operations"]);
   });
 
-  it("lights All projects on a project with no program", () => {
+  it("lights My projects on a project with no program", () => {
     const { container } = open(hr, "/projects/pj-off");
-    expect(lit(container)).toEqual(["All projects"]);
+    expect(lit(container)).toEqual(["My projects"]);
   });
 
   it("lights each door on its own page and none of its neighbours", () => {
@@ -337,7 +337,7 @@ describe("where you are", () => {
     expect(lit(bucket.container)).toEqual(["Unassigned"]);
   });
 
-  it("never lets All projects claim the Master or program pages", () => {
+  it("never lets My projects claim the Master or program pages", () => {
     const tree = buildSidebar(groupsFor(persona("employee")));
     const groups = groupsFor(persona("employee"));
     for (const path of ["/projects/master", "/projects/programs/xyz"]) {

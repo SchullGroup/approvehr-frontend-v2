@@ -110,7 +110,7 @@ export function SelfEvidence({
       <CardBody className="grid gap-6 sm:grid-cols-2">
         <section>
           <h4 className="mb-3 text-body-sm font-semibold text-ink">
-            Weekly tasks
+            Tasks you logged
           </h4>
           {scoped.length === 0 ? (
             <p className="text-body-sm text-muted">

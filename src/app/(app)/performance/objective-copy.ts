@@ -88,8 +88,8 @@ export function possessive(
 
 /** "1 measure", "3 measures", "no measure". The noun goes with the number. */
 export function measuresPhrase(count: number): string {
-  if (count === 0) return "no measure";
-  return count === 1 ? "1 measure" : `${String(count)} measures`;
+  if (count === 0) return "no target";
+  return count === 1 ? "1 target" : `${String(count)} targets`;
 }
 
 /**
@@ -148,7 +148,7 @@ export function objectiveCreatedSaid(
     title: `"${goal.title}" created`,
     detail:
       goal.approval === "DRAFT"
-        ? `${lead} It is a draft, so add KPIs under it and send it to be agreed.`
+        ? `${lead} It is a draft, so add objectives under it and send it to be agreed.`
         : lead,
   };
 }
@@ -157,7 +157,7 @@ export function objectiveCreatedSaid(
 export function kpiAddedSaid(goal: GoalFacts, viewerId?: string | null): Said {
   const period = periodOf(goal);
   const lead =
-    `${possessive(goal, viewerId)} KPI` +
+    `${possessive(goal, viewerId)} objective` +
     (goal.parentTitle ? ` under "${goal.parentTitle}"` : "") +
     (period ? `, for ${period}` : "") +
     ".";
@@ -191,7 +191,7 @@ export function kpisAssignedSaid({
 
   if (owners.length === 0) {
     return {
-      title: "No new KPI made",
+      title: "No new objective made",
       ...(skipped ? { detail: skipped } : {}),
       tone: "info",
     };
@@ -206,8 +206,8 @@ export function kpisAssignedSaid({
   return {
     title:
       owners.length <= 3
-        ? `KPI given to ${namesPhrase(owners)}`
-        : `KPI given to ${String(owners.length)} people`,
+        ? `Objective given to ${namesPhrase(owners)}`
+        : `Objective given to ${String(owners.length)} people`,
     detail: skipped ? `${sentence} ${skipped}` : sentence,
   };
 }
@@ -274,10 +274,10 @@ export function measureAddedSaid(
 export function readCountLine(reads: { read: number; of: number }): string {
   if (reads.read === 0) {
     return reads.of === 1
-      ? "Its measure has not been read. Nothing is counted yet, so the figure above is not a result."
-      : `0 of ${String(reads.of)} measures read. Nothing is counted yet, so the figure above is not a result.`;
+      ? "Its target has not been read. Nothing is counted yet, so the figure above is not a result."
+      : `0 of ${String(reads.of)} targets read. Nothing is counted yet, so the figure above is not a result.`;
   }
-  return `${String(reads.read)} of ${String(reads.of)} measures read. The others are left out of the figure above until somebody enters a reading.`;
+  return `${String(reads.read)} of ${String(reads.of)} targets read. The others are left out of the figure above until somebody enters a reading.`;
 }
 
 /**
@@ -296,9 +296,11 @@ export function averageProgressHint(
   if (tracked === 0) return null;
   if (counted === 0) return "nothing read yet";
   if (counted === tracked) {
-    return tracked === 1 ? "across 1 KPI" : `across ${String(tracked)} KPIs`;
+    return tracked === 1
+      ? "across 1 objective"
+      : `across ${String(tracked)} objectives`;
   }
-  return `across ${String(counted)} of ${String(tracked)} KPIs, the rest not read yet`;
+  return `across ${String(counted)} of ${String(tracked)} objectives, the rest not read yet`;
 }
 
 /**
@@ -322,10 +324,10 @@ export function progressLabel(
 ): string {
   if (measures === 0) return "Progress, entered by hand";
   if (reads?.read === 0) return "Progress, nothing read yet";
-  if (reads) return "Progress, from the measures read so far";
+  if (reads) return "Progress, from the targets read so far";
   return measures === 1
-    ? "Progress, from 1 measure"
-    : `Progress, from ${String(measures)} measures`;
+    ? "Progress, from 1 target"
+    : `Progress, from ${String(measures)} targets`;
 }
 
 /**
@@ -352,12 +354,12 @@ export function markedDoneSaid({
     const short =
       shortOfTarget === measures
         ? measures === 1
-          ? "Its measure is short of target"
-          : `All ${String(measures)} of its measures are short of target`
-        : `${String(shortOfTarget)} of its ${String(measures)} measures ${shortOfTarget === 1 ? "is" : "are"} short of target`;
+          ? "Its target is not met"
+          : `All ${String(measures)} of its targets are not met`
+        : `${String(shortOfTarget)} of its ${String(measures)} targets ${shortOfTarget === 1 ? "is" : "are"} not met`;
     detail = `${short}. The numbers stay as they are.`;
   } else if (measures > 0) {
-    detail = `${measures === 1 ? "Its measure is" : "Every measure is"} at target. Progress is 100%, and it has left the tracked list.`;
+    detail = `${measures === 1 ? "Its target is" : "Every target is"} met. Progress is 100%, and it has left the tracked list.`;
   } else {
     detail = "Progress is 100%, and it has left the tracked list.";
   }
@@ -447,7 +449,7 @@ export function sentToAgreeCopy({
       said: {
         title: `"${goal.title}" is waiting to be agreed`,
         detail:
-          "Nobody else was asked to agree it. Anybody who can will find it under Objectives to agree.",
+          "Nobody else was asked to agree it. Anybody who can will find it under To agree, on Objectives.",
         tone: "warning",
       },
     };
@@ -461,7 +463,7 @@ export function sentToAgreeCopy({
         : `Sent to ${String(sentTo.length)} people who can agree it.`,
     );
   }
-  details.push("Once it is agreed the target is fixed. Progress still moves.");
+  details.push("Once it is agreed it is fixed. Progress still moves.");
 
   return {
     kind: "moment",
@@ -485,7 +487,7 @@ export function agreedCopy(goal: GoalFacts): MomentCopy {
     title: `"${goal.title}" is agreed`,
     lead: describeObjective(goal),
     details: [
-      "The target is fixed. Progress still moves.",
+      "It is fixed. Progress still moves.",
       "Changing it now takes a revision, which is recorded.",
     ],
   };

@@ -47,4 +47,11 @@ describe("the Pay early row", () => {
     expect(NOTHING_ANSWERED_YET.earlyPay).toBe(false);
     expect(labels(NOBODY, NOTHING_ANSWERED_YET)).not.toContain("Pay early");
   });
+
+  it("is gone for everybody, HR included, while the company has not switched pay early on", () => {
+    const off: NavFacts = { ...facts(true), earlyPayHidden: true };
+
+    expect(labels(NOBODY, off)).not.toContain("Pay early");
+    expect(labels(HR, off)).not.toContain("Pay early");
+  });
 });

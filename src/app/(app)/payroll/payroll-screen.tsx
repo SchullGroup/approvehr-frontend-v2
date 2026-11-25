@@ -1,5 +1,7 @@
 "use client";
 
+import { BackHome } from "@/components/portal/require-permission";
+import { formatMoney } from "@/components/ui/money-format";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -38,6 +40,7 @@ import {
   formatKobo,
   headcountLabel,
   naira,
+  extraRunLabel,
   paidPeopleLabel,
   periodLabel,
   type PayrollRun,
@@ -51,7 +54,7 @@ import {
 } from "@/lib/store/payroll";
 import { useOrgTimezone } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
-import { todayIn } from "@/lib/time";
+import { formatDay, todayIn } from "@/lib/time";
 
 /**
  * The payroll home.
@@ -168,12 +171,14 @@ export function PayrollScreen() {
         <PageHeader title="Payroll" />
         <PageBody>
           <EmptyState
+            plain
             icon={<ShieldAlert aria-hidden="true" />}
             title="You cannot view payroll"
             description={
               "Seeing what the company pays needs the “View salaries” " +
               "permission. Ask somebody who holds it."
             }
+            action={<BackHome />}
           />
         </PageBody>
       </>
@@ -267,7 +272,7 @@ export function PayrollScreen() {
                 <CardHeader
                   title={`${periodLabel(current.period)} payroll`}
                   mark={[
-                    `Pays ${current.payDate}. ${
+                    `Pays ${formatDay(current.payDate)}. ${
                       current.status === "PAID"
                         ? "Paid. The money has left the account."
                         : current.status === "APPROVED"
@@ -365,9 +370,7 @@ export function PayrollScreen() {
               <AreaChart
                 height={160}
                 points={netByMonth}
-                format={(n) =>
-                  `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                }
+                format={(n) => formatMoney(n, "NGN", { decimals: true })}
                 caption="Net pay by month, over the runs that were approved or paid"
               />
             </CardBody>
@@ -413,7 +416,7 @@ export function PayrollScreen() {
                             {periodLabel(run.period)}
                           </TextLink>
                         }
-                        subtitle={run.label ?? undefined}
+                        subtitle={extraRunLabel(run) ?? undefined}
                       />
                       <TD align="right" className="tabular">
                         {/* Two lines rather than one long string: a numeric column
@@ -440,7 +443,9 @@ export function PayrollScreen() {
                       <TD>
                         <RunStatusBadge status={run.status} />
                       </TD>
-                      <TD className="tabular text-muted">{run.payDate}</TD>
+                      <TD className="tabular text-muted">
+                        {formatDay(run.payDate)}
+                      </TD>
                     </TR>
                   ))}
                 </TBody>
@@ -461,8 +466,10 @@ export function PayrollScreen() {
                       <TextLink href={`/payroll/runs/new?period=${run.period}`}>
                         {periodLabel(run.period)}
                       </TextLink>
-                      {run.label && (
-                        <p className="text-body-sm text-muted">{run.label}</p>
+                      {extraRunLabel(run) && (
+                        <p className="text-body-sm text-muted">
+                          {extraRunLabel(run)}
+                        </p>
                       )}
                     </div>
                     <RunStatusBadge status={run.status} />
@@ -479,7 +486,7 @@ export function PayrollScreen() {
                         {run.excludedCount} excluded
                       </span>
                     )}
-                    <span className="tabular">{run.payDate}</span>
+                    <span className="tabular">{formatDay(run.payDate)}</span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm">
@@ -599,7 +606,7 @@ function UnpaidLine({
         {named && (
           <>
             {periodLabel(run.period)}
-            {run.label ? ` (${run.label})` : ""}
+            {extraRunLabel(run) ? ` (${extraRunLabel(run)})` : ""}
             {": "}
           </>
         )}

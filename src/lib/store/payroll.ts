@@ -2061,6 +2061,11 @@ export type PayslipRecord = {
   connected: boolean;
   notFound: boolean;
   /**
+   * The API's own sentence when it refused this payslip to this reader (403),
+   * so the page says "not yours" rather than "not found" (L30).
+   */
+  refused?: string | null;
+  /**
    * Year-to-date is not available for a single payslip.
    *
    * There is no endpoint for it and summing it would mean fetching every
@@ -2101,6 +2106,7 @@ export function usePayslipRecord(
     id: string;
     payslip: Payslip | null;
     run: PayslipRunSummary | null;
+    refused?: string | null;
   } | null>(null);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
@@ -2121,7 +2127,16 @@ export function usePayslipRecord(
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
-        if (!cancelled) setFound({ id, payslip: null, run: null });
+        if (!cancelled)
+          setFound({
+            id,
+            payslip: null,
+            run: null,
+            refused:
+              error instanceof ApiError && error.status === 403
+                ? error.message
+                : null,
+          });
       }
     })();
 
@@ -2157,6 +2172,7 @@ export function usePayslipRecord(
     loading: !matched,
     connected: true,
     notFound: matched && found.payslip === null,
+    refused: matched ? (found.refused ?? null) : null,
     projectYearToDate: false,
   };
 }

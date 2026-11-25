@@ -466,6 +466,10 @@ export function LoanForm({
  *
  * `0` is a valid answer and is the one people are usually here for ("deduct
  * nothing from this person this month"), so the placeholder shows it.
+ *
+ * `reasonLabel` asks why, and Save waits for an answer. PAYE entered by hand
+ * asks it (U13): it replaces the statutory figure, and the approver has to be
+ * able to read why.
  */
 export function AmountForm({
   label,
@@ -477,11 +481,14 @@ export function AmountForm({
   undoLabel,
   saving,
   error,
+  reasonLabel,
   onSave,
   onUndo,
   onBack,
 }: {
   label: string;
+  /** Asks why, required, when set. */
+  reasonLabel?: string;
   /** What saving will do, leading with the consequence. */
   intro: React.ReactNode;
   /** What the figure is right now and where it came from. */
@@ -493,19 +500,23 @@ export function AmountForm({
   undoLabel?: string;
   saving: boolean;
   error: string | null;
-  onSave: (kobo: number) => void;
+  onSave: (kobo: number, reason?: string) => void;
   onUndo?: () => void;
   onBack: () => void;
 }) {
   const [text, setText] = useState(String(valueKobo / 100));
+  const [reason, setReason] = useState("");
   const kobo = nairaToKobo(text);
+  const reasonMissing = reasonLabel !== undefined && reason.trim() === "";
 
   return (
     <form
       className="flow-root -mb-5"
       onSubmit={(event) => {
         event.preventDefault();
-        if (kobo !== null && !saving) onSave(kobo);
+        if (kobo === null || saving || reasonMissing) return;
+        if (reasonLabel) onSave(kobo, reason.trim());
+        else onSave(kobo);
       }}
     >
       <BackToPayslip onBack={onBack} disabled={saving} />
@@ -540,6 +551,18 @@ export function AmountForm({
             Will read {formatKobo(kobo)}.
           </p>
         )}
+
+        {reasonLabel && (
+          <Field label={reasonLabel} required>
+            <Input
+              value={reason}
+              disabled={saving}
+              maxLength={300}
+              className="max-sm:h-11"
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+        )}
       </div>
 
       <FormFooter
@@ -572,7 +595,7 @@ export function AmountForm({
           variant="accent"
           className={TOUCH}
           loading={saving}
-          disabled={kobo === null || saving}
+          disabled={kobo === null || saving || reasonMissing}
         >
           {saveLabel}
         </Button>

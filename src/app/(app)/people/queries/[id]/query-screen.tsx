@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
+import { GoHomeWhenOff } from "@/components/portal/go-home-when-off";
+import { useCallback, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { Callout, EmptyState, LoadState, TextLink } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { isModuleOff, queriesApi } from "@/lib/api/queries";
+import { isModuleOff, queriesApi, type IssueResult } from "@/lib/api/queries";
 import { useCan } from "@/lib/permissions";
 import {
   DEMO_QUERY_HEADING,
@@ -12,10 +13,13 @@ import {
   useQueryDetail,
 } from "@/lib/store/queries";
 import { useSession } from "@/lib/store/session";
+import { CitedRecords } from "./cited-records";
+import { DocumentsAsked } from "./documents-asked";
 import { DraftEditor } from "./draft-editor";
 import { StatusCard, Timeline } from "./facts";
 import { LetterDocument } from "./letter-document";
 import { LetterView } from "./letter-view";
+import { LinkedRecords } from "./linked-records";
 import { OutcomeCard } from "./outcome-card";
 import { ReplyCard } from "./reply-card";
 import { StaffActions } from "./staff-actions";
@@ -43,15 +47,31 @@ import { StaffActions } from "./staff-actions";
 export function QueryScreen({ id }: { id: string }) {
   const { detail, loading, error, reload, publish, unavailable } =
     useQueryDetail(id);
+  /* The references the server flagged, in the answer to issuing, as differing from the last preview,
+     kept for as long as this screen is open. Only that answer carries the flag, so a later read would
+     lose it, and a mark that vanished when the window was refocused would be a fact that went away. */
+  const [changed, setChanged] = useState<ReadonlySet<string>>(new Set());
+  const keepChanged = useCallback((result: IssueResult) => {
+    const flagged = result.citations
+      .filter((citation) => citation.changed)
+      .map((citation) => citation.id);
+    if (flagged.length > 0)
+      setChanged((before) => new Set([...before, ...flagged]));
+  }, []);
   const { employeeId, user } = useSession();
   const canDecide = useCan("DECIDE_QUERIES");
   const canSettings = useCan("MANAGE_SETTINGS");
 
   /* A file write answers with the file, not the query, so the page reads the query again and
      shows the server's own answer with no loading flash. */
-  const refresh = useCallback(async () => {
-    publish(await queriesApi.get(id));
+  const reread = useCallback(async () => {
+    const fresh = await queriesApi.get(id);
+    publish(fresh);
+    return fresh;
   }, [id, publish]);
+  const refresh = useCallback(async () => {
+    await reread();
+  }, [reread]);
 
   const isSubject =
     detail !== null && employeeId !== null && detail.subject.id === employeeId;
@@ -74,6 +94,7 @@ export function QueryScreen({ id }: { id: string }) {
   }
 
   if (isModuleOff(error)) {
+    if (!canSettings) return <GoHomeWhenOff />;
     return (
       <>
         <PageHeader title="Letter" />
@@ -136,10 +157,27 @@ export function QueryScreen({ id }: { id: string }) {
                     detail={detail}
                     publish={publish}
                     refresh={refresh}
+                    reread={reread}
+                    onIssued={keepChanged}
                   />
                 ) : (
                   <LetterView detail={detail} refresh={refresh} />
                 )}
+
+                {/* Each draws nothing when it has nothing to say and no control to offer, so a
+                    letter with no references, no documents asked for and no leads reads as
+                    it did before. They sit beside the letter and above the reply. */}
+                <CitedRecords
+                  detail={detail}
+                  refresh={refresh}
+                  changedIds={changed}
+                />
+                <DocumentsAsked
+                  detail={detail}
+                  isSubject={isSubject}
+                  refresh={refresh}
+                />
+                {isStaff && <LinkedRecords detail={detail} />}
 
                 <ReplyCard
                   detail={detail}

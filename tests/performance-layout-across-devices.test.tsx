@@ -90,25 +90,17 @@ describe("BarChart", () => {
   });
 });
 
-describe("the nine-box", () => {
-  const nineBox = source(
+describe("the talent map", () => {
+  const map = source(
     "src/app/(app)/performance/periods/[id]/nine-box/nine-box-screen.tsx",
   );
 
-  it("is no wider than an iPad held upright, so its third column is not cut off mid-word", () => {
-    /* 768px less the page's padding leaves about 712px. At 52rem (832px) the
-       grid showed two and a half columns with nothing to say it scrolled. */
-    const width = /min-w-\[(\d+(?:\.\d+)?)rem\]/.exec(nineBox);
-    expect(width).not.toBeNull();
-    expect(Number(width?.[1])).toBeLessThanOrEqual(44);
-  });
-
-  it("keeps its row labels in view while the columns scroll on a phone", () => {
-    /* Both the empty corner and every row's label: lose either and a scrolled
-       grid is a set of boxes with no way to tell which row they belong to. */
-    expect(nineBox.match(/sticky left-0/g)?.length ?? 0).toBeGreaterThanOrEqual(
-      2,
-    );
+  it("fits the width it is given, so nothing is cut off and nothing scrolls sideways", () => {
+    /* Three columns share the row, and the row labels are part of the same grid,
+       so there is no wide inner box to scroll and no label to lose. */
+    expect(map).not.toMatch(/min-w-\[\d/);
+    expect(map).not.toMatch(/overflow-x-auto/);
+    expect(map).toMatch(/grid-cols-\[auto_repeat\(3,minmax\(0,1fr\)\)\]/);
   });
 });
 
@@ -128,15 +120,12 @@ describe("the report's spread of marks", () => {
 describe("the scoring settings page", () => {
   const form = source("src/app/(app)/settings/performance/weights-form.tsx");
 
-  it("keeps the frozen-period sentence in one element, because its paragraph is a flex row", () => {
-    /* A flex row makes every direct child a column, so loose text, a link and
-       more text rendered as three blocks side by side, at every width. */
-    const at = form.indexOf(
+  it("no longer carries the frozen-period sentence that used to sit in a flex row", () => {
+    /* The paragraph was simplified away (31364ceb); with it went the loose
+       text beside a link that rendered as three columns. */
+    expect(form).not.toContain(
       "A period screen says whether its weights are frozen",
     );
-    expect(at).toBeGreaterThan(-1);
-    const before = form.slice(Math.max(0, at - 200), at);
-    expect(before).toMatch(/<span className="min-w-0">\s*$/);
   });
 
   it("lets the save bar's buttons wrap on a 320px phone instead of running out of the card", () => {

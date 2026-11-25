@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileQuestion, LineChart, ShieldCheck } from "lucide-react";
+import { FileQuestion, LineChart } from "lucide-react";
 import {
   Badge,
   Button,
@@ -18,12 +18,17 @@ import {
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { AskPeersButton } from "../../periods/[id]/ask-peers";
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
   dayOf,
+  outcomeWords,
+  outOf5FromBp,
+  outOf5Label,
   ratingWordsFrom,
   scoreLabel,
+  scoreWords,
   showsOverallMark,
   visibleComponents,
   weightLabel,
@@ -49,6 +54,7 @@ import {
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
+import { useProjectsGate } from "@/lib/store/project-session";
 import { AppraiserStrip } from "../../review-parts";
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { WorkBehindTheMark } from "@/components/performance/kept-work";
@@ -174,6 +180,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               exists in this period, which is most of what a curious colleague
               wanted to know. So this cannot say "you are not allowed". */}
           <EmptyState
+            plain
             icon={<FileQuestion aria-hidden="true" />}
             title="That appraisal is not available to you"
             description={
@@ -230,6 +237,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
      setting says whether its forms end with one, and a mark already given is
      shown whatever the setting says now. See `showsOverallMark`. */
   const markShown = showsOverallMark(review);
+  /* The one answer the person is given, once there is one (U36). */
+  const outcomeLine =
+    review.kind === "MANAGER" ? outcomeWords(review.outcome) : null;
   /* With their self review in, the two overall marks are one row of the
      comparison below, side by side. Said again in this card they would be said
      twice, the manager's here and both there. */
@@ -273,14 +283,32 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
            somebody is actually deciding a rating was the one place that did
            not, which is exactly where the previous periods matter most. */
         action={
-          <ButtonLink
-            href={`/performance/history/${review.subjectId}`}
-            variant="secondary"
-            size="sm"
-          >
-            <LineChart aria-hidden="true" className="size-3.5" />
-            {isSubject ? "My previous marks" : "Previous marks"}
-          </ButtonLink>
+          <>
+            {/* The manager writing this review can ask the person's colleagues
+                for feedback from here (UAT 23 Nov, U101 / PERF-21): it used to
+                be one of three buttons on each row of HR's Marks table, and a
+                line manager cannot open that page. The API lets the manager
+                ask. Only while the period is running. */}
+            {review.kind === "MANAGER" &&
+              review.mine &&
+              review.cycleStage !== "PUBLISHED" &&
+              review.cycleStage !== "DRAFT" && (
+                <AskPeersButton
+                  cycleId={review.cycleId}
+                  subjectId={review.subjectId}
+                  subjectName={review.subjectName}
+                  onAsked={() => undefined}
+                />
+              )}
+            <ButtonLink
+              href={`/performance/history/${review.subjectId}`}
+              variant="secondary"
+              size="sm"
+            >
+              <LineChart aria-hidden="true" className="size-3.5" />
+              {isSubject ? "My previous scores" : "Previous scores"}
+            </ButtonLink>
+          </>
         }
       />
 
@@ -339,7 +367,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 review.kind === "MANAGER"
                   ? "The appraiser's overall view, in their own words, with the date it was sent."
                   : markShown
-                    ? "Shown beside the manager's rating. It does not count towards the final mark unless the company has turned that on."
+                    ? "Shown beside the manager's rating. It does not count towards the final score unless the company has turned that on."
                     : review.kind === "SELF"
                       ? "Shown beside the manager's review."
                       : undefined
@@ -347,15 +375,28 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             />
             <CardBody className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-3">
+                {/* The one answer (U36 / PERF-2). Once the review is final or
+                    the period published the API sends the score of record as
+                    the company's band word and out of 5, and the person it is
+                    about reads that and no other figure: the overall question's
+                    answer and the breakdown below are for whoever decides. */}
+                {outcomeLine && (
+                  <Stat
+                    label={isSubject ? "Your rating" : "Rating"}
+                    value={outcomeLine}
+                    /* rating-scale-prose: says what the figure beside the word is (U36). */
+                    hint="Out of 5, in your company's words for each level."
+                  />
+                )}
                 {/* Absent, never zero: a form the author chose not to put a
                     number on is not a form scored nought. And where the
                     company does not ask for an overall mark there is no row at
                     all: "None given" would read as something missing from a
                     form that never had a place for it. A mark somebody already
                     gave is shown whatever the setting says now. */}
-                {markShown && !comparing && (
+                {markShown && !comparing && !(isSubject && outcomeLine) && (
                   <Stat
-                    label="Overall mark"
+                    label="Overall rating"
                     value={
                       review.rating === null
                         ? "None given"
@@ -363,7 +404,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                     }
                     {...(review.rating === null
                       ? {
-                          hint: "No overall mark. The answers stand on their own.",
+                          hint: "No overall rating. The answers stand on their own.",
                         }
                       : {})}
                   />
@@ -468,12 +509,16 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 description={
                   review.disputed
                     ? "The rating stays as it is and the dispute is recorded beside it."
-                    : "This shows the person has seen their rating. It does not mean they agree with it."
+                    : isSubject
+                      ? "This shows you have seen your rating. It does not mean you agree with it."
+                      : "This shows the person has seen their rating. It does not mean they agree with it."
                 }
               />
               <CardBody className="flex flex-col gap-2">
+                {/* To the person themselves in the second person (U36 /
+                    PERF-2: Halima read her own name back about herself). */}
                 <p className="text-body-sm text-body">
-                  {review.subjectName}{" "}
+                  {isSubject ? "You" : review.subjectName}{" "}
                   {review.disputed ? "disputed this" : "acknowledged this"} on{" "}
                   {dayOf(
                     (review.disputedAt ?? review.acknowledgedAt) as string,
@@ -486,7 +531,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   </p>
                 ) : (
                   <p className="text-body-sm text-muted">
-                    They did not add a comment.
+                    {isSubject
+                      ? "You did not add a comment."
+                      : "They did not add a comment."}
                   </p>
                 )}
               </CardBody>
@@ -494,11 +541,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           )}
 
           {/* ------------------------------------------- what the mark is made of */}
-          {review.kind === "MANAGER" && (
+          {review.kind === "MANAGER" && !(isSubject && outcomeLine) && (
             <ScorePanel
               score={score.score}
               loading={score.loading}
-              subjectName={review.subjectName}
               overallMark={review.overallMark}
               message={score.available ? score.error?.message : score.refusal}
             />
@@ -507,8 +553,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {review.kind === "MANAGER" && record.flag && (
             <Card>
               <CardHeader
-                title="Mark against the evidence"
-                description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
+                title="Score against the evidence"
+                description="Their score beside what their objectives, peer feedback and past scores suggest. Their manager doesn't see this."
                 action={<StatusBadge status={record.flag.status} />}
               />
               <CardBody>
@@ -623,20 +669,19 @@ function ScorePanel({
   score,
   loading,
   message,
-  subjectName,
   overallMark,
 }: {
   score: ApiEmployeeScore | null;
   loading: boolean;
   message: string | undefined;
-  subjectName: string;
   /** The company's setting, from the review. See `showsOverallMark`. */
   overallMark: boolean | undefined;
 }) {
+  const projects = useProjectsGate();
   if (loading) {
     return (
       <Card>
-        <CardHeader title="What the mark is made of" />
+        <CardHeader title="What the score is made of" />
         <CardBody className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading the score
@@ -648,7 +693,7 @@ function ScorePanel({
   if (!score) {
     return (
       <Card>
-        <CardHeader title="What the mark is made of" />
+        <CardHeader title="What the score is made of" />
         <CardBody>
           {/* The API's own sentence, whatever it is — including "your rating is
               not final yet", which is a refusal with a reason rather than an
@@ -664,7 +709,7 @@ function ScorePanel({
 
   return (
     <Card>
-      <CardHeader title="What the mark is made of" />
+      <CardHeader title="What the score is made of" />
       <CardBody className="flex flex-col gap-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
@@ -676,7 +721,7 @@ function ScorePanel({
               score.scoreBp === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                scoreLabel(score.scoreBp)
+                scoreWords(score)
               )
             }
             hint={
@@ -693,15 +738,16 @@ function ScorePanel({
             overallMark,
           }) && (
             <Stat
-              /* Read across the scale rather than out of five: it is a weighted
-               average across several appraisers, so it does not land on a whole
-               mark, and rounding it to one would throw a judgement away. */
+              /* Out of 5 with one decimal (U88): a weighted average across
+               several appraisers does not land on a whole level, and the
+               decimal keeps what rounding to one would throw away. */
               label="Appraisers' overall rating"
               value={
                 score.appraiserMark.ratingBp === null ? (
                   <span className="text-faint">—</span>
                 ) : (
-                  scoreLabel(score.appraiserMark.ratingBp)
+                  /* rating-scale-prose: an average of appraisers' ratings has no word (U88). */
+                  `${outOf5Label(outOf5FromBp(score.appraiserMark.ratingBp))} out of 5`
                 )
               }
               hint={appraiserMarkHint(score.appraiserMark, score.components)}
@@ -730,7 +776,9 @@ function ScorePanel({
         )}
 
         <ul className="flex flex-col gap-3">
-          {visibleComponents(score.components).map((component) => (
+          {visibleComponents(score.components, {
+            projects: projects.enabled,
+          }).map((component) => (
             <ComponentRow key={component.component} component={component} />
           ))}
         </ul>
@@ -738,8 +786,8 @@ function ScorePanel({
         {score.unmappedRatings > 0 && (
           <p className="text-body-sm text-muted">
             {score.unmappedRatings === 1
-              ? "1 rating belongs to a category that no part of the mark uses, so it is not in the score."
-              : `${score.unmappedRatings} ratings belong to categories that no part of the mark uses, so they are not in the score.`}
+              ? "1 rating belongs to a category that no part of the score uses, so it is not in the score."
+              : `${score.unmappedRatings} ratings belong to categories that no part of the score uses, so they are not in the score.`}
           </p>
         )}
 
@@ -767,32 +815,22 @@ function ScorePanel({
             `PARITY.md` Rule 5: reference-shaped detail goes behind a reveal,
             and what needs acting on stays open. Nothing here needs acting on;
             the exceptions above do, and they are outside it. */}
-        <Disclosure
-          level={4}
-          dense
-          title="How this score is put together"
-          hint="The weights used, and why the figures are whole numbers."
-        >
-          <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
-            <p>
-              {score.weightsFrom === "period"
-                ? weightsFromNote("period")
-                : score.weightsFrom === "snapshot"
-                  ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
-                  : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this mark, even though it has already been given."}
-            </p>
-            <p className="flex items-start gap-2 text-muted">
-              <ShieldCheck
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0"
-              />
-              <span>
-                Scores are worked out in whole numbers, so {subjectName}&apos;s
-                mark comes out exactly the same every time it is worked out.
-              </span>
-            </p>
-          </div>
-        </Disclosure>
+        {score.weightsFrom !== "snapshot" && (
+          <Disclosure
+            level={4}
+            dense
+            title="How this score is put together"
+            hint="The weights used."
+          >
+            <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
+              <p>
+                {score.weightsFrom === "period"
+                  ? weightsFromNote("period")
+                  : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this score, even though it has already been given."}
+              </p>
+            </div>
+          </Disclosure>
+        )}
       </CardBody>
     </Card>
   );

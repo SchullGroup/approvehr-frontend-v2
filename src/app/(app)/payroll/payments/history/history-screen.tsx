@@ -157,6 +157,7 @@ export function PaymentHistoryScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<History aria-hidden="true" />}
               title="Payment history is not part of your access"
               description="Seeing what everybody was paid needs either the “Run payroll” or the “Approve payroll” permission. Your own payslips are on the payslips screen."
@@ -219,29 +220,9 @@ export function PaymentHistoryScreen() {
             }
             hint={filterSentence(person?.name, period)}
           />
-          <Stat
-            label="Net paid"
-            value={
-              /* An em dash both while loading and when nothing matches. "₦0.00"
-                 against a person and a month reads as "we paid them nothing",
-                 which is a different claim from "there is no payment on file" —
-                 and only the second one is true. `size="xl"` for the same
-                 reason as the dash above: matches `Stat`'s own value size. */
-              !answered || history.total === 0 ? (
-                <span className="text-muted">&mdash;</span>
-              ) : (
-                <Money amount={naira(history.pageNetKobo)} decimals size="xl" />
-              )
-            }
-            {...(answered
-              ? {
-                  hint:
-                    history.total === 0
-                      ? "nothing on file under this filter"
-                      : netHint(history),
-                }
-              : {})}
-          />
+          {/* "Net paid" summed only the rows on this page, and counted
+              salaries nobody had paid (U34). The total per person and month
+              is in the table. */}
         </StatGrid>
 
         <Card>
@@ -321,6 +302,7 @@ export function PaymentHistoryScreen() {
           >
             {history.rows.length === 0 ? (
               <EmptyState
+                mood={filtered ? "search" : "nothing"}
                 icon={<Banknote aria-hidden="true" />}
                 title={filtered ? "No payments match that" : "No payments yet"}
                 description={
@@ -556,51 +538,4 @@ function filterSentence(name: string | undefined, period: string): string {
   const who = name ? name : "everybody";
   const when = period ? monthLabel(`${period}-01`) : "all months";
   return `${who}, ${when}`;
-}
-
-/**
- * What the money figure covers — stated, never implied.
- *
- * The endpoint returns no money aggregate, so a sum over the rows in hand is the
- * only figure available. Two things therefore have to be said out loud: that
- * later pages are not in it, and that payments which did not move are not in it
- * either. A total that quietly includes a failed transfer is a claim that
- * somebody was paid.
- *
- * It leads with the number of payments the figure actually adds up, because a
- * hint that opens "all 28 payments" and then subtracts 19 of them reads as a
- * contradiction rather than a qualification.
- */
-function netHint(history: {
-  complete: boolean;
-  rows: unknown[];
-  total: number;
-  pageUnpaidCount: number;
-}): string {
-  const shown = history.rows.length;
-  const counted = shown - history.pageUnpaidCount;
-
-  if (history.complete) {
-    if (counted === 0) {
-      return history.total === 1
-        ? "the one payment on file has not been paid"
-        : `none of these ${history.total} payments have been paid`;
-    }
-    if (history.pageUnpaidCount === 0) {
-      return history.total === 1
-        ? "the only payment"
-        : `all ${history.total} payments`;
-    }
-    return `${counted} of ${history.total} payments: the other ${
-      history.pageUnpaidCount
-    } ${history.pageUnpaidCount === 1 ? "has" : "have"} not been paid`;
-  }
-
-  if (counted === 0) {
-    return `none of the ${shown} on this page have been paid, and later pages are not counted`;
-  }
-  if (history.pageUnpaidCount === 0) {
-    return `the ${shown} on this page, of ${history.total}, later pages are not counted`;
-  }
-  return `${counted} of the ${shown} on this page: ${history.pageUnpaidCount} not paid, and later pages are not counted`;
 }

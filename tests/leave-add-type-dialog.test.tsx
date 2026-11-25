@@ -31,6 +31,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/api/leave", async (original) => ({
   ...(await original<typeof import("@/lib/api/leave")>()),
   leaveApi: {
+    /* This screen also lists switched-off types (U46); none here. */
+    archivedTypes: async () => [],
     types: (...args: unknown[]) => mocks.types(...args),
     createType: (...args: unknown[]) => mocks.createType(...args),
   },
@@ -204,18 +206,12 @@ describe("what is sent", () => {
 });
 
 describe("where no file could be kept", () => {
-  it("starts the file switch off and disabled, says why in words, and sends OPTIONAL", async () => {
+  it("does not offer the file switch at all, and sends OPTIONAL (UAT 23 Nov, U5)", async () => {
     mocks.limits = limits({ storage: false });
     const dialog = await openDialog();
-    expect(fileSwitch(dialog).checked).toBe(false);
-    expect(fileSwitch(dialog).disabled).toBe(true);
     expect(
-      within(dialog).getByText(
-        "This server cannot store files yet, so a file cannot be required.",
-      ),
-    ).toBeInTheDocument();
-    /* Nothing about days either: no file is being asked for. */
-    expect(within(dialog).queryByText(/number of days/)).toBeNull();
+      within(dialog).queryByRole("switch", { name: /supporting file/i }),
+    ).toBeNull();
     /* The reason switch is not affected. */
     expect(reasonSwitch(dialog).checked).toBe(true);
 
@@ -228,7 +224,7 @@ describe("where no file could be kept", () => {
     });
   });
 
-  it("does not block while it is not known, and follows the answer when it arrives", async () => {
+  it("offers it while it is not known, and takes it away when the answer says no", async () => {
     mocks.limits = null;
     const view = render(<Screen />);
     fireEvent.click(
@@ -241,8 +237,9 @@ describe("where no file could be kept", () => {
     /* The read lands after the dialog is open: it says nothing could be kept. */
     mocks.limits = limits({ storage: false });
     view.rerender(<Screen />);
-    expect(fileSwitch(dialog).checked).toBe(false);
-    expect(fileSwitch(dialog).disabled).toBe(true);
+    expect(
+      within(dialog).queryByRole("switch", { name: /supporting file/i }),
+    ).toBeNull();
   });
 
   it("allows it where the server takes links and this build can send them", async () => {

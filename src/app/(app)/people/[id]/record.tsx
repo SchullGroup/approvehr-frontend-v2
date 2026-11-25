@@ -50,9 +50,12 @@ import {
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
 import { StartExitDialog } from "@/app/(app)/people/offboarding";
+import {
+  ProposeChangeDialog,
+  type Kind as ChangeKind,
+} from "@/app/(app)/people/changes/propose-dialog";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
-import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira } from "@/lib/api/pay-components";
 import { koboFromDecimal, wasDeducted } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
@@ -72,8 +75,15 @@ import { useGrades } from "@/lib/store/grades";
 import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
-import { useSession } from "@/lib/store/session";
-import { fullName, payrollGapsFor, type Employee } from "@/lib/types";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDate } from "@/lib/time";
+import { PayrollStatusCard } from "@/components/people/payroll-status-card";
+import {
+  fullName,
+  genderWord,
+  payrollGapsFor,
+  type Employee,
+} from "@/lib/types";
 import { shortDate } from "@/lib/today";
 import { EditableSection } from "@/components/people/editable-section";
 import { AccountVerificationHint } from "@/components/payments/account-verification";
@@ -291,10 +301,32 @@ export function EmployeeRecord({
   };
   const [fileOpen, setFileOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+  /**
+   * Pay, job title and department are changed by proposal, not typed over
+   * (U14). Editing them straight onto the record skipped the approval a
+   * promotion or a rise needs. A field that is still empty can be filled in
+   * directly: that is completing the record, not changing it. Connected only,
+   * because a proposal needs the API.
+   */
+  const [proposing, setProposing] = useState<ChangeKind | null>(null);
+  const proposeLink = (kind: ChangeKind) =>
+    connected ? (
+      <span className="text-meta text-muted">
+        Changes need approval.{" "}
+        <button
+          type="button"
+          className="font-medium text-accent-text underline-offset-2 hover:underline"
+          onClick={() => setProposing(kind)}
+        >
+          Propose a change
+        </button>
+      </span>
+    ) : undefined;
   const departments = useDepartments();
   const locations = useWorkLocations();
   const grades = useGrades({ pageSize: 100 });
   const { employeeId: me } = useSession();
+  const timeZone = useOrgTimezone();
   const canSeeSalaries = useCan("VIEW_SALARIES");
   /* The same permission `POST /offboarding` demands to record somebody else's
      exit — `isHr` in `approvehr-api/src/modules/offboarding/service.ts`. Without
@@ -449,12 +481,12 @@ export function EmployeeRecord({
               <Contact
                 icon={<Mail aria-hidden="true" />}
                 value={employee.email}
-                missing="No email address"
+                missing="Not recorded"
               />
               <Contact
                 icon={<Phone aria-hidden="true" />}
                 value={employee.phone}
-                missing="No phone number"
+                missing="Not recorded"
               />
               <Contact
                 icon={<MapPin aria-hidden="true" />}
@@ -462,7 +494,7 @@ export function EmployeeRecord({
               />
               <Contact
                 icon={<CalendarDays aria-hidden="true" />}
-                value={`Started ${employee.startDate}`}
+                value={`Started ${formatDate(employee.startDate, timeZone)}`}
               />
             </ul>
           </CardBody>
@@ -577,15 +609,19 @@ export function EmployeeRecord({
 
         <Card>
           <CardBody className="flex flex-col gap-2">
-            <ButtonLink
-              href={`/payroll/payslips/${employee.id}`}
-              variant="secondary"
-              size="sm"
-              block
-            >
-              <FileText aria-hidden="true" className="size-3.5" />
-              View latest payslip
-            </ButtonLink>
+            {/* Demo only: there a payslip's id is the person's id. Connected
+                it is not, so this always opened "No payslip here" (L23). */}
+            {!connected && (
+              <ButtonLink
+                href={`/payroll/payslips/${employee.id}`}
+                variant="secondary"
+                size="sm"
+                block
+              >
+                <FileText aria-hidden="true" className="size-3.5" />
+                View latest payslip
+              </ButtonLink>
+            )}
             {/* The HR register's own file, opened on this person specifically —
                 gated the same as "Record their exit" below: the backend only
                 lets `EDIT_RECORDS` verify or remove a document (self-checking
@@ -619,11 +655,6 @@ export function EmployeeRecord({
               <TrendingUp aria-hidden="true" className="size-3.5" />
               {isSelf ? "My appraisal history" : "Their appraisal history"}
             </ButtonLink>
-            {/* The third door on one dialog. Starting a period covers the whole
-                company rather than this person — the dialog says so — and it is
-                here because looking at somebody's record is one of the moments
-                the thought arrives. Secondary, like its neighbours. */}
-            <StartPeriodButton block />
             {/* The fourth and last way a company brings somebody's email in:
                 the directory and attendance screens invite in a batch, the
                 importer does one per row that carries a role, the new-role
@@ -765,9 +796,24 @@ export function EmployeeRecord({
                   key: "email",
                   label: "Work email",
                   type: "email",
-                  emptyLabel: "No email address",
+                  emptyLabel: "Not recorded",
                   help: "Payslips and approvals are sent here.",
                 },
+                /* Their own address (U16): a hire from recruitment arrives
+                   with this and no work email. Only where the API sends it,
+                   so an older server shows no field it cannot save. */
+                ...(employee.personalEmail === undefined
+                  ? []
+                  : [
+                      {
+                        key: "personalEmail" as const,
+                        label: "Personal email",
+                        type: "email" as const,
+                        optional: true,
+                        emptyLabel: "Not recorded",
+                        help: "Their own address, for reaching them before a work email is set up.",
+                      },
+                    ]),
                 { key: "phone", label: "Phone", type: "tel" },
                 {
                   key: "dateOfBirth",
@@ -777,6 +823,10 @@ export function EmployeeRecord({
                 },
                 {
                   key: "gender",
+                  /* Stored as "female", "Male" or "male" depending on where
+                     it came from: shown and chosen as one word (L19). */
+                  value: employee.gender?.toLowerCase() ?? "",
+                  format: (v) => genderWord(String(v)) ?? String(v),
                   /* "Prefer not to say" is `value: ""`, and the API takes
                      `z.enum([...]).nullable().optional()` — so `null` is how a
                      person returns to undeclared and `""` is still refused.
@@ -800,7 +850,7 @@ export function EmployeeRecord({
                   group: "identity",
                   label: "Home address",
                   optional: true,
-                  emptyLabel: "No address recorded",
+                  emptyLabel: "Not recorded",
                   help: "Where they live. Not the office they work at.",
                 },
                 {
@@ -809,7 +859,7 @@ export function EmployeeRecord({
                   label: "NIN",
                   optional: true,
                   digits: 11,
-                  emptyLabel: "No NIN recorded",
+                  emptyLabel: "Not recorded",
                   help: "National Identification Number, 11 digits.",
                 },
                 {
@@ -899,9 +949,19 @@ export function EmployeeRecord({
                   required: true,
                   help: "Unique in the company.",
                 },
-                { key: "jobTitle", label: "Job title", required: true },
+                {
+                  key: "jobTitle",
+                  label: "Job title",
+                  required: true,
+                  ...(connected && employee.jobTitle
+                    ? { locked: proposeLink("PROMOTION") }
+                    : {}),
+                },
                 {
                   key: "departmentId",
+                  ...(connected && currentDepartment
+                    ? { locked: proposeLink("TRANSFER") }
+                    : {}),
                   clearsToNull: true,
                   label: "Department",
                   type: "select",
@@ -972,6 +1032,9 @@ export function EmployeeRecord({
                 {
                   key: "grossMonthly",
                   label: "Gross monthly",
+                  ...(connected && employee.grossMonthly !== null
+                    ? { locked: proposeLink("PAY_CHANGE") }
+                    : {}),
                   optional: true,
                   type: "number",
                   /* Emptied is "not agreed", which is null. Zero and negative
@@ -1083,9 +1146,9 @@ export function EmployeeRecord({
                   clearsToNull: true,
                   label: "Reports to",
                   type: "picker",
-                  placeholder: "No manager (reports to the board)",
+                  placeholder: "No manager",
                   value: employee.managerId ?? "",
-                  emptyLabel: "No manager (reports to the board).",
+                  emptyLabel: "No manager.",
                   format: () =>
                     manager ? (
                       <PersonLink employee={manager} />
@@ -1093,7 +1156,7 @@ export function EmployeeRecord({
                       (managerName ?? "—")
                     ),
                   options: [
-                    { value: "", label: "No manager (reports to the board)" },
+                    { value: "", label: "No manager" },
                     /* Belt and braces: the picker's options come from the first
                        200 employees, connected. A company past that size could
                        have a manager sitting outside the slice, and without
@@ -1155,6 +1218,11 @@ export function EmployeeRecord({
         {tab === "pay" && (
           <div className="flex flex-col gap-5">
             <Compensation employee={employee} connected={connected} />
+
+            {/* Whether payroll reads this person at all. Renders nothing for
+                somebody who is paid through it, unless the reader may edit
+                records and so may change that. */}
+            <PayrollStatusCard employee={employee} onSave={onSave} />
 
             <EditableSection
               /* Arrive editing when a payroll exception sent us here naming the
@@ -1632,7 +1700,16 @@ export function EmployeeRecord({
             somebody chose to do — a panel that loaded with the record would
             fill the trail that answers "who has been looking at this person's
             warnings" with reads nobody made. */}
-        {tab === "conduct" && <ConductPanel employeeId={employee.id} />}
+        {tab === "conduct" && (
+          <ConductPanel
+            employeeId={employee.id}
+            onStartExit={
+              canRecordExit && !hasLeft && !isSelf
+                ? () => setExitOpen(true)
+                : undefined
+            }
+          />
+        )}
 
         {/* Its own tab rather than a section under Employment, because it
             answers a different question. Employment says what is true now and
@@ -1655,6 +1732,16 @@ export function EmployeeRecord({
           named — nobody should have to pick out of two hundred the one whose
           record they are standing on. It navigates to the new checklist itself,
           so there is nothing to reload here. */}
+      {proposing && (
+        <ProposeChangeDialog
+          onClose={() => setProposing(null)}
+          person={{
+            id: employee.id,
+            name: `${employee.firstName} ${employee.lastName}`,
+          }}
+          kind={proposing}
+        />
+      )}
       <StartExitDialog
         open={exitOpen}
         employeeId={employee.id}
