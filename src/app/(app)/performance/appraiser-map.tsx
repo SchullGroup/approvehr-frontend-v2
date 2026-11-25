@@ -387,7 +387,7 @@ export function AppraiserMapTab() {
                     <div className="flex items-center gap-3">
                       <Avatar name={block.name ?? "HR"} size="md" />
                       <div className="min-w-0">
-                        <p className="text-body font-semibold text-ink">
+                        <p className="text-body-md font-semibold text-ink">
                           {block.name ?? "HR"}
                         </p>
                         <p className="text-meta text-muted">
