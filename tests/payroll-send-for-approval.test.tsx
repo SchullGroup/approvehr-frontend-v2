@@ -56,11 +56,12 @@ describe("asking for approval", () => {
     ).toBeNull();
   });
 
-  it("shows both to somebody who prepares and approves", () => {
+  it("shows only Approve to somebody who prepares and approves", () => {
+    /* Whoever may approve approves; asking somebody else is for the person who cannot (25 Nov 2026). */
     actions({ canApprove: true });
     expect(
-      screen.getByRole("button", { name: "Send for approval" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Send for approval" }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: /Approve this run/ }),
     ).toBeEnabled();

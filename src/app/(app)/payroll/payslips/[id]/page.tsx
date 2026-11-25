@@ -24,10 +24,18 @@ export function generateStaticParams() {
 
 export default async function PayslipPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ run?: string | string[] }>;
 }) {
   const { id } = await params;
+  /* Back goes to the month this payslip belongs to, not to whichever month the list opens on. */
+  const { run } = await searchParams;
+  const runParam = typeof run === "string" && run ? run : null;
+  const backToList = runParam
+    ? `/payroll/payslips?run=${encodeURIComponent(runParam)}`
+    : "/payroll/payslips";
 
   return (
     <>
@@ -35,7 +43,7 @@ export default async function PayslipPage({
         <PageHeader
           breadcrumb={[
             { href: "/payroll", label: "Monthly payroll" },
-            { href: "/payroll/payslips", label: "Payslips" },
+            { href: backToList, label: "Payslips" },
           ]}
           title="Payslip"
         />

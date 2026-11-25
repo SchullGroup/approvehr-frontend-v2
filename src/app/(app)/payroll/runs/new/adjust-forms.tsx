@@ -490,7 +490,8 @@ export function AmountForm({
   /** Asks why, required, when set. */
   reasonLabel?: string;
   /** What saving will do, leading with the consequence. */
-  intro: React.ReactNode;
+  /** A sentence above the field, when the form needs one. */
+  intro?: React.ReactNode;
   /** What the figure is right now and where it came from. */
   now: React.ReactNode;
   valueKobo: number;
@@ -522,7 +523,9 @@ export function AmountForm({
       <BackToPayslip onBack={onBack} disabled={saving} />
 
       <div className="flex flex-col gap-4">
-        <p className="text-body-sm leading-relaxed text-body">{intro}</p>
+        {intro && (
+          <p className="text-body-sm leading-relaxed text-body">{intro}</p>
+        )}
 
         <ServerRefusal message={error} />
 
