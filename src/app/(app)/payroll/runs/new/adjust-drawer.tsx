@@ -701,13 +701,6 @@ export function AdjustDrawer({
       {view === "paye" && (
         <AmountForm
           label={`PAYE for ${periodLabel}`}
-          intro={
-            <>
-              This replaces the tax worked out from the bands, for {periodLabel}{" "}
-              only. Net pay moves with what you enter; pension and the housing
-              fund do not.
-            </>
-          }
           now={
             person.payeOverridden
               ? `${formatKobo(person.payeKobo)} is entered by hand now.${
@@ -721,18 +714,16 @@ export function AdjustDrawer({
           placeholder="PAYE"
           saveLabel="Enter it by hand"
           {...(person.payeOverridden
-            ? { undoLabel: "Undo: use the bands instead" }
+            ? { undoLabel: "Calculate automatically" }
             : {})}
           saving={busy}
           error={error}
           onBack={() => go("overview")}
-          reasonLabel="Why it is entered by hand"
-          onSave={(payeKobo, reason) =>
+          onSave={(payeKobo) =>
             void perform(() =>
               actions.setTaxOverride(runId, {
                 employeeId,
                 payeKobo,
-                reason,
               }),
             )
           }
