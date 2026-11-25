@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { BellRing, Monitor } from "lucide-react";
 import {
   Badge,
@@ -134,7 +135,7 @@ function Device({ device }: { device: ApiPushDevice }) {
     <li className="flex flex-wrap items-center gap-2 text-meta">
       <Monitor aria-hidden="true" className="size-3.5 text-faint" />
       <span className="text-body">{browserName(device.userAgent)}</span>
-      <span className="text-faint">added {device.createdAt.slice(0, 10)}</span>
+      <span className="text-faint">added {formatDay(device.createdAt)}</span>
       {/* Shown rather than quietly dropped: "why did I stop getting these"
           otherwise has no answer on any screen. */}
       {device.gone && (

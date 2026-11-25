@@ -112,12 +112,12 @@ describe("a breakdown shows the part only where it carries a weight", () => {
     ]);
   });
 
-  it("keeps it when it is weighted and nobody has sent a mark, in the API's own reason", () => {
+  it("keeps it when it is weighted and nobody has sent a score, in the API's own reason", () => {
     const parts = [
       part("MANAGER_APPRAISAL", {
         weightBp: 3000,
         excludedBecause: "NO_APPRAISER_MARK",
-        excludedNote: "No appraiser has sent an overall mark yet.",
+        excludedNote: "No appraiser has sent an overall rating yet.",
       }),
     ];
     expect(visibleComponents(parts)).toHaveLength(1);
@@ -146,10 +146,10 @@ describe("a breakdown shows the part only where it carries a weight", () => {
   it("says what was counted by its own name", () => {
     expect(
       evidenceLine({ component: "MANAGER_APPRAISAL", evidenceCount: 1 }),
-    ).toBe("Based on 1 overall mark");
+    ).toBe("Based on 1 overall rating");
     expect(
       evidenceLine({ component: "MANAGER_APPRAISAL", evidenceCount: 2 }),
-    ).toBe("Based on 2 overall marks");
+    ).toBe("Based on 2 overall ratings");
     expect(
       evidenceLine({ component: "MANAGER_APPRAISAL", evidenceCount: 0 }),
     ).toBe("Nothing recorded for this");
@@ -159,7 +159,7 @@ describe("a breakdown shows the part only where it carries a weight", () => {
   });
 });
 
-describe("whether the appraisers' overall mark counts is read off the score, never assumed", () => {
+describe("whether the appraisers' overall rating counts is read off the score, never assumed", () => {
   const counted = [
     part("OBJECTIVES", { weightBp: 7000 }),
     part("MANAGER_APPRAISAL", { weightBp: 3000, included: true }),
@@ -202,7 +202,7 @@ describe("whether the appraisers' overall mark counts is read off the score, nev
     expect(scoredFromSentence(notWeighted)).toBeNull();
   });
 
-  it("keeps the old words for a mark that is for reference, whether the part is at 0% or the server has no part", () => {
+  it("keeps the old words for a score that is for reference, whether the part is at 0% or the server has no part", () => {
     for (const parts of [notWeighted, absent]) {
       expect(
         appraiserMarkHint({ appraisers: 1, submittedWeightBp: 10000 }, parts),
@@ -215,7 +215,7 @@ describe("whether the appraisers' overall mark counts is read off the score, nev
     }
   });
 
-  it("points at the part instead where the mark is scored, so the sentence and the figure agree", () => {
+  it("points at the part instead where the score is scored, so the sentence and the figure agree", () => {
     expect(
       appraiserMarkHint({ appraisers: 1, submittedWeightBp: 10000 }, counted),
     ).toBe("It is what Manager appraisal is scored from.");
@@ -241,10 +241,10 @@ describe("the strip above an appraiser's form", () => {
         mine: true,
         asksMark: true,
       }),
-    ).toBe("Your overall mark counts for 30% of the mark.");
+    ).toBe("Your overall rating counts for 30% of the score.");
   });
 
-  it("says a shared appraiser's own share of what the appraisers say, and the part's share of the mark beside it", () => {
+  it("says a shared appraiser's own share of what the appraisers say, and the part's share of the score beside it", () => {
     expect(
       appraiserStripLine({
         appraiser: { ...three, markShareBp: 3000 },
@@ -252,7 +252,7 @@ describe("the strip above an appraiser's form", () => {
         asksMark: true,
       }),
     ).toBe(
-      "Your overall mark counts for 40% of what the appraisers say, alongside 2 others. What they say is 30% of the mark.",
+      "Your overall rating counts for 40% of what the appraisers say, alongside 2 others. What they say is 30% of the score.",
     );
     expect(
       appraiserStripLine({
@@ -261,18 +261,18 @@ describe("the strip above an appraiser's form", () => {
         asksMark: true,
       }),
     ).toBe(
-      "This overall mark counts for 50% of what the appraisers say, alongside 1 other. What they say is 30% of the mark.",
+      "This overall rating counts for 50% of what the appraisers say, alongside 1 other. What they say is 30% of the score.",
     );
   });
 
-  it("says it does not count where the period does not weight the part and the form asks for a mark", () => {
+  it("says it does not count where the period does not weight the part and the form asks for a score", () => {
     expect(
       appraiserStripLine({
         appraiser: { ...sole, markShareBp: 0 },
         mine: true,
         asksMark: true,
       }),
-    ).toBe("Your overall mark does not count towards the score.");
+    ).toBe("Your overall rating does not count towards the score.");
     expect(
       appraiserStripLine({
         appraiser: { ...three, markShareBp: 0 },
@@ -280,11 +280,11 @@ describe("the strip above an appraiser's form", () => {
         asksMark: true,
       }),
     ).toBe(
-      "Your overall mark does not count towards the score, alongside 2 others.",
+      "Your overall rating does not count towards the score, alongside 2 others.",
     );
   });
 
-  it("makes no claim about the mark where the form does not ask for one", () => {
+  it("makes no claim about the score where the form does not ask for one", () => {
     expect(
       appraiserStripLine({
         appraiser: { ...sole, markShareBp: 0 },
@@ -317,11 +317,11 @@ describe("the strip above an appraiser's form", () => {
       expect(shared).toBe(
         "This appraiser's share among the 2 appraisers is 50%.",
       );
-      expect(shared).not.toMatch(/count|mark|score/i);
+      expect(shared).not.toMatch(/count|score/i);
     }
   });
 
-  it("never says the review counts for the mark, which was never true of the review", () => {
+  it("never says the review counts for the score, which was never true of the review", () => {
     for (const markShareBp of [undefined, 0, 3000]) {
       for (const asksMark of [true, false]) {
         const line = appraiserStripLine({
@@ -337,7 +337,7 @@ describe("the strip above an appraiser's form", () => {
     }
   });
 
-  it("claims a share of the mark only where the period weights the part", () => {
+  it("claims a share of the score only where the period weights the part", () => {
     for (const markShareBp of [undefined, 0]) {
       for (const asksMark of [true, false]) {
         const line = appraiserStripLine({
@@ -348,7 +348,7 @@ describe("the strip above an appraiser's form", () => {
           mine: true,
           asksMark,
         });
-        expect(line ?? "").not.toMatch(/of the mark/);
+        expect(line ?? "").not.toMatch(/of the score/);
       }
     }
     expect(
@@ -357,11 +357,11 @@ describe("the strip above an appraiser's form", () => {
         mine: true,
         asksMark: false,
       }),
-    ).toMatch(/30% of the mark/);
+    ).toMatch(/30% of the score/);
   });
 });
 
-describe("the overall mark page in the answer flow", () => {
+describe("the overall rating page in the answer flow", () => {
   it("is asked where the company asks, or where the period needs it", () => {
     expect(asksOverallMark({ overallMark: true })).toBe(true);
     expect(asksOverallMark({ overallMarkRequired: true })).toBe(true);
@@ -369,7 +369,7 @@ describe("the overall mark page in the answer flow", () => {
     expect(asksOverallMark({})).toBe(false);
   });
 
-  it("is a page that cannot be missing from a form the server will not take without a mark", () => {
+  it("is a page that cannot be missing from a form the server will not take without a score", () => {
     /* A server that says needed but not asked is inconsistent; the form must
        still have the page, or nobody could ever send it. */
     expect(
@@ -389,14 +389,27 @@ describe("the overall mark page in the answer flow", () => {
     ...(markShareBp === undefined ? {} : { markShareBp }),
   });
 
+  it("says an optional rating does not change the score where the period weights it at nothing (U36)", () => {
+    expect(markPageWords(false, alone(0)).lead).toBe(
+      "Optional, and it does not change the score. Leave it if the answers say enough.",
+    );
+    /* A share the server did not send, or one that counts, makes no such claim. */
+    expect(markPageWords(false, alone()).lead).toBe(
+      "Optional. Leave it if the answers say enough.",
+    );
+    expect(markPageWords(false, alone(2000)).lead).toBe(
+      "Optional. Leave it if the answers say enough.",
+    );
+  });
+
   it("asks whether there is one when it is optional, and says why it is needed when it is", () => {
     expect(markPageWords(false, undefined)).toEqual({
-      title: "Is there an overall mark?",
+      title: "Is there an overall rating?",
       lead: "Optional. Leave it if the answers say enough.",
     });
     expect(markPageWords(true, alone(3000))).toEqual({
-      title: "Your overall mark",
-      lead: "Needed. It counts for 30% of the mark in this period.",
+      title: "Your overall rating",
+      lead: "Needed. It counts for 30% of the score in this period.",
     });
     expect(markPageWords(true, undefined).lead).toBe(
       "Needed. This period counts it towards the score.",
@@ -417,10 +430,10 @@ describe("the overall mark page in the answer flow", () => {
     const strip = appraiserStripLine({ appraiser, mine: true, asksMark: true });
     expect(markPageWords(true, appraiser).lead).toBe(`Needed. ${strip}`);
     expect(markPageWords(true, appraiser).lead).toBe(
-      "Needed. Your overall mark counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the mark.",
+      "Needed. Your overall rating counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the score.",
     );
     expect(markPageWords(true, appraiser).lead).not.toMatch(
-      /counts for 30% of the mark in this period/,
+      /counts for 30% of the score in this period/,
     );
   });
 
@@ -440,13 +453,13 @@ describe("the overall mark page in the answer flow", () => {
         appraiserCount: 1,
         markShareBp: 3000,
       }).lead,
-    ).toBe("Needed. It counts for 30% of the mark in this period.");
+    ).toBe("Needed. It counts for 30% of the score in this period.");
   });
 
-  it("says what still stops a send, the questions and the mark together", () => {
+  it("says what still stops a send, the questions and the score together", () => {
     expect(stillNeededLine(0, false)).toBeNull();
     expect(stillNeededLine(0, true)).toBe(
-      "The overall mark still needs an answer before this can go.",
+      "The overall rating still needs an answer before this can go.",
     );
     expect(stillNeededLine(1, false)).toBe(
       "1 question still needs an answer before this can go.",
@@ -455,26 +468,26 @@ describe("the overall mark page in the answer flow", () => {
       "3 questions still need an answer before this can go.",
     );
     expect(stillNeededLine(1, true)).toBe(
-      "1 question and the overall mark still need an answer before this can go.",
+      "1 question and the overall rating still need an answer before this can go.",
     );
     expect(stillNeededLine(2, true)).toBe(
-      "2 questions and the overall mark still need an answer before this can go.",
+      "2 questions and the overall rating still need an answer before this can go.",
     );
   });
-  it("opens on no mark where the form does not ask for one, whatever is remembered or held", () => {
+  it("opens on no score where the form does not ask for one, whatever is remembered or held", () => {
     expect(startingMark({ asks: false, local: "4", held: 3 })).toBe("");
     expect(startingMark({ asks: false, local: "", held: 3 })).toBe("");
   });
 
-  it("opens on the mark this browser remembers, over the one the record holds", () => {
+  it("opens on the score this browser remembers, over the one the record holds", () => {
     expect(startingMark({ asks: true, local: "2", held: 4 })).toBe("2");
   });
 
-  it("opens on the mark the record already holds where the browser remembers none, as a review sent back for revision does", () => {
+  it("opens on the score the record already holds where the browser remembers none, as a review sent back for revision does", () => {
     expect(startingMark({ asks: true, local: "", held: 4 })).toBe("4");
   });
 
-  it("opens on none for a first-time form, so a needed mark still has to be given", () => {
+  it("opens on none for a first-time form, so a needed score still has to be given", () => {
     expect(startingMark({ asks: true, local: "", held: null })).toBe("");
     expect(startingMark({ asks: true, local: "", held: undefined })).toBe("");
   });

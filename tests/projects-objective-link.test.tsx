@@ -247,7 +247,7 @@ describe("link to an objective, on a task", () => {
     ).toEqual(["Company", "Department", "Personal"]);
   });
 
-  it("links the task to the one chosen, once, with no measure", async () => {
+  it("links the task to the one chosen, once, with no target", async () => {
     const issue = chidis(sampleData());
     const { actions } = renderDrawer(issue);
     await userEvent.selectOptions(
@@ -282,11 +282,11 @@ describe("link to an objective, on a task", () => {
     });
   });
 
-  it("offers a measure only once an objective with measures is chosen, and narrows to it", async () => {
+  it("offers a target only once an objective with targets is chosen, and narrows to it", async () => {
     const issue = { ...chidis(sampleData()), goalId: "g-measured" };
     const { actions } = renderDrawer(issue);
     const measure = screen.getByRole("combobox", {
-      name: "Measure (optional)",
+      name: "Target (optional)",
     });
     expect(optionNames(measure)).toEqual([
       "Whole objective",
@@ -300,10 +300,10 @@ describe("link to an objective, on a task", () => {
     });
   });
 
-  it("offers no measure for an objective that has none", () => {
+  it("offers no target for an objective that has none", () => {
     renderDrawer({ ...chidis(sampleData()), goalId: "g-checkout" });
     expect(
-      screen.queryByRole("combobox", { name: "Measure (optional)" }),
+      screen.queryByRole("combobox", { name: "Target (optional)" }),
     ).not.toBeInTheDocument();
   });
 

@@ -535,12 +535,26 @@ function Result({
             </dl>
 
             {/* The split is why NHF is not 2.5% of gross. */}
+            {/* With NHF not deducted, the sentence about why it is charged on
+                basic alone said "NHF comes to ₦0 rather than ₦22,500": wrong
+                twice over, since 2.5% of basic is not ₦0 (UAT 23 Nov, L7 /
+                PAY-34). It says why there is none instead. */}
             <p className="mt-4 text-meta leading-relaxed text-white/50">
               Your gross splits into {naira(slip.basicKobo)} basic,{" "}
               {naira(slip.housingKobo)} housing and {naira(slip.transportKobo)}{" "}
-              transport. Pension is charged on the whole of it and NHF on basic
-              alone, which is why NHF comes to {naira(slip.nhfKobo)} rather than{" "}
-              {naira(Math.round(slip.grossKobo * 0.025))}.
+              transport.{" "}
+              {slip.operates.nhf === "DEDUCTED" ? (
+                <>
+                  Pension is charged on the whole of it and NHF on basic alone,
+                  which is why NHF comes to {naira(slip.nhfKobo)} rather than{" "}
+                  {naira(Math.round(slip.grossKobo * 0.025))}.
+                </>
+              ) : (
+                <>
+                  Pension is charged on the whole of it. NHF is not deducted,
+                  because NHF deducted is unticked.
+                </>
+              )}
             </p>
           </>
         )}

@@ -494,7 +494,7 @@ describe("linking from a person's list", () => {
     expect(hook.reload).not.toHaveBeenCalled();
   });
 
-  it("narrows to one measure when the objective has them", async () => {
+  it("narrows to one target when the objective has them", async () => {
     hook.run.mockResolvedValue({ changed: 1, failed: [] });
     render(<CompletedTeam />);
     await choose("PRF-1");
@@ -507,7 +507,7 @@ describe("linking from a person's list", () => {
       "Bola delivers payroll (Bola Projects)",
     );
     await userEvent.selectOptions(
-      within(dialog).getByRole("combobox", { name: /Measure/ }),
+      within(dialog).getByRole("combobox", { name: /Target/ }),
       "Cut run time",
     );
     await userEvent.click(

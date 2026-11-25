@@ -475,6 +475,16 @@ function generate() {
     fs.writeFileSync(path.join(TARGET, name), contents);
     log(`wrote ${name}`);
   }
+  /* The standalone build has no app behind it, so its pages must not offer
+     the app's own sign-in and sign-up routes (see lib/marketing/links.ts). */
+  const appDefault = path.join(TARGET, "src/lib/marketing/app-default.ts");
+  if (fs.existsSync(appDefault)) {
+    fs.writeFileSync(
+      appDefault,
+      "/** Rewritten by scripts/export-marketing.ts: no app is served with this build. */\nexport const SERVED_WITH_APP: boolean = false;\n",
+    );
+    log("wrote src/lib/marketing/app-default.ts (no app)");
+  }
 }
 
 /**

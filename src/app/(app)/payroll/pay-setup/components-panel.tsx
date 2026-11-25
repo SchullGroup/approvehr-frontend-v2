@@ -505,19 +505,14 @@ function componentActions(
         ]
       : []),
     "separator" as const,
-    row.isSystem
-      ? {
-          label: "Archive",
-          icon: <Trash2 aria-hidden="true" className="size-4" />,
-          disabled: true,
-          hint: "Built in. Turn it off instead of removing it",
-        }
-      : {
-          label: "Archive",
-          icon: <Trash2 aria-hidden="true" className="size-4" />,
-          tone: "danger" as const,
-          onSelect: handlers.onArchive,
-        },
+    /* A built-in line cannot be archived; its row already says it is built in. */
+    {
+      label: "Archive",
+      icon: <Trash2 aria-hidden="true" className="size-4" />,
+      tone: "danger" as const,
+      available: !row.isSystem,
+      onSelect: handlers.onArchive,
+    },
   ];
 }
 
@@ -574,7 +569,8 @@ function ComponentRow({
             )}
           </span>
         }
-        subtitle={row.code}
+        /* No subtitle: the code (LEAVE_ALLOWANCE) is the system's name for
+           it, not the reader's (U80, NC-30). */
       />
 
       <TD>
@@ -689,7 +685,6 @@ function ComponentCard({
               </span>
             )}
           </span>
-          <p className="mt-0.5 text-meta text-muted">{row.code}</p>
         </div>
         {row.archived ? (
           <Badge size="sm" tone="warning">

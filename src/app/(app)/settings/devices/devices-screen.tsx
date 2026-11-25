@@ -289,6 +289,7 @@ export function DevicesScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Cpu aria-hidden="true" />}
               title="Biometric terminals are not part of your access"
               description="Registering a machine that may write attendance is the same kind of decision as drawing the fence people clock in inside, so it needs the settings permission. Ask whoever manages settings."

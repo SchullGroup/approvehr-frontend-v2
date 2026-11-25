@@ -106,6 +106,14 @@ last four digits of an account number.
 
 For **Bank details**, one click approves the bank name and the account number together.
 
+A **Leave** line is routed to the employee's manager, and being routed it is not the same as being allowed
+to decide it. If your role holds none of the leave-approval permissions, the line has no **Approve**,
+**Decline** or **Archive**. It says **You are listed as the approver, but your role does not include
+approving leave, so a decision from you would be refused. Ask whoever manages roles to give you that
+permission.** and has **Open leave** instead. Holding the permission is not the whole rule either: the
+server still refuses a decision on somebody who does not report to you, or who is not in a department or
+office you run.
+
 ### 3. Reject, with a reason
 
 |                |                                                                                                               |
@@ -198,7 +206,7 @@ These are decisions, not accidents. Each one has a reason.
 3. **Requests raised before this change keep their own entries.** Approving one of those approves
    only that field. They look the way they always did.
 4. **It says Reject, not Send back.** A plain no is a no. **Send back** still exists where something is
-   genuinely returned for revision: leave on `/people/leave` and objectives on `/performance/approvals`.
+   genuinely returned for revision: leave on `/people/leave` and objectives on the To agree tab of `/performance/kpis`.
 5. **A reason is required, and it reaches the person.** The box says "They see what you write here",
    and they do: the rejection arrives as a notification carrying it.
 6. **The bank-change safety notice is sent once, for the group.** When a bank change is approved, the

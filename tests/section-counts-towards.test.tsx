@@ -96,7 +96,7 @@ describe("what a section counts towards", () => {
     );
   });
 
-  it("clearing it sends null, which is how a section is taken out of the mark", async () => {
+  it("clearing it sends null, which is how a section is taken out of the score", async () => {
     sections = [section({ component: "CORE_COMPETENCY", weightBp: 4000 })];
     show();
     await userEvent.click(
@@ -113,9 +113,7 @@ describe("what a section counts towards", () => {
 
   it("is offered when a section is created", async () => {
     show();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Add a section" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Add a group" }));
     await userEvent.type(screen.getByLabelText("New section"), "Our values");
     await userEvent.selectOptions(
       screen.getByLabelText("What the new section counts towards"),
@@ -141,8 +139,8 @@ describe("what a section counts towards", () => {
       .getAllByRole("option")
       .map((option) => option.textContent);
     expect(labels).toEqual([
-      "No part of the mark (ratings are only recorded)",
-      "C (scored from graded weekly tasks, not from a section)",
+      "No part of the score (ratings are only recorded)",
+      "C (scored from tasks finished in Projects, not from a section)",
       "A",
       "Our values",
       "How I did",
@@ -184,8 +182,8 @@ describe("what a section counts towards", () => {
         .getAllByRole("option")
         .map((option) => option.textContent),
     ).toEqual([
-      "No part of the mark (ratings are only recorded)",
-      "C (scored from graded weekly tasks, not from a section)",
+      "No part of the score (ratings are only recorded)",
+      "C (scored from tasks finished in Projects, not from a section)",
     ]);
   });
 });

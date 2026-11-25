@@ -100,6 +100,14 @@ export const STAGE = NOUNS.stage;
 export const LIMIT = NOUNS.limit;
 export const EFFORT = NOUNS.effort;
 
+/**
+ * A simple board: a board and a list, with no cycles and no effort points
+ * (UAT 23 Nov, U104 / PERF-25). A project gets those by being switched to a
+ * board with cycles in its Settings.
+ */
+export const isSimpleBoard = (projectType: string): boolean =>
+  projectType === "KANBAN";
+
 /** "1 task", "2 tasks", "0 tasks". */
 export function count(n: number, key: NounKey): string {
   return `${n} ${n === 1 ? NOUNS[key].one : NOUNS[key].many}`;

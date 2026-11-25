@@ -117,7 +117,7 @@ export function newVersionEffects(input: {
       ? `${input.name} keeps its ${ratingsWords(input.ratingCount)}${
           input.from === "TEXT"
             ? ""
-            : `, and every mark made from ${aboutRatings(input.ratingCount)} stays as it is`
+            : `, and every score made from ${aboutRatings(input.ratingCount)} stays as it is`
         }. It is marked retired and leaves this list.`
       : `${input.name} is marked retired and leaves this list.`,
     "The new version has the same name and section and starts with no ratings. It is the one used from now on.",
@@ -161,7 +161,7 @@ export function startedLine(
       ? `keeps its ${ratingsWords(result.retired.ratingsKept)}${
           from === "TEXT"
             ? ""
-            : ` and every mark made from ${aboutRatings(result.retired.ratingsKept)}`
+            : ` and every score made from ${aboutRatings(result.retired.ratingsKept)}`
         }`
       : "is kept, retired";
   return `${result.competency.name} is now answered as ${answeredAsWords(kind)}. ${result.retired.name} ${kept}.`;

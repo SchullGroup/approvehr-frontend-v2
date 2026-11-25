@@ -44,9 +44,10 @@ export function AppraisersScreen() {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<ToggleRight aria-hidden="true" />}
             title="Appraisals are switched off"
-            description="Scored reviews inside an appraisal period, and skills against their targets, on top of shared KPIs."
+            description="Scored reviews inside an appraisal period, and competencies against their targets, on top of shared objectives."
             action={
               canChangeFeatures ? (
                 <ButtonLink variant="accent" href="/settings/features">
@@ -82,6 +83,7 @@ export function AppraisersScreen() {
         />
         <PageBody>
           <EmptyState
+            plain
             title="Not available to you"
             description="This covers everyone in the company, so it is only open to people who can see every employee's record."
           />
@@ -99,6 +101,7 @@ export function AppraisersScreen() {
         />
         <PageBody>
           <EmptyState
+            plain
             icon={<ToggleRight aria-hidden="true" />}
             title="One appraiser per person, today"
             description="This company has not turned on more than one appraiser per person, so there is nothing to map or weight."

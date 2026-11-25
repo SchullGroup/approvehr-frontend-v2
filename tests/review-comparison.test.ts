@@ -197,8 +197,8 @@ describe("what was counted, by name", () => {
   it.each([
     ["OBJECTIVES", 1, "Based on 1 agreed objective"],
     ["OBJECTIVES", 3, "Based on 3 agreed objectives"],
-    ["TASKS", 1, "Based on 1 graded task"],
-    ["TASKS", 5, "Based on 5 graded tasks"],
+    ["TASKS", 1, "Based on 1 linked task"],
+    ["TASKS", 5, "Based on 5 linked tasks"],
     ["CORE_COMPETENCY", 4, "Based on 4 ratings"],
     ["LEADERSHIP", 1, "Based on 1 rating"],
     ["SELF_ASSESSMENT", 4, "Based on 4 ratings"],
@@ -210,5 +210,34 @@ describe("what was counted, by name", () => {
     expect(
       evidenceLine({ component: "CORE_COMPETENCY", evidenceCount: 0 }),
     ).toBe("Nothing recorded for this");
+  });
+});
+
+describe("Tasks done, as the evidence under the part", () => {
+  it("says how many were done of those counted, and how many are overdue", () => {
+    expect(
+      evidenceLine({ component: "TASKS", evidenceCount: 9, done: 7 }),
+    ).toBe("Tasks done: 7 of 9 (2 overdue)");
+    expect(
+      evidenceLine({ component: "TASKS", evidenceCount: 4, done: 4 }),
+    ).toBe("Tasks done: 4 of 4");
+  });
+  it("says only what was counted where the server does not send how many were done", () => {
+    expect(evidenceLine({ component: "TASKS", evidenceCount: 9 })).toBe(
+      "Based on 9 linked tasks",
+    );
+  });
+});
+
+describe("Tasks done for a company without Projects", () => {
+  const parts = [
+    { component: "OBJECTIVES", excludedBecause: null },
+    { component: "TASKS", excludedBecause: null },
+  ] as never[];
+  it("is not shown, and is shown where Projects is on or not said", async () => {
+    const { visibleComponents } = await import("@/lib/api/performance");
+    expect(visibleComponents(parts, { projects: false })).toHaveLength(1);
+    expect(visibleComponents(parts, { projects: true })).toHaveLength(2);
+    expect(visibleComponents(parts)).toHaveLength(2);
   });
 });

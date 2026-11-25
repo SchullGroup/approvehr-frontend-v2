@@ -83,6 +83,7 @@ const skillRow = (over: Partial<ApiCompetencyRow>): ApiCompetencyRow => ({
 let rowsOf: Record<string, ApiCompetencyRow[]>;
 
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   useFramework: () => ({
     competencies: [FEEDBACK],
     groups: [
@@ -95,6 +96,7 @@ vi.mock("@/lib/store/performance", () => ({
     loading: false,
     error: null,
   }),
+  useSections: () => ({ sections: [], loading: false, reload: () => {} }),
   useAppraisals: () => ({ cycles: [], loading: false }),
   useSkills: (employeeId: string | null) => {
     const rows = employeeId ? (rowsOf[employeeId] ?? []) : [];
@@ -133,7 +135,7 @@ const mount = () => {
 const pick = async (person = "e-chidi") => {
   await userEvent.selectOptions(screen.getByLabelText(/Employee/), person);
   await userEvent.selectOptions(
-    screen.getByLabelText(/Which skill/),
+    screen.getByLabelText(/Which competency/),
     "Customer feedback",
   );
 };

@@ -59,14 +59,14 @@ export function LinkedWorkHint({ measureId }: { measureId: string }) {
   if (work.items.length === 0 && work.total === 0) {
     return (
       <p className="text-body-sm text-muted">
-        No task is linked to this measure.
+        No task is linked to this target.
       </p>
     );
   }
 
   return (
     <Disclosure
-      title="Tasks linked to this measure"
+      title="Tasks linked to this target"
       meta={String(work.total)}
       level={4}
       dense

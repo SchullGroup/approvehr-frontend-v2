@@ -29,6 +29,7 @@ import {
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { LinkedQueryLine } from "@/components/queries/linked-query";
 import { ApiError } from "@/lib/api/client";
 import {
   formatKobo,
@@ -145,6 +146,7 @@ export function ExitDetailScreen({
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<DoorOpen aria-hidden="true" />}
               title="We could not find that exit"
               action={
@@ -219,7 +221,10 @@ export function ExitDetailScreen({
   /* Their own notice, theirs to take back. HR may cancel anybody's; the API
      enforces both and this only decides which button to offer. */
   const mine = employeeId !== null && exit.employee.id === employeeId;
-  const canWithdraw = !closed && (mine || isHr);
+  /* Only the person withdraws their own request. HR and the manager end an
+     exit with Close or Cancel; three ways to end one side by side, with no
+     word on how they differ, was the complaint (U48). */
+  const canWithdraw = !closed && mine;
 
   /* The pay tab is there when it has something on it: an API that predates
      `finalPay` and nothing on the register leaves it with nothing to say, and an
@@ -356,7 +361,7 @@ export function ExitDetailScreen({
                     disabled={busy}
                     onClick={() => setDeclining(true)}
                   >
-                    Not going ahead
+                    Cancel this exit
                   </Button>
                 )}
 
@@ -511,6 +516,13 @@ export function ExitDetailScreen({
                           },
                         ]}
                       />
+                      {/* The query it followed, as a note. Drawn only where the server sent it,
+                          which is to HR alone. */}
+                      <LinkedQueryLine
+                        queryId={exit.queryId}
+                        reference={exit.queryReference}
+                        className="mt-3 text-body-sm text-muted"
+                      />
                     </CardBody>
                   </Card>
 
@@ -623,18 +635,19 @@ function DeclineDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Not going ahead"
+      title="Cancel this exit"
+      description="They stay on, and the checklist stops."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            Keep the exit
           </Button>
           <Button
             variant="danger"
             disabled={reason.trim().length < 3 || busy}
             onClick={() => void onDecline(reason.trim())}
           >
-            {busy ? "Saving…" : "Record it"}
+            {busy ? "Saving…" : "Cancel this exit"}
           </Button>
         </div>
       }

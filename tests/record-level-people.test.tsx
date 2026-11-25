@@ -72,6 +72,7 @@ const COMPETENCY: ApiCompetency = {
 let canEditRecords: boolean;
 
 vi.mock("@/lib/store/performance", () => ({
+  useRatingScale: () => ({ scale: { levels: [] } }),
   useFramework: () => ({
     competencies: [COMPETENCY],
     groups: [
@@ -84,6 +85,7 @@ vi.mock("@/lib/store/performance", () => ({
     loading: false,
     error: null,
   }),
+  useSections: () => ({ sections: [], loading: false, reload: () => {} }),
   useAppraisals: () => ({ cycles: [], loading: false }),
   useSkills: () => ({
     skills: null,

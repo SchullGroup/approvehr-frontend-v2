@@ -3,63 +3,63 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarRange, Sparkles } from "lucide-react";
+import {
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
 import {
   Button,
-  Callout,
   Checkbox,
-  Disclosure,
   Field,
   Input,
-  Modal,
   Textarea,
-  useToast,
   type ButtonSize,
   type ButtonVariant,
 } from "@/components/ui";
-import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { BigChoice, WizardShell } from "@/components/performance/wizard-shell";
+import {
+  PRESETS,
+  defaultDueDate,
+  presetDates,
+  presetName,
+  type PresetId,
+} from "@/lib/performance/period-presets";
 import { actionMessage } from "@/lib/use-action";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
 import { useAssistantAvailable } from "@/lib/store/ai";
-import { useCycleMutations } from "@/lib/store/performance";
+import { useAppraisals, useCycleMutations } from "@/lib/store/performance";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 
 /**
  * Starting an appraisal period, from wherever somebody had the thought.
  *
- * ## One dialog, several buttons
+ * One wizard, several buttons: the act is one component and the entries are
+ * many, so the one somebody finds is always the one that was fixed.
+ * `StartPeriodButton` renders nothing when appraisals are off or the reader
+ * cannot run one.
  *
- * The product owner's words: "there should always be multiple buttons leading to
- * the same action to ensure users aren't looking for stuff." So the *act* is one
- * component and the *entries* are many — the performance landing, the objectives
- * queue, the approvals inbox, the dashboard greeting, and one person's record.
- * Three implementations of "new period" would drift in three directions and the
- * one somebody found would be the one that had not been fixed.
+ * ## One question to a screen
  *
- * `StartPeriodButton` renders **nothing** when the company has appraisals
- * switched off or the reader cannot run one, which is what makes it safe to drop
- * onto screens that have nothing to do with performance. A dead button on the
- * dashboard is worse than no button.
- *
- * ## What it does, and what it deliberately does not
- *
- * It creates the period and then goes to it. It does **not** start it in the
- * same breath, and that is the honest order rather than a missing feature: the
- * API refuses a period with no questions, and it refuses a new question once one
- * has started — so a dialog that created and started in one click would lock
- * every company to whatever single question the dialog had room for.
- *
- * The next screen is where the questions and the start button live, and
- * nobody is asked anything until somebody presses it there.
+ * Which period, when it is due, whether it is the whole company, whether to
+ * remind people, whether managers may add questions. Everything else has a sensible
+ * default and lives in the period's own Settings. Nothing is written until the
+ * last answer, and the period is created, not started: the questions are asked
+ * of everybody the moment it starts, so starting is its own deliberate step on
+ * the period page.
  *
  * ## "Period", not "cycle"
  *
- * `ReviewCycle` is the model's name. An **appraisal period** is what it is called
- * to a person, and this is the third time the engine's word has leaked into the
- * interface — "prepare a run" and "leaver" were the same mistake. The store, the
- * API wrapper and the database still say cycle; nothing a user reads does.
+ * `ReviewCycle` is the model's name. An appraisal period is what it is called to
+ * a person.
  */
+
+const STEPS = 6;
+
 export function StartPeriodDialog({
   open,
   onClose,
@@ -67,284 +67,275 @@ export function StartPeriodDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  /** The new period's id. The caller decides where to go with it. */
-  onCreated: (period: { id: string; name: string }) => void;
+  /** The new period. The caller decides what to show next. */
+  onCreated: (period: {
+    id: string;
+    name: string;
+    /** Where to go next: the questions wizard, or the period itself once its questions are in. */
+    next: "questions" | "period";
+  }) => void;
 }) {
   const periods = useCycleMutations();
+  const appraisals = useAppraisals();
+  /* The latest earlier period that already has questions, to offer as a start. */
+  const earlier =
+    appraisals.cycles.find((one) => one.questionCount > 0) ?? null;
+  const [source, setSource] = useState<"earlier" | "standard" | "write" | null>(
+    null,
+  );
+  const questionsFrom = source ?? (earlier ? "earlier" : "write");
   const assistant = useAssistantAvailable();
-
   const departments = useDepartments();
 
-  const [name, setName] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  /**
-   * The months being appraised — **not** the deadline.
-   *
-   * A half runs January to July and is answered in August, and a period that
-   * could only say when the form was owed left the months it covered to be
-   * inferred from its name. Asked here rather than behind a reveal, because it
-   * is the first line of every appraisal form a person reads: "for the period
-   * January to July 2026".
-   */
+  const timeZone = useOrgTimezone();
+  const today = () => todayIn(timeZone);
+  const [step, setStep] = useState(0);
+  const [year, setYear] = useState(() => Number(todayIn(timeZone).slice(0, 4)));
+  const [preset, setPreset] = useState<PresetId | null>(null);
+  const [custom, setCustom] = useState(false);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
-  /** What to say above question 1, and where the company's guide is. */
-  const [instructions, setInstructions] = useState("");
-  const [guideUrl, setGuideUrl] = useState("");
-  /**
-   * Who the period covers. **Empty is everybody**, and that is the default.
-   *
-   * Asked here rather than on the period screen because the API reads it once,
-   * at activation — the forms are written in that call, so changing the scope
-   * after a period has started moves nobody. Offering it later would be a
-   * control that silently does nothing.
-   */
+  const [name, setName] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [message, setMessage] = useState("");
+  const [wholeCompany, setWholeCompany] = useState(true);
   const [scope, setScope] = useState<string[]>([]);
-  /** Days before the deadline to chase whoever still owes a form. */
-  const [remind, setRemind] = useState("");
-  /** Off by default. Lets a manager add their own questions, scoped to their team. */
-  const [managersCanAddQuestions, setManagersCanAddQuestions] = useState(false);
-  /**
-   * Whether the Owner and the HR manager are appraised in this period.
-   *
-   * Both start off, matching the API's own default rather than this dialog
-   * having an opinion — and two pieces of state rather than one, because the
-   * two are separate decisions. A company that does not appraise the person
-   * who owns it may still want its HR manager appraised.
-   */
-  const [appraiseOwner, setAppraiseOwner] = useState(false);
-  const [appraiseHrManager, setAppraiseHrManager] = useState(false);
-  /**
-   * Field errors and form errors, kept apart.
-   *
-   * One `error` string used to carry both and it was rendered on **What to
-   * call it**, so a failure belonging to the whole form — including a 500 from
-   * `POST /cycles` — appeared under the name field and sent somebody off to
-   * retype a name that was never the problem. A period whose dates were the
-   * wrong way round said so under the name too.
-   *
-   * An error under a label is a claim about that field. If it is not about
-   * that field it belongs above the form, where it does not accuse anything.
-   */
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const [remind, setRemind] = useState(false);
+  const [managersAdd, setManagersAdd] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const fail = (field: string, message: string) => {
-    setErrors({ [field]: message });
-    setFormError(null);
+  const pick = (id: PresetId, forYear: number) => {
+    const dates = presetDates(id, forYear);
+    setPreset(id);
+    setYear(forYear);
+    setPeriodStart(dates.start);
+    setPeriodEnd(dates.end);
+    setName(presetName(id, forYear));
+    setDueDate(defaultDueDate(dates.end, today()));
   };
 
-  const submit = async () => {
-    if (name.trim().length < 3) {
-      fail("name", "Name it: people will see this in their inbox.");
-      return;
-    }
-    /* Both or neither, and in order. Checked here so the answer arrives while
-       the dialog is open rather than as a server refusal after Create — the
-       API enforces the same rule, and these are its own sentences. */
-    if (Boolean(periodStart) !== Boolean(periodEnd)) {
-      fail(
-        "period",
-        "A period needs a start and an end. Set both, or clear both.",
-      );
-      return;
-    }
-    if (periodStart && periodEnd && periodStart > periodEnd) {
-      fail("period", "The period ends before it starts.");
-      return;
-    }
-    if (guideUrl.trim() && !/^https?:\/\//i.test(guideUrl.trim())) {
-      fail("guideUrl", "A guide link has to start with http:// or https://.");
-      return;
-    }
-    setErrors({});
-    setFormError(null);
+  const datesOk =
+    periodStart !== "" && periodEnd !== "" && periodStart <= periodEnd;
+  const canNext =
+    step === 0
+      ? datesOk && name.trim().length >= 3
+      : step === 2
+        ? wholeCompany || scope.length > 0
+        : true;
+
+  const create = async () => {
     setSaving(true);
+    setError(null);
     try {
       const created = await periods.createCycle(
         name.trim(),
         dueDate || undefined,
         {
-          ...(scope.length > 0 ? { departmentIds: scope } : {}),
-          ...(remind ? { remindDaysBefore: Number(remind) } : {}),
-          ...(managersCanAddQuestions ? { managersCanAddQuestions: true } : {}),
-          ...(appraiseOwner ? { appraiseOwner: true } : {}),
-          ...(appraiseHrManager ? { appraiseHrManager: true } : {}),
-          ...(periodStart && periodEnd ? { periodStart, periodEnd } : {}),
-          ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
-          ...(guideUrl.trim() ? { guideUrl: guideUrl.trim() } : {}),
+          periodStart,
+          periodEnd,
+          ...(!wholeCompany && scope.length > 0
+            ? { departmentIds: scope }
+            : {}),
+          ...(remind ? { remindDaysBefore: 3 } : {}),
+          ...(managersAdd ? { managersCanAddQuestions: true } : {}),
+          ...(message.trim() ? { instructions: message.trim() } : {}),
         },
       );
-      onCreated({ id: created.id, name: created.name });
+      /* Questions chosen in the wizard go in now, so the person is not left to
+         find the next step. A failure here does not undo the period: it opens on
+         its questions, where they can be added by hand. */
+      let next: "questions" | "period" = "questions";
+      try {
+        if (questionsFrom === "earlier" && earlier) {
+          await periods.copyQuestions(created.id, earlier.id);
+          next = "period";
+        } else if (questionsFrom === "standard") {
+          await periods.addStandardQuestions(created.id);
+          next = "period";
+        }
+      } catch {
+        next = "period";
+      }
+      onCreated({ id: created.id, name: created.name, next });
     } catch (caught) {
-      /* The whole form, so above the form. `actionMessage` is the one place
-         that turns a thrown thing into a sentence for a write — the API's own
-         words where it wrote them, and never a status code. */
-      setFormError(actionMessage(caught, "the period"));
+      setError(actionMessage(caught, "the period"));
     } finally {
       setSaving(false);
     }
   };
 
+  const next = () => (step === STEPS - 1 ? void create() : setStep(step + 1));
+  const answer = (set: () => void) => {
+    set();
+    setStep((current) => current + 1);
+  };
+
+  const titles = [
+    "Which period is this for?",
+    "When should reviews be in by?",
+    "Is this for the whole company?",
+    "Remind people who haven't finished?",
+    "Can managers add their own questions?",
+    "What should people be asked?",
+  ];
+
   return (
-    <Modal
+    <WizardShell
       open={open}
       onClose={onClose}
-      title="Start an appraisal period"
-      size="sm"
-      footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            variant="accent"
-            loading={saving}
-            onClick={() => void submit()}
-          >
-            Create the period
-          </Button>
-        </>
-      }
+      step={step}
+      total={STEPS}
+      title={titles[step] ?? ""}
+      onBack={() => setStep(step - 1)}
+      onNext={next}
+      canNext={canNext}
+      busy={saving}
+      error={error}
+      nextLabel={step === STEPS - 1 ? "Create period" : "Continue"}
+      hideNext={step === 3 || (step === 2 && wholeCompany) || false}
     >
-      <div className="flex flex-col gap-4">
-        {/* The other door, and only when there is one.
-            ------------------------------------------
-            This dialog is right for somebody who already knows what the period
-            is asking of everybody. The wizard is for the much commoner case
-            where they do not, and it drafts the goals and questions from a
-            description. Absent rather than disabled when no assistant is wired,
-            because that screen would have nothing to do — same rule the Suggest
-            buttons follow. */}
-        {/* A line above the first field, not a tinted pitch with a heading
-            and a paragraph inside a dialog somebody opened to type a name. */}
-        {assistant.available && (
-          <NoticeLine tone="muted">
-            <Link href="/performance/periods/new" className={NOTICE_LINK}>
-              <Sparkles aria-hidden="true" className="mr-1 inline size-3.5" />
-              Draft it from a description
-            </Link>
-            <span>instead, and edit what comes back.</span>
-          </NoticeLine>
-        )}
-
-        {formError && (
-          <Callout tone="danger" title="That period was not created">
-            {formError}
-          </Callout>
-        )}
-
-        <Field
-          label="Period name"
-          required
-          {...(errors["name"] ? { error: errors["name"] } : {})}
-        >
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="H2 2026 appraisal"
-          />
-        </Field>
-        {/* The period first, then the deadline. In that order because that is
-            the order they appear on the form itself, and because a screen that
-            asks for a deadline before it asks what is being appraised invites
-            somebody to put the appraisal months in the deadline box — which is
-            what only having `dueDate` used to force. */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            optional
-            label="Period covered, from"
-            {...(errors["period"] ? { error: errors["period"] } : {})}
-          >
-            <Input
-              type="date"
-              value={periodStart}
-              onChange={(event) => setPeriodStart(event.target.value)}
-            />
-          </Field>
-          <Field optional label="to">
-            <Input
-              type="date"
-              value={periodEnd}
-              onChange={(event) => setPeriodEnd(event.target.value)}
-            />
-          </Field>
-        </div>
-
-        <Field
-          optional
-          label="Answers due by"
-          help="When the form is owed, which is usually after the period ends."
-        >
-          <Input
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </Field>
-
-        {/* Behind a reveal: neither is a blocker, and the summary carries the
-            current answer so nobody has to open it to check. Same rule as the
-            two below — `PARITY.md` Rule 5. */}
-        <Disclosure
-          title="What to tell people"
-          meta={
-            instructions.trim()
-              ? `${String(instructions.trim().split(/\s+/).length)} words`
-              : undefined
-          }
-          hint="Shown above the first question on everybody's form."
-        >
-          <div className="flex flex-col gap-3">
-            <Field optional label="Instructions">
-              <Textarea
-                rows={5}
-                value={instructions}
-                placeholder={
-                  "This is a mandatory mid-year appraisal covering January to July.\n\n" +
-                  "It exists to assess how the half went and agree what the next one is for."
+      {step === 0 && (
+        <>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Previous year"
+              onClick={() =>
+                preset ? pick(preset, year - 1) : setYear(year - 1)
+              }
+              className="inline-flex size-9 items-center justify-center rounded-md text-muted hover:text-ink"
+            >
+              <ChevronLeft aria-hidden="true" className="size-4" />
+            </button>
+            <span className="min-w-12 text-center text-body-md font-medium text-ink">
+              {year}
+            </span>
+            <button
+              type="button"
+              aria-label="Next year"
+              onClick={() =>
+                preset ? pick(preset, year + 1) : setYear(year + 1)
+              }
+              className="inline-flex size-9 items-center justify-center rounded-md text-muted hover:text-ink"
+            >
+              <ChevronRight aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map((one) => (
+              <button
+                key={one.id}
+                type="button"
+                aria-pressed={!custom && preset === one.id}
+                onClick={() => {
+                  setCustom(false);
+                  pick(one.id, year);
+                }}
+                className={
+                  "rounded-full border px-4 py-2 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 " +
+                  (!custom && preset === one.id
+                    ? "border-accent bg-accent-soft text-accent-text"
+                    : "border-line bg-surface text-ink hover:border-accent")
                 }
-                onChange={(event) => setInstructions(event.target.value)}
-              />
-            </Field>
-            <p className="text-meta text-muted">
-              Plain text. Line breaks are kept, so a blank line makes a new
-              paragraph.
-            </p>
-            <Field
-              optional
-              label="A link to your own guide"
-              {...(errors["guideUrl"] ? { error: errors["guideUrl"] } : {})}
+              >
+                {one.label}
+              </button>
+            ))}
+          </div>
+          <Checkbox
+            label="Use custom dates"
+            checked={custom}
+            onChange={(event) => setCustom(event.target.checked)}
+          />
+          {custom && (
+            <div
+              role="group"
+              aria-label="Period dates"
+              className="flex items-center gap-2"
             >
               <Input
-                type="url"
-                inputMode="url"
-                value={guideUrl}
-                placeholder="https://…"
-                onChange={(event) => setGuideUrl(event.target.value)}
+                type="date"
+                aria-label="From"
+                value={periodStart}
+                onChange={(event) => setPeriodStart(event.target.value)}
               />
-            </Field>
-          </div>
-        </Disclosure>
+              <span aria-hidden="true" className="text-muted">
+                –
+              </span>
+              <Input
+                type="date"
+                aria-label="To"
+                value={periodEnd}
+                onChange={(event) => {
+                  setPeriodEnd(event.target.value);
+                  if (periodStart && !dueDate) {
+                    setDueDate(defaultDueDate(event.target.value, today()));
+                  }
+                }}
+              />
+            </div>
+          )}
+          <Field label="Name">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Q4 2026 appraisal"
+            />
+          </Field>
+          {assistant.available && (
+            <Link
+              href="/performance/periods/new"
+              className="inline-flex items-center gap-1 self-start text-body-sm text-accent-text hover:underline"
+            >
+              <Sparkles aria-hidden="true" className="size-3.5" />
+              Draft it from a description
+            </Link>
+          )}
+        </>
+      )}
 
-        {/* Both closed by default. Neither is a blocker — a period with no
-            scope covers everybody and a period with no reminder still works —
-            so `PARITY.md` Rule 5 says they may be behind a reveal. The summary
-            carries the current answer so nobody has to open it to check. */}
-        <Disclosure
-          title="Who it covers"
-          meta={
-            scope.length === 0
-              ? undefined
-              : `${scope.length} department${scope.length === 1 ? "" : "s"}`
-          }
-          hint="Everybody, unless you pick specific departments below."
-        >
-          {departments.flat.length === 0 ? (
-            <p className="text-body-sm text-muted">
-              There are no departments to narrow this to, so it covers
-              everybody.
-            </p>
-          ) : (
+      {step === 1 && (
+        <>
+          <Field label="Due date">
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+            />
+          </Field>
+          <Field label="Message to staff (optional)">
+            <Textarea
+              rows={3}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Shown above the first question"
+            />
+          </Field>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <div className="flex gap-3">
+            <BigChoice
+              selected={wholeCompany}
+              onClick={() => {
+                setWholeCompany(true);
+                setScope([]);
+                setStep(3);
+              }}
+            >
+              Yes
+            </BigChoice>
+            <BigChoice
+              selected={!wholeCompany}
+              onClick={() => setWholeCompany(false)}
+            >
+              No, some departments
+            </BigChoice>
+          </div>
+          {!wholeCompany && (
             <div className="flex flex-col gap-2">
               {departments.flat.map((department) => (
                 <Checkbox
@@ -352,125 +343,86 @@ export function StartPeriodDialog({
                   label={department.name}
                   checked={scope.includes(department.id)}
                   onChange={(event) =>
-                    setScope((current) =>
+                    setScope(
                       event.target.checked
-                        ? [...current, department.id]
-                        : current.filter((id) => id !== department.id),
+                        ? [...scope, department.id]
+                        : scope.filter((id) => id !== department.id),
                     )
                   }
                 />
               ))}
-              {scope.length > 0 && (
-                <p className="text-meta text-muted">
-                  Only people in {scope.length === 1 ? "this" : "these"}{" "}
-                  department{scope.length === 1 ? "" : "s"} get a form. This is
-                  read when you start the period and cannot be changed
-                  afterwards.
-                </p>
-              )}
             </div>
           )}
-        </Disclosure>
+        </>
+      )}
 
-        <Disclosure
-          title="Chase people automatically"
-          meta={
-            remind
-              ? `${remind} day${remind === "1" ? "" : "s"} before`
-              : undefined
-          }
-          hint="One reminder to whoever still owes a form."
-        >
-          <div className="flex flex-col gap-2">
-            <Field optional label="Days before the deadline">
-              <Input
-                type="number"
-                min={1}
-                max={30}
-                inputMode="numeric"
-                className="w-32"
-                value={remind}
-                placeholder="e.g. 3"
-                disabled={!dueDate}
-                onChange={(event) => setRemind(event.target.value)}
-              />
-            </Field>
-            <p className="text-meta text-muted">
-              {dueDate
-                ? "It goes once, to the people who still owe a form, never to anybody who has already sent theirs. One reminder, not one a day: a nudge people learn to ignore takes the real notifications with it."
-                : "Set a due date above first: there is nothing to count back from."}
-            </p>
-          </div>
-        </Disclosure>
+      {step === 3 && (
+        <div className="flex gap-3">
+          <BigChoice
+            selected={remind}
+            onClick={() => answer(() => setRemind(true))}
+          >
+            Yes
+          </BigChoice>
+          <BigChoice
+            selected={!remind}
+            onClick={() => answer(() => setRemind(false))}
+          >
+            No
+          </BigChoice>
+        </div>
+      )}
 
-        <Disclosure
-          title="Let managers add their own questions"
-          meta={managersCanAddQuestions ? "On" : undefined}
-          hint="On top of the standard questions, scoped to their own team."
-        >
-          <Checkbox
-            label="Managers can add role-specific questions to this period"
-            checked={managersCanAddQuestions}
-            onChange={(event) =>
-              setManagersCanAddQuestions(event.target.checked)
-            }
-          />
-          <p className="mt-2 text-meta text-muted">
-            A question a manager adds is only ever asked of their own
-            department, never the whole company. This can be changed later,
-            while the period is still a draft.
-          </p>
-        </Disclosure>
+      {step === 4 && (
+        <div className="flex gap-3">
+          <BigChoice
+            selected={managersAdd}
+            onClick={() => setManagersAdd(true)}
+          >
+            Yes
+          </BigChoice>
+          <BigChoice
+            selected={!managersAdd}
+            onClick={() => setManagersAdd(false)}
+          >
+            No
+          </BigChoice>
+        </div>
+      )}
 
-        {/* Off for both, which is the API's own default and the reason this
-            setting exists: the Owner reports to nobody, so the reporting line
-            has no author to put on their form, and they used to turn up in
-            every period as somebody with no mark and no way out short of
-            archiving them.
-
-            Two checkboxes rather than one, because the two are unrelated
-            decisions — an HR manager is an employee with a manager like
-            anybody else. One control would force the two answers to agree,
-            which is a question nobody asked. */}
-        <Disclosure
-          title="Appraise the Owner and the HR manager"
-          meta={appraiserSummary(appraiseOwner, appraiseHrManager)}
-          hint="Off for both by default. They still appraise their own team either way."
-        >
-          <div className="flex flex-col gap-2">
-            <Checkbox
-              label="Appraise the Owner in this period"
-              checked={appraiseOwner}
-              onChange={(event) => setAppraiseOwner(event.target.checked)}
-            />
-            <Checkbox
-              label="Appraise the HR manager in this period"
-              checked={appraiseHrManager}
-              onChange={(event) => setAppraiseHrManager(event.target.checked)}
-            />
-          </div>
-          <p className="mt-2 text-meta text-muted">
-            This decides whose performance is judged, not who does the judging.
-            Anyone left out here still writes their own team&rsquo;s reviews and
-            signs them off. They just do not get a form of their own, so they
-            are not left with no mark.
-          </p>
-        </Disclosure>
-      </div>
-    </Modal>
+      {step === 5 && (
+        <div className="flex flex-col gap-3">
+          {earlier && (
+            <BigChoice
+              selected={questionsFrom === "earlier"}
+              onClick={() => setSource("earlier")}
+            >
+              Use the questions from {earlier.name}
+            </BigChoice>
+          )}
+          <BigChoice
+            selected={questionsFrom === "standard"}
+            onClick={() => setSource("standard")}
+          >
+            Use our standard questions
+          </BigChoice>
+          <BigChoice
+            selected={questionsFrom === "write"}
+            onClick={() => setSource("write")}
+          >
+            Write them next
+          </BigChoice>
+        </div>
+      )}
+    </WizardShell>
   );
 }
 
 /**
  * What the two settings add up to, in the words the checkboxes use.
  *
- * Written once and read by both surfaces that show this — the dialog that
- * creates a period and the card that edits a draft — so the summary and the
+ * Read by the surfaces that show who is appraised, so the summary and the
  * controls under it cannot come to describe different states.
- *
- * "Nobody" rather than "Off": the setting is about people, and a reader
- * scanning a closed disclosure needs to know who is left out, not which way a
- * switch is pointing.
  */
 export function appraiserSummary(
   owner: boolean,
@@ -485,16 +437,15 @@ export function appraiserSummary(
 /**
  * The button, wherever it is wanted.
  *
- * `variant` defaults to secondary on purpose. This is the page's own action on
- * the performance screens and passes `accent` there; on somebody's record or the
- * dashboard it is one of several things a person might do, and a blue primary on
- * every screen in the product would make none of them read as the suggestion.
+ * `variant` defaults to secondary on purpose: on a person's record or the
+ * dashboard it is one of several things somebody might do. After the period is
+ * made, a success moment offers to open it or to close.
  */
 export function StartPeriodButton({
   variant = "secondary",
   size = "sm",
   block = false,
-  label = "Start an appraisal period",
+  label = "New appraisal period",
   withIcon = false,
 }: {
   variant?: ButtonVariant;
@@ -506,13 +457,12 @@ export function StartPeriodButton({
   const features = useFeatures();
   const canManage = useCan("MANAGE_SETTINGS");
   const router = useRouter();
-  const toast = useToast();
 
   const [open, setOpen] = useState(false);
 
   /* Absent, not disabled. A company that has not turned appraisals on has no
-     business being shown the door to them on its dashboard, and somebody who
-     cannot run one would only find out by clicking. */
+     business being shown the door to them, and somebody who cannot run one
+     would only find out by clicking. */
   if (features.loading || !features.appraisals || !canManage) return null;
 
   return (
@@ -527,19 +477,22 @@ export function StartPeriodButton({
         {label}
       </Button>
 
-      <StartPeriodDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        onCreated={(period) => {
-          setOpen(false);
-          toast.push({
-            title: `${period.name} created`,
-            tone: "success",
-            detail: "Add the questions, then start it.",
-          });
-          router.push(`/performance/periods/${period.id}`);
-        }}
-      />
+      {open && (
+        <StartPeriodDialog
+          open
+          onClose={() => setOpen(false)}
+          onCreated={(period) => {
+            setOpen(false);
+            /* The wizard goes on: to the questions when they still need
+               writing, to the period once they are in. */
+            router.push(
+              period.next === "questions"
+                ? `/performance/periods/${period.id}/questions`
+                : `/performance/periods/${period.id}`,
+            );
+          }}
+        />
+      )}
     </>
   );
 }

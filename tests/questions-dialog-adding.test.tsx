@@ -1030,3 +1030,25 @@ describe("the Subsection picker in All questions", () => {
     expect(onAdd.mock.calls[0]?.[0]).toMatchObject({ competencyId: "c-team" });
   });
 });
+
+describe("a period that has started", () => {
+  const started = { stage: "SELF" } as unknown as Partial<Api>;
+
+  it("offers no way to add a question, and says what can still be done", async () => {
+    mount(started);
+    expect(
+      screen.getByText(/This period has started\. A question can be changed/),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Add question" })).toBeNull();
+    await openSections();
+    expect(
+      screen.queryByRole("button", { name: /Add question to/ }),
+    ).toBeNull();
+  });
+
+  it("still offers everything on a draft", () => {
+    mount({ stage: "DRAFT" } as unknown as Partial<Api>);
+    expect(screen.queryByText(/This period has started/)).toBeNull();
+    expect(addButton()).toBeInTheDocument();
+  });
+});

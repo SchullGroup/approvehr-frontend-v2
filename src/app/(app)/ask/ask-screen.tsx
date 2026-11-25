@@ -1,10 +1,10 @@
 "use client";
 
-import { Badge, Card, CardBody, CardHeader, Spinner } from "@/components/ui";
+import { Spinner } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { NotFoundState } from "@/components/portal/not-found-state";
 import { Ai2Chat } from "@/components/ai/ai2-chat";
 import { useAi2Available } from "@/lib/store/ai2-chat";
-import { useSession } from "@/lib/store/session";
 
 /**
  * The `/ai2` assistant's own page.
@@ -28,8 +28,18 @@ import { useSession } from "@/lib/store/session";
  * path, and not before.
  */
 export function AskScreen() {
-  const { available, loading, model, reason } = useAi2Available();
-  const { isConnected } = useSession();
+  const { available, loading, model } = useAi2Available();
+
+  /* Not there at all until an assistant is answering (UAT 23 Nov, U52,
+     HR-17): a page that only says "not switched on" is a page a customer can
+     do nothing with, reachable only by its address. */
+  if (!loading && !available) {
+    return (
+      <PageBody>
+        <NotFoundState />
+      </PageBody>
+    );
+  }
 
   return (
     <>
@@ -43,10 +53,6 @@ export function AskScreen() {
           </p>
         )}
 
-        {!loading && !available && (
-          <NotWired connected={isConnected} reason={reason} />
-        )}
-
         {/* Renders nothing on its own when no assistant is wired — the check
             above is what puts a sentence in its place, not what makes it safe. */}
         <Ai2Chat />
@@ -58,48 +64,5 @@ export function AskScreen() {
         )}
       </PageBody>
     </>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * No assistant, and why.
- *
- * Two different facts, kept apart. Connected, the API wrote a sentence about its
- * own configuration and it is shown verbatim. Not connected, there is no server
- * to have a configuration — nothing here is switched off, and saying so would
- * send somebody looking for a setting that is not the problem.
- */
-function NotWired({
-  connected,
-  reason,
-}: {
-  connected: boolean;
-  reason: string | null;
-}) {
-  return (
-    <Card>
-      <CardHeader
-        level={2}
-        title="The assistant is not switched on"
-        action={
-          <Badge tone="neutral" size="sm" dot>
-            Off
-          </Badge>
-        }
-      />
-      <CardBody className="flex flex-col items-start gap-3">
-        <p className="text-body-sm text-body">
-          {connected
-            ? (reason ?? "No assistant is connected.")
-            : "There is no server answering, so there is no assistant to ask. This page needs a running API and the records behind it."}
-        </p>
-        <p className="text-body-sm text-muted">
-          Nothing else is affected. Every screen in the product works without
-          it.
-        </p>
-      </CardBody>
-    </Card>
   );
 }

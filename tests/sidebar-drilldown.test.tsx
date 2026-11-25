@@ -252,11 +252,11 @@ describe("the top level", () => {
           .slice(0, -2)
           .filter((l) => l !== "Projects" && l !== "Wellness"),
       );
-      expect(all.slice(0, all.indexOf("Core HR"))).toEqual([
-        "Home",
-        "My approvals",
-        "Assistant",
-      ]);
+      expect(all.slice(0, all.indexOf("Core HR"))).toEqual(
+        who.facts.rows.approvals
+          ? ["Home", "My approvals", "Assistant"]
+          : ["Home", "Assistant"],
+      );
     },
   );
 
@@ -1048,10 +1048,14 @@ describe("the guided tour still has something to point at", () => {
     expect(found('[data-tour="nav-group:settings"]')).toBe(true);
   });
 
-  it("keeps the Approvals link a top-level, tourable link for everybody", () => {
+  it("keeps the Approvals link a top-level, tourable link for everybody who decides something", () => {
     for (const who of PERSONAS) {
       const { unmount } = setup(who);
-      expect(found('[data-tour="nav-item:/approvals"]')).toBe(true);
+      /* Nobody else has the row (UAT 23 Nov, U57), and the tour has no step
+         for them either. */
+      expect(found('[data-tour="nav-item:/approvals"]')).toBe(
+        who.facts.rows.approvals,
+      );
       unmount();
     }
   });

@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { AttentionMark } from "./attention-mark";
+import { InfoTooltip } from "./field";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -24,7 +25,10 @@ export function Card({
      takes the same arguments and produces the identical element at
      runtime, but is typed against `As` directly rather than through JSX's
      library-managed-attributes machinery, so it never hits that collapse. */
+  /* `data-card`: a `FilterBar` inside a card filters that card, so its icon
+     stays in the card rather than moving up into the page header. */
   return createElement(As, {
+    "data-card": "",
     className: cn(
       /* `min-w-0`: a card is very often a grid or flex item, and an item's
          automatic minimum width is its content's. One row with a no-wrap
@@ -43,6 +47,7 @@ export function CardHeader({
   description,
   action,
   mark,
+  info,
   className,
   level = 3,
 }: {
@@ -55,6 +60,12 @@ export function CardHeader({
    * with the sentence behind it, where a banner above the card used to be.
    */
   mark?: string | readonly (string | null | false | undefined)[] | null | false;
+  /**
+   * An explanation that is worth having and not worth reading every visit: a
+   * small info icon right after the title, the sentence behind it. Outside the
+   * heading, so the heading's name stays the title.
+   */
+  info?: string;
   className?: string;
   /** Keeps the document outline correct wherever the card is placed. */
   level?: 2 | 3 | 4;
@@ -82,12 +93,22 @@ export function CardHeader({
             anything this line said. That worked, and it made the size
             invisible to anybody reading the class list, which is how
             `Disclosure` came to be 17px beside it. See `globals.css`. */}
-        <Heading className="text-body-md font-semibold text-ink">
-          {title}
-          {mark && (
-            <AttentionMark text={mark} className="ml-2 -translate-y-px" />
+        <div className="flex items-center gap-2">
+          <Heading className="text-body-md font-semibold text-ink">
+            {title}
+            {mark && (
+              <AttentionMark text={mark} className="ml-2 -translate-y-px" />
+            )}
+          </Heading>
+          {info && (
+            <InfoTooltip
+              label={
+                typeof title === "string" ? `About ${title}` : "About this"
+              }
+              text={info}
+            />
           )}
-        </Heading>
+        </div>
         {description && (
           <p className="mt-1 text-body-sm leading-relaxed text-muted">
             {description}

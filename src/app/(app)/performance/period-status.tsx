@@ -77,6 +77,42 @@ type Segment = {
 };
 
 function segmentsFrom(report: ApiCycleReport | null): Segment[] {
+  /* The API's one set of counts, where it sends them (U103), so this card, the
+     dashboard's and the period page say the same "x of y". */
+  const progress = report?.progress;
+  if (progress) {
+    return [
+      {
+        label: "Self",
+        stage: "SELF",
+        done: progress.self.done,
+        total: progress.self.of,
+        notYet: "Nobody has a form yet",
+      },
+      {
+        label: "Manager",
+        stage: "MANAGER",
+        done: progress.manager.done,
+        total: progress.manager.of,
+        notYet: "No manager review is due yet",
+      },
+      {
+        label: "Scores final",
+        stage: "CALIBRATION",
+        done: progress.finalised.done,
+        total: progress.finalised.of,
+        notYet: "Nobody is in this period yet",
+      },
+      {
+        label: "Signed off",
+        stage: "PUBLISHED",
+        done: progress.acknowledged.done,
+        total: progress.acknowledged.of,
+        notYet: "No score is final yet",
+      },
+    ];
+  }
+  /* An API that predates `progress`. */
   return [
     {
       label: "Self",
@@ -96,7 +132,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       notYet: "No manager review is due yet",
     },
     {
-      label: "Marks final",
+      label: "Scores final",
       stage: "CALIBRATION",
       done: report?.marks.finalised ?? 0,
       total: report?.marks.people ?? 0,
@@ -109,7 +145,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       /* You can only answer a mark you have been told, so the denominator is
          what has been finalised — not the headcount. */
       total: report?.marks.finalised ?? 0,
-      notYet: "No mark is final yet",
+      notYet: "No score is final yet",
     },
   ];
 }
@@ -227,7 +263,12 @@ export function PeriodExceptionNotice({
   const appraisers = useAppraiserMap(canSeeCompany ? cycle.id : null, {
     exceptionsOnly: true,
   });
-  const lines = exceptionLines(appraisers.map?.rows ?? []);
+  /* A period that is over says nothing about who was not appraising: the
+     recorded appraisers are on its map, or "Not recorded" (owner, 24 Nov 2026). */
+  const lines =
+    cycle.stage === "PUBLISHED"
+      ? []
+      : exceptionLines(appraisers.map?.rows ?? []);
 
   if (lines.length === 0) return null;
 
@@ -236,14 +277,26 @@ export function PeriodExceptionNotice({
       {lines.map((line) => (
         <NoticeLine
           key={line.code}
-          tone={line.severity === "BLOCKER" ? "accent" : "warning"}
+          tone={
+            line.code === "NO_APPRAISER"
+              ? "muted"
+              : line.severity === "BLOCKER"
+                ? "accent"
+                : "muted"
+          }
         >
           <span>{line.text}</span>
+          {/* Nobody is left with no appraiser by default: the one fix is to
+              say who heads their department. */}
           <Link
-            href={`/performance/periods/${cycle.id}`}
+            href={
+              line.code === "NO_APPRAISER"
+                ? "/people/departments"
+                : `/performance/periods/${cycle.id}`
+            }
             className={NOTICE_LINK}
           >
-            Fix it
+            {line.code === "NO_APPRAISER" ? "Set a department head" : "Fix it"}
           </Link>
         </NoticeLine>
       ))}

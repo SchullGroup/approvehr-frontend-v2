@@ -1,5 +1,7 @@
 "use client";
 
+import { paysFromWallet } from "@/lib/pay/wallet-payout";
+import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useRef } from "react";
 import { cn } from "@/lib/cn";
 import { Callout, Card, CardBody, CardHeader } from "@/components/ui";
@@ -90,6 +92,7 @@ export function ApproveStep({
   /** Back to the Check step, where the list of what is worth a look lives. */
   onSeeChecks: () => void;
 }) {
+  const { settings: paySettings } = usePayrollSettings();
   const payPanel = useRef<HTMLDivElement>(null);
   const names = new Map(
     run.payslips.map((slip) => [slip.employeeId, slip.name]),
@@ -158,7 +161,11 @@ export function ApproveStep({
             found at the provider is found after the run is approved, the loans
             are settled and the figures are frozen. This never blocks the
             approval, and once approved it is the pay card's business instead. */}
-        {!settled && <WalletStrip run={run} />}
+        {/* Only where the payroll is paid from the wallet: a company paying
+            by bank file was shown a wallet it cannot fund (U30). */}
+        {!settled && paysFromWallet(paySettings.payout.wallet, run) && (
+          <WalletStrip run={run} />
+        )}
 
         <BankRegisterCard run={run} />
       </div>
@@ -217,7 +224,8 @@ export function ApproveStep({
           <Callout tone="warning" title="Somebody else approves this">
             Approving payroll is a separate permission from preparing it, on
             purpose: the person who works out the pay is not the person who
-            releases it.
+            releases it. Press Send for approval when it is ready, and they are
+            told.
           </Callout>
         )}
       </aside>

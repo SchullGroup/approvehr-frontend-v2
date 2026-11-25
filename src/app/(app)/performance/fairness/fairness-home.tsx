@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Scale } from "lucide-react";
 import { Card, EmptyState, LoadState, Select } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -18,7 +19,10 @@ import { FairnessScreen } from "../periods/[id]/fairness/fairness-screen";
  */
 export function FairnessHome() {
   const appraisals = useAppraisals();
-  const [picked, setPicked] = useState<string | null>(null);
+  /* A period's own page links here with `?period=`, so it opens on that one. */
+  const [picked, setPicked] = useState<string | null>(
+    useSearchParams()?.get("period") ?? null,
+  );
 
   /* A draft has no marks to compare, so it is not offered. */
   const choices = appraisals.cycles.filter((cycle) => cycle.stage !== "DRAFT");
@@ -49,7 +53,7 @@ export function FairnessHome() {
               <EmptyState
                 icon={<Scale aria-hidden="true" />}
                 title="No period to check yet"
-                description="The fairness check compares marks once an appraisal period has started."
+                description="The fairness check compares scores once an appraisal period has started."
               />
             </Card>
           </LoadState>

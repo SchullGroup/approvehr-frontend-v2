@@ -1,3 +1,4 @@
+import { SERVED_WITH_APP } from "./app-default";
 import { isRedirectedOffSite } from "./redirected";
 
 /**
@@ -17,6 +18,27 @@ export const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.trim() || null;
 
 /** True when there is a real product to send someone into. */
 export const hasLiveApp = APP_URL !== null;
+
+/**
+ * Where a visitor signs in, and where a new company signs itself up (UAT 23
+ * Nov, U59 / NC-18).
+ *
+ * Self sign-up exists, and nothing on the public pages offered it: every button
+ * went to the demo form, and the pricing page had no Sign in. Served with the
+ * app these are its own routes; with `NEXT_PUBLIC_APP_URL` set they are on that
+ * origin; in the standalone marketing build, with neither, they are `null` and
+ * the pages offer the demo alone.
+ */
+export const SIGN_IN_URL: string | null =
+  APP_URL ?? (SERVED_WITH_APP ? "/dashboard" : null);
+
+export const SIGN_UP_URL: string | null = APP_URL
+  ? /^https?:\/\//.test(APP_URL)
+    ? new URL("/register", APP_URL).toString()
+    : "/register"
+  : SERVED_WITH_APP
+    ? "/register"
+    : null;
 
 /**
  * The signed-in product is a different tab, not a page of this site — closing

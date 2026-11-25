@@ -341,6 +341,7 @@ function OpenWork({ switcher }: { switcher: React.ReactNode }) {
             people.length === 0 &&
             department !== "" && (
               <EmptyState
+                mood="search"
                 icon={<Users />}
                 title="Nobody in that department matches"
                 description="Choose another department, or all departments."

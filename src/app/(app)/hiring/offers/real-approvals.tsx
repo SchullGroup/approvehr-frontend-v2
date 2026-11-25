@@ -26,6 +26,7 @@ import {
 } from "@/lib/store/recruitment";
 import { useState } from "react";
 import { useToast } from "@/components/ui";
+import { candidateHref } from "@/lib/hiring/candidate-href";
 
 /** Real offers waiting on approval — the connected replacement for `Approvals`. */
 export function RealApprovals() {
@@ -44,6 +45,7 @@ export function RealApprovals() {
     return (
       <Card>
         <EmptyState
+          plain
           icon={<TriangleAlert aria-hidden="true" />}
           title="Could not load offers"
           description={error.message}
@@ -61,6 +63,7 @@ export function RealApprovals() {
     return (
       <Card>
         <EmptyState
+          mood="caught-up"
           icon={<Check aria-hidden="true" />}
           title="No offers waiting on you"
           description="Offers appear here once a recruiter has prepared one and needs sign-off."
@@ -136,7 +139,7 @@ function RealOfferCard({
     <Card>
       <CardHeader
         title={
-          <TextLink href={`/hiring/candidates/${application.id}`}>
+          <TextLink href={candidateHref(application.id, "application")}>
             {application.candidateName}
           </TextLink>
         }
@@ -252,7 +255,7 @@ function RealOfferCard({
             </Button>
           )}
           <TextLink
-            href={`/hiring/candidates/${application.id}`}
+            href={candidateHref(application.id, "application")}
             className="ml-auto text-body-sm"
           >
             Read the full record

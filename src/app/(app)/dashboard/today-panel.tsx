@@ -5,13 +5,11 @@ import Link from "next/link";
 import {
   CalendarClock,
   CheckCircle2,
-  ClipboardList,
   Clock,
   Coins,
   Eye,
   EyeOff,
   FileText,
-  ListChecks,
   Megaphone,
   Pin,
   Users,
@@ -50,7 +48,6 @@ import {
 } from "@/lib/api/me";
 import { periodLabel } from "@/lib/api/payroll";
 import { cn } from "@/lib/cn";
-import { TASK_GRADE_LABEL } from "@/lib/performance/task-grade";
 import { useMeToday, type MeToday } from "@/lib/store/me-today";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
@@ -161,7 +158,6 @@ function TodayBody({ today }: { today: MeToday }) {
   const policies = sectionData(sections.policies);
   const pay = sectionData(sections.pay);
   const advance = sectionData(sections.advance);
-  const tasks = sectionData(sections.tasks);
   const oneOnOne = sectionData(sections.oneOnOne);
   const clock = sectionData(sections.clockIn);
 
@@ -331,27 +327,6 @@ function TodayBody({ today }: { today: MeToday }) {
     }
   }
 
-  if (tasks) {
-    todoCount += tasks.needsAttention.length;
-    for (const task of tasks.needsAttention) {
-      todo.push(
-        <TodayRow
-          key={`task-${task.id}`}
-          tone="attention"
-          icon={<ClipboardList />}
-          title={task.goalTitle}
-          titleHref="/performance/review-tasks"
-          detail={task.gradeNote ?? task.description}
-          trailing={
-            <Badge tone="warning" size="sm">
-              {TASK_GRADE_LABEL[task.grade]}
-            </Badge>
-          }
-        />,
-      );
-    }
-  }
-
   if (sectionFailed(sections.clockIn)) {
     todoUnknown = true;
     todo.push(
@@ -465,40 +440,6 @@ function TodayBody({ today }: { today: MeToday }) {
             <WhyNot reason={advance.refusal} />
           ) : undefined
         }
-      />,
-    );
-  }
-
-  if (tasks && tasks.objectives > 0) {
-    const waiting =
-      tasks.awaitingGrade > 0 ? `, ${tasks.awaitingGrade} awaiting grade` : "";
-    glance.push(
-      <TodayRow
-        key="tasks"
-        icon={<ListChecks />}
-        title="Weekly tasks"
-        titleHref="/performance/review-tasks"
-        detail={
-          tasks.loggedThisWeek > 0
-            ? `${tasks.loggedThisWeek} logged${waiting}`
-            : "Nothing logged yet this week"
-        }
-        trailing={
-          <span className="text-meta text-muted">
-            {tasks.week.daysLeft} {tasks.week.daysLeft === 1 ? "day" : "days"}{" "}
-            left
-          </span>
-        }
-      />,
-    );
-  }
-  if (sectionFailed(sections.tasks)) {
-    glance.push(
-      <ErrorRow
-        key="tasks-error"
-        label="Tasks"
-        busy={retrying === "tasks"}
-        onRetry={() => void retry("tasks")}
       />,
     );
   }

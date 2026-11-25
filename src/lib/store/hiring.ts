@@ -1,5 +1,6 @@
 "use client";
 
+import type { CandidateIdKind } from "@/lib/hiring/candidate-href";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, tokens } from "@/lib/api/client";
 import {
@@ -591,27 +592,34 @@ const notThatKind = (error: unknown): boolean =>
 export async function resolveCareersApplication(
   id: string,
   signal?: AbortSignal,
+  /** What the link said the id is (`candidateHref`). Null tries each kind. */
+  kind: CandidateIdKind | null = null,
 ): Promise<{
   detail: ApiApplicationDetail;
   matchedBy: "id" | "email";
 } | null> {
-  try {
-    return {
-      detail: await careersApi.getApplication(id, signal),
-      matchedBy: "id",
-    };
-  } catch (error) {
-    if (!notThatKind(error)) throw error;
+  if (kind === null || kind === "applicant") {
+    try {
+      return {
+        detail: await careersApi.getApplication(id, signal),
+        matchedBy: "id",
+      };
+    } catch (error) {
+      if (!notThatKind(error)) throw error;
+    }
+    if (kind === "applicant") return null;
   }
 
   let who: { candidateId: string; email: string } | null = null;
-  try {
-    const candidate = await recruitmentApi.getCandidate(id, signal);
-    who = { candidateId: candidate.id, email: candidate.email };
-  } catch (error) {
-    if (!notThatKind(error)) throw error;
+  if (kind === null || kind === "candidate") {
+    try {
+      const candidate = await recruitmentApi.getCandidate(id, signal);
+      who = { candidateId: candidate.id, email: candidate.email };
+    } catch (error) {
+      if (!notThatKind(error)) throw error;
+    }
   }
-  if (who === null) {
+  if (who === null && kind !== "candidate") {
     try {
       const pipeline = await recruitmentApi.getApplication(id, signal);
       who = {
@@ -667,7 +675,10 @@ export async function resolveCareersApplication(
  * and it badges each panel from these two fields rather than deciding once for
  * the whole screen.
  */
-export function useApplicantRecord(id: string): ApplicantView {
+export function useApplicantRecord(
+  id: string,
+  kind: CandidateIdKind | null = null,
+): ApplicantView {
   const online = tokens.has();
   const actions = useScreeningActions();
   const card = cardById(id) ?? null;
@@ -699,7 +710,11 @@ export function useApplicantRecord(id: string): ApplicantView {
     let cancelled = false;
     void (async () => {
       try {
-        const found = await resolveCareersApplication(id, controller.signal);
+        const found = await resolveCareersApplication(
+          id,
+          controller.signal,
+          kind,
+        );
         if (!cancelled) {
           setFetched({
             id,
@@ -725,7 +740,7 @@ export function useApplicantRecord(id: string): ApplicantView {
       cancelled = true;
       controller.abort();
     };
-  }, [online, id, attempt, revalidation]);
+  }, [online, id, kind, attempt, revalidation]);
 
   const matched = fetched !== null && fetched.id === id;
   const detail = online ? (matched ? fetched.detail : null) : null;

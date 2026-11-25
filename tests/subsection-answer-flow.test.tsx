@@ -145,7 +145,17 @@ const mount = (over: Partial<ApiReviewDetail> = {}) =>
 const next = (name: string | RegExp) =>
   userEvent.click(screen.getByRole("button", { name }));
 
-const radio = (name: string | RegExp) => screen.getByRole("radio", { name });
+/* A level is a numbered button named "Rating 4, Exceeds Expectations"; a yes
+   or no and a pick keep their own names. */
+const radio = (name: string | RegExp) => {
+  if (typeof name !== "string") return screen.getByRole("radio", { name });
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return (
+    screen.queryByRole("radio", {
+      name: new RegExp(`^Rating \\d+, ${escaped}$`),
+    }) ?? screen.getByRole("radio", { name })
+  );
+};
 
 /** Start, and land on the first question. */
 const toTheQuestion = async () => {

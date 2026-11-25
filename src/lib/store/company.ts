@@ -670,6 +670,26 @@ export function useCompanySettings() {
 
 export type ProfileError = { field: keyof CompanyProfile; message: string };
 
+/** The API's names for fields this form calls something else. */
+const API_FIELD: Record<string, keyof CompanyProfile> = {
+  addressLine: "address",
+  taxState: "state",
+};
+
+/**
+ * The API's own message for each field it refused, under this form's name
+ * for that field (U61). A save refused for the TIN used to say only "Some
+ * fields are not valid" in a toast, with nothing marked. Empty for a refusal
+ * that names no field.
+ */
+export function companyFieldErrors(caught: unknown): ProfileError[] {
+  if (!(caught instanceof ApiError)) return [];
+  return caught.fieldErrors.map((detail) => ({
+    field: API_FIELD[detail.field] ?? (detail.field as keyof CompanyProfile),
+    message: detail.message,
+  }));
+}
+
 /**
  * Checked against what the Corporate Affairs Commission and the tax offices
  * actually accept, so a profile that passes here is one you could file with.

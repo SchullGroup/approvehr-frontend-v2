@@ -310,6 +310,7 @@ export function InterviewsCard({
               key={iv.id}
               interview={iv}
               timeZone={timeZone}
+              now={gateway.now()}
               canManage={canManage}
               busy={busyId === iv.id}
               getFile={getFile}

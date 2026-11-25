@@ -6,7 +6,7 @@ import { kindOf } from "@/lib/api/failure";
 /**
  * What is true for the signed-in person today — `/api/v1/me`.
  *
- * `GET /me/today` is one aggregation endpoint with eight sections, and the types
+ * `GET /me/today` is one aggregation endpoint with nine sections, and the types
  * here are the contract it is built against (`src/modules/me/types.ts` on the API
  * and `docs/superpowers/specs/2026-10-20-today-panel-design.md`). Dates are
  * `YYYY-MM-DD` and mean the **company's** calendar day; instants are ISO 8601 UTC;
@@ -55,6 +55,7 @@ export const TODAY_SECTION_NAMES = [
   "tasks",
   "oneOnOne",
   "clockIn",
+  "birthday",
 ] as const;
 
 export type TodaySectionName = (typeof TODAY_SECTION_NAMES)[number];
@@ -241,6 +242,24 @@ export type ClockInToday = {
   earlierOpen: { date: string; clockIn: string } | null;
 };
 
+/**
+ * The person's own birthday greeting, on the day and only on the day.
+ *
+ * `greeting` is **null on every other day**, and the section is `unavailable`
+ * (`feature_off`, `no_staff_record`) where the company has not switched birthday
+ * greetings on or the account has no employee record. Both mean the same to the
+ * screen: draw nothing.
+ *
+ * It carries no count and nothing about anybody else, and it must never be added
+ * to the to-do figure: a greeting is not a task. The words are the API's, written
+ * from the person's first name and the company's name, and are shown as they
+ * come. There is no date, no year and no age in it, and the client must not work
+ * one out.
+ */
+export type BirthdayToday = {
+  greeting: { title: string; message: string } | null;
+};
+
 export type ApiTodaySections = {
   announcements: TodaySection<AnnouncementsToday>;
   policies: TodaySection<PoliciesToday>;
@@ -250,12 +269,17 @@ export type ApiTodaySections = {
   tasks: TodaySection<TasksToday>;
   oneOnOne: TodaySection<OneOnOneToday>;
   clockIn: TodaySection<ClockInToday>;
+  /**
+   * Optional, unlike the eight above: an API one deploy behind does not send it,
+   * and a missing section is the same as one that does not apply.
+   */
+  birthday?: TodaySection<BirthdayToday>;
 };
 
 export type ApiToday = {
   /** The instant the server answered. */
   asOf: string;
-  /** Only the sections asked for; all eight when none were named. */
+  /** Only the sections asked for; every one when none were named. */
   sections: Partial<ApiTodaySections>;
 };
 
@@ -320,7 +344,7 @@ export const meApi = {
    * The Today panel.
    *
    * `sections` limits the answer to those names, so one card can be refreshed
-   * after the person acts on it. Absent asks for all eight. The query is built
+   * after the person acts on it. Absent asks for every section. The query is built
    * here, once, as the comma-separated list the API reads.
    */
   today(

@@ -49,7 +49,7 @@ export default function DemoPage() {
                 },
                 {
                   title: "Nothing is installed",
-                  body: "No trial account to cancel, no card, no procurement step before you have decided anything.",
+                  body: "No card and no procurement step before you have decided anything.",
                 },
               ].map((item) => (
                 <li key={item.title} className="flex gap-3">

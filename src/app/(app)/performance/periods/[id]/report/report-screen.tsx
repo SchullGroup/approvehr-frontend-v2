@@ -19,7 +19,6 @@ import {
   ColumnChart,
   DescriptionList,
   EmptyState,
-  Stat,
   TBody,
   TD,
   TH,
@@ -33,10 +32,12 @@ import {
 import type { TabItem } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
+  outOf5FromBp,
+  outOf5Label,
   scoreLabel,
+  scoreWords,
   weightedParts,
   weightLabel,
-  weightsFromNote,
   type ApiBandCount,
   type ApiCycleReport,
   type ApiNamedOnList,
@@ -53,9 +54,9 @@ import {
 import { REPORT_TABS, type ReportTabId } from "./tabs";
 
 const REPORT_TAB_ITEMS: TabItem[] = [
-  { id: "marks", label: "Marks" },
+  { id: "marks", label: "Scores" },
   { id: "progress", label: "Forms and sign-off" },
-  { id: "parts", label: "Parts of the mark" },
+  { id: "parts", label: "Parts of the score" },
   { id: "follow-up", label: "To follow up" },
 ];
 
@@ -162,7 +163,7 @@ export function PeriodReportScreen({
              the register of who still owes a form — and "run" is the product's
              word for nothing at all. */
           <ButtonLink size="sm" href={`/performance/periods/${cycleId}`}>
-            See everyone&apos;s marks
+            See everyone&apos;s scores
           </ButtonLink>
         }
       />
@@ -179,9 +180,10 @@ export function PeriodReportScreen({
              for you, and points at the one that is. */
           <Card>
             <EmptyState
+              plain
               icon={<Users aria-hidden="true" />}
               title="This page covers the whole company"
-              description="It shows everyone's marks together, so it is only open to people who can see every employee's record."
+              description="It shows everyone's scores together, so it is only open to people who can see every employee's record."
               action={
                 <ButtonLink href="/performance" variant="secondary">
                   Your own rating
@@ -217,7 +219,6 @@ export function PeriodReportScreen({
 
           {report && report.marks.people > 0 && (
             <>
-              <Headline report={report} />
               {/* Four questions, four tabs: how it came out, what came in, what a
                 mark is made of, and who still needs chasing. They share no row,
                 and stacked they were a 4,600px page. */}
@@ -227,7 +228,10 @@ export function PeriodReportScreen({
                     <>
                       <div className="grid gap-4 lg:grid-cols-2">
                         <DepartmentPerformance register={register.register} />
-                        <TopPerformers register={register.register} />
+                        <TopPerformers
+                          register={register.register}
+                          published={report.published}
+                        />
                       </div>
                       <Distribution report={report} />
                     </>
@@ -237,9 +241,9 @@ export function PeriodReportScreen({
                   {tab === "follow-up" && (
                     <>
                       <NamedList
-                        title="No mark"
-                        description="These people will finish the period with no mark. That is not the same as a mark of 0: nothing was recorded for them."
-                        empty="Everybody in this period has a mark."
+                        title="No score"
+                        description="These people will finish the period with no score. That is not the same as a score of 0: nothing was recorded for them."
+                        empty="Everybody in this period has a score."
                         rows={report.unscored}
                         tone="danger"
                       />
@@ -271,70 +275,6 @@ export function PeriodReportScreen({
 }
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * The four figures somebody opens this screen for.
- *
- * The average is over the marks that exist and its hint says so, because the
- * whole defect this screen is written against is an average quoted beside a
- * headcount it did not come from. With no marks at all it reads "No marks yet"
- * rather than 0%.
- */
-function Headline({ report }: { report: ApiCycleReport }) {
-  const { distribution, marks } = report;
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Stat
-        label="People in this period"
-        value={String(marks.people)}
-        hint="Everyone currently employed"
-      />
-      <Stat
-        label="With a mark"
-        value={`${distribution.scored} of ${marks.people}`}
-        hint={
-          distribution.unscored === 0
-            ? "Everybody has one"
-            : `${distribution.unscored} ${distribution.unscored === 1 ? "person has" : "people have"} no mark`
-        }
-      />
-      <Stat
-        label="Average mark"
-        /* An em dash, not a sentence — the hint already says why. */
-        value={
-          distribution.meanBp === null ? (
-            <span className="text-faint">—</span>
-          ) : (
-            scoreLabel(distribution.meanBp)
-          )
-        }
-        hint={
-          distribution.meanBp === null
-            ? "No marks yet, so there is no average"
-            : `Across the ${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"} given. People with no mark are not counted.`
-        }
-      />
-      <Stat
-        label="Weights used"
-        value={
-          report.weightsFrom === "snapshot"
-            ? "Locked in"
-            : report.weightsFrom === "period"
-              ? "This period's own"
-              : "Company's current"
-        }
-        hint={
-          report.weightsFrom === "period"
-            ? `${weightsFromNote("period")} They lock in when the period starts`
-            : report.weightsFrom === "snapshot"
-              ? `Set when the period started, adding up to ${weightLabel(report.weightsTotalBp)}`
-              : `This period never locked in its own weights, so changing the company's weights would change these marks`
-        }
-      />
-    </div>
-  );
-}
 
 /**
  * One department, added up from the register's own rows.
@@ -377,7 +317,7 @@ function departmentRollups(register: ApiScoreRegister): DepartmentRollup[] {
     .sort((a, b) => (b.meanBp ?? -1) - (a.meanBp ?? -1));
 }
 
-function DepartmentPerformance({
+export function DepartmentPerformance({
   register,
 }: {
   register: ApiScoreRegister | null;
@@ -389,7 +329,7 @@ function DepartmentPerformance({
     <Card>
       <CardHeader
         title="By department"
-        description="Average mark per department, over the people in each who have one."
+        description="Average score per department, over the people in each who have one."
       />
       <CardBody className="p-0">
         {rollups.length === 0 ? (
@@ -399,11 +339,11 @@ function DepartmentPerformance({
         ) : (
           <>
             <div className="hidden sm:block">
-              <TableWrap caption="Average mark, headcount and how many have one, by department">
+              <TableWrap caption="Average score, headcount and how many have one, by department">
                 <THead>
                   <TH>Department</TH>
                   <TH align="right">People</TH>
-                  <TH align="right">With a mark</TH>
+                  <TH align="right">With a score</TH>
                   <TH align="right">Average</TH>
                 </THead>
                 <TBody>
@@ -420,10 +360,10 @@ function DepartmentPerformance({
                       </TD>
                       <TD align="right">
                         {department.meanBp === null ? (
-                          <span className="text-muted">No marks yet</span>
+                          <span className="text-muted">No scores yet</span>
                         ) : (
                           <span className="tabular font-medium text-ink">
-                            {scoreLabel(department.meanBp)}
+                            {outOf5Label(outOf5FromBp(department.meanBp))}
                           </span>
                         )}
                       </TD>
@@ -442,17 +382,17 @@ function DepartmentPerformance({
                   <div className="min-w-0">
                     <p className="font-medium text-ink">{department.name}</p>
                     <p className="tabular text-body-sm text-muted">
-                      {department.scored} of {department.people} with a mark
+                      {department.scored} of {department.people} with a score
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
                     {department.meanBp === null ? (
                       <span className="text-body-sm text-muted">
-                        No marks yet
+                        No scores yet
                       </span>
                     ) : (
                       <span className="tabular font-medium text-ink">
-                        {scoreLabel(department.meanBp)}
+                        {outOf5Label(outOf5FromBp(department.meanBp))}
                       </span>
                     )}
                   </div>
@@ -474,7 +414,14 @@ function DepartmentPerformance({
  * than shown at the bottom: nobody wants to be read as "last" on a list
  * built for the other five names.
  */
-function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
+export function TopPerformers({
+  register,
+  published = false,
+}: {
+  register: ApiScoreRegister | null;
+  /** A published period is over: no "so far" (U96 / PERF-16). */
+  published?: boolean;
+}) {
   if (!register) return null;
   const ranked = register.rows
     .filter((row) => row.scoreBp !== null)
@@ -485,19 +432,23 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
     <Card>
       <CardHeader
         title="Top performers"
-        description="The highest marks in this period so far."
+        description={
+          published
+            ? "The highest scores in this period."
+            : "The highest scores in this period so far."
+        }
       />
       <CardBody className="p-0">
         {ranked.length === 0 ? (
-          <p className="p-4 text-body-sm text-muted">No marks yet.</p>
+          <p className="p-4 text-body-sm text-muted">No scores yet.</p>
         ) : (
           <>
             <div className="hidden sm:block">
-              <TableWrap caption="The five highest marks in this period">
+              <TableWrap caption="The five highest scores in this period">
                 <THead>
                   <TH>Person</TH>
                   <TH>Department</TH>
-                  <TH align="right">Mark</TH>
+                  <TH align="right">Score</TH>
                 </THead>
                 <TBody>
                   {ranked.map((row, index) => (
@@ -513,7 +464,7 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
                       <TD>{row.departmentName ?? "—"}</TD>
                       <TD align="right">
                         <span className="tabular font-medium text-ink">
-                          {scoreLabel(row.scoreBp ?? 0)}
+                          {scoreWords(row)}
                         </span>
                       </TD>
                     </TR>
@@ -538,7 +489,7 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
                     </p>
                   </div>
                   <span className="tabular shrink-0 font-medium text-ink">
-                    {scoreLabel(row.scoreBp ?? 0)}
+                    {scoreWords(row)}
                   </span>
                 </li>
               ))}
@@ -572,17 +523,17 @@ const BAND_FILL: Record<ScoreBand, string> = {
   OUTSTANDING: "var(--color-success-strong)",
 };
 
-function Distribution({ report }: { report: ApiCycleReport }) {
+export function Distribution({ report }: { report: ApiCycleReport }) {
   const { distribution } = report;
 
   return (
     <Card>
       <CardHeader
-        title="The spread of marks"
+        title="The spread of scores"
         description={
           distribution.scored === 0
             ? "Nothing to show yet."
-            : `${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"}, sorted into five bands.`
+            : `${distribution.scored} ${distribution.scored === 1 ? "score" : "scores"}, sorted into five bands.`
         }
       />
       <CardBody className="flex flex-col gap-4">
@@ -593,7 +544,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
             copy — the chart is `aria-hidden`. */}
         {distribution.scored === 0 ? (
           <p className="text-body-sm text-muted">
-            No marks have been given in this period yet, so there is nothing to
+            No scores have been given in this period yet, so there is nothing to
             show.
           </p>
         ) : (
@@ -617,7 +568,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
                only cue: every column carries its count and its band name. */
               tones={distribution.bands.map((band) => BAND_FILL[band.band])}
               format={(n) => `${String(n)}`}
-              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
             />
             <BarChart
               className="sm:hidden"
@@ -627,7 +578,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
               }))}
               tones={distribution.bands.map((band) => BAND_FILL[band.band])}
               format={(n) => `${String(n)}`}
-              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
             />
           </>
         )}
@@ -644,7 +595,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
           <div className="border-t border-line pt-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="text-body-sm font-medium text-ink">
-                No mark · {distribution.unscored}{" "}
+                No score · {distribution.unscored}{" "}
                 {distribution.unscored === 1 ? "person" : "people"}
               </span>
               <Badge tone="neutral" size="sm">
@@ -652,8 +603,8 @@ function Distribution({ report }: { report: ApiCycleReport }) {
               </Badge>
             </div>
             <p className="mt-1 text-meta text-muted">
-              These people sit outside the bands because they have no mark. That
-              is different from a low mark. Their names are further down.
+              These people sit outside the bands because they have no score.
+              That is different from a low score. Their names are further down.
             </p>
           </div>
         )}
@@ -791,7 +742,7 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
                 value: ratio(
                   marks.acknowledged,
                   marks.finalised,
-                  "No mark is final yet",
+                  "No score is final yet",
                 ),
               },
               {
@@ -836,8 +787,8 @@ export function Parts({ report }: { report: ApiCycleReport }) {
   return (
     <Card>
       <CardHeader
-        title="The parts of the mark"
-        description="Each part of the mark, how much it counts for, and who it was left out for and why."
+        title="The parts of the score"
+        description="Each part of the score, how much it counts for, and who it was left out for and why."
         action={
           <ButtonLink size="sm" href="/settings/performance">
             Change the weights
@@ -846,7 +797,7 @@ export function Parts({ report }: { report: ApiCycleReport }) {
       />
       <CardBody className="p-0">
         <div className="hidden sm:block">
-          <TableWrap caption="Each part of the mark across this period">
+          <TableWrap caption="Each part of the score across this period">
             <THead>
               <TH>Part</TH>
               <TH align="right">Weight</TH>
@@ -1056,7 +1007,7 @@ function Disputes({ report }: { report: ApiCycleReport }) {
       <Card>
         <CardHeader
           title="Disputed ratings"
-          description="A dispute is recorded next to the mark. It does not change it."
+          description="A dispute is recorded next to the score. It does not change it."
         />
         <CardBody className="flex items-center gap-2 text-body-sm text-body">
           <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
@@ -1070,7 +1021,7 @@ function Disputes({ report }: { report: ApiCycleReport }) {
     <Card>
       <CardHeader
         title="Disputed ratings"
-        description="The mark stays as it was and the dispute is recorded beside it, so there is always a record of what was decided."
+        description="The score stays as it was and the dispute is recorded beside it, so there is always a record of what was decided."
         action={
           <Badge tone="danger" size="sm" dot>
             {rows.length} {rows.length === 1 ? "dispute" : "disputes"}

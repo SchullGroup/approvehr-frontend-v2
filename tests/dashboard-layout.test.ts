@@ -108,22 +108,13 @@ describe("what moved off the page", () => {
     ).toContain("noticeboard");
   });
 
-  it("does not offer the owner or an administrator a queue tile beside Needs you", () => {
-    for (const tier of ["owner", "admin"] as const) {
-      const ids = sectionsFor(tier, EVERYTHING).flatMap((row) =>
-        row.widgets.map((widget) => widget.id),
-      );
-      expect(ids).toContain("needs-you");
-      expect(ids).not.toContain("my-queue");
-    }
-  });
-
-  it("still gives a member of staff the queue tile, since they have no Needs you", () => {
+  it("gives a member of staff the clock, leave, pay and objectives", () => {
     const ids = sectionsFor("staff", []).flatMap((row) =>
       row.widgets.map((widget) => widget.id),
     );
-    expect(ids).toContain("my-queue");
-    expect(ids).not.toContain("needs-you");
+    for (const id of ["my-clock", "my-leave", "my-pay", "my-objectives"]) {
+      expect(ids).toContain(id);
+    }
   });
 });
 

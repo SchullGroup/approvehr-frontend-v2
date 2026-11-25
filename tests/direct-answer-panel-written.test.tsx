@@ -189,7 +189,7 @@ describe("what an answer recorded on it counts towards", () => {
       show(competency(), { section });
       /* The one sentence says "towards the mark"; these are the lines that quote what
        the section is worth, or warn that it is worth nothing. */
-      expect(screen.queryByText(/of the mark/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/of the score/)).not.toBeInTheDocument();
       expect(screen.queryByText(/recorded (on|here)/)).not.toBeInTheDocument();
       expect(screen.queryByText(/not weighted/)).not.toBeInTheDocument();
       expect(
@@ -202,7 +202,7 @@ describe("what an answer recorded on it counts towards", () => {
     show(competency({ answerKind: "BOOLEAN" }));
     expect(
       screen.getByText(
-        "Behavioural competency is 30% of the mark, and an answer recorded here counts towards it.",
+        "Behavioural competency is 30% of the score, and an answer recorded here counts towards it.",
       ),
     ).toBeInTheDocument();
   });
@@ -300,7 +300,7 @@ describe("asking it on the review form", () => {
     show(competency({ answerKind: "RATING" }));
     await userEvent.selectOptions(askSelect(), "The employee");
     expect(
-      screen.getByText("Their own answer counts towards the mark."),
+      screen.getByText("Their own answer counts towards the score."),
     ).toBeInTheDocument();
   });
 

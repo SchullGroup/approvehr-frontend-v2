@@ -121,19 +121,17 @@ describe("a company with no parts", () => {
     mount();
     expect(screen.getByText("No parts yet")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add the first part" }),
+      screen.getByRole("button", { name: "Add a part" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Delivery against objectives")).toBeNull();
     /* No open boxes on the page until somebody chooses to add or edit. */
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("adds a part with its own name, source, weight and description", async () => {
+  it("adds a part with its own name, source and description, at 0% (its weight is given with the others)", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(
-      screen.getByRole("button", { name: "Add the first part" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Add a part" }));
 
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Name"), "Customer focus");
@@ -141,7 +139,6 @@ describe("a company with no parts", () => {
       within(dialog).getByLabelText("Scored from"),
       "CORE_COMPETENCY",
     );
-    await user.type(within(dialog).getByLabelText("Weight"), "30");
     await user.type(
       within(dialog).getByLabelText(/Description/),
       "How they treat the people we serve.",
@@ -152,7 +149,7 @@ describe("a company with no parts", () => {
     expect(add).toHaveBeenCalledWith({
       name: "Customer focus",
       source: "CORE_COMPETENCY",
-      weightBp: 3000,
+      weightBp: 0,
       description: "How they treat the people we serve.",
     });
   });
@@ -160,11 +157,8 @@ describe("a company with no parts", () => {
   it("will not add a part with no name", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(
-      screen.getByRole("button", { name: "Add the first part" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Add a part" }));
     const dialog = screen.getByRole("dialog");
-    await user.type(within(dialog).getByLabelText("Weight"), "30");
     expect(
       within(dialog).getByRole("button", { name: "Add part" }),
     ).toBeDisabled();
@@ -190,7 +184,9 @@ describe("a company with parts", () => {
     expect(
       screen.getByText("Scored from Delivery against objectives"),
     ).toBeInTheDocument();
-    expect(screen.getByText("60% of a mark")).toBeInTheDocument();
+    /* At a total of 100% the share is the weight, and is said once (L14). */
+    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.queryByText("60% of a score")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Edit Delivery" }),
     ).toBeInTheDocument();
@@ -198,6 +194,15 @@ describe("a company with parts", () => {
       screen.getByRole("button", { name: "Delete Leading people" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("says a part's share where the weights add up to more than 100%", () => {
+    view = viewOf([
+      { id: "p-1", source: "OBJECTIVES", name: "Delivery", weightBp: 6000 },
+      { id: "p-2", source: "LEADERSHIP", name: "Leading", weightBp: 6000 },
+    ]);
+    mount();
+    expect(screen.getAllByText("50% of the score")).toHaveLength(2);
   });
 
   it("does not offer a source another part already uses", async () => {
@@ -223,28 +228,28 @@ describe("a company with parts", () => {
     expect(name).toHaveValue("Delivery");
     await user.clear(name);
     await user.type(name, "Results");
-    const weight = within(dialog).getByLabelText("Weight");
-    await user.clear(weight);
-    await user.type(weight, "55");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
     expect(update).toHaveBeenCalledWith("p-1", {
       name: "Results",
       source: "OBJECTIVES",
-      weightBp: 5500,
       description: null,
     });
   });
 
-  it("deletes a part after asking", async () => {
+  it("deletes a part at 0% after asking", async () => {
     const user = userEvent.setup();
+    view = viewOf([
+      { id: "p-1", source: "OBJECTIVES", name: "Delivery", weightBp: 10000 },
+      { id: "p-2", source: "LEADERSHIP", name: "Leading people", weightBp: 0 },
+    ]);
     mount();
     await user.click(
       screen.getByRole("button", { name: "Delete Leading people" }),
     );
     expect(screen.getByText("Delete Leading people?")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Delete the part" }));
+    await user.click(screen.getByRole("button", { name: "Delete part" }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith("p-2"));
   });
 

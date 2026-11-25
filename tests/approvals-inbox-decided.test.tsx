@@ -64,7 +64,7 @@ vi.mock("@/lib/store/approvals-api", () => ({
 vi.mock("@/lib/permissions", () => ({
   hasAnyPermission: () => true,
   useIsManager: () => true,
-  usePermissions: () => ({ permissions: [] }),
+  usePermissions: () => ({ permissions: new Set(["APPROVE_LEAVE"]) }),
 }));
 
 const { ApprovalInbox } = await import("@/app/(app)/approvals/inbox");
@@ -92,8 +92,8 @@ describe("the Decided view", () => {
     expect(
       within(screen.getByRole("list")).getByText("Approved"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/raised 2026-10-20/i)).toBeInTheDocument();
-    expect(screen.getByText(/decided 2026-10-21/i)).toBeInTheDocument();
+    expect(screen.getByText(/raised 20 Oct 2026/i)).toBeInTheDocument();
+    expect(screen.getByText(/decided 21 Oct 2026/i)).toBeInTheDocument();
   });
 
   it("offers nothing to decide again: a decided row is history", async () => {

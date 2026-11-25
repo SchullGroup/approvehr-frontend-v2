@@ -742,7 +742,7 @@ function ScoredChoiceEditor({
         A score is what a pick is worth, from 0% to 100%. A choice that has been
         picked in a rating keeps its score for good, and its name and its place
         in the list can still change. A choice you take out of the list is
-        archived, not deleted, and marks already given keep the score they were
+        archived, not deleted, and scores already given keep the score they were
         given.
       </p>
     </div>

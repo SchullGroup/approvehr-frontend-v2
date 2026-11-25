@@ -34,7 +34,17 @@ export function ConnectReturn() {
     const error = fragment.get("error") || undefined;
     window.history.replaceState(null, "", window.location.pathname);
 
+    /* Opened without what Trello appends (UAT 23 Nov, CRAWL-4): asking the API
+       with nothing to finish only earned "Some fields are not valid". */
+    const incomplete = !state || (!token && !error);
+
     void (async () => {
+      if (incomplete) {
+        setFailed(
+          "This link is incomplete, so there is nothing to finish. Start the connection again from Integrations.",
+        );
+        return;
+      }
       try {
         const { redirect } = await workTrackersApi.completeToken({
           state,

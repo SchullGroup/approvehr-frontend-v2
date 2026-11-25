@@ -220,6 +220,7 @@ export function RecognitionScreen() {
             setGiving(false);
             list.reload();
           }}
+          onGiven={list.reload}
         />
       )}
 
@@ -466,9 +467,12 @@ const MESSAGE_MAX = 500;
 function GiveDialog({
   onClose,
   onSent,
+  onGiven,
 }: {
   onClose: () => void;
   onSent: () => void;
+  /** Called the moment the API has the kudos, before the dialog closes. */
+  onGiven?: () => void;
 }) {
   const actions = useWellnessActions();
   const { employeeId } = useSession();
@@ -504,6 +508,8 @@ function GiveDialog({
       /* The API has answered with the saved kudos, so "sent" is true. The dialog
          says so itself rather than closing under a toast. */
       setSentTo({ name: recipient?.label ?? "your colleague", shared });
+      /* The list behind the dialog shows it at once, not after Done. */
+      onGiven?.();
     } catch (error) {
       setProblem(
         error instanceof ApiError
@@ -600,10 +606,13 @@ function GiveDialog({
         </Field>
         <Switch
           label="Share on the company feed"
+          /* Follows the switch (UAT 23 Nov, U108: SELF-15). It said "Off, and
+             only you and Ngozi can read it" over a switch that was on, and the
+             kudos went to the company feed. */
           description={
-            recipient
-              ? `Off, and only you and ${recipient.label} can read it.`
-              : "Off, and only you and the person you thank can read it."
+            shared
+              ? "On: everyone in the company can read it."
+              : `Off: only you and ${recipient?.label ?? "the person you thank"} can read it.`
           }
           checked={shared}
           onChange={(event) => setShared(event.target.checked)}

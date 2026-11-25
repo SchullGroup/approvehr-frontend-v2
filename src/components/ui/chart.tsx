@@ -599,11 +599,14 @@ export function DonutChart({
   format = (n) => n.toLocaleString(),
   caption,
   centreLabel,
+  centre,
   className,
 }: {
   points: Point[];
   size?: number;
   thickness?: number;
+  /** A figure drawn in the hole of the ring: the share that matters, large. */
+  centre?: { value: string; label: string };
   format?: (n: number) => string;
   caption: string;
   centreLabel?: string;
@@ -654,37 +657,50 @@ export function DonutChart({
 
   return (
     <figure className={cn("flex items-center gap-5", className)}>
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        role="img"
-        aria-label={caption}
-        className="shrink-0 -rotate-90"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="var(--color-sunken)"
-          strokeWidth={thickness}
-        />
-        {arcs.map((arc, i) => (
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          role="img"
+          aria-label={caption}
+          className="shrink-0 -rotate-90"
+        >
           <circle
-            key={i}
             cx={size / 2}
             cy={size / 2}
             r={r}
             fill="none"
-            stroke={arc.color}
+            stroke="var(--color-sunken)"
             strokeWidth={thickness}
-            strokeDasharray={`${arc.dash} ${circumference - arc.dash}`}
-            strokeDashoffset={-arc.offset}
-            strokeLinecap="butt"
           />
-        ))}
-      </svg>
+          {arcs.map((arc, i) => (
+            <circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={arc.color}
+              strokeWidth={thickness}
+              strokeDasharray={`${arc.dash} ${circumference - arc.dash}`}
+              strokeDashoffset={-arc.offset}
+              strokeLinecap="butt"
+            />
+          ))}
+        </svg>
+        {centre && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 flex flex-col items-center justify-center text-center"
+          >
+            <span className="tabular text-h3 font-semibold text-ink">
+              {centre.value}
+            </span>
+            <span className="text-meta text-muted">{centre.label}</span>
+          </div>
+        )}
+      </div>
 
       <div className="min-w-0">
         {centreLabel && (

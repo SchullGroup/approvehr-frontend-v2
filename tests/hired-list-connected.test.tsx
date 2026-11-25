@@ -159,7 +159,7 @@ describe("what the API says about each row", () => {
     ).toHaveAttribute("href", "/people/emp-1");
     expect(
       within(row("Kemi Sani")).getByRole("link", { name: "Kemi Sani" }),
-    ).toHaveAttribute("href", "/hiring/candidates/pa-a");
+    ).toHaveAttribute("href", "/hiring/candidates/pa-a?kind=application");
   });
 
   it("draws no employee link and no Create button for a company without Core HR, even where the API gave an id", async () => {

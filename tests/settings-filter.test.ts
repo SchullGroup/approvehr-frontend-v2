@@ -58,10 +58,10 @@ describe("what the search says Appraisal scoring is", () => {
     (one) => one.href === "/settings/performance",
   );
 
-  it("says the parts count in proportion to the total, not that they must make 100%", () => {
+  it("says the weights add up to 100% (L14: the owner's one rule)", () => {
     expect(page).toBeDefined();
-    expect(page?.description).toMatch(/in proportion to the total/);
-    expect(page?.description).not.toMatch(/100% exactly|must make 100%/);
+    expect(page?.description).toMatch(/The weights add up to 100%/);
+    expect(page?.description).not.toMatch(/in proportion/);
   });
 
   it("is still found by what it is for", () => {

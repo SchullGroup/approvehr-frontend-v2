@@ -258,6 +258,7 @@ export function MyTasksBoard({
   if (tasks.length === 0) {
     return filtering ? (
       <EmptyState
+        mood="search"
         icon={<ListChecks />}
         title="No tasks match these filters"
         description="Try another search or department, or clear the filters."
@@ -269,6 +270,7 @@ export function MyTasksBoard({
       />
     ) : (
       <EmptyState
+        mood="start"
         icon={<ListChecks />}
         title="Nothing on your list"
         description="Add the first thing you need to do above."

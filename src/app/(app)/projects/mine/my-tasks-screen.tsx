@@ -214,7 +214,6 @@ function Tasks() {
     <>
       <PageHeader
         title="My tasks"
-        description="Everything you have to do: your own list and the tasks you are on in projects."
         action={
           <SegmentedControl<Filter>
             label="Show"
@@ -550,6 +549,7 @@ function Lists({
   /* `done` is the API's: finished in the last 14 company days. */
   const noMatch = (
     <EmptyState
+      mood="search"
       icon={<ListChecks />}
       title="No tasks match these filters"
       description="Try another search or department, or clear the filters."
@@ -590,6 +590,7 @@ function Lists({
     if (overdue.length === 0 && filtering) return noMatch;
     return overdue.length === 0 ? (
       <EmptyState
+        mood="all-clear"
         icon={<ListChecks />}
         title="Nothing overdue"
         description="Everything on your list is on time."
@@ -608,6 +609,7 @@ function Lists({
   if (open.length === 0 && done.length === 0) {
     return (
       <EmptyState
+        mood="start"
         icon={<ListChecks />}
         title="Nothing on your list"
         description="Add the first thing you need to do above."
@@ -891,6 +893,7 @@ function ArchiveList({
   if (rows.length === 0 && !state.hasMore) {
     return (
       <EmptyState
+        mood="search"
         icon={<ListChecks />}
         title={
           q

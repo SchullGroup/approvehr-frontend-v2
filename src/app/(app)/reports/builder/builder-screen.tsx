@@ -1,5 +1,6 @@
 "use client";
 
+import { permissionLabel } from "@/lib/store/permissions";
 import { useEffect, useMemo, useState } from "react";
 import { Play, Save, SearchX, Trash2 } from "lucide-react";
 import {
@@ -32,6 +33,7 @@ import { ApiError } from "@/lib/api/client";
 import { departments } from "@/lib/api/endpoints";
 import { payrollApi } from "@/lib/api/payroll";
 import {
+  codeLabel,
   reportsApi,
   totalNote,
   type ApiCell,
@@ -298,7 +300,8 @@ function DatasetCard({
           reads as a product that does not have it, and then nobody asks. */}
       {!dataset.available && (
         <span className="text-meta text-muted">
-          Needs {dataset.needs.join(", ")}
+          Needs{" "}
+          {dataset.needs.map((key) => `“${permissionLabel(key)}”`).join(" or ")}
         </span>
       )}
     </button>
@@ -398,7 +401,7 @@ function Filters({
               <option value="">{filter.required ? "Choose one" : "Any"}</option>
               {(filter.options ?? []).map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {codeLabel(option)}
                 </option>
               ))}
               {(fetched[filter.optionsFrom ?? ""] ?? []).map((option) => (
@@ -463,6 +466,7 @@ function Result({ result }: { result: ApiReportResult }) {
 
         {result.rows.length === 0 ? (
           <EmptyState
+            mood="search"
             icon={<SearchX aria-hidden="true" />}
             title="Nothing matched"
             description="No rows came back for those filters. That is an empty answer, not a failed one."

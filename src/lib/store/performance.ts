@@ -25,7 +25,6 @@ import {
   type ApiFormQuestion,
   type ApiGap,
   type ApiGoal,
-  type ApiHeatmap,
   type ApiKeyResult,
   type ApiMyReviews,
   type ApiPeerFeedback,
@@ -36,6 +35,7 @@ import {
   type ApiReview,
   type ApiReviewDetail,
   type ApiRevisionRequest,
+  type ApiAppraisalProgress,
   type ApiCycleReport,
   type ApiNineBox,
   type ApiPotentialLevel,
@@ -59,6 +59,7 @@ import {
   type ChoiceOptionBody,
   type CreateGoalBody,
   type UpdateGoalBody,
+  type UpdateKeyResultBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
   type ReviewCycleStage,
@@ -78,6 +79,7 @@ import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 import { useIsManager } from "@/lib/permissions";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { notSwitchedOn } from "@/lib/performance/notify-objectives";
 import { useFetched } from "@/lib/use-fetched";
 
 /**
@@ -90,7 +92,7 @@ import { useFetched } from "@/lib/use-fetched";
  *
  * | | Connected | Demo |
  * |---|---|---|
- * | Read the cascade, the framework, the heatmap, what was said about me | yes | yes, from the seed |
+ * | Read the cascade, the framework, what was said about me | yes | yes, from the seed |
  * | **Update progress on one key result** | yes | **yes, to this browser** |
  * | Answer and send my own review | yes | yes, to this browser |
  * | **Send an objective for approval, agree it, send it back, refuse it, reopen it** | yes | **yes, to this browser** |
@@ -1254,52 +1256,6 @@ function demoGaps(): ApiGap[] {
     );
 }
 
-/** Departments down the side, competencies across the top. Averages in the cells. */
-function demoHeatmap(): ApiHeatmap {
-  const departments = [...new Set(EMPLOYEES.map((e) => e.department))].sort();
-
-  const rows = departments.map((department) => {
-    const people = new Set(
-      EMPLOYEES.filter((e) => e.department === department).map((e) => e.id),
-    );
-    const mine = SEED_RATINGS.filter((r) => people.has(r.employeeId));
-
-    return {
-      departmentId: department,
-      departmentName: department,
-      ratedPeople: new Set(mine.map((r) => r.employeeId)).size,
-      cells: demoCompetencies.map((competency) => {
-        const cell = mine.filter((r) => r.name === competency.name);
-        const average =
-          cell.length === 0
-            ? null
-            : Math.round(
-                (cell.reduce((sum, r) => sum + r.level, 0) / cell.length) * 10,
-              ) / 10;
-        return {
-          competencyId: competency.id,
-          average,
-          rated: cell.length,
-          belowTarget: cell.filter(
-            (r) => r.target !== null && r.level < r.target,
-          ).length,
-        };
-      }),
-    };
-  });
-
-  return {
-    competencies: demoCompetencies.map((c) => ({
-      id: c.id,
-      name: c.name,
-      scaleMax: c.scaleMax,
-      isCore: c.isCore,
-    })),
-    rows: rows.filter((row) => row.ratedPeople > 0),
-    ratedPeople: new Set(SEED_RATINGS.map((r) => r.employeeId)).size,
-  };
-}
-
 const reviewId = (cycleId: string, kind: string) =>
   `${cycleId}-${kind.toLowerCase()}`;
 
@@ -1532,7 +1488,7 @@ export type Source = "api" | "demo";
 export type KpiScope = "mine" | "team" | "company";
 
 export const SCOPE_LABEL: Record<KpiScope, string> = {
-  mine: "My KPIs",
+  mine: "My objectives",
   team: "My team",
   company: "Whole company",
 };
@@ -1576,11 +1532,16 @@ export function useKpis(
          rejected `Promise.all` would throw away the company goals that
          answered — emptying a screen that has plenty to show. Same latent bug,
          one hook along. */
-      const [scoped, company] = await Promise.allSettled([
+      const [scoped, company, own] = await Promise.allSettled([
         scope === "mine"
           ? performanceApi.myGoals({ pageSize: PAGE }, signal)
           : performanceApi.teamGoals({ pageSize: PAGE }, signal),
         performanceApi.goals({ companyOnly: true, pageSize: 50 }, signal),
+        /* A manager's own objectives sit beside their team's (owner, 24 Nov
+           2026), and the team read does not hold them. */
+        scope === "team"
+          ? performanceApi.myGoals({ pageSize: PAGE }, signal)
+          : Promise.resolve(null),
       ]);
 
       /* The company read failing leaves nothing worth rendering, so it throws.
@@ -1589,8 +1550,10 @@ export function useKpis(
       if (company.status === "rejected") throw company.reason;
 
       const mine = scoped.status === "fulfilled" ? scoped.value.data : [];
+      const ownGoals =
+        own.status === "fulfilled" && own.value !== null ? own.value.data : [];
       const seen = new Set<string>();
-      return [...company.value.data, ...mine].filter((goal) => {
+      return [...company.value.data, ...mine, ...ownGoals].filter((goal) => {
         if (seen.has(goal.id)) return false;
         seen.add(goal.id);
         return true;
@@ -1738,7 +1701,7 @@ export function useKpiMutations() {
         },
       ) => {
         guard(
-          "Assigning a KPI needs the API. These are several people's targets, " +
+          "Assigning an objective needs the API. These are several people's targets, " +
             "and ones kept in this browser would never reach their reviews.",
         );
         return performanceApi.assignObjective(parentId, body);
@@ -1746,10 +1709,20 @@ export function useKpiMutations() {
       [guard],
     ),
 
+    /* A target's own fields, changed before it is agreed: the wizard's
+       "Edit and resend" (owner request, 24 Nov 2026). */
+    updateKeyResult: useCallback(
+      async (id: string, body: UpdateKeyResultBody) => {
+        guard("Changing a target needs the API.");
+        return performanceApi.updateKeyResult(id, body);
+      },
+      [guard],
+    ),
+
     addKeyResult: useCallback(
       async (goalId: string, body: CreateKeyResultBody) => {
         guard(
-          "Adding a measure needs the API: the demo book's measures are fixed, " +
+          "Adding a target needs the API: the demo book's targets are fixed, " +
             "but you can move any of their numbers.",
         );
         return performanceApi.addKeyResult(goalId, body);
@@ -1765,7 +1738,7 @@ export function useKpiMutations() {
     confirmMeasure: useCallback(
       async (measureId: string, note?: string) => {
         guard(
-          "Confirming a measure needs the API. It is a manager's word about " +
+          "Confirming a target needs the API. It is a manager's word about " +
             "somebody else's work, and one kept in this browser would never " +
             "reach their review.",
         );
@@ -2519,7 +2492,7 @@ export function useReviewMutations() {
 
 const FINALISE_OFFLINE =
   "Finalising somebody's rating needs the API. It is the one-way door that " +
-  "decides what a person is told their mark is, and it belongs with their " +
+  "decides what a person is told their score is, and it belongs with their " +
   "record rather than in a browser.";
 
 /**
@@ -2969,32 +2942,6 @@ export function useGaps(enabled: boolean): {
   };
 }
 
-/** The department grid. `EDIT_RECORDS` only — an aggregate over everybody. */
-export function useHeatmap(enabled: boolean): {
-  heatmap: ApiHeatmap | null;
-  loading: boolean;
-  error: ApiError | null;
-  reload: () => void;
-} {
-  const { isConnected } = useSession();
-  const load = useCallback(
-    async (signal: AbortSignal) => performanceApi.heatmap(signal),
-    [],
-  );
-  const fetched = useFetched<ApiHeatmap>(
-    "heatmap",
-    enabled && isConnected,
-    load,
-  );
-
-  return {
-    heatmap: isConnected ? fetched.data : enabled ? demoHeatmap() : null,
-    loading: fetched.loading,
-    error: fetched.error,
-    reload: fetched.reload,
-  };
-}
-
 /** The questions on one cycle. `MANAGE_SETTINGS` only. */
 export function useCycleQuestions(cycleId: string | null): {
   questions: ApiQuestion[];
@@ -3172,7 +3119,7 @@ export function useCycleMutations() {
         employeeId: string,
         body: { calibratedBp: number; reason: string },
       ) => {
-        guard("Moving a mark needs the API.");
+        guard("Moving a score needs the API.");
         return performanceApi.calibrate(cycleId, employeeId, body);
       },
       [guard],
@@ -3180,7 +3127,7 @@ export function useCycleMutations() {
 
     clearCalibration: useCallback(
       async (cycleId: string, employeeId: string) => {
-        guard("Putting a mark back needs the API.");
+        guard("Putting a score back needs the API.");
         return performanceApi.clearCalibration(cycleId, employeeId);
       },
       [guard],
@@ -3197,7 +3144,7 @@ export function useCycleMutations() {
       async (
         cycleId: string,
         employeeId: string,
-        body: { level: ApiPotentialLevel; reason: string },
+        body: { level: ApiPotentialLevel; reason?: string },
       ) => {
         guard("Recording potential needs the API.");
         return performanceApi.setPotential(cycleId, employeeId, body);
@@ -3275,6 +3222,7 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;
+          askPotential?: boolean;
           /** Sent independently: one can change without restating the other. */
           appraiseOwner?: boolean;
           appraiseHrManager?: boolean;
@@ -3391,6 +3339,15 @@ export function useCycleMutations() {
       async (id: string) => {
         guard("Publishing results needs the API. It cannot be undone.");
         return performanceApi.closeCycle(id);
+      },
+      [guard],
+    ),
+
+    /** Ask everybody to set their objectives. Connected only. */
+    notifyObjectives: useCallback(
+      async (id: string) => {
+        guard("Asking people to set objectives needs the API.");
+        return performanceApi.notifyObjectives(id);
       },
       [guard],
     ),
@@ -3570,7 +3527,7 @@ export function useTaskActions() {
  * ======================================================================== */
 
 const APPRAISER_OFFLINE =
-  "Who appraises whom needs the API. A mapping is what a mark is defended " +
+  "Who appraises whom needs the API. A mapping is what a score is defended " +
   "with months later, and one kept in this browser would never reach the " +
   "appraisal period it belongs to.";
 
@@ -3695,7 +3652,7 @@ export function useAppraiserMutations() {
 
 const REGISTER_OFFLINE =
   "A period's register needs the API. It is an aggregate over everybody: who " +
-  "owes a form, who has nobody appraising them, and what each person's mark is " +
+  "owes a form, who has nobody appraising them, and what each person's score is " +
   "made of, and one assembled in this browser would describe a period nothing " +
   "else here is running.";
 
@@ -3762,6 +3719,12 @@ export type CycleRegister = {
 export function useCycleRegister(
   cycleId: string | null,
   enabled: boolean,
+  /**
+   * Whether to ask for the revision requests, which need `MANAGE_SETTINGS`:
+   * HR without it got a 403 on every load of the period page (UAT 23 Nov, L11 /
+   * CRAWL-6). Not asked is no list, and the screen offers no revision column.
+   */
+  withRevisions = false,
 ): CycleRegister {
   const { isConnected } = useSession();
   const active = cycleId !== null && enabled && isConnected;
@@ -3780,7 +3743,11 @@ export function useCycleRegister(
          cannot take the other four with it. An abort is not a failure — the
          key changed or the screen went away, and `useFetched` discards the
          answer anyway — so it is re-thrown to keep that path unchanged. */
-      const extra = performanceApi.revisionRequests(id, signal).then(
+      const extra = (
+        withRevisions
+          ? performanceApi.revisionRequests(id, signal)
+          : Promise.resolve([] as ApiRevisionRequest[])
+      ).then(
         (rows) => ({ rows, failed: false }),
         (error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") {
@@ -3800,7 +3767,7 @@ export function useCycleRegister(
         revisionsUnavailable: revisions.failed,
       };
     },
-    [cycleId],
+    [cycleId, withRevisions],
   );
 
   const fetched = useFetched<{
@@ -3810,7 +3777,11 @@ export function useCycleRegister(
     exceptions: ApiAppraiserMap;
     revisionRequests: ApiRevisionRequest[];
     revisionsUnavailable: boolean;
-  }>(`cycle-register|${cycleId ?? "none"}`, active, load);
+  }>(
+    `cycle-register|${cycleId ?? "none"}|${withRevisions ? "r" : "-"}`,
+    active,
+    load,
+  );
 
   /* Nothing is derived offline — see the refusal above — so this is a stable
      constant rather than a computed value, and it never touches state. */
@@ -3966,8 +3937,8 @@ export function useMyAppraisers(
                 "BLOCKER" | "WARNING",
               code: "NO_APPRAISER" as const,
               message: started
-                ? `Nobody is appraising ${name}. They will finish this period with no mark.`
-                : `${name} has no appraiser yet. Starting the period will use their line manager, and they have none.`,
+                ? `${name} has no manager or department head recorded, so HR appraises them.`
+                : `${name} has no manager or department head recorded, so HR will appraise them.`,
             },
           ],
     };
@@ -4114,7 +4085,7 @@ export const BAND_TONE: Record<ScoreBand, BadgeTone> = {
 };
 
 const WEIGHTS_SAVE_OFFLINE =
-  "Saving the weights needs the API. They decide how everybody's mark is put " +
+  "Saving the weights needs the API. They decide how everybody's score is put " +
   "together, and a set kept in this browser would change no score anywhere: a " +
   "settings screen that looks saved and moves nothing is worse than one that " +
   "says it cannot.";
@@ -4139,7 +4110,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
       label: "Delivery against objectives",
       weightBp: 4_000,
     },
-    { component: "TASKS", label: "Weekly tasks", weightBp: 0 },
+    { component: "TASKS", label: "Tasks done", weightBp: 0 },
     {
       component: "CORE_COMPETENCY",
       label: "Core competencies",
@@ -4367,7 +4338,7 @@ const DEMO_PARTS: ApiScoringParts = (() => {
 })();
 
 const PARTS_SAVE_OFFLINE =
-  "Changing the scoring parts needs the API. They decide how everybody's mark " +
+  "Changing the scoring parts needs the API. They decide how everybody's score " +
   "is put together, and parts kept in this browser would change no score.";
 
 /**
@@ -4446,7 +4417,7 @@ export function useScoringParts(): {
 
 const REPORT_OFFLINE =
   "A period report needs the API. A distribution is an aggregate over " +
-  "everybody's mark, and one assembled in this browser would describe a period " +
+  "everybody's score, and one assembled in this browser would describe a period " +
   "nothing else here is running.";
 
 const HISTORY_OFFLINE =
@@ -4575,7 +4546,7 @@ export function useReviewFlag(
 }
 
 const FLAG_DECISION_OFFLINE =
-  "Deciding on a flagged mark needs the API. The decision is part of the period's record.";
+  "Deciding on a flagged score needs the API. The decision is part of the period's record.";
 
 /** "Mark stands" and taking it back. Moving a mark and sending a review back have their own hooks. */
 export function useFlagDecisions() {
@@ -4598,7 +4569,7 @@ export function useFlagDecisions() {
 }
 
 export const FAIRNESS_OFFLINE =
-  "The fairness check needs the API. Its figures are drawn from everybody's mark and records.";
+  "The fairness check needs the API. Its figures are drawn from everybody's score and records.";
 
 export function useCycleFairness(
   cycleId: string,
@@ -4639,7 +4610,7 @@ export function useCycleFairness(
 }
 
 const NINE_BOX_OFFLINE =
-  "A nine-box needs the API. One half of it is every person's mark, which is " +
+  "A nine-box needs the API. One half of it is every person's score, which is " +
   "an aggregate over everybody, and the other half is a judgement somebody " +
   "recorded, a grid assembled in this browser would place people nobody has " +
   "placed.";
@@ -4750,6 +4721,53 @@ export function useScoreHistory(
     error: isConnected ? fetched.error : null,
     available: isConnected,
     refusal: HISTORY_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * The appraisal's steps for one period: the caller's own, the team's, and HR's
+ * totals. An API that does not have the route yet answers 404, which is read as
+ * "nothing here", never as a failure: `unavailable` is true and the screen falls
+ * back to what it always showed.
+ */
+export function useAppraisalProgress(cycleId: string | null): {
+  progress: ApiAppraisalProgress | null;
+  loading: boolean;
+  unavailable: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && isConnected;
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      try {
+        return {
+          progress: await performanceApi.appraisalProgress(
+            cycleId ?? "",
+            signal,
+          ),
+          unavailable: false,
+        };
+      } catch (caught) {
+        if (notSwitchedOn(caught)) {
+          return { progress: null, unavailable: true };
+        }
+        throw caught;
+      }
+    },
+    [cycleId],
+  );
+  const fetched = useFetched<{
+    progress: ApiAppraisalProgress | null;
+    unavailable: boolean;
+  }>(`appraisal-progress|${cycleId ?? "none"}`, active, load);
+  return {
+    progress: fetched.data?.progress ?? null,
+    loading: active ? fetched.loading : false,
+    unavailable: !active || (fetched.data?.unavailable ?? false),
+    error: active ? fetched.error : null,
     reload: fetched.reload,
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/time";
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -13,8 +14,6 @@ import {
   CalendarDays,
   Check,
   ClipboardList,
-  Archive,
-  ArchiveRestore,
   FileText,
   Receipt,
   Undo2,
@@ -49,6 +48,7 @@ import type { ApprovalKind } from "@/lib/mock/workflows";
 import { fullName } from "@/lib/types";
 import {
   isDecidableHere,
+  mayDecideLeave,
   type ApprovalRow as ApiApprovalRow,
 } from "@/lib/api/approvals";
 import {
@@ -57,7 +57,11 @@ import {
   useSentApprovals,
   type QueueFilters,
 } from "@/lib/store/approvals-api";
-import type { QueueItem } from "@/lib/workflows/queue";
+import {
+  leaveFacts,
+  type QueueItem,
+  type QueueLeave,
+} from "@/lib/workflows/queue";
 import {
   hasAnyPermission,
   useIsManager,
@@ -128,7 +132,7 @@ function decidedCopy(
         detail: "The request and the balance behind it are updated.",
       }
     : {
-        title: `${item.title} rejected`,
+        title: `${item.title} declined`,
         detail: "Your reason is kept with the decision.",
       };
 }
@@ -168,18 +172,13 @@ function decidedCopy(
  * this screen.
  */
 export function ApprovalInbox() {
-  const [view, setView] = useState<"waiting" | "decided" | "sent" | "archive">(
-    "waiting",
-  );
+  const [view, setView] = useState<"waiting" | "decided" | "sent">("waiting");
   const [filters, setFilters] = useState<QueueFilters>(START_FILTERS);
   const [declining, setDeclining] = useState<QueueItem | null>(null);
   const [decidedOutcome, setDecidedOutcome] = useState<"approved" | "declined">(
     "approved",
   );
-  const queue = useApprovalQueue({
-    ...filters,
-    archived: view === "archive",
-  });
+  const queue = useApprovalQueue(filters);
   /* The filter changes the request, so `loading` goes true again; once the queue
      has answered, a later read replaces it rather than blanking the controls. */
   const answered = useHasAnswered(queue.loading);
@@ -194,6 +193,9 @@ export function ApprovalInbox() {
   const { permissions } = usePermissions();
   const canApprove =
     isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+  /* A manager is shown the requests routed to them whether or not their role can decide
+     leave, so a leave row has to know if an Approve could ever work for this reader. */
+  const mayDecideLeaveRows = mayDecideLeave(permissions);
 
   const decide = async (
     item: QueueItem,
@@ -270,28 +272,6 @@ export function ApprovalInbox() {
     }
   };
 
-  const archive = async (item: QueueItem, archived: boolean) => {
-    try {
-      await queue.setArchived(item, archived);
-      toast.push({
-        title: archived ? "Put away" : "Back in your inbox",
-        tone: "info",
-        detail: archived
-          ? `${item.title} is in My archive.`
-          : `${item.title} is waiting on you again.`,
-      });
-    } catch (failure) {
-      toast.push({
-        title: archived ? "Could not archive that" : "Could not restore that",
-        tone: "danger",
-        detail:
-          failure instanceof ApiError
-            ? failure.message
-            : "Something went wrong. Try again.",
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
       {/* Which source these decisions are being written to, stated rather than
@@ -321,7 +301,6 @@ export function ApprovalInbox() {
               ? [{ value: "decided" as const, label: "Decided" }]
               : []),
             { value: "sent", label: "Sent by you" },
-            { value: "archive", label: "My archive" },
           ]}
         />
         {(view !== "waiting" || canApprove) && view !== "sent" && (
@@ -347,38 +326,6 @@ export function ApprovalInbox() {
             ]}
           />
           <DecidedApprovalsList state={decidedList} outcome={decidedOutcome} />
-        </>
-      )}
-
-      {view === "archive" && (
-        <>
-          <p className="text-body-sm text-muted">
-            Approvals you put away for later. They are still waiting for a
-            decision, and putting one here changed nothing for anybody else.
-          </p>
-          {queue.items.length === 0 ? (
-            <Card>
-              <EmptyState
-                icon={<Archive aria-hidden="true" />}
-                title="Nothing in your archive"
-                description="Use Archive on an approval you are not ready to decide. It leaves your inbox and waits here."
-              />
-            </Card>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {queue.items.map((item) => (
-                <li key={item.id}>
-                  <ApprovalRow
-                    item={item}
-                    archived
-                    onApprove={() => void decide(item, "approved")}
-                    onReject={() => setDeclining(item)}
-                    onArchive={() => void archive(item, false)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
         </>
       )}
 
@@ -411,9 +358,9 @@ export function ApprovalInbox() {
                   <li key={item.id}>
                     <ApprovalRow
                       item={item}
+                      mayDecideLeave={mayDecideLeaveRows}
                       onApprove={() => void decide(item, "approved")}
                       onReject={() => setDeclining(item)}
-                      onArchive={() => void archive(item, true)}
                     />
                   </li>
                 ))}
@@ -447,9 +394,7 @@ export function ApprovalInbox() {
                             ? "With HR"
                             : decision === "approved"
                               ? "Approved"
-                              : item.kind === "holiday"
-                                ? "Declined"
-                                : "Rejected"}
+                              : "Declined"}
                         </Badge>
                         <span className="min-w-0 flex-1 truncate text-body">
                           {item.title}
@@ -479,6 +424,7 @@ export function ApprovalInbox() {
            something" rather than answering "this is not part of your role." */
           <Card>
             <EmptyState
+              plain
               icon={<Check aria-hidden="true" />}
               title="Nothing for you to approve"
               description="Approving requests is not part of your role here. If that changes, anything routed to you will appear on this screen."
@@ -758,13 +704,13 @@ function SentApprovalRow({
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
             <span>
-              {lead} {row.requestedAt}
+              {lead} {formatDay(row.requestedAt)}
             </span>
             {row.status === "pending" && row.sentTo && (
               <span>Waiting on {row.sentTo}</span>
             )}
             {row.status !== "pending" && row.decidedAt && (
-              <span>Decided {row.decidedAt.slice(0, 10)}</span>
+              <span>Decided {formatDay(row.decidedAt)}</span>
             )}
           </div>
           {row.status === "declined" && row.decisionNote && (
@@ -818,18 +764,22 @@ function WithSourceLinks({ text }: { text: string }) {
 
 function ApprovalRow({
   item,
-  archived = false,
+  mayDecideLeave: mayDecideThisLeave = true,
   onApprove,
   onReject,
-  onArchive,
 }: {
   item: QueueItem;
-  archived?: boolean;
+  /** False when this reader holds no leave-approval permission at all, so the API would
+   *  refuse any decision they made on a leave row. Read only for `leave`. */
+  mayDecideLeave?: boolean;
   onApprove: () => void;
   onReject: () => void;
-  onArchive: () => void;
 }) {
   const ageing = item.waitingDays >= 5;
+  /* A leave row routed to somebody whose role cannot decide leave. The card is shown to
+     whoever the request was routed to (their manager), and the API then refuses every
+     decision: an Approve that can only fail. They are told why, and offered the request. */
+  const cannotDecideLeave = item.kind === "leave" && !mayDecideThisLeave;
   /* Only a seed row knows who raised it. The API's approval row does not carry
      a requester, and its title already names the person it is about, so the
      line is left off rather than filled with a guess. */
@@ -889,6 +839,8 @@ function ApprovalRow({
               item.summary
             )}
           </p>
+          {/* The reason and the balance, for whoever decides it (U22). */}
+          {item.leave && <LeaveFacts leave={item.leave} />}
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
             {requester && (
@@ -899,6 +851,13 @@ function ApprovalRow({
             )}
             <span>Raised {item.requestedAt}</span>
           </div>
+          {cannotDecideLeave && (
+            <p className="mt-2 text-body-sm text-body">
+              You are listed as the approver, but your role does not include
+              approving leave, so a decision from you would be refused. Ask
+              whoever manages roles to give you that permission.
+            </p>
+          )}
         </div>
 
         {item.amount !== undefined && (
@@ -918,7 +877,7 @@ function ApprovalRow({
             now refuses these outright rather than pretend to act. A button
             here would be one that always fails; the real one is one click
             away. */}
-        {isDecidableHere(item.kind) ? (
+        {isDecidableHere(item.kind) && !cannotDecideLeave ? (
           <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
             <Button
               variant="approve"
@@ -931,13 +890,8 @@ function ApprovalRow({
             </Button>
             <Button variant="secondary" size="sm" onClick={onReject}>
               <X aria-hidden="true" className="size-3.5" />
-              {item.kind === "holiday" ? "Decline" : "Reject"}
+              Decline
             </Button>
-            <ArchiveButton
-              item={item}
-              archived={archived}
-              onClick={onArchive}
-            />
           </div>
         ) : (
           <div className="flex w-full shrink-0 gap-2 sm:w-auto">
@@ -947,13 +901,10 @@ function ApprovalRow({
               size="sm"
               className="flex-1 sm:flex-none"
             >
-              Open {item.kindLabel.toLowerCase()}
+              {item.kind === "employment_change"
+                ? "Decide"
+                : `Open ${item.kindLabel.toLowerCase()}`}
             </ButtonLink>
-            <ArchiveButton
-              item={item}
-              archived={archived}
-              onClick={onArchive}
-            />
           </div>
         )}
       </CardBody>
@@ -961,26 +912,18 @@ function ApprovalRow({
   );
 }
 
-/** Put away for later, or bring back. Personal, and never a decision. */
-function ArchiveButton({
-  item,
-  archived,
-  onClick,
-}: {
-  item: QueueItem;
-  archived: boolean;
-  onClick: () => void;
-}) {
-  const Icon = archived ? ArchiveRestore : Archive;
+function LeaveFacts({ leave }: { leave: QueueLeave }) {
+  const { reason, balance } = leaveFacts(leave);
+  if (!reason && !balance) return null;
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      aria-label={`${archived ? "Restore" : "Archive"} ${item.title}`}
-    >
-      <Icon aria-hidden="true" className="size-3.5" />
-      {archived ? "Restore" : "Archive"}
-    </Button>
+    <div className="mt-1 flex flex-col gap-0.5 text-body-sm text-body">
+      {reason && (
+        <p className="break-words">
+          <span className="text-muted">Reason: </span>
+          {reason}
+        </p>
+      )}
+      {balance && <p className="text-muted">{balance}</p>}
+    </div>
   );
 }

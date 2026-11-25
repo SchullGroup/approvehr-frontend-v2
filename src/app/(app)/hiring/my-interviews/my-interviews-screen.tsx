@@ -89,6 +89,7 @@ export function MyInterviewsScreen() {
         {nothing ? (
           <Card>
             <EmptyState
+              mood="waiting"
               icon={<CalendarCheck aria-hidden="true" />}
               title="No interviews are yours yet"
               description="When somebody invites you to score an interview, or makes you the hiring manager for a role, it appears here."

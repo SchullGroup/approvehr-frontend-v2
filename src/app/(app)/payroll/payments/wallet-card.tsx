@@ -2,7 +2,7 @@
 
 import { Landmark } from "lucide-react";
 import { HeroBackdrop, LoadState, Money } from "@/components/ui";
-import { HERO_BLUE } from "@/components/ui/hero-backdrop";
+import { HERO_FROM } from "@/components/ui/hero-backdrop";
 import { naira } from "@/lib/api/payments";
 import { CopyButton } from "@/app/(app)/settings/webhooks";
 
@@ -54,7 +54,7 @@ export function WalletCard({
     <section
       aria-label="Wallet"
       className="relative overflow-hidden rounded-xl text-white shadow-sm"
-      style={{ backgroundColor: HERO_BLUE.from }}
+      style={{ backgroundColor: HERO_FROM }}
     >
       <HeroBackdrop />
       <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:items-stretch sm:justify-between sm:gap-10 sm:p-8">

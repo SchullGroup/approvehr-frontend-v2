@@ -190,6 +190,9 @@ function StepUpDialog({
     try {
       await request("/auth/step-up/verify", {
         method: "POST",
+        /* A wrong code is a 401 about the code: never resent, never a
+           sign-out while the session is good (U10). */
+        codeCheck: true,
         body: {
           challengeId: pending.challengeId,
           ...(useRecovery

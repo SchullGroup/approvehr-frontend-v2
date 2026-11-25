@@ -21,13 +21,13 @@ import type { DirectoryPerson } from "@/lib/types";
  * because "Department objective" without saying which one is half a fact.
  */
 export function rungLabel(goal: ApiGoal): string {
-  if (goal.level === "company") return "Company KPI";
+  if (goal.level === "company") return "Company objective";
   if (goal.level === "department") {
     return goal.departmentName
       ? `${goal.departmentName} objective`
       : "Department objective";
   }
-  return "Personal KPI";
+  return "Personal objective";
 }
 
 export type GoalFacts = {
@@ -35,7 +35,6 @@ export type GoalFacts = {
   progress: number;
   done: boolean;
   canShare: boolean;
-  canLogTasks: boolean;
   noPeriod: boolean;
   /**
    * How many of its measures have been read, or null when that is not worth
@@ -48,18 +47,13 @@ export type GoalFacts = {
 /**
  * `actingId` is the signed-in person's own employee id.
  */
-export function goalFacts(goal: ApiGoal, actingId: string | null): GoalFacts {
+export function goalFacts(goal: ApiGoal): GoalFacts {
   const done = goal.status === "DONE";
   return {
     rung: rungLabel(goal),
     progress: goal.measuredProgress ?? goal.progress,
     done,
     canShare: goal.dueQuarter !== null && goal.keyResults.length > 0,
-    /* Only the goal's own owner may log a task against it — the API's own
-       rule (`submitTask` throws for anybody else) — and only once it is
-       agreed, matching the objective/delivery scoring it feeds. */
-    canLogTasks:
-      !done && goal.approval === "AGREED" && actingId === goal.ownerId,
     /* Nothing to agree against: the API refuses to send an objective that
        belongs to no period, because one agreed for no period cannot be agreed
        before it. */
@@ -116,15 +110,45 @@ export function objectiveWhoseChoices(input: {
   }
   choices.push({ value: "me", label: "Mine" });
 
+  /* "Mine" first, for everybody with a staff record (UAT 23 Nov, U93 /
+     PERF-13). It used to start on a department the person heads, so an
+     employee who also heads Operations opened "New objective" on
+     "Operations, the whole department": a shared target, outside any period,
+     that counted towards nobody's mark. A department or the company is still
+     one pick away. Somebody with no staff record cannot own one, so they start
+     on the widest thing they may set. */
   const headed = departments.find(heads);
   return {
     choices,
-    fallback: headed
-      ? `dept:${headed.id}`
-      : canSetCompanyWide
-        ? "company"
-        : "me",
+    fallback:
+      employeeId !== null
+        ? "me"
+        : canSetCompanyWide
+          ? "company"
+          : headed
+            ? `dept:${headed.id}`
+            : "me",
   };
+}
+
+/**
+ * The appraisal period a new objective or rating starts in (UAT 23 Nov, U93 /
+ * PERF-13).
+ *
+ * Both forms used to start on "Not part of an appraisal period", which is the
+ * one choice that makes the thing count for nothing. So they start on the
+ * period that is open: the one running, if exactly one is, otherwise the only
+ * one not yet published. With several open and none clearly current, nothing is
+ * chosen for the person, because a guess there files a mark in the wrong period.
+ */
+export function defaultPeriodId(
+  periods: readonly { id: string; stage: string }[],
+): string {
+  const open = periods.filter((period) => period.stage !== "PUBLISHED");
+  const running = open.filter((period) => period.stage !== "DRAFT");
+  if (running.length === 1) return running[0]?.id ?? "";
+  if (open.length === 1) return open[0]?.id ?? "";
+  return "";
 }
 
 /* -------------------------------------------------------------------------- */

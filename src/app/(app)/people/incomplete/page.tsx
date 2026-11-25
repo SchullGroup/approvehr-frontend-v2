@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RequirePermission } from "@/components/portal/require-permission";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { IncompleteRecordsScreen } from "./incomplete-records-screen";
 
@@ -19,7 +20,13 @@ export default function IncompleteRecordsPage() {
         ]}
       />
       <PageBody>
-        <IncompleteRecordsScreen />
+        <RequirePermission
+          permission="EDIT_RECORDS"
+          title="You cannot see incomplete records"
+          what="Seeing whose records are missing details"
+        >
+          <IncompleteRecordsScreen />
+        </RequirePermission>
       </PageBody>
     </>
   );

@@ -181,6 +181,7 @@ export function EmployeeFileDrawer({
                 </h3>
                 {outstanding.map((request) => (
                   <RequestRow
+                    showQuery
                     key={request.id}
                     request={request}
                     actions={

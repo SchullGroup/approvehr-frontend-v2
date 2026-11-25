@@ -327,7 +327,8 @@ describe("Projects and Wellness among the modules", () => {
 
   it("draws a plain employee's top level in one stable order", () => {
     expect(rowsOf(groupsFor(persona("employee")))).toEqual([
-      ["Home", "My approvals", "Assistant"],
+      /* No My approvals: an employee decides nobody's requests (U57). */
+      ["Home", "Assistant"],
       MODULES_ROWS,
     ]);
   });
@@ -397,7 +398,8 @@ describe("Projects and Wellness among the modules", () => {
     const rows = rowsOf(off);
     expect(rows.flat()).not.toContain("Wellness");
     expect(rows).toEqual([
-      ["Home", "My approvals", "Assistant"],
+      /* No My approvals: an employee decides nobody's requests (U57). */
+      ["Home", "Assistant"],
       MODULES_ROWS.filter((label) => label !== "Wellness"),
     ]);
     expect(off.some((g) => g.id === "wellness")).toBe(false);
@@ -412,7 +414,8 @@ describe("Projects and Wellness among the modules", () => {
     const rows = rowsOf(off);
     expect(rows.flat()).not.toContain("Projects+");
     expect(rows).toEqual([
-      ["Home", "My approvals", "Assistant"],
+      /* No My approvals: an employee decides nobody's requests (U57). */
+      ["Home", "Assistant"],
       MODULES_ROWS.filter((label) => label !== "Projects+"),
     ]);
     expect(
@@ -585,7 +588,7 @@ describe("Find", () => {
 
   it("ranks an exact label first", () => {
     expect(names("leave")[0]).toBe("Time & Leave › Leave");
-    expect(names("kpis")[0]).toBe("Performance › KPIs");
+    expect(names("kpis")[0]).toBe("Performance › Objectives");
   });
 
   it("answers the synonyms the brief names", () => {
@@ -594,24 +597,24 @@ describe("Find", () => {
     expect(names("hire")[0]).toMatch(/^Recruitment ›/);
     expect(names("laptop")[0]).toBe("Core HR › Equipment");
     expect(names("paye")[0]).toBe("Payroll › Statutory filings");
-    expect(names("permissions")[0]).toBe("Settings › Roles");
+    expect(names("permissions")[0]).toBe("Settings › Access");
   });
 
   it("still finds Projects by the words the module used to speak", () => {
     /* The module says task, cycle, Later and initiative now. Somebody who has
        used a ticket tracker types the old word, and Find still lands on it. */
     for (const old of RETIRED_WORDS) {
-      expect(names(old), `"${old}"`).toContain("Projects › All projects");
+      expect(names(old), `"${old}"`).toContain("Projects › My projects");
     }
-    expect(names("sprint")[0]).toBe("Projects › All projects");
-    expect(names("backlog")[0]).toBe("Projects › All projects");
-    expect(names("epic")[0]).toBe("Projects › All projects");
-    expect(names("story points")[0]).toBe("Projects › All projects");
+    expect(names("sprint")[0]).toBe("Projects › My projects");
+    expect(names("backlog")[0]).toBe("Projects › My projects");
+    expect(names("epic")[0]).toBe("Projects › My projects");
+    expect(names("story points")[0]).toBe("Projects › My projects");
   });
 
   it("finds Projects by the words it speaks now", () => {
     for (const word of ["cycle", "initiative", "problem", "timeline", "task"]) {
-      expect(names(word), `"${word}"`).toContain("Projects › All projects");
+      expect(names(word), `"${word}"`).toContain("Projects › My projects");
     }
   });
 

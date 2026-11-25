@@ -90,19 +90,25 @@ export const DEMO_SURVEY_REASON =
   "version running entirely in this browser could not demonstrate it, and " +
   "seeded answers would be invented opinions attributed to invented staff.";
 
-export function useSurveys() {
+/**
+ * The company's surveys, for whoever runs them. `enabled` is false for
+ * everybody else: the API refuses them the list, and asking anyway logged a
+ * refusal on every visit.
+ */
+export function useSurveys(enabled = true) {
   const { isConnected } = useSession();
-  const outcome = all.use(isConnected ? "all" : null);
+  const asking = isConnected && enabled;
+  const outcome = all.use(asking ? "all" : null);
 
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected || revalidation === 0) return;
+    if (!asking || revalidation === 0) return;
     all.refresh("all");
-  }, [isConnected, revalidation]);
+  }, [asking, revalidation]);
 
   return {
     surveys: outcome?.value ?? [],
-    loading: isConnected && outcome === null,
+    loading: asking && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => all.refresh("all"), []),

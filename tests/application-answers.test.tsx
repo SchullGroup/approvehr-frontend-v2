@@ -302,7 +302,7 @@ describe("a possible duplicate", () => {
     );
     expect(
       within(marker).getByRole("link", { name: "See the earlier one" }),
-    ).toHaveAttribute("href", "/hiring/candidates/earlier-1");
+    ).toHaveAttribute("href", "/hiring/candidates/earlier-1?kind=applicant");
   });
 
   it("copes with not knowing the name", () => {
@@ -346,7 +346,7 @@ describe("consent, source and reference", () => {
     );
     const record = screen.getByTestId("consent-record");
     expect(record).toHaveTextContent(
-      "Agreed to the privacy notice on 2026-10-15",
+      "Agreed to the privacy notice on 15 Oct 2026",
     );
     await user.click(
       within(record).getByRole("button", {

@@ -70,7 +70,7 @@ export function SentScreen({
         focusHeading
         markSize="lg"
         title={title}
-        lead={`${answers}${markWords ? ` and an overall mark of ${markWords}` : ""}, for ${review.cycleName}.`}
+        lead={`${answers}${markWords ? ` and an overall rating of ${markWords}` : ""}, for ${review.cycleName}.`}
         details={details}
         actions={
           appraisals.loading ? undefined : next ? (

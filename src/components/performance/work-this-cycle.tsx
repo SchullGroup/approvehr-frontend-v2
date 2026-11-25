@@ -169,7 +169,7 @@ export function WorkThisCycle({
           </span>
         ) : undefined
       }
-      hint={`Finished on the project boards, ${period}. For reading beside the answers; it does not change the mark.`}
+      hint={`Finished on the project boards, ${period}. For reading beside the answers; it does not change the score.`}
       open={open}
       onToggle={() => setChoice(!open)}
     >
@@ -189,11 +189,7 @@ export function WorkThisCycle({
             work={work}
             timeZone={timeZone}
             flagging={flagging}
-            seeAll={
-              own
-                ? "/performance/work-record"
-                : `/performance/history/${subjectId}`
-            }
+            seeAll={`/performance/history/${subjectId}`}
           />
         )}
         {flagging.dialog}
@@ -363,12 +359,12 @@ export function FlagNote({
     ? null
     : flagging.own
       ? flagging.on
-        ? "If something on this list is not right, say so beside it. It tells whoever reads your work. It does not remove the item or change your mark."
+        ? "If something on this list is not right, say so beside it. It tells whoever reads your work. It does not remove the item or change your score."
         : flagging.any
-          ? "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back. It does not remove the item or change your mark."
+          ? "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back. It does not remove the item or change your score."
           : null
       : flagging.on || flagging.any
-        ? "A flag is the person's own word that an item is not right. It does not remove the item or change the mark."
+        ? "A flag is the person's own word that an item is not right. It does not remove the item or change the score."
         : null;
   if (sentence === null && !flagging.problem) return null;
   return (

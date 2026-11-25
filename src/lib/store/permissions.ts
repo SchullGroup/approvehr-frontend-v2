@@ -324,7 +324,7 @@ const DEMO_COPY: Record<
   VIEW_FAIRNESS: {
     label: "See the fairness check",
     description:
-      "How an appraisal period's marks compare by gender, age, time at the company, location, contract type and department. Group averages only, never one person's.",
+      "How an appraisal period's scores compare by gender, age, time at the company, location, contract type and department. Group averages only, never one person's.",
     section: "people",
   },
   SEE_ALL_WORK: {
@@ -338,6 +338,13 @@ const DEMO_COPY: Record<
     label: "Issue queries",
     description:
       "Write a query to a member of staff, attach files to it, serve it and read every query in the company. A query asks one named person to explain something by a stated time; it changes no pay, no status and no exit.",
+    section: "people",
+    sensitive: true,
+  },
+  DRAFT_QUERIES: {
+    label: "Draft queries",
+    description:
+      "Write the letter of a query about somebody who reports to you, and nothing else: never issue it, extend it, decide it, withdraw it, attach a file or cite a record. HR reviews and issues it. Works only while the company's setting for managers drafting is on.",
     section: "people",
     sensitive: true,
   },
@@ -379,6 +386,17 @@ const DEMO_SOD: {
  * file and the grid read it. Only the words are here, for the same reason the
  * rest of `DEMO_COPY` is: connected, the API's titles win.
  */
+/**
+ * A permission's label for a sentence on a screen ("Needs Edit people"), from the
+ * same copy the role editor shows. The key is returned for one this side does
+ * not know, so nothing reads as blank (UAT 23 Nov, L15: PERF-35).
+ */
+export function permissionLabel(key: string): string {
+  return (
+    (DEMO_COPY as Partial<Record<string, { label: string }>>)[key]?.label ?? key
+  );
+}
+
 const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   people: "People",
   equipment: "Equipment",

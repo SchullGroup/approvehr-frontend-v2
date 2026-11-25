@@ -97,7 +97,7 @@ export function askedOfChoice(
 export const ASKED_CONSEQUENCE: Record<AskedChoice, string | null> = {
   none: null,
   manager: "Recorded when the manager sends their review.",
-  employee: "Their own answer counts towards the mark.",
+  employee: "Their own answer counts towards the score.",
   both: "The manager's answer counts. The employee's is shown beside it.",
 };
 

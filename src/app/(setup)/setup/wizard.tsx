@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { askedQuestions, firstSentence, resumeIndex } from "./questions";
 import Link from "next/link";
 import { ArrowLeft, Check, Lock, MapPin, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -225,11 +226,15 @@ export function SetupWizard() {
   const [savingSplit, setSavingSplit] = useState(false);
   const [splitError, setSplitError] = useState<string | null>(null);
 
-  const total = wizard.questions.length;
-  /* `step` counts answers and is 1-based, so it is already the index of the
-     first unanswered question. Clamped, because a completed wizard reports the
-     total. */
-  const resumeAt = total === 0 ? 0 : Math.min(wizard.step, total - 1);
+  /* Every question but "roles", which a new company could not answer (U58). */
+  const questions = useMemo(
+    () => askedQuestions(wizard.questions),
+    [wizard.questions],
+  );
+  const total = questions.length;
+  /* The first asked question past the company's `step`, or the last one when
+     everything is answered. */
+  const resumeAt = resumeIndex(questions, wizard.step);
   const index = movedTo ?? resumeAt;
   const done =
     phase === "done" || (!wizard.loading && wizard.setupCompletedAt !== null);
@@ -501,7 +506,7 @@ export function SetupWizard() {
     );
   }
 
-  const question = wizard.questions[index];
+  const question = questions[index];
   if (!question) {
     return (
       <Frame nudge={nudge}>
@@ -544,6 +549,8 @@ export function SetupWizard() {
      which is what makes marking its answer honest rather than a default
      dressed up as one. See `chosenOption`. */
   const answered = question.step <= wizard.step;
+  const followUpOpen =
+    awaitingTaxState || awaitingOffice || awaitingSalarySplit;
   const chosen = answered
     ? chosenOption(
         question,
@@ -572,7 +579,9 @@ export function SetupWizard() {
         <p className="mt-3 text-lead text-body">{question.help}</p>
       </div>
 
-      {answered && (
+      {/* Only on a revisit: right after the first answer a follow-up form
+          may still be open, and "answered already" then reads wrong (L36). */}
+      {answered && !followUpOpen && (
         <p className="mt-4 text-body-sm text-muted">
           You answered this already. Pick again to change it.
         </p>
@@ -596,20 +605,33 @@ export function SetupWizard() {
           )}
         >
           {question.options.map((option) => (
-            <OptionButton
-              key={option.value}
-              option={option}
-              chosen={answered && chosen === option.value}
-              busy={busy === option.value}
-              disabled={
-                busy !== null ||
-                finishing ||
-                awaitingTaxState ||
-                awaitingOffice ||
-                awaitingSalarySplit
-              }
-              onSelect={() => void choose(question, option)}
-            />
+            <div key={option.value} className="flex flex-col gap-1.5">
+              <OptionButton
+                option={option}
+                chosen={answered && chosen === option.value}
+                busy={busy === option.value}
+                disabled={
+                  busy !== null ||
+                  finishing ||
+                  awaitingTaxState ||
+                  awaitingOffice ||
+                  awaitingSalarySplit
+                }
+                onSelect={() => void choose(question, option)}
+              />
+              {/* The rest of the API's sentence, outside the button: a
+                disclosure inside a button is not allowed (L36). */}
+              {option.consequence && firstSentence(option.consequence).rest && (
+                <details className="px-1 text-meta text-muted">
+                  <summary className="cursor-pointer font-medium text-accent-text">
+                    More
+                  </summary>
+                  <p className="mt-1 leading-relaxed">
+                    {firstSentence(option.consequence).rest}
+                  </p>
+                </details>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -1079,7 +1101,7 @@ function OptionButton({
       </span>
       {option.consequence && (
         <span className="text-body-sm leading-relaxed text-body">
-          {option.consequence}
+          {firstSentence(option.consequence).first}
         </span>
       )}
     </button>

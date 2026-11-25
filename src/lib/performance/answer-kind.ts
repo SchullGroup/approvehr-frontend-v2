@@ -48,7 +48,7 @@ export const ANSWER_KINDS: readonly AnswerKind[] = [
  * ways, and so that none of them can promise a mark from a paragraph.
  */
 export const WRITTEN_NEVER_COUNTS =
-  "A written answer is read by people and never counts towards the mark.";
+  "A written answer is read by people and never counts towards the score.";
 
 /** What the API means by a subsection that does not say how it is answered. */
 export function answerKindOf(source: KindCarrier): AnswerKind {
@@ -98,9 +98,8 @@ export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
 /**
  * What picking a kind means, in one sentence each.
  *
- * Yes or no and a pick say they have no target and are left out of the gap list
- * and the heatmap, because both are about levels and the API filters them to
- * `RATING`. Said here so HR is not left wondering where a yes-or-no subsection
+ * Yes or no and a pick say they have no target and are left out of the gap list,
+ * because it is about levels and the API filters it to `RATING`. Said here so HR is not left wondering where a yes-or-no subsection
  * went, which is the question that sentence exists to answer. A written answer says
  * the larger thing instead, that it never counts towards the mark, and nobody
  * expects a target or a gap from words.
@@ -108,11 +107,11 @@ export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
 export function kindLine(kind: AnswerKind, scaleMax: number): string {
   switch (kind) {
     case "RATING":
-      return `A level from 1 to ${String(scaleMax)}, with a target if one is set. It shows in the gap list and the heatmap.`;
+      return `A level from 1 to ${String(scaleMax)}, with a target if one is set. It shows in the gap list.`;
     case "BOOLEAN":
-      return "A yes or a no. Yes scores 100% and no scores 0%, with nothing to set. It has no target, so it is left out of the gap list and the heatmap.";
+      return "A yes or a no. Yes scores 100% and no scores 0%, with nothing to set. It has no target, so it is left out of the gap list.";
     case "CHOICE":
-      return "One pick from the list below, and each pick scores what you set for it. It has no target, so it is left out of the gap list and the heatmap.";
+      return "One pick from the list below, and each pick scores what you set for it. It has no target, so it is left out of the gap list.";
     case "TEXT":
       return WRITTEN_NEVER_COUNTS;
   }
@@ -394,18 +393,18 @@ export function directCounts(input: {
   if (input.section === null) {
     return {
       tone: "warning",
-      text: `This subsection is not filed under a section, so ${words.a} recorded on it counts towards no part of the mark.`,
+      text: `This subsection is not filed under a section, so ${words.a} recorded on it counts towards no part of the score.`,
     };
   }
   if (input.section.weightBp === undefined) return null;
   if (input.section.weightBp === null) {
     return {
       tone: "warning",
-      text: `${input.section.name} is not weighted, so ${words.a} recorded on this counts towards no part of the mark.`,
+      text: `${input.section.name} is not weighted, so ${words.a} recorded on this counts towards no part of the score.`,
     };
   }
   return {
     tone: "muted",
-    text: `${input.section.name} is ${weightLabel(input.section.weightBp)} of the mark, and ${words.a} recorded here counts towards it.`,
+    text: `${input.section.name} is ${weightLabel(input.section.weightBp)} of the score, and ${words.a} recorded here counts towards it.`,
   };
 }

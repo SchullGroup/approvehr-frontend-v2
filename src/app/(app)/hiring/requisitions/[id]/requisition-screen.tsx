@@ -108,6 +108,7 @@ export function RequisitionScreen({ id }: { id: string }) {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Lock aria-hidden="true" />}
               title="You cannot see this requisition"
               description="A requisition holds the salary band, the hiring team and every candidate's pipeline record, including their expected salary, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
@@ -241,6 +242,7 @@ function RealRequisitionDetail({ id }: { id: string }) {
       <PageBody>
         <Card>
           <EmptyState
+            plain
             icon={<FileQuestion aria-hidden="true" />}
             title="That requisition is not here"
             description={

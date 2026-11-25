@@ -16,6 +16,8 @@ import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
   defaultClockLocationId,
+  nearestOfficeLine,
+  useHomeLocationId,
   STATUS_LABEL,
   useAttendanceMutations,
   useLastClockLocation,
@@ -176,10 +178,12 @@ function ClockPanel({
   );
 
   const remembered = useLastClockLocation();
+  const home = useHomeLocationId();
   const locationId = defaultClockLocationId(
     locations.locations,
     remembered,
     picked,
+    home,
   );
   const selected = locations.locations.find((l) => l.id === locationId) ?? null;
 
@@ -208,13 +212,18 @@ function ClockPanel({
     } catch (error) {
       const position = error instanceof PositionError ? error : null;
       const fence = geofenceRefusal(error);
+      const nearest = fence
+        ? nearestOfficeLine(error, locations.locations, locationId)
+        : null;
       toast.push({
         title: position?.title ?? fence?.summary ?? "That did not go through",
         tone: "danger",
         detail:
           position?.message ??
           (error instanceof ApiError
-            ? error.message
+            ? nearest
+              ? `${error.message} ${nearest}`
+              : error.message
             : "Something went wrong. Try again."),
       });
     } finally {
@@ -330,7 +339,7 @@ function ClockPanel({
                  the API stops allowing it, and a second copy in the chrome
                  would be a third place that rule could drift. */
               <p className="text-body-sm text-muted">
-                Day complete.{" "}
+                Clocked out.{" "}
                 <Link
                   href="/people/attendance"
                   className="underline underline-offset-2 hover:text-ink"

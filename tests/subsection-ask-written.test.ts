@@ -32,11 +32,11 @@ describe("what choosing it means, for words", () => {
     expect(askedConsequence("none", "TEXT")).toBeNull();
   });
 
-  it("never says an answer counts towards the mark, for any choice", () => {
+  it("never says an answer counts towards the score, for any choice", () => {
     for (const choice of CHOICES) {
       const line = askedConsequence(choice, "TEXT");
       expect(line ?? "").not.toMatch(/counts/i);
-      expect(line ?? "").not.toMatch(/mark/i);
+      expect(line ?? "").not.toMatch(/score/i);
     }
   });
 
@@ -56,9 +56,9 @@ describe("what choosing it means, for every other kind", () => {
     }
   });
 
-  it("still says the employee's own answer counts towards the mark for a level", () => {
+  it("still says the employee's own answer counts towards the score for a level", () => {
     expect(askedConsequence("employee", "RATING")).toBe(
-      "Their own answer counts towards the mark.",
+      "Their own answer counts towards the score.",
     );
     expect(askedConsequence("both", "RATING")).toBe(
       "The manager's answer counts. The employee's is shown beside it.",

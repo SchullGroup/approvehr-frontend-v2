@@ -96,12 +96,12 @@ beforeEach(() => {
 });
 
 describe("when there is nothing to say", () => {
-  it("draws nothing for a task with no mark that this reader may not mark or accept", () => {
+  it("draws nothing for a task with no score that this reader may not score or accept", () => {
     const { container } = mount();
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("draws nothing when the marks are absent and the server said nothing at all", () => {
+  it("draws nothing when the scores are absent and the server said nothing at all", () => {
     const { container } = mount({
       issue: { id: "i1", key: "PLT-12" },
     });
@@ -146,10 +146,10 @@ describe("what is shown", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("never puts a number, a percentage or a score beside either mark", () => {
+  it("never puts a number, a percentage or a score beside either score", () => {
     mount({ issue: task({ wontDo: WONT_DO, accepted: ACCEPTED }) });
     expect(document.body.textContent ?? "").not.toMatch(
-      /%|score|mark of|rank/i,
+      /%|score|score of|rank/i,
     );
   });
 });
@@ -188,7 +188,7 @@ describe("which buttons are drawn", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("follows the server and not the marks: a mark alone offers nothing to a reader who may not", () => {
+  it("follows the server and not the scores: a score alone offers nothing to a reader who may not", () => {
     mount({ issue: task({ accepted: ACCEPTED }), canAccept: false });
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
@@ -245,7 +245,7 @@ describe("accepting", () => {
 });
 
 describe("taking a won't-do back", () => {
-  it("sends the one call, says the task is finished work again, and shows no mark", async () => {
+  it("sends the one call, says the task is finished work again, and shows no score", async () => {
     api.takeBackWontDo.mockResolvedValue(read({}));
     mount({ issue: task({ wontDo: WONT_DO }), canMarkWontDo: true });
     await userEvent.click(
@@ -342,7 +342,7 @@ describe("closing it as won't do", () => {
     expect(within(dialog()).queryByText(/ of 280/)).not.toBeInTheDocument();
   });
 
-  it("sends the trimmed reason once, says it, closes, and shows the mark at once", async () => {
+  it("sends the trimmed reason once, says it, closes, and shows the score at once", async () => {
     api.markWontDo.mockResolvedValue(read({ wontDo: WONT_DO }));
     await open();
     await userEvent.type(field(), "  The customer changed their mind  ");
@@ -503,7 +503,7 @@ describe("what was just answered, once the task has moved and come back", () => 
 
 describe("what a button that writes on one press says", () => {
   const MEANS =
-    "Acceptance says a leader has seen it and it stands. It changes no mark.";
+    "Acceptance says a leader has seen it and it stands. It changes no score.";
 
   it("says what accepting means, in words on the page and not behind a hover", () => {
     mount({ canAccept: true });

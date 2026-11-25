@@ -60,6 +60,10 @@ const facts = (inIt: boolean): NavFacts => ({
     interviews: true,
     "team-tasks": false,
     "master-view": false,
+    approvals: false,
+    "agrees-objectives": false,
+    exits: false,
+    "my-team": false,
   },
 });
 

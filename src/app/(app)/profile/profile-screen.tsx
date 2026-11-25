@@ -42,7 +42,8 @@ import { SessionRoleBadge } from "@/components/portal/role-badge";
 import { permissionsApi, type Catalogue } from "@/lib/api/permissions";
 import { requiresStrongPassword, usePermissions } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
-import { useEmployee } from "@/lib/store/employees-api";
+import { useEmployee, useEmployeeMutations } from "@/lib/store/employees-api";
+import { PayrollStatusCard } from "@/components/people/payroll-status-card";
 import { useEmployeeLeaveBalances } from "@/lib/store/leave-api";
 import { useFeatures } from "@/lib/store/features";
 import { MyLoans } from "@/app/(app)/payroll/loans";
@@ -147,6 +148,7 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
    */
   const record = useEmployee(employeeId ?? "");
   const employee = record.employee;
+  const mutations = useEmployeeMutations();
   /* A staff loan card only belongs here for a company that lends to staff, and
      a rota only for a company that runs one — the same flags that decide
      whether Loans and Shifts are in the nav at all. */
@@ -209,6 +211,7 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
         <PageHeader title="My profile" />
         <PageBody>
           <EmptyState
+            plain
             icon={<UserRound aria-hidden="true" />}
             title="No employee record"
             description="This account is not linked to anyone on the payroll."
@@ -326,6 +329,20 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
 
           {tab === "pay" && (
             <div className="flex flex-col gap-6">
+              {/* Renders nothing unless this person is not paid through payroll,
+                  or the reader may edit records and so may say so. The
+                  company's own administrator is who this is for: they have a
+                  record and no salary. Saved through the HR path, which needs
+                  `EDIT_RECORDS`, so it only ever appears for somebody who holds
+                  it. */}
+              <PayrollStatusCard
+                self
+                employee={employee}
+                onSave={async (patch) => {
+                  await mutations.update(employee.id, patch);
+                  record.reload();
+                }}
+              />
               <div className="grid gap-6 lg:grid-cols-2">
                 <PayCard grossMonthly={employee.grossMonthly} />
                 {/* Renders nothing offline, and nothing on an API that predates

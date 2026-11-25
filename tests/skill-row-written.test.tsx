@@ -23,7 +23,6 @@ vi.mock("@/lib/store/performance", () => ({
   CATEGORY_ORDER: [],
   useSkills: vi.fn(),
   useGaps: vi.fn(),
-  useHeatmap: vi.fn(),
   useRating: vi.fn(),
   useAppraisals: vi.fn(),
   useFramework: vi.fn(),

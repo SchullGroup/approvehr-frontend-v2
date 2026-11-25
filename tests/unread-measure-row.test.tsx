@@ -63,7 +63,7 @@ function show(measure: ApiKeyResult, editable = true) {
   return onRecord;
 }
 
-describe("a measure nobody has read", () => {
+describe("a target nobody has read", () => {
   it("says so, and draws no bar", () => {
     show(number());
     expect(screen.getByText("Not read yet")).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe("a measure nobody has read", () => {
     expect(screen.queryByText(/Now 5/)).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        /No reading yet · target 10 offers · started at 5 offers/,
+        /No reading yet · aiming for 10 offers · started at 5 offers/,
       ),
     ).toBeInTheDocument();
   });
@@ -117,7 +117,7 @@ describe("a measure nobody has read", () => {
   });
 });
 
-describe("a measure somebody has read", () => {
+describe("a target somebody has read", () => {
   const read = (over: Partial<ApiKeyResult> = {}) =>
     number({
       lastReadAt: "2026-10-22T09:00:00.000Z",
@@ -131,7 +131,9 @@ describe("a measure somebody has read", () => {
     expect(screen.queryByText("Not read yet")).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(
-      screen.getByText(/Now 3 offers · target 10 offers · started at 0 offers/),
+      screen.getByText(
+        /Now 3 offers · aiming for 10 offers · started at 0 offers/,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByLabelText("Latest number for Offers accepted"),
@@ -155,7 +157,7 @@ describe("a measure somebody has read", () => {
   });
 });
 
-describe("a measure from a server that does not say", () => {
+describe("a target from a server that does not say", () => {
   it("is not called unread", () => {
     /* An older server sends no `lastReadAt`. Telling its users that nothing
        they track has been read would be a claim about their data. */

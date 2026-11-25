@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/cn";
 import { Input } from "@/components/ui";
 import { sectionKey, useFoldedSections } from "@/lib/store/sidebar-sections";
+import { useAppraisals } from "@/lib/store/performance";
 import type { BadgeSource, NavGroup, NavItem } from "./nav";
 import {
   ROOT,
@@ -583,6 +584,76 @@ const rowBase =
  * looks the same whether it sits at the top level or inside a level.
  */
 function NavLinkRow({
+  item,
+  active,
+  count,
+  onNavigate,
+  drawer,
+}: {
+  item: NavItem;
+  active: boolean;
+  count: number | undefined;
+  onNavigate: () => void;
+  drawer: boolean;
+}) {
+  if (item.needsPeriod) {
+    return (
+      <PeriodGatedRow
+        item={item}
+        active={active}
+        count={count}
+        onNavigate={onNavigate}
+        drawer={drawer}
+      />
+    );
+  }
+  return (
+    <PlainNavLinkRow
+      item={item}
+      active={active}
+      count={count}
+      onNavigate={onNavigate}
+      drawer={drawer}
+    />
+  );
+}
+
+/**
+ * A row for a page that is about an appraisal period. Until the company has one
+ * it is dimmed, not a link, and says when it opens.
+ */
+function PeriodGatedRow(props: {
+  item: NavItem;
+  active: boolean;
+  count: number | undefined;
+  onNavigate: () => void;
+  drawer: boolean;
+}) {
+  const appraisals = useAppraisals();
+  const waiting =
+    !appraisals.loading && !appraisals.error && appraisals.cycles.length === 0;
+  if (!waiting) return <PlainNavLinkRow {...props} />;
+  return (
+    <span
+      aria-disabled="true"
+      title="Opens once your first appraisal starts."
+      className={cn(
+        rowBase,
+        props.drawer ? "min-h-11 py-2.5" : "py-2",
+        "cursor-default text-faint",
+      )}
+    >
+      <span aria-hidden="true" className="shrink-0 [&>svg]:size-4">
+        {props.item.icon}
+      </span>
+      <span data-nav-label="" className="min-w-0 flex-1 truncate">
+        {props.item.label}
+      </span>
+    </span>
+  );
+}
+
+function PlainNavLinkRow({
   item,
   active,
   count,

@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
-import { ReviewTasksScreen } from "./review-tasks-screen";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Weekly tasks",
-  description:
-    "Log what you did toward your objectives, and grade what your team did.",
-};
-
-export default function PerformanceReviewTasksPage() {
-  return <ReviewTasksScreen />;
+/**
+ * Weekly tasks are not a page of Performance any more (owner, 24 Nov 2026):
+ * work is tracked in Projects and linked to an objective. An old link lands on
+ * Performance.
+ */
+export default function ReviewTasksPage() {
+  redirect("/performance");
 }

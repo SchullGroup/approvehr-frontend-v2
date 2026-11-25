@@ -102,6 +102,7 @@ export function BankAccountsScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<Landmark aria-hidden="true" />}
               title="Bank accounts are not part of your access"
               description="Where salary money leaves from is a settings decision. Ask whoever manages settings if you need it."
@@ -323,6 +324,7 @@ export function BankAccountsScreen() {
             </CardBody>
           ) : accounts.accounts.length === 0 ? (
             <EmptyState
+              plain={unread}
               icon={<Landmark aria-hidden="true" />}
               title={
                 unread

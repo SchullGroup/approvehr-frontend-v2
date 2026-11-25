@@ -610,55 +610,14 @@ describe("a book bigger than one request", () => {
   });
 });
 
-describe("the one line under the title", () => {
-  it("says what is owed and what comes out of this month's payroll", () => {
+describe("under the title", () => {
+  it("has no owed-and-payroll summary line", () => {
     show();
 
-    const line = screen.getByText(/still owed across/);
-    expect(line).toHaveTextContent(
-      "₦3,125,000.00 still owed across 19 loans · ₦622,857.12 comes out of this month’s payroll",
-    );
-  });
-
-  it("says what was carried from a short month, when something was", () => {
-    world.summary = summary({
-      thisMonth: {
-        deductionKobo: N(622_857.12),
-        instalmentCount: 15,
-        arrearsKobo: N(21_428.57),
-      },
-    });
-    show();
-
-    expect(screen.getByText(/still owed across/)).toHaveTextContent(
-      "comes out of this month’s payroll, including ₦21,428.57 carried from a short month",
-    );
-  });
-
-  it("is a line, not three cards, and does not repeat the Waiting count", () => {
-    show();
-
+    expect(screen.queryByText(/still owed across/)).toBeNull();
+    expect(screen.queryByText(/comes out of this month/)).toBeNull();
+    expect(screen.queryByText("No loan is being repaid right now.")).toBeNull();
     expect(screen.queryByText("Waiting for a decision")).toBeNull();
-    expect(screen.queryByText("Still owed to the company")).toBeNull();
-    expect(screen.queryByText("Coming out of this month's payroll")).toBeNull();
-  });
-
-  it("says one loan, not one loans", () => {
-    world.summary = summary({ activeCount: 1 });
-    show();
-
-    expect(screen.getByText(/still owed across/)).toHaveTextContent(
-      "across 1 loan ·",
-    );
-  });
-
-  it("says so when nothing is being repaid, rather than printing zeros", () => {
-    world.summary = summary({ activeCount: 0, outstandingKobo: 0 });
-    show();
-
-    expect(
-      screen.getByText("No loan is being repaid right now."),
-    ).toBeVisible();
   });
 });
 
@@ -729,7 +688,6 @@ describe("somebody who cannot see the book", () => {
 
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("button", { name: /loans$/ })).toBeNull();
-    expect(screen.queryByText(/still owed across/)).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
   });
 

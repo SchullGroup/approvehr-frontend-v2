@@ -90,11 +90,11 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-describe("where the company does not ask for an overall mark", () => {
-  it("goes from the introduction to the note, with no page for a mark", async () => {
+describe("where the company does not ask for an overall rating", () => {
+  it("goes from the introduction to the note, with no page for a score", async () => {
     mount({ overallMark: false });
     await next("Start");
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Is there an overall rating?")).toBeNull();
     expect(heading("Anything to add?")).toBeInTheDocument();
   });
 
@@ -102,21 +102,21 @@ describe("where the company does not ask for an overall mark", () => {
     /* An API one deploy behind sends no key. Absent is not yes. */
     mount();
     await next("Start");
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Is there an overall rating?")).toBeNull();
   });
 
-  it("has no overall mark on the preview, and sends none", async () => {
+  it("has no overall rating on the preview, and sends none", async () => {
     mount({ overallMark: false });
     await next("Start");
     await next("Skip");
     expect(heading("Preview")).toBeInTheDocument();
-    expect(screen.queryByText(/overall mark/i)).toBeNull();
+    expect(screen.queryByText(/overall rating/i)).toBeNull();
     await next("Send it");
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
     expect(send).toHaveBeenCalledWith("r1", {}, []);
   });
 
-  it("ignores a mark left in the browser from before the setting moved", async () => {
+  it("ignores a score left in the browser from before the setting moved", async () => {
     window.localStorage.setItem(
       "ahr:review-draft:r1",
       JSON.stringify({ mark: "4", summary: "", step: 0 }),
@@ -140,16 +140,16 @@ describe("where the company does not ask for an overall mark", () => {
       />,
     );
     await next("Start");
-    expect(heading("Is there an overall mark?")).toBeNull();
+    expect(heading("Is there an overall rating?")).toBeNull();
     expect(heading("Anything to add?")).toBeInTheDocument();
   });
 });
 
-describe("where the company asks for an overall mark", () => {
+describe("where the company asks for an overall rating", () => {
   it("puts the page between the questions and the note, optional", async () => {
     mount({ overallMark: true });
     await next("Start");
-    expect(heading("Is there an overall mark?")).toBeInTheDocument();
+    expect(heading("Is there an overall rating?")).toBeInTheDocument();
     expect(
       screen.getByText("Optional. Leave it if the answers say enough."),
     ).toBeInTheDocument();
@@ -163,14 +163,14 @@ describe("where the company asks for an overall mark", () => {
     await next("Skip");
     await next("Skip");
     expect(heading("Preview")).toBeInTheDocument();
-    expect(screen.getByText("No overall mark")).toBeInTheDocument();
+    expect(screen.getByText("No overall rating")).toBeInTheDocument();
     await next("Send it");
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
     const body = (send.mock.calls[0] as unknown[])[1] as { rating?: number };
     expect(body).not.toHaveProperty("rating");
   });
 
-  it("sends the mark that was picked, as its number, and says so on the preview", async () => {
+  it("sends the score that was picked, as its number, and says so on the preview", async () => {
     const { onSent } = mount({ overallMark: true });
     await next("Start");
     await userEvent.click(
@@ -178,7 +178,7 @@ describe("where the company asks for an overall mark", () => {
     );
     await next("Next");
     await next("Skip");
-    expect(screen.getByText("Overall mark")).toBeInTheDocument();
+    expect(screen.getByText("Overall rating")).toBeInTheDocument();
     expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
     await next("Send it");
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
@@ -186,19 +186,19 @@ describe("where the company asks for an overall mark", () => {
     expect(onSent).toHaveBeenCalledWith({ answered: 0, mark: "4" });
   });
 
-  it("opens on a mark remembered in this browser, and keeps it", async () => {
+  it("opens on a score remembered in this browser, and keeps it", async () => {
     window.localStorage.setItem(
       "ahr:review-draft:r1",
       JSON.stringify({ mark: "4", summary: "", step: 0 }),
     );
     mount({ overallMark: true });
-    expect(heading("Is there an overall mark?")).toBeInTheDocument();
+    expect(heading("Is there an overall rating?")).toBeInTheDocument();
     expect(
       screen.getByRole("radio", { name: /Exceeds Expectations/ }),
     ).toBeChecked();
   });
 
-  it("can pick a mark with its number, and goes on by itself", async () => {
+  it("can pick a score with its number, and goes on by itself", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       mount({ overallMark: true });
@@ -213,13 +213,15 @@ describe("where the company asks for an overall mark", () => {
     }
   });
 
-  it("sends the person back to the mark page from the preview", async () => {
+  it("sends the person back to the score page from the preview", async () => {
     mount({ overallMark: true });
     await next("Start");
     await next("Skip");
     await next("Skip");
-    await userEvent.click(screen.getByRole("button", { name: /Overall mark/ }));
-    expect(heading("Is there an overall mark?")).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Overall rating/ }),
+    );
+    expect(heading("Is there an overall rating?")).toBeInTheDocument();
   });
 });
 
@@ -227,18 +229,18 @@ describe("the confirmation after sending", () => {
   const sent = (mark: string | null) =>
     render(<SentScreen review={review()} answered={3} mark={mark} />);
 
-  it("names the mark in the company's words when one went", () => {
+  it("names the score in the company's words when one went", () => {
     sent("4");
     expect(
       screen.getByText(
-        "3 answers and an overall mark of Exceeds Expectations, for H2 2026.",
+        "3 answers and an overall rating of Exceeds Expectations, for H2 2026.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("says nothing of a mark when none went", () => {
+  it("says nothing of a score when none went", () => {
     sent(null);
     expect(screen.getByText("3 answers, for H2 2026.")).toBeInTheDocument();
-    expect(screen.queryByText(/overall mark/i)).toBeNull();
+    expect(screen.queryByText(/overall rating/i)).toBeNull();
   });
 });

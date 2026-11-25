@@ -432,3 +432,75 @@ export function zoneLabel(timeZone: string): string {
     .find((part) => part.type === "timeZoneName")?.value;
   return name ? `${city} time (${name})` : `${city} time`;
 }
+
+/* ------------------------------------------------------------ calendar days */
+
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/** `2026-11-28` (or the API's `2026-11-28T00:00:00.000Z`) → [2026, 11, 28]. */
+function dayParts(day: string): [number, number, number] | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(day);
+  if (!match) return null;
+  const [year, month, date] = [
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3]),
+  ];
+  if (month < 1 || month > 12 || date < 1 || date > 31) return null;
+  return [year, month, date];
+}
+
+/**
+ * A calendar day, the one way every screen writes it: `28 Nov 2026`.
+ *
+ * For a **day** (a leave date, a pay date, a due date), which has no time zone,
+ * so nothing here is converted. An instant, a moment something happened, is
+ * `formatDateShort(value, timeZone)` above, read in the company's zone. One
+ * format across both, where screens used to show "2026-11-28" beside
+ * "21 Oct 2026" (UAT 23 Nov, L16). Absent is "—"; text that is not a date is
+ * shown as it came rather than as "Invalid Date".
+ */
+export function formatDay(day: string | null | undefined): string {
+  if (!day) return "—";
+  const parts = dayParts(day);
+  if (!parts) return day;
+  const [year, month, date] = parts;
+  return `${date} ${SHORT_MONTHS[month - 1]} ${year}`;
+}
+
+/** `10 Dec – 15 Dec 2026`; `28 Dec 2026 – 2 Jan 2027` across a year; one day once. */
+export function formatDayRange(
+  from: string | null | undefined,
+  to: string | null | undefined,
+): string {
+  const start = from ? dayParts(from) : null;
+  const end = to ? dayParts(to) : null;
+  if (!start || !end) return `${formatDay(from)} – ${formatDay(to)}`;
+  if (start.join() === end.join()) return formatDay(from);
+  if (start[0] === end[0]) {
+    return `${start[2]} ${SHORT_MONTHS[start[1] - 1]} – ${formatDay(to)}`;
+  }
+  return `${formatDay(from)} – ${formatDay(to)}`;
+}
+
+/** A month: `2026-11` (or any day in it) → `Nov 2026`. */
+export function formatMonth(month: string | null | undefined): string {
+  if (!month) return "—";
+  const match = /^(\d{4})-(\d{2})/.exec(month);
+  const index = match ? Number(match[2]) - 1 : -1;
+  if (!match || index < 0 || index > 11) return month;
+  return `${SHORT_MONTHS[index]} ${match[1]}`;
+}

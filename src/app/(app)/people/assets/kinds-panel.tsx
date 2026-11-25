@@ -94,6 +94,7 @@ export function KindsPanel({
 
         {kinds.length === 0 ? (
           <EmptyState
+            plain={loading}
             icon={<Boxes aria-hidden="true" />}
             title={loading ? "Loading…" : "No kinds yet"}
             description={

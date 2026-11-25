@@ -1,12 +1,9 @@
-import type { Metadata } from "next";
-import { PeriodsListScreen } from "./periods-list-screen";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Appraisal periods",
-  description:
-    "Every appraisal period, open ones first, and what each one needs next.",
-};
-
+/**
+ * The list of appraisal periods is the Performance Overview now (owner,
+ * 24 Nov 2026): Open and History are tabs there. An old link lands on it.
+ */
 export default function PerformancePeriodsPage() {
-  return <PeriodsListScreen />;
+  redirect("/performance");
 }

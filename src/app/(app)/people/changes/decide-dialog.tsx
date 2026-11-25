@@ -12,6 +12,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import type { ApiEmploymentChangeRow } from "@/lib/api/endpoints";
 import { useEmploymentChangeActions } from "@/lib/store/employment-changes";
+import { readableDate } from "@/lib/audit/language";
 import { summarise } from "./changes-screen";
 
 /**
@@ -49,7 +50,7 @@ export function DecideChangeDialog({
         await decide(row.id, true, note.trim() || undefined);
         toast.push({
           tone: "success",
-          title: `Agreed, ${row.name}'s ${row.kindLabel.toLowerCase()} takes effect on ${row.effectiveOn}`,
+          title: `Agreed, ${row.name}'s ${row.kindLabel.toLowerCase()} takes effect on ${readableDate(row.effectiveOn)}`,
           detail: "Nothing on their record has changed yet.",
         });
       } else if (action === "decline") {
@@ -84,7 +85,7 @@ export function DecideChangeDialog({
       open
       onClose={onClose}
       title={`${row.kindLabel}, ${row.name}`}
-      description={`${summarise(row)} · takes effect ${row.effectiveOn}`}
+      description={`${summarise(row)} · takes effect ${readableDate(row.effectiveOn)}`}
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
@@ -129,8 +130,8 @@ export function DecideChangeDialog({
           }
         >
           {scheduled
-            ? `This was already agreed and is waiting for ${row.effectiveOn}. Withdrawing it now leaves the record exactly as it is. Once it has taken effect it cannot be withdrawn, the way back is a change in the other direction, so the history keeps both.`
-            : `Their record stays exactly as it is until ${row.effectiveOn}, when it is written automatically. A payroll prepared before then pays the figure they are on now, which is correct, the run says so on its own list.`}
+            ? `This was already agreed and is waiting for ${readableDate(row.effectiveOn)}. Withdrawing it now leaves the record exactly as it is. Once it has taken effect it cannot be withdrawn, the way back is a change in the other direction, so the history keeps both.`
+            : `Their record stays exactly as it is until ${readableDate(row.effectiveOn)}, when it is written automatically. A payroll prepared before then pays the figure they are on now, which is correct, the run says so on its own list.`}
         </Callout>
 
         {row.note && (

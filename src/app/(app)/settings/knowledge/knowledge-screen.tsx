@@ -169,6 +169,7 @@ export function KnowledgeScreen() {
         <PageBody>
           <Card>
             <EmptyState
+              plain
               icon={<BookOpen aria-hidden="true" />}
               title="Maintaining the help articles is not part of your access"
               description="Writing an article, taking one down and seeing how often each is read needs the settings permission. The articles themselves are in the help centre: everybody can read those."
@@ -463,6 +464,7 @@ export function KnowledgeScreen() {
           >
             {articles.articles.length === 0 ? (
               <EmptyState
+                mood={search.trim() ? "search" : "start"}
                 icon={<BookOpen aria-hidden="true" />}
                 title={
                   search.trim()

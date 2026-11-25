@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/components/ui/money-format";
 import { request, requestPaged } from "./client";
 
 /**
@@ -80,10 +81,7 @@ export const naira = (kobo: number): number => Math.round(kobo) / 100;
  * total matches the bank.
  */
 export const formatKobo = (kobo: number): string =>
-  `₦${naira(kobo).toLocaleString("en-NG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  formatMoney(naira(kobo), "NGN", { decimals: true });
 
 /* ------------------------------------------------------------------ periods */
 
@@ -110,6 +108,22 @@ export function periodLabel(key: string): string {
   const [year, month] = key.split("-");
   const name = MONTHS[Number(month) - 1];
   return name && year ? `${name} ${year}` : key;
+}
+
+/**
+ * A payroll's own label, only when it says more than its month: "August 2026
+ * (August 2026)" said the month twice (UAT 23 Nov, L16: PAY-31).
+ */
+export function extraRunLabel(run: {
+  period: string;
+  label?: string | null;
+}): string | null {
+  const label = run.label?.trim();
+  if (!label) return null;
+  return label.toLowerCase() ===
+    periodLabel(periodKey(run.period)).toLowerCase()
+    ? null
+    : label;
 }
 
 /** `2026-08-28` → `28 August 2026`, for a payslip somebody keeps. */

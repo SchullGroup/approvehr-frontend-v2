@@ -6,7 +6,7 @@ import { REPORT_TABS } from "./tabs";
 export const metadata: Metadata = {
   title: "Period report",
   description:
-    "How the period went: how marks are spread, what has come in, and who is still missing a mark or a final rating.",
+    "How the period went: how scores are spread, what has come in, and who is still missing a score or a final rating.",
 };
 
 /**

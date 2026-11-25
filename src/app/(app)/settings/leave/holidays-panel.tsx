@@ -226,7 +226,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
              button are wider than a phone leaves for prose. */
           className="flex-wrap"
           title="Public holidays"
-          description="Attendance status, overtime rates, payroll proration and the help desk's response clock all read these dates. Adding one changes what people are paid."
+          description="Adding or removing a date changes what people are paid."
           action={
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
@@ -298,7 +298,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                an info icon rather than a coloured block of three paragraphs. */
             <Callout
               tone="info"
-              title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} awaiting proclamation`}
+              title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} not confirmed yet`}
             >
               {[
                 UNCONFIRMED_HOLIDAY_EFFECT.acts,

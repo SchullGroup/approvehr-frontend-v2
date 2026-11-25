@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ApiMyTask,
@@ -75,9 +75,6 @@ vi.mock("@/lib/store/session", () => ({
 
 const { ProjectSourceTag } =
   await import("@/components/projects/project-source-tag");
-const { ReviewTasksTab } = await import("@/app/(app)/performance/review-tasks");
-const { MyTasksPanel } = await import("@/app/(app)/performance/my-tasks");
-const { TaskLogPanel } = await import("@/app/(app)/performance/task-log");
 
 const SOURCE: ApiProjectSource = { key: "CHK-2", projectId: "p-chk" };
 const HREF = "/projects/p-chk?issue=CHK-2";
@@ -185,108 +182,5 @@ describe("the tag", () => {
     const link = screen.getByRole("link");
     expect(link).toHaveAccessibleName("From project CHK-2");
     expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-  });
-});
-
-describe("where the tag shows", () => {
-  beforeEach(() => {
-    myProjects = [{ id: "p-chk" }];
-  });
-
-  const forGrading = (
-    id: string,
-    projectSource?: ApiProjectSource | null,
-  ): ApiTaskForGrading => ({
-    id,
-    employeeId: "e2",
-    employeeName: "Chidi Nwosu",
-    goalId: "g1",
-    goalTitle: "Lift checkout conversion",
-    description: `Task ${id}`,
-    createdAt: "2026-10-14T09:00:00.000Z",
-    ...(projectSource !== undefined ? { projectSource } : {}),
-  });
-
-  it("is on a task in the grading table and in the phone list", () => {
-    queue = [forGrading("t1", SOURCE), forGrading("t2")];
-    render(<ReviewTasksTab />);
-    const table = screen.getByRole("table");
-    expect(
-      within(table).getByRole("link", { name: "From project CHK-2" }),
-    ).toHaveAttribute("href", HREF);
-    /* Only the one task has it. The phone list renders beside the table. */
-    expect(
-      screen.getAllByRole("link", { name: "From project CHK-2" }),
-    ).toHaveLength(2);
-    expect(screen.getAllByText("Task t2")).toHaveLength(2);
-  });
-
-  it("is on the employee's own weeks, beside the objective", () => {
-    mine = [
-      {
-        id: "t1",
-        goalId: "g1",
-        goalTitle: "Lift checkout conversion",
-        keyResultId: null,
-        description: "CHK-2 3-D Secure, from project Checkout Revamp",
-        grade: null,
-        gradeNote: null,
-        gradedAt: null,
-        weekStart: "2026-10-12T00:00:00.000Z",
-        weekEnd: "2026-10-18T00:00:00.000Z",
-        createdAt: "2026-10-14T09:00:00.000Z",
-        projectSource: SOURCE,
-      },
-      {
-        id: "t2",
-        goalId: "g1",
-        goalTitle: "Lift checkout conversion",
-        keyResultId: null,
-        description: "Wrote the runbook",
-        grade: null,
-        gradeNote: null,
-        gradedAt: null,
-        weekStart: "2026-10-12T00:00:00.000Z",
-        weekEnd: "2026-10-18T00:00:00.000Z",
-        createdAt: "2026-10-14T10:00:00.000Z",
-        projectSource: null,
-      },
-    ];
-    render(<MyTasksPanel />);
-    expect(screen.getAllByText(/^From project/)).toHaveLength(1);
-    expect(
-      screen.getByRole("link", { name: "From project CHK-2" }),
-    ).toHaveAttribute("href", HREF);
-  });
-
-  it("is in an objective's task log", () => {
-    logged = [
-      {
-        id: "t1",
-        periodId: "p1",
-        goalId: "g1",
-        keyResultId: null,
-        employeeId: "e1",
-        description: "CHK-2 3-D Secure, from project Checkout Revamp",
-        grade: null,
-        gradeNote: null,
-        gradedById: null,
-        gradedAt: null,
-        createdAt: "2026-10-14T09:00:00.000Z",
-        projectSource: SOURCE,
-      },
-    ];
-    render(<TaskLogPanel goalId="g1" keyResults={[]} />);
-    expect(
-      screen.getByRole("link", { name: "From project CHK-2" }),
-    ).toHaveAttribute("href", HREF);
-  });
-
-  it("is plain text for a reviewer who is not on the project", () => {
-    myProjects = [];
-    queue = [forGrading("t1", SOURCE)];
-    render(<ReviewTasksTab />);
-    expect(screen.queryByRole("link", { name: /From project/ })).toBeNull();
-    expect(screen.getAllByText("From project CHK-2").length).toBeGreaterThan(0);
   });
 });

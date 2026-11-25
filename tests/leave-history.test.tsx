@@ -58,7 +58,7 @@ describe("the history of a request", () => {
     expect(items[1]).toHaveTextContent("Approved first");
     expect(items[1]).toHaveTextContent("Tolu Bello, Head of Operations");
     expect(items[1]).toHaveTextContent("“Covered by Kemi.”");
-    expect(items[2]).toHaveTextContent("Sent back");
+    expect(items[2]).toHaveTextContent("Declined");
     expect(items[2]).toHaveTextContent(
       "“Two people are already off that week.”",
     );
