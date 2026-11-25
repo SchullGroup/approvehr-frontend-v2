@@ -426,9 +426,6 @@ export function PayrollScreen() {
                           <>
                             {run.employeeCount} of{" "}
                             {run.employeeCount + run.excludedCount}
-                            <span className="mt-0.5 block text-meta font-normal text-warning-text">
-                              {run.excludedCount} excluded
-                            </span>
                           </>
                         ) : (
                           run.employeeCount
@@ -481,11 +478,6 @@ export function PayrollScreen() {
                         ? `${run.employeeCount} of ${run.employeeCount + run.excludedCount} people`
                         : `${run.employeeCount} people`}
                     </span>
-                    {run.excludedCount > 0 && (
-                      <span className="tabular text-warning-text">
-                        {run.excludedCount} excluded
-                      </span>
-                    )}
                     <span className="tabular">{formatDay(run.payDate)}</span>
                   </div>
 
