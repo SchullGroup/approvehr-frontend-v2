@@ -544,23 +544,49 @@ export function LoanDetailScreen({ id }: { id: string }) {
           </Callout>
         )}
         {foldedCount > 0 && (
-          <Callout tone="info" title="Combined from earlier loans">
-            <span>
-              {money(carriedForwardKobo)} that was still owed on{" "}
-              {foldedCount === 1
-                ? "an earlier loan"
-                : `${String(foldedCount)} earlier loans`}{" "}
-              is repaid with this one, with no interest on it.{" "}
-            </span>
-            {(loan.foldedLoans ?? []).map((folded, index) => (
-              <span key={folded.id}>
-                {index > 0 ? ", " : ""}
-                <TextLink href={`/payroll/loans/${folded.id}`}>
-                  {folded.reason ?? "Earlier loan"}
-                </TextLink>
-              </span>
-            ))}
-          </Callout>
+          /* One person, one loan, one schedule. This says what it is made of: how many loans, what each was
+             taken for and the amount, and when it starts coming off. */
+          <Card>
+            <CardHeader
+              title={`This loan combines ${String(foldedCount + (loan.principalKobo - carriedForwardKobo > 0 ? 1 : 0))} loans`}
+              description={
+                loan.startPeriod
+                  ? `Comes off from ${monthLabel(loan.startPeriod)}, as one repayment.`
+                  : undefined
+              }
+              level={2}
+            />
+            <CardBody className="flex flex-col gap-2">
+              <ul className="divide-y divide-line text-body-sm">
+                {(loan.foldedLoans ?? []).map((folded) => (
+                  <li
+                    key={folded.id}
+                    className="flex items-center justify-between gap-3 py-2"
+                  >
+                    <TextLink href={`/payroll/loans/${folded.id}`}>
+                      {folded.reason ?? "Staff loan"}
+                    </TextLink>
+                    <Money amount={naira(folded.principalKobo)} decimals />
+                  </li>
+                ))}
+                {loan.principalKobo - carriedForwardKobo > 0 && (
+                  <li className="flex items-center justify-between gap-3 py-2">
+                    <span className="text-ink">
+                      {loan.reason ?? "Staff loan"}
+                    </span>
+                    <Money
+                      amount={naira(loan.principalKobo - carriedForwardKobo)}
+                      decimals
+                    />
+                  </li>
+                )}
+              </ul>
+              <p className="text-meta text-muted">
+                {money(carriedForwardKobo)} of what was borrowed earlier is
+                still owed and is repaid here, with no interest on it.
+              </p>
+            </CardBody>
+          </Card>
         )}
         {pending && loan.combinesWith && (
           <Callout

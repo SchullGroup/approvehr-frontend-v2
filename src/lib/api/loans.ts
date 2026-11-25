@@ -309,17 +309,6 @@ export const loansApi = {
   approve: (id: string, body: ApproveLoanBody = {}) =>
     request<ApiLoanDetail>(`/loans/${id}/approve`, { method: "POST", body }),
 
-  /**
-   * Fold a person's loans that are still being repaid into one. What is owed is read from their schedules, so
-   * the only choices are the term and the first month. Needs `APPROVE_LOANS`; never for your own.
-   */
-  consolidate: (body: {
-    employeeId: string;
-    termMonths: number;
-    startPeriod: string;
-    note?: string;
-  }) => request<ApiLoanDetail>("/loans/consolidate", { method: "POST", body }),
-
   /** Move the first deduction of a loan nothing has come off yet. */
   reschedule: (id: string, startPeriod: string) =>
     request<ApiLoanDetail>(`/loans/${id}/reschedule`, {

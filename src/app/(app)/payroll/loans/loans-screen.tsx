@@ -63,7 +63,7 @@ import { shortDate } from "@/lib/today";
 import { useDebounced } from "@/lib/use-debounced";
 import { ApplyLoanModal } from "./apply-loan";
 import { ApprovedLoanCard } from "./approved-loan-card";
-import { CombineLoansModal, DeclineLoanModal } from "./decisions";
+import { DeclineLoanModal } from "./decisions";
 
 /**
  * Staff loans.
@@ -180,8 +180,6 @@ export function LoansScreen() {
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   const [applying, setApplying] = useState(false);
   const [declining, setDeclining] = useState<ApiLoan | null>(null);
-  /* Whose loans are being combined into one, and only ever somebody else's: the API refuses your own. */
-  const [combining, setCombining] = useState<LoanPerson | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
   /* The loan just approved, kept above the list until the next decision
      replaces it or it is closed. `n` makes each approval a new moment. */
@@ -329,13 +327,6 @@ export function LoansScreen() {
     setPage(1);
     setSearch("");
   };
-
-  /* Offered to somebody who may decide loans, on somebody else's loans only. */
-  const combine = canDecide
-    ? (person: LoanPerson) => {
-        if (person.employeeId !== employeeId) setCombining(person);
-      }
-    : undefined;
 
   const rowAction: RenderAction = (loan, className) => (
     <LoanRowAction
@@ -503,7 +494,6 @@ export function LoansScreen() {
                       open={open}
                       onToggle={toggle}
                       rowAction={rowAction}
-                      onCombine={combine}
                     />
                   </div>
                   <PeopleList
@@ -511,7 +501,6 @@ export function LoansScreen() {
                     open={open}
                     onToggle={toggle}
                     rowAction={rowAction}
-                    onCombine={combine}
                   />
                 </>
               )}
@@ -587,16 +576,6 @@ export function LoansScreen() {
         <ApplyLoanModal
           onClose={() => setApplying(false)}
           canApplyForOthers={canApplyForOthers}
-        />
-      )}
-
-      {combining && (
-        <CombineLoansModal
-          key={combining.employeeId}
-          employeeId={combining.employeeId}
-          employeeName={combining.employeeName}
-          loans={combining.loans.filter((loan) => loan.status === "ACTIVE")}
-          onClose={() => setCombining(null)}
         />
       )}
 
@@ -709,20 +688,9 @@ type BookProps = {
   open: ReadonlySet<string>;
   onToggle: (employeeId: string) => void;
   rowAction: RenderAction;
-  /** Present for somebody who may decide loans. Offered on a person with two or more loans in repayment. */
-  onCombine?: ((person: LoanPerson) => void) | undefined;
 };
 
-/** Two or more loans being repaid: one line item each, until they are combined. */
-const canCombine = (person: LoanPerson) => person.counts.ACTIVE >= 2;
-
-function PeopleTable({
-  people,
-  open,
-  onToggle,
-  rowAction,
-  onCombine,
-}: BookProps) {
+function PeopleTable({ people, open, onToggle, rowAction }: BookProps) {
   return (
     <TableWrap caption="Staff loans, one row for each person, with what is left to repay">
       <THead>
@@ -744,7 +712,6 @@ function PeopleTable({
             open={open.has(person.employeeId)}
             onToggle={() => onToggle(person.employeeId)}
             rowAction={rowAction}
-            onCombine={onCombine}
           />
         ))}
       </TBody>
@@ -757,13 +724,11 @@ function PersonRows({
   open,
   onToggle,
   rowAction,
-  onCombine,
 }: {
   person: LoanPerson;
   open: boolean;
   onToggle: () => void;
   rowAction: RenderAction;
-  onCombine?: ((person: LoanPerson) => void) | undefined;
 }) {
   const only = person.count === 1 ? person.loans[0]! : null;
   const subtitle = `${person.employeeNo} · ${person.jobTitle}`;
@@ -804,21 +769,7 @@ function PersonRows({
           {only ? (
             rowAction(only, "justify-end")
           ) : (
-            <div className="flex items-center justify-end gap-1">
-              {onCombine && canCombine(person) && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onCombine(person);
-                  }}
-                >
-                  Combine
-                </Button>
-              )}
-              <ExpandButton person={person} open={open} onToggle={onToggle} />
-            </div>
+            <ExpandButton person={person} open={open} onToggle={onToggle} />
           )}
         </TD>
       </TR>
@@ -854,13 +805,7 @@ function PersonRows({
 }
 
 /** The same book on a phone: a card for a person, a card inside it for a loan. */
-function PeopleList({
-  people,
-  open,
-  onToggle,
-  rowAction,
-  onCombine,
-}: BookProps) {
+function PeopleList({ people, open, onToggle, rowAction }: BookProps) {
   return (
     <ul className="divide-y divide-line sm:hidden">
       {people.map((person) => {
@@ -901,22 +846,12 @@ function PeopleList({
             {only ? (
               rowAction(only)
             ) : (
-              <div className="flex flex-wrap items-center gap-2 self-start">
-                <ExpandButton
-                  person={person}
-                  open={isOpen}
-                  onToggle={() => onToggle(person.employeeId)}
-                />
-                {onCombine && canCombine(person) && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onCombine(person)}
-                  >
-                    Combine
-                  </Button>
-                )}
-              </div>
+              <ExpandButton
+                person={person}
+                open={isOpen}
+                onToggle={() => onToggle(person.employeeId)}
+                className="self-start"
+              />
             )}
 
             {isOpen && only === null && (

@@ -424,7 +424,7 @@ describe("one person, one loan", () => {
     });
     render(<LoanDetailScreen id="loan-7" />);
 
-    expect(screen.getByText("Combined from earlier loans")).toBeVisible();
+    expect(screen.getByText("This loan combines 2 loans")).toBeVisible();
     expect(screen.getByRole("link", { name: "School fees" })).toHaveAttribute(
       "href",
       "/payroll/loans/loan-3",
@@ -478,7 +478,7 @@ describe("one person, one loan", () => {
     loanOnScreen.current = running();
     render(<LoanDetailScreen id="loan-7" />);
 
-    expect(screen.queryByText("Combined from earlier loans")).toBeNull();
+    expect(screen.queryByText(/This loan combines/)).toBeNull();
     expect(screen.queryByText("Combined into one loan")).toBeNull();
     expect(screen.queryByText(/combined with their current/)).toBeNull();
   });
