@@ -51,6 +51,14 @@ vi.mock("@/lib/store/loans", async (original) => ({
     loading: false,
     error: null,
   }),
+  usePersonLoans: () => ({
+    others: [],
+    leftOff: 0,
+    folded: [],
+    loading: false,
+    error: null,
+    reload: () => {},
+  }),
 }));
 
 vi.mock("@/lib/store/pay-components", async (original) => ({
@@ -236,9 +244,13 @@ describe("the card on a loan that is being repaid", () => {
     loanOnScreen.current = running();
     render(<LoanDetailScreen id="loan-7" />);
 
-    /* The card, and nothing else with a heading above the schedule. */
+    /* The loan's own heading, then inside it the card and the schedule, and
+       nothing else with a heading. */
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+    ).toEqual(["Staff loan"]);
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
     ).toEqual(["The loan", "The repayment schedule"]);
   });
 
