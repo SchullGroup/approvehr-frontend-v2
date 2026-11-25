@@ -650,7 +650,8 @@ export function Directory({
                             </span>
                           </TD>
                         )}
-                        <TDPrimary avatar={fullName(e)}
+                        <TDPrimary
+                          avatar={fullName(e)}
                           title={
                             <TextLink href={`/people/${e.id}`}>
                               {fullName(e)}

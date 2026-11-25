@@ -115,7 +115,8 @@ export function ProbationScreen() {
             <TBody>
               {[...overdue, ...upcoming].map((row) => (
                 <TR key={row.employeeId}>
-                  <TDPrimary avatar={row.name}
+                  <TDPrimary
+                    avatar={row.name}
                     title={
                       <Link
                         href={`/people/${row.employeeId}`}
@@ -186,7 +187,8 @@ export function ProbationScreen() {
             <TBody>
               {needsADate.map((row) => (
                 <TR key={row.employeeId}>
-                  <TDPrimary avatar={row.name}
+                  <TDPrimary
+                    avatar={row.name}
                     title={
                       <Link
                         href={`/people/${row.employeeId}?tab=employment`}
