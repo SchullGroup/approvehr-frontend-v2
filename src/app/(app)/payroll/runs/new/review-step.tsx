@@ -266,7 +266,6 @@ export function ReviewStep({
       <Card>
         <CardHeader
           title="Every payslip"
-          description="PAYE is worked out on annual income against the bands in force for the period, after pension and housing-fund relief."
           action={
             <Badge
               tone={run.excludedCount > 0 ? "warning" : "neutral"}
