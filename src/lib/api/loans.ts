@@ -139,6 +139,12 @@ export type ApiRepayment = {
   paidAt: string | null;
   /** The payslip that took it. Null when the payment came in outside payroll. */
   payslipId: string | null;
+  /**
+   * Money recorded by hand that no payslip has taken yet: the month it comes off, and whether that
+   * month's payroll was approved without it. Until then the payroll takes it, so it is not outside payroll.
+   * Absent from an API that does not send it.
+   */
+  handRecordedFor?: { period: string; payrollClosed: boolean } | null;
   note: string | null;
 };
 

@@ -1298,7 +1298,7 @@ export const LOAN_STATUS_LABEL: Record<LoanStatus, string> = {
   ACTIVE: "Being repaid",
   SETTLED: "Fully repaid",
   DECLINED: "Declined",
-  CONSOLIDATED: "Combined into one loan",
+  CONSOLIDATED: "Moved to another loan",
   CANCELLED: "Cancelled",
 };
 

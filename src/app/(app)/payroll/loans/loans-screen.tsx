@@ -149,7 +149,7 @@ const STATUS_WORD: Record<LoanStatus, string> = {
   ACTIVE: "Being repaid",
   SETTLED: "Fully repaid",
   DECLINED: "Declined",
-  CONSOLIDATED: "Combined",
+  CONSOLIDATED: "Moved",
   CANCELLED: "Cancelled",
 };
 

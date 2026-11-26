@@ -155,6 +155,21 @@ function monthsFrom(months: readonly string[], movedTo: string): string {
  * where it came from. `statusLabel` replaces "Not yet due" on an instalment that
  * was missed and moved on, which is the one case where that label is wrong.
  */
+/**
+ * Where the money on an instalment came from, said in words: a payslip took it, the month's payroll will
+ * take what was recorded by hand, or it really was paid outside payroll. Nothing for an instalment with
+ * no money on it.
+ */
+function paidFrom(row: ApiRepayment): string | null {
+  if (row.payslipId) return "taken by payroll";
+  if (!row.paidAt || row.status === "SCHEDULED") return null;
+  const hand = row.handRecordedFor;
+  if (hand && !hand.payrollClosed) {
+    return `comes off the ${shortMonthLabel(hand.period)} payslip`;
+  }
+  return "paid outside payroll";
+}
+
 function rowFacts(entry: EffectiveRepayment) {
   const { row } = entry;
   const note =
@@ -356,7 +371,6 @@ export function LoanDetailScreen({ id }: { id: string }) {
      way (`approve()`: borrowed less already repaid, plus what is still owed), so the schedule shown
      here is the one that will be created. */
   const carriedKobo = pending ? (loan.combinesWith?.owedKobo ?? 0) : 0;
-  const combinedCount = pending ? (loan.combinesWith?.count ?? 0) : 0;
   const proposed = pending
     ? priceLoan({
         principalKobo:
@@ -405,18 +419,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   /* With a carry, the total and the monthly figure are the combined loan's, not the application's. */
   const repayableKobo =
     carriedKobo > 0 && proposed ? proposed.totalKobo : loan.totalRepayableKobo;
-  /* Two different carries, kept apart on purpose: `carriedKobo` above is what approving a pending
-     loan WILL fold in; this is what an approved loan HAS already carried from loans it replaced. */
-  const carriedForwardKobo = loan.carriedForwardKobo ?? 0;
-  const foldedCount = loan.foldedLoans?.length ?? 0;
   const costLines = [
-    carriedForwardKobo > 0
-      ? `Includes ${money(carriedForwardKobo)} carried from ${
-          foldedCount === 1
-            ? "an earlier loan"
-            : `${String(foldedCount)} earlier loans`
-        }`
-      : null,
     loan.interestKobo > 0
       ? `${money(loan.interestKobo)} interest (${(loan.interestRate * 100).toFixed(2)}% a year)`
       : null,
@@ -563,7 +566,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         )}
 
         {loan.status === "CONSOLIDATED" && (
-          <Callout tone="info" title="Combined into one loan">
+          <Callout tone="info" title="This loan continues in another one">
             What was still owed on this loan
             {loan.consolidatedAt
               ? ` moved, on ${formatDate(loan.consolidatedAt, timeZone)},`
@@ -576,65 +579,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
             ) : (
               "another loan"
             )}
-            . Nothing comes off this one any more; its schedule is kept as the
-            record.
+            . Nothing comes off this one any more.
           </Callout>
         )}
-        {foldedCount > 0 && (
-          /* One person, one loan, one schedule. This says what it is made of: how many loans, what each was
-             taken for and the amount, and when it starts coming off. */
-          <Card>
-            <CardHeader
-              title={`This loan combines ${String(foldedCount + (loan.principalKobo - carriedForwardKobo > 0 ? 1 : 0))} loans`}
-              description={
-                loan.startPeriod
-                  ? `Comes off from ${monthLabel(loan.startPeriod)}, as one repayment.`
-                  : undefined
-              }
-              level={2}
-            />
-            <CardBody className="flex flex-col gap-2">
-              <ul className="divide-y divide-line text-body-sm">
-                {(loan.foldedLoans ?? []).map((folded) => (
-                  <li
-                    key={folded.id}
-                    className="flex items-center justify-between gap-3 py-2"
-                  >
-                    <TextLink href={`/payroll/loans/${folded.id}`}>
-                      {folded.reason ?? "Staff loan"}
-                    </TextLink>
-                    <Money amount={naira(folded.principalKobo)} decimals />
-                  </li>
-                ))}
-                {loan.principalKobo - carriedForwardKobo > 0 && (
-                  <li className="flex items-center justify-between gap-3 py-2">
-                    <span className="text-ink">
-                      {loan.reason ?? "Staff loan"}
-                    </span>
-                    <Money
-                      amount={naira(loan.principalKobo - carriedForwardKobo)}
-                      decimals
-                    />
-                  </li>
-                )}
-              </ul>
-              <p className="text-meta text-muted">
-                {money(carriedForwardKobo)} of what was borrowed earlier is
-                still owed and is repaid here, with no interest on it.
-              </p>
-            </CardBody>
-          </Card>
-        )}
         {pending && loan.combinesWith && (
-          <Callout
-            tone="info"
-            title="This will be combined with their current loan"
-          >
+          <Callout tone="info" title="They are still repaying a loan">
             {money(loan.combinesWith.owedKobo)} is still owed on{" "}
             {loan.combinesWith.count === 1
               ? "their current loan"
               : `${String(loan.combinesWith.count)} of their current loans`}
-            . Approving this adds it to the new loan: about{" "}
+            . Approving this makes it one loan: about{" "}
             {money(
               Math.floor(
                 (loan.combinesWith.owedKobo + loan.totalRepayableKobo) /
@@ -777,11 +731,9 @@ export function LoanDetailScreen({ id }: { id: string }) {
                         <TR>
                           <TDPrimary
                             title={`${row.sequence} of ${loan.progress.instalmentsTotal}`}
-                            {...(row.payslipId
-                              ? { subtitle: "taken by payroll" }
-                              : row.paidAt && row.status !== "SCHEDULED"
-                                ? { subtitle: "paid outside payroll" }
-                                : {})}
+                            {...(paidFrom(row)
+                              ? { subtitle: paidFrom(row)! }
+                              : {})}
                           />
                           <TD>{shortMonthLabel(row.dueDate)}</TD>
                           <TD align="right">
@@ -868,12 +820,9 @@ export function LoanDetailScreen({ id }: { id: string }) {
                         <p className="text-body-sm font-medium text-ink">
                           {row.sequence} of {loan.progress.instalmentsTotal}
                         </p>
-                        {(row.payslipId ||
-                          (row.paidAt && row.status !== "SCHEDULED")) && (
+                        {paidFrom(row) && (
                           <p className="mt-0.5 text-meta text-muted">
-                            {row.payslipId
-                              ? "taken by payroll"
-                              : "paid outside payroll"}
+                            {paidFrom(row)}
                           </p>
                         )}
                       </div>
@@ -959,20 +908,6 @@ export function LoanDetailScreen({ id }: { id: string }) {
               starts taking them in{" "}
               {monthLabel(proposed.lines[0]?.dueDate ?? today)}.
             </p>
-            {carriedKobo > 0 && (
-              <div className="rounded-lg border border-line bg-canvas px-4 py-3">
-                <p className="text-meta font-medium text-muted">
-                  Combined on approval
-                </p>
-                <p className="mt-1 text-body-sm leading-relaxed text-ink">
-                  Approving also combines {combinedCount}{" "}
-                  {combinedCount === 1 ? "loan" : "loans"} still owing{" "}
-                  {money(carriedKobo)} into this one. Those stop coming off
-                  payroll as soon as this is approved. No interest is charged on
-                  the amount carried over, only on the new money.
-                </p>
-              </div>
-            )}
             <div className="hidden sm:block">
               <TableWrap caption="The schedule this loan would create if it were approved">
                 <THead>

@@ -52,20 +52,19 @@ export function staffCsv(
 }
 
 /**
- * Every payslip on one run.
+ * Every payslip on one run as its own PDF, in one zip.
  *
- * Needs `EXPORT_DATA` **and** `VIEW_SALARIES`, and is refused rather than served
- * with the money columns blank. It is refused again when its own net column does
- * not equal the run's stored total. Both refusals arrive as the server's own
- * sentence and belong on screen verbatim.
+ * The same two permissions as the spreadsheet, refused with the server's own sentence where they are
+ * missing. Each file is the one the payslip's own page downloads, so a draft run's files are marked as drafts.
  */
-export const payslipsCsv = (
+export const payslipsZip = (
   runId: string,
   period?: string,
-): Promise<FileDownload> =>
-  fetchFile(
-    `/exports/payroll-runs/${runId}/payslips.csv`,
+): Promise<BinaryDownload> =>
+  fetchBinary(
+    `/exports/payroll-runs/${runId}/payslips.zip`,
     period ? `payslips-${period}` : "payslips",
+    "zip",
   );
 
 /** The timesheet for the period on screen, one row per person. No money in it. */
