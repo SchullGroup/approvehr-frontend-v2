@@ -36,7 +36,7 @@ export function LinkedRecords({ detail }: { detail: ApiQueryDetail }) {
     <Card>
       <CardHeader
         title="Linked records"
-        description="Made in their own part of the product and noted as following this query. A query makes none of them."
+        description="Made in their own part of ApproveHR and noted as following this query. A query makes none of them."
       />
       <CardBody>
         <ul className="flex flex-col gap-2">

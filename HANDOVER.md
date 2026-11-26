@@ -14173,3 +14173,85 @@ back to the first tab like any unknown tab. If the page has one tab, the strip i
 - Copy that mentioned it: the kind lines (`answer-kind.ts`), the Record a level dialog's help, and the walkthrough.
 - The design rule worth keeping if it returns: every cell printed its average as text, with the tint only a second
   channel, and a cell with people below target carried an icon and a spoken count.
+
+---
+
+# Queries say "In ApproveHR", not "In the product"
+
+The owner looked at the letter form's field **How it will be served**, whose options read "In the product", "In person" and
+"Outside the product", and asked for plainer English: a company reader does not know what "the product" is, and "outside the
+product" does not say what the other way is. Branch `fix/query-served-wording-20261126` in both repositories, local only when this
+was written (not pushed, no pull request).
+
+## What changed
+
+| Where                                           | Was                                                                                    | Is                                                                                                  |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| The three options (`SERVED_HOW_LABEL`)          | In the product / In person / Outside the product                                       | **In ApproveHR** / In person / **By post or email**                                                 |
+| Help under the field, in ApproveHR              | "They are told in the product and can read and answer it there. …"                     | "They are told in ApproveHR and can read and answer it there. …"                                    |
+| Help under the field, in person                 | "… Nobody is told in the product."                                                     | "… Nobody is told in ApproveHR."                                                                    |
+| Help under the field, by post or email          | "Sent some other way, by post or email. Nobody is told in the product."                | "Sent by post, email or any other way outside ApproveHR. Nobody is told in ApproveHR."              |
+| Issue confirmation, letter page, issue toast    | "Nobody is told / was told in the product."                                            | "Nobody is told / was told in ApproveHR."                                                           |
+| Draft, person with no sign-in                   | "… so nobody can be told in the product. …"                                            | "… so nobody can be told in ApproveHR. …"                                                           |
+| Document request toast                          | "Nobody was told in the product. They have no sign-in, …"                              | "Nobody was told in ApproveHR. They have no sign-in, …"                                             |
+| A sent reply                                    | "Sent in the product on <time>." / "Sent in the product."                              | "Sent in ApproveHR on <time>." / "Sent in ApproveHR."                                               |
+| Linked records                                  | "Made in their own part of the product and noted as following this query. …"           | "Made in their own part of ApproveHR and noted as following this query. …"                          |
+| Queries settings                                | "… and the product does not guess."                                                    | "… and ApproveHR does not guess."                                                                   |
+| The printed letter                              | `Served: <label>`, so it follows the table                                             | unchanged code, new words ("Served: By post or email.")                                             |
+| Backend, issuing an incomplete letter (`422`)   | "how it will be served (in the product, in person or outside the product)"             | "how it will be served (in ApproveHR, in person or by post or email)"                               |
+
+**The enum values did not change** (`IN_PRODUCT`, `IN_PERSON`, `OUTSIDE_PRODUCT`, and the fields `toldInProduct` and
+`nobodyToldInProduct`). They are the wire contract; renaming them would be a migration and a contract change for no reader's
+benefit. A comment on `QueryServedHow` says the screens call them something else, and so does the backend repository's
+`docs/backend/queries-stage1-handover.md`.
+
+## Decisions worth not undoing
+
+- **One word for this application: "ApproveHR".** It is the name the company bought and is the same word the sentence "told in
+  ApproveHR" needs. "The product" is how this team talks and is not a word a company reader uses.
+- **"By post or email" for the third way.** The old help sentence already said "by post or email" under a label that said
+  "outside the product", so the label now says what the help always said. The help adds "or any other way" because that choice is
+  what is left once "in ApproveHR" and "in person" are taken out.
+- **The backend's sentence is shown verbatim by the web** (a refusal is the server's own sentence), so the two had to change
+  together. Against a backend from before this change, that one refusal still says "in the product"; nothing else depends on it.
+  Either side can merge first.
+- **A test stops the word coming back.** `tests/queries-served-wording.test.tsx` reads every file of the Queries module
+  (`people/queries`, `settings/queries`, `components/queries`, `lib/queries`, `lib/api/queries.ts`, `lib/api/query-ties.ts` and
+  the two query stores) with the TypeScript parser and fails if a **string, template text or JSX text** contains the word
+  "product". Comments are not read, because a comment may explain why an enum is spelt `IN_PRODUCT`. The scan is itself checked:
+  it must find known strings in the real files, flag the word in a string, a template and JSX text, and ignore a comment, so it
+  cannot pass by reading nothing. `IN_PRODUCT` and `nobodyToldInProduct` do not match (the word has to stand alone).
+
+## Verified
+
+Web, in the worktree: the whole `npx tsc --noEmit` (tests included); ESLint and Prettier on every changed file; the 17 Queries
+test files, 460 tests (`tests/queries-*`, `tests/query-*`). The new file has 21 tests: the three labels and three help sentences
+word for word; the draft's `<select>` offers exactly the three options and shows the matching sentence under the choice; the issue
+confirmation, the issue toast, the printed letter and a sent reply (with and without a time) use the new words; and the scan.
+
+**Deliberate breaks, 18 (17 exact replacements, each in one source file, and one added file), plus one control; the file restored
+with `git checkout` and the tree checked clean after each. All 18 were caught and the control passed.** The labels and the three help
+sentences put back, the confirmation, the toast, the no-sign-in warning, the letter page, both reply sentences, the document
+toast, linked records and the settings sentence put back, the option text read from the key instead of the label table, the help
+line removed, the printed letter printing the raw enum, and a new file with the word in a string. Three of them (linked records,
+the settings sentence, the issue toast before its own test existed) were caught **only** by the scan: the toast then got a behavioural
+test of its own, and the break was run a second time and caught by both. The control, a comment that says "the product", does not fail
+the scan.
+
+Backend: the seven query test files, 231 tests, on a real Postgres made for the job; three deliberate breaks in
+`missingForIssue` (the old sentence, "outside ApproveHR" for "by post or email", and the item removed), each caught, tree clean
+after each; ESLint and Prettier on the changed files; the whole `npx tsc --noEmit`.
+
+**Not exercised: a browser.** Everything above is component tests with the store mocked, and the backend over HTTP. Nobody has
+looked at the draft form on a running page since the words changed.
+
+## Found, and not changed
+
+- **The Query film quotes the old words.** `out/query-video-2026-11-24/chapters/ch02-issue.mjs` chooses **"In the product"** in
+  the select, so re-running it against a build with this change fails at that step; `captions.txt` line 227 and
+  `chapters/ch99-outro.mjs` say "served outside the product". The rendered film shows the old labels. Files under `out/` were left
+  alone on purpose.
+- **`docs/components/frontend-v2.md` is stale on `dev`** for reasons unrelated to this change (rows for
+  `src/lib/employment-status.ts` and a payroll screen). No export changed here, so it was not regenerated.
+- The conduct screen has the same habit in a code comment (`people/[id]/conduct.tsx`, "the product reached nobody"). It is not
+  user-facing and not a Queries file, so it was left.
