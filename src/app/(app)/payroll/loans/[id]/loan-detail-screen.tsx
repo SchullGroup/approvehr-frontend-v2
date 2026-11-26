@@ -60,6 +60,7 @@ import {
   CancelLoanModal,
   DeclineLoanModal,
   PayInstalmentModal,
+  SpreadLoanModal,
   UndoPaymentModal,
   WaiveInstalmentModal,
 } from "../decisions";
@@ -301,7 +302,7 @@ function Figure({
 }
 
 export function LoanDetailScreen({ id }: { id: string }) {
-  const { loan, loading, error } = useLoan(id);
+  const { loan, loading, error, live } = useLoan(id);
   const { can } = usePermissions();
   const { employeeId } = useSession();
   const { approve } = useLoanActions();
@@ -322,6 +323,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   const [declining, setDeclining] = useState<ApiLoanDetail | null>(null);
   const [cancelling, setCancelling] = useState<ApiLoanDetail | null>(null);
   const [rescheduling, setRescheduling] = useState<ApiLoanDetail | null>(null);
+  const [spreading, setSpreading] = useState<ApiLoanDetail | null>(null);
   const [paying, setPaying] = useState<ApiRepayment | null>(null);
   const [waiving, setWaiving] = useState<ApiRepayment | null>(null);
   const [undoing, setUndoing] = useState<ApiRepayment | null>(null);
@@ -522,6 +524,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
                     Change first deduction
                   </Button>
                 )}
+              {live && loan.status === "ACTIVE" && loan.outstandingKobo > 0 && (
+                <Button size="sm" onClick={() => setSpreading(loan)}>
+                  Spread over months
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1018,6 +1025,9 @@ export function LoanDetailScreen({ id }: { id: string }) {
           loan={rescheduling}
           onClose={() => setRescheduling(null)}
         />
+      )}
+      {spreading && (
+        <SpreadLoanModal loan={spreading} onClose={() => setSpreading(null)} />
       )}
       {declining && (
         <DeclineLoanModal

@@ -897,6 +897,14 @@ export type LoanActions = {
     sequence: number,
     reason: string,
   ) => Promise<ApiLoanDetail>;
+  /**
+   * Spread what is still owed over a number of months, from a month. Needs the live service: there is no schedule
+   * arithmetic to run offline, and a demo that made one up would show figures the product does not produce.
+   */
+  respread: (
+    id: string,
+    body: { startPeriod: string; termMonths: number; reason: string },
+  ) => Promise<ApiLoanDetail>;
   /** True when these writes reach the API. */
   live: boolean;
 };
@@ -1213,6 +1221,21 @@ export function useLoanActions(): LoanActions {
     [isConnected, write],
   );
 
+  const respread = useCallback(
+    async (
+      id: string,
+      body: { startPeriod: string; termMonths: number; reason: string },
+    ): Promise<ApiLoanDetail> => {
+      if (!isConnected) {
+        throw conflict("Spreading a loan needs the live service.");
+      }
+      const loan = await loansApi.respread(id, body);
+      bumpRevision();
+      return loan;
+    },
+    [isConnected],
+  );
+
   const undoPayment = useCallback(
     async (
       id: string,
@@ -1359,6 +1382,7 @@ export function useLoanActions(): LoanActions {
     pay,
     waive,
     undoPayment,
+    respread,
     live: isConnected,
   };
 }
