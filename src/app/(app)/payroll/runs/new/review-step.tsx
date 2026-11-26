@@ -10,7 +10,6 @@ import {
   ButtonLink,
   Card,
   CardBody,
-  CardHeader,
   EmptyState,
   Input,
   Select,
@@ -251,99 +250,96 @@ export function ReviewStep({
   return (
     <>
       <Card>
-        <CardHeader
-          title="Every payslip"
-          action={
-            <Badge
-              tone={run.excludedCount > 0 ? "warning" : "neutral"}
-              size="sm"
-            >
-              {payslipCountLabel(run)}
-            </Badge>
-          }
-        />
+        {/* The heading, the search and the count share one row: they were three stacked bands with a rule
+            under each, and the search sat in a band of its own with a gap above the table. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line px-5 py-3">
+          <h3 className="text-body-md font-semibold text-ink">Every payslip</h3>
+          <div className="relative min-w-44 max-w-full flex-1 sm:max-w-xs">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint"
+            />
+            <Input
+              value={view.query}
+              onChange={(event) =>
+                change({ ...view, query: event.target.value })
+              }
+              placeholder="Search by name or staff number"
+              aria-label="Search payslips by name or staff number"
+              className="pl-9 max-sm:h-11"
+            />
+          </div>
+          <Badge
+            tone={run.excludedCount > 0 ? "warning" : "neutral"}
+            size="sm"
+            className="sm:ml-auto"
+          >
+            {payslipCountLabel(run)}
+          </Badge>
+        </div>
         {scheduled && heldBack && (
           <CardBody className="border-b border-line">{heldBack}</CardBody>
         )}
 
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative min-w-44 max-w-full flex-1 sm:max-w-xs">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint"
-              />
-              <Input
-                value={view.query}
-                onChange={(event) =>
-                  change({ ...view, query: event.target.value })
-                }
-                placeholder="Search by name or staff number"
-                aria-label="Search payslips by name or staff number"
-                className="pl-9 max-sm:h-11"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 md:hidden">
-            <label className="flex w-full items-center gap-3 text-meta text-muted">
-              <span className="shrink-0">Sort by</span>
-              <Select
-                aria-label="Sort payslips"
-                className="max-sm:h-11"
-                value={
-                  view.sort ? `${view.sort.column}:${view.sort.order}` : ""
-                }
-                onChange={(event) => {
-                  const [column, order] = event.target.value.split(":") as [
-                    SortColumn,
-                    "asc" | "desc",
-                  ];
-                  change({
-                    ...view,
-                    sort: event.target.value ? { column, order } : null,
-                  });
-                }}
-              >
-                <option value="">Run order</option>
-                <option value="name:asc">Employee, A to Z</option>
-                <option value="net:desc">Net pay, highest first</option>
-                <option value="net:asc">Net pay, lowest first</option>
-                <option value="gross:desc">Gross, highest first</option>
-                <option value="paye:desc">PAYE, highest first</option>
-                <option value="deductions:desc">
-                  Deductions, highest first
-                </option>
-                {showOvertime && (
-                  <option value="overtime:desc">Overtime, highest first</option>
-                )}
-                {showBonus && (
-                  <option value="bonus:desc">Bonus, highest first</option>
-                )}
-                {anyUnpaid && (
-                  <option value="unpaid:desc">Unpaid days, most first</option>
-                )}
-              </Select>
-            </label>
-          </div>
-
-          {(narrowed || refreshing || typedUnknown) && (
-            <p role="status" className="text-meta text-muted">
-              {refreshing
-                ? "Recalculating the payroll. The figures below are the previous ones until it finishes."
-                : narrowed
-                  ? `Showing ${String(visible.length)} of ${String(payslips.length)} payslips.`
-                  : null}
-              {typedUnknown && !refreshing && (
-                <>
-                  {narrowed ? " " : ""}
-                  Deductions typed by hand could not be checked, so &ldquo;With
-                  adjustments&rdquo; may miss some.
-                </>
+        {/* Only where there is something to say: the sort is for a phone, which has no column headings to
+            click, and the note is for a search that narrowed the list or a recalculation under way. */}
+        <div className="flex flex-col gap-3 border-b border-line px-5 py-3 md:hidden">
+          <label className="flex w-full items-center gap-3 text-meta text-muted">
+            <span className="shrink-0">Sort by</span>
+            <Select
+              aria-label="Sort payslips"
+              className="max-sm:h-11"
+              value={view.sort ? `${view.sort.column}:${view.sort.order}` : ""}
+              onChange={(event) => {
+                const [column, order] = event.target.value.split(":") as [
+                  SortColumn,
+                  "asc" | "desc",
+                ];
+                change({
+                  ...view,
+                  sort: event.target.value ? { column, order } : null,
+                });
+              }}
+            >
+              <option value="">Run order</option>
+              <option value="name:asc">Employee, A to Z</option>
+              <option value="net:desc">Net pay, highest first</option>
+              <option value="net:asc">Net pay, lowest first</option>
+              <option value="gross:desc">Gross, highest first</option>
+              <option value="paye:desc">PAYE, highest first</option>
+              <option value="deductions:desc">Deductions, highest first</option>
+              {showOvertime && (
+                <option value="overtime:desc">Overtime, highest first</option>
               )}
-            </p>
-          )}
+              {showBonus && (
+                <option value="bonus:desc">Bonus, highest first</option>
+              )}
+              {anyUnpaid && (
+                <option value="unpaid:desc">Unpaid days, most first</option>
+              )}
+            </Select>
+          </label>
         </div>
+
+        {(narrowed || refreshing || typedUnknown) && (
+          <p
+            role="status"
+            className="border-b border-line px-5 py-3 text-meta text-muted"
+          >
+            {refreshing
+              ? "Recalculating the payroll. The figures below are the previous ones until it finishes."
+              : narrowed
+                ? `Showing ${String(visible.length)} of ${String(payslips.length)} payslips.`
+                : null}
+            {typedUnknown && !refreshing && (
+              <>
+                {narrowed ? " " : ""}
+                Deductions typed by hand could not be checked, so &ldquo;With
+                adjustments&rdquo; may miss some.
+              </>
+            )}
+          </p>
+        )}
 
         {payslips.length === 0 ? (
           <EmptyState
@@ -893,7 +889,7 @@ function Figure({
   always?: boolean;
 }) {
   if (kobo <= 0 && !marked && !always) {
-    return <span className="text-faint">—</span>;
+    return null;
   }
   return (
     <span className="inline-flex items-center justify-end gap-1.5">
