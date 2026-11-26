@@ -891,6 +891,12 @@ export type LoanActions = {
     body: PayRepaymentBody,
   ) => Promise<ApiLoanDetail>;
   waive: (id: string, sequence: number, note: string) => Promise<ApiLoanDetail>;
+  /** Take a payment recorded by hand back out, so it can be recorded again. */
+  undoPayment: (
+    id: string,
+    sequence: number,
+    reason: string,
+  ) => Promise<ApiLoanDetail>;
   /** True when these writes reach the API. */
   live: boolean;
 };
@@ -1207,6 +1213,73 @@ export function useLoanActions(): LoanActions {
     [isConnected, write],
   );
 
+  const undoPayment = useCallback(
+    async (
+      id: string,
+      sequence: number,
+      reason: string,
+    ): Promise<ApiLoanDetail> => {
+      if (isConnected) {
+        const loan = await loansApi.undoPayment(id, sequence, reason);
+        bumpRevision();
+        return loan;
+      }
+
+      return write(id, (loan) => {
+        const target = loan.schedule.find((r) => r.sequence === sequence);
+        if (!target)
+          throw unprocessable("That instalment is not on this schedule.");
+        if (target.paidAmountKobo === 0) {
+          throw conflict("Nothing has been recorded against that instalment.");
+        }
+        if (target.payslipId) {
+          throw conflict(
+            "Payroll took that one, so it is a record of a payslip. Correct it from the payroll.",
+          );
+        }
+        /* The whole payment, as the API takes it: the instalment named and what it spilled onto. */
+        const sourceOf = (note: string | null): number | null => {
+          const found = /recorded against instalment (\d+)/.exec(note ?? "");
+          return found ? Number(found[1]) : null;
+        };
+        const source = sourceOf(target.note) ?? target.sequence;
+        const undone = new Set(
+          loan.schedule
+            .filter(
+              (r) =>
+                !r.payslipId &&
+                r.paidAmountKobo > 0 &&
+                (r.sequence === target.sequence ||
+                  r.sequence === source ||
+                  sourceOf(r.note) === source ||
+                  (target.paidAt !== null && r.paidAt === target.paidAt)),
+            )
+            .map((r) => r.sequence),
+        );
+        const schedule = loan.schedule.map((r): ApiRepayment =>
+          undone.has(r.sequence)
+            ? {
+                ...r,
+                paidAmountKobo: 0,
+                remainingKobo: r.amountKobo,
+                status: "SCHEDULED",
+                paidAt: null,
+                note: null,
+              }
+            : r,
+        );
+        return {
+          ...loan,
+          schedule,
+          ...(loan.status === "SETTLED"
+            ? { status: "ACTIVE" as LoanStatus, completedAt: null }
+            : {}),
+        };
+      });
+    },
+    [isConnected, write],
+  );
+
   const waive = useCallback(
     async (
       id: string,
@@ -1285,6 +1358,7 @@ export function useLoanActions(): LoanActions {
     reschedule,
     pay,
     waive,
+    undoPayment,
     live: isConnected,
   };
 }

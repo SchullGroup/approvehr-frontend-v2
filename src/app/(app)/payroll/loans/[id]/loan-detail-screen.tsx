@@ -60,6 +60,7 @@ import {
   CancelLoanModal,
   DeclineLoanModal,
   PayInstalmentModal,
+  UndoPaymentModal,
   WaiveInstalmentModal,
 } from "../decisions";
 
@@ -169,6 +170,10 @@ function paidFrom(row: ApiRepayment): string | null {
   }
   return "paid outside payroll";
 }
+
+/** Money recorded by hand that no payslip has taken: the only kind that can be taken back. */
+const undoable = (row: ApiRepayment): boolean =>
+  row.paidAmountKobo > 0 && !row.payslipId;
 
 function rowFacts(entry: EffectiveRepayment) {
   const { row } = entry;
@@ -319,6 +324,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   const [rescheduling, setRescheduling] = useState<ApiLoanDetail | null>(null);
   const [paying, setPaying] = useState<ApiRepayment | null>(null);
   const [waiving, setWaiving] = useState<ApiRepayment | null>(null);
+  const [undoing, setUndoing] = useState<ApiRepayment | null>(null);
 
   const canDecide = can("APPROVE_LOANS");
   const canRecord = can("EDIT_RECORDS");
@@ -761,30 +767,39 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           </TD>
                           {columns === 6 && (
                             <TD align="right">
-                              {open && (canRecord || canDecide) && (
-                                <RowActions
-                                  label={`More actions for instalment ${String(row.sequence)}`}
-                                  items={[
-                                    ...(canRecord
-                                      ? [
-                                          {
-                                            label: "Record a payment",
-                                            onSelect: () => setPaying(row),
-                                          },
-                                        ]
-                                      : []),
-                                    ...(canDecide
-                                      ? [
-                                          {
-                                            label: "Write off",
-                                            tone: "danger" as const,
-                                            onSelect: () => setWaiving(row),
-                                          },
-                                        ]
-                                      : []),
-                                  ]}
-                                />
-                              )}
+                              {(open || undoable(row)) &&
+                                (canRecord || canDecide) && (
+                                  <RowActions
+                                    label={`More actions for instalment ${String(row.sequence)}`}
+                                    items={[
+                                      ...(open && canRecord
+                                        ? [
+                                            {
+                                              label: "Record a payment",
+                                              onSelect: () => setPaying(row),
+                                            },
+                                          ]
+                                        : []),
+                                      ...(undoable(row) && canDecide
+                                        ? [
+                                            {
+                                              label: "Undo the payment",
+                                              onSelect: () => setUndoing(row),
+                                            },
+                                          ]
+                                        : []),
+                                      ...(open && canDecide
+                                        ? [
+                                            {
+                                              label: "Write off",
+                                              tone: "danger" as const,
+                                              onSelect: () => setWaiving(row),
+                                            },
+                                          ]
+                                        : []),
+                                    ]}
+                                  />
+                                )}
                             </TD>
                           )}
                         </TR>
@@ -868,11 +883,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
                       </p>
                     )}
 
-                    {open &&
+                    {(open || undoable(row)) &&
                       (canRecord || canDecide) &&
                       loan.status === "ACTIVE" && (
                         <div className="flex gap-1.5">
-                          {canRecord && (
+                          {open && canRecord && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -881,7 +896,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
                               Record a payment
                             </Button>
                           )}
-                          {canDecide && (
+                          {undoable(row) && canDecide && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setUndoing(row)}
+                            >
+                              Undo the payment
+                            </Button>
+                          )}
+                          {open && canDecide && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -1014,6 +1038,14 @@ export function LoanDetailScreen({ id }: { id: string }) {
           loan={loan}
           repayment={paying}
           onClose={() => setPaying(null)}
+        />
+      )}
+      {undoing && (
+        <UndoPaymentModal
+          key={undoing.id}
+          loan={loan}
+          repayment={undoing}
+          onClose={() => setUndoing(null)}
         />
       )}
       {waiving && (
