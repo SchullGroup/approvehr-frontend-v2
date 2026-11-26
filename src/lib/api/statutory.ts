@@ -43,9 +43,42 @@ export type ApiStatutorySchedule = {
   dueDateBasis: string;
 };
 
+/**
+ * One person on a schedule. Each figure is `null` where it does not apply to
+ * the body: a PAYE return has no pension figure, and zero would read as one.
+ */
+export type ApiSchedulePerson = {
+  employeeNo: string;
+  name: string;
+  /** What the body files this person under, and what it is called. */
+  identifierLabel: string | null;
+  identifier: string | null;
+  taxState: string | null;
+  grossKobo: number | null;
+  basicKobo: number | null;
+  payeKobo: number | null;
+  pensionEmployeeKobo: number | null;
+  pensionEmployerKobo: number | null;
+  voluntaryKobo: number | null;
+  nhfKobo: number | null;
+};
+
+export type ApiSchedulePeople = {
+  schedule: ApiStatutorySchedule;
+  /** `YYYY-MM`. */
+  period: string;
+  people: ApiSchedulePerson[];
+};
+
 export const statutory = {
   forRun: (runId: string, signal?: AbortSignal) =>
     request<ApiStatutorySchedule[]>(`/payroll/runs/${runId}/schedules`, {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** Who is on one schedule, with their figures. Audited on the server. */
+  people: (id: string, signal?: AbortSignal) =>
+    request<ApiSchedulePeople>(`/payroll/schedules/${id}/people`, {
       ...(signal ? { signal } : {}),
     }),
 
