@@ -1282,7 +1282,7 @@ gaps worth a second look. It does not change a score.
 | **Where**      | `/performance/periods/{id}/fairness`                                                                                                                  |
 | **Who**        | Whoever holds the **See the fairness check** permission                                                                                               |
 | **Click**      | **Fairness check**, at the top of the period screen once the period has started                                                                       |
-| **You'll see** | **Scores compared**, **Gaps flagged**, **Groups hidden** and **Company average**, then three tabs: **Groups**, **Managers** and **Calibration moves** |
+| **You'll see** | **Scores compared**, **Group gaps flagged**, **Groups hidden** and **Company average**, then three tabs: **Groups**, **Managers** and **Calibration moves** |
 
 - **Groups** is one card per way of grouping people — the permission names gender, age, time at the
   company, location, contract type and department. Each card reads **Flagged**, **No clear gap** or

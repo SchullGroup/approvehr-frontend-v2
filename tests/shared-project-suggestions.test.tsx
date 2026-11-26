@@ -129,6 +129,9 @@ vi.mock("@/lib/store/performance", () => ({
     autoAssign: vi.fn(),
     setAppraisers: mutations.setAppraisers,
   }),
+  /* Ask colleagues also reads who already appraises the person, to label them.
+     That is not what this file is about, so nobody is labelled. */
+  useMyAppraisers: () => ({ row: null, loading: false, error: null }),
 }));
 
 import { SharedProjectOptions } from "@/components/performance/shared-project-options";

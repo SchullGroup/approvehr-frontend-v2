@@ -943,6 +943,11 @@ export function FocusForm({
               subjectName={review.subjectName}
               own={ownReview}
               startOpen
+              whenNothing={
+                <p className="text-body-sm text-muted">
+                  {`Nothing from the project boards is shown for ${ownReview ? "you" : firstName}. Either your company does not use Projects, nothing was finished in this period, or it is not yours to see. It says nothing about the work itself.`}
+                </p>
+              }
             />
           </div>
         </Drawer>

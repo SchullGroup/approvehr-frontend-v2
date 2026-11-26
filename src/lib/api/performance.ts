@@ -1935,7 +1935,19 @@ export type ApiReviewStatus = "below" | "above" | "matches" | "unclear";
 export type ApiFlagResolution =
   | { state: "open" }
   | { state: "waiting"; since: string; reason: string }
-  | { state: "moved"; by: string | null; at: string; reason: string }
+  | {
+      state: "moved";
+      by: string | null;
+      at: string;
+      reason: string;
+      /**
+       * What the score is now and what the answers produced before it was moved,
+       * in basis points. Optional: a server from before they were sent says
+       * only that it moved, and then so does the screen.
+       */
+      calibratedBp?: number;
+      originalBp?: number;
+    }
   | { state: "stands"; by: string | null; at: string; note: string | null };
 
 export type ApiReviewFlag = {

@@ -290,9 +290,55 @@ check(
   ["character"],
 );
 
+/* The sentence a manager actually wrote in the 25 November walkthrough. Two of
+   its four phrases were missed: the second claim is joined by "and", and the
+   comparison named a colleague. */
+check(
+  "an absolute joined to a character claim by 'and'",
+  kinds("Chidi is quite disorganised and always late.", "Chidi Nwosu"),
+  ["character", "absolute"],
+);
+check(
+  "a comparison with a named colleague",
+  kinds("He is a bit lazy compared to Emeka.", "Chidi Nwosu"),
+  ["character", "comparison"],
+);
+check(
+  "a comparison with colleagues, whichever way it is worded",
+  kinds("He delivered less compared with his colleagues.", "Chidi Nwosu"),
+  ["comparison"],
+);
+/* Precision: comparing with a time or a thing is not comparing with a person,
+   and "never" about somebody else's act is not a claim about this person. */
+check(
+  "comparing with a month is not a comparison with a colleague",
+  kinds("Compared to January, the migration was smoother.", "Chidi Nwosu"),
+  [],
+);
+check(
+  "comparing with last year or a quarter is not flagged",
+  kinds(
+    "Delivery was up compared to last year and compared to Q3.",
+    "Chidi Nwosu",
+  ),
+  [],
+);
+check(
+  "'and I never' is not about the person",
+  kinds("Chidi finished the report and I never saw a defect.", "Chidi Nwosu"),
+  [],
+);
+check(
+  "the caveat names the four things it checks",
+  ["what somebody is", "always", "personal characteristics", "colleague"].every(
+    (word) => FINDINGS_CAVEAT.includes(word) && ANSWER_CAVEAT.includes(word),
+  ),
+  true,
+);
+
 console.log(
   failures === 0
-    ? `\nReview language check passed. ${String(52)} assertions.\n`
+    ? `\nReview language check passed. ${String(59)} assertions.\n`
     : `\nReview language check FAILED: ${String(failures)} problem(s).\n`,
 );
 

@@ -124,6 +124,21 @@ export function StartPeriodDialog({
         ? wholeCompany || scope.length > 0
         : true;
 
+  /* Why Continue is off, in words. It is off until the page has what it needs,
+     and a disabled button is skipped by Tab and says nothing itself. */
+  const whyNot =
+    step === 0
+      ? periodStart !== "" && periodEnd !== "" && periodStart > periodEnd
+        ? "The end date has to be on or after the start date."
+        : !datesOk
+          ? "Choose a quarter, or set both dates, to continue."
+          : name.trim().length < 3
+            ? "Give the period a name of at least 3 characters to continue."
+            : null
+      : step === 2 && !wholeCompany && scope.length === 0
+        ? "Choose at least one department, or switch to the whole company."
+        : null;
+
   const create = async () => {
     setSaving(true);
     setError(null);
@@ -190,6 +205,7 @@ export function StartPeriodDialog({
       onBack={() => setStep(step - 1)}
       onNext={next}
       canNext={canNext}
+      whyNot={whyNot}
       busy={saving}
       error={error}
       nextLabel={step === STEPS - 1 ? "Create period" : "Continue"}
