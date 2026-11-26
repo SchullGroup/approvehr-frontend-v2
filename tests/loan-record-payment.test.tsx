@@ -51,14 +51,6 @@ vi.mock("@/lib/store/loans", async (original) => ({
     loading: false,
     error: null,
   }),
-  usePersonLoans: () => ({
-    others: [],
-    leftOff: 0,
-    folded: [],
-    loading: false,
-    error: null,
-    reload: () => {},
-  }),
 }));
 
 vi.mock("@/lib/store/pay-components", async (original) => ({
@@ -396,6 +388,37 @@ describe("a part-paid instalment on the loan screen", () => {
     );
     expect(screen.getAllByText("₦13,333.32 left to pay")).toHaveLength(2);
     expect(screen.queryByText(/The remaining/)).toBeNull();
+  });
+
+  it("says the payroll will take money recorded by hand, until that month's payroll is approved without it", () => {
+    onDay("2026-11-18");
+    const recorded = (payrollClosed: boolean) =>
+      loanWith([
+        row({
+          sequence: 1,
+          status: "PAID",
+          paidAmountKobo: 1_666_666,
+          remainingKobo: 0,
+          paidAt: "2026-10-05T09:00:00.000Z",
+          handRecordedFor: { period: "2026-10-01", payrollClosed },
+        }),
+        row({ sequence: 2 }),
+        row({ sequence: 3 }),
+      ]);
+
+    loanOnScreen.current = recorded(false);
+    const first = render(<LoanDetailScreen id="loan-3" />);
+    expect(
+      screen.getAllByText("comes off the Oct 2026 payslip").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("paid outside payroll")).toBeNull();
+    first.unmount();
+
+    loanOnScreen.current = recorded(true);
+    render(<LoanDetailScreen id="loan-3" />);
+    expect(screen.getAllByText("paid outside payroll").length).toBeGreaterThan(
+      0,
+    );
   });
 
   it("carries a month nothing was taken in, and says so on that month's row", () => {
