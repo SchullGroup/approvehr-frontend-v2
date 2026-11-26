@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { PageBody, PageHeader } from "@/components/portal/shell";
+import { PageBody } from "@/components/portal/shell";
 import { RUN_PEOPLE } from "@/lib/mock/payroll";
+import { PayslipHeader, PayslipHeaderFromUrl } from "./header";
 import { PayslipView } from "./view";
 
 export const metadata: Metadata = {
@@ -24,34 +25,23 @@ export function generateStaticParams() {
 
 export default async function PayslipPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ run?: string | string[] }>;
 }) {
   const { id } = await params;
-  /* Back goes to the month this payslip belongs to, not to whichever month the list opens on. */
-  const { run } = await searchParams;
-  const runParam = typeof run === "string" && run ? run : null;
-  const backToList = runParam
-    ? `/payroll/payslips?run=${encodeURIComponent(runParam)}`
-    : "/payroll/payslips";
 
+  /* No `searchParams` here, and that is on purpose: reading it on the server makes the page render per request,
+     and this route has an id nobody can list at build time. That combination answered every payslip with a bare
+     "Internal Server Error" on the live site (26 Nov 2026). The month the payslip belongs to (`?run=`) is read in
+     the browser, by the header and the view, behind a boundary. */
   return (
     <>
       <div className="no-print">
-        <PageHeader
-          breadcrumb={[
-            { href: "/payroll", label: "Monthly payroll" },
-            { href: backToList, label: "Payslips" },
-          ]}
-          title="Payslip"
-        />
+        <Suspense fallback={<PayslipHeader run={null} />}>
+          <PayslipHeaderFromUrl />
+        </Suspense>
       </div>
       <PageBody>
-        {/* `?run=` names the run this payslip belongs to, which saves the view
-            hunting for it. `useSearchParams` needs a boundary to keep this route
-            prerenderable. */}
         <Suspense
           fallback={
             <p className="text-body-sm text-muted">Finding this payslip…</p>
