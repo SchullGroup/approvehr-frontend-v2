@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `7b8146c1` (2026-11-26) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `2ebb103e` (2026-11-26) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -24,7 +24,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Domain helpers — `src/lib/*`](#domain-helpers--srclib)                                            |      255 |          0 |      59 |      1106 |
 | [Standalone hooks — `src/hooks`](#standalone-hooks--srchooks)                                      |        6 |          0 |       6 |         1 |
 | [Screens — `/dashboard`](#screens--dashboard)                                                      |       15 |         14 |       0 |         6 |
-| [Screens — `/people`](#screens--people)                                                            |      143 |        157 |       0 |        33 |
+| [Screens — `/people`](#screens--people)                                                            |      144 |        158 |       0 |        33 |
 | [Screens — `/payroll`](#screens--payroll)                                                          |       85 |         89 |       2 |        46 |
 | [Screens — `/performance`](#screens--performance)                                                  |       96 |        114 |       4 |        70 |
 | [Screens — `/hiring`](#screens--hiring)                                                            |       66 |         70 |       1 |         9 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         15 |       0 |        18 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       49 |         53 |       0 |         9 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1429** |   **1196** | **484** |  **1856** |
+| **Total**                                                                                          | **1430** |   **1197** | **484** |  **1856** |
 
 ---
 
@@ -1009,6 +1009,7 @@ Screen components for the people module, including its dialogs and panels.
 | `src/app/(app)/people/probation/probation-screen.tsx`               | `ProbationScreen`                                                                             | —     | —                                                                      | —                  |
 | `src/app/(app)/people/queries/entries.tsx`                          | `LetterList`, `LettersFromHr`, `QueriesAboutPerson`                                           | —     | `waitingLine`                                                          | —                  |
 | `src/app/(app)/people/queries/my-drafts.tsx`                        | `MyDrafts`                                                                                    | —     | —                                                                      | —                  |
+| `src/app/(app)/people/queries/my-letters.tsx`                       | `MyLetters`                                                                                   | —     | —                                                                      | —                  |
 | `src/app/(app)/people/queries/page.tsx`                             | `QueriesPage`                                                                                 | —     | —                                                                      | 1 const            |
 | `src/app/(app)/people/queries/queries-screen.tsx`                   | `QueriesScreen`, `QueriesHeader`                                                              | —     | —                                                                      | —                  |
 | `src/app/(app)/people/queries/start-dialog.tsx`                     | `StartQueryButton`, `StartQueryDialog`                                                        | —     | —                                                                      | —                  |
