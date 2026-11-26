@@ -42,10 +42,16 @@ vi.mock("@/lib/store/session", async (original) => ({
 }));
 
 const loanOnScreen = vi.hoisted(() => ({ current: null as unknown }));
+const cancelLoan = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/store/loans", async (original) => ({
   ...(await original<typeof import("@/lib/store/loans")>()),
-  useLoanActions: () => ({ approve: vi.fn(), pay: vi.fn(), waive: vi.fn() }),
+  useLoanActions: () => ({
+    approve: vi.fn(),
+    pay: vi.fn(),
+    waive: vi.fn(),
+    cancel: cancelLoan,
+  }),
   useLoan: () => ({
     loan: loanOnScreen.current,
     loading: false,
@@ -391,7 +397,7 @@ describe("the card on a loan that was declined", () => {
 });
 
 describe("one person, one loan", () => {
-  it("says what a loan that took others in was combined from, and links them", () => {
+  it("shows a loan that took others in as one loan, with no word of what it was made from", () => {
     loanOnScreen.current = running({
       principalKobo: 5_500_000,
       totalRepayableKobo: 5_500_000,
@@ -424,20 +430,14 @@ describe("one person, one loan", () => {
     });
     render(<LoanDetailScreen id="loan-7" />);
 
-    expect(screen.getByText("Combined from earlier loans")).toBeVisible();
-    expect(screen.getByRole("link", { name: "School fees" })).toHaveAttribute(
-      "href",
-      "/payroll/loans/loan-3",
-    );
-    /* And the card says how much of the borrowing is that. */
-    expect(
-      within(card()).getByText(
-        "Includes ₦5,000.00 carried from an earlier loan",
-      ),
-    ).toBeVisible();
+    /* The amount is the whole of it, and nothing on the page breaks it into earlier loans. */
+    expect(within(card()).getByText("₦55,000.00")).toBeVisible();
+    expect(screen.queryByText(/combin/i)).toBeNull();
+    expect(screen.queryByText(/earlier loan/i)).toBeNull();
+    expect(screen.queryByRole("link", { name: "School fees" })).toBeNull();
   });
 
-  it("says a folded loan was combined, and points at the one that took it", () => {
+  it("says a loan whose balance moved on has moved, and points at the one that took it", () => {
     loanOnScreen.current = running({
       status: "CONSOLIDATED",
       outstandingKobo: 0,
@@ -447,16 +447,15 @@ describe("one person, one loan", () => {
     render(<LoanDetailScreen id="loan-7" />);
 
     expect(
-      screen.getByText("Combined into one loan", {
-        selector: "p, h2, h3, div",
-      }),
+      screen.getByText("This loan continues in another one"),
     ).toBeVisible();
     expect(
       screen.getByRole("link", { name: "the loan that took it over" }),
     ).toHaveAttribute("href", "/payroll/loans/loan-9");
+    expect(screen.queryByText(/combin/i)).toBeNull();
   });
 
-  it("warns an approver, before they decide, what approving will combine", () => {
+  it("tells an approver, before they decide, what the new monthly figure will be", () => {
     loanOnScreen.current = pending({
       termMonths: 2,
       principalKobo: 5_000_000,
@@ -465,21 +464,55 @@ describe("one person, one loan", () => {
     });
     render(<LoanDetailScreen id="loan-7" />);
 
-    expect(
-      screen.getByText("This will be combined with their current loan"),
-    ).toBeVisible();
-    /* ₦5,000 owed plus ₦50,000 new, over two months. */
+    expect(screen.getByText("They are still repaying a loan")).toBeVisible();
+    /* ₦5,000 owed plus ₦50,000 new, over two months: one figure, not two added together. */
     expect(
       screen.getByText(/about ₦27,500\.00 a month over 2 months/),
     ).toBeVisible();
+    expect(screen.queryByText(/combin/i)).toBeNull();
   });
 
   it("says nothing of this on an ordinary loan", () => {
     loanOnScreen.current = running();
     render(<LoanDetailScreen id="loan-7" />);
 
-    expect(screen.queryByText("Combined from earlier loans")).toBeNull();
-    expect(screen.queryByText("Combined into one loan")).toBeNull();
-    expect(screen.queryByText(/combined with their current/)).toBeNull();
+    expect(screen.queryByText(/combin/i)).toBeNull();
+    expect(screen.queryByText("They are still repaying a loan")).toBeNull();
+  });
+
+  it("lets an administrator cancel a loan being repaid, with a reason", async () => {
+    cancelLoan.mockResolvedValue(running({ status: "CANCELLED" }));
+    loanOnScreen.current = running();
+    render(<LoanDetailScreen id="loan-7" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel loan" }));
+    const confirm = screen.getByRole("button", { name: "Cancel the loan" });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Approved for the wrong person" },
+    });
+    fireEvent.click(confirm);
+
+    await vi.waitFor(() =>
+      expect(cancelLoan).toHaveBeenCalledWith(
+        "loan-7",
+        "Approved for the wrong person",
+      ),
+    );
+  });
+
+  it("shows a cancelled loan as history, with the reason, and no way to cancel it again", () => {
+    loanOnScreen.current = running({
+      status: "CANCELLED",
+      outstandingKobo: 0,
+      cancelledAt: "2026-11-26T09:00:00.000Z",
+      cancelledReason: "Approved for the wrong person",
+    });
+    render(<LoanDetailScreen id="loan-7" />);
+
+    expect(screen.getByText("This loan was cancelled")).toBeVisible();
+    expect(screen.getByText(/Approved for the wrong person/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Cancel loan" })).toBeNull();
   });
 });

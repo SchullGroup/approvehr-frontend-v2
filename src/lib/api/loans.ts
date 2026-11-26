@@ -57,7 +57,9 @@ export type LoanStatus =
   | "SETTLED"
   | "DECLINED"
   /** Folded into another loan, which now carries what was still owed on it. Lists leave it out unless asked. */
-  | "CONSOLIDATED";
+  | "CONSOLIDATED"
+  /** Stopped by an administrator after approval. Kept, with who and why, and listed under its own tab. */
+  | "CANCELLED";
 
 /** Mirrors `LoanRepaymentStatus`. `WAIVED` means forgiven, not paid. */
 export type LoanRepaymentStatus = "SCHEDULED" | "PARTIAL" | "PAID" | "WAIVED";
@@ -115,6 +117,10 @@ export type ApiLoan = {
   decidedByName: string | null;
   decidedAt: string | null;
   declinedReason: string | null;
+  /** Set when an administrator cancelled the loan. Absent from an older API. */
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  cancelledReason?: string | null;
   completedAt: string | null;
   createdAt: string;
 };
@@ -133,6 +139,12 @@ export type ApiRepayment = {
   paidAt: string | null;
   /** The payslip that took it. Null when the payment came in outside payroll. */
   payslipId: string | null;
+  /**
+   * Money recorded by hand that no payslip has taken yet: the month it comes off, and whether that
+   * month's payroll was approved without it. Until then the payroll takes it, so it is not outside payroll.
+   * Absent from an API that does not send it.
+   */
+  handRecordedFor?: { period: string; payrollClosed: boolean } | null;
   note: string | null;
 };
 
@@ -309,17 +321,6 @@ export const loansApi = {
   approve: (id: string, body: ApproveLoanBody = {}) =>
     request<ApiLoanDetail>(`/loans/${id}/approve`, { method: "POST", body }),
 
-  /**
-   * Fold a person's loans that are still being repaid into one. What is owed is read from their schedules, so
-   * the only choices are the term and the first month. Needs `APPROVE_LOANS`; never for your own.
-   */
-  consolidate: (body: {
-    employeeId: string;
-    termMonths: number;
-    startPeriod: string;
-    note?: string;
-  }) => request<ApiLoanDetail>("/loans/consolidate", { method: "POST", body }),
-
   /** Move the first deduction of a loan nothing has come off yet. */
   reschedule: (id: string, startPeriod: string) =>
     request<ApiLoanDetail>(`/loans/${id}/reschedule`, {
@@ -334,11 +335,28 @@ export const loansApi = {
       body: { reason },
     }),
 
+  /** An administrator stopping an approved loan. The reason is required. */
+  cancel: (id: string, reason: string) =>
+    request<ApiLoanDetail>(`/loans/${id}/cancel`, {
+      method: "POST",
+      body: { reason },
+    }),
+
   /** Bookkeeping, not a decision — hence `EDIT_RECORDS` rather than approval. */
   pay: (id: string, sequence: number, body: PayRepaymentBody) =>
     request<ApiLoanDetail>(`/loans/${id}/repayments/${sequence}/pay`, {
       method: "POST",
       body,
+    }),
+
+  /**
+   * Taking a payment recorded by hand back out, so it can be recorded again properly. Takes the whole payment,
+   * including what it spilled onto later instalments. Never money a payslip took. The reason is required.
+   */
+  undoPayment: (id: string, sequence: number, reason: string) =>
+    request<ApiLoanDetail>(`/loans/${id}/repayments/${sequence}/undo`, {
+      method: "POST",
+      body: { reason },
     }),
 
   /** Giving up company money. The note is the record, so it is required. */

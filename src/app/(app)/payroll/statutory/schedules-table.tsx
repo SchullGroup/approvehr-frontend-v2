@@ -1,7 +1,6 @@
 "use client";
 
-import { formatDay } from "@/lib/time";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Landmark } from "lucide-react";
 import {
   Badge,
@@ -25,13 +24,22 @@ import {
 import { ExportButton } from "@/components/portal/export-button";
 import { ApiError } from "@/lib/api/client";
 import { formatKobo, periodLabel } from "@/lib/api/payroll";
-import { KIND_LABEL, dueIn, statutory } from "@/lib/api/statutory";
-import { useStatutorySchedules } from "@/lib/store/statutory";
+import { formatDay } from "@/lib/time";
+import {
+  KIND_LABEL,
+  dueIn,
+  statutory,
+  type ApiStatutorySchedule,
+} from "@/lib/api/statutory";
+import { useApprovedRuns, useStatutorySchedules } from "@/lib/store/statutory";
 import { useOrgTimezone } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
+import { PeoplePanel } from "./people-panel";
+import { RunPicker } from "./run-picker";
 
 /**
- * What the last approved payroll owes, to whom, and by when.
+ * What an approved payroll owes, to whom, and by when, for the payroll the
+ * picker is on.
  *
  * ## The screen this replaces said the truth and had nothing to show
  *
@@ -51,11 +59,86 @@ import { useCan } from "@/lib/permissions";
  * section number — NSITF today. A date presented as settled when it is not is
  * how somebody misses one, so the row is marked and the statute behind every
  * date is one hover away.
+ *
+ * ## Choosing the payroll
+ *
+ * The picker narrows approved runs by year, then month, then run. The newest
+ * run in the chosen scope is shown first, so the default is still the last
+ * payroll that went out. Only approved or paid runs appear: a draft has no
+ * schedules, by design.
  */
 export function SchedulesTable() {
-  const state = useStatutorySchedules();
   const timeZone = useOrgTimezone();
   const mayFile = useCan("APPROVE_PAYROLL");
+
+  const allRuns = useApprovedRuns();
+  const [pick, setPick] = useState<{
+    year?: number | undefined;
+    month?: number | "all" | undefined;
+    runId?: string | undefined;
+  }>({});
+  const [viewing, setViewing] = useState<ApiStatutorySchedule | null>(null);
+
+  const years = uniqueSorted(
+    allRuns.runs.map((run) => Number(run.period.slice(0, 4))),
+  );
+  const year =
+    pick.year !== undefined && years.includes(pick.year)
+      ? pick.year
+      : (years[0] ?? null);
+  const months = uniqueSorted(
+    allRuns.runs
+      .filter((run) => Number(run.period.slice(0, 4)) === year)
+      .map((run) => Number(run.period.slice(5, 7))),
+  );
+  const month: number | "all" =
+    typeof pick.month === "number" && months.includes(pick.month)
+      ? pick.month
+      : "all";
+
+  const scoped = useApprovedRuns({
+    ...(year !== null ? { year } : {}),
+    ...(month !== "all" ? { month } : {}),
+  });
+  const selectedRun =
+    scoped.runs.find((run) => run.id === pick.runId) ?? scoped.runs[0] ?? null;
+
+  const state = useStatutorySchedules(
+    selectedRun ? { runId: selectedRun.id, period: selectedRun.period } : null,
+  );
+
+  const picker =
+    allRuns.runs.length > 0 ? (
+      <RunPicker
+        years={years}
+        year={year}
+        onYear={(next) => setPick({ year: next })}
+        months={months}
+        month={month}
+        onMonth={(next) => setPick({ year: year ?? undefined, month: next })}
+        runs={scoped.runs}
+        runId={selectedRun?.id ?? null}
+        onRun={(runId) => setPick({ year: year ?? undefined, month, runId })}
+        loading={scoped.loading}
+      />
+    ) : null;
+
+  const frame = (body: ReactNode) => (
+    <Card>
+      <CardHeader
+        title="Remittance schedules"
+        description={
+          state.period
+            ? `From the ${periodLabel(state.period)} payroll, computed from its own payslips${anyEarlier ? ", and earlier payrolls' schedules not filed yet" : ""}.`
+            : undefined
+        }
+      />
+      <CardBody className="flex flex-col gap-4">
+        {picker}
+        {body}
+      </CardBody>
+    </Card>
+  );
 
   if (!state.available) {
     return (
@@ -74,7 +157,7 @@ export function SchedulesTable() {
 
   /* The one loading and failure rule, as a gate. */
   if (state.loading || state.error) {
-    return (
+    return frame(
       <LoadState
         loading={state.loading}
         error={state.error}
@@ -83,27 +166,22 @@ export function SchedulesTable() {
         skeleton="table"
       >
         {null}
-      </LoadState>
+      </LoadState>,
     );
   }
 
   if (state.schedules.length === 0) {
-    return (
-      <Card>
-        <CardHeader title="Remittance schedules" />
-        <CardBody>
-          <EmptyState
-            plain
-            icon={<Landmark aria-hidden="true" />}
-            title="Nothing to file yet"
-            description={
-              state.runId
-                ? "The last approved payroll produced no schedules: this company deducts nothing statutory and has no employer contribution to make."
-                : "Schedules are written when a payroll is approved. None has been yet."
-            }
-          />
-        </CardBody>
-      </Card>
+    return frame(
+      <EmptyState
+        plain
+        icon={<Landmark aria-hidden="true" />}
+        title="Nothing to file yet"
+        description={
+          state.runId
+            ? "The payroll chosen above produced no schedules: this company deducts nothing statutory and has no employer contribution to make."
+            : "Schedules are written when a payroll is approved. None has been yet."
+        }
+      />,
     );
   }
 
@@ -114,146 +192,159 @@ export function SchedulesTable() {
     state.period !== null && row.period !== state.period;
   const anyEarlier = state.schedules.some(earlier);
 
-  return (
-    <Card>
-      <CardHeader
-        title="Remittance schedules"
-        description={
-          state.period
-            ? `From the ${periodLabel(state.period)} payroll, computed from its own payslips${anyEarlier ? ", and earlier payrolls' schedules not filed yet" : ""}.`
-            : undefined
-        }
-      />
-      <CardBody className="flex flex-col gap-4">
-        {unconfirmed.length > 0 && (
-          /* Named rather than quietly shown as settled. A wrong band is a wrong
-             figure; a wrong deadline is a penalty. */
-          <Callout tone="warning" title="One deadline here is not confirmed">
-            {`${unconfirmed.map((row) => KIND_LABEL[row.kind]).join(", ")}: ${unconfirmed[0]?.dueDateBasis ?? ""}`}
-          </Callout>
-        )}
+  return frame(
+    <>
+      {unconfirmed.length > 0 && (
+        /* Named rather than quietly shown as settled. A wrong band is a wrong
+           figure; a wrong deadline is a penalty. */
+        <Callout tone="warning" title="One deadline here is not confirmed">
+          {`${unconfirmed.map((row) => KIND_LABEL[row.kind]).join(", ")}: ${unconfirmed[0]?.dueDateBasis ?? ""}`}
+        </Callout>
+      )}
 
-        <div className="hidden sm:block">
-          <TableWrap>
-            <THead>
-              <TH>Body</TH>
-              <TH>Goes to</TH>
-              <TH align="right">People</TH>
-              <TH align="right">Amount</TH>
-              <TH>Due</TH>
-              <TH>
-                <span className="sr-only-focusable">Actions</span>
-              </TH>
-            </THead>
-            <TBody>
-              {state.schedules.map((row) => (
-                <TR key={row.id}>
-                  <TDPrimary
-                    title={KIND_LABEL[row.kind]}
-                    {...(earlier(row)
-                      ? { subtitle: periodLabel(row.period) }
-                      : {})}
-                  />
-                  <TD>{row.recipient}</TD>
-                  <TD align="right" className="tabular">
-                    {row.employeeCount}
-                  </TD>
-                  <TD align="right" className="tabular">
-                    {formatKobo(row.amountKobo)}
-                  </TD>
-                  <TD>
-                    <span className="flex flex-col gap-0.5">
-                      {/* The statute is a title rather than a paragraph per
-                          row: it is what somebody checks the date against,
-                          and eight citations down a table is a wall nobody
-                          reads. */}
-                      <span title={row.dueDateBasis}>
-                        {formatDay(row.dueDate)}
-                      </span>
-                      {row.filedAt === null && (
-                        <span className="text-meta text-faint">
-                          {dueIn(row.dueDate, timeZone)}
-                        </span>
-                      )}
-                    </span>
-                  </TD>
-                  <TD>
-                    <span className="flex flex-wrap items-center gap-2">
-                      {row.filedAt ? (
-                        <Badge tone="success" size="sm">
-                          Filed · {row.reference}
-                        </Badge>
-                      ) : (
-                        mayFile && (
-                          <FileButton id={row.id} onFiled={state.reload} />
-                        )
-                      )}
-                      <ExportButton
-                        label="Schedule"
-                        download={() => statutory.file(row.id)}
-                      />
-                    </span>
-                  </TD>
-                </TR>
-              ))}
-            </TBody>
-          </TableWrap>
-        </div>
-
-        <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
-          {state.schedules.map((row) => (
-            <li key={row.id} className="flex flex-col gap-2 p-4">
-              <div>
-                <p className="text-body-sm font-medium text-ink">
-                  {KIND_LABEL[row.kind]}
-                  {earlier(row) ? `, ${periodLabel(row.period)}` : ""}
-                </p>
-                <p className="mt-0.5 text-meta text-muted">{row.recipient}</p>
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-body-sm text-muted">People</span>
-                <span className="tabular text-body-sm text-ink">
-                  {row.employeeCount}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-body-sm text-muted">Amount</span>
-                <span className="tabular text-body-sm font-medium text-ink">
-                  {formatKobo(row.amountKobo)}
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-body-sm text-muted">Due</span>
-                <span className="text-right text-body-sm text-ink">
-                  <span title={row.dueDateBasis}>{formatDay(row.dueDate)}</span>
-                  {row.filedAt === null && (
-                    <span className="block text-meta text-faint">
-                      {dueIn(row.dueDate, timeZone)}
-                    </span>
-                  )}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {row.filedAt ? (
-                  <Badge tone="success" size="sm">
-                    Filed · {row.reference}
-                  </Badge>
-                ) : (
-                  mayFile && <FileButton id={row.id} onFiled={state.reload} />
-                )}
-                <ExportButton
-                  label="Schedule"
-                  download={() => statutory.file(row.id)}
+      <div className="hidden sm:block">
+        <TableWrap>
+          <THead>
+            <TH>Body</TH>
+            <TH>Goes to</TH>
+            <TH align="right">People</TH>
+            <TH align="right">Amount</TH>
+            <TH>Due</TH>
+            <TH>
+              <span className="sr-only-focusable">Actions</span>
+            </TH>
+          </THead>
+          <TBody>
+            {state.schedules.map((row) => (
+              <TR key={row.id}>
+                <TDPrimary
+                  title={KIND_LABEL[row.kind]}
+                  {...(earlier(row)
+                    ? { subtitle: periodLabel(row.period) }
+                    : {})}
                 />
-              </div>
-            </li>
-          ))}
-        </ul>
-      </CardBody>
-    </Card>
+                <TD>{row.recipient}</TD>
+                <TD align="right" className="tabular">
+                  {row.employeeCount}
+                </TD>
+                <TD align="right" className="tabular">
+                  {formatKobo(row.amountKobo)}
+                </TD>
+                <TD>
+                  <span className="flex flex-col gap-0.5">
+                    {/* The statute is a title rather than a paragraph per
+                        row: it is what somebody checks the date against,
+                        and eight citations down a table is a wall nobody
+                        reads. */}
+                    <span title={row.dueDateBasis}>
+                      {formatDay(row.dueDate)}
+                    </span>
+                    {row.filedAt === null && (
+                      <span className="text-meta text-faint">
+                        {dueIn(row.dueDate, timeZone)}
+                      </span>
+                    )}
+                  </span>
+                </TD>
+                <TD>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {row.filedAt ? (
+                      <Badge tone="success" size="sm">
+                        Filed · {row.reference}
+                      </Badge>
+                    ) : (
+                      mayFile && (
+                        <FileButton id={row.id} onFiled={state.reload} />
+                      )
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setViewing(row)}
+                    >
+                      View people
+                    </Button>
+                    <ExportButton
+                      label="Schedule"
+                      download={() => statutory.file(row.id)}
+                    />
+                  </span>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
+        {state.schedules.map((row) => (
+          <li key={row.id} className="flex flex-col gap-2 p-4">
+            <div>
+              <p className="text-body-sm font-medium text-ink">
+                {KIND_LABEL[row.kind]}
+                {earlier(row) ? `, ${periodLabel(row.period)}` : ""}
+              </p>
+              <p className="mt-0.5 text-meta text-muted">{row.recipient}</p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-body-sm text-muted">People</span>
+              <span className="tabular text-body-sm text-ink">
+                {row.employeeCount}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-body-sm text-muted">Amount</span>
+              <span className="tabular text-body-sm font-medium text-ink">
+                {formatKobo(row.amountKobo)}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-body-sm text-muted">Due</span>
+              <span className="text-right text-body-sm text-ink">
+                <span title={row.dueDateBasis}>{formatDay(row.dueDate)}</span>
+                {row.filedAt === null && (
+                  <span className="block text-meta text-faint">
+                    {dueIn(row.dueDate, timeZone)}
+                  </span>
+                )}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {row.filedAt ? (
+                <Badge tone="success" size="sm">
+                  Filed · {row.reference}
+                </Badge>
+              ) : (
+                mayFile && <FileButton id={row.id} onFiled={state.reload} />
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setViewing(row)}
+              >
+                View people
+              </Button>
+              <ExportButton
+                label="Schedule"
+                download={() => statutory.file(row.id)}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {viewing && (
+        <PeoplePanel schedule={viewing} open onClose={() => setViewing(null)} />
+      )}
+    </>,
   );
+}
+
+/** Newest first, without repeats. Years and months are both sorted this way. */
+function uniqueSorted(values: number[]): number[] {
+  return [...new Set(values)].sort((a, b) => b - a);
 }
 
 /**

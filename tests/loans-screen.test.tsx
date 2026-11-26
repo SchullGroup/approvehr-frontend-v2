@@ -288,7 +288,7 @@ describe("one row for each person", () => {
     expect(within(rowFor("Ime Dennis")).queryByRole("link")).toBeNull();
   });
 
-  it("prints a dash, not zero, where a person has nothing being repaid", () => {
+  it("leaves the cell empty, not zero, where a person has nothing being repaid", () => {
     world.loans = [
       loan({
         employeeId: "e-x",
@@ -310,7 +310,8 @@ describe("one row for each person", () => {
     show();
 
     const row = within(rowFor("Solomon Augustine"));
-    expect(row.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    /* Empty, as asked (25 Nov 2026): no dash and no zero. */
+    expect(row.queryByText("—")).toBeNull();
     expect(row.queryByText("₦0.00")).toBeNull();
   });
 });

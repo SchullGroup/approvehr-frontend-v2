@@ -1505,13 +1505,23 @@ type ApiPayslipWithRun = ApiPayslip & { run: PayslipRunSummary };
 
 export const payrollApi = {
   runs: async (
-    params: { take?: number; skip?: number } = {},
+    params: {
+      take?: number;
+      skip?: number;
+      year?: number;
+      month?: number;
+    } = {},
     signal?: AbortSignal,
   ): Promise<{ runs: PayrollRun[]; total: number }> => {
     const result = await request<{ runs: ApiRun[]; total: number }>(
       "/payroll/runs",
       {
-        query: { take: params.take ?? 24, skip: params.skip ?? 0 },
+        query: {
+          take: params.take ?? 24,
+          skip: params.skip ?? 0,
+          ...(params.year !== undefined ? { year: params.year } : {}),
+          ...(params.month !== undefined ? { month: params.month } : {}),
+        },
         ...(signal ? { signal } : {}),
       },
     );

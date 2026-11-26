@@ -57,8 +57,10 @@ import { ApprovedLoanCard } from "../approved-loan-card";
 import {
   CounterOfferModal,
   RescheduleLoanModal,
+  CancelLoanModal,
   DeclineLoanModal,
   PayInstalmentModal,
+  UndoPaymentModal,
   WaiveInstalmentModal,
 } from "../decisions";
 
@@ -116,6 +118,7 @@ const STATUS_TONE: Record<
   SETTLED: "success",
   DECLINED: "neutral",
   CONSOLIDATED: "neutral",
+  CANCELLED: "neutral",
 };
 
 const ROW_TONE: Record<
@@ -153,6 +156,25 @@ function monthsFrom(months: readonly string[], movedTo: string): string {
  * where it came from. `statusLabel` replaces "Not yet due" on an instalment that
  * was missed and moved on, which is the one case where that label is wrong.
  */
+/**
+ * Where the money on an instalment came from, said in words: a payslip took it, the month's payroll will
+ * take what was recorded by hand, or it really was paid outside payroll. Nothing for an instalment with
+ * no money on it.
+ */
+function paidFrom(row: ApiRepayment): string | null {
+  if (row.payslipId) return "taken by payroll";
+  if (!row.paidAt || row.status === "SCHEDULED") return null;
+  const hand = row.handRecordedFor;
+  if (hand && !hand.payrollClosed) {
+    return `comes off the ${shortMonthLabel(hand.period)} payslip`;
+  }
+  return "paid outside payroll";
+}
+
+/** Money recorded by hand that no payslip has taken: the only kind that can be taken back. */
+const undoable = (row: ApiRepayment): boolean =>
+  row.paidAmountKobo > 0 && !row.payslipId;
+
 function rowFacts(entry: EffectiveRepayment) {
   const { row } = entry;
   const note =
@@ -193,7 +215,7 @@ function AmountCell({
   return (
     <span className="inline-flex flex-col items-end">
       {entry.amountKobo === 0 && entry.movedOnKobo > 0 ? (
-        <span className="text-muted">—</span>
+        <span className="sr-only">Moved to the next instalment</span>
       ) : (
         <Money amount={naira(entry.amountKobo)} decimals />
       )}
@@ -298,9 +320,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
   } | null>(null);
   const [countering, setCountering] = useState<ApiLoanDetail | null>(null);
   const [declining, setDeclining] = useState<ApiLoanDetail | null>(null);
+  const [cancelling, setCancelling] = useState<ApiLoanDetail | null>(null);
   const [rescheduling, setRescheduling] = useState<ApiLoanDetail | null>(null);
   const [paying, setPaying] = useState<ApiRepayment | null>(null);
   const [waiving, setWaiving] = useState<ApiRepayment | null>(null);
+  const [undoing, setUndoing] = useState<ApiRepayment | null>(null);
 
   const canDecide = can("APPROVE_LOANS");
   const canRecord = can("EDIT_RECORDS");
@@ -353,7 +377,6 @@ export function LoanDetailScreen({ id }: { id: string }) {
      way (`approve()`: borrowed less already repaid, plus what is still owed), so the schedule shown
      here is the one that will be created. */
   const carriedKobo = pending ? (loan.combinesWith?.owedKobo ?? 0) : 0;
-  const combinedCount = pending ? (loan.combinesWith?.count ?? 0) : 0;
   const proposed = pending
     ? priceLoan({
         principalKobo:
@@ -402,18 +425,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   /* With a carry, the total and the monthly figure are the combined loan's, not the application's. */
   const repayableKobo =
     carriedKobo > 0 && proposed ? proposed.totalKobo : loan.totalRepayableKobo;
-  /* Two different carries, kept apart on purpose: `carriedKobo` above is what approving a pending
-     loan WILL fold in; this is what an approved loan HAS already carried from loans it replaced. */
-  const carriedForwardKobo = loan.carriedForwardKobo ?? 0;
-  const foldedCount = loan.foldedLoans?.length ?? 0;
   const costLines = [
-    carriedForwardKobo > 0
-      ? `Includes ${money(carriedForwardKobo)} carried from ${
-          foldedCount === 1
-            ? "an earlier loan"
-            : `${String(foldedCount)} earlier loans`
-        }`
-      : null,
     loan.interestKobo > 0
       ? `${money(loan.interestKobo)} interest (${(loan.interestRate * 100).toFixed(2)}% a year)`
       : null,
@@ -495,6 +507,29 @@ export function LoanDetailScreen({ id }: { id: string }) {
             >
               Withdraw it
             </Button>
+          ) : (loan.status === "ACTIVE" || loan.status === "APPROVED") &&
+            canDecide &&
+            !own ? (
+            <>
+              {loan.status === "ACTIVE" &&
+                loan.schedule.every(
+                  (row) =>
+                    row.status === "SCHEDULED" &&
+                    row.paidAmountKobo === 0 &&
+                    row.payslipId === null,
+                ) && (
+                  <Button size="sm" onClick={() => setRescheduling(loan)}>
+                    Change first deduction
+                  </Button>
+                )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCancelling(loan)}
+              >
+                Cancel loan
+              </Button>
+            </>
           ) : loan.status === "ACTIVE" &&
             canDecide &&
             loan.schedule.every(
@@ -525,8 +560,19 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
         {/* One person, one loan. These three say so where it matters: on the loan that was folded into
             another, on the loan that took others in, and on an application that is about to. */}
+        {loan.status === "CANCELLED" && (
+          <Callout tone="info" title="This loan was cancelled">
+            {loan.cancelledReason ?? "No reason was recorded."}
+            {loan.cancelledAt
+              ? ` Cancelled on ${formatDate(loan.cancelledAt, timeZone)}.`
+              : ""}{" "}
+            Nothing is deducted for it, and what was repaid before stays on the
+            schedule below.
+          </Callout>
+        )}
+
         {loan.status === "CONSOLIDATED" && (
-          <Callout tone="info" title="Combined into one loan">
+          <Callout tone="info" title="This loan continues in another one">
             What was still owed on this loan
             {loan.consolidatedAt
               ? ` moved, on ${formatDate(loan.consolidatedAt, timeZone)},`
@@ -539,39 +585,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
             ) : (
               "another loan"
             )}
-            . Nothing comes off this one any more; its schedule is kept as the
-            record.
-          </Callout>
-        )}
-        {foldedCount > 0 && (
-          <Callout tone="info" title="Combined from earlier loans">
-            <span>
-              {money(carriedForwardKobo)} that was still owed on{" "}
-              {foldedCount === 1
-                ? "an earlier loan"
-                : `${String(foldedCount)} earlier loans`}{" "}
-              is repaid with this one, with no interest on it.{" "}
-            </span>
-            {(loan.foldedLoans ?? []).map((folded, index) => (
-              <span key={folded.id}>
-                {index > 0 ? ", " : ""}
-                <TextLink href={`/payroll/loans/${folded.id}`}>
-                  {folded.reason ?? "Earlier loan"}
-                </TextLink>
-              </span>
-            ))}
+            . Nothing comes off this one any more.
           </Callout>
         )}
         {pending && loan.combinesWith && (
-          <Callout
-            tone="info"
-            title="This will be combined with their current loan"
-          >
+          <Callout tone="info" title="They are still repaying a loan">
             {money(loan.combinesWith.owedKobo)} is still owed on{" "}
             {loan.combinesWith.count === 1
               ? "their current loan"
               : `${String(loan.combinesWith.count)} of their current loans`}
-            . Approving this adds it to the new loan: about{" "}
+            . Approving this makes it one loan: about{" "}
             {money(
               Math.floor(
                 (loan.combinesWith.owedKobo + loan.totalRepayableKobo) /
@@ -714,20 +737,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
                         <TR>
                           <TDPrimary
                             title={`${row.sequence} of ${loan.progress.instalmentsTotal}`}
-                            {...(row.payslipId
-                              ? { subtitle: "taken by payroll" }
-                              : row.paidAt && row.status !== "SCHEDULED"
-                                ? { subtitle: "paid outside payroll" }
-                                : {})}
+                            {...(paidFrom(row)
+                              ? { subtitle: paidFrom(row)! }
+                              : {})}
                           />
                           <TD>{shortMonthLabel(row.dueDate)}</TD>
                           <TD align="right">
                             <AmountCell entry={entry} note={facts.note} />
                           </TD>
                           <TD align="right">
-                            {row.paidAmountKobo === 0 ? (
-                              <span className="text-muted">—</span>
-                            ) : (
+                            {row.paidAmountKobo === 0 ? null : (
                               <Money
                                 amount={naira(row.paidAmountKobo)}
                                 decimals
@@ -748,30 +767,39 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           </TD>
                           {columns === 6 && (
                             <TD align="right">
-                              {open && (canRecord || canDecide) && (
-                                <RowActions
-                                  label={`More actions for instalment ${String(row.sequence)}`}
-                                  items={[
-                                    ...(canRecord
-                                      ? [
-                                          {
-                                            label: "Record a payment",
-                                            onSelect: () => setPaying(row),
-                                          },
-                                        ]
-                                      : []),
-                                    ...(canDecide
-                                      ? [
-                                          {
-                                            label: "Write off",
-                                            tone: "danger" as const,
-                                            onSelect: () => setWaiving(row),
-                                          },
-                                        ]
-                                      : []),
-                                  ]}
-                                />
-                              )}
+                              {(open || undoable(row)) &&
+                                (canRecord || canDecide) && (
+                                  <RowActions
+                                    label={`More actions for instalment ${String(row.sequence)}`}
+                                    items={[
+                                      ...(open && canRecord
+                                        ? [
+                                            {
+                                              label: "Record a payment",
+                                              onSelect: () => setPaying(row),
+                                            },
+                                          ]
+                                        : []),
+                                      ...(undoable(row) && canDecide
+                                        ? [
+                                            {
+                                              label: "Undo the payment",
+                                              onSelect: () => setUndoing(row),
+                                            },
+                                          ]
+                                        : []),
+                                      ...(open && canDecide
+                                        ? [
+                                            {
+                                              label: "Write off",
+                                              tone: "danger" as const,
+                                              onSelect: () => setWaiving(row),
+                                            },
+                                          ]
+                                        : []),
+                                    ]}
+                                  />
+                                )}
                             </TD>
                           )}
                         </TR>
@@ -807,12 +835,9 @@ export function LoanDetailScreen({ id }: { id: string }) {
                         <p className="text-body-sm font-medium text-ink">
                           {row.sequence} of {loan.progress.instalmentsTotal}
                         </p>
-                        {(row.payslipId ||
-                          (row.paidAt && row.status !== "SCHEDULED")) && (
+                        {paidFrom(row) && (
                           <p className="mt-0.5 text-meta text-muted">
-                            {row.payslipId
-                              ? "taken by payroll"
-                              : "paid outside payroll"}
+                            {paidFrom(row)}
                           </p>
                         )}
                       </div>
@@ -845,9 +870,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-body-sm text-muted">Paid</span>
                       <span className="tabular text-body-sm font-medium text-ink">
-                        {row.paidAmountKobo === 0 ? (
-                          "—"
-                        ) : (
+                        {row.paidAmountKobo === 0 ? null : (
                           <Money amount={naira(row.paidAmountKobo)} decimals />
                         )}
                       </span>
@@ -860,11 +883,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
                       </p>
                     )}
 
-                    {open &&
+                    {(open || undoable(row)) &&
                       (canRecord || canDecide) &&
                       loan.status === "ACTIVE" && (
                         <div className="flex gap-1.5">
-                          {canRecord && (
+                          {open && canRecord && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -873,7 +896,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
                               Record a payment
                             </Button>
                           )}
-                          {canDecide && (
+                          {undoable(row) && canDecide && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setUndoing(row)}
+                            >
+                              Undo the payment
+                            </Button>
+                          )}
+                          {open && canDecide && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -900,20 +932,6 @@ export function LoanDetailScreen({ id }: { id: string }) {
               starts taking them in{" "}
               {monthLabel(proposed.lines[0]?.dueDate ?? today)}.
             </p>
-            {carriedKobo > 0 && (
-              <div className="rounded-lg border border-line bg-canvas px-4 py-3">
-                <p className="text-meta font-medium text-muted">
-                  Combined on approval
-                </p>
-                <p className="mt-1 text-body-sm leading-relaxed text-ink">
-                  Approving also combines {combinedCount}{" "}
-                  {combinedCount === 1 ? "loan" : "loans"} still owing{" "}
-                  {money(carriedKobo)} into this one. Those stop coming off
-                  payroll as soon as this is approved. No interest is charged on
-                  the amount carried over, only on the new money.
-                </p>
-              </div>
-            )}
             <div className="hidden sm:block">
               <TableWrap caption="The schedule this loan would create if it were approved">
                 <THead>
@@ -1008,12 +1026,26 @@ export function LoanDetailScreen({ id }: { id: string }) {
           onClose={() => setDeclining(null)}
         />
       )}
+      {cancelling && (
+        <CancelLoanModal
+          loan={cancelling}
+          onClose={() => setCancelling(null)}
+        />
+      )}
       {paying && (
         <PayInstalmentModal
           key={paying.id}
           loan={loan}
           repayment={paying}
           onClose={() => setPaying(null)}
+        />
+      )}
+      {undoing && (
+        <UndoPaymentModal
+          key={undoing.id}
+          loan={loan}
+          repayment={undoing}
+          onClose={() => setUndoing(null)}
         />
       )}
       {waiving && (

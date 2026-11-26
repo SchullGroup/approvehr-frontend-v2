@@ -4,7 +4,6 @@ import { BackHome } from "@/components/portal/require-permission";
 import { formatMoney } from "@/components/ui/money-format";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Ban, CalendarClock, Play, Receipt, ShieldAlert } from "lucide-react";
 import type { Point } from "@/components/ui";
 import {
@@ -31,16 +30,10 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import { NOTICE_LINK } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import {
-  RunStatusBadge,
-  SourceBadge,
-  TotalsPanel,
-} from "@/components/payroll/run-panels";
+import { RunStatusBadge, SourceBadge } from "@/components/payroll/run-panels";
 import {
   formatKobo,
-  headcountLabel,
   naira,
   extraRunLabel,
   paidPeopleLabel,
@@ -51,12 +44,7 @@ import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { OverflowMenu } from "./runs/new/overflow-menu";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import {
-  countBySeverity,
-  usePayrollActions,
-  usePayrollRun,
-  usePayrollRuns,
-} from "@/lib/store/payroll";
+import { usePayrollActions, usePayrollRuns } from "@/lib/store/payroll";
 import { useOrgTimezone } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
 import { formatDay, todayIn } from "@/lib/time";
@@ -196,7 +184,6 @@ export function PayrollScreen() {
     return { netByMonth: points, skippedMonths: skipped };
   }, [runs]);
   const current = runs[0] ?? null;
-  const detail = usePayrollRun(current?.id ?? null);
   /* Which way this company pays decides what "still to go out" asks of it. The
      settings are read with the default (the wallet) until they land, so a bank
      company's strip can change its wording once; the runs it sits under load at
@@ -218,7 +205,6 @@ export function PayrollScreen() {
     ? todayIn(timeZone).slice(0, 7)
     : TODAY.slice(0, 7);
   const hasCurrentPeriod = runs.some((run) => run.period === currentPeriod);
-  const counts = countBySeverity(detail.run?.exceptions ?? []);
 
   if (!canView) {
     return (
@@ -320,51 +306,6 @@ export function PayrollScreen() {
         ) : (
           current && (
             <>
-              {/* One heading, one status. Everything the four tiles and the
-                  strip under them used to say is one hover away on the mark,
-                  and the run itself is where each exception is read and fixed. */}
-              <Card>
-                <CardHeader
-                  title={`${periodLabel(current.period)} payroll`}
-                  mark={[
-                    `Pays ${formatDay(current.payDate)}. ${
-                      current.status === "PAID"
-                        ? "Paid. The money has left the account."
-                        : current.status === "APPROVED"
-                          ? "Approved and frozen. Nobody has been paid yet."
-                          : "Not approved yet. Nothing has been paid and nothing has been settled."
-                    }`,
-                    `${headcountLabel(current)} on this payroll${
-                      current.excludedCount > 0
-                        ? `, ${current.excludedCount} left off with a reason recorded`
-                        : ""
-                    }.`,
-                    detail.run &&
-                    detail.run.exceptions.length > 0 &&
-                    current.status !== "APPROVED" &&
-                    current.status !== "PAID"
-                      ? counts.blockers > 0
-                        ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
-                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`
-                      : null,
-                  ]}
-                  action={
-                    <span className="flex items-center gap-4">
-                      <RunStatusBadge status={current.status} />
-                      {current.status !== "APPROVED" &&
-                        current.status !== "PAID" && (
-                          <Link
-                            href={`/payroll/runs/new?period=${current.period}`}
-                            className={NOTICE_LINK}
-                          >
-                            Open the run
-                          </Link>
-                        )}
-                    </span>
-                  }
-                />
-              </Card>
-
               {/* The last thing anybody does, and the easiest to forget.
                   -------------------------------------------------------
                   Approving is a decision with a satisfying click at the end
@@ -389,8 +330,6 @@ export function PayrollScreen() {
                   bankFile={bankFile}
                 />
               )}
-
-              <TotalsPanel run={current} />
             </>
           )
         )}
