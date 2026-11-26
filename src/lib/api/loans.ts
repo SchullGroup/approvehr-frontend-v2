@@ -94,6 +94,14 @@ export type ApiLoan = {
   monthlyRepaymentKobo: number;
   /** Recomputed from the schedule on every write, so it cannot drift. */
   outstandingKobo: number;
+  /**
+   * What comes off this person's pay for this loan at the next payroll: the unpaid part of every
+   * instalment that has fallen due, so a part-paid or missed one is in it. Not the scheduled monthly
+   * figure. Null when nothing comes off; absent from an API that does not send it.
+   */
+  nextDueKobo?: number | null;
+  /** `YYYY-MM-01`: the payroll `nextDueKobo` comes off. */
+  nextDueMonth?: string | null;
 
   status: LoanStatus;
   reason: string | null;

@@ -149,9 +149,25 @@ export function loanFigures(loan: ApiLoan): LoanFigures {
       loan.status === "DECLINED" ||
       loan.status === "CANCELLED"
         ? null
-        : loan.monthlyRepaymentKobo,
+        : amountDue(loan),
+    /* Named when what comes off is not the scheduled instalment: part of it was taken already, or an
+       earlier one was missed. Otherwise the figure speaks for itself. */
+    ...(loan.nextDueMonth && loan.nextDueKobo !== loan.monthlyRepaymentKobo
+      ? { monthlyFor: loan.nextDueMonth }
+      : {}),
     finishes: loanFinish(loan),
   };
+}
+
+/**
+ * What this loan takes at its next payroll.
+ *
+ * The API says so for a loan being repaid (`nextDueKobo`): the unpaid part of what has fallen due, which
+ * is what the payroll takes. An older API, or the demo, does not, and the scheduled instalment is the
+ * best that can be said.
+ */
+function amountDue(loan: ApiLoan): number {
+  return loan.nextDueKobo ?? loan.monthlyRepaymentKobo;
 }
 
 /**
@@ -167,20 +183,29 @@ function totalsOf(loans: ApiLoan[], thisMonth: string): LoanFigures {
   let borrowed: number | null = null;
   let left: number | null = null;
   let finishes: string | null = null;
-  const recovering: { from: string; finish: string | null; monthly: number }[] =
-    [];
+  const recovering: {
+    from: string;
+    finish: string | null;
+    monthly: number;
+    scheduled: number;
+  }[] = [];
 
   for (const loan of loans) {
     if (isLent(loan.status)) borrowed = (borrowed ?? 0) + loan.principalKobo;
     if (isRecovering(loan.status)) {
       left = (left ?? 0) + loan.outstandingKobo;
-      const start = loan.startPeriod
-        ? addMonths(loan.startPeriod, 0)
-        : thisMonth;
+      /* The month it comes off: the API's, which knows about an instalment that was missed, else the
+         month it starts, never one that has passed. */
+      const start = loan.nextDueMonth
+        ? addMonths(loan.nextDueMonth, 0)
+        : loan.startPeriod
+          ? addMonths(loan.startPeriod, 0)
+          : thisMonth;
       recovering.push({
         from: start > thisMonth ? start : thisMonth,
         finish: loanFinish(loan),
-        monthly: loan.monthlyRepaymentKobo,
+        monthly: amountDue(loan),
+        scheduled: loan.monthlyRepaymentKobo,
       });
     }
     const finish = loanFinish(loan);
@@ -199,7 +224,8 @@ function totalsOf(loans: ApiLoan[], thisMonth: string): LoanFigures {
     const runTogether =
       nextRows.length === recovering.length &&
       nextRows.every((row) => row.finish === nextRows[0]!.finish);
-    if (!runTogether) monthlyFor = next;
+    const asScheduled = nextRows.every((row) => row.monthly === row.scheduled);
+    if (!runTogether || !asScheduled) monthlyFor = next;
   }
 
   return {
