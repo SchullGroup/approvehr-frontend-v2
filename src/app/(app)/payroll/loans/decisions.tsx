@@ -689,6 +689,95 @@ export function PayInstalmentModal({
  * give up company money, and the note is the record of who and why. The API
  * refuses without one, so this button stays disabled until there is one.
  */
+/**
+ * Taking a payment recorded by hand back out.
+ *
+ * For the figure that was put in as two pieces, or on the wrong instalment: it comes off the loan whole, with
+ * what it spilled onto, and can be recorded again. The reason is the record.
+ */
+export function UndoPaymentModal({
+  loan,
+  repayment,
+  onClose,
+  onDone,
+}: {
+  loan: ApiLoanDetail;
+  repayment: ApiRepayment;
+  onClose: () => void;
+  onDone?: () => void;
+}) {
+  const { undoPayment } = useLoanActions();
+  const toast = useToast();
+  const { failure, clear, capture } = useFailure();
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    setSaving(true);
+    clear();
+    try {
+      await undoPayment(loan.id, repayment.sequence, reason.trim());
+      toast.push({
+        title: "Payment taken back",
+        tone: "success",
+        detail: `It can be recorded again on ${loan.employeeName}'s loan.`,
+      });
+      onDone?.();
+      onClose();
+    } catch (error) {
+      capture(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title={`Undo the payment on instalment ${repayment.sequence}`}
+      description={`${money(repayment.paidAmountKobo)} comes off the record, with anything it spilled onto the next instalments. Nothing is deducted for it until it is recorded again.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            loading={saving}
+            disabled={reason.trim().length < 3}
+            onClick={() => void submit()}
+          >
+            Undo the payment
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failure && (
+          <Callout tone="danger" title="That did not go through">
+            {failure.message}
+          </Callout>
+        )}
+        <Field
+          label="Why?"
+          required
+          error={failure?.messageFor("reason")}
+          help="Kept with the loan, for whoever asks later."
+        >
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Recorded in two pieces; recording it again as one."
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
 export function WaiveInstalmentModal({
   loan,
   repayment,
