@@ -367,6 +367,20 @@ export const loansApi = {
       body: { reason },
     }),
 
+  /**
+   * Spreading what is still owed on a running loan over a number of months, from a month. The instalments before it
+   * stay (cut to a smaller figure set for the payroll being worked, with the difference spread); what is owed does not
+   * change. The reason is required.
+   */
+  respread: (
+    id: string,
+    body: { startPeriod: string; termMonths: number; reason: string },
+  ) =>
+    request<ApiLoanDetail>(`/loans/${id}/respread`, {
+      method: "POST",
+      body,
+    }),
+
   /** Giving up company money. The note is the record, so it is required. */
   waive: (id: string, sequence: number, note: string) =>
     request<ApiLoanDetail>(`/loans/${id}/repayments/${sequence}/waive`, {
