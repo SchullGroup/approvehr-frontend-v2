@@ -31,8 +31,10 @@ import {
 } from "./draft-storage";
 import { draftForPick, pickOptions, ratingOptions } from "./focus-question";
 import {
+  KEPT_HERE_STATUS,
   asksOverallMark,
   closingNoteWords,
+  keptInBrowser,
   needsOverallMark,
   onRecordOf,
   savedAnswerStands,
@@ -44,10 +46,11 @@ import {
   CheckStep,
   IntroStep,
   MarkStep,
-  POTENTIAL_REASON_MIN,
+  POTENTIAL_OPTIONS,
   PotentialStep,
   QuestionStep,
   SummaryStep,
+  potentialNeedsReason,
   sendLabel,
 } from "./focus-steps";
 
@@ -68,9 +71,12 @@ import {
  * everything if they closed it any other way. A page that says it saves as you
  * go has to mean it: answers are sent to the API shortly after they stop
  * changing, on every move between pages, when the tab is hidden, when the page
- * is left, and on close. The overall mark and the closing note have no endpoint
- * of their own — they travel with the send — so those are kept in this browser
- * until it goes (`draft-storage.ts`).
+ * is left, and on close. The overall mark, how far the person could go and the
+ * closing note have no endpoint of their own — they travel with the send — so
+ * those are kept in this browser until it goes (`draft-storage.ts`). The page
+ * never calls that "saved": the introduction, each page that asks for one of
+ * them and the header all say it is held in this browser only, because the
+ * alternative is a person who finishes on a phone and finds the paragraph gone.
  *
  * ## The overall mark is the company's choice, and sometimes the period's
  *
@@ -179,7 +185,9 @@ export function FocusForm({
   );
 
   const [local] = useState(() => readLocalDraft(review.id));
-  const [start] = useState(() => startIndex(review, local, withMark));
+  const [start] = useState(() =>
+    startIndex(review, local, withMark, withPotential),
+  );
   const [index, setIndex] = useState(start);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [draft, setDraft] = useState<Record<string, Draft>>({});
@@ -192,8 +200,16 @@ export function FocusForm({
     startingMark({ asks: withMark, local: local.mark, held: review.rating }),
   );
   const [summary, setSummary] = useState(local.summary);
-  const [potential, setPotential] = useState("");
-  const [potentialReason, setPotentialReason] = useState("");
+  /* Held in this browser like the mark, and read back only on a form that asks. */
+  const [potential, setPotential] = useState(() =>
+    withPotential ? local.potential : "",
+  );
+  const [potentialReason, setPotentialReason] = useState(() =>
+    withPotential ? local.potentialReason : "",
+  );
+  /** "Ready for a bigger role" with no reason: the API would refuse it at the send. */
+  const potentialShort =
+    withPotential && potentialNeedsReason(potential, potentialReason);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [failed, setFailed] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -357,10 +373,16 @@ export function FocusForm({
     };
   }, []);
 
-  /* The two boxes with nowhere to go before the send, and the page. */
+  /* What has nowhere to go before the send, and the page. */
   useEffect(() => {
-    writeLocalDraft(review.id, { mark, summary, step: index });
-  }, [review.id, mark, summary, index]);
+    writeLocalDraft(review.id, {
+      mark,
+      summary,
+      step: index,
+      potential,
+      potentialReason,
+    });
+  }, [review.id, mark, summary, index, potential, potentialReason]);
 
   /* A move queued by picking an option is for the page it was picked on. */
   useEffect(
@@ -446,6 +468,13 @@ export function FocusForm({
       setNudged(true);
       return;
     }
+    if (potentialShort) {
+      /* A bigger role with no reason would be refused, and a person coming back
+         to a browser draft can arrive at the preview with exactly that. Walk them
+         to the page that says what is missing rather than to a refusal. */
+      go(steps.findIndex((step) => step.kind === "potential"));
+      return;
+    }
     if (coaching && languageFindings.length > 0 && !languageSeen) {
       setSeenFindings(findingsSignature);
       return;
@@ -460,7 +489,10 @@ export function FocusForm({
       if (summary.trim()) body.summary = summary.trim();
       if (withPotential && potential) {
         body.potential = potential as "LOW" | "MEDIUM" | "HIGH";
-        if (potentialReason.trim())
+        /* Only beside the answer it was written for. The box is there for "ready
+           for a bigger role"; one typed and then left behind by picking another
+           answer must not be recorded as the reason for that one. */
+        if (potential === "HIGH" && potentialReason.trim())
           body.potentialReason = potentialReason.trim();
       }
       onSending(true);
@@ -543,12 +575,15 @@ export function FocusForm({
         Boolean(target?.isContentEditable);
       if (typing) return;
 
-      const options =
+      const options:
+        readonly { key?: string | undefined; value: string }[] | null =
         current.kind === "question"
           ? pickOptions(current.question, scale)
           : current.kind === "mark"
             ? ratingOptions(scale)
-            : null;
+            : current.kind === "potential"
+              ? POTENTIAL_OPTIONS
+              : null;
       if (options) {
         const pressed = event.key.length === 1 ? event.key.toUpperCase() : "";
         /* An option past what one key can name has an empty key. Shift, Tab and
@@ -560,7 +595,8 @@ export function FocusForm({
         if (hit) {
           event.preventDefault();
           if (current.kind === "question") pick(current.question, hit.value);
-          else pickMark(hit.value);
+          else if (current.kind === "mark") pickMark(hit.value);
+          else setPotential(hit.value);
           return;
         }
       }
@@ -600,10 +636,19 @@ export function FocusForm({
 
   /* "Ready for a bigger role" is read by whoever decides a promotion, so it has
      to say why. The other two answers need nothing more. */
-  const potentialBlocked =
-    current.kind === "potential" &&
-    potential === "HIGH" &&
-    potentialReason.trim().length < POTENTIAL_REASON_MIN;
+  const potentialBlocked = current.kind === "potential" && potentialShort;
+
+  /* "Saved" is about the answers to the questions. On the pages that ask for
+     what is held in this browser instead it would be a claim about the wrong
+     thing, so the header says where that is, once there is something in it. */
+  const onHeldPage =
+    current.kind === "mark" ||
+    current.kind === "potential" ||
+    current.kind === "summary";
+  const heldHere =
+    (current.kind === "mark" && mark !== "") ||
+    (current.kind === "potential" && potential !== "") ||
+    (current.kind === "summary" && summary.trim() !== "");
 
   const nextLabel =
     current.kind === "intro"
@@ -648,7 +693,7 @@ export function FocusForm({
               <Spinner size="sm" /> Saving
             </>
           )}
-          {saveState === "saved" && (
+          {saveState === "saved" && !onHeldPage && (
             <>
               <Check
                 aria-hidden="true"
@@ -657,6 +702,15 @@ export function FocusForm({
               Saved
             </>
           )}
+          {onHeldPage &&
+            heldHere &&
+            saveState !== "saving" &&
+            saveState !== "failed" && (
+              /* Not on a phone: it takes a third of the bar and cuts the page's
+                 own name to "Recommendati…". The page says the same under the
+                 box, where it belongs. */
+              <span className="hidden sm:inline">{KEPT_HERE_STATUS}</span>
+            )}
           {saveState === "failed" && (
             <span className="font-medium text-danger-text">Not saved</span>
           )}
@@ -738,6 +792,10 @@ export function FocusForm({
               resumed={start > 0}
               answered={answered}
               onShowWork={showWork ? () => setWorkOpen(true) : null}
+              kept={keptInBrowser(review.kind, {
+                mark: withMark,
+                potential: withPotential,
+              })}
             />
           )}
           {current.kind === "question" && (
@@ -803,6 +861,9 @@ export function FocusForm({
               withMark={withMark}
               markRequired={markRequired}
               mark={mark}
+              withPotential={withPotential}
+              potential={potential}
+              potentialReason={potentialReason}
               summary={summary}
               outstanding={outstanding}
               coaching={coaching}
@@ -812,12 +873,14 @@ export function FocusForm({
                 go(
                   where === "mark"
                     ? 1 + review.questions.length
-                    : where === "summary"
-                      ? 1 +
-                        review.questions.length +
-                        (withMark ? 1 : 0) +
-                        (withPotential ? 1 : 0)
-                      : 1 + review.questions.indexOf(where),
+                    : where === "potential"
+                      ? 1 + review.questions.length + (withMark ? 1 : 0)
+                      : where === "summary"
+                        ? 1 +
+                          review.questions.length +
+                          (withMark ? 1 : 0) +
+                          (withPotential ? 1 : 0)
+                        : 1 + review.questions.indexOf(where),
                 )
               }
             />

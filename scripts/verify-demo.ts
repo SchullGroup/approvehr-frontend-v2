@@ -87,6 +87,16 @@ const TRUE_IN_PRODUCTION = [
   "Drafts live in this browser only: they are not on your other",
   "In this browser only — it will not be here on another device.",
   "In this browser only. It will not be here on another device.",
+  /* The review answering form: the overall rating, how far they could go and
+     the closing note have no draft endpoint, so they are held in this
+     browser's storage until the review is sent. That is a production feature
+     and these two are the honest half of it (`keptInBrowserLine` and
+     `KEPT_HERE` in `reviews/[id]/answer/focus-logic.ts`). The second is a
+     sentence that continues into a list, so it ends at the colon and space:
+     the built chunk carries the list after it. Both are long and specific
+     enough that no demo copy can contain one by accident. */
+  "Kept in this browser only, until you send.",
+  "Kept in this browser only, until you send: ",
 ];
 
 const stripAllowed = (text: string): string =>
