@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { FEATURE_KEYS, WORKFLOW_FEATURE_KEYS } from "@/lib/api/setup";
 import { PERMISSION_KEYS, PERMISSION_SHAPE } from "@/lib/permission-keys";
 import { visibleNav, NAV } from "@/components/portal/nav";
+import {
+  buildSidebar,
+  findDestinations,
+} from "@/components/portal/sidebar-model";
 import { FEATURE_COPY } from "@/lib/store/features";
 
 /**
@@ -10,8 +14,8 @@ import { FEATURE_COPY } from "@/lib/store/features";
  * What is proved: the two permissions exist and are placed in the matrix under their own module;
  * the company switch is a workflow flag (so it is not rendered on `/settings/features`, where it
  * could be switched on without being asked first) and says what it is; and the sidebar row is for
- * the people who write or decide queries, in a company that has turned them on, and for nobody
- * else, the person a query is addressed to included.
+ * everybody in a company that has turned queries on, the person a query is addressed to and every
+ * manager included, and for nobody while it is off.
  */
 
 const allRows = () => NAV.flatMap((group) => group.items);
@@ -55,16 +59,15 @@ describe("the company switch", () => {
 });
 
 describe("the sidebar row", () => {
-  it("is for either permission, and behind the switch", () => {
+  it("is for everybody, behind the switch, and asks for no permission", () => {
     const item = row();
     expect(item).toBeDefined();
-    expect(item?.anyPermission).toEqual([
-      "ISSUE_QUERIES",
-      "DECIDE_QUERIES",
-      "DRAFT_QUERIES",
-    ]);
     expect(item?.feature).toBe("queries");
+    /* The row used to ask for a query permission, so the person a letter was issued to, and every
+       manager, had no way in but a notification. Neither field may come back. */
     expect(item?.permission).toBeUndefined();
+    expect(item?.anyPermission).toBeUndefined();
+    expect(item?.rows).toBeUndefined();
   });
 
   const shown = (
@@ -75,37 +78,60 @@ describe("the sidebar row", () => {
       (group) => group.items.map((item) => item.href),
     );
 
-  it("shows for an issuer when the company has switched queries on", () => {
+  it("shows for an issuer and a decider when the company has switched queries on", () => {
     expect(shown(["ISSUE_QUERIES"], { queries: true })).toContain(
       "/people/queries",
     );
-  });
-
-  it("shows for a decider too", () => {
     expect(shown(["DECIDE_QUERIES"], { queries: true })).toContain(
       "/people/queries",
     );
   });
 
-  it("shows for a line manager given the drafting permission, and only that route", () => {
+  it("shows for a line manager given the drafting permission", () => {
     expect(shown(["DRAFT_QUERIES"], { queries: true })).toContain(
       "/people/queries",
     );
-    expect(shown(["DRAFT_QUERIES"], { queries: false })).not.toContain(
-      "/people/queries",
-    );
   });
 
-  it("is hidden while the switch is off", () => {
+  it("shows for an employee who holds no permission at all: the person a query is addressed to", () => {
+    expect(shown([], { queries: true })).toContain("/people/queries");
+  });
+
+  it("shows for a manager who holds nothing about queries", () => {
+    expect(
+      shown(["EDIT_RECORDS_DEPARTMENT", "APPROVE_LEAVE"], { queries: true }),
+    ).toContain("/people/queries");
+  });
+
+  it("is in the Core HR group, where an employee already finds their documents and equipment", () => {
+    const groups = visibleNav(
+      NAV,
+      new Set() as never,
+      {
+        queries: true,
+      } as never,
+    );
+    const holder = groups.find((group) =>
+      group.items.some((item) => item.href === "/people/queries"),
+    );
+    expect(holder?.heading).toBe("Core HR");
+  });
+
+  it("is found by the sidebar's Find box under the words a person would use for a letter from HR", () => {
+    const tree = buildSidebar(
+      visibleNav(NAV, new Set() as never, { queries: true } as never),
+    );
+    for (const word of ["queries", "letter", "explain"]) {
+      expect(
+        findDestinations(tree, word).map(({ item }) => item.href),
+      ).toContain("/people/queries");
+    }
+  });
+
+  it("is hidden while the switch is off, for everybody", () => {
     expect(
       shown(["ISSUE_QUERIES", "DECIDE_QUERIES"], { queries: false }),
     ).not.toContain("/people/queries");
-  });
-
-  it("is never shown to somebody who holds neither, which is every person a query is addressed to", () => {
-    expect(shown([], { queries: true })).not.toContain("/people/queries");
-    expect(
-      shown(["EDIT_RECORDS_DEPARTMENT", "APPROVE_LEAVE"], { queries: true }),
-    ).not.toContain("/people/queries");
+    expect(shown([], { queries: false })).not.toContain("/people/queries");
   });
 });

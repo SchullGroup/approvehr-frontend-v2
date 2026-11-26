@@ -31,7 +31,22 @@ vi.mock("@/lib/permissions", () => ({
   useCan: (key: string) => held.has(key),
 }));
 vi.mock("@/components/portal/shell", () => ({
-  PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
+  PageHeader: ({
+    title,
+    breadcrumb,
+  }: {
+    title: string;
+    breadcrumb?: { href: string; label: string }[];
+  }) => (
+    <>
+      <h1>{title}</h1>
+      {breadcrumb?.map((crumb) => (
+        <a key={crumb.href} href={crumb.href} data-crumb>
+          {crumb.label}
+        </a>
+      ))}
+    </>
+  ),
   PageBody: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -96,6 +111,15 @@ beforeEach(() => {
 });
 
 describe("the person the letter is addressed to", () => {
+  it("goes back to their list of letters, which the Queries row opens, and not to a profile they came from", () => {
+    mount(detail());
+    const crumbs = [...document.querySelectorAll("a[data-crumb]")];
+    expect(crumbs.map((a) => a.getAttribute("href"))).toEqual([
+      "/people/queries",
+    ]);
+    expect(crumbs[0]?.textContent).toBe("Queries");
+  });
+
   it("is told it is a letter from HR, and reads the letter on the page", () => {
     mount(detail());
     expect(
@@ -267,6 +291,15 @@ describe("somebody who works queries", () => {
   beforeEach(() => {
     employeeId = "e-9";
     held = new Set(["ISSUE_QUERIES", "DECIDE_QUERIES"]);
+  });
+
+  it("keeps the way back to the register, through the directory", () => {
+    mount(detail({ issuedById: "u-other", can: can({ extend: true }) }));
+    const crumbs = [...document.querySelectorAll("a[data-crumb]")];
+    expect(crumbs.map((a) => a.getAttribute("href"))).toEqual([
+      "/people",
+      "/people/queries",
+    ]);
   });
 
   it("is shown the person, the actions and the printed letter, and not the person's draft", () => {

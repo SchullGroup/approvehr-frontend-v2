@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { fullName } from "@/lib/types";
 import { Input, Modal, Spinner } from "@/components/ui";
 import { useDebounced } from "@/lib/use-debounced";
+import { usePermissions } from "@/lib/permissions";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useRoles } from "@/lib/store/permissions";
 
@@ -79,17 +80,18 @@ export function CommandPalette({
     debounced ? { q: debounced, pageSize: 6 } : { pageSize: 1 },
   );
   const roles = useRoles();
+  const { permissions } = usePermissions();
 
   const pageResults: Result[] = useMemo(
     () =>
-      searchPages(nav, NAV, debounced).map((hit) => ({
+      searchPages(nav, NAV, debounced, permissions).map((hit) => ({
         key: hit.key,
         href: hit.href,
         icon: <FileText aria-hidden="true" className="size-4" />,
         label: hit.label,
         sublabel: hit.sublabel,
       })),
-    [nav, debounced],
+    [nav, debounced, permissions],
   );
 
   const peopleResults: Result[] = !debounced

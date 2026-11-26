@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { PageBody, PageHeader } from "@/components/portal/shell";
-import { QueriesScreen } from "./queries-screen";
-import { StartQueryButton } from "./start-dialog";
+import { PageBody } from "@/components/portal/shell";
+import { QueriesHeader, QueriesScreen } from "./queries-screen";
 
 export const metadata: Metadata = {
   title: "Queries",
   description:
-    "Written queries to staff, their one written reply, and the outcome recorded on each.",
+    "Letters that ask for a written explanation, and what came of each: the register for the people who write them, your own letters for everybody else.",
 };
 
 /**
@@ -25,14 +24,7 @@ export default async function QueriesPage({
     single && /^[0-9a-f-]{36}$/i.test(single) ? single : undefined;
   return (
     <>
-      <PageHeader
-        title="Queries"
-        breadcrumb={[
-          { href: "/people", label: "Employees" },
-          { href: "/people/queries", label: "Queries" },
-        ]}
-        action={<StartQueryButton />}
-      />
+      <QueriesHeader />
       <PageBody>
         <QueriesScreen {...(subjectId ? { subjectId } : {})} />
       </PageBody>

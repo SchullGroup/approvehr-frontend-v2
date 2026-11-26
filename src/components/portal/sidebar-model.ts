@@ -462,6 +462,9 @@ const KEYWORDS: Record<string, string[]> = {
   "core-hr/Onboarding": ["new hire", "new starter", "joiner", "induction"],
   "core-hr/Probation": ["confirmation", "trial period", "confirm"],
   "core-hr/Promotions": ["promote", "raise", "transfer", "regrade", "career"],
+  /* The row is everybody's, and the person it is for rarely calls it a query: it is a letter from HR
+     that asks them to explain something. */
+  "core-hr/Queries": ["letter", "letters from hr", "explain", "explanation"],
   "core-hr/Exit management": [
     "offboarding",
     "resign",

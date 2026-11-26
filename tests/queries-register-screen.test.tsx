@@ -9,7 +9,8 @@ import { summary, SUBJECT_LINE } from "./queries-fixtures";
 /**
  * The register, for the people who write or decide queries.
  *
- * What is proved: somebody with neither permission is told they cannot open it; a company with
+ * What is proved: somebody with neither permission is given their own letters and not a refusal
+ * (the row is theirs, see `queries-my-letters.test.tsx`); a company with
  * queries off is told so (with the way to Settings only for somebody who may change it); there is
  * no demo, only the refusal; the server's own sentence for where a reply stands is shown as it
  * came, with "No reply in time" a neutral label and never an accusation; the filter reaches the
@@ -35,12 +36,15 @@ vi.mock("@/lib/store/session", () => ({
 let on = true;
 let known = true;
 const registerHook = vi.fn();
-let registerState: {
+const mineHook = vi.fn();
+type HookState = {
   data: QueryPage | null;
   loading: boolean;
   error: unknown;
   unavailable: boolean;
 };
+let registerState: HookState;
+let mineState: HookState;
 vi.mock("@/lib/store/queries", async (original) => ({
   ...(await original<typeof import("@/lib/store/queries")>()),
   useQueriesSwitch: () => ({
@@ -53,6 +57,10 @@ vi.mock("@/lib/store/queries", async (original) => ({
   useQueryRegister: (...args: unknown[]) => {
     registerHook(...args);
     return { ...registerState, reload: vi.fn() };
+  },
+  useMyQueries: (...args: unknown[]) => {
+    mineHook(...args);
+    return { ...mineState, reload: vi.fn() };
   },
 }));
 
@@ -89,16 +97,40 @@ beforeEach(() => {
     error: null,
     unavailable: false,
   };
+  mineState = {
+    data: page([]),
+    loading: false,
+    error: null,
+    unavailable: false,
+  };
 });
 
 describe("who may open it", () => {
-  it("tells somebody with neither permission that they cannot", () => {
+  it("gives somebody with neither permission their own letters, never the register and never a refusal", () => {
     held = new Set();
+    mineState = { ...mineState, data: page([summary()]) };
+    mount();
+    expect(screen.getByText("Letters addressed to you")).toBeInTheDocument();
+    expect(
+      screen.queryByText("You cannot open the queries register"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText(SUBJECT_LINE)).not.toBeInTheDocument();
+  });
+
+  it("shows a person who works queries their own letters above the register, only when there is one", () => {
+    mineState = { ...mineState, data: page([summary()]) };
+    const { unmount } = mount();
+    expect(screen.getByText("Letters addressed to you")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    unmount();
+
+    mineState = { ...mineState, data: page([]) };
     mount();
     expect(
-      screen.getByText("You cannot open the queries register"),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      screen.queryByText("Letters addressed to you"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
   it("opens for somebody who may only decide", () => {

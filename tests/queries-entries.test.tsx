@@ -94,6 +94,29 @@ describe("Letters from HR, on the person's own profile", () => {
     ).toBeInTheDocument();
   });
 
+  it("says where the rest are when there are more than five, instead of cutting the list off", () => {
+    const six = Array.from({ length: 6 }, (_, i) =>
+      summary({ id: `q-${i}`, reference: `Q-2026-00${i}` }),
+    );
+    mineState = { data: page(six, 0) };
+    render(<LettersFromHr />);
+    expect(screen.getAllByRole("link", { name: "Open it" })).toHaveLength(5);
+    expect(
+      screen.getByRole("link", { name: "All your letters" }),
+    ).toHaveAttribute("href", "/people/queries");
+  });
+
+  it("has no 'all' link when there are five letters or fewer", () => {
+    const five = Array.from({ length: 5 }, (_, i) =>
+      summary({ id: `q-${i}`, reference: `Q-2026-00${i}` }),
+    );
+    mineState = { data: page(five, 0) };
+    render(<LettersFromHr />);
+    expect(
+      screen.queryByRole("link", { name: "All your letters" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("makes no claim about how many wait when the server did not say", () => {
     mineState = { data: page([summary()], null) };
     render(<LettersFromHr />);
