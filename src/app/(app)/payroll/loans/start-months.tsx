@@ -14,7 +14,7 @@ import { useLoans, type LoanScope } from "@/lib/store/loans";
 export const START_MONTHS_AHEAD = 6;
 
 /** Whole months from `from`'s month to `to`'s month; negative when `to` is earlier. */
-export function monthsBetween(from: string, to: string): number {
+function monthsBetween(from: string, to: string): number {
   const a = new Date(monthStart(from));
   const b = new Date(monthStart(to));
   return (
