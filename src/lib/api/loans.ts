@@ -349,6 +349,16 @@ export const loansApi = {
       body,
     }),
 
+  /**
+   * Taking a payment recorded by hand back out, so it can be recorded again properly. Takes the whole payment,
+   * including what it spilled onto later instalments. Never money a payslip took. The reason is required.
+   */
+  undoPayment: (id: string, sequence: number, reason: string) =>
+    request<ApiLoanDetail>(`/loans/${id}/repayments/${sequence}/undo`, {
+      method: "POST",
+      body: { reason },
+    }),
+
   /** Giving up company money. The note is the record, so it is required. */
   waive: (id: string, sequence: number, note: string) =>
     request<ApiLoanDetail>(`/loans/${id}/repayments/${sequence}/waive`, {
