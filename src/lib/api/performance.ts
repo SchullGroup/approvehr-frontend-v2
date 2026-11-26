@@ -226,6 +226,15 @@ export type ApiGoal = {
    * that no longer exists.
    */
   approvalNote: string | null;
+  /**
+   * Every time it was declined, oldest first: who, when, and what they said.
+   *
+   * `approvalNote` is cleared when the objective is sent again, so this is the
+   * only record of an earlier decline once it has been resent. Absent from a
+   * server that does not send it, and from the demo; a screen then has only
+   * `approvalNote` and says nothing about earlier ones.
+   */
+  declines?: ApiDecline[];
   /** How often an agreed target has been reopened. Zero is the ordinary case. */
   revisionCount: number;
   revisedAt: string | null;
@@ -234,6 +243,9 @@ export type ApiGoal = {
   createdAt: string;
   updatedAt: string;
 };
+
+/** One decline of an objective, as the API keeps it. */
+export type ApiDecline = { at: string; byName: string; reason: string };
 
 /* -------------------------------------------------- the approval lifecycle */
 
@@ -4095,6 +4107,20 @@ export function ratingWordsFrom(
 export function parseMeasure(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * The number the API takes for a measure: at most 14 digits before the point and
+ * 4 after, no thousands commas, no unit. `Decimal(18,4)` is the reason, and the
+ * API's own sentence is the one below. A box that checks only "is it empty" sends
+ * "abc" and learns about it from a 400 that says "Some fields are not valid"
+ * (F17), so every place a person types a figure asks this first.
+ */
+export const MEASURE_NUMBER_PROBLEM =
+  "Use a plain number with at most four decimal places.";
+
+export function isPlainNumber(value: string): boolean {
+  return /^-?\d{1,14}(\.\d{1,4})?$/.test(value.trim());
 }
 
 /** Is this a done-or-not-done measure? Absent `kind` is a number. */

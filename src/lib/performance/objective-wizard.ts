@@ -207,7 +207,17 @@ export function stepProblems(
         target: edit.value,
         countDown: edit.countDown,
       });
-      if (found.label || found.target) targets[id] = found;
+      /* The page has one place for a number's problem. A start that is not a
+         number is shown there too, in words that name it, rather than a second
+         field being wired for one sentence. */
+      if (found.label || found.target || found.start) {
+        targets[id] = {
+          ...(found.label ? { label: found.label } : {}),
+          ...(found.target || found.start
+            ? { target: found.target ?? found.start ?? "" }
+            : {}),
+        };
+      }
     }
     if (Object.keys(targets).length > 0) found.targets = targets;
   } else if (step === "target") {
@@ -222,7 +232,8 @@ export function stepProblems(
         countDown: draft.countDown,
       });
       if (measure.label) found.label = measure.label;
-      if (measure.target) found.value = measure.target;
+      const numberProblem = measure.target ?? measure.start;
+      if (numberProblem) found.value = numberProblem;
     }
   }
   if (step === "period") {
@@ -348,6 +359,35 @@ export function newObjectiveHref({
 /* ------------------------------------------------------- changing one again */
 
 /**
+ * The objectives one being changed may be placed under: all but itself and
+ * everything already under it (F16).
+ *
+ * "What does it support?" listed the objective being edited, and offering it
+ * was a trap with no way to spring it: the API refuses a loop ("A goal cannot
+ * ladder up to itself"), and the wizard sends the parent only when it changed,
+ * so choosing it looked saved and was not. A descendant is the same loop one
+ * step further round. A parent is followed up the chain with a visited set, so
+ * a cycle already in the data cannot hang the screen.
+ */
+export function withoutOwnLine<
+  T extends { id: string; parentId: string | null },
+>(goals: readonly T[], editing: string | null): T[] {
+  if (editing === null) return [...goals];
+  const parentOf = new Map(goals.map((goal) => [goal.id, goal.parentId]));
+  const underIt = (id: string): boolean => {
+    const seen = new Set<string>();
+    let at: string | null | undefined = parentOf.get(id);
+    while (at && !seen.has(at)) {
+      if (at === editing) return true;
+      seen.add(at);
+      at = parentOf.get(at);
+    }
+    return false;
+  };
+  return goals.filter((goal) => goal.id !== editing && !underIt(goal.id));
+}
+
+/**
  * An objective sent back to its owner, as the wizard's answers, so "Edit and
  * resend" opens on what was sent (owner request, 24 Nov 2026).
  */
@@ -373,6 +413,11 @@ export function draftFromGoal(
     quarter: goal.dueQuarter ?? "",
     periodId: goal.reviewCycleId ?? "",
     parentId: goal.parentId ?? "",
+    /* An objective with no target was saved with "Add it later". The page that
+       asks for the kind opened with none of the three chosen and no way on
+       (F16): it starts on the answer it already has. One with targets keeps
+       its own list instead. */
+    target: goal.keyResults.length === 0 ? "LATER" : null,
     targets: Object.fromEntries(
       goal.keyResults.map((measure) => [
         measure.id,

@@ -64,8 +64,10 @@ import { useTaskSummarySuggestion } from "@/lib/store/ai";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
+  MEASURE_NUMBER_PROBLEM,
   formatMeasure,
   isDoneMeasure,
+  isPlainNumber,
   isUnread,
   type ApiGoal,
   type ApiKeyResult,
@@ -86,7 +88,18 @@ import {
   type KpiScope,
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog } from "./approval-dialogs";
-import { goalFacts } from "./goal-facts";
+import {
+  DeclineByline,
+  DeclineList,
+  EarlierDeclines,
+} from "@/components/performance/decline-trail";
+import { declineEntries } from "@/lib/performance/declines";
+import {
+  goalFacts,
+  noReadingsWords,
+  shownStatus,
+  takesReadings,
+} from "./goal-facts";
 import {
   kpisAssignedSaid,
   markedDoneSaid,
@@ -575,7 +588,7 @@ export function KpisTab({
         return false;
       }
       if (approval !== "" && goal.approval !== approval) return false;
-      if (progress !== "" && goal.status !== progress) return false;
+      if (progress !== "" && shownStatus(goal) !== progress) return false;
       /* A company or department objective has no owner. It is not "somebody
          else's", it is nobody's — so it drops out of an owner filter rather
          than being counted against whoever is selected. */
@@ -827,11 +840,31 @@ export function KpisTab({
               }
             />
           ) : flat.length === 0 ? (
+            /* An empty department is where the next step is obvious, and there
+               was nothing to press (F11). Only offered where the department view
+               is the company's (the people who may set one for it). */
             <EmptyState
-              plain
+              {...(scope === "company" && department
+                ? { mood: "start" as const }
+                : { plain: true })}
               icon={<Target aria-hidden="true" />}
               title="No objectives here yet"
               description="Nothing in this department is filed as an objective yet."
+              {...(scope === "company" && department
+                ? {
+                    action: (
+                      <ButtonLink
+                        variant="accent"
+                        href={newObjectiveHref({
+                          back: backHere,
+                          department,
+                        })}
+                      >
+                        New objective for this department
+                      </ButtonLink>
+                    ),
+                  }
+                : {})}
             />
           ) : (
             /* A flat, even grid. An opened department is two sections: its
@@ -1319,6 +1352,9 @@ export function GoalCard({
 }) {
   const facts = goalFacts(goal);
   const { progress, done, reads } = facts;
+  const shown = shownStatus(goal);
+  const latestDecline =
+    goal.approval === "NEEDS_REVISION" ? declineEntries(goal)[0] : undefined;
 
   /* The detail is a modal, and this is the card's only piece of state.
      Everything the modal renders comes from the same `goal` the card has, so
@@ -1361,9 +1397,11 @@ export function GoalCard({
             </Badge>
           </TD>
           <TD>
-            <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-              {GOAL_STATUS_LABEL[goal.status]}
-            </Badge>
+            {shown && (
+              <Badge tone={GOAL_STATUS_TONE[shown]} size="sm" dot>
+                {GOAL_STATUS_LABEL[shown]}
+              </Badge>
+            )}
           </TD>
         </TR>
         <GoalDetailModal
@@ -1508,9 +1546,11 @@ export function GoalCard({
               <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
                 {approvalWords(goal)}
               </Badge>
-              <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-                {GOAL_STATUS_LABEL[goal.status]}
-              </Badge>
+              {shown && (
+                <Badge tone={GOAL_STATUS_TONE[shown]} size="sm" dot>
+                  {GOAL_STATUS_LABEL[shown]}
+                </Badge>
+              )}
             </span>
           </div>
         </button>
@@ -1521,12 +1561,18 @@ export function GoalCard({
                 is the same page an objective is written on (owner, 24 Nov). */}
             <p className="border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
               {goal.approval === "NEEDS_REVISION" && (
-                <span className="block text-meta text-muted">
-                  Feedback when it was declined
-                </span>
+                <>
+                  <span className="block text-meta text-muted">
+                    Feedback when it was declined
+                  </span>
+                  {latestDecline && <DeclineByline entry={latestDecline} />}
+                </>
               )}
               {goal.approvalNote}
             </p>
+            {goal.approval === "NEEDS_REVISION" && (
+              <EarlierDeclines goal={goal} />
+            )}
             {goal.approval === "NEEDS_REVISION" &&
               editable &&
               mayEditGoal(goal) && (
@@ -1687,6 +1733,17 @@ function GoalDetailModal({
           <p className="text-body-sm text-body">{readCountLine(reads)}</p>
         )}
 
+        {declineEntries(goal).length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-meta font-semibold text-muted">
+              {goal.approval === "NEEDS_REVISION"
+                ? "Feedback when it was declined"
+                : "Feedback it was given before it was agreed"}
+            </p>
+            <DeclineList goal={goal} />
+          </div>
+        )}
+
         {goal.keyResults.length > 0 ? (
           <ul className="flex flex-col gap-3 border-t border-line pt-4">
             {goal.keyResults.map((measure) =>
@@ -1701,13 +1758,17 @@ function GoalDetailModal({
                   key={measure.id}
                   measure={measure}
                   goalId={goal.id}
-                  editable={!done}
+                  editable={!done && takesReadings(goal)}
                   onRecord={onRecord}
                 />
               ),
             )}
           </ul>
         ) : null}
+
+        {goal.keyResults.length > 0 && noReadingsWords(goal) && (
+          <p className="text-body-sm text-body">{noReadingsWords(goal)}</p>
+        )}
 
         {/* The finished project tasks linked to this, for whoever is reading it
             to see what went into it. Read-only; nothing here is graded. */}
@@ -1769,7 +1830,7 @@ function GoalDetailModal({
             }
           }
           if (editable) {
-            if (!done)
+            if (!done && takesReadings(goal))
               items.push({
                 key: "done",
                 label: "Mark done",
@@ -1907,9 +1968,15 @@ export function MeasureRow({
     draft !== null &&
     draft.trim() !== "" &&
     (unread || draft.trim() !== measure.currentValue);
+  /* The API takes a plain number (F17): "abc" used to be saved and refused with
+     "Some fields are not valid". Said here, under the box, and Save waits. */
+  const notANumber =
+    changed && draft !== null && !isPlainNumber(draft)
+      ? MEASURE_NUMBER_PROBLEM
+      : null;
 
   const save = async () => {
-    if (!changed) return;
+    if (!changed || notANumber) return;
     setSaving(true);
     setFailed(null);
     try {
@@ -1922,9 +1989,12 @@ export function MeasureRow({
       setNote("");
       summary.clear();
     } catch (error) {
+      /* The API names the field it refused. Its general sentence ("Some fields
+         are not valid") says nothing about which box, so the field's own comes
+         first. */
       setFailed(
         error instanceof ApiError
-          ? error.message
+          ? (error.messageFor("currentValue") ?? error.message)
           : "Could not save that number. Try again.",
       );
     } finally {
@@ -1999,6 +2069,7 @@ export function MeasureRow({
             className="h-8 w-36"
             {...(unread ? { placeholder: "First reading" } : {})}
             value={value}
+            aria-invalid={notANumber ? true : undefined}
             onChange={(event) => setDraft(event.target.value)}
           />
           {measure.unit && (
@@ -2010,6 +2081,7 @@ export function MeasureRow({
                 variant="accent"
                 size="sm"
                 loading={saving}
+                disabled={notANumber !== null}
                 onClick={() => void save()}
               >
                 Save<span className="sr-only"> {measure.label}</span>
@@ -2075,9 +2147,9 @@ export function MeasureRow({
         </div>
       )}
 
-      {failed && (
+      {(notANumber ?? failed) && (
         <p className="text-body-sm text-danger-text" role="status">
-          {failed}
+          {notANumber ?? failed}
         </p>
       )}
     </li>

@@ -14,6 +14,7 @@ import {
   useMyTasks,
 } from "@/lib/store/performance";
 import { readCount, type ApiMyTask } from "@/lib/api/performance";
+import { shownStatus } from "./goal-facts";
 
 /**
  * What this person actually did, shown while they rate themselves.
@@ -201,15 +202,18 @@ export function SelfEvidence({
                    their own period is a claim, and they are about to rate
                    themselves against it. */
                 const nothingRead = readCount(goal.keyResults)?.read === 0;
+                const shown = shownStatus(goal);
                 return (
                   <li key={goal.id}>
                     <div className="mb-1.5 flex items-start justify-between gap-2">
                       <span className="text-body-sm font-medium text-ink">
                         {goal.title}
                       </span>
-                      <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm">
-                        {GOAL_STATUS_LABEL[goal.status]}
-                      </Badge>
+                      {shown && (
+                        <Badge tone={GOAL_STATUS_TONE[shown]} size="sm">
+                          {GOAL_STATUS_LABEL[shown]}
+                        </Badge>
+                      )}
                     </div>
                     {nothingRead ? (
                       <p className="text-body-sm text-muted">
