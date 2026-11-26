@@ -132,9 +132,10 @@ export function SendPayslips({
         }
         body={
           <p>
-            Each person is emailed their net pay and a link to their payslip. An
-            email cannot be taken back. Anybody with no email address on their
-            record is named afterwards, and nothing is sent to them.
+            Each person is emailed their net pay with their payslip attached as
+            a PDF, so they do not need to sign in to see it. An email cannot be
+            taken back. Anybody with no email address on their record is named
+            afterwards, and nothing is sent to them.
           </p>
         }
       />
