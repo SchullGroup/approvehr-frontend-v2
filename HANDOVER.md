@@ -14180,8 +14180,8 @@ back to the first tab like any unknown tab. If the page has one tab, the strip i
 
 The owner looked at the letter form's field **How it will be served**, whose options read "In the product", "In person" and
 "Outside the product", and asked for plainer English: a company reader does not know what "the product" is, and "outside the
-product" does not say what the other way is. Branch `fix/query-served-wording-20261126` in both repositories, local only when this
-was written (not pushed, no pull request).
+product" does not say what the other way is. Branch `fix/query-served-wording-20261126` in both repositories, one pull request
+each (frontend into `dev`, backend into `staging`). Either side can merge first.
 
 ## What changed
 
@@ -14242,6 +14242,12 @@ Backend: the seven query test files, 231 tests, on a real Postgres made for the 
 `missingForIssue` (the old sentence, "outside ApproveHR" for "by post or email", and the item removed), each caught, tree clean
 after each; ESLint and Prettier on the changed files; the whole `npx tsc --noEmit`.
 
+**Re-checked before the pull requests were opened (26 Nov, in fresh worktrees, by somebody who had not written the change).**
+Web: the whole `npx tsc --noEmit`, ESLint and Prettier on the changed files, and the 17 Queries test files, 460 passing.
+Backend: `db:test:deploy` onto a new database, the whole `tsc --noEmit`, ESLint and Prettier on the changed files, and the seven
+Queries test files, 231 passing. Leftover "in the product" in any string of the Queries screens or the backend `queries` module:
+none (searched).
+
 **Not exercised: a browser.** Everything above is component tests with the store mocked, and the backend over HTTP. Nobody has
 looked at the draft form on a running page since the words changed.
 
@@ -14252,6 +14258,9 @@ looked at the draft form on a running page since the words changed.
   `chapters/ch99-outro.mjs` say "served outside the product". The rendered film shows the old labels. Files under `out/` were left
   alone on purpose.
 - **`docs/components/frontend-v2.md` is stale on `dev`** for reasons unrelated to this change (rows for
-  `src/lib/employment-status.ts` and a payroll screen). No export changed here, so it was not regenerated.
+  `src/lib/employment-status.ts` and a payroll screen). No export changed here, so it was not regenerated; the pull request that
+  adds the `my-letters.tsx` row (#722) regenerates the whole file and fixes it.
+- **This and #722 both append a HANDOVER entry at the end of the file**, so whichever merges second needs `dev` merged in and the
+  two entries kept.
 - The conduct screen has the same habit in a code comment (`people/[id]/conduct.tsx`, "the product reached nobody"). It is not
   user-facing and not a Queries file, so it was left.
