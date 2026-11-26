@@ -32,11 +32,13 @@ import {
   ratingToRead,
   ratingWordsFrom,
   weightLabel,
+  type ApiCycle,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
   periodInPlay,
 } from "@/lib/api/performance";
+import { partsShown, periodWeightsLine } from "@/lib/performance/score-wording";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
 import { useHeadedDepartmentIds } from "@/lib/store/departments";
@@ -820,7 +822,10 @@ export function WhatNeedsYouTab({
           hint="How much each part counts for, and what each point on the scale means."
           level={2}
         >
-          <ScoringSettingsBody canManage={canManagePeriods} />
+          <ScoringSettingsBody
+            canManage={canManagePeriods}
+            period={openPeriod}
+          />
         </Disclosure>
       )}
 
@@ -976,9 +981,21 @@ export function WhatNeedsYouTab({
  * scored can see what they are being scored against — only the outbound
  * link's wording changes for somebody who can actually change it.
  */
-function ScoringSettingsBody({ canManage }: { canManage: boolean }) {
+export function ScoringSettingsBody({
+  canManage,
+  period,
+}: {
+  canManage: boolean;
+  /** The period this screen is about: its weights are how a score is made now. */
+  period: ApiCycle | undefined;
+}) {
   const { weights, loading: weightsLoading } = useScoringWeights();
   const { scale, loading: scaleLoading } = useRatingScale();
+  /* The period's own weights when the server sent them, and the company's as they
+     are today when it did not. A score is made from the period's, so listing the
+     company's current set over it described a mark nobody was given (F44). */
+  const shown = partsShown(weights, period?.weights);
+  const basis = periodWeightsLine(period?.weights?.basis);
 
   return (
     <div className="flex flex-col gap-4">
@@ -991,11 +1008,16 @@ function ScoringSettingsBody({ canManage }: { canManage: boolean }) {
         <>
           <DescriptionList
             layout="rows"
-            items={weights.rows.map((row) => ({
-              term: row.label,
-              value: weightLabel(row.weightBp),
+            items={shown.parts.map((part) => ({
+              term: part.label,
+              value: weightLabel(part.shareBp),
             }))}
           />
+          <p className="text-body-sm text-muted">
+            {shown.from === "period" && period
+              ? `${period.name}${basis ? `. ${basis}` : "."}`
+              : "Your company's weights as they are today."}
+          </p>
           <p className="text-body-sm text-muted">
             {scale.levels
               .map((level) => `${level.level} ${level.label}`)

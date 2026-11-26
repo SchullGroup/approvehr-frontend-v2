@@ -54,6 +54,7 @@ import {
   type ReadyStep,
 } from "@/components/performance/next-step";
 import { fallbackCountLine } from "@/lib/performance/appraiser-fill";
+import { periodWeightsLine } from "@/lib/performance/score-wording";
 import {
   askedLine,
   lastAskedLine,
@@ -495,7 +496,11 @@ export function PeriodScreen({
             id: "weights",
             label: "How the score is made up",
             done: true,
-            detail: "The company's weights. Change them on the Settings tab.",
+            /* Whose weights, as the Settings tab says it: a period that set its own
+               used to be told "The company's weights" here (F6). */
+            detail: periodWeightsLine(period.weights?.basis)
+              ? `${periodWeightsLine(period.weights?.basis) ?? ""} Change them on the Settings tab.`
+              : "Change how the score is made up on the Settings tab.",
             action: {
               label: "Review",
               onClick: () => setPeriodTab("settings"),
