@@ -24,7 +24,17 @@ import { readCount, type ApiMyTask } from "@/lib/api/performance";
  * nothing on screen about that period. Every figure it needs already exists —
  * `useKpis` has the objectives and their progress, `useMyTasks` has the weekly
  * log and its grades — and the form read none of it, so the answer came out of
- * memory. A mark argued over months later is only defensible if the person
+ * memory.
+ *
+ * ## The log is history now
+ *
+ * Weekly tasks were retired on 24 November 2026: nothing can be logged or
+ * graded any more, and the work a period counts is the work done in Projects,
+ * which `WorkThisCycle` beside this card lists. So "nothing logged" is the
+ * ordinary state and not a gap, and a card that says it, or says a grade is
+ * still to come, promises a log somebody can still add to. The tasks section is
+ * therefore drawn only when this period has something logged in it, as what was
+ * logged and how it was graded, and is absent otherwise. A mark argued over months later is only defensible if the person
  * giving it could see what they were marking.
  *
  * ## Only ever the caller's own
@@ -92,6 +102,11 @@ export function SelfEvidence({
   const rate =
     graded.length === 0 ? null : Math.round((completed / graded.length) * 100);
 
+  /* Only what was logged before logging stopped. Drawn for a period with none
+     it would say nothing was logged, which is true of every period from now on
+     and tells nobody anything. */
+  const showLogged = scoped.length > 0;
+
   const nothingYet =
     !goalsLoading && !tasksLoading && mine.length === 0 && scoped.length === 0;
   if (nothingYet) return whenNothing ? <>{whenNothing}</> : null;
@@ -104,19 +119,17 @@ export function SelfEvidence({
         description={
           periodStart && periodEnd
             ? "What is on file for the dates above. Marking yourself against it beats marking from memory."
-            : "This period carries no dates, so this is your whole logged record."
+            : "This period carries no dates, so this is everything on file for you."
         }
       />
-      <CardBody className="grid gap-6 sm:grid-cols-2">
-        <section>
-          <h4 className="mb-3 text-body-sm font-semibold text-ink">
-            Tasks you logged
-          </h4>
-          {scoped.length === 0 ? (
-            <p className="text-body-sm text-muted">
-              Nothing logged for this period.
-            </p>
-          ) : (
+      <CardBody
+        className={showLogged ? "grid gap-6 sm:grid-cols-2" : "grid gap-6"}
+      >
+        {showLogged && (
+          <section>
+            <h4 className="mb-3 text-body-sm font-semibold text-ink">
+              Tasks you logged
+            </h4>
             <dl className="flex flex-col gap-2">
               <Line label="Logged" value={scoped.length} />
               {/* The three outcomes only once at least one exists.
@@ -152,13 +165,11 @@ export function SelfEvidence({
                   )}
                 </>
               )}
-              {/* Its own line, never folded into "not completed". */}
+              {/* Its own line, never folded into "not completed". Not "yet": grading
+                  was retired with logging, so a task still ungraded is not waiting
+                  for a grade that is coming. */}
               {ungraded > 0 && (
-                <Line
-                  label="Not graded yet"
-                  value={ungraded}
-                  tone="text-muted"
-                />
+                <Line label="Not graded" value={ungraded} tone="text-muted" />
               )}
               {rate !== null && (
                 <div className="mt-2 border-t border-line pt-3">
@@ -171,8 +182,8 @@ export function SelfEvidence({
                 </div>
               )}
             </dl>
-          )}
-        </section>
+          </section>
+        )}
 
         <section>
           <h4 className="mb-3 text-body-sm font-semibold text-ink">

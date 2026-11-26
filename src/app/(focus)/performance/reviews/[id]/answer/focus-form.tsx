@@ -867,7 +867,7 @@ export function FocusForm({
                 periodEnd={review.periodEnd}
                 whenNothing={
                   <p className="text-body-sm text-muted">
-                    Nothing is logged for this period yet.
+                    No objectives of your own are on file for this period.
                   </p>
                 }
               />
