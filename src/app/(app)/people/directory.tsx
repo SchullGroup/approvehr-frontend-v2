@@ -56,6 +56,7 @@ import {
   type Employee,
   type EmploymentStatus,
 } from "@/lib/types";
+import { employmentStatusLook } from "@/lib/employment-status";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDay, todayIn } from "@/lib/time";
 
@@ -341,7 +342,7 @@ export function Directory({
       "Gross monthly (NGN)":
         e.grossMonthly === null ? "" : e.grossMonthly.toFixed(2),
       Started: e.startDate,
-      Status: STATUS[e.status].label,
+      Status: employmentStatusLook(e.status).label,
       "Missing for payroll": missingForPayroll({
         ...e,
         ...payrollFieldsForDisplay(e),
@@ -672,8 +673,12 @@ export function Directory({
                         </TD>
                         <TD>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge tone={STATUS[e.status].tone} size="sm" dot>
-                              {STATUS[e.status].label}
+                            <Badge
+                              tone={employmentStatusLook(e.status).tone}
+                              size="sm"
+                              dot
+                            >
+                              {employmentStatusLook(e.status).label}
                             </Badge>
                             {e.notOnPayroll && (
                               <Badge
@@ -760,8 +765,12 @@ export function Directory({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge tone={STATUS[e.status].tone} size="sm" dot>
-                        {STATUS[e.status].label}
+                      <Badge
+                        tone={employmentStatusLook(e.status).tone}
+                        size="sm"
+                        dot
+                      >
+                        {employmentStatusLook(e.status).label}
                       </Badge>
                       {e.notOnPayroll && (
                         <Badge tone="neutral" size="sm">
