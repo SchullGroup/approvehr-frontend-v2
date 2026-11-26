@@ -56,6 +56,7 @@ import {
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
 import { YourAppraisal } from "@/components/performance/your-appraisal";
+import { PeriodCounts } from "./period-counts";
 import { PeriodExceptionNotice, PeriodStatus } from "./period-status";
 import { StartPeriodButton } from "./start-period";
 
@@ -425,9 +426,11 @@ export function WhatNeedsYouTab({
           count is worth a card; a card whose only content is the absence of
           one is furniture. */}
 
-      {/* The one next step on your own appraisal, and your team's. Not for
-          HR, who have the period cards. */}
-      {scored && !canSeeCompany && <YourAppraisal />}
+      {/* The one next step on your own appraisal, and your team's. For
+          everybody who is appraised, HR and administrators included: the
+          period cards are about running the period, and this is about being in
+          it (an administrator with a form of their own had no way to it). */}
+      {scored && <YourAppraisal />}
 
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
@@ -540,21 +543,10 @@ export function WhatNeedsYouTab({
                         {openPeriod.stageLabel}
                       </Badge>
                     </p>
-                    <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                      <span>
-                        {openPeriod.questionCount === 1
-                          ? "1 question"
-                          : `${openPeriod.questionCount} questions`}
-                      </span>
-                      <span>
-                        {openPeriod.reviewCount === 1
-                          ? "1 form"
-                          : `${openPeriod.reviewCount} forms`}
-                      </span>
-                      {openPeriod.dueDate && (
-                        <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
-                      )}
-                    </p>
+                    <PeriodCounts
+                      period={openPeriod}
+                      canSeeCompany={canSeeCompany}
+                    />
                   </div>
                   {/* Both destinations are the period's management screen, so both
                       are gated the same way `showOutstandingLink` already gates the

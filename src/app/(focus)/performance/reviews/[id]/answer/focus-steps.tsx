@@ -165,6 +165,7 @@ export function IntroStep({
         periodEnd={review.periodEnd}
         instructions={review.instructions}
         guideUrl={review.guideUrl}
+        kind={review.kind}
       />
 
       {review.appraiser && (

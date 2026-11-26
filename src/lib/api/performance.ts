@@ -3056,6 +3056,8 @@ export const performanceApi = {
       periodEnd?: string | null;
       instructions?: string | null;
       guideUrl?: string | null;
+      /** When answers are due, `YYYY-MM-DD`, or `null` to clear it. */
+      dueDate?: string | null;
       /**
        * Meaningful on a draft, and near enough inert afterwards — which is why
        * the API does not guard either to `DRAFT`.
