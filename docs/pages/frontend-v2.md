@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `11e5bb89` (2026-11-25) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `79727e58` (2026-11-26) · regenerate with `npm run docs`, never by hand
 
 **178 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -148,7 +148,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/payroll/advances`         | Pay early         | Draw pay you have already earned before payday, and decide the ones other people have asked for.                                    | `src/app/(app)/payroll/advances/page.tsx`         |
 | `/payroll/expenses`         | Expenses          | Claims, approvals, and what you still owe staff.                                                                                    | `src/app/(app)/payroll/expenses/page.tsx`         |
 | `/payroll/loans`            | Staff loans       | Who has borrowed what, how much is left, and what comes out of this month's payroll. Approve or decline from the row.               | `src/app/(app)/payroll/loans/page.tsx`            |
-| `/payroll/loans/[id]`       | Staff loans       | Everything a person has borrowed on one page: each loan, its repayment schedule, and what is left to recover from payroll.          | `src/app/(app)/payroll/loans/[id]/page.tsx`       |
+| `/payroll/loans/[id]`       | Staff loan        | One loan, its repayment schedule, and what is left to recover from payroll.                                                         | `src/app/(app)/payroll/loans/[id]/page.tsx`       |
 | `/payroll/pay-setup`        | Pay setup         | Allowances, deductions, payroll settings and salary grades in one place, with what each one does to tax, pension and take-home pay. | `src/app/(app)/payroll/pay-setup/page.tsx`        |
 | `/payroll/payments`         | Wallet            | What the company holds, where money goes in, and every payment that has been prepared.                                              | `src/app/(app)/payroll/payments/page.tsx`         |
 | `/payroll/payments/[id]`    | Payment batch     | Who is being paid, how much, from which account, and the payment file to take to your bank.                                         | `src/app/(app)/payroll/payments/[id]/page.tsx`    |
@@ -380,9 +380,9 @@ Seven questions that decide which modules a new company sees.
 
 No sidebar and no top bar, for a task that wants somebody's whole attention. Behind the sign-in gate; today it is answering a review one question at a time.
 
-| Route                              | Title       | What it is                                                                                     | File                                                       |
-| ---------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `/performance/reviews/[id]/answer` | Your review | One question at a time. Your answers are saved as you go, so you can close this and come back. | `src/app/(focus)/performance/reviews/[id]/answer/page.tsx` |
+| Route                              | Title       | What it is                                                                                                      | File                                                       |
+| ---------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `/performance/reviews/[id]/answer` | Your review | One question at a time. Your answers to the questions are saved as you go, so you can close this and come back. | `src/app/(focus)/performance/reviews/[id]/answer/page.tsx` |
 
 ---
 

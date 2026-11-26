@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   afterEach,
   beforeAll,
@@ -41,23 +47,16 @@ vi.mock("@/lib/store/session", async (original) => ({
 }));
 
 const pay = vi.fn();
+const undoPayment = vi.fn();
 const loanOnScreen = vi.hoisted(() => ({ current: null as unknown }));
 
 vi.mock("@/lib/store/loans", async (original) => ({
   ...(await original<typeof import("@/lib/store/loans")>()),
-  useLoanActions: () => ({ pay }),
+  useLoanActions: () => ({ pay, undoPayment }),
   useLoan: () => ({
     loan: loanOnScreen.current,
     loading: false,
     error: null,
-  }),
-  usePersonLoans: () => ({
-    others: [],
-    leftOff: 0,
-    folded: [],
-    loading: false,
-    error: null,
-    reload: () => {},
   }),
 }));
 
@@ -146,6 +145,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   pay.mockReset();
+  undoPayment.mockReset();
   session.isConnected = true;
 });
 
@@ -398,6 +398,37 @@ describe("a part-paid instalment on the loan screen", () => {
     expect(screen.queryByText(/The remaining/)).toBeNull();
   });
 
+  it("says the payroll will take money recorded by hand, until that month's payroll is approved without it", () => {
+    onDay("2026-11-18");
+    const recorded = (payrollClosed: boolean) =>
+      loanWith([
+        row({
+          sequence: 1,
+          status: "PAID",
+          paidAmountKobo: 1_666_666,
+          remainingKobo: 0,
+          paidAt: "2026-10-05T09:00:00.000Z",
+          handRecordedFor: { period: "2026-10-01", payrollClosed },
+        }),
+        row({ sequence: 2 }),
+        row({ sequence: 3 }),
+      ]);
+
+    loanOnScreen.current = recorded(false);
+    const first = render(<LoanDetailScreen id="loan-3" />);
+    expect(
+      screen.getAllByText("comes off the Oct 2026 payslip").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("paid outside payroll")).toBeNull();
+    first.unmount();
+
+    loanOnScreen.current = recorded(true);
+    render(<LoanDetailScreen id="loan-3" />);
+    expect(screen.getAllByText("paid outside payroll").length).toBeGreaterThan(
+      0,
+    );
+  });
+
   it("carries a month nothing was taken in, and says so on that month's row", () => {
     onDay("2026-12-04");
     loanOnScreen.current = loanWith([
@@ -420,6 +451,53 @@ describe("a part-paid instalment on the loan screen", () => {
     /* The table's row and the phone list's, and the card's "Left to pay". */
     expect(screen.getAllByText("₦33,333.34")).toHaveLength(3);
     expect(screen.getAllByText("incl. ₦16,666.66 from Nov")).toHaveLength(2);
+  });
+
+  it("lets an administrator take a payment recorded by hand back out, with a reason, and never one payroll took", async () => {
+    undoPayment.mockResolvedValue(fresh());
+    onDay("2026-11-18");
+    loanOnScreen.current = loanWith([
+      row({
+        sequence: 1,
+        status: "PAID",
+        paidAmountKobo: 1_666_666,
+        remainingKobo: 0,
+        paidAt: "2026-10-05T09:00:00.000Z",
+      }),
+      row({
+        sequence: 2,
+        status: "PAID",
+        paidAmountKobo: 1_666_666,
+        remainingKobo: 0,
+        paidAt: "2026-10-06T09:00:00.000Z",
+        payslipId: "slip-1",
+      }),
+      row({ sequence: 3 }),
+    ]);
+    render(<LoanDetailScreen id="loan-3" />);
+
+    /* The one recorded by hand, on the phone list and the table's menu; the one a payslip took, neither. */
+    const undo = screen.getAllByRole("button", { name: "Undo the payment" });
+    expect(undo).toHaveLength(1);
+    fireEvent.click(undo[0]!);
+
+    const dialog = await screen.findByRole("dialog");
+    const confirm = within(dialog).getByRole("button", {
+      name: "Undo the payment",
+    });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(within(dialog).getByRole("textbox"), {
+      target: { value: "Recorded in two pieces" },
+    });
+    fireEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(undoPayment).toHaveBeenCalledWith(
+        "loan-3",
+        1,
+        "Recorded in two pieces",
+      ),
+    );
   });
 
   it("keeps the row actions on the part-paid instalment, on both layouts", () => {

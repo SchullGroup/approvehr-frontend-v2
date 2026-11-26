@@ -26,11 +26,7 @@ import {
 } from "@/lib/loans/payment-split";
 import { addMonths, monthLabel, priceLoan } from "@/lib/loans/schedule";
 import { useLoanActions, useLoanToday } from "@/lib/store/loans";
-import {
-  StartMonthSelect,
-  monthsBetween,
-  useStartMonths,
-} from "./start-months";
+import { StartMonthSelect, useStartMonths } from "./start-months";
 
 /**
  * The dialogs behind the four decisions that need more than one click.
@@ -78,6 +74,91 @@ function useFailure() {
 }
 
 /* ------------------------------------------------------------------ decline */
+
+/**
+ * An administrator stopping a loan that was already approved: made by mistake, or for the wrong person
+ * or amount. It is kept in history as cancelled, with the reason. What was repaid stays repaid.
+ */
+export function CancelLoanModal({
+  loan,
+  onClose,
+  onDone,
+}: {
+  loan: ApiLoan;
+  onClose: () => void;
+  onDone?: () => void;
+}) {
+  const { cancel } = useLoanActions();
+  const toast = useToast();
+  const { failure, clear, capture } = useFailure();
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    setSaving(true);
+    clear();
+    try {
+      await cancel(loan.id, reason.trim());
+      toast.push({
+        title: `Cancelled ${loan.employeeName}'s loan`,
+        tone: "success",
+        detail: "It is in history now. Nothing more comes off their pay.",
+      });
+      onDone?.();
+      onClose();
+    } catch (error) {
+      capture(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title={`Cancel ${loan.employeeName}'s loan`}
+      description={`${money(loan.principalKobo)} over ${loan.termMonths} months. ${money(loan.outstandingKobo)} is still to be repaid.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Keep it
+          </Button>
+          <Button
+            variant="danger"
+            loading={saving}
+            disabled={reason.trim().length < 3}
+            onClick={() => void submit()}
+          >
+            Cancel the loan
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failure && (
+          <Callout tone="danger" title="That did not go through">
+            {failure.message}
+          </Callout>
+        )}
+        <Field
+          label="Why is it being cancelled?"
+          required
+          error={failure?.messageFor("reason")}
+          help="Kept with the loan. Anything already repaid stays on its schedule, and the rest is written off."
+        >
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Approved for the wrong person."
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
 
 /**
  * Declining, or withdrawing your own.
@@ -278,148 +359,6 @@ export function RescheduleLoanModal({
             months={startMonths}
           />
         </Field>
-      </div>
-    </Modal>
-  );
-}
-
-/* ------------------------------------------------------------ combine loans */
-
-/**
- * Fold a person's loans that are still being repaid into one.
- *
- * For loans that already exist as two. What is owed is read from their schedules by the API, so the only
- * choices here are the term and the first month; the figure shown is the same sum, for the one deciding. No
- * interest is added: what is carried was already owed. Needs `APPROVE_LOANS`, and the API refuses your own.
- */
-export function CombineLoansModal({
-  employeeId,
-  employeeName,
-  loans,
-  onClose,
-}: {
-  employeeId: string;
-  employeeName: string;
-  /** The person's loans in repayment: the ones that will be folded. */
-  loans: readonly ApiLoan[];
-  onClose: () => void;
-}) {
-  const { consolidate } = useLoanActions();
-  const today = useLoanToday();
-  const toast = useToast();
-  const { failure, clear, capture } = useFailure();
-  const owedKobo = loans.reduce(
-    (total, loan) => total + loan.outstandingKobo,
-    0,
-  );
-
-  /* As long as the longest of them has left: combining is to make the repayment one line, not to stretch
-     it, and the approver can change it. */
-  const longest = Math.max(
-    1,
-    ...loans.map((loan) =>
-      loan.startPeriod
-        ? Math.max(
-            1,
-            monthsBetween(
-              today,
-              addMonths(loan.startPeriod, loan.termMonths - 1),
-            ) + 1,
-          )
-        : loan.termMonths,
-    ),
-  );
-  const [term, setTerm] = useState(String(longest));
-  const [startsIn, setStartsIn] = useState("0");
-  const [saving, setSaving] = useState(false);
-  const startMonths = useStartMonths({ today, employeeId, scope: "all" });
-  const startPeriod = addMonths(today, Number(startsIn));
-  const months = Math.floor(Number(term));
-  const valid = Number.isInteger(months) && months >= 1 && months <= 120;
-  const monthly = valid ? Math.floor(owedKobo / months) : 0;
-
-  async function submit() {
-    setSaving(true);
-    clear();
-    try {
-      await consolidate({ employeeId, termMonths: months, startPeriod });
-      toast.push({
-        title: `${employeeName}'s loans are now one loan`,
-        tone: "success",
-        detail:
-          "A payroll already calculated picks it up when you run it again.",
-      });
-      onClose();
-    } catch (error) {
-      capture(error);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      size="sm"
-      title="Combine into one loan"
-      description={`${employeeName} has ${String(loans.length)} loans being repaid. They become one.`}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={saving}
-            disabled={!valid}
-            onClick={() => void submit()}
-          >
-            Combine
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        {failure && (
-          <Callout tone="danger" title="That did not go through">
-            {failure.message}
-          </Callout>
-        )}
-        <Field
-          label="Repaid over"
-          help="Months, counted from the first deduction."
-          error={failure?.messageFor("termMonths")}
-        >
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={120}
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-          />
-        </Field>
-        <Field
-          label="First deduction"
-          error={failure?.messageFor("startPeriod")}
-          {...(startMonths.endsLabel
-            ? {
-                help: `Their loans finish as late as ${startMonths.endsLabel}.`,
-              }
-            : {})}
-        >
-          <StartMonthSelect
-            value={startsIn}
-            onChange={setStartsIn}
-            months={startMonths}
-          />
-        </Field>
-        <p className="text-body-sm text-body">
-          {valid
-            ? `${money(owedKobo)} is still owed on ${String(loans.length)} loans. Combined: about ${money(monthly)} a month for ${String(months)} ${months === 1 ? "month" : "months"} from ${monthLabel(startPeriod)}, with no interest added.`
-            : "Give a whole number of months, from 1 to 120."}
-        </p>
       </div>
     </Modal>
   );
@@ -750,6 +689,95 @@ export function PayInstalmentModal({
  * give up company money, and the note is the record of who and why. The API
  * refuses without one, so this button stays disabled until there is one.
  */
+/**
+ * Taking a payment recorded by hand back out.
+ *
+ * For the figure that was put in as two pieces, or on the wrong instalment: it comes off the loan whole, with
+ * what it spilled onto, and can be recorded again. The reason is the record.
+ */
+export function UndoPaymentModal({
+  loan,
+  repayment,
+  onClose,
+  onDone,
+}: {
+  loan: ApiLoanDetail;
+  repayment: ApiRepayment;
+  onClose: () => void;
+  onDone?: () => void;
+}) {
+  const { undoPayment } = useLoanActions();
+  const toast = useToast();
+  const { failure, clear, capture } = useFailure();
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    setSaving(true);
+    clear();
+    try {
+      await undoPayment(loan.id, repayment.sequence, reason.trim());
+      toast.push({
+        title: "Payment taken back",
+        tone: "success",
+        detail: `It can be recorded again on ${loan.employeeName}'s loan.`,
+      });
+      onDone?.();
+      onClose();
+    } catch (error) {
+      capture(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title={`Undo the payment on instalment ${repayment.sequence}`}
+      description={`${money(repayment.paidAmountKobo)} comes off the record, with anything it spilled onto the next instalments. Nothing is deducted for it until it is recorded again.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            loading={saving}
+            disabled={reason.trim().length < 3}
+            onClick={() => void submit()}
+          >
+            Undo the payment
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failure && (
+          <Callout tone="danger" title="That did not go through">
+            {failure.message}
+          </Callout>
+        )}
+        <Field
+          label="Why?"
+          required
+          error={failure?.messageFor("reason")}
+          help="Kept with the loan, for whoever asks later."
+        >
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Recorded in two pieces; recording it again as one."
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
 export function WaiveInstalmentModal({
   loan,
   repayment,

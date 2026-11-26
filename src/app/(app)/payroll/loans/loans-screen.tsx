@@ -52,9 +52,9 @@ import {
 import { monthLabel } from "@/lib/loans/schedule";
 import {
   LOAN_STATUS_LABEL,
-  LOAN_STATUS_WORD as STATUS_WORD,
   finishesLabel,
   useLoanActions,
+  useLoanToday,
   useLoans,
   useLoanSummary,
 } from "@/lib/store/loans";
@@ -64,7 +64,7 @@ import { shortDate } from "@/lib/today";
 import { useDebounced } from "@/lib/use-debounced";
 import { ApplyLoanModal } from "./apply-loan";
 import { ApprovedLoanCard } from "./approved-loan-card";
-import { CombineLoansModal, DeclineLoanModal } from "./decisions";
+import { DeclineLoanModal } from "./decisions";
 
 /**
  * Staff loans.
@@ -136,8 +136,23 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "PENDING", label: "Waiting" },
   { id: "ACTIVE", label: "Being repaid" },
   { id: "SETTLED", label: "Fully repaid" },
+  { id: "CANCELLED", label: "Cancelled" },
   { id: "DECLINED", label: "Declined" },
 ];
+
+/**
+ * The words in a status cell and the tabs, so a row and the tab it is under say
+ * the same thing. `LOAN_STATUS_LABEL` is the long form, for a sentence.
+ */
+const STATUS_WORD: Record<LoanStatus, string> = {
+  PENDING: "Waiting",
+  APPROVED: "Approved",
+  ACTIVE: "Being repaid",
+  SETTLED: "Fully repaid",
+  DECLINED: "Declined",
+  CONSOLIDATED: "Moved",
+  CANCELLED: "Cancelled",
+};
 
 /** The API's own allow-list, taken from its params rather than re-typed. */
 type LoanSort = NonNullable<LoanListParams["sort"]>;
@@ -168,8 +183,6 @@ export function LoansScreen() {
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   const [applying, setApplying] = useState(false);
   const [declining, setDeclining] = useState<ApiLoan | null>(null);
-  /* Whose loans are being combined into one, and only ever somebody else's: the API refuses your own. */
-  const [combining, setCombining] = useState<LoanPerson | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
   /* The loan just approved, kept above the list until the next decision
      replaces it or it is closed. `n` makes each approval a new moment. */
@@ -246,6 +259,7 @@ export function LoansScreen() {
   });
   const { summary } = useLoanSummary(seeEverybody);
   const { approve } = useLoanActions();
+  const today = useLoanToday();
 
   /* Set during render, guarded so it settles: React re-renders at once with the
      new value and the condition is false the second time. */
@@ -258,12 +272,12 @@ export function LoansScreen() {
     () =>
       seeEverybody
         ? sortPeople(
-            groupLoansByPerson(list.loans).filter((person) =>
+            groupLoansByPerson(list.loans, today).filter((person) =>
               matchesLoanSearch(person, search),
             ),
           )
         : [],
-    [seeEverybody, list.loans, search],
+    [seeEverybody, list.loans, search, today],
   );
   const loanCount = people.reduce((total, person) => total + person.count, 0);
 
@@ -317,13 +331,6 @@ export function LoansScreen() {
     setPage(1);
     setSearch("");
   };
-
-  /* Offered to somebody who may decide loans, on somebody else's loans only. */
-  const combine = canDecide
-    ? (person: LoanPerson) => {
-        if (person.employeeId !== employeeId) setCombining(person);
-      }
-    : undefined;
 
   const rowAction: RenderAction = (loan, className) => (
     <LoanRowAction
@@ -491,7 +498,6 @@ export function LoansScreen() {
                       open={open}
                       onToggle={toggle}
                       rowAction={rowAction}
-                      onCombine={combine}
                     />
                   </div>
                   <PeopleList
@@ -499,7 +505,6 @@ export function LoansScreen() {
                     open={open}
                     onToggle={toggle}
                     rowAction={rowAction}
-                    onCombine={combine}
                   />
                 </>
               )}
@@ -578,16 +583,6 @@ export function LoansScreen() {
         />
       )}
 
-      {combining && (
-        <CombineLoansModal
-          key={combining.employeeId}
-          employeeId={combining.employeeId}
-          employeeName={combining.employeeName}
-          loans={combining.loans.filter((loan) => loan.status === "ACTIVE")}
-          onClose={() => setCombining(null)}
-        />
-      )}
-
       {declining && (
         <DeclineLoanModal
           key={declining.id}
@@ -602,7 +597,8 @@ export function LoansScreen() {
 
 /* ------------------------------------------------------------ the book view */
 
-const dash = <span className="text-muted">—</span>;
+/* An absent figure is an empty cell, not a mark: a blank says "nothing here" and cannot be read as a zero. */
+const dash = null;
 
 /** A kobo figure written out in full, or the dash for one that is absent. */
 const money = (kobo: number | null) =>
@@ -610,7 +606,7 @@ const money = (kobo: number | null) =>
 
 /** What the Finishes cell says when there is no month to give. */
 const whenNoFinish = (loan: ApiLoan | null): string =>
-  loan?.status === "PENDING" ? "Once approved" : "—";
+  loan?.status === "PENDING" ? "Once approved" : "";
 
 /** "1 fully repaid, 1 declined": the loans the status badge's "+n" stands for. */
 function otherStatuses(person: LoanPerson): string {
@@ -649,7 +645,14 @@ function FigureCells({
     <>
       <TD align="right">{money(figures.borrowedKobo)}</TD>
       <TD align="right">{money(figures.leftKobo)}</TD>
-      <TD align="right">{money(figures.monthlyKobo)}</TD>
+      <TD align="right">
+        {money(figures.monthlyKobo)}
+        {figures.monthlyFor ? (
+          <span className="block text-meta text-muted">
+            {monthLabel(figures.monthlyFor)} payroll
+          </span>
+        ) : null}
+      </TD>
       <TD>
         {figures.finishes ? (
           monthLabel(figures.finishes)
@@ -696,20 +699,9 @@ type BookProps = {
   open: ReadonlySet<string>;
   onToggle: (employeeId: string) => void;
   rowAction: RenderAction;
-  /** Present for somebody who may decide loans. Offered on a person with two or more loans in repayment. */
-  onCombine?: ((person: LoanPerson) => void) | undefined;
 };
 
-/** Two or more loans being repaid: one line item each, until they are combined. */
-const canCombine = (person: LoanPerson) => person.counts.ACTIVE >= 2;
-
-function PeopleTable({
-  people,
-  open,
-  onToggle,
-  rowAction,
-  onCombine,
-}: BookProps) {
+function PeopleTable({ people, open, onToggle, rowAction }: BookProps) {
   return (
     <TableWrap caption="Staff loans, one row for each person, with what is left to repay">
       <THead>
@@ -731,7 +723,6 @@ function PeopleTable({
             open={open.has(person.employeeId)}
             onToggle={() => onToggle(person.employeeId)}
             rowAction={rowAction}
-            onCombine={onCombine}
           />
         ))}
       </TBody>
@@ -744,13 +735,11 @@ function PersonRows({
   open,
   onToggle,
   rowAction,
-  onCombine,
 }: {
   person: LoanPerson;
   open: boolean;
   onToggle: () => void;
   rowAction: RenderAction;
-  onCombine?: ((person: LoanPerson) => void) | undefined;
 }) {
   const only = person.count === 1 ? person.loans[0]! : null;
   const subtitle = `${person.employeeNo} · ${person.jobTitle}`;
@@ -791,21 +780,7 @@ function PersonRows({
           {only ? (
             rowAction(only, "justify-end")
           ) : (
-            <div className="flex items-center justify-end gap-1">
-              {onCombine && canCombine(person) && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onCombine(person);
-                  }}
-                >
-                  Combine
-                </Button>
-              )}
-              <ExpandButton person={person} open={open} onToggle={onToggle} />
-            </div>
+            <ExpandButton person={person} open={open} onToggle={onToggle} />
           )}
         </TD>
       </TR>
@@ -841,13 +816,7 @@ function PersonRows({
 }
 
 /** The same book on a phone: a card for a person, a card inside it for a loan. */
-function PeopleList({
-  people,
-  open,
-  onToggle,
-  rowAction,
-  onCombine,
-}: BookProps) {
+function PeopleList({ people, open, onToggle, rowAction }: BookProps) {
   return (
     <ul className="divide-y divide-line sm:hidden">
       {people.map((person) => {
@@ -888,22 +857,12 @@ function PeopleList({
             {only ? (
               rowAction(only)
             ) : (
-              <div className="flex flex-wrap items-center gap-2 self-start">
-                <ExpandButton
-                  person={person}
-                  open={isOpen}
-                  onToggle={() => onToggle(person.employeeId)}
-                />
-                {onCombine && canCombine(person) && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onCombine(person)}
-                  >
-                    Combine
-                  </Button>
-                )}
-              </div>
+              <ExpandButton
+                person={person}
+                open={isOpen}
+                onToggle={() => onToggle(person.employeeId)}
+                className="self-start"
+              />
             )}
 
             {isOpen && only === null && (
@@ -963,7 +922,15 @@ function CardFigures({
         </span>
       </div>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-body-sm text-muted">A month</span>
+        <span className="text-body-sm text-muted">
+          A month
+          {figures.monthlyFor ? (
+            <span className="text-meta">
+              {" "}
+              ({monthLabel(figures.monthlyFor)} payroll)
+            </span>
+          ) : null}
+        </span>
         <span className="tabular text-body-sm text-body">
           {money(figures.monthlyKobo)}
         </span>
@@ -1065,9 +1032,8 @@ function OwnLoans({
                         repayable here would read as a debt that exists,
                         and on an interest-bearing application it would
                         show more than the row says was borrowed. */}
-                    {loan.status === "PENDING" || loan.status === "DECLINED" ? (
-                      <span className="text-muted">—</span>
-                    ) : (
+                    {loan.status === "PENDING" ||
+                    loan.status === "DECLINED" ? null : (
                       <Money amount={naira(loan.outstandingKobo)} decimals />
                     )}
                   </TD>
@@ -1077,7 +1043,7 @@ function OwnLoans({
                   <TD>
                     {finishes ?? (
                       <span className="text-muted">
-                        {loan.status === "PENDING" ? "Once approved" : "—"}
+                        {loan.status === "PENDING" ? "Once approved" : ""}
                       </span>
                     )}
                   </TD>
@@ -1121,9 +1087,8 @@ function OwnLoans({
               <div className="flex items-center justify-between gap-3">
                 <span className="text-body-sm text-muted">Left to pay</span>
                 <span className="tabular text-body-sm font-medium text-ink">
-                  {loan.status === "PENDING" || loan.status === "DECLINED" ? (
-                    "—"
-                  ) : (
+                  {loan.status === "PENDING" ||
+                  loan.status === "DECLINED" ? null : (
                     <Money amount={naira(loan.outstandingKobo)} decimals />
                   )}
                 </span>
@@ -1136,8 +1101,7 @@ function OwnLoans({
               </div>
               <p className="text-meta text-muted">
                 Finishes{" "}
-                {finishes ??
-                  (loan.status === "PENDING" ? "once approved" : "—")}
+                {finishes ?? (loan.status === "PENDING" ? "once approved" : "")}
               </p>
 
               {rowAction(loan)}

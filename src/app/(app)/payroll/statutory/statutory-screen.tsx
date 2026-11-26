@@ -76,21 +76,6 @@ import { SchedulesTable } from "./schedules-table";
 
 type Group = "paye" | "pension" | "nhf" | "other";
 
-/**
- * What is said in place of a schedule.
- *
- * Each sentence names the body that is not being filed with and why, because
- * "there is nothing here" is the sentence a reader can already see. The legal
- * consequence is the API's, from `statutoryNotices`, and it renders above this —
- * these are about the filing, not about the obligation.
- */
-const NOTHING_TO_FILE: Record<Exclude<Group, "other">, string> = {
-  paye: "No PAYE schedule for any state tax authority, because no tax was deducted from anybody's pay this period. Nothing is filed and nothing is remitted.",
-  pension:
-    "No schedule for any pension fund administrator, because no contribution was deducted and none was added on top.",
-  nhf: "No National Housing Fund schedule for the Federal Mortgage Bank, because no contribution was deducted.",
-};
-
 const GROUP_LABEL: Record<Exclude<Group, "other">, string> = {
   paye: "PAYE",
   pension: "Pension",
@@ -225,28 +210,6 @@ export function StatutoryScreen() {
                   : {})}
               />
             </StatGrid>
-
-            {absent.length > 0 && (
-              <Card>
-                <CardHeader
-                  title="What is not filed, and why"
-                  description="A schedule is never produced for a deduction that was not taken."
-                />
-                <CardBody className="flex flex-col gap-3">
-                  {absent.map((group) => (
-                    <p
-                      key={group}
-                      className="text-body-sm leading-relaxed text-body"
-                    >
-                      <strong className="font-medium text-ink">
-                        {GROUP_LABEL[group]}
-                      </strong>{" "}
-                      — {NOTHING_TO_FILE[group]}
-                    </p>
-                  ))}
-                </CardBody>
-              </Card>
-            )}
 
             {/* The schedules themselves. This card used to say only *which*
                 bodies a company files for, because `StatutorySchedule` was a

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { payslipsCsv } from "@/lib/api/exports";
+import { payslipsZip } from "@/lib/api/exports";
 import { useCan } from "@/lib/permissions";
 import { ExportButton } from "@/components/portal/export-button";
 import { CalendarClock, Mail } from "lucide-react";
@@ -315,13 +315,13 @@ function PayslipIndex() {
           )}
         </div>
 
-        {/* Both permissions, and only connected. A payslip file with the money
-            columns blank is a list of names, so the API refuses it outright and
-            the button is absent rather than present and refused. */}
+        {/* Every payslip as a PDF in one zip. Both permissions, and only connected: the API refuses a
+            payslip file without both, so the button is absent rather than present and refused. */}
         {run && connected && mayExportPay && (
           <ExportButton
-            label="Download payslips"
-            download={() => payslipsCsv(run.id, run.period.slice(0, 7))}
+            label="Download all payslips"
+            busyLabel="Preparing the PDFs…"
+            download={() => payslipsZip(run.id, run.period.slice(0, 7))}
           />
         )}
       </div>

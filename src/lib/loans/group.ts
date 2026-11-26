@@ -17,7 +17,7 @@ import { addMonths } from "@/lib/loans/schedule";
  * |---|---|---|
  * | Borrowed | loans that are not waiting or declined | money that was lent; a request is not a loan yet |
  * | Left to pay | ACTIVE loans' `outstandingKobo` | what the schedule still holds |
- * | A month | ACTIVE loans' `monthlyRepaymentKobo` | what payroll will take, not what a finished loan once did |
+ * | A month | the loans' `monthlyRepaymentKobo` that come off the **next payroll** | what payroll will take, not a sum of plans that run in different months |
  * | Finishes | the latest end month of a loan that started | when the last one stops |
  *
  * "ACTIVE" here means being recovered: `APPROVED` is treated the same. The API
@@ -47,8 +47,14 @@ export type LoanFigures = {
   borrowedKobo: number | null;
   /** Null when no loan is being repaid. */
   leftKobo: number | null;
-  /** Null when no loan is being repaid. */
+  /** Null when no loan is being repaid. For a person: what comes off their next payroll, see `totalsOf`. */
   monthlyKobo: number | null;
+  /**
+   * `YYYY-MM-01` of the payroll `monthlyKobo` is for, set only when a person's loans do not all run
+   * together (one starts later, or one finishes sooner), so adding their monthly figures would be
+   * wrong and the reader is told which month the figure is. Null otherwise.
+   */
+  monthlyFor?: string | null;
   /** `YYYY-MM-01` of the month the last deduction comes out of, or null. */
   finishes: string | null;
 };
@@ -78,6 +84,7 @@ const NO_COUNTS = (): Record<LoanStatus, number> => ({
   SETTLED: 0,
   DECLINED: 0,
   CONSOLIDATED: 0,
+  CANCELLED: 0,
 });
 
 /** A loan whose repayments are being taken. */
@@ -86,7 +93,7 @@ const isRecovering = (status: LoanStatus): boolean =>
 
 /** A loan that has been lent: neither still waiting nor turned down. */
 const isLent = (status: LoanStatus): boolean =>
-  status !== "PENDING" && status !== "DECLINED";
+  status !== "PENDING" && status !== "DECLINED" && status !== "CANCELLED";
 
 /**
  * Which status a person's row shows.
@@ -100,6 +107,7 @@ const HEADLINE_ORDER: LoanStatus[] = [
   "ACTIVE",
   "APPROVED",
   "SETTLED",
+  "CANCELLED",
   "DECLINED",
 ];
 
@@ -131,38 +139,100 @@ export function loanFigures(loan: ApiLoan): LoanFigures {
   return {
     borrowedKobo: loan.principalKobo,
     leftKobo:
-      loan.status === "PENDING" || loan.status === "DECLINED"
+      loan.status === "PENDING" ||
+      loan.status === "DECLINED" ||
+      loan.status === "CANCELLED"
         ? null
         : loan.outstandingKobo,
     monthlyKobo:
-      loan.status === "SETTLED" || loan.status === "DECLINED"
+      loan.status === "SETTLED" ||
+      loan.status === "DECLINED" ||
+      loan.status === "CANCELLED"
         ? null
-        : loan.monthlyRepaymentKobo,
+        : amountDue(loan),
+    /* Named when what comes off is not the scheduled instalment: part of it was taken already, or an
+       earlier one was missed. Otherwise the figure speaks for itself. */
+    ...(loan.nextDueMonth && loan.nextDueKobo !== loan.monthlyRepaymentKobo
+      ? { monthlyFor: loan.nextDueMonth }
+      : {}),
     finishes: loanFinish(loan),
   };
 }
 
-/** Adds the loans up, leaving a figure `null` when none of them has one. */
-function totalsOf(loans: ApiLoan[]): LoanFigures {
+/**
+ * What this loan takes at its next payroll.
+ *
+ * The API says so for a loan being repaid (`nextDueKobo`): the unpaid part of what has fallen due, which
+ * is what the payroll takes. An older API, or the demo, does not, and the scheduled instalment is the
+ * best that can be said.
+ */
+function amountDue(loan: ApiLoan): number {
+  return loan.nextDueKobo ?? loan.monthlyRepaymentKobo;
+}
+
+/**
+ * Adds the loans up, leaving a figure `null` when none of them has one.
+ *
+ * "A month" is not the sum of every loan's monthly figure. Two loans that run in different months
+ * (₦25,000 that finishes in November, and ₦30,000 that starts in January) never come
+ * off one payslip together, so ₦55,000 was a figure no month has ever taken. It is what comes off the
+ * **next payroll**: the loans whose deductions start at the earliest month still to come. A loan that
+ * has started comes off this month, and one that has not comes off in the month it starts.
+ */
+function totalsOf(loans: ApiLoan[], thisMonth: string): LoanFigures {
   let borrowed: number | null = null;
   let left: number | null = null;
-  let monthly: number | null = null;
   let finishes: string | null = null;
+  const recovering: {
+    from: string;
+    finish: string | null;
+    monthly: number;
+    scheduled: number;
+  }[] = [];
 
   for (const loan of loans) {
     if (isLent(loan.status)) borrowed = (borrowed ?? 0) + loan.principalKobo;
     if (isRecovering(loan.status)) {
       left = (left ?? 0) + loan.outstandingKobo;
-      monthly = (monthly ?? 0) + loan.monthlyRepaymentKobo;
+      /* The month it comes off: the API's, which knows about an instalment that was missed, else the
+         month it starts, never one that has passed. */
+      const start = loan.nextDueMonth
+        ? addMonths(loan.nextDueMonth, 0)
+        : loan.startPeriod
+          ? addMonths(loan.startPeriod, 0)
+          : thisMonth;
+      recovering.push({
+        from: start > thisMonth ? start : thisMonth,
+        finish: loanFinish(loan),
+        monthly: amountDue(loan),
+        scheduled: loan.monthlyRepaymentKobo,
+      });
     }
     const finish = loanFinish(loan);
     if (finish && (finishes === null || finish > finishes)) finishes = finish;
+  }
+
+  let monthly: number | null = null;
+  let monthlyFor: string | null = null;
+  if (recovering.length > 0) {
+    const next = recovering.reduce(
+      (earliest, row) => (row.from < earliest ? row.from : earliest),
+      recovering[0]!.from,
+    );
+    const nextRows = recovering.filter((row) => row.from === next);
+    monthly = nextRows.reduce((total, row) => total + row.monthly, 0);
+    const runTogether =
+      nextRows.length === recovering.length &&
+      nextRows.every((row) => row.finish === nextRows[0]!.finish);
+    const asScheduled = nextRows.every((row) => row.monthly === row.scheduled);
+    if (!runTogether || !asScheduled) monthlyFor = next;
   }
 
   return {
     borrowedKobo: borrowed,
     leftKobo: left,
     monthlyKobo: monthly,
+    monthlyFor,
     finishes,
   };
 }
@@ -175,7 +245,11 @@ function totalsOf(loans: ApiLoan[]): LoanFigures {
  * number and job title are taken from the person's newest loan, which is the
  * one most likely to be current if a title changed between the two.
  */
-export function groupLoansByPerson(loans: readonly ApiLoan[]): LoanPerson[] {
+export function groupLoansByPerson(
+  loans: readonly ApiLoan[],
+  today: string = new Date().toISOString().slice(0, 10),
+): LoanPerson[] {
+  const thisMonth = addMonths(today, 0);
   const byPerson = new Map<string, ApiLoan[]>();
   for (const loan of loans) {
     const held = byPerson.get(loan.employeeId);
@@ -203,7 +277,7 @@ export function groupLoansByPerson(loans: readonly ApiLoan[]): LoanPerson[] {
       jobTitle: newest.jobTitle,
       loans: ordered,
       count: ordered.length,
-      figures: totalsOf(ordered),
+      figures: totalsOf(ordered, thisMonth),
       counts,
       headline,
       others: ordered.length - counts[headline],

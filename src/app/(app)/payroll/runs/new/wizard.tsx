@@ -1,6 +1,5 @@
 "use client";
 
-import { formatDay } from "@/lib/time";
 import {
   forwardRef,
   useCallback,
@@ -49,7 +48,6 @@ import {
   DiscrepancyPanel,
   ExceptionList,
   ExcludedList,
-  RunStatusBadge,
   SourceBadge,
 } from "@/components/payroll/run-panels";
 import { BankAccountDialog } from "@/components/payroll/bank-account-dialog";
@@ -855,7 +853,7 @@ export function PayrollRunWizard() {
           {stepper.index === 0 && (
             <Card>
               <CardHeader title="What are you paying?" />
-              <CardBody className="grid max-w-4xl gap-5 sm:grid-cols-3">
+              <CardBody className="grid gap-5 sm:grid-cols-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
                 {/* The month was a bare `type="month"` input, which *could* already
                 reach any period and gave nobody a reason to think so — a
                 spinner most people read as a fixed value. The arrows are the
@@ -915,6 +913,44 @@ export function PayrollRunWizard() {
                   />
                 </Field>
 
+                {/* Run it from where the period is chosen: it was a card of its own below, with the month, the
+                    status and a sentence repeating what the button does. Absent, not greyed, where it could only
+                    do nothing: the reader may not prepare, or the run is already approved (the notice below says
+                    so). */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:col-span-3 lg:col-span-1 lg:self-end">
+                  {canPrepare && !settled && (
+                    <Button
+                      variant={run ? "secondary" : "accent"}
+                      onClick={() => void prepare()}
+                      loading={busy === "prepare"}
+                      disabled={busy !== null}
+                      title={
+                        run
+                          ? "Preparing again replaces the payslips and settles nothing."
+                          : undefined
+                      }
+                    >
+                      {busy !== "prepare" && (
+                        <RefreshCw aria-hidden="true" className="size-4" />
+                      )}
+                      {run ? "Run again" : `Run ${periodLabel(period)}`}
+                    </Button>
+                  )}
+                  {run && (
+                    <p className="text-meta leading-relaxed text-muted">
+                      {formatKobo(run.grossKobo)} gross
+                    </p>
+                  )}
+                </div>
+
+                {approvedAlready && offCycle && (
+                  <p className="text-meta leading-relaxed text-warning-text sm:col-span-3 lg:col-span-4">
+                    This will make a <strong>separate</strong> payroll for{" "}
+                    {periodLabel(period)}, beside the approved one. Nothing
+                    about the approved run changes.
+                  </p>
+                )}
+
                 {/* Said only where there is something to do about it: an approved payroll is frozen, and the
                     way out of that is to pay somebody outside it. A payroll still being worked needs no
                     sentence (the stepper below already offers to prepare it again). */}
@@ -953,55 +989,6 @@ export function PayrollRunWizard() {
                   and approve it once they have.
                 </Callout>
               )}
-
-              <Card>
-                <CardHeader
-                  title={`${periodLabel(period)}, paying ${payDate}`}
-                  description={
-                    run
-                      ? `Prepared${run.preparedAt ? ` ${formatDay(run.preparedAt)}` : ""}. Preparing again replaces the payslips and settles nothing.`
-                      : "Nothing has been worked out for this period yet."
-                  }
-                  action={
-                    <div className="flex items-center gap-2">
-                      {run && <RunStatusBadge status={run.status} />}
-                    </div>
-                  }
-                />
-                <CardBody className="flex flex-wrap items-center gap-3">
-                  {/* Absent, not greyed, where it could only do nothing: the
-                      reader may not prepare, or the run is already approved
-                      (its badge above says so). */}
-                  {canPrepare && !settled && (
-                    <Button
-                      variant={run ? "secondary" : "accent"}
-                      onClick={() => void prepare()}
-                      loading={busy === "prepare"}
-                      disabled={busy !== null}
-                    >
-                      {busy !== "prepare" && (
-                        <RefreshCw aria-hidden="true" className="size-4" />
-                      )}
-                      {run ? "Run again" : `Run ${periodLabel(period)}`}
-                    </Button>
-                  )}
-                  {run && (
-                    <p className="text-meta leading-relaxed text-muted">
-                      {run.excludedCount > 0
-                        ? `${String(run.excludedCount)} excluded · `
-                        : ""}
-                      {formatKobo(run.grossKobo)} gross
-                    </p>
-                  )}
-                  {approvedAlready && offCycle && (
-                    <p className="text-meta leading-relaxed text-warning-text">
-                      This will make a <strong>separate</strong> payroll for{" "}
-                      {periodLabel(period)}, beside the approved one. Nothing
-                      about the approved run changes.
-                    </p>
-                  )}
-                </CardBody>
-              </Card>
 
               <DiscrepancyPanel discrepancies={discrepancies} />
 
