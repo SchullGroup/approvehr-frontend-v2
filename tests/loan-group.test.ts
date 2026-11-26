@@ -498,3 +498,70 @@ describe("a month, for somebody whose loans run in different months", () => {
     expect(only!.figures.monthlyFor).toBeNull();
   });
 });
+
+describe("a month, as the payroll will take it", () => {
+  /* ₦10,000 a month, ₦5,000 of this month's already taken against last month: ₦5,000 is due. */
+  const partPaid = (over: Partial<ApiLoan> = {}) =>
+    loan({
+      monthlyRepaymentKobo: N(10_000),
+      startPeriod: "2026-10-01",
+      termMonths: 2,
+      nextDueKobo: N(5_000),
+      nextDueMonth: "2026-11-01",
+      ...over,
+    });
+  const feeding = (over: Partial<ApiLoan> = {}) =>
+    loan({
+      monthlyRepaymentKobo: N(25_000),
+      startPeriod: "2026-11-01",
+      termMonths: 2,
+      nextDueKobo: N(25_000),
+      nextDueMonth: "2026-11-01",
+      ...over,
+    });
+
+  it("uses what is due on a loan whose instalment was part paid, not the scheduled figure", () => {
+    expect(loanFigures(partPaid()).monthlyKobo).toBe(N(5_000));
+    expect(loanFigures(partPaid()).monthlyFor).toBe("2026-11-01");
+  });
+
+  it("adds what is due across a person's loans, and names the month", () => {
+    const [person] = groupLoansByPerson([partPaid(), feeding()], "2026-11-26");
+    expect(person!.figures.monthlyKobo).toBe(N(30_000));
+    expect(person!.figures.monthlyFor).toBe("2026-11-01");
+  });
+
+  it("says nothing about a month when what is due is the scheduled instalment", () => {
+    expect(loanFigures(feeding()).monthlyKobo).toBe(N(25_000));
+    expect(loanFigures(feeding()).monthlyFor ?? null).toBeNull();
+    const [person] = groupLoansByPerson([feeding()], "2026-11-26");
+    expect(person!.figures.monthlyFor).toBeNull();
+  });
+
+  it("includes an instalment that was missed in the figure the API sends", () => {
+    const [person] = groupLoansByPerson(
+      [
+        loan({
+          monthlyRepaymentKobo: N(71_428.57),
+          startPeriod: "2026-10-01",
+          nextDueKobo: N(92_857.14),
+          nextDueMonth: "2026-11-01",
+        }),
+      ],
+      "2026-11-26",
+    );
+    expect(person!.figures.monthlyKobo).toBe(N(92_857.14));
+  });
+
+  it("falls back to the scheduled figure when the API does not send one", () => {
+    expect(
+      loanFigures(loan({ monthlyRepaymentKobo: N(30_000) })).monthlyKobo,
+    ).toBe(N(30_000));
+  });
+
+  it("prints nothing for a loan that is finished", () => {
+    expect(
+      loanFigures(loan({ status: "SETTLED", nextDueKobo: null })).monthlyKobo,
+    ).toBeNull();
+  });
+});
