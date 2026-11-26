@@ -419,3 +419,82 @@ describe("search", () => {
     expect(matchesLoanSearch(ime, "ime ogbonna")).toBe(false);
   });
 });
+
+describe("a month, for somebody whose loans run in different months", () => {
+  /* ₦25,000 that finishes in November, and ₦30,000 that starts in January. */
+  const carried = (over: Partial<ApiLoan> = {}) =>
+    loan({
+      monthlyRepaymentKobo: N(25_000),
+      startPeriod: "2026-10-01",
+      termMonths: 2,
+      ...over,
+    });
+  const rent = (over: Partial<ApiLoan> = {}) =>
+    loan({
+      monthlyRepaymentKobo: N(30_000),
+      startPeriod: "2027-01-01",
+      termMonths: 10,
+      ...over,
+    });
+
+  it("is what comes off the next payroll, not the two plans added together", () => {
+    const [person] = groupLoansByPerson([carried(), rent()], "2026-11-26");
+    expect(person!.figures.monthlyKobo).toBe(N(25_000));
+    expect(person!.figures.monthlyFor).toBe("2026-11-01");
+    expect(person!.figures.finishes).toBe("2027-10-01");
+  });
+
+  it("moves on to the later loan once the earlier one is done", () => {
+    const [person] = groupLoansByPerson(
+      [carried({ status: "SETTLED" }), rent()],
+      "2026-12-15",
+    );
+    expect(person!.figures.monthlyKobo).toBe(N(30_000));
+  });
+
+  it("adds loans that run the same months, and says nothing about a month", () => {
+    const [both] = groupLoansByPerson(
+      [
+        loan({
+          monthlyRepaymentKobo: N(10_000),
+          startPeriod: "2026-09-01",
+          termMonths: 6,
+        }),
+        loan({
+          monthlyRepaymentKobo: N(5_000),
+          startPeriod: "2026-09-01",
+          termMonths: 6,
+        }),
+      ],
+      "2026-11-26",
+    );
+    expect(both!.figures.monthlyKobo).toBe(N(15_000));
+    expect(both!.figures.monthlyFor).toBeNull();
+  });
+
+  it("adds what comes off this month when one finishes sooner, and names the month", () => {
+    const [both] = groupLoansByPerson(
+      [
+        loan({
+          monthlyRepaymentKobo: N(10_000),
+          startPeriod: "2026-09-01",
+          termMonths: 3,
+        }),
+        loan({
+          monthlyRepaymentKobo: N(5_000),
+          startPeriod: "2026-09-01",
+          termMonths: 6,
+        }),
+      ],
+      "2026-11-26",
+    );
+    expect(both!.figures.monthlyKobo).toBe(N(15_000));
+    expect(both!.figures.monthlyFor).toBe("2026-11-01");
+  });
+
+  it("is the one loan's own figure for a person with one loan", () => {
+    const [only] = groupLoansByPerson([rent()], "2026-11-26");
+    expect(only!.figures.monthlyKobo).toBe(N(30_000));
+    expect(only!.figures.monthlyFor).toBeNull();
+  });
+});
