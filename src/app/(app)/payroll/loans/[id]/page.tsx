@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { LoanDetailScreen } from "./loan-detail-screen";
 
 export const metadata: Metadata = {
-  title: "Staff loans",
+  title: "Staff loan",
   description:
-    "Everything a person has borrowed on one page: each loan, its repayment schedule, and what is left to recover from payroll.",
+    "One loan, its repayment schedule, and what is left to recover from payroll.",
 };
 
 /**

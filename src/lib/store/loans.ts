@@ -31,7 +31,6 @@ import {
   priceLoan,
 } from "@/lib/loans/schedule";
 import { matchesLoanSearch } from "@/lib/loans/group";
-import { chooseOthers } from "@/lib/loans/person-page";
 import { allocatePayment } from "@/lib/loans/payment-split";
 import { employeeById } from "@/lib/mock/people";
 import { todayIn } from "@/lib/time";
@@ -480,6 +479,7 @@ const STATUS_RANK: Record<LoanStatus, number> = {
   SETTLED: 3,
   DECLINED: 4,
   CONSOLIDATED: 5,
+  CANCELLED: 6,
 };
 
 export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
@@ -738,168 +738,6 @@ export function useLoan(id: string | null): {
   };
 }
 
-/* ------------------------------------------------------ one person's loans */
-
-export type PersonLoans = {
-  /**
-   * The person's other loans, with their schedules, in the order the page lists
-   * them. Null until they are read, and while the person is not yet known.
-   */
-  others: ApiLoanDetail[] | null;
-  /** How many of their loans there was no room for on the page. */
-  leftOff: number;
-  /** Loans that were folded into another one. Rows only: they have no schedule here. */
-  folded: ApiLoan[];
-  loading: boolean;
-  error: ApiError | null;
-  /** Asks again, for the retry button on a failed read. */
-  reload: () => void;
-};
-
-/** One request for the whole of a person's book. A person has a handful. */
-const PERSON_PAGE_SIZE = 100;
-
-/**
- * Everything else a person has borrowed, for the page that shows all of it at once.
- *
- * `openedId` is the loan the page was opened on, which `useLoan` already reads,
- * so it is left out here and never fetched twice. The others are read the way
- * that one is: the list says which loans there are, and each one is then read for
- * its schedule, because a list row has none.
- *
- * Loans folded into another are asked for by name, because lists leave them out
- * unless somebody asks. They come back as rows only. Nobody needs the schedule of
- * a loan that nothing comes off any more, and reading each one would be a request
- * for a thing nobody asked to see.
- *
- * A write anywhere re-asks (`rev`), and coming back to the window re-asks, and
- * neither blanks what is on screen. The answer is tagged with the person and the
- * opened loan it was asked for, so "loading" is derived from whether the tag
- * matches, as in `useLoan`, and an answer for somebody else is never shown.
- */
-export function usePersonLoans(
-  employeeId: string | null,
-  openedId: string,
-): PersonLoans {
-  const { isConnected, employeeId: me } = useSession();
-  const book = useDemoBook();
-  const rev = useRevision();
-  const active = employeeId !== null && isConnected;
-  /* Reading the whole book is `VIEW_SALARIES`'s, so an employee asking for their
-     own loans would be refused. `/loans/me` is theirs to read, and the API reads
-     the same loans through it. */
-  const own = employeeId !== null && employeeId === me;
-  const key = `${employeeId ?? ""}|${openedId}`;
-
-  const [fetched, setFetched] = useState<{
-    key: string;
-    others: ApiLoanDetail[];
-    leftOff: number;
-    folded: ApiLoan[];
-    error: ApiError | null;
-  } | null>(null);
-
-  const revalidation = useRevalidation();
-  useEffect(() => {
-    if (!active || employeeId === null) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const read = own ? loansApi.mine : loansApi.list;
-        const [live, foldedPage] = await Promise.all([
-          read({ employeeId, pageSize: PERSON_PAGE_SIZE }, controller.signal),
-          read(
-            {
-              employeeId,
-              status: "CONSOLIDATED",
-              pageSize: PERSON_PAGE_SIZE,
-            },
-            controller.signal,
-          ),
-        ]);
-        const { shown, leftOff } = chooseOthers(
-          openedId,
-          live.data,
-          live.meta.total,
-        );
-        const others = await Promise.all(
-          shown.map((loan) => loansApi.get(loan.id, controller.signal)),
-        );
-        if (!cancelled) {
-          setFetched({
-            key,
-            others,
-            leftOff,
-            folded: foldedPage.data.filter((loan) => loan.id !== openedId),
-            error: null,
-          });
-        }
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        if (!cancelled) {
-          setFetched({
-            key,
-            others: [],
-            leftOff: 0,
-            folded: [],
-            error: error instanceof ApiError ? error : null,
-          });
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [active, employeeId, own, openedId, key, rev, revalidation]);
-
-  /* The demo book is already in hand, so there is nothing to wait for. */
-  const demo = useMemo(() => {
-    if (isConnected || employeeId === null) return null;
-    const theirs = book.filter((loan) => loan.employeeId === employeeId);
-    const live = theirs
-      .filter((loan) => loan.status !== "CONSOLIDATED")
-      .map(withProgress);
-    const { shown, leftOff } = chooseOthers(openedId, live, live.length);
-    return {
-      others: shown,
-      leftOff,
-      folded: theirs
-        .filter(
-          (loan) => loan.status === "CONSOLIDATED" && loan.id !== openedId,
-        )
-        .map(withProgress),
-    };
-  }, [isConnected, employeeId, openedId, book]);
-
-  if (demo) {
-    return { ...demo, loading: false, error: null, reload: () => {} };
-  }
-  if (!active) {
-    return {
-      others: null,
-      leftOff: 0,
-      folded: [],
-      loading: false,
-      error: null,
-      reload: () => {},
-    };
-  }
-
-  const matched = fetched !== null && fetched.key === key;
-  return {
-    others: matched ? fetched.others : null,
-    leftOff: matched ? fetched.leftOff : 0,
-    folded: matched ? fetched.folded : [],
-    loading: !matched,
-    error: matched ? fetched.error : null,
-    /* Bumping the revision re-runs the effect above, as in `useLoans`. */
-    reload: bumpRevision,
-  };
-}
-
 /* --------------------------------------------------------------- the summary */
 
 export function useLoanSummary(enabled = true): {
@@ -1043,18 +881,10 @@ export type LoanActions = {
   /** `{}` approves exactly as applied for. Fields are a counter-offer. */
   approve: (id: string, body?: ApproveLoanBody) => Promise<ApiLoanDetail>;
   decline: (id: string, reason: string) => Promise<ApiLoanDetail>;
+  /** Stop an approved loan. It goes to history as cancelled, with the reason. */
+  cancel: (id: string, reason: string) => Promise<ApiLoanDetail>;
   /** Move the first deduction. Needs the API: a demo book has nothing to move. */
   reschedule: (id: string, startPeriod: string) => Promise<ApiLoanDetail>;
-  /**
-   * Fold a person's live loans into one. Needs the API: the demo book allows one live loan a person, so it never
-   * holds two to combine.
-   */
-  consolidate: (body: {
-    employeeId: string;
-    termMonths: number;
-    startPeriod: string;
-    note?: string;
-  }) => Promise<ApiLoanDetail>;
   pay: (
     id: string,
     sequence: number,
@@ -1256,6 +1086,39 @@ export function useLoanActions(): LoanActions {
     [isConnected, actingId, displayName, write],
   );
 
+  const cancel = useCallback(
+    async (id: string, reason: string): Promise<ApiLoanDetail> => {
+      if (isConnected) {
+        const loan = await loansApi.cancel(id, reason);
+        bumpRevision();
+        return loan;
+      }
+
+      return write(id, (loan) => {
+        if (loan.status !== "ACTIVE" && loan.status !== "APPROVED") {
+          throw conflict(
+            `That loan is ${loan.status.toLowerCase()}, so it cannot be cancelled. Only a loan being repaid can.`,
+          );
+        }
+        /* What was repaid stays paid; what was still to come is written off with the reason. */
+        return {
+          ...loan,
+          status: "CANCELLED",
+          outstandingKobo: 0,
+          cancelledAt: new Date().toISOString(),
+          cancelledById: actingId,
+          cancelledReason: reason,
+          schedule: loan.schedule.map((row) =>
+            row.status === "SCHEDULED" || row.status === "PARTIAL"
+              ? { ...row, status: "WAIVED" as const }
+              : row,
+          ),
+        };
+      });
+    },
+    [isConnected, actingId, write],
+  );
+
   const pay = useCallback(
     async (
       id: string,
@@ -1414,33 +1277,12 @@ export function useLoanActions(): LoanActions {
     [isConnected],
   );
 
-  const consolidate = useCallback(
-    async (body: {
-      employeeId: string;
-      termMonths: number;
-      startPeriod: string;
-      note?: string;
-    }): Promise<ApiLoanDetail> => {
-      if (!isConnected) {
-        throw new ApiError(
-          0,
-          "offline",
-          "Combining loans needs the API: the demo allows one live loan a person, so there is nothing to combine.",
-        );
-      }
-      const loan = await loansApi.consolidate(body);
-      bumpRevision();
-      return loan;
-    },
-    [isConnected],
-  );
-
   return {
     apply,
     approve,
     decline,
+    cancel,
     reschedule,
-    consolidate,
     pay,
     waive,
     live: isConnected,
@@ -1456,20 +1298,8 @@ export const LOAN_STATUS_LABEL: Record<LoanStatus, string> = {
   ACTIVE: "Being repaid",
   SETTLED: "Fully repaid",
   DECLINED: "Declined",
-  CONSOLIDATED: "Combined into one loan",
-};
-
-/**
- * The words in a status cell and the tabs, so a row and the tab it is under say
- * the same thing. `LOAN_STATUS_LABEL` is the long form, for a sentence.
- */
-export const LOAN_STATUS_WORD: Record<LoanStatus, string> = {
-  PENDING: "Waiting",
-  APPROVED: "Approved",
-  ACTIVE: "Being repaid",
-  SETTLED: "Fully repaid",
-  DECLINED: "Declined",
-  CONSOLIDATED: "Combined",
+  CONSOLIDATED: "Moved to another loan",
+  CANCELLED: "Cancelled",
 };
 
 export const REPAYMENT_STATUS_LABEL: Record<LoanRepaymentStatus, string> = {
