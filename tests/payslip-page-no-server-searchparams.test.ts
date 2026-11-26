@@ -14,7 +14,9 @@ describe("the payslip page", () => {
       "src/app/(app)/payroll/payslips/[id]/page.tsx",
       "utf8",
     );
-    expect(page).not.toMatch(/searchParams/);
+    /* The code, not the comment that explains why it is absent. */
+    const code = page.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(code).not.toMatch(/searchParams/);
   });
 
   it("reads ?run= in the browser, for Back", () => {
