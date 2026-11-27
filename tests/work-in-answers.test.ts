@@ -5,24 +5,26 @@ import {
   flagLine,
   flaggedCount,
   mergePins,
+  flagSentence,
   noteCounter,
   noteProblem,
   orderBySharedProjects,
-  pinCountLine,
+  PIN_RULES,
   pinFacts,
   pinHref,
-  pinnedLine,
   reasonProblem,
   reasonReady,
   sharedLabel,
+  workFacts,
 } from "@/lib/performance/work-in-answers";
 
 /**
  * Using your own finished work in a review: the words and the small decisions.
  *
- * What is proved: the limit is said truthfully at every count; a note is wrong only when it is over
- * the limit; a pin reads as quiet facts in a fixed order, with on time and late the same quiet word,
- * "Set by" only when somebody else set it, and nothing at all about a due date that was never set; the
+ * What is proved: the rules are one sentence that carries the limit; a note is wrong only when it is over
+ * the limit; finished work reads as quiet facts in a fixed order (one function for every list of it), with
+ * on time and late the same quiet word, "Set by" only when somebody else set it, and nothing at all about a
+ * due date that was never set; a flag's sentence is said only where the server said something; the
  * link opens the task by its id; the list an answer carries is what the server held less what was taken
  * off plus what was added, once each; "Shared N projects" is never "Shared 0"; colleagues who shared a
  * project come first, most shared first, and nobody is added, dropped or chosen; a flag's reason is
@@ -49,17 +51,11 @@ const pin = (over: Partial<ApiPin> = {}): ApiPin => ({
   ...over,
 });
 
-describe("the limit, said", () => {
-  it("is five at nought and says so", () => {
-    expect(pinCountLine(0)).toBe("Up to 5 on each answer.");
-  });
-  it("counts as it goes", () => {
-    expect(pinCountLine(1)).toBe("1 of 5 added.");
-    expect(pinCountLine(4)).toBe("4 of 5 added.");
-  });
-  it("says what to do at the limit, and never claims room it does not have", () => {
-    expect(pinCountLine(5)).toBe("5 of 5 added. Unpin one to add another.");
-    expect(pinCountLine(7)).toBe("7 of 5 added. Unpin one to add another.");
+describe("the rules, said once", () => {
+  it("carries the limit, and that the title is not saved, and that it moves no score", () => {
+    expect(PIN_RULES).toContain("Up to 5 on each answer.");
+    expect(PIN_RULES).toContain("is not saved");
+    expect(PIN_RULES).toContain("does not change your score");
   });
 });
 
@@ -137,21 +133,47 @@ describe("what a pin says about the work", () => {
   });
 });
 
-describe("who pinned it, and where it opens", () => {
-  it("says whose choice it was and when", () => {
-    expect(pinnedLine("Chidi Nwosu", "2026-11-05T09:00:00.000Z", TZ)).toBe(
-      "Pinned by Chidi Nwosu on 5 Nov 2026",
-    );
-    expect(pinnedLine("you", "2026-11-05T09:00:00.000Z", TZ)).toBe(
-      "Pinned by you on 5 Nov 2026",
-    );
+describe("what any finished task says about itself", () => {
+  const base = {
+    doneAt: "2026-11-04T10:00:00.000Z",
+    finishedOn: "2026-11-04",
+    timing: "ON_TIME" as const,
+  };
+
+  it("says the project before the day, and Personal in its place for a personal task", () => {
+    expect(workFacts({ ...base, where: "Payroll" }, TZ)).toEqual([
+      "Payroll",
+      "Finished 4 Nov 2026",
+      "On time",
+    ]);
+    expect(
+      workFacts({ ...base, where: "Payroll", personal: true }, TZ),
+    ).toEqual(["Personal", "Finished 4 Nov 2026", "On time"]);
   });
-  it("says only when, when it is not known whose choice it was", () => {
-    expect(pinnedLine(null, "2026-11-05T09:00:00.000Z", TZ)).toBe(
-      "Pinned on 5 Nov 2026",
-    );
-    expect(pinnedLine(null, "", TZ)).toBe("Pinned");
+
+  it("names who finished it only when the caller asks, and first", () => {
+    expect(
+      workFacts({ ...base, person: "Ngozi Eze", where: "Payroll" }, TZ)[0],
+    ).toBe("Ngozi Eze");
   });
+
+  it("says nothing of a timing that is not there: null is a task with no due date", () => {
+    expect(workFacts({ ...base, timing: null }, TZ)).toEqual([
+      "Finished 4 Nov 2026",
+    ]);
+    expect(workFacts({ ...base, timing: "NO_DUE_DATE" }, TZ)).toEqual([
+      "Finished 4 Nov 2026",
+    ]);
+    expect(workFacts({ ...base, timing: "LATE" }, TZ)).toContain("Late");
+  });
+
+  it("is the same line for a pin as for anything else", () => {
+    const p = pin({ personal: false, linked: false, setBy: null });
+    expect(pinFacts(p, TZ)).toEqual(workFacts(p, TZ));
+  });
+});
+
+describe("where a pin opens", () => {
   it("opens the task by its id, encoded", () => {
     expect(pinHref({ issueId: "i1" })).toBe("/projects/tasks/i1");
     expect(pinHref({ issueId: "a/b c" })).toBe("/projects/tasks/a%2Fb%20c");
@@ -279,5 +301,31 @@ describe("how a flag reads", () => {
     expect(flaggedCount(0)).toBeNull();
     expect(flaggedCount(1)).toBe("1 flagged as wrong");
     expect(flaggedCount(3)).toBe("3 flagged as wrong");
+  });
+});
+
+describe("what a flag is, said once", () => {
+  const state = { known: true, own: true, on: true, any: false };
+
+  it("says nothing where the server said nothing about flags", () => {
+    expect(flagSentence({ ...state, known: false })).toBeNull();
+  });
+  it("tells the person where to say so, and that it changes nothing", () => {
+    expect(flagSentence(state)).toContain("say so on its row");
+    expect(flagSentence(state)).toContain("does not remove the item");
+  });
+  it("says what can still be done once the setting is off, and only while a flag is there", () => {
+    expect(flagSentence({ ...state, on: false })).toBeNull();
+    expect(flagSentence({ ...state, on: false, any: true })).toContain(
+      "you can still take it back",
+    );
+  });
+  it("speaks of the person to a reader, while a flag can be raised or one is there", () => {
+    const reader = { ...state, own: false };
+    expect(flagSentence(reader)).toContain("the person's own word");
+    expect(flagSentence({ ...reader, on: false })).toBeNull();
+    expect(flagSentence({ ...reader, on: false, any: true })).toContain(
+      "the person's own word",
+    );
   });
 });

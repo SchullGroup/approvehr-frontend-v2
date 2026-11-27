@@ -182,12 +182,13 @@ describe("what it lists", () => {
       ),
     ).toBeInTheDocument();
     const row = screen.getByText("Run the October payroll").closest("li")!;
-    expect(within(row).getByText("Payroll v2")).toBeInTheDocument();
-    expect(within(row).getByText("Finished 3 Nov 2026")).toBeInTheDocument();
-    expect(within(row).getByText("On time")).toBeInTheDocument();
+    /* One quiet line of facts, the same as everywhere finished work is listed. */
+    expect(
+      within(row).getByText("Payroll v2 · Finished 3 Nov 2026 · On time"),
+    ).toBeInTheDocument();
     expect(
       within(screen.getByText("Close the books").closest("li")!).getByText(
-        "Late",
+        /· Late$/,
       ),
     ).toBeInTheDocument();
   });

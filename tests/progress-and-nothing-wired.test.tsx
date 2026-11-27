@@ -13,8 +13,9 @@ import type { ApiProgressPerson } from "@/lib/api/performance";
  * this is that the two surfaces use it.
  *
  * F33: a manager's "What Chidi did this period" drawer was a title and nothing
- * under it when the work could not be shown. `whenNothing` says so, once the
- * panel has settled, and never while it is still reading.
+ * under it when the work could not be shown. The drawer now carries a line of its
+ * own for that, shown only when it is the sole child, which holds only while this
+ * panel draws nothing where it has nothing.
  */
 
 const hook = vi.hoisted(() => ({
@@ -117,9 +118,6 @@ describe("F31: part-way through a step is in progress, not ready to start", () =
   });
 });
 
-const nothing = (
-  <p data-testid="nothing">Nothing from the project boards is shown.</p>
-);
 const show = (over: Partial<Parameters<typeof WorkThisCycle>[0]> = {}) =>
   render(
     <WorkThisCycle
@@ -129,7 +127,6 @@ const show = (over: Partial<Parameters<typeof WorkThisCycle>[0]> = {}) =>
       periodEnd="2026-12-31"
       subjectName="Chidi Nwosu"
       own={false}
-      whenNothing={nothing}
       {...over}
     />,
   );
@@ -140,52 +137,45 @@ const answered = (data: unknown, error: unknown = null) => ({
   reload: vi.fn(),
 });
 
-describe("F33: the work drawer says why it is empty, once it has settled", () => {
+describe("F33: the work drawer is never a title and nothing under it", () => {
+  /* The drawer puts one line of its own ("Not recorded") beside the two panels
+     and shows it only when it is the sole child. That works only if this panel
+     draws nothing at all where it has nothing, so none of these may leave a
+     wrapper behind. */
   beforeEach(() => {
     hook.projects = { enabled: true, loading: false };
     hook.read = answered(null);
   });
 
-  it("says it when there is no list", () => {
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
-  });
-
-  it("says it when the company does not use Projects", () => {
-    hook.projects = { enabled: false, loading: false };
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
-  });
-
-  it("says it when the API will not show this reader the work", () => {
-    hook.read = answered(null, new ApiError(403, "forbidden", "Not yours."));
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
-    hook.read = answered(null, new ApiError(404, "not_found", "Not there."));
-    cleanup();
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
-  });
-
-  it("says nothing while the company's switches are still arriving", () => {
-    hook.projects = { enabled: false, loading: true };
-    show();
-    expect(screen.queryByTestId("nothing")).toBeNull();
-  });
-
-  it("says nothing while the list is still being read", () => {
-    hook.read = { data: null, loading: true, error: null, reload: vi.fn() };
-    show();
-    expect(screen.queryByTestId("nothing")).toBeNull();
-  });
-
-  it("says nothing where the caller turned the panel off", () => {
-    show({ enabled: false });
-    expect(screen.queryByTestId("nothing")).toBeNull();
-  });
-
-  it("draws nothing at all without it, as it always did beside a review", () => {
-    const { container } = show({ whenNothing: undefined });
+  it("draws nothing when there is no list", () => {
+    const { container } = show();
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("draws nothing when the company does not use Projects", () => {
+    hook.projects = { enabled: false, loading: false };
+    const { container } = show();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("draws nothing when the API will not show this reader the work", () => {
+    hook.read = answered(null, new ApiError(403, "forbidden", "Not yours."));
+    const first = show();
+    expect(first.container).toBeEmptyDOMElement();
+    cleanup();
+    hook.read = answered(null, new ApiError(404, "not_found", "Not there."));
+    const second = show();
+    expect(second.container).toBeEmptyDOMElement();
+  });
+
+  it("draws nothing where the caller turned the panel off", () => {
+    const { container } = show({ enabled: false });
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("draws a placeholder, not nothing, while the list is still being read", () => {
+    hook.read = { data: null, loading: true, error: null, reload: vi.fn() };
+    const { container } = show();
+    expect(container).not.toBeEmptyDOMElement();
   });
 });

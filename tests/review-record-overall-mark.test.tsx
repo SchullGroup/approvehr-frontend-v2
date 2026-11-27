@@ -5,7 +5,6 @@ import type { ApiEmployeeScore, ApiReviewDetail } from "@/lib/api/performance";
 import { showsOverallMark } from "@/lib/api/performance";
 import { ReviewScreen } from "@/app/(app)/performance/reviews/[id]/review-screen";
 import { FinaliseDialog } from "@/app/(app)/performance/reviews/[id]/finalise-dialog";
-import { finalisedCopy } from "@/app/(app)/performance/reviews/[id]/sign-off-copy";
 
 /**
  * The record of an appraisal follows the company's overall-mark setting.
@@ -21,6 +20,11 @@ import { finalisedCopy } from "@/app/(app)/performance/reviews/[id]/sign-off-cop
  * The rule, one function: a review that carries a mark shows it whatever the
  * setting says now, and one that carries none speaks of an overall mark only
  * where the company asks for one. Absent means off.
+ *
+ * On the record the mark is the headline of the Rating tab, and where there is
+ * none to say nothing is drawn in its place: no "None given", no sentence about
+ * the answers standing on their own. Beside a self review, the two marks are one
+ * row of the Answers tab, where "none given" is "Not recorded".
  */
 
 const state = vi.hoisted(() => ({
@@ -150,6 +154,10 @@ describe("showsOverallMark", () => {
   });
 });
 
+/** The Answers tab, where the two overall ratings sit side by side. */
+const openAnswers = async () =>
+  userEvent.click(screen.getByRole("tab", { name: "Answers" }));
+
 describe("a manager's record where the company does not ask for an overall rating", () => {
   beforeEach(() => {
     state.review = review({ overallMark: false });
@@ -164,25 +172,33 @@ describe("a manager's record where the company does not ask for an overall ratin
     expect(screen.queryByText("Appraisers' overall rating")).toBeNull();
   });
 
-  it("keeps the rest of the card: who wrote it, and when", () => {
+  it("keeps who wrote it, and when, in one line under the title", () => {
     mount();
     expect(
-      screen.getByRole("heading", { name: "The rating" }),
+      screen.getByRole("heading", { name: "Emeka Anyanwu's manager review" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Written by")).toBeInTheDocument();
-    expect(screen.getByText("Adaeze Okonkwo")).toBeInTheDocument();
-    /* And the score panel is untouched: the figure the person is told. */
-    expect(screen.getByText("Overall score")).toBeInTheDocument();
-    expect(screen.getByText("Objectives agreed")).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Adaeze Okonkwo · sent 29 Oct 2026$/),
+    ).toBeVisible();
+    /* The three stat tiles and the headings over them are gone. */
+    for (const gone of [
+      "The rating",
+      "Written by",
+      "Overall score",
+      "Objectives agreed",
+      "What the score is made of",
+    ]) {
+      expect(screen.queryByText(gone)).toBeNull();
+    }
   });
 
   it("still shows a score that was given before the setting was switched off", () => {
     state.review = review({ overallMark: false, rating: 4 });
     state.score = score(7500);
     mount();
-    expect(screen.getByText("Overall rating")).toBeInTheDocument();
     expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
-    expect(screen.getByText("Appraisers' overall rating")).toBeInTheDocument();
+    expect(screen.queryByText("Overall rating")).toBeNull();
+    expect(screen.queryByText("Appraisers' overall rating")).toBeNull();
   });
 });
 
@@ -192,14 +208,14 @@ describe("a manager's record where the company asks for an overall rating", () =
     state.score = score(null);
   });
 
-  it("says none was given, rather than leaving the row out", () => {
+  it("says nothing in the place of a rating nobody gave, and no sentence about it", () => {
     mount();
-    expect(screen.getByText("Overall rating")).toBeInTheDocument();
-    expect(screen.getByText("None given")).toBeInTheDocument();
+    expect(screen.queryByText("Overall rating")).toBeNull();
+    expect(screen.queryByText("None given")).toBeNull();
     expect(
-      screen.getByText("No overall rating. The answers stand on their own."),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Appraisers' overall rating")).toBeInTheDocument();
+      screen.queryByText("No overall rating. The answers stand on their own."),
+    ).toBeNull();
+    expect(screen.queryByText("Appraisers' overall rating")).toBeNull();
   });
 
   it("shows the score in the company's own words when there is one", () => {
@@ -230,45 +246,43 @@ describe("a self-review's record", () => {
     state.score = null;
   });
 
-  it("is a card about the self-review, not a self-rating nobody can give, where the company does not ask", () => {
+  it("is titled for whose it is in one spelling, with no card about a self-rating nobody can give", () => {
     state.review = { ...(state.review as object), overallMark: false };
     mount();
     expect(
-      screen.getByRole("heading", { name: "The self-review" }),
+      screen.getByRole("heading", { name: "Emeka Anyanwu's self review" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("The self-rating")).toBeNull();
-    expect(
-      screen.getByText("Shown beside the manager's review."),
-    ).toBeInTheDocument();
+    for (const gone of [
+      "The self-rating",
+      "The self-review",
+      "Shown beside the manager's review.",
+      "Overall rating",
+      "Written by",
+    ]) {
+      expect(screen.queryByText(gone)).toBeNull();
+    }
     expect(
       screen.queryByText(/does not count towards the final score/),
     ).toBeNull();
-    expect(screen.queryByText("Overall rating")).toBeNull();
-    expect(screen.getByText("Written by")).toBeInTheDocument();
   });
 
-  it("is the self-rating, and says what it counts for, where the company asks", () => {
+  it("says nothing about what the rating counts for where the company asks", () => {
     state.review = { ...(state.review as object), overallMark: true };
     mount();
+    expect(screen.queryByText("The self-rating")).toBeNull();
     expect(
-      screen.getByRole("heading", { name: "The self-rating" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/does not count towards the final score unless/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("None given")).toBeInTheDocument();
+      screen.queryByText(/does not count towards the final score/),
+    ).toBeNull();
+    expect(screen.queryByText("None given")).toBeNull();
   });
 
-  it("stays the self-rating when a score was given, whatever the setting says now", () => {
+  it("shows a score that was given, whatever the setting says now", () => {
     state.review = {
       ...(state.review as object),
       overallMark: false,
       rating: 2,
     };
     mount();
-    expect(
-      screen.getByRole("heading", { name: "The self-rating" }),
-    ).toBeInTheDocument();
     expect(screen.getByText("Below Expectations")).toBeInTheDocument();
   });
 });
@@ -284,44 +298,44 @@ describe("the overall ratings beside each other, on a manager's record with the 
       ...over,
     });
 
-  it("has no row for either overall rating where the company does not ask and nobody gave one", () => {
-    state.review = review({ overallMark: false });
+  it("has no row for either overall rating where the company does not ask and nobody gave one", async () => {
+    state.review = review({ overallMark: false, summary: "Good half." });
     state.self = selfReview({ overallMark: false });
     mount();
-    expect(
-      screen.getByRole("heading", { name: "Self review and manager review" }),
-    ).toBeInTheDocument();
+    await openAnswers();
     expect(screen.queryByText("Overall rating")).toBeNull();
     expect(screen.queryByText("Their overall rating")).toBeNull();
   });
 
-  it("is one row, with the manager's and the person's, and none given where the company asks and they gave none", () => {
+  it("is one row, with the manager's and the person's, and not recorded where the company asks and they gave none", async () => {
     state.review = review({ overallMark: true, rating: 4 });
     state.self = selfReview({ overallMark: true });
     mount();
-    /* One row, not the manager's in the top card and both again below. */
+    /* One row, not the manager's in the Rating tab's headline and both again
+       here: with the self review in, the marks are said once, side by side. */
+    expect(screen.queryByText("Exceeds Expectations")).toBeNull();
+    await openAnswers();
     expect(screen.getAllByText("Overall rating")).toHaveLength(1);
     const row = within(screen.getByText("Overall rating").closest("li")!);
     expect(row.getByText("Exceeds Expectations")).toBeInTheDocument();
-    expect(row.getByText("None given")).toBeInTheDocument();
+    expect(row.getByText("Not recorded")).toBeInTheDocument();
   });
 
-  it("shows the score they gave, whatever the setting says now", () => {
+  it("shows the score they gave, whatever the setting says now", async () => {
     state.review = review({ overallMark: false });
     state.self = selfReview({ overallMark: false, rating: 5 });
     mount();
+    await openAnswers();
     const row = within(screen.getByText("Overall rating").closest("li")!);
     expect(row.getByText("Exceptional")).toBeInTheDocument();
   });
 
-  it("keeps the manager's own score in the top card when there is no self review to put beside it", () => {
+  it("keeps the manager's own score as the headline when there is no self review to put beside it", () => {
     state.review = review({ overallMark: true, rating: 4 });
     state.self = null;
     mount();
-    expect(screen.getAllByText("Overall rating")).toHaveLength(1);
-    expect(
-      screen.getByText("Overall rating").closest(".rounded-lg"),
-    ).not.toBeNull();
+    expect(screen.queryByText("Overall rating")).toBeNull();
+    expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
   });
 });
 
@@ -339,22 +353,16 @@ describe("making a rating final", () => {
       />,
     );
 
-  it("does not tell the manager there is no overall rating where the company does not ask for one", () => {
-    renderDialog({ overallMark: false });
-    const dialog = screen.getByRole("dialog");
-    expect(
-      within(dialog).getByText(/They will read the answers\./),
-    ).toBeInTheDocument();
-    expect(within(dialog).queryByText(/no overall rating/i)).toBeNull();
-  });
-
-  it("still says so where the company asks and none was given", () => {
-    renderDialog({ overallMark: true });
-    expect(
-      within(screen.getByRole("dialog")).getByText(
-        /This form has no overall rating, so they will read the answers\./,
-      ),
-    ).toBeInTheDocument();
+  it("says the answers are what they will read where there is no overall rating, whatever the company asks", () => {
+    for (const overallMark of [false, true]) {
+      renderDialog({ overallMark });
+      const dialog = screen.getByRole("dialog");
+      expect(
+        within(dialog).getByText(/Emeka will read the answers\./),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByText(/no overall rating/i)).toBeNull();
+      cleanup();
+    }
   });
 
   it("names the appraiser's own mark as theirs where there is one, and not as the rating the person reads", () => {
@@ -369,56 +377,10 @@ describe("making a rating final", () => {
     expect(dialog.queryByText(/Their rating becomes/)).toBeNull();
   });
 
-  it("says the same in the account of what it recorded, where the company does not ask for a score", async () => {
-    const user = userEvent.setup();
-    renderDialog({ overallMark: false });
-    await user.click(screen.getByRole("button", { name: "Make it final" }));
+  it("says it once, in one sentence, that it cannot be changed", () => {
+    renderDialog({ overallMark: false, rating: 4 });
     expect(
-      await screen.findByText("Emeka will read the answers."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/no overall rating/i)).toBeNull();
-  });
-
-  it("keeps saying there is no overall rating in that account where the company asks for one", async () => {
-    const user = userEvent.setup();
-    renderDialog({ overallMark: true });
-    await user.click(screen.getByRole("button", { name: "Make it final" }));
-    expect(
-      await screen.findByText(
-        "Year-end review 2026 has no overall rating, so Emeka will read the answers.",
-      ),
-    ).toBeInTheDocument();
-  });
-});
-
-describe("the statement that a rating is final", () => {
-  const base = {
-    subjectName: "Emeka Anyanwu",
-    cycleName: "Year-end review 2026",
-    ratingLabel: null,
-    subjectNotified: true,
-  };
-
-  it("leaves out a score that does not exist where the company does not ask", () => {
-    expect(finalisedCopy({ ...base, markShown: false }).lead).toBe(
-      "Emeka will read the answers.",
-    );
-  });
-
-  it("keeps the old wording where the company asks, and where nobody says", () => {
-    const old =
-      "Year-end review 2026 has no overall rating, so Emeka will read the answers.";
-    expect(finalisedCopy({ ...base, markShown: true }).lead).toBe(old);
-    expect(finalisedCopy(base).lead).toBe(old);
-  });
-
-  it("quotes the rating whenever there is one", () => {
-    expect(
-      finalisedCopy({
-        ...base,
-        ratingLabel: "Meets Expectations",
-        markShown: false,
-      }).lead,
-    ).toBe('The rating for Year-end review 2026 is "Meets Expectations".');
+      within(screen.getByRole("dialog")).getAllByText(/cannot be changed/),
+    ).toHaveLength(1);
   });
 });

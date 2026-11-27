@@ -104,7 +104,7 @@ const FROZEN: NonNullable<ApiCycle["weights"]> = {
 async function openCard() {
   const user = userEvent.setup();
   render(<WhatNeedsYouTab canSeeCompany={false} isManager={false} />);
-  await user.click(screen.getByRole("button", { name: /How a score is made/ }));
+  await user.click(screen.getByRole("tab", { name: /How a score is made/ }));
 }
 
 const rowsOf = () =>

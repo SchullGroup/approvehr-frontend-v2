@@ -58,8 +58,9 @@ it is unmeasured, and it is left out of the objective's progress until somebody 
 
 ### Competency
 
-How somebody works rather than what they delivered — judgement, communication, leading a team. Four
-groups come ready-made. Somebody records a level against each one, once per person per period.
+How somebody works rather than what they delivered — judgement, communication, leading a team. The
+company writes its own groups and the competencies in each. Somebody records a level against each one,
+once per person per period.
 
 > _Leadership is only rated for people who lead others: somebody reports to them, they lead a team, or
 > they head a department. For everybody else it is left out, not marked low. That distinction matters

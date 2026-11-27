@@ -80,12 +80,10 @@ export function otherKinds(current: AnswerKind): AnswerKind[] {
 }
 
 /**
- * What starting a new version does, before it is pressed, as short lines.
- *
- * On the page and not behind an icon: they are the consequences somebody is about
- * to agree to, and a consequence somebody has to hover for is one that gets agreed
- * to unread. What the API did *specifically* (which periods, which roles) arrives
- * afterwards as its own sentences.
+ * What starting a new version does, before it is pressed, as short lines. The
+ * dialog joins them into the one tooltip beside its choice. What the API did
+ * *specifically* (which periods, which roles) arrives afterwards as its own
+ * sentences, in the toast.
  *
  * The third line depends on the kind chosen, because the two are genuinely
  * different: a pick-one subsection starts with no choices, and a required question
@@ -130,46 +128,11 @@ export function newVersionEffects(input: {
   return input.to === "TEXT" ? [...lines, WRITTEN_NEVER_COUNTS] : lines;
 }
 
-/** How a kind reads in "answered as ...". */
-export function answeredAsWords(kind: AnswerKind): string {
-  switch (kind) {
-    case "RATING":
-      return "a level on a scale";
-    case "BOOLEAN":
-      return "a yes or no";
-    case "CHOICE":
-      return "one pick from a list";
-    case "TEXT":
-      return "a written answer";
-  }
-}
-
 /**
- * What happened, as the dialog's result line. The API's `notes` follow it, as they
- * came, because they are the part that says what to do next.
- *
- * `from` is how the retired one was answered, for the reason `newVersionEffects`
- * gives: a written subsection kept no marks to keep.
- */
-export function startedLine(
-  result: NewVersionResult,
-  kind: AnswerKind,
-  from?: AnswerKind,
-): string {
-  const kept =
-    result.retired.ratingsKept > 0
-      ? `keeps its ${ratingsWords(result.retired.ratingsKept)}${
-          from === "TEXT"
-            ? ""
-            : ` and every score made from ${aboutRatings(result.retired.ratingsKept)}`
-        }`
-      : "is kept, retired";
-  return `${result.competency.name} is now answered as ${answeredAsWords(kind)}. ${result.retired.name} ${kept}.`;
-}
-
-/**
- * The toast, when there are no notes and so nothing to stay on screen for. Short:
- * a toast clamps its detail to two lines and is gone in six seconds.
+ * The toast that says what happened. Its detail is the API's own sentences when it
+ * sent any, because those say what to do next (add the choices, ask it again), and
+ * otherwise what became of the old version. A toast clamps its detail to two lines
+ * and is gone in six seconds, and the full text is its hover.
  */
 export function startedToast(result: NewVersionResult): {
   title: string;
@@ -178,8 +141,10 @@ export function startedToast(result: NewVersionResult): {
   return {
     title: `Started a new version of ${result.competency.name}`,
     detail:
-      result.retired.ratingsKept > 0
-        ? `${result.retired.name} keeps its ${ratingsWords(result.retired.ratingsKept)}.`
-        : `${result.retired.name} is kept, retired.`,
+      result.notes.length > 0
+        ? result.notes.join(" ")
+        : result.retired.ratingsKept > 0
+          ? `${result.retired.name} keeps its ${ratingsWords(result.retired.ratingsKept)}.`
+          : `${result.retired.name} is kept, retired.`,
   };
 }

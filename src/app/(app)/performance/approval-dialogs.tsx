@@ -7,13 +7,13 @@ import { ApiError } from "@/lib/api/client";
 /**
  * The reason on an approval decision.
  *
- * Three of the five moves on an objective require one — sending it back,
- * refusing it, and reopening an agreed target — and one dialog serves all three
- * because the *requirement* is the same in each: without a reason the record says
- * that somebody said no and nothing about why, which is not feedback and is not
- * evidence either. What differs is the consequence, and that is a prop, because
- * the sentence a person reads before they commit is the only place the difference
- * shows up.
+ * Two of the moves on an objective require one: declining it, and reopening an
+ * agreed target. One dialog serves both because the *requirement* is the same:
+ * without a reason the record says that somebody said no and nothing about why,
+ * which is not feedback and is not evidence either. What differs is the
+ * question in the title and the word on the button, and that is all there is to
+ * read: the consequence is what the title already says, and the person who
+ * wrote the objective sees the reason where they read the rest.
  *
  * The API's floor is three characters. This asks for the same and no more: a
  * longer minimum invented here would refuse something the server accepts, and a
@@ -22,57 +22,32 @@ import { ApiError } from "@/lib/api/client";
 
 const MIN_REASON = 3;
 
-export type ApprovalAct = "send_back" | "decline" | "reject" | "revise";
+export type ApprovalAct = "decline" | "revise";
 
-/** What each act does, in the words the person deciding needs before they click. */
+/** What each act is called, as the question and as the button. */
 const ACTS: Record<
   ApprovalAct,
   {
     title: (title: string) => string;
-    consequence: string;
     label: string;
-    /** Green is the approval colour, so none of these three carry it. */
+    /** Green is the approval colour, so neither of these carries it. */
     tone: "accent" | "danger";
-    help: string;
     /** The field's label; "Why" unless the act calls it something else. */
     field?: string;
   }
 > = {
-  send_back: {
-    title: (title) => `Send "${title}" back?`,
-    consequence:
-      "They can change it and send it again. Nothing is agreed or refused yet. The objective just records that you looked at it and asked for a change.",
-    label: "Send it back",
-    tone: "accent",
-    help: "They will read this. Say what would make it agreeable.",
-  },
-  /* The queue's one way to say no (owner, 24 Nov 2026). The same send-back as
-     above, worded as the button the approver pressed: the objective goes back
+  /* The queue's one way to say no (owner, 24 Nov 2026): the objective goes back
      to whoever wrote it, who can change it and send it again. */
   decline: {
     title: (title) => `Decline "${title}"?`,
-    consequence:
-      "It goes back to whoever wrote it, with your feedback. They can change it and send it again, and it comes back here.",
     label: "Decline",
     tone: "accent",
-    help: "They will read this. Say what would make it agreeable.",
     field: "Feedback",
-  },
-  reject: {
-    title: (title) => `Refuse "${title}"?`,
-    consequence:
-      "This is final. A refused objective cannot be sent again. If it should be done differently, they need to create a new objective, and the refusal stays on record.",
-    label: "Refuse it",
-    tone: "danger",
-    help: "This reason is the only record of why it was refused.",
   },
   revise: {
     title: (title) => `Reopen "${title}"?`,
-    consequence:
-      "The objective can be changed again, but it has to be agreed again afterwards. Who reopened it, when and why is recorded.",
     label: "Reopen it",
     tone: "accent",
-    help: "Say what changed. This is the only record of why the objective changed.",
   },
 };
 
@@ -158,23 +133,13 @@ export function ApprovalReasonDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-body-sm leading-relaxed text-body">
-          {spec.consequence}
-        </p>
-
-        <Field label={spec.field ?? "Why"} required help={spec.help}>
+        <Field label={spec.field ?? "Why"} required>
           <Textarea
             rows={4}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
         </Field>
-
-        {!ready && reason.length > 0 && (
-          <p className="text-body-sm text-body">
-            Say why in a few words. The person who wrote this will read it.
-          </p>
-        )}
 
         {failed && (
           <p role="status" className="text-body-sm text-danger-text">

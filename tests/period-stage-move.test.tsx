@@ -18,13 +18,24 @@ import {
 
 let advance: Mock<(...args: unknown[]) => Promise<unknown>>;
 let stage: "SELF" | "MANAGER";
-const participants: ApiCycleParticipants | null = null;
+/* Nobody owes anything, so the move is the one next step on the page (while
+   somebody does it is in the menu, and while who owes is not known it is too). */
+const participants = {
+  cycleId: "cycle-1",
+  cycleName: "H2 2026 Appraisal",
+  stage: "SELF",
+  rows: [],
+  counts: { people: 0, selfDone: 0, managerDone: 0 },
+} as unknown as ApiCycleParticipants;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/performance/periods/cycle-1",
 }));
-vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
+vi.mock("@/lib/permissions", () => ({
+  useCan: () => true,
+  usePermissions: () => ({ loading: false }),
+}));
 vi.mock("@/lib/store/performance", () => ({
   useKpis: () => ({
     goals: [],
@@ -170,7 +181,7 @@ describe("the words", () => {
 
   it("name the button as an act and not a place", () => {
     expect(STAGE_MOVE.MANAGER.button).toBe("Move to manager review");
-    expect(STAGE_MOVE.CALIBRATION.button).toBe("Move to checking scores");
+    expect(STAGE_MOVE.CALIBRATION.button).toBe("Move to score review");
   });
 });
 
@@ -216,7 +227,7 @@ describe("the button on the period", () => {
     stage = "MANAGER";
     const user = userEvent.setup();
     mount();
-    await user.click(moveButton("Move to checking scores"));
+    await user.click(moveButton("Move to score review"));
     expect(screen.getByRole("dialog")).toHaveTextContent(/can still be sent/);
   });
 });

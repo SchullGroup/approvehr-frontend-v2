@@ -42,15 +42,7 @@ const review = (over: Partial<ApiReviewDetail> = {}) =>
   }) as unknown as ApiReviewDetail;
 
 const intro = (over: Partial<ApiReviewDetail> = {}) =>
-  render(
-    <IntroStep
-      review={review(over)}
-      resumed={false}
-      answered={0}
-      onShowWork={null}
-      kept={["your recommendations"]}
-    />,
-  );
+  render(<IntroStep review={review(over)} onShowWork={null} />);
 
 const preview = (over: Partial<ApiReviewDetail> = {}) =>
   render(
@@ -62,9 +54,6 @@ const preview = (over: Partial<ApiReviewDetail> = {}) =>
       onRecord={() => ({})}
       summary=""
       outstanding={[]}
-      coaching={false}
-      languageTexts={[]}
-      languageSeen={false}
       onEdit={vi.fn()}
     />,
   );

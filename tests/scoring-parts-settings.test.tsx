@@ -219,6 +219,20 @@ describe("a company with parts", () => {
     expect(options).toContain("TASKS");
   });
 
+  it("has no Add part when every source already has a part, rather than a dimmed one", () => {
+    view = viewOf(
+      SOURCES.map((source, index) => ({
+        id: `p-${String(index)}`,
+        source: source.source,
+        name: source.label,
+        weightBp: index === 0 ? 10000 : 0,
+      })),
+    );
+    mount();
+    expect(screen.queryByRole("button", { name: "Add part" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Edit weights" })).toBeEnabled();
+  });
+
   it("edits a part, offering its own source back", async () => {
     const user = userEvent.setup();
     mount();

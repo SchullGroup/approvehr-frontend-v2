@@ -2,6 +2,7 @@
 
 import { Sparkles } from "lucide-react";
 import { Button, Callout, Disclosure, Spinner } from "@/components/ui";
+import { WizardLink } from "@/components/performance/wizard-shell";
 import { cn } from "@/lib/cn";
 import type { ApiSuggestion } from "@/lib/api/ai";
 import { useAssistantAvailable, type SuggestState } from "@/lib/store/ai";
@@ -27,17 +28,29 @@ export function SuggestButton({
   loading,
   label = "Suggest",
   size = "sm",
+  plain = false,
 }: {
   onClick: () => void;
   loading: boolean;
   label?: string;
   size?: "sm" | "md";
+  /** A plain text link instead of a button, for a place that has one real
+      button already (a row's Save). */
+  plain?: boolean;
 }) {
   const { available, loading: checking } = useAssistantAvailable();
 
   /* Absent while unknown and absent when unavailable — never appears late and
      shifts the layout under someone mid-edit. */
   if (checking || !available) return null;
+
+  if (plain) {
+    return (
+      <WizardLink onClick={onClick} disabled={loading}>
+        {loading ? "Writing" : label}
+      </WizardLink>
+    );
+  }
 
   return (
     <Button
@@ -62,6 +75,7 @@ export function SuggestionPanel({
   onDismiss,
   useLabel = "Use this",
   emptyHint,
+  compact = false,
 }: {
   state: SuggestState;
   /** Fires only from a click. Hand the text to an editable field, never a save. */
@@ -70,6 +84,13 @@ export function SuggestionPanel({
   useLabel?: string;
   /** One line under the header, e.g. "You can edit it after." */
   emptyHint?: string;
+  /**
+   * For a place inside a row of something else (a number somebody just
+   * changed): no callout when the assistant is off, a refusal as one plain
+   * line in the API's own words, and no footer paragraph. The suggestions, what
+   * they were drafted from and the choice to use one are the same.
+   */
+  compact?: boolean;
 }) {
   if (state.loading) {
     return (
@@ -82,6 +103,7 @@ export function SuggestionPanel({
 
   /* A refusal about the request (e.g. a frozen goal) — the API's own sentence. */
   if (state.error) {
+    if (compact) return <p className="text-meta text-muted">{state.error}</p>;
     return (
       <Callout tone="warning" title="No suggestion this time">
         {state.error}
@@ -94,6 +116,7 @@ export function SuggestionPanel({
   /* A refusal about the assistant itself, not the request — neutral tone since
      the form works fine without it. */
   if (!state.outcome.available) {
+    if (compact) return null;
     return (
       <Callout tone="neutral" title="Suggestions are unavailable">
         {state.outcome.reason}
@@ -168,10 +191,12 @@ export function SuggestionPanel({
         </Disclosure>
       )}
 
-      <p className="text-meta text-muted">
-        Suggestions are a starting point. Nothing is saved until you edit it and
-        submit it yourself.
-      </p>
+      {!compact && (
+        <p className="text-meta text-muted">
+          Suggestions are a starting point. Nothing is saved until you edit it
+          and submit it yourself.
+        </p>
+      )}
     </div>
   );
 }

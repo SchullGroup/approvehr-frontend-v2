@@ -1,16 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  ConfirmDialog,
-  Field,
-  Input,
-  useToast,
-} from "@/components/ui";
+import { Button, ConfirmDialog, Field, Input, useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { useFeatureSettings } from "@/lib/store/features";
 import {
@@ -23,6 +14,15 @@ import {
 
 /**
  * How long the work behind a final rating is kept.
+ *
+ * ## One field, in the one card the Records tab is
+ *
+ * It is a section of that card, not a card of its own: a field called Months to
+ * keep, with the rules behind an info icon beside its name, and a Save that
+ * appears only once there is something to save. There is no "Kept for 12 months"
+ * line above the field that holds 12, and no Stop button: clearing the field
+ * stops keeping work, and saving a cleared field says so without asking, since it
+ * keeps less and not more. Setting a period asks first, in one question.
  *
  * ## What it does
  *
@@ -58,6 +58,10 @@ import {
 
 const plural = (n: number): string =>
   `${String(n)} ${n === 1 ? "month" : "months"}`;
+
+/** What is kept and what never is, behind the icon beside the field's name. */
+const KEPT_INFO =
+  "Kept: which tasks the person finished in the cycle, when, whether on time, and who set them. Never kept: task titles, descriptions, comments or files. Only people who can read the review see it, and it never changes a score. Check with your legal adviser how long to keep it.";
 
 export function WorkRecordCard({ connected }: { connected: boolean }) {
   const features = useFeatureSettings();
@@ -109,79 +113,69 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
     }
   }
 
+  /* Nothing to press until something has changed: a figure that is valid, or a
+     box that was emptied, which is how work stops being kept. */
+  const canSave =
+    features.editable && changed && (valid || next === null) && !saving;
+
   return (
     <>
-      <Card>
-        <CardHeader
-          title="Work kept with a final rating"
-          level={3}
-          info="Kept: which tasks the person finished in the cycle, when, whether on time, and who set them. Never kept: task titles, descriptions, comments or files. Only people who can read the review see it, and it never changes a score. Check with your legal adviser how long to keep it."
-        />
-        <CardBody className="flex flex-col gap-4">
-          {reading ? (
-            <p className="text-body-sm text-muted">{LOADING}</p>
-          ) : available ? (
-            <>
-              <p className="text-body-sm text-ink">
-                {typeof months === "number"
-                  ? `Kept for ${plural(months)} after a rating is final.`
-                  : "Not kept."}
-              </p>
-              <div className="flex flex-wrap items-end gap-3">
-                <Field
-                  label="Months to keep"
-                  className="w-40"
-                  {...(typed !== null && text.trim() !== "" && !valid
-                    ? { error: "Enter a whole number from 1 to 120." }
-                    : {})}
-                >
-                  <Input
-                    inputMode="numeric"
-                    value={text}
-                    placeholder="1 to 120"
-                    disabled={!features.editable}
-                    onChange={(event) => setTyped(event.target.value)}
-                  />
-                </Field>
+      <div className="flex flex-col gap-3 px-5 py-4">
+        {reading ? (
+          <p className="text-body-sm text-muted">{LOADING}</p>
+        ) : available ? (
+          <>
+            <div className="flex flex-wrap items-end gap-3">
+              <Field
+                label="Months to keep"
+                help={KEPT_INFO}
+                className="w-40"
+                {...(typed !== null && text.trim() !== "" && !valid
+                  ? { error: "Enter a whole number from 1 to 120." }
+                  : {})}
+              >
+                <Input
+                  inputMode="numeric"
+                  value={text}
+                  placeholder="Not kept"
+                  disabled={!features.editable}
+                  onChange={(event) => setTyped(event.target.value)}
+                />
+              </Field>
+              {canSave && (
                 <Button
                   variant="accent"
-                  disabled={!features.editable || !changed || !valid || saving}
                   onClick={() => {
-                    if (next === null) return;
+                    /* Keeping less is one press; keeping more asks first. */
+                    if (next === null) {
+                      void save(null);
+                      return;
+                    }
                     setQuestion(next);
                     setAsking(true);
                   }}
                 >
-                  {valid && next !== null ? `Keep for ${plural(next)}` : "Save"}
+                  Save
                 </Button>
-                {typeof months === "number" && (
-                  <Button
-                    variant="secondary"
-                    disabled={!features.editable || saving}
-                    onClick={() => void save(null)}
-                  >
-                    Stop keeping work
-                  </Button>
-                )}
-              </div>
-              {problem && (
-                <p role="alert" className="text-body-sm text-danger-text">
-                  {problem}
-                </p>
               )}
-              {!features.editable && (
-                <p className="text-body-sm text-muted">{READ_ONLY}</p>
-              )}
-            </>
-          ) : failed ? (
-            <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
-          ) : (
-            <p className="text-body-sm text-muted">
-              {connected ? NOT_ON_SERVER : NO_SERVER}
-            </p>
-          )}
-        </CardBody>
-      </Card>
+            </div>
+            {problem && (
+              <p role="alert" className="text-body-sm text-danger-text">
+                {problem}
+              </p>
+            )}
+            {!features.editable && (
+              <p className="text-body-sm text-muted">{READ_ONLY}</p>
+            )}
+          </>
+        ) : failed ? (
+          <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
+        ) : (
+          <p className="text-body-sm text-muted">
+            {connected ? NOT_ON_SERVER : NO_SERVER}
+          </p>
+        )}
+      </div>
 
       <ConfirmDialog
         open={asking}
@@ -191,7 +185,7 @@ export function WorkRecordCard({ connected }: { connected: boolean }) {
             ? "Keep work with final ratings?"
             : `Keep work with final ratings for ${plural(question)}?`
         }
-        body="When a rating is made final, the tasks the person finished in the cycle are kept with it: when each was finished, whether on time, and who set it. Task titles aren't kept. A disputed rating keeps it one period longer. Ratings already final don't change."
+        body={null}
         confirmLabel="Keep it"
         loading={saving}
         onConfirm={() => question !== null && void save(question)}

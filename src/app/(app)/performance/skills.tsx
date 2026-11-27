@@ -1,12 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, GraduationCap } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
-  EmptyState,
   TBody,
   TD,
   TDPrimary,
@@ -15,6 +14,7 @@ import {
   TR,
   TableWrap,
   Tabs,
+  Tag,
   useToast,
   LoadState,
 } from "@/components/ui";
@@ -32,17 +32,12 @@ import { DepartmentCard } from "@/components/ui/department-card";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
-import { useCan } from "@/lib/permissions";
-import {
-  NO_FRAMEWORK_TITLE,
-  noFrameworkWords,
-} from "@/lib/performance/framework-empty";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { RecordLevelDialog } from "./rating-dialog";
 import { SKILLS_TABS, type SkillsTabId } from "./skills/tabs";
 
 /**
- * Skills: levels against the targets the company set.
+ * Competency ratings: levels against the targets the company set.
  *
  * ## A gap is arithmetic, not an opinion
  *
@@ -50,27 +45,21 @@ import { SKILLS_TABS, type SkillsTabId } from "./skills/tabs";
  * stored beside the rating rather than inferred from a job title, and it is why
  * a row with a level but no target shows no gap instead of assuming one.
  *
- * ## "Not assessed" is not zero
+ * ## Only what has been recorded is listed
  *
- * Every live competency is listed for every person, rated or not. A list that
- * only showed what has been rated would hide the more useful fact — that nobody
- * has ever looked at it — and a zero in its place would be a score somebody
- * would argue with.
+ * A person's own list shows the competencies somebody has rated, and nothing
+ * else. A list of every competency, most of them "not assessed", said nothing
+ * twenty times. "Not assessed" is still not zero, so a person with nothing
+ * rated reads one calm "Not recorded", never a row of nought, and a company with
+ * no framework reads nothing at all.
  *
- * ## The heatmap is a grid, and it does not rely on colour
+ * ## Two tabs, and the second only when it has somebody in it
  *
- * Every cell prints its average as text. The tint is a second channel on top of
- * the number, never instead of it, and the pairs it uses are the ones the badge
- * palette already passes contrast on. A cell with people below their target
- * carries an icon and a spoken count as well.
- *
- * ## Three tabs, because they are three questions
- *
- * Where am I against my levels, who is below target, and how does each
- * department stand. They share no row, so stacking them made a 4,800px page and
- * somebody looking for the heatmap scrolled past 30 rows of gaps to reach it.
- * Each tab is only offered to somebody the API would answer for it, and a reader
- * who may see only their own skills gets the one panel with no tab strip.
+ * Where am I against my levels, and who is below target. They share no row.
+ * The second is offered only to somebody the API would answer for it, and only
+ * while somebody is below target: an empty tab is a tab that can only say
+ * nothing. A reader who may see only their own competencies, or whom nobody is
+ * below, gets the one panel with no tab strip.
  */
 export function SkillsTab({
   canSeeCompany,
@@ -88,7 +77,6 @@ export function SkillsTab({
 }) {
   const { isConnected, employeeId, actingId } = useSession();
   const me = isConnected ? employeeId : actingId;
-  const canEditFramework = useCan("MANAGE_SETTINGS");
 
   const mine = useSkills(me);
   const gaps = useGaps(canSeeCompany || isManager);
@@ -101,7 +89,10 @@ export function SkillsTab({
   const [tab, changeTab] = useUrlTab<SkillsTabId>(initialTab, SKILLS_TABS);
 
   const grouped = useMemo(() => {
-    const rows = mine.skills?.rows ?? [];
+    /* Only what has been recorded: `ratedAt` is null only when nothing has. */
+    const rows = (mine.skills?.rows ?? []).filter(
+      (row) => row.ratedAt !== null,
+    );
     const bucket = new Map<string, ApiCompetencyRow[]>();
     for (const row of rows) {
       const section = row.sectionName ?? "Other";
@@ -117,7 +108,11 @@ export function SkillsTab({
     }));
   }, [mine.skills]);
 
-  const showGaps = canSeeCompany || isManager;
+  /* The tab is there while the answer is on its way, and when it failed, so
+     there is something to retry, and then only if somebody is below target. */
+  const showGaps =
+    (canSeeCompany || isManager) &&
+    (gaps.loading || Boolean(gaps.error) || gaps.gaps.length > 0);
   const items: TabItem[] = [
     { id: "mine", label: "Your competencies" },
     ...(showGaps
@@ -143,27 +138,15 @@ export function SkillsTab({
           error={mine.error}
           subject="your competency framework"
           onRetry={mine.reload}
-          hasData={grouped.length > 0}
+          hasData={(mine.skills?.rows.length ?? 0) > 0}
           skeleton="list"
         >
-          {grouped.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<GraduationCap aria-hidden="true" />}
-              title={NO_FRAMEWORK_TITLE}
-              description={noFrameworkWords(canEditFramework)}
-            />
-          ) : (
+          {grouped.length > 0 ? (
             <div className="flex flex-col gap-8">
               {grouped.map((group) => (
                 <section key={group.category}>
-                  <p className="flex flex-wrap items-center gap-2 text-body-md font-semibold text-ink">
+                  <p className="text-body-md font-semibold text-ink">
                     {group.category}
-                    {group.category === "Leadership" && (
-                      <Badge tone="neutral" size="sm">
-                        Managers only
-                      </Badge>
-                    )}
                   </p>
                   <ul className="mt-3 flex flex-col gap-2.5">
                     {group.rows.map((row) => (
@@ -173,7 +156,9 @@ export function SkillsTab({
                 </section>
               ))}
             </div>
-          )}
+          ) : (mine.skills?.rows.length ?? 0) > 0 ? (
+            <p className="text-body-sm text-muted">Not recorded</p>
+          ) : null}
         </LoadState>
       )}
       {shown === "gaps" && showGaps && (
@@ -184,16 +169,7 @@ export function SkillsTab({
           onRetry={gaps.reload}
           skeleton="table"
         >
-          {gaps.gaps.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<GraduationCap aria-hidden="true" />}
-              title="Nobody is below target"
-              description="Either everyone is where they should be, or nobody has been assessed yet."
-            />
-          ) : (
-            <GapsByDepartment gaps={gaps.gaps} />
-          )}
+          {gaps.gaps.length > 0 && <GapsByDepartment gaps={gaps.gaps} />}
         </LoadState>
       )}
     </>
@@ -267,28 +243,32 @@ export function SkillsTab({
 /* -------------------------------------------------------------------------- */
 
 /**
- * One subsection on somebody's own list, in the words that are true of how it is
+ * One competency on somebody's own list, in the words that are true of how it is
  * answered.
  *
- * ## "Not assessed" is `ratedAt`, not `level`
+ * ## Only an answered row is drawn
  *
- * A yes or no and a pick have no level, so their rows carry `level: null` whether
- * or not anybody has answered them. Reading a missing level as "nobody has looked"
- * says so about every answered yes-or-no row, which is a false claim somebody
- * would argue with. `ratedAt` is `null` only when nothing has been recorded.
+ * `ratedAt` is `null` only when nothing has been recorded, so that is what
+ * decides, and a row nobody has answered is **absent**: a list of rows that all
+ * say "not assessed" said nothing. It is `ratedAt`, not `level`, because a yes
+ * or no and a pick have no level, so their rows carry `level: null` whether or
+ * not anybody has answered them.
  *
  * ## What is drawn for each kind
  *
- * | Kind | Answered | Not answered |
- * |---|---|---|
- * | A level | "Level 4 of 5 · target 5" and the segments | "Not assessed yet" and empty segments |
- * | Yes or no | the word, "Yes" or "No" | "Not assessed yet" |
- * | A pick | the label of the choice | "Not assessed yet" |
- * | In their own words | the words, in full, and **Written** | "Not assessed yet" |
+ * | Kind | Drawn |
+ * |---|---|
+ * | A level | the segments and "4 of 5" |
+ * | Yes or no | the word, "Yes" or "No" |
+ * | A pick | the label of the choice |
+ * | In their own words | the words, in full, and **Written** |
+ *
+ * **The level is said once.** The segments carry the target as well: the ghost
+ * segment is what is missing, so "target 5" in words would say it twice.
  *
  * **No segments for the last three.** They are a scale, and none of the answers is
  * on one. The pick shows its label and not a score: what it is worth is set on the
- * subsection and worked out on the API, and a figure here would be a second
+ * competency and worked out on the API, and a figure here would be a second
  * implementation of it.
  *
  * **Words are never cut off without a way to read the rest.** A long written
@@ -303,52 +283,40 @@ export function SkillsTab({
  */
 export function SkillRow({ row }: { row: ApiCompetencyRow }) {
   const kind = answerKindOf(row);
-  const answered = row.ratedAt !== null;
-  /* The words, or nothing. Spaces alone are not an answer, an absent field is not
-     one either, and words on a row that says nobody has answered it are not drawn
-     under "Not assessed yet": `ratedAt` decides, as it does for every kind. */
-  const words =
-    kind === "TEXT" && answered ? (row.textValue?.trim() ?? "") : "";
+  if (row.ratedAt === null) return null;
+  /* The words, or nothing. Spaces alone are not an answer, and an absent field
+     is not one either. */
+  const words = kind === "TEXT" ? (row.textValue?.trim() ?? "") : "";
 
   /* The right-hand side: the answer as a word for a yes or no and a pick, the
-     segments for a level. Absent when a yes-or-no or pick row has no answer yet,
-     because there is nothing true to draw. */
+     segments for a level. A level-kind row that is answered with no level cannot
+     be produced by the API, and there is nothing true to draw for one. */
   const answer =
     kind === "BOOLEAN" ? (
-      answered ? (
-        <Badge tone="neutral" size="sm">
-          {row.boolValue == null ? "Answered" : row.boolValue ? "Yes" : "No"}
-        </Badge>
-      ) : null
+      <Badge tone="neutral" size="sm">
+        {row.boolValue == null ? "Answered" : row.boolValue ? "Yes" : "No"}
+      </Badge>
     ) : kind === "CHOICE" ? (
-      answered ? (
-        <Badge tone="neutral" size="sm">
-          {row.choiceOptionLabel ?? "Answered"}
-        </Badge>
-      ) : null
+      <Badge tone="neutral" size="sm">
+        {row.choiceOptionLabel ?? "Answered"}
+      </Badge>
     ) : kind === "TEXT" ? (
-      answered ? (
-        <Badge tone="neutral" size="sm">
-          {words ? KIND_BADGE.TEXT : "Answered"}
-        </Badge>
-      ) : null
-    ) : (
-      <Pips level={row.level} target={row.target} scaleMax={row.scaleMax} />
+      <Badge tone="neutral" size="sm">
+        {words ? KIND_BADGE.TEXT : "Answered"}
+      </Badge>
+    ) : row.level === null ? null : (
+      <>
+        <Pips level={row.level} target={row.target} scaleMax={row.scaleMax} />
+        <span className="tabular text-body-sm text-muted">
+          {row.level} of {row.scaleMax}
+          {/* The target is drawn as the ghost segment; this is for a screen
+              reader, which cannot see it. */}
+          {row.target !== null && (
+            <span className="sr-only">, target {row.target}</span>
+          )}
+        </span>
+      </>
     );
-
-  /* A level has to be there to be shown. A level-kind row that is answered with
-     no level cannot be produced by the API, and "Not assessed yet" is the safe
-     reading of one. */
-  const line =
-    kind === "RATING"
-      ? !answered || row.level === null
-        ? "Not assessed yet"
-        : `Level ${row.level} of ${row.scaleMax}${
-            row.target !== null ? ` · target ${row.target}` : ""
-          }`
-      : answered
-        ? null
-        : "Not assessed yet";
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
@@ -356,7 +324,6 @@ export function SkillRow({ row }: { row: ApiCompetencyRow }) {
           badge wraps below only on a narrow screen. */}
       <div className={cn("min-w-0", words && "flex-1 basis-56")}>
         <p className="text-body-sm font-medium text-ink">{row.name}</p>
-        {line && <p className="tabular mt-1 text-body-sm text-muted">{line}</p>}
         {words && <WrittenAnswer text={words} />}
       </div>
 
@@ -413,9 +380,8 @@ function WrittenAnswer({ text }: { text: string }) {
 /**
  * The level as a row of segments, with the shortfall shown rather than outlined.
  *
- * Decoration only — `aria-hidden`, because the sentence beside it already says
- * "Level 4 of 5, target 5". A shape that carries meaning nothing else carries is
- * a shape somebody cannot read.
+ * Decoration only — `aria-hidden`, because the "4 of 5" beside it already says
+ * the level, and the same line carries the target for a screen reader.
  *
  * ## Why it was redesigned
  *
@@ -439,7 +405,7 @@ function WrittenAnswer({ text }: { text: string }) {
  * | level → target | **what is missing** | accent at a third |
  * | past the target | not asked for | a hairline |
  *
- * So "Level 4 of 5, target 5" is four solid segments and one ghost, and the
+ * So a level of 4 against a target of 5 is four solid segments and one ghost, and the
  * gap is legible without reading the badge. At target it is a clean unbroken
  * run with nothing ghosted — which is the state that should look calmest,
  * and previously looked heaviest.
@@ -485,8 +451,10 @@ type Gap = ReturnType<typeof useGaps>["gaps"][number];
  * Who is below target, by department.
  *
  * A list of everybody below target is long, so it opens on one card for each
- * department that has somebody, and a card opens that department's people in a
- * table, each with their initials in a colour of their own.
+ * department that has somebody, and a card opens that department's people: one
+ * row each, with their initials in a colour of their own, and the competencies
+ * they are below on as small chips ("Planning 2/4": level, then target). A
+ * person with three gaps is one row, not three.
  */
 function GapsByDepartment({ gaps }: { gaps: Gap[] }) {
   const directory = useEmployeeDirectory({ pageSize: 200 });
@@ -503,18 +471,23 @@ function GapsByDepartment({ gaps }: { gaps: Gap[] }) {
       : (departmentList.find((one) => one.id === id)?.name ?? "No department");
 
   const groups = useMemo(() => {
-    const by = new Map<string | null, Gap[]>();
+    const by = new Map<string | null, Map<string, Gap[]>>();
     for (const gap of gaps) {
       const key = departmentOf.get(gap.employeeId) ?? null;
-      by.set(key, [...(by.get(key) ?? []), gap]);
+      const people = by.get(key) ?? new Map<string, Gap[]>();
+      people.set(gap.employeeId, [...(people.get(gap.employeeId) ?? []), gap]);
+      by.set(key, people);
     }
     return [...by.entries()]
-      .map(([id, rows]) => ({
+      .map(([id, people]) => ({
         id,
-        rows,
-        people: [...new Set(rows.map((row) => row.employeeName))],
+        people: [...people.entries()].map(([employeeId, rows]) => ({
+          employeeId,
+          name: rows[0]?.employeeName ?? "",
+          rows,
+        })),
       }))
-      .sort((a, b) => b.rows.length - a.rows.length);
+      .sort((a, b) => b.people.length - a.people.length);
   }, [gaps, departmentOf]);
 
   if (open === undefined) {
@@ -525,8 +498,8 @@ function GapsByDepartment({ gaps }: { gaps: Gap[] }) {
             <DepartmentCard
               name={nameOf(group.id)}
               onClick={() => setOpen(group.id)}
-              line={`${String(group.rows.length)} below target`}
-              members={group.people}
+              line={`${String(group.people.length)} below target`}
+              members={group.people.map((person) => person.name)}
             />
           </li>
         ))}
@@ -534,7 +507,7 @@ function GapsByDepartment({ gaps }: { gaps: Gap[] }) {
     );
   }
 
-  const shown = groups.find((group) => group.id === open)?.rows ?? [];
+  const shown = groups.find((group) => group.id === open)?.people ?? [];
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start gap-1">
@@ -552,27 +525,27 @@ function GapsByDepartment({ gaps }: { gaps: Gap[] }) {
       <TableWrap caption="People below target">
         <THead>
           <TH>Person</TH>
-          <TH>Competency</TH>
-          <TH align="right">Level</TH>
-          <TH align="right">Target</TH>
+          <TH>Below target</TH>
         </THead>
         <TBody>
-          {shown.map((gap) => (
-            <TR key={`${gap.employeeId}-${gap.competencyId}`}>
-              <TDPrimary avatar={gap.employeeName} title={gap.employeeName} />
+          {shown.map((person) => (
+            <TR key={person.employeeId}>
+              <TDPrimary avatar={person.name} title={person.name} />
               <TD>
-                {gap.competencyName}
-                {gap.sectionName && (
-                  <span className="mt-0.5 block text-meta text-muted">
-                    {gap.sectionName}
-                  </span>
-                )}
-              </TD>
-              <TD align="right" className="tabular">
-                {gap.level} of {gap.scaleMax}
-              </TD>
-              <TD align="right" className="tabular">
-                {gap.target}
+                <ul className="flex flex-wrap gap-1.5">
+                  {person.rows.map((gap) => (
+                    <li key={gap.competencyId}>
+                      <Tag
+                        title={`Level ${String(gap.level)} of ${String(gap.scaleMax)}, target ${String(gap.target)}`}
+                      >
+                        {gap.competencyName}
+                        <span className="tabular text-muted">
+                          {gap.level}/{gap.target}
+                        </span>
+                      </Tag>
+                    </li>
+                  ))}
+                </ul>
               </TD>
             </TR>
           ))}

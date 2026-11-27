@@ -2,6 +2,7 @@
 
 import { RotateCcw } from "lucide-react";
 import { Button, Field, Input } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { WeightsPie, sliceColour } from "./weights-pie";
 import {
   SCORE_COMPONENT_ORDER,
@@ -94,6 +95,9 @@ const shownOf = (
 ): ScoreComponent[] =>
   partsOf(text).filter((component) => !parts || parts.includes(component));
 
+/* Why a set cannot be saved. Not shown to anybody: the number box and the donut
+   already say it (a whole number, and what is left to give out), and Save is only
+   there once the set is valid. A caller reads whether there is a problem, no more. */
 const ROW_RULE = "Each weight is a whole number from 0 to 100.";
 const TOTAL_RULE = "The weights have to add up to 100%.";
 
@@ -200,7 +204,22 @@ export function PeriodWeights({
 
   const only = givenParts ?? companyPartsOf(companyDefaults);
   const parts = shownOf(value, only);
-  const problem = readOnly ? null : periodWeightsProblem(value, only);
+  /* The rules that apply, said once and out of the way: where each is true, on the
+     row it is about, and for a started period where its weights come from, beside
+     the heading. */
+  const spreadNote = (component: ScoreComponent): string | null =>
+    component === "TASKS"
+      ? `If someone has no tasks linked to this period's objectives, the ${labelOf("TASKS")} share is spread over the other parts.`
+      : component === "MANAGER_APPRAISAL"
+        ? `If no appraiser has sent an overall rating for someone, the ${labelOf("MANAGER_APPRAISAL")} share is spread over the other parts.`
+        : null;
+  const basisNote = readOnly
+    ? basis === "frozen"
+      ? "Locked when this period started."
+      : basis === "company"
+        ? "Uses your company's weights as they are today."
+        : null
+    : null;
   const reset = () => {
     if (onUseDefaults) {
       onUseDefaults();
@@ -220,15 +239,26 @@ export function PeriodWeights({
       >
         How the score is made up
         {hint}
+        {basisNote && (
+          <InfoTooltip
+            id="weights-basis"
+            label="Where these weights come from"
+            text={basisNote}
+          />
+        )}
       </h3>
-      <WeightsPie
-        fixed={readOnly}
-        slices={parts.map((component) => ({
-          id: component,
-          label: labelOf(component),
-          percent: Math.max(0, Math.round(Number(value[component]) || 0)),
-        }))}
-      />
+      {/* The donut shows what is left to give out while somebody is typing. On a
+          period that has started the rows are the whole story. */}
+      {!readOnly && (
+        <WeightsPie
+          fixed={false}
+          slices={parts.map((component) => ({
+            id: component,
+            label: labelOf(component),
+            percent: Math.max(0, Math.round(Number(value[component]) || 0)),
+          }))}
+        />
+      )}
 
       {parts.length === 0 && (
         <p role="status" className="text-body-sm text-warning-text">
@@ -249,8 +279,11 @@ export function PeriodWeights({
               {readOnly ? (
                 <>
                   <p className="flex items-center gap-2 text-body-sm text-ink">
-                    <Dot index={index} />
                     {labelOf(component)}
+                    <Spread
+                      id={`spread-${component}`}
+                      note={spreadNote(component)}
+                    />
                   </p>
                   <p className="tabular text-body-sm font-medium text-ink sm:text-right">
                     {weightLabel(Math.round(Number(text) * 100))}
@@ -258,18 +291,20 @@ export function PeriodWeights({
                 </>
               ) : (
                 <>
-                  <p
-                    aria-hidden="true"
-                    className="flex items-center gap-2 text-body-sm text-ink sm:pt-2"
-                  >
-                    <Dot index={index} />
-                    {labelOf(component)}
+                  <p className="flex items-center gap-2 text-body-sm text-ink sm:pt-2">
+                    <span
+                      aria-hidden="true"
+                      className="flex items-center gap-2"
+                    >
+                      <Dot index={index} />
+                      {labelOf(component)}
+                    </span>
+                    <Spread
+                      id={`spread-${component}`}
+                      note={spreadNote(component)}
+                    />
                   </p>
-                  <Field
-                    label={labelOf(component)}
-                    hideLabel
-                    {...(bad ? { error: "Whole numbers only, 0 to 100." } : {})}
-                  >
+                  <Field label={labelOf(component)} hideLabel>
                     <Input
                       type="number"
                       min={0}
@@ -279,6 +314,7 @@ export function PeriodWeights({
                       suffix="%"
                       value={text}
                       disabled={disabled}
+                      aria-invalid={bad || undefined}
                       onChange={(event) => {
                         const next = event.target.value;
                         onChange({ ...value, [component]: next });
@@ -292,37 +328,7 @@ export function PeriodWeights({
         })}
       </div>
 
-      {problem && problem !== TOTAL_RULE && (
-        <p role="status" className="text-body-sm text-warning-text">
-          {problem}
-        </p>
-      )}
-
-      {parts.includes("TASKS") && (
-        <p className="text-meta text-muted">
-          If someone has no tasks linked to this period&apos;s objectives, the{" "}
-          {labelOf("TASKS")} share is spread over the other parts.
-        </p>
-      )}
-
-      {parts.includes("MANAGER_APPRAISAL") && (
-        <p className="text-meta text-muted">
-          If no appraiser has sent an overall rating for someone, the{" "}
-          {labelOf("MANAGER_APPRAISAL")} share is spread over the other parts.
-        </p>
-      )}
-
-      {readOnly ? (
-        basis === "frozen" ? (
-          <p className="text-meta text-muted">
-            Locked when this period started.
-          </p>
-        ) : basis === "company" ? (
-          <p className="text-meta text-muted">
-            Uses your company&apos;s weights as they are today.
-          </p>
-        ) : null
-      ) : (
+      {!readOnly &&
         !hideReset &&
         weightsDifferFromCompany(value, companyDefaults, only) && (
           <div>
@@ -336,9 +342,16 @@ export function PeriodWeights({
               Use my company&apos;s weights
             </Button>
           </div>
-        )
-      )}
+        )}
     </section>
+  );
+}
+
+/** What happens to a part's share when somebody has nothing for it, behind an icon on the row. */
+function Spread({ id, note }: { id: string; note: string | null }) {
+  if (!note) return null;
+  return (
+    <InfoTooltip id={id} label="How a missing part is handled" text={note} />
   );
 }
 

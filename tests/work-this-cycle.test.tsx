@@ -7,19 +7,19 @@ import { UNLINKED } from "@/lib/projects/types";
 import { linkedTo } from "./support/objective-fixtures";
 
 /**
- * "Work this cycle", inside a review.
+ * The work done in a review's period, inside a review.
  *
- * What is proved: it reads as totals, projects, on time, the share linked and the
- * list, with no number that looks like a score and no grade; it is collapsed on a
- * phone and open on a wide screen; it draws nothing until its read has answered;
- * and for everybody the API will not answer (an outsider, a Program reader, a
- * holder of the company-wide grant) it draws nothing at all, not a refusal.
+ * What is proved: it is one list with no heading, a small line that says how many finished, every rule
+ * behind one info mark, and a row per task with the project and the day; there is no fact grid, no
+ * by-project or by-objective list and no number that looks like a score or a grade; nothing recorded is
+ * "Not recorded"; it draws nothing until its read has answered; and for everybody the API will not
+ * answer (an outsider, a Program reader, a holder of the company-wide grant) it draws nothing at all,
+ * not a refusal.
  */
 
 const hook = vi.hoisted(() => ({
   read: null as unknown,
   args: [] as unknown[],
-  phone: false,
   projects: { enabled: true, loading: false },
 }));
 vi.mock("@/lib/store/completions", () => ({
@@ -43,9 +43,6 @@ vi.mock("@/lib/store/work-flags", () => ({
     flag: vi.fn(),
     unflag: vi.fn(),
   }),
-}));
-vi.mock("@/app/(app)/hiring/requisitions/[id]/use-phone", () => ({
-  usePhone: () => hook.phone,
 }));
 
 const { WorkThisCycle } =
@@ -132,60 +129,84 @@ const props = {
 beforeEach(() => {
   hook.read = ok(work());
   hook.args = [];
-  hook.phone = false;
   hook.projects = { enabled: true, loading: false };
 });
 
+/** Opens the one tooltip and says what it says. */
+const readNote = async () => {
+  await userEvent.click(
+    screen.getByRole("button", { name: "About this list" }),
+  );
+};
+
 describe("what it says", () => {
-  it("reads as counts: finished, by the due date, linked, and projects", () => {
+  it("says how many finished in one small line, and nothing else about the totals", () => {
     render(<WorkThisCycle {...props} />);
-    expect(screen.getByText("4 tasks finished")).toBeInTheDocument();
-    const dl = screen.getByText("Finished").closest("dl")!;
-    expect(within(dl).getByText("2 of 3")).toBeInTheDocument();
-    expect(within(dl).getByText("3 of 4")).toBeInTheDocument();
-    expect(within(dl).getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("4 finished")).toBeInTheDocument();
+    for (const gone of [
+      "By the due date",
+      "Linked to an objective",
+      "Projects",
+      "By project",
+      "By objective",
+      "Finished tasks",
+      "None had one",
+      "2 of 3",
+      "3 of 4",
+    ]) {
+      expect(screen.queryByText(gone)).toBeNull();
+    }
+    expect(document.querySelector("dl")).toBeNull();
   });
 
-  it("lists by project and by objective, and says a task with no link is not linked", () => {
+  it("has no heading, whatever page it sits on", () => {
     render(<WorkThisCycle {...props} />);
-    const byProject = screen
-      .getByRole("heading", { name: "By project" })
-      .closest("section")!;
-    expect(within(byProject).getByText("Payroll v2")).toBeInTheDocument();
-    expect(within(byProject).getByText("3 finished")).toBeInTheDocument();
-    const byObjective = screen
-      .getByRole("heading", { name: "By objective" })
-      .closest("section")!;
-    expect(within(byObjective).getByText("Grow revenue")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(screen.queryByText("Work this cycle")).toBeNull();
+  });
+
+  it("lists the finished tasks with one small line: the project, the day and whether it was on time", () => {
+    render(<WorkThisCycle {...props} />);
+    const row = screen.getByText("Close the books").closest("li")!;
     expect(
-      within(byObjective).getByText("Not linked to an objective"),
+      within(row).getByText("Payroll v2 · Finished 12 Oct 2026 · Late"),
+    ).toBeInTheDocument();
+    const first = screen.getByText("Run the October payroll").closest("li")!;
+    expect(
+      within(first).getByText("Payroll v2 · Finished 12 Oct 2026 · On time"),
+    ).toBeInTheDocument();
+    /* No due date: neither on time nor late. */
+    const lease = screen.getByText("Sign the lease").closest("li")!;
+    expect(
+      within(lease).getByText("Office move · Finished 12 Oct 2026"),
     ).toBeInTheDocument();
   });
 
-  it("lists the finished tasks with the project and the day", () => {
+  it("keeps every rule behind one info mark: the period, that it does not change the score, and what it leaves out", async () => {
     render(<WorkThisCycle {...props} />);
-    const row = screen.getByText("Close the books").closest("li")!;
-    expect(within(row).getByText("Payroll v2")).toBeInTheDocument();
-    expect(within(row).getByText("Finished 12 Oct 2026")).toBeInTheDocument();
-    expect(within(row).getByText("Late")).toBeInTheDocument();
-  });
-
-  it("states what the period is and that it does not change the score", () => {
-    render(<WorkThisCycle {...props} />);
+    expect(screen.queryByText(/For reading beside the answers/)).toBeNull();
+    await readNote();
     expect(
       screen.getByText(
         /1 Jul 2026 to 31 Dec 2026\. For reading beside the answers; it does not change the score\./,
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText(/not meetings, mentoring/)).toHaveTextContent(
+      "Only what was tracked in Projects is here, not meetings, mentoring or work done elsewhere, so a short list is not a short record of work.",
+    );
+  });
+
+  it("names the last 90 days when the cycle states no dates of its own", async () => {
+    render(<WorkThisCycle {...props} periodStart={null} periodEnd={null} />);
+    await readNote();
+    expect(screen.getByText(/the last 90 days\./)).toBeInTheDocument();
   });
 
   it("has no number that looks like a score: no percentage, rate, rating or grade", () => {
     render(<WorkThisCycle {...props} />);
-    /* "it does not change the score" names the score to say it is not touched
-       (the word for the percentage since U94); nothing else may. */
-    expect(
-      document.body.textContent?.replace("it does not change the score", ""),
-    ).not.toMatch(/%|rate|rating|score|grade|waiting|points|effort/i);
+    expect(document.body.textContent).not.toMatch(
+      /%|rate|rating|score|grade|waiting|points|effort/i,
+    );
     expect(document.body.textContent).not.toMatch(/!/);
   });
 
@@ -193,32 +214,29 @@ describe("what it says", () => {
     hook.read = ok(
       work({
         summary: { finished: 4, withDueDate: 0, onTime: 0, late: 0, linked: 0 },
-        byObjective: [
-          {
-            goalId: null,
-            title: null,
-            keyResultTitle: null,
-            unlinked: true,
-            visible: true,
-            finished: 4,
-          },
+        items: [
+          done({ id: "a", objective: UNLINKED, dueDate: null, onTime: null }),
+          done({
+            id: "b",
+            key: "PRF-2",
+            objective: UNLINKED,
+            dueDate: null,
+            onTime: null,
+          }),
         ],
       }),
     );
     render(<WorkThisCycle {...props} />);
-    expect(screen.getByText("0 of 4")).toBeInTheDocument();
-    expect(screen.getByText("None had one")).toBeInTheDocument();
     expect(
       screen.queryByText(
         /not counted|missing|no objective|should|low|warning/i,
       ),
     ).toBeNull();
-    /* Nothing is linked, so there is no "By objective" heading over a blank. */
-    expect(screen.queryByRole("heading", { name: "By objective" })).toBeNull();
+    expect(screen.queryByText(/Linked to/)).toBeNull();
     expect(document.querySelector("[class*=danger]")).toBeNull();
   });
 
-  it("speaks to you in your own review and names the person in theirs", () => {
+  it("says nothing was recorded, the same way to you and about somebody else, and never reads it as low output", async () => {
     hook.read = ok(
       work({
         summary: { finished: 0, withDueDate: 0, onTime: 0, late: 0, linked: 0 },
@@ -229,51 +247,49 @@ describe("what it says", () => {
       }),
     );
     const { unmount } = render(<WorkThisCycle {...props} own />);
-    expect(
-      screen.getByText(
-        "No finished tasks were recorded for you on the project boards in this period.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Not recorded")).toBeInTheDocument();
     unmount();
     render(<WorkThisCycle {...props} />);
-    expect(
-      screen.getByText(
-        "No finished tasks were recorded for Bola Projects on the project boards in this period.",
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("does not read an empty list as low output: it says nothing was recorded, and what it cannot show", () => {
-    hook.read = ok(
-      work({
-        summary: { finished: 0, withDueDate: 0, onTime: 0, late: 0, linked: 0 },
-        items: [],
-        byProject: [],
-        byObjective: [],
-        total: 0,
-      }),
-    );
-    render(<WorkThisCycle {...props} />);
+    expect(screen.getByText("Not recorded")).toBeInTheDocument();
     expect(screen.queryByText(/finished no tasks/i)).toBeNull();
-    expect(screen.getByText(/It does not show meetings/)).toBeInTheDocument();
+    expect(screen.queryByText(/No finished tasks/)).toBeNull();
+    /* What it cannot show is still one press away: a short list is not a short record. */
+    await readNote();
+    expect(screen.getByText(/not meetings, mentoring/)).toBeInTheDocument();
   });
 
   /* It has to be true against whichever server answers, so it says nothing that server alone
      decides: not which tasks the list leaves out, only that it is what was tracked in Projects. */
-  it("says what it cannot show beside the list: meetings, mentoring and work outside Projects, and nothing the server alone decides", () => {
+  it("says what it cannot show, to you and to a reader: meetings, mentoring and work outside Projects, and nothing the server alone decides", async () => {
     const sentence =
-      "This is only what was tracked in Projects. It does not show meetings, mentoring or anything done outside Projects, so a short list is not a short record of work.";
+      "Only what was tracked in Projects is here, not meetings, mentoring or work done elsewhere, so a short list is not a short record of work.";
     const { unmount } = render(<WorkThisCycle {...props} />);
-    expect(screen.getByText(/It does not show meetings/)).toHaveTextContent(
+    await readNote();
+    expect(screen.getByText(/not meetings, mentoring/)).toHaveTextContent(
       sentence,
     );
     unmount();
     render(<WorkThisCycle {...props} own />);
-    expect(screen.getByText(/It does not show meetings/)).toHaveTextContent(
+    await readNote();
+    expect(screen.getByText(/not meetings, mentoring/)).toHaveTextContent(
       sentence,
     );
     /* Not a claim about which tasks the list leaves out: an older server still lists them. */
     expect(screen.queryByText(/to-do list/i)).toBeNull();
+  });
+
+  it("adds what the caller says to the one tooltip, and only there", async () => {
+    render(
+      <WorkThisCycle
+        {...props}
+        note="Nothing was kept of this list when the rating was made final."
+      />,
+    );
+    expect(screen.queryByText(/Nothing was kept/)).toBeNull();
+    await readNote();
+    expect(
+      screen.getByText(/Nothing was kept of this list/),
+    ).toBeInTheDocument();
   });
 
   it("says who set a task only when somebody else did", () => {
@@ -293,11 +309,11 @@ describe("what it says", () => {
       }),
     );
     render(<WorkThisCycle {...props} />);
-    expect(screen.getAllByText("Set by Pat Projects")).toHaveLength(1);
-    expect(screen.queryAllByText(/^Set by /)).toHaveLength(1);
+    expect(screen.getAllByText(/Set by Pat Projects$/)).toHaveLength(1);
+    expect(screen.queryAllByText(/Set by /)).toHaveLength(1);
   });
 
-  it("shows ten, then all of them on request, and says when the list is capped", async () => {
+  it("shows ten, then all of them on request, and says in the small line when the list is capped", async () => {
     const many = Array.from({ length: 12 }, (_, n) =>
       done({ id: `m${n}`, key: `M-${n}`, title: `Many ${n}` }),
     );
@@ -320,19 +336,10 @@ describe("what it says", () => {
     await userEvent.click(screen.getByRole("button", { name: "Show all 12" }));
     expect(screen.getAllByRole("link", { name: /^M-/ })).toHaveLength(12);
     expect(
-      screen.getByText(/Showing the latest 12 of 90\./),
+      screen.getByText("90 finished · latest 12 shown"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Open the work record" }),
-    ).toHaveAttribute("href", "/performance/history/bola");
-  });
-
-  it("points your own review at the history, there being no page of your own", () => {
-    hook.read = ok(work({ capped: true, total: 90 }));
-    render(<WorkThisCycle {...props} own />);
-    expect(
-      screen.getByRole("link", { name: "Open the work record" }),
-    ).toHaveAttribute("href", "/performance/history/bola");
+    /* The history page it used to point at does not show the work any more. */
+    expect(screen.queryByRole("link", { name: /work record/i })).toBeNull();
   });
 
   it("asks for the right person, cycle and dates, once", () => {
@@ -347,31 +354,19 @@ describe("what it says", () => {
   });
 });
 
-describe("collapsed on a phone", () => {
-  it("is open on a wide screen", () => {
+describe("where it sits", () => {
+  it("is always open: there is nothing to press to read it, on a wide screen or a phone", () => {
     render(<WorkThisCycle {...props} />);
-    expect(
-      screen.getByRole("button", { name: /Work this cycle/ }),
-    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: /work/i })).toBeNull();
     expect(screen.getByText("Close the books")).toBeVisible();
   });
 
-  it("is closed on a phone, and opens on press", async () => {
-    hook.phone = true;
-    render(<WorkThisCycle {...props} />);
-    const button = screen.getByRole("button", { name: /Work this cycle/ });
-    expect(button).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("Close the books")).toBeNull();
-    /* The count is on the closed line, so it can be decided not to open. */
-    expect(screen.getByText("4 tasks finished")).toBeInTheDocument();
-    await userEvent.click(button);
-    expect(screen.getByText("Close the books")).toBeInTheDocument();
-  });
-
-  it("opens on arrival when it was asked for (a drawer opened to see the work)", () => {
-    hook.phone = true;
-    render(<WorkThisCycle {...props} startOpen />);
-    expect(screen.getByText("Close the books")).toBeInTheDocument();
+  it("is in a card of its own on a page, and bare in a drawer", () => {
+    const { container, unmount } = render(<WorkThisCycle {...props} framed />);
+    expect(container.querySelector("[data-card]")).not.toBeNull();
+    unmount();
+    const bare = render(<WorkThisCycle {...props} />);
+    expect(bare.container.querySelector("[data-card]")).toBeNull();
   });
 });
 
@@ -410,7 +405,7 @@ describe("before the read has answered, and for people it will not answer", () =
   it("is there when Projects is on", () => {
     hook.projects = { enabled: true, loading: false };
     render(<WorkThisCycle {...props} />);
-    expect(screen.getByText("Work this cycle")).toBeInTheDocument();
+    expect(screen.getByText("4 finished")).toBeInTheDocument();
     expect(hook.args.at(-1)).toMatchObject({ enabled: true });
   });
 
@@ -444,11 +439,9 @@ describe("before the read has answered, and for people it will not answer", () =
     ["their manager", false],
     ["their department head", false],
     ["HR", false],
-  ])("draws the panel for %s, whom the API answers", (_who, own) => {
+  ])("draws the list for %s, whom the API answers", (_who, own) => {
     render(<WorkThisCycle {...props} own={own} />);
-    expect(
-      screen.getByRole("button", { name: /Work this cycle/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("4 finished")).toBeInTheDocument();
   });
 
   it("says a real failure, in the usual way, with another try", () => {

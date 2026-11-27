@@ -124,7 +124,7 @@ describe("an answered written subsection", () => {
   });
 
   it("does not stretch a row that has no words, which is laid out as the others are", () => {
-    show({ ratedAt: null });
+    show({ ratedAt: ANSWERED, textValue: null });
     expect(screen.getByText("Communication").parentElement).not.toHaveClass(
       "flex-1",
     );
@@ -132,22 +132,17 @@ describe("an answered written subsection", () => {
 });
 
 describe("a written subsection nobody has answered", () => {
-  it("is not assessed, with nothing drawn: no badge, no words, no scale", () => {
+  it("is absent: no row, no badge, no words, no scale", () => {
     const { container } = show({ ratedAt: null, textValue: null });
-    expect(screen.getByText("Not assessed yet")).toBeInTheDocument();
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not assessed yet")).not.toBeInTheDocument();
     expect(screen.queryByText("Written")).not.toBeInTheDocument();
     expect(segments(container)).toBe(0);
-  });
-
-  it("is not assessed when the server sends no words either, and says nothing it was not told", () => {
-    show({ ratedAt: null });
-    expect(screen.getByText("Not assessed yet")).toBeInTheDocument();
   });
 
   it("does not show words that arrive on a row that says nobody has answered", () => {
     /* `ratedAt` decides whether it has been answered, as for every other kind. */
     show({ ratedAt: null, textValue: "Stale words" });
-    expect(screen.getByText("Not assessed yet")).toBeInTheDocument();
     expect(screen.queryByText("Stale words")).not.toBeInTheDocument();
     expect(screen.queryByText("Written")).not.toBeInTheDocument();
   });
@@ -248,7 +243,7 @@ describe("the kinds beside it are as they were", () => {
       target: 5,
       ratedAt: ANSWERED,
     });
-    expect(screen.getByText("Level 4 of 5 · target 5")).toBeInTheDocument();
+    expect(screen.getByText("4 of 5")).toBeInTheDocument();
     expect(segments(container)).toBe(5);
     expect(screen.queryByText("Written")).not.toBeInTheDocument();
   });

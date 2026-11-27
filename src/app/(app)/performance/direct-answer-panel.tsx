@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import {
   Button,
   Callout,
@@ -11,6 +11,7 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { NoticeLine } from "@/components/portal/notice-line";
 import type { AnswerKind, ApiCompetency } from "@/lib/api/performance";
 import {
@@ -21,31 +22,18 @@ import {
   directCounts,
   draftsFrom,
   fixedScoreReason,
-  kindLine,
   kindOptionLabel,
   payloadFrom,
   repeatedLabels,
   sameChoices,
   scoreIsFixed,
+  WRITTEN_NEVER_COUNTS,
   type ChoiceDraft,
 } from "@/lib/performance/answer-kind";
 import {
   NEW_VERSION_BUTTON,
   lockedReason,
 } from "@/lib/performance/new-version";
-import {
-  ASKED_CHOICES,
-  ASK_ACTION_LABEL,
-  NEEDS_CHOICES,
-  askActionFor,
-  askedChoiceOf,
-  askedConsequence,
-  askedOfChoice,
-  periodStartedReason,
-  savedWords,
-  type AskedChoice,
-  type SubsectionAsk,
-} from "@/lib/performance/subsection-ask";
 import { useFrameworkActions } from "@/lib/store/performance";
 import { actionMessage } from "@/lib/use-action";
 
@@ -66,15 +54,6 @@ import { actionMessage } from "@/lib/use-action";
  * and offers a level, a yes or no, the choices below, or a box to write in. Said
  * in the panel's first sentence, because a setting with no sign of where it takes
  * effect reads as one that does nothing.
- *
- * ## ...or on the review form, when the period asks it there
- *
- * One more control, **Ask it on the review form**, and it is **this period's, not
- * the company's**: the kind and the choices above are shared by every period, and
- * this is whether the period in the dialog's title puts the subsection on its
- * forms, to the manager, the employee or both. It is absent where the period
- * cannot be asked (`ask` is not passed), because it would otherwise say "Not
- * asked" for a form nobody has read.
  *
  * ## The kind is written the moment it is picked
  *
@@ -113,7 +92,6 @@ export function DirectAnswerPanel({
   editable,
   whyNot,
   onChanged,
-  ask,
   onStartNewVersion,
 }: {
   competency: ApiCompetency;
@@ -125,11 +103,6 @@ export function DirectAnswerPanel({
   whyNot: string | null;
   /** Re-ask the framework after a write that changed what its list shows. */
   onChanged: () => void;
-  /**
-   * What the period holds for this subsection, and the writes. Absent draws no
-   * "Ask it on the review form" control at all: the period cannot be asked.
-   */
-  ask?: SubsectionAsk;
   /**
    * Open the dialog that starts a new version of this subsection. Offered only
    * where the kind is fixed and can be written, so it is the caller that decides
@@ -167,30 +140,35 @@ export function DirectAnswerPanel({
     }
   };
 
+  /* Only the warning: a subsection filed where nothing counts is the one thing
+     worth saying at the point of choosing. What each kind means is in the picker's
+     own words, and the rules are behind the icon. */
   const counts = directCounts({ kind, section });
+  const warning = counts?.tone === "warning" ? counts.text : null;
+
+  /* One icon on the label for everything that is a rule rather than a state: where
+     the answer is given, that it is shared by every period, why it is fixed once
+     somebody has rated, and why it cannot be changed here. */
+  const help = [
+    `${competency.name} is answered directly when a manager or HR records an answer on it, under Competency ratings, with Record a level.`,
+    frozen
+      ? lockedReason(competency.ratingCount)
+      : "How it is answered is shared by every appraisal period.",
+    kind === "TEXT" ? WRITTEN_NEVER_COUNTS : null,
+    !editable && whyNot ? whyNot : null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join(" ");
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-body-sm text-muted">
-        {competency.name} is answered directly when a manager or HR records an
-        answer on it, under Competency ratings, with Record a level.
-        {/* Said once: a fixed subsection says it in the reason below. */}
-        {!frozen && " How it is answered is shared by every appraisal period."}
-      </p>
-
       {error && (
         <Callout tone="danger" title="That did not go through">
           {error}
         </Callout>
       )}
 
-      {frozen && (
-        <NoticeLine tone="muted">
-          <span>{lockedReason(competency.ratingCount)}</span>
-        </NoticeLine>
-      )}
-
-      <Field label="How it is answered">
+      <Field label="How it is answered" help={help}>
         <div className="flex flex-wrap gap-2">
           <Select
             value={kind}
@@ -218,18 +196,9 @@ export function DirectAnswerPanel({
         </div>
       </Field>
 
-      {!editable && whyNot && (
-        <NoticeLine tone="muted">
-          <span>{whyNot}</span>
-        </NoticeLine>
-      )}
-
-      <NoticeLine tone="muted">
-        <span>{kindLine(kind, competency.scaleMax)}</span>
-      </NoticeLine>
-      {counts && (
-        <NoticeLine tone={counts.tone}>
-          <span>{counts.text}</span>
+      {warning && (
+        <NoticeLine tone="warning">
+          <span>{warning}</span>
         </NoticeLine>
       )}
 
@@ -239,203 +208,6 @@ export function DirectAnswerPanel({
           editable={editable && !busy}
           onSaved={onChanged}
         />
-      )}
-
-      {ask && (
-        <AskOnForm
-          competency={competency}
-          kind={kind}
-          ask={ask}
-          editable={editable}
-          onChanged={onChanged}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * Whether this period puts the subsection on its review form, and to whom.
- *
- * ## Four choices, and a button that writes them
- *
- * **Not asked**, **The manager**, **The employee**, **Both**. Picking one writes
- * nothing: the button beside it does, and says what it will do (`askActionFor`).
- * The first version wrote on the pick, like the kind picker above it, and the
- * product owner asked twice where to click Add: a control that saves by itself
- * leaves nobody sure it has, and a toast is gone in six seconds. So the way to
- * finish is on screen from the start, a disabled **Add to the review form** until
- * something is chosen, and **On the review form** takes its place once the period
- * holds it. A refusal leaves the control where the server has it with the
- * server's own sentence under it. **Not asked** is not an audience, it is the
- * question coming off the form, so it is the `DELETE` and never a request with
- * nobody in it (`askedOfChoice`).
- *
- * ## What was just written is believed until the period says otherwise
- *
- * A write is followed by a re-read of the period's questions, and for as long as
- * that takes the list this is handed still says what it said before. Showing that
- * would flip the control back and then forward again, which reads as a change that
- * did not take. So what was written is kept with the value the period held when
- * it was written (`base`), and believed only while the period still holds that.
- * The moment the list moves, to what was written or to anything somebody else
- * did, the period is believed instead and what was kept is dropped, in render and
- * not in an effect: kept any longer it would come back the next time the period
- * happened to read `base` again and show a choice nobody made.
- *
- * ## When it cannot be changed, and why
- *
- * Not once the period has started: the API refuses, because forms that people
- * have already begun would be missing a question. Not for somebody who cannot
- * manage settings (the panel says so once, above). And a pick-one subsection with
- * fewer than two choices cannot be *asked*, because a required question with
- * nothing to pick is a form nobody can send. It can still be taken off, which is
- * the way out if it somehow got on.
- *
- * ## The line under it
- *
- * One short line, only where it changes the decision: whose answer counts. **Not
- * asked says nothing.** It follows the choice and not what the period holds,
- * because it is there to help decide, which is before the button is pressed.
- */
-function AskOnForm({
-  competency,
-  kind,
-  ask,
-  editable,
-  onChanged,
-}: {
-  competency: ApiCompetency;
-  kind: AnswerKind;
-  ask: SubsectionAsk;
-  editable: boolean;
-  onChanged: () => void;
-}) {
-  const server = askedChoiceOf(ask.askedOf(competency.id));
-  const [mine, setMine] = useState<{
-    value: AskedChoice;
-    base: AskedChoice;
-  } | null>(null);
-  /* The period has moved on from where it was when this was written. */
-  if (mine !== null && server !== mine.base) setMine(null);
-  /* What the period holds. */
-  const saved = mine !== null ? mine.value : server;
-
-  /* What the select says. Only a choice until the button is pressed, and `null`
-     while it says what the period holds. */
-  const [picked, setPicked] = useState<AskedChoice | null>(null);
-  const chosen = picked ?? saved;
-  const action = askActionFor(saved, chosen);
-
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
-
-  /* From the choices the framework holds now. `choicesOf` reads the kind the
-     framework has, which is the old one for the moment after it was changed. */
-  const choiceCount =
-    kind === "CHOICE" ? (competency.choiceOptions?.length ?? 0) : null;
-  const needsChoices = choiceCount !== null && choiceCount < 2;
-  const reason = !ask.draft
-    ? periodStartedReason(ask.periodName)
-    : needsChoices
-      ? NEEDS_CHOICES
-      : null;
-
-  const write = async () => {
-    if (busy || action === null) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const body = askedOfChoice(chosen);
-      if (body === null) await ask.onStop(competency.id);
-      else await ask.onAsk(competency.id, body);
-      setMine({ value: chosen, base: server });
-      setPicked(null);
-      /* The button is replaced by "On the review form", which stays; this says
-         what happened and where to find it. Only after the API has said yes: a
-         refusal shows its own sentence instead. */
-      toast.push({
-        ...savedWords(chosen, competency.name, saved),
-        tone: "success",
-      });
-      onChanged();
-    } catch (caught) {
-      /* The API's own sentence: it names the subsection and the period. The
-         control goes back to what the period holds, so it never says a thing is
-         on the form that is not. */
-      setPicked(null);
-      setError(actionMessage(caught, "who is asked"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const canChange = editable && ask.draft;
-  const consequence = askedConsequence(chosen, kind);
-
-  return (
-    <div className="flex flex-col gap-2 border-t border-line pt-4">
-      <Field
-        label="Ask it on the review form"
-        help={`${ask.periodName} only. Other periods choose for themselves.`}
-        {...(error ? { error } : {})}
-      >
-        <Select
-          value={chosen}
-          disabled={!canChange || busy}
-          onChange={(event) => {
-            setPicked(event.target.value as AskedChoice);
-            setError(null);
-          }}
-        >
-          {ASKED_CHOICES.map((option) => (
-            <option
-              key={option.value}
-              value={option.value}
-              disabled={needsChoices && option.value !== "none"}
-            >
-              {option.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      {canChange && (
-        <div className="flex flex-wrap items-center gap-2">
-          {action !== null ? (
-            <Button
-              type="button"
-              variant={action === "remove" ? "secondary" : "accent"}
-              size="sm"
-              loading={busy}
-              onClick={() => void write()}
-            >
-              {ASK_ACTION_LABEL[action]}
-            </Button>
-          ) : saved === "none" ? (
-            <Button type="button" variant="accent" size="sm" disabled>
-              {ASK_ACTION_LABEL.add}
-            </Button>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-body-sm text-muted">
-              <Check
-                aria-hidden="true"
-                className="size-3.5 text-success-text"
-              />
-              On the review form
-            </span>
-          )}
-        </div>
-      )}
-      {reason && (
-        <NoticeLine tone="muted">
-          <span>{reason}</span>
-        </NoticeLine>
-      )}
-      {consequence && (
-        <NoticeLine tone="muted">
-          <span>{consequence}</span>
-        </NoticeLine>
       )}
     </div>
   );
@@ -593,7 +365,13 @@ function ScoredChoiceEditor({
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
-      <span className="text-body-sm font-medium text-ink">Choices</span>
+      <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">
+        Choices
+        <InfoTooltip
+          label="How a choice is scored"
+          text="A score is what a pick is worth, from 0% to 100%. A choice that has been picked in a rating keeps its score for good, and its name and its place in the list can still change. A choice you take out of the list is archived, not deleted, and scores already given keep the score they were given."
+        />
+      </span>
 
       {saved.length === 0 && (
         <NoticeLine tone="warning">
@@ -737,14 +515,6 @@ function ScoredChoiceEditor({
           </Button>
         </div>
       )}
-
-      <p className="text-meta text-muted">
-        A score is what a pick is worth, from 0% to 100%. A choice that has been
-        picked in a rating keeps its score for good, and its name and its place
-        in the list can still change. A choice you take out of the list is
-        archived, not deleted, and scores already given keep the score they were
-        given.
-      </p>
     </div>
   );
 }

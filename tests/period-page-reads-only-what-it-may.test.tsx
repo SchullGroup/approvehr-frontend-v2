@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
  */
 
 let canManage = true;
+let stage = "DRAFT";
 const registerCalls: unknown[][] = [];
 const questionsMounted = vi.hoisted(() => ({ count: 0 }));
 const questionsRead = vi.hoisted(() => ({ count: 0 }));
@@ -21,6 +22,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/permissions", () => ({
   useCan: (permission: string) =>
     permission === "MANAGE_SETTINGS" ? canManage : true,
+  usePermissions: () => ({ loading: false }),
 }));
 vi.mock("@/lib/store/performance", () => ({
   useKpis: () => ({
@@ -32,6 +34,15 @@ vi.mock("@/lib/store/performance", () => ({
   }),
   outstandingIn: () => [],
   useRatingScale: () => ({ scale: { levels: [], max: 5, source: "default" } }),
+  useFramework: () => ({
+    competencies: [],
+    groups: [],
+    loading: false,
+    error: null,
+    source: "api",
+    reload: () => {},
+  }),
+  useFrameworkActions: () => ({ editable: false }),
   useReviewFlags: () => ({
     flags: null,
     loading: false,
@@ -44,7 +55,7 @@ vi.mock("@/lib/store/performance", () => ({
       cycle: {
         id: "cycle-1",
         name: "Q1-Q3 Appraisal",
-        stage: "DRAFT",
+        stage,
         stageLabel: "not started",
         scoringFrozen: false,
         departmentIds: [],
@@ -92,10 +103,10 @@ vi.mock(
   "@/app/(app)/performance/periods/[id]/fairness/calibration-audit",
   () => ({ CalibrationAudit: () => null }),
 );
-vi.mock(
-  "@/app/(app)/performance/periods/[id]/fairness/fairness-status",
-  () => ({ FairnessStatus: () => null, publishLock: () => null }),
-);
+vi.mock("@/app/(app)/performance/periods/[id]/fairness/publish-lock", () => ({
+  publishLock: () => null,
+  undecidedScores: () => 0,
+}));
 vi.mock("@/app/(app)/performance/periods/[id]/period-weights-section", () => ({
   PeriodWeightsSection: () => null,
 }));
@@ -115,6 +126,7 @@ const mount = () =>
   );
 
 beforeEach(() => {
+  stage = "DRAFT";
   registerCalls.length = 0;
   questionsMounted.count = 0;
   questionsRead.count = 0;
@@ -133,8 +145,16 @@ describe("what the period page asks for", () => {
   it("asks for both for whoever may write the questions", () => {
     canManage = true;
     mount();
-    expect(questionsMounted.count).toBeGreaterThan(0);
     expect(questionsRead.count).toBeGreaterThan(0);
     expect(registerCalls.at(-1)?.[2]).toBe(true);
+  });
+
+  it("mounts the list that changes questions only for a period that has started", () => {
+    canManage = true;
+    mount();
+    expect(questionsMounted.count).toBe(0);
+    stage = "SELF";
+    mount();
+    expect(questionsMounted.count).toBeGreaterThan(0);
   });
 });

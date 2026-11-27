@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Banknote,
   CalendarClock,
@@ -39,8 +39,6 @@ import {
 import { cn } from "@/lib/cn";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SessionRoleBadge } from "@/components/portal/role-badge";
-import { permissionsApi, type Catalogue } from "@/lib/api/permissions";
-import { requiresStrongPassword, usePermissions } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { useEmployee, useEmployeeMutations } from "@/lib/store/employees-api";
 import { PayrollStatusCard } from "@/components/people/payroll-status-card";
@@ -616,37 +614,11 @@ function SecurityCard({
   apiMode: boolean;
 }) {
   const toast = useToast();
-  const { permissions } = usePermissions();
   const [changing, setChanging] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [busy, setBusy] = useState<"password" | "sessions" | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  /* Static copy, fetched once — same call `role-editor.tsx` already makes for
-     the same `sensitive` flag. `permissions` itself is re-read from the
-     database on every mount of `usePermissions`, not trusted from the access
-     token, which is what makes checking it here honest rather than a stale
-     claim from up to fifteen minutes ago. */
-  const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
-  useEffect(() => {
-    if (!apiMode) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void permissionsApi
-      .catalogue(controller.signal)
-      .then((result) => {
-        if (!cancelled) setCatalogue(result);
-      })
-      .catch(() => {
-        /* Falls back to the lenient policy — see `requiresStrongPassword`'s
-           own note on a null catalogue. */
-      });
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [apiMode]);
-  const strict = requiresStrongPassword(permissions, catalogue);
 
   async function changePassword() {
     setBusy("password");
@@ -737,15 +709,12 @@ function SecurityCard({
               onChange={setNext}
               error={error?.messageFor("newPassword")}
               onEnter={() => void changePassword()}
-              strict={strict}
             />
             <div className="flex gap-2">
               <Button
                 variant="accent"
                 size="sm"
-                disabled={
-                  !current || !passwordAccepted(next, strict) || busy !== null
-                }
+                disabled={!current || !passwordAccepted(next) || busy !== null}
                 onClick={() => void changePassword()}
               >
                 {busy === "password" ? "Changing…" : "Change password"}

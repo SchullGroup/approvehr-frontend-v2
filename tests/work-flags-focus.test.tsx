@@ -12,10 +12,9 @@ import { clearSharedResources } from "@/lib/shared-resource";
  * while a re-read is out and after), because the server's own reply goes into the answer and a reply
  * that cannot be read falls back to a quiet read that holds the old answer; and **focus is never left on
  * something that has gone**, because focus on the page body is where the answering form's keys act
- * (Enter moves on, a letter picks an answer): after a flag is raised focus is on that row's Change, after
- * one is changed it is on that row's Change, after one is taken back it is on that row's "This is wrong",
- * or on the row itself when the switch is off and there is nothing to press, and after a refused
- * take-back it is back on the Take it back that was pressed. Two panels on one page are one state.
+ * (Enter moves on, a letter picks an answer): after a flag is raised, changed or taken back focus is on that
+ * row's menu, or on the row itself when the switch is off and there is nothing to press, and after a refused
+ * take-back it is back on the menu that was used. Two panels on one page are one state.
  */
 
 vi.mock("@/lib/store/session", () => ({
@@ -61,13 +60,19 @@ function Panel({ label = "panel" }: { label?: string }) {
   });
   return (
     <section aria-label={label}>
-      <p data-testid={`${label}-known`}>{String(flagging.known)}</p>
+      <p data-testid={`${label}-known`}>{String(flagging.sentence !== null)}</p>
       <p data-testid={`${label}-count`}>
         {flagging.countIn(["i1", "i2"]) ?? "none"}
       </p>
       <ul>
-        <li>{flagging.lineFor("i1", "PRF-1")}</li>
-        <li>{flagging.lineFor("i2", "PRF-2")}</li>
+        <li>
+          {flagging.lineFor("i1")}
+          {flagging.menuFor("i1", "PRF-1")}
+        </li>
+        <li>
+          {flagging.lineFor("i2")}
+          {flagging.menuFor("i2", "PRF-2")}
+        </li>
       </ul>
       {flagging.problem && <p role="alert">{flagging.problem}</p>}
       {flagging.dialog}
@@ -85,12 +90,22 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const raiseButton = (key: string) =>
-  screen.findByRole("button", { name: `This is wrong, ${key}` });
-const changeButton = (key: string) =>
-  screen.findByRole("button", { name: `Change, flag on ${key}` });
-const takeBack = (key: string) =>
-  screen.findByRole("button", { name: `Take it back, flag on ${key}` });
+/** A row's menu: every control on a flag is in it, and focus comes back to it. */
+const menuOf = (
+  key: string,
+  within_: Pick<typeof screen, "findByRole"> = screen,
+) => within_.findByRole("button", { name: `More actions for ${key}` });
+
+/** Opens a row's menu and picks one thing from it. */
+async function choose(
+  user: ReturnType<typeof userEvent.setup>,
+  key: string,
+  item: string,
+  within_: Pick<typeof screen, "findByRole"> = screen,
+) {
+  await user.click(await menuOf(key, within_));
+  await user.click(await screen.findByRole("menuitem", { name: item }));
+}
 
 async function fillAndSend(
   user: ReturnType<typeof userEvent.setup>,
@@ -118,12 +133,12 @@ beforeEach(() => {
 });
 
 describe("raising a flag", () => {
-  it("keeps the line and the count on screen, and puts focus on that row's Change, when the server's reply is read", async () => {
+  it("keeps the line and the count on screen, and puts focus on that row's menu, when the server's reply is read", async () => {
     api.read.mockResolvedValue({ on: true, flags: [] });
     api.flag.mockResolvedValue(first);
     const user = userEvent.setup();
     render(<Panel />);
-    await user.click(await raiseButton("PRF-1"));
+    await choose(user, "PRF-1", "This is wrong");
     await fillAndSend(user, "That was not mine");
     await gone();
     expect(
@@ -132,10 +147,11 @@ describe("raising a flag", () => {
     expect(screen.getByTestId("panel-count")).toHaveTextContent(
       "1 flagged as wrong",
     );
-    const change = await changeButton("PRF-1");
-    await waitFor(() => expect(change).toHaveFocus());
+    const menu = await menuOf("PRF-1");
+    await waitFor(() => expect(menu).toHaveFocus());
     /* The other row is untouched. */
-    expect(await raiseButton("PRF-2")).toBeInTheDocument();
+    expect(await menuOf("PRF-2")).toBeInTheDocument();
+    expect(screen.getAllByText(/Flagged by you/)).toHaveLength(1);
   });
 
   it("does not blank anything while the re-read after a reply it could not read is out, and lands on the Change once it is in", async () => {
@@ -147,12 +163,12 @@ describe("raising a flag", () => {
     api.flag.mockResolvedValue(null);
     const user = userEvent.setup();
     render(<Panel />);
-    await user.click(await raiseButton("PRF-1"));
+    await choose(user, "PRF-1", "This is wrong");
     await fillAndSend(user, "That was not mine");
     await waitFor(() => expect(api.read).toHaveBeenCalledTimes(2));
     /* The re-read is in flight: the panel is where it was, not gone, and the dialog is still open. */
     expect(screen.getByTestId("panel-known")).toHaveTextContent("true");
-    expect(await raiseButton("PRF-2")).toBeInTheDocument();
+    expect(await menuOf("PRF-2")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.queryByText(/Flagged by you/)).not.toBeInTheDocument();
     await act(async () => {
@@ -162,9 +178,7 @@ describe("raising a flag", () => {
     expect(
       screen.getByText(/Flagged by you.*That was not mine/),
     ).toBeInTheDocument();
-    await waitFor(async () =>
-      expect(await changeButton("PRF-1")).toHaveFocus(),
-    );
+    await waitFor(async () => expect(await menuOf("PRF-1")).toHaveFocus());
     expect(screen.getByTestId("panel-known")).toHaveTextContent("true");
   });
 
@@ -175,8 +189,7 @@ describe("raising a flag", () => {
     );
     const user = userEvent.setup();
     render(<Panel />);
-    const raise = await raiseButton("PRF-1");
-    await user.click(raise);
+    await choose(user, "PRF-1", "This is wrong");
     await fillAndSend(user, "That was not mine");
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
@@ -191,43 +204,47 @@ describe("raising a flag", () => {
 });
 
 describe("changing a flag", () => {
-  it("puts focus back on that row's Change, with the new words drawn", async () => {
+  it("puts focus back on that row's menu, with the new words drawn", async () => {
     api.read.mockResolvedValue({ on: true, flags: [first] });
     api.flag.mockResolvedValue({ ...first, reason: "Somebody else did it" });
     const user = userEvent.setup();
     render(<Panel />);
-    await user.click(await changeButton("PRF-1"));
+    await choose(user, "PRF-1", "Change");
     await fillAndSend(user, "Somebody else did it");
     await gone();
     expect(
       screen.getByText(/Flagged by you.*Somebody else did it/),
     ).toBeInTheDocument();
-    await waitFor(async () =>
-      expect(await changeButton("PRF-1")).toHaveFocus(),
-    );
+    await waitFor(async () => expect(await menuOf("PRF-1")).toHaveFocus());
   });
 });
 
 describe("taking a flag back", () => {
-  it("puts focus on that row's This is wrong, and keeps the other flag and the count falling, with no second read", async () => {
+  it("puts focus on that row's menu, and keeps the other flag and the count falling, with no second read", async () => {
     api.read.mockResolvedValue({ on: true, flags: [first, second] });
     api.unflag.mockResolvedValue(undefined);
     const user = userEvent.setup();
     render(<Panel />);
-    const back = await takeBack("PRF-1");
-    expect(screen.getByTestId("panel-count")).toHaveTextContent(
+    await menuOf("PRF-1");
+    expect(await screen.findByTestId("panel-count")).toHaveTextContent(
       "2 flagged as wrong",
     );
-    await user.click(back);
-    await waitFor(async () => expect(await raiseButton("PRF-1")).toHaveFocus());
+    await choose(user, "PRF-1", "Take it back");
+    await waitFor(async () => expect(await menuOf("PRF-1")).toHaveFocus());
     expect(screen.getByTestId("panel-known")).toHaveTextContent("true");
     expect(screen.getByTestId("panel-count")).toHaveTextContent(
       "1 flagged as wrong",
     );
-    expect(await takeBack("PRF-2")).toBeInTheDocument();
+    /* The row is not flagged now, so its menu offers to flag it, and the other still offers to take back. */
+    await user.click(await menuOf("PRF-1"));
+    expect(
+      await screen.findByRole("menuitem", { name: "This is wrong" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(
       screen.queryByText(/Flagged by you.*That was not mine/),
     ).not.toBeInTheDocument();
+    expect(screen.getByText(/Flagged by you.*Wrong day/)).toBeInTheDocument();
     /* The reply is written into the answer, not asked for again. */
     expect(api.read).toHaveBeenCalledTimes(1);
   });
@@ -238,7 +255,7 @@ describe("taking a flag back", () => {
     api.unflag.mockImplementation(() => out.promise);
     const user = userEvent.setup();
     render(<Panel />);
-    await user.click(await takeBack("PRF-1"));
+    await choose(user, "PRF-1", "Take it back");
     expect(screen.getByTestId("panel-known")).toHaveTextContent("true");
     expect(screen.getByTestId("panel-count")).toHaveTextContent(
       "2 flagged as wrong",
@@ -246,8 +263,12 @@ describe("taking a flag back", () => {
     expect(
       screen.getByText(/Flagged by you.*That was not mine/),
     ).toBeInTheDocument();
-    /* Both Take it back buttons wait while one is out: it is not a second press that is wanted. */
-    expect(await takeBack("PRF-2")).toBeDisabled();
+    /* Both Take it back choices wait while one is out: it is not a second press that is wanted. */
+    await user.click(await menuOf("PRF-2"));
+    expect(
+      await screen.findByRole("menuitem", { name: "Take it back" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await user.keyboard("{Escape}");
     await act(async () => {
       out.resolve(undefined);
     });
@@ -263,31 +284,31 @@ describe("taking a flag back", () => {
     api.unflag.mockResolvedValue(undefined);
     const user = userEvent.setup();
     render(<Panel />);
-    await user.click(await takeBack("PRF-1"));
+    await choose(user, "PRF-1", "Take it back");
     await waitFor(() => {
       const row = document.querySelector("li:first-child span.sr-only");
       expect(row).not.toBeNull();
       expect(document.activeElement).toBe(row);
     });
     expect(
-      screen.queryByRole("button", { name: /This is wrong, PRF-1/ }),
+      screen.queryByRole("button", { name: "More actions for PRF-1" }),
     ).not.toBeInTheDocument();
   });
 
-  it("treats not found as taken back: the flag leaves the list, nothing is said, and focus lands on This is wrong", async () => {
+  it("treats not found as taken back: the flag leaves the list, nothing is said, and focus lands on the row's menu", async () => {
     api.read.mockResolvedValue({ on: true, flags: [first] });
     api.unflag.mockRejectedValue(
       new ApiError(404, "not_found", "That flag was not found."),
     );
     const user = userEvent.setup();
     render(<Panel />);
-    await user.click(await takeBack("PRF-1"));
-    await waitFor(async () => expect(await raiseButton("PRF-1")).toHaveFocus());
+    await choose(user, "PRF-1", "Take it back");
+    await waitFor(async () => expect(await menuOf("PRF-1")).toHaveFocus());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/Flagged by you/)).not.toBeInTheDocument();
   });
 
-  it("keeps focus on the Take it back that was pressed, and says why, when it is refused", async () => {
+  it("keeps focus on the menu that was used, and says why, when it is refused", async () => {
     api.read.mockResolvedValue({ on: true, flags: [first] });
     api.unflag.mockImplementation(async () => {
       /* A browser lets go of focus when a control is turned off under it, which is what a request being
@@ -297,12 +318,11 @@ describe("taking a flag back", () => {
     });
     const user = userEvent.setup();
     render(<Panel />);
-    const back = await takeBack("PRF-1");
-    await user.click(back);
+    await choose(user, "PRF-1", "Take it back");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "This review has already been sent.",
     );
-    await waitFor(async () => expect(await takeBack("PRF-1")).toHaveFocus());
+    await waitFor(async () => expect(await menuOf("PRF-1")).toHaveFocus());
     /* The flag is still there. */
     expect(
       screen.getByText(/Flagged by you.*That was not mine/),
@@ -323,10 +343,7 @@ describe("two panels on one page", () => {
     );
     const live = within(screen.getByRole("region", { name: "live" }));
     const kept = within(screen.getByRole("region", { name: "kept" }));
-    await live.findByRole("button", { name: "This is wrong, PRF-1" });
-    await user.click(
-      live.getByRole("button", { name: "This is wrong, PRF-1" }),
-    );
+    await choose(user, "PRF-1", "This is wrong", live);
     await fillAndSend(user, "That was not mine");
     await gone();
     expect(
@@ -353,9 +370,7 @@ describe("two panels on one page", () => {
     );
     const live = within(screen.getByRole("region", { name: "live" }));
     const kept = within(screen.getByRole("region", { name: "kept" }));
-    await user.click(
-      await kept.findByRole("button", { name: "Take it back, flag on PRF-1" }),
-    );
+    await choose(user, "PRF-1", "Take it back", kept);
     await waitFor(() =>
       expect(live.queryByText(/Flagged by you/)).not.toBeInTheDocument(),
     );

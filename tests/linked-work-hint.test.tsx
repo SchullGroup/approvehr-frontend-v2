@@ -11,13 +11,13 @@ import { formatDateShort } from "@/lib/time";
  * What is proved: it lists and never decides (no sentence says the measure is done, how many are left,
  * that everything is finished, or that the reader should confirm); it is drawn only where there is a
  * Confirm to look at it beside (a reader who may confirm, on a measure not yet confirmed), and for a
- * company that has the assists on, which is the only case in which a request is made at all; each task
- * is its key, a link only where the API said the reader may open it, with where it stands in words and
- * never a figure; a task the reader may not open is one plain line and shows nothing about itself; an
- * empty list says so in words and never as a zero; a list the API cut says how many it shows of how
- * many there are; and everything that is not an answer (the assists off, a refusal, a failed read, a
- * shape it cannot read) draws nothing, so the confirmation is never held up by a hint that did not
- * arrive.
+ * company that has the assists on, which is the only case in which a request is made at all; it is a
+ * plain "3 linked tasks" link that opens the list; each task is its key, a link only where the API said
+ * the reader may open it, with where it stands in words and never a figure; a task the reader may not
+ * open is one plain line and shows nothing about itself; a list the API cut says how many it shows of
+ * how many there are; and everything that is not an answer (the assists off, a refusal, a failed read,
+ * a shape it cannot read) and an empty list draw nothing, so the confirmation is never held up by a
+ * hint that did not arrive and no sentence announces that there is nothing to see.
  */
 
 const who = vi.hoisted(() => ({
@@ -108,8 +108,7 @@ function show(row: ApiKeyResult, goalOwnerId: string | null = "emp-owner") {
   );
 }
 
-const hint = () =>
-  screen.queryByRole("button", { name: /Tasks linked to this target/ });
+const hint = () => screen.queryByRole("button", { name: /linked tasks?$/ });
 const day = (iso: string) => formatDateShort(iso, "Africa/Lagos");
 
 beforeEach(() => {
@@ -126,11 +125,11 @@ describe("where it is drawn", () => {
   it("beside Confirm, for a reader who may confirm a target that is not confirmed, when the assists are on", async () => {
     show(measure());
     const toggle = await screen.findByRole("button", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
-    expect(toggle).toHaveTextContent("1");
+    expect(toggle).toHaveTextContent("1 linked task");
     expect(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
+      screen.getByRole("button", { name: /^Confirm/ }),
     ).toBeInTheDocument();
     expect(read).toHaveBeenCalledTimes(1);
     expect(read).toHaveBeenCalledWith(
@@ -142,7 +141,7 @@ describe("where it is drawn", () => {
   it("is closed until it is opened", async () => {
     show(measure());
     const toggle = await screen.findByRole("button", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("PLT-12")).not.toBeInTheDocument();
@@ -153,7 +152,7 @@ describe("where it is drawn", () => {
   it("is not drawn, and nothing is asked, for a company that has not switched the assists on", async () => {
     feature.workAssists = false;
     show(measure());
-    await screen.findByRole("button", { name: /Confirm it is done/ });
+    await screen.findByRole("button", { name: /^Confirm/ });
     expect(hint()).toBeNull();
     expect(read).not.toHaveBeenCalled();
   });
@@ -161,7 +160,7 @@ describe("where it is drawn", () => {
   it("is not drawn, and nothing is asked, while the setting is not known", async () => {
     feature.workAssists = null;
     show(measure());
-    await screen.findByRole("button", { name: /Confirm it is done/ });
+    await screen.findByRole("button", { name: /^Confirm/ });
     expect(read).not.toHaveBeenCalled();
     expect(hint()).toBeNull();
   });
@@ -181,7 +180,7 @@ describe("where it is drawn", () => {
   it("is not drawn for the person whose objective it is, who may not confirm it", async () => {
     who.actingId = "emp-owner";
     show(measure(), "emp-owner");
-    await screen.findByText("Your manager confirms it when it is done.");
+    await screen.findByText("Not done yet");
     expect(hint()).toBeNull();
     expect(read).not.toHaveBeenCalled();
   });
@@ -198,7 +197,7 @@ describe("where it is drawn", () => {
     show(measure(), null);
     expect(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     ).toBeInTheDocument();
   });
@@ -206,7 +205,7 @@ describe("where it is drawn", () => {
   it("is not drawn, and nothing is asked, with no server", async () => {
     who.connected = false;
     show(measure());
-    await screen.findByRole("button", { name: /Confirm it is done/ });
+    await screen.findByRole("button", { name: /^Confirm/ });
     expect(hint()).toBeNull();
     expect(read).not.toHaveBeenCalled();
   });
@@ -234,7 +233,7 @@ describe("what it lists", () => {
     show(measure());
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     );
     expect(screen.getByRole("link", { name: "PLT-1" })).toHaveAttribute(
@@ -263,7 +262,7 @@ describe("what it lists", () => {
     show(measure());
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     );
     expect(
@@ -273,15 +272,14 @@ describe("what it lists", () => {
     ).toBeInTheDocument();
   });
 
-  it("a task on somebody's own list, said once", async () => {
+  it("says nothing about whose list a task is on", async () => {
     read.mockResolvedValue(answer([open({ personal: true })]));
     show(measure());
     await userEvent.click(
-      await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
-      }),
+      await screen.findByRole("button", { name: /linked tasks?$/ }),
     );
-    expect(screen.getByText("On a personal list")).toBeInTheDocument();
+    expect(screen.getByText("PLT-12")).toBeInTheDocument();
+    expect(screen.queryByText(/personal list/)).toBeNull();
   });
 
   it("a task the reader may not open as one plain line, with no key, no state and no day, and no link", async () => {
@@ -293,9 +291,9 @@ describe("what it lists", () => {
     );
     show(measure());
     const toggle = await screen.findByRole("button", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
-    expect(toggle).toHaveTextContent("2");
+    expect(toggle).toHaveTextContent("2 linked tasks");
     await userEvent.click(toggle);
     const hidden = screen.getByText("A task you cannot open").closest("li")!;
     expect(hidden.textContent).toBe("A task you cannot open");
@@ -307,9 +305,9 @@ describe("what it lists", () => {
     read.mockResolvedValue(answer([open()], { total: 63, truncated: true }));
     show(measure());
     const toggle = await screen.findByRole("button", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
-    expect(toggle).toHaveTextContent("63");
+    expect(toggle).toHaveTextContent("63 linked tasks");
     await userEvent.click(toggle);
     expect(screen.getByText("Showing 1 of 63.")).toBeInTheDocument();
   });
@@ -318,7 +316,7 @@ describe("what it lists", () => {
     show(measure());
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     );
     expect(screen.queryByText(/Showing/)).toBeNull();
@@ -335,11 +333,11 @@ describe("what it never says", () => {
     );
     show(measure());
     const toggle = await screen.findByRole("button", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
     await userEvent.click(toggle);
     const region = screen.getByRole("region", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
     const words = `${toggle.textContent} ${region.textContent}`;
     expect(words).not.toMatch(
@@ -350,20 +348,21 @@ describe("what it never says", () => {
   it("no figure that reads like a score: the only number is how many tasks are linked", async () => {
     show(measure());
     const toggle = await screen.findByRole("button", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
-    expect(toggle.textContent).toMatch(/^Tasks linked to this target\s*1$/);
+    expect(toggle.textContent).toBe("1 linked task");
   });
 });
 
 describe("an empty list", () => {
-  it("says no task is linked, in words, with no count and no disclosure", async () => {
+  it("draws nothing at all: no sentence, no count and no link", async () => {
     read.mockResolvedValue(answer([], { total: 0 }));
     show(measure());
-    expect(
-      await screen.findByText("No task is linked to this target."),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+    await screen.findByRole("button", { name: /^Confirm/ });
     expect(hint()).toBeNull();
+    expect(screen.queryByText(/No task is linked/)).toBeNull();
+    expect(screen.queryByText(/linked/i)).toBeNull();
     expect(document.body.textContent).not.toMatch(/\b0\b/);
   });
 });
@@ -377,7 +376,7 @@ describe("everything that is not an answer draws nothing", () => {
     read.mockResolvedValue(answerBack);
     show(measure());
     await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
-    await screen.findByRole("button", { name: /Confirm it is done/ });
+    await screen.findByRole("button", { name: /^Confirm/ });
     expect(hint()).toBeNull();
     expect(screen.queryByText(/No task is linked/)).toBeNull();
   });
@@ -387,7 +386,7 @@ describe("everything that is not an answer draws nothing", () => {
     show(measure());
     await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
     expect(
-      await screen.findByRole("button", { name: /Confirm it is done/ }),
+      await screen.findByRole("button", { name: /^Confirm/ }),
     ).toBeEnabled();
     expect(hint()).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -455,7 +454,7 @@ describe("dates: the company's days and the company's instants", () => {
     show(measure());
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     );
     expect(screen.getByText("Finished 9 Nov 2026")).toBeInTheDocument();
@@ -477,7 +476,7 @@ describe("dates: the company's days and the company's instants", () => {
     show(measure());
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     );
     expect(
@@ -507,11 +506,11 @@ describe("the order of the list", () => {
     show(measure());
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     );
     const region = screen.getByRole("region", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
     const rows = within(region)
       .getAllByRole("listitem")
@@ -534,11 +533,11 @@ describe("the order of the list", () => {
     show(measure());
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Tasks linked to this target/,
+        name: /linked tasks?$/,
       }),
     );
     const region = screen.getByRole("region", {
-      name: /Tasks linked to this target/,
+      name: /linked tasks?$/,
     });
     const rows = within(region)
       .getAllByRole("listitem")

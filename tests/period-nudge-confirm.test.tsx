@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { ApiCycleParticipants } from "@/lib/api/performance";
 
 /**
- * "Nudge who is late" asks first and names who it reaches (UAT 23 Nov, U92 /
- * PERF-12). One press used to send every reminder at once, by email as well as
- * in the app, while the toast said no emails were sent.
+ * "Remind" asks first and names who it reaches (UAT 23 Nov, U92 / PERF-12). One
+ * press used to send every reminder at once, by email as well as in the app, while
+ * the toast said no emails were sent. It is the period page's one next step while
+ * anybody owes a form, so it is not on the People tab as well (owner, 27 Nov).
  */
 
 let remindCycle: Mock<(...args: unknown[]) => Promise<unknown>>;
@@ -36,7 +37,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/performance/periods/cycle-1",
 }));
-vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
+vi.mock("@/lib/permissions", () => ({
+  useCan: () => true,
+  usePermissions: () => ({ loading: false }),
+}));
 vi.mock("@/lib/store/performance", () => ({
   useKpis: () => ({
     goals: [],
@@ -123,10 +127,10 @@ vi.mock(
   "@/app/(app)/performance/periods/[id]/fairness/calibration-audit",
   () => ({ CalibrationAudit: () => null }),
 );
-vi.mock(
-  "@/app/(app)/performance/periods/[id]/fairness/fairness-status",
-  () => ({ FairnessStatus: () => null, publishLock: () => null }),
-);
+vi.mock("@/app/(app)/performance/periods/[id]/fairness/publish-lock", () => ({
+  publishLock: () => null,
+  undecidedScores: () => 0,
+}));
 vi.mock("@/app/(app)/performance/periods/[id]/period-weights-section", () => ({
   PeriodWeightsSection: () => null,
 }));
@@ -179,10 +183,9 @@ beforeEach(() => {
   ]);
 });
 
-/** Reminders sit on the People tab. */
+/** The reminder is the next step above the tabs, while anybody owes a form. */
 async function openReminder(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("tab", { name: "People" }));
-  await user.click(screen.getByRole("button", { name: "Send a reminder" }));
+  await user.click(screen.getByRole("button", { name: "Remind" }));
 }
 
 describe("Reminding people who are late", () => {
@@ -193,7 +196,7 @@ describe("Reminding people who are late", () => {
 
     expect(remindCycle).not.toHaveBeenCalled();
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Nudge 3 people?")).toBeInTheDocument();
+    expect(within(dialog).getByText("Remind 3 people?")).toBeInTheDocument();
     const list = within(dialog).getByRole("list", {
       name: "Who gets a reminder",
     });
@@ -202,10 +205,21 @@ describe("Reminding people who are late", () => {
         .getAllByRole("listitem")
         .map((item) => item.textContent),
     ).toEqual(["Adaeze Okonkwo", "Grace Effiong", "Halima Sani"]);
-    expect(dialog).toHaveTextContent(/by email/);
-    expect(dialog).toHaveTextContent(/due 30 Nov 2026/);
     expect(dialog).toHaveTextContent(/2 pieces of peer feedback/);
-    expect(dialog).toHaveTextContent(/not named/);
+    /* The names and the count are the whole of it: no paragraph about email, the
+       due date or why peers are not named. */
+    expect(dialog).not.toHaveTextContent(/by email/);
+    expect(dialog).not.toHaveTextContent(/not named/);
+  });
+
+  it("is the one next step, with the count of people who owe a form, and not also a button on People", async () => {
+    mount();
+    expect(screen.getByText("3 still to send")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("tab", { name: "People" }));
+    expect(
+      screen.queryByRole("button", { name: "Send a reminder" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Remind" })).toHaveLength(1);
   });
 
   it("sends the reminders only when confirmed", async () => {
@@ -213,7 +227,9 @@ describe("Reminding people who are late", () => {
     mount();
     await openReminder(user);
     await user.click(
-      screen.getByRole("button", { name: "Send the reminders" }),
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Remind",
+      }),
     );
     expect(remindCycle).toHaveBeenCalledWith("cycle-1");
   });
@@ -229,7 +245,9 @@ describe("Reminding people who are late", () => {
     mount();
     await openReminder(user);
     await user.click(
-      screen.getByRole("button", { name: "Send the reminders" }),
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Remind",
+      }),
     );
     expect(await screen.findByText(/no sign-in/)).toBeInTheDocument();
     expect(screen.queryByText(/No emails are sent/)).not.toBeInTheDocument();
@@ -242,9 +260,8 @@ describe("Reminding people who are late", () => {
       ]),
     ]);
     mount();
-    await userEvent.setup().click(screen.getByRole("tab", { name: "People" }));
     expect(
-      screen.queryByRole("button", { name: "Send a reminder" }),
+      screen.queryByRole("button", { name: "Remind" }),
     ).not.toBeInTheDocument();
   });
 });

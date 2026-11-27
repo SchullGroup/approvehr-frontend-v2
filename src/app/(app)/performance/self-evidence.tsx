@@ -1,277 +1,68 @@
 "use client";
 
-import {
-  Badge,
-  Card,
-  CardBody,
-  CardHeader,
-  ProgressMeter,
-} from "@/components/ui";
-import {
-  GOAL_STATUS_LABEL,
-  GOAL_STATUS_TONE,
-  useKpis,
-  useMyTasks,
-} from "@/lib/store/performance";
-import { readCount, type ApiMyTask } from "@/lib/api/performance";
-import { shownStatus } from "./goal-facts";
+import { ProgressMeter } from "@/components/ui";
+import { useKpis } from "@/lib/store/performance";
+import { readCount } from "@/lib/api/performance";
 
 /**
- * What this person actually did, shown while they rate themselves.
+ * What this person set out to do, shown while they rate themselves: their objectives as bars.
  *
  * ## Why it is here at all
  *
- * The self-review asked somebody to put a number on their own period with
- * nothing on screen about that period. Every figure it needs already exists —
- * `useKpis` has the objectives and their progress, `useMyTasks` has the weekly
- * log and its grades — and the form read none of it, so the answer came out of
- * memory.
+ * The self-review asked somebody to put a number on their own period with nothing on screen about that
+ * period. `useKpis` already has the objectives and their progress, and the form read none of it, so the
+ * answer came out of memory. A mark argued over months later is only defensible if the person giving it
+ * could see what they were marking.
  *
- * ## The log is history now
- *
- * Weekly tasks were retired on 24 November 2026: nothing can be logged or
- * graded any more, and the work a period counts is the work done in Projects,
- * which `WorkThisCycle` beside this card lists. So "nothing logged" is the
- * ordinary state and not a gap, and a card that says it, or says a grade is
- * still to come, promises a log somebody can still add to. The tasks section is
- * therefore drawn only when this period has something logged in it, as what was
- * logged and how it was graded, and is absent otherwise. A mark argued over months later is only defensible if the person
- * giving it could see what they were marking.
+ * It sits above the finished work in the same drawer, with no heading of its own: the drawer says what
+ * it is. The log of logged tasks that used to sit beside it, with its grades and its rate, is gone.
  *
  * ## Only ever the caller's own
  *
- * Both hooks are scoped to the signed-in person. Rendering them on a review
- * **about somebody else** would put the manager's own objectives and tasks
- * under the subject's name — a wrong claim, in the one place a wrong claim is
- * least recoverable. The caller gates on `kind === "SELF" && mine`; this
- * component takes no employee id precisely so it cannot be pointed elsewhere.
+ * `useKpis("mine")` is scoped to the signed-in person. Rendering it on a review **about somebody else**
+ * would put the manager's own objectives under the subject's name: a wrong claim, in the one place a wrong
+ * claim is least recoverable. The caller gates on `kind === "SELF" && mine`; this component takes no
+ * employee id precisely so it cannot be pointed elsewhere.
  *
  * ## Absent is not zero
  *
- * Nobody with no logged tasks has a 0% completion rate — they have no rate.
- * The graded outcomes are counted separately from work that is logged and
- * **not yet graded**, because "not completed" and "nobody has looked at it
- * yet" are opposite facts and folding the second into the first understates
- * somebody's period in the direction that costs them. Same reason the rate is
- * taken over graded tasks and says so: a denominator that includes ungraded
- * work reports a fall in performance that is really a manager's backlog. A
- * rejected task is graded, and counts as not done.
+ * An objective none of whose measures has been read has the 0 it was made with, and "0% done" beside
+ * somebody's name for their own period is a claim they are about to rate themselves against. It says
+ * "Not recorded" and draws no bar. Nothing at all is drawn for nobody with objectives.
  */
-export function SelfEvidence({
-  periodStart,
-  periodEnd,
-  whenNothing,
-}: {
-  periodStart: string | null;
-  periodEnd: string | null;
-  /**
-   * What to show when nothing is logged, instead of nothing.
-   *
-   * Left out where the card sits above the questions of its own accord: an empty
-   * card there is noise. A drawer opened on request is different: it is an
-   * answer to a question somebody asked, and a blank one reads as broken.
-   */
-  whenNothing?: React.ReactNode;
-}) {
-  const { goals, loading: goalsLoading } = useKpis("mine");
-  const { tasks, loading: tasksLoading } = useMyTasks();
+export function SelfEvidence() {
+  const { goals } = useKpis("mine");
 
   /* Company-wide goals are not this person's objectives. They arrive in the
      same list because the KPI screen shows both; counting them here would
      credit somebody with a target nobody set them. */
   const mine = goals.filter((goal) => !goal.companyWide);
-
-  /* Only the weeks this review is actually about, when the period says.
-     A review with no dates — most of the older ones, nothing was back-filled —
-     gets the whole log, and the heading below says which it is looking at. */
-  const scoped = inPeriod(tasks, periodStart, periodEnd);
-
-  const graded = scoped.filter((task) => task.grade !== null);
-  const completed = scoped.filter((task) => task.grade === "COMPLETED").length;
-  const partial = scoped.filter(
-    (task) => task.grade === "PARTIALLY_COMPLETED",
-  ).length;
-  const notCompleted = scoped.filter(
-    (task) => task.grade === "NOT_COMPLETED",
-  ).length;
-  /* Rejected is graded, and counts as not done: it is in `graded`, so it sits
-     in the denominator of the rate below and never in the numerator. */
-  const rejected = scoped.filter((task) => task.grade === "REJECTED").length;
-  const ungraded = scoped.length - graded.length;
-
-  /* Null, not 0, with nothing graded to take it over. */
-  const rate =
-    graded.length === 0 ? null : Math.round((completed / graded.length) * 100);
-
-  /* Only what was logged before logging stopped. Drawn for a period with none
-     it would say nothing was logged, which is true of every period from now on
-     and tells nobody anything. */
-  const showLogged = scoped.length > 0;
-
-  const nothingYet =
-    !goalsLoading && !tasksLoading && mine.length === 0 && scoped.length === 0;
-  if (nothingYet) return whenNothing ? <>{whenNothing}</> : null;
+  if (mine.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader
-        level={3}
-        title="Your period, as recorded"
-        description={
-          periodStart && periodEnd
-            ? "What is on file for the dates above. Marking yourself against it beats marking from memory."
-            : "This period carries no dates, so this is everything on file for you."
-        }
-      />
-      <CardBody
-        className={showLogged ? "grid gap-6 sm:grid-cols-2" : "grid gap-6"}
-      >
-        {showLogged && (
-          <section>
-            <h4 className="mb-3 text-body-sm font-semibold text-ink">
-              Tasks you logged
-            </h4>
-            <dl className="flex flex-col gap-2">
-              <Line label="Logged" value={scoped.length} />
-              {/* The three outcomes only once at least one exists.
-
-                  With nothing graded they are all genuinely 0, and three
-                  coloured noughts under "Completed", "Partially completed" and
-                  "Not completed" read as judgements somebody has made — when in
-                  fact nobody has looked yet. That is absent rendered as zero,
-                  on the screen where it costs the person being marked. */}
-              {graded.length > 0 && (
-                <>
-                  <Line
-                    label="Completed"
-                    value={completed}
-                    tone="text-success-text"
-                  />
-                  <Line
-                    label="Partially completed"
-                    value={partial}
-                    tone="text-warning-text"
-                  />
-                  <Line
-                    label="Not completed"
-                    value={notCompleted}
-                    tone="text-warning-text"
-                  />
-                  {rejected > 0 && (
-                    <Line
-                      label="Rejected"
-                      value={rejected}
-                      tone="text-warning-text"
-                    />
-                  )}
-                </>
-              )}
-              {/* Its own line, never folded into "not completed". Not "yet": grading
-                  was retired with logging, so a task still ungraded is not waiting
-                  for a grade that is coming. */}
-              {ungraded > 0 && (
-                <Line label="Not graded" value={ungraded} tone="text-muted" />
-              )}
-              {rate !== null && (
-                <div className="mt-2 border-t border-line pt-3">
-                  <ProgressMeter
-                    value={rate}
-                    label={`Completed, of ${String(graded.length)} graded`}
-                    tone="accent"
-                    size="sm"
-                  />
-                </div>
-              )}
-            </dl>
-          </section>
-        )}
-
-        <section>
-          <h4 className="mb-3 text-body-sm font-semibold text-ink">
-            Your objectives
-          </h4>
-          {mine.length === 0 ? (
-            <p className="text-body-sm text-muted">
-              None of your own on file for this period.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-4">
-              {mine.map((goal) => {
-                /* With none of its measures read, `progress` is the 0 the
-                   objective was made with. "0% done" beside somebody's name for
-                   their own period is a claim, and they are about to rate
-                   themselves against it. */
-                const nothingRead = readCount(goal.keyResults)?.read === 0;
-                const shown = shownStatus(goal);
-                return (
-                  <li key={goal.id}>
-                    <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <span className="text-body-sm font-medium text-ink">
-                        {goal.title}
-                      </span>
-                      {shown && (
-                        <Badge tone={GOAL_STATUS_TONE[shown]} size="sm">
-                          {GOAL_STATUS_LABEL[shown]}
-                        </Badge>
-                      )}
-                    </div>
-                    {nothingRead ? (
-                      <p className="text-body-sm text-muted">
-                        No reading entered yet, so there is no figure to show.
-                      </p>
-                    ) : (
-                      <ProgressMeter
-                        value={goal.progress}
-                        label={`${String(goal.progress)}% done`}
-                        tone="accent"
-                        size="sm"
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </CardBody>
-    </Card>
-  );
-}
-
-function Line({
-  label,
-  value,
-  tone = "text-ink",
-}: {
-  label: string;
-  value: number;
-  tone?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-body-sm text-body">{label}</dt>
-      <dd className={`text-body-sm font-semibold tabular-nums ${tone}`}>
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-/**
- * The tasks whose week overlaps the review period.
- *
- * Overlap rather than containment: a week that straddles the period boundary
- * is work partly done inside it, and dropping it would under-report the edges
- * of every period. Both dates absent means no filtering at all — see the
- * header.
- */
-function inPeriod(
-  tasks: ApiMyTask[],
-  periodStart: string | null,
-  periodEnd: string | null,
-): ApiMyTask[] {
-  if (!periodStart || !periodEnd) return tasks;
-  return tasks.filter(
-    (task) => task.weekEnd >= periodStart && task.weekStart <= periodEnd,
+    <ul className="flex flex-col gap-4">
+      {mine.map((goal) =>
+        readCount(goal.keyResults)?.read === 0 ? (
+          <li
+            key={goal.id}
+            className="flex items-baseline justify-between gap-3"
+          >
+            <span className="text-body-sm font-medium text-body">
+              {goal.title}
+            </span>
+            <span className="text-body-sm text-muted">Not recorded</span>
+          </li>
+        ) : (
+          <li key={goal.id}>
+            <ProgressMeter
+              value={goal.progress}
+              label={goal.title}
+              tone="accent"
+              size="sm"
+            />
+          </li>
+        ),
+      )}
+    </ul>
   );
 }

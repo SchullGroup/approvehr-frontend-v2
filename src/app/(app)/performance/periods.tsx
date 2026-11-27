@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { CalendarClock, CalendarRange } from "lucide-react";
+import { StageProgress } from "@/components/performance/stage-progress";
 import { EmptyState, LoadState, Tabs } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { dayLabel, type ApiCycle } from "@/lib/api/performance";
@@ -77,28 +78,6 @@ export function PeriodsTab() {
 
 /* -------------------------------------------------------------------------- */
 
-/** The four steps a period moves through after it starts. */
-const STEPS = ["SELF", "MANAGER", "CALIBRATION", "PUBLISHED"] as const;
-
-/**
- * Where a period is, in words and as a step number, with nothing asked of the
- * API beyond the stage and the label it already sends. `step` is null for a
- * period that has not started: a draft is not step zero of anything.
- */
-export function stageOf(period: Pick<ApiCycle, "stage" | "stageLabel">): {
-  label: string;
-  step: number | null;
-  of: number;
-} {
-  const index = STEPS.indexOf(period.stage as (typeof STEPS)[number]);
-  const words = period.stageLabel.trim() || "not started";
-  return {
-    label: words.charAt(0).toUpperCase() + words.slice(1),
-    step: index < 0 ? null : index + 1,
-    of: STEPS.length,
-  };
-}
-
 /**
  * One period, as a card. Shared by the periods list and the Overview, so a
  * period looks the same wherever it is met.
@@ -110,7 +89,6 @@ export function PeriodCard({
   period: ApiCycle;
   className?: string;
 }) {
-  const where = stageOf(period);
   const dates = periodWords(period.periodStart, period.periodEnd);
   const finished = period.stage === "PUBLISHED";
   /* Each period keeps its own light colour, taken from its name, so a list of them
@@ -146,31 +124,7 @@ export function PeriodCard({
       </div>
 
       <div className="mt-auto flex flex-col gap-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-body-sm font-medium text-ink">
-            {where.label}
-          </span>
-          {where.step !== null && (
-            <span className="tabular text-body-sm text-muted">
-              Step {where.step} of {where.of}
-            </span>
-          )}
-        </div>
-        {where.step !== null && (
-          /* The words above say it; the segments are the same fact drawn, so a
-             screen reader is not told twice. */
-          <div aria-hidden="true" className="grid grid-cols-4 gap-1">
-            {STEPS.map((step, index) => (
-              <span
-                key={step}
-                className="h-1.5 rounded-full bg-line"
-                style={
-                  index < (where.step ?? 0) ? { background: tone } : undefined
-                }
-              />
-            ))}
-          </div>
-        )}
+        <StageProgress stage={period.stage} tone={tone} label={period.name} />
         {period.dueDate && (
           <p className="flex items-center gap-1.5 text-meta text-muted">
             <CalendarClock aria-hidden="true" className="size-3.5" />

@@ -12,8 +12,9 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Button, Select, Spinner } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { LoadFailure } from "@/components/portal/load-failure";
-import { exactPct, exactPoints } from "@/components/performance/record-check";
+import { exactPct } from "@/components/performance/record-check";
 import type {
   ReviewCycleStage,
   ApiClaim,
@@ -74,14 +75,8 @@ export function PeopleToReview({
   const queue = flags.people.filter(
     (p) => p.status === "below" || p.status === "above",
   );
-  const gap = String(flags.rules.gapBp / 100);
   if (!queue.length) {
-    return (
-      <p className="py-8 text-body-md text-body">
-        Nobody to review. Every score is within {gap} points of what the
-        evidence suggests, or there isn’t enough evidence to tell.
-      </p>
-    );
+    return <p className="py-8 text-body-md text-body">Nobody to review.</p>;
   }
 
   const at = Math.min(index, queue.length - 1);
@@ -268,13 +263,17 @@ function Person({
       <Figures person={person} />
 
       <section className="mt-10 max-w-[84ch]">
-        <p className="text-body-sm font-semibold text-ink">
+        <p className="flex items-center gap-1.5 text-body-sm font-semibold text-ink">
           Summary
-          {writtenAt && (
-            <span className="font-normal text-muted">
-              {" "}
-              · written {formatDateShort(writtenAt, timeZone)}
-            </span>
+          {summary && (
+            <InfoTooltip
+              label="Who wrote this"
+              text={
+                writtenAt
+                  ? `Written by AI, ${formatDateShort(writtenAt, timeZone)}.`
+                  : "Written by AI."
+              }
+            />
           )}
         </p>
         {note.loading ? (
@@ -287,10 +286,7 @@ function Person({
             <span className="h-4 w-2/3 animate-pulse rounded bg-sunken" />
           </div>
         ) : summary ? (
-          <>
-            <p className="mt-3 text-body-lg text-ink">{summary.detail}</p>
-            <p className="mt-3 text-meta text-muted">Written by AI</p>
-          </>
+          <p className="mt-3 text-body-lg text-ink">{summary.detail}</p>
         ) : (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="text-body-sm text-muted">
@@ -332,36 +328,23 @@ function Person({
   );
 }
 
+/** The score, what the evidence suggests and the gap, on one line. */
 function Figures({ person }: { person: ApiReviewFlag }) {
-  const figure = "mt-1 text-h3 tabular-nums sm:text-h2";
+  const parts = [
+    exactPct(person.markBp),
+    person.expectedBp === null
+      ? "no evidence"
+      : `evidence ${exactPct(person.expectedBp)}`,
+    ...(person.gapBp === null
+      ? []
+      : [
+          `${String(Math.abs(person.gapBp) / 100)} ${person.gapBp < 0 ? "below" : "above"}`,
+        ]),
+  ];
   return (
-    <dl className="mt-6 grid grid-cols-3 gap-8">
-      <div>
-        <dt className="text-meta text-muted">Score</dt>
-        <dd className={cn(figure, "text-ink")}>{exactPct(person.markBp)}</dd>
-      </div>
-      <div>
-        <dt className="text-meta text-muted">Evidence suggests</dt>
-        <dd className={cn(figure, "text-ink")}>
-          {person.expectedBp === null ? "None" : exactPct(person.expectedBp)}
-        </dd>
-      </div>
-      {person.gapBp !== null && (
-        <div>
-          <dt className="text-meta text-muted">Gap (points)</dt>
-          <dd className="mt-1">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-h3 tabular-nums sm:text-h2",
-                "bg-warning-soft text-warning-text",
-              )}
-            >
-              {exactPoints(person.gapBp).replace(" pts", "")}
-            </span>
-          </dd>
-        </div>
-      )}
-    </dl>
+    <p className="mt-6 text-h3 tabular-nums text-ink sm:text-h2">
+      {parts.join(" · ")}
+    </p>
   );
 }
 

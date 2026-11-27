@@ -1,13 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ApiCompetency, ApiSection } from "@/lib/api/performance";
 
 /**
- * The sections and subsections dialog lists every subsection by name, to rename,
- * move or archive it. It says how each is answered in front of the name, as By
- * section does, because this is the other place two subsections that read alike sit
- * side by side with nothing to tell them apart.
+ * The sections dialog lists every competency by name, all of them on screen at
+ * once, to rename, move or archive it. It says how each is answered in front of
+ * the name, as By section does, because this is the other place two competencies
+ * that read alike sit side by side with nothing to tell them apart.
  */
 
 let sections: ApiSection[];
@@ -54,7 +53,7 @@ const subsection = (over: Partial<ApiCompetency>): ApiCompetency => ({
   ...over,
 });
 
-describe("the subsections in the sections dialog", () => {
+describe("the competencies in the sections dialog", () => {
   const show = async (list: ApiCompetency[]) => {
     sections = [
       {
@@ -68,9 +67,6 @@ describe("the subsections in the sections dialog", () => {
     ];
     competencies = list;
     render(<SectionsDialog open onClose={vi.fn()} />);
-    await userEvent.click(
-      screen.getByRole("button", { name: /Core competency/ }),
-    );
   };
 
   /** The row a subsection is on, found by the button that renames it. */
