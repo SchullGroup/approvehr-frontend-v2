@@ -40,6 +40,7 @@ import {
 import { departmentTone } from "@/components/ui/department-card";
 import { StageProgress } from "@/components/performance/stage-progress";
 import { fallbackCountLine } from "@/lib/performance/appraiser-fill";
+import { periodWeightsLine } from "@/lib/performance/score-wording";
 import {
   askedLine,
   lastAskedLine,
@@ -62,7 +63,6 @@ import {
   type ApiRevisionRequest,
   type ApiScoreRegister,
   type ApiScoreRow,
-  type ReviewCycleStage,
 } from "@/lib/api/performance";
 import { useCan, usePermissions } from "@/lib/permissions";
 import {
@@ -78,12 +78,19 @@ import { PeriodPeople } from "./period-people";
 import { QuestionsPanel } from "./period-questions";
 import { QuestionsDialog } from "../../period-dialogs";
 import { AskPeersDialog } from "./ask-peers";
-import { anybodyToNudge, nudgeAudience, nudgeTitle, peerLine } from "./nudge";
+import {
+  TOLD_WHERE,
+  anybodyToNudge,
+  nudgeAudience,
+  nudgeTitle,
+  peerLine,
+} from "./nudge";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { publishLock, undecidedScores } from "./fairness/publish-lock";
 import { flaggedCount } from "./fairness/people-to-review";
 import { PeriodWeightsSection } from "./period-weights-section";
 import { RenamePeriodDialog } from "./rename-period";
+import { STAGE_AFTER, STAGE_MOVE } from "./stage-move";
 
 /**
  * Running one appraisal period.
@@ -137,30 +144,6 @@ import { RenamePeriodDialog } from "./rename-period";
  * "Scored nought" and "nothing was recorded" are different claims about a person,
  * and only one of them is ever true here.
  */
-/**
- * What the next stage is called on the button, and what follows what.
- *
- * `PUBLISHED` is deliberately absent as a destination: closing the period is
- * what publishes it, the API refuses `stage: PUBLISHED` outright, and the
- * "Publish the results" button beside this one is that act with its own
- * confirmation. So this only ever walks SELF → MANAGER → CALIBRATION.
- */
-const STAGE_AFTER: Partial<Record<ReviewCycleStage, ReviewCycleStage>> = {
-  SELF: "MANAGER",
-  MANAGER: "CALIBRATION",
-};
-
-const STAGE_NEXT_LABEL: Record<string, string> = {
-  MANAGER: "manager reviews",
-  CALIBRATION: "score review",
-};
-
-/** What the next step says for the move out of the current stage. */
-const NEXT_BUTTON: Record<string, string> = {
-  MANAGER: "Open manager reviews",
-  CALIBRATION: "Move to score review",
-};
-
 type PeriodTabId = "people" | "questions" | "marks" | "settings";
 
 /** A quiet icon button that goes somewhere. The name is the tooltip and the label. */
@@ -223,6 +206,8 @@ export function PeriodScreen({
     initialTab ?? null,
   );
   const [advancing, setAdvancing] = useState(false);
+  /* A stage move cannot be undone, so the button asks first. */
+  const [confirmingMove, setConfirmingMove] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noObjectives, setNoObjectives] = useState<number>(0);
@@ -325,7 +310,7 @@ export function PeriodScreen({
       toast.push({
         title: `${period.name} started`,
         tone: "success",
-        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told in the app. No emails are sent from here.`,
+        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told ${TOLD_WHERE}.`,
       });
       /* A count, never the names: people without an objective are an
          invitation to add them, not a failure (owner, 24 Nov 2026). */
@@ -389,18 +374,15 @@ export function PeriodScreen({
     try {
       await periods.advance(cycleId, nextStage);
       toast.push({
-        title: `${period.name} moved to ${STAGE_NEXT_LABEL[nextStage]}`,
+        title: STAGE_MOVE[nextStage].done(period.name),
         tone: "success",
-        detail:
-          nextStage === "MANAGER"
-            ? "Managers write their reviews now. Self-reviews already in are kept."
-            : "Scores are in. Nothing more is asked of anyone until you publish.",
       });
       detail.reload();
     } catch (error) {
       failed(error);
     } finally {
       setAdvancing(false);
+      setConfirmingMove(false);
     }
   };
 
@@ -511,7 +493,11 @@ export function PeriodScreen({
             id: "weights",
             label: "How the score is made up",
             done: true,
-            detail: "The company's weights. Change them on the Settings tab.",
+            /* Whose weights, as the Settings tab says it: a period that set its own
+               used to be told "The company's weights" here (F6). */
+            detail: periodWeightsLine(period.weights?.basis)
+              ? `${periodWeightsLine(period.weights?.basis) ?? ""} Change them on the Settings tab.`
+              : "Change how the score is made up on the Settings tab.",
             action: {
               label: "Review",
               onClick: () => setPeriodTab("settings"),
@@ -530,9 +516,8 @@ export function PeriodScreen({
     canManage && running && period
       ? nextStage
         ? {
-            label: NEXT_BUTTON[nextStage]!,
-            onClick: () => void advance(),
-            loading: advancing,
+            label: STAGE_MOVE[nextStage].button,
+            onClick: () => setConfirmingMove(true),
           }
         : period.stage === "CALIBRATION" && lock === null && fairnessKnown
           ? { label: "Publish", onClick: () => setPublishing(true) }
@@ -826,6 +811,21 @@ export function PeriodScreen({
               onReorder={(ids: string[]) =>
                 periods.reorderQuestions(cycleId, ids).then(() => {})
               }
+            />
+          )}
+
+          {/* A move to the next stage cannot be undone and stops new objectives, so
+              it asks first (F27). */}
+          {confirmingMove && period && nextStage && (
+            <ConfirmDialog
+              open
+              onClose={() => setConfirmingMove(false)}
+              onConfirm={() => void advance()}
+              loading={advancing}
+              title={STAGE_MOVE[nextStage].title}
+              confirmLabel={STAGE_MOVE[nextStage].confirm}
+              tone="primary"
+              body={STAGE_MOVE[nextStage].body}
             />
           )}
 

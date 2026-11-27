@@ -45,6 +45,14 @@ export function anybodyToNudge(audience: NudgeAudience): boolean {
   return audience.names.length > 0 || audience.peerForms > 0;
 }
 
+/**
+ * Where people are told. One phrase for every screen that says it: the start
+ * toast said "No emails are sent from here" while the reminder said "and by
+ * email", and both cannot be true of the same notifications. The app is always
+ * one place; email only where the company has email set up.
+ */
+export const TOLD_WHERE = "in the app, and by email where email is set up";
+
 /** The dialog's title. */
 export function nudgeTitle(audience: NudgeAudience | null): string {
   if (!audience) return "Remind who is late?";

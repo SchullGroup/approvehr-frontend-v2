@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiCycle } from "@/lib/api/performance";
 
 /**
- * The Overview hands the period in play to "How a score is made".
+ * The Overview hands the period in play to its "How a score is made" tab.
  *
- * The card is tested on its own in `scoring-body-period-weights`; this is the one
- * line that connects it to the screen, which is what F44 was: the card was there
- * and was shown the company's current weights, not the period's.
+ * The body is tested on its own in `scoring-body-period-weights`; this is the one
+ * line that connects it to the screen, which is what F44 was: the reference was
+ * there and was shown the company's current weights, not the period's.
  */
 
 const state = vi.hoisted(() => ({ cycles: [] as unknown[] }));
@@ -104,7 +104,7 @@ const FROZEN: NonNullable<ApiCycle["weights"]> = {
 async function openCard() {
   const user = userEvent.setup();
   render(<WhatNeedsYouTab canSeeCompany={false} isManager={false} />);
-  await user.click(screen.getByRole("button", { name: /How a score is made/ }));
+  await user.click(screen.getByRole("tab", { name: "How a score is made" }));
 }
 
 const rowsOf = () =>
@@ -117,7 +117,7 @@ beforeEach(() => {
   state.cycles = [];
 });
 
-describe("How a score is made, on the Overview", () => {
+describe("The How a score is made tab, on the Overview", () => {
   it("is the weights of the period in play, not the company's as they are now", async () => {
     state.cycles = [period({ weights: FROZEN })];
     await openCard();

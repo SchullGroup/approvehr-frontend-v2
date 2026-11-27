@@ -18,14 +18,25 @@ import {
 
 let advance: Mock<(...args: unknown[]) => Promise<unknown>>;
 let stage: "SELF" | "MANAGER";
-const participants: ApiCycleParticipants | null = null;
+/* Nobody owes anything, so the move is the next step on the page. */
+const participants = {
+  cycleId: "cycle-1",
+  cycleName: "H2 2026 Appraisal",
+  stage: "SELF",
+  rows: [],
+  counts: { people: 0, selfDone: 0, managerDone: 0 },
+} as unknown as ApiCycleParticipants;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/performance/periods/cycle-1",
 }));
-vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
-vi.mock("@/lib/store/performance", () => ({
+vi.mock("@/lib/permissions", () => ({
+  useCan: () => true,
+  usePermissions: () => ({ loading: false }),
+}));
+vi.mock("@/lib/store/performance", async (original) => ({
+  ...(await original<typeof import("@/lib/store/performance")>()),
   useKpis: () => ({
     goals: [],
     cascade: [],
@@ -127,11 +138,8 @@ const { PeriodScreen } =
   await import("@/app/(app)/performance/periods/[id]/period-screen");
 const { ToastProvider } = await import("@/components/ui");
 
-/* The header's button is the main one. The "Everyone has finished" card repeats
-   it when nobody is late, so there can be two of them by the same name; both
-   ask first. */
-const moveButton = (name: string) =>
-  screen.getAllByRole("button", { name })[0] as HTMLElement;
+/* The next step on the page, once nobody is late. */
+const moveButton = (name: string) => screen.getByRole("button", { name });
 
 const mount = () =>
   render(
@@ -146,7 +154,7 @@ beforeEach(() => {
 });
 
 describe("the words", () => {
-  it("name only what a move does: the stage, no new objectives, no way back", () => {
+  it("name only what a move does: no new objectives, no way back", () => {
     for (const words of Object.values(STAGE_MOVE)) {
       expect(words.body).toMatch(/Nobody can add or agree objectives/);
       expect(words.body).toMatch(/cannot be moved back/);
@@ -154,7 +162,12 @@ describe("the words", () => {
   });
 
   it("do not claim what is untrue of a stage move", () => {
-    const all = JSON.stringify(STAGE_MOVE);
+    const all = JSON.stringify([
+      ...Object.values(STAGE_MOVE).map((words) => [
+        words.body,
+        words.done("A period"),
+      ]),
+    ]);
     expect(all).not.toMatch(/Managers write their reviews now/);
     expect(all).not.toMatch(/Nothing more is asked of anyone/);
     expect(all).not.toMatch(/Scores are in/);
@@ -169,8 +182,8 @@ describe("the words", () => {
   });
 
   it("name the button as an act and not a place", () => {
-    expect(STAGE_MOVE.MANAGER.button).toBe("Move to manager review");
-    expect(STAGE_MOVE.CALIBRATION.button).toBe("Move to checking scores");
+    expect(STAGE_MOVE.MANAGER.button).toBe("Open manager reviews");
+    expect(STAGE_MOVE.CALIBRATION.button).toBe("Move to score review");
   });
 });
 
@@ -178,11 +191,11 @@ describe("the button on the period", () => {
   it("moves nothing on the first press, and asks", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(moveButton("Move to manager review"));
+    await user.click(moveButton("Open manager reviews"));
     expect(advance).not.toHaveBeenCalled();
     const dialog = screen.getByRole("dialog");
     expect(
-      within(dialog).getByText("Move to manager review?"),
+      within(dialog).getByText("Open manager reviews?"),
     ).toBeInTheDocument();
     expect(dialog).toHaveTextContent(/cannot be moved back/);
   });
@@ -190,20 +203,20 @@ describe("the button on the period", () => {
   it("moves it only when confirmed, to the next stage", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(moveButton("Move to manager review"));
+    await user.click(moveButton("Open manager reviews"));
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: "Move it",
       }),
     );
     expect(advance).toHaveBeenCalledWith("cycle-1", "MANAGER");
-    expect(await screen.findByText(/moved to manager review/)).toBeVisible();
+    expect(await screen.findByText(/moved to manager reviews/)).toBeVisible();
   });
 
   it("does not move it when the question is dismissed", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(moveButton("Move to manager review"));
+    await user.click(moveButton("Open manager reviews"));
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: /Cancel/,
@@ -212,11 +225,13 @@ describe("the button on the period", () => {
     expect(advance).not.toHaveBeenCalled();
   });
 
-  it("asks the same of the next move, in its own words", async () => {
+  it("asks the same of the next move", async () => {
     stage = "MANAGER";
     const user = userEvent.setup();
     mount();
-    await user.click(moveButton("Move to checking scores"));
-    expect(screen.getByRole("dialog")).toHaveTextContent(/can still be sent/);
+    await user.click(moveButton("Move to score review"));
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      /cannot be moved back/,
+    );
   });
 });

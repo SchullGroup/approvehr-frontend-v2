@@ -7,7 +7,7 @@ import type {
 } from "@/lib/api/performance";
 
 /**
- * "How a score is made", on the Overview, for the person being scored.
+ * The Overview's "How a score is made" tab, for the person being scored.
  *
  * It listed the company's current weights over a mark made from the period's, and
  * listed Weekly tasks at 0% over a company that has no such part (F44). It lists
@@ -109,7 +109,7 @@ const rowsOf = () =>
     term.nextElementSibling?.textContent,
   ]);
 
-describe("the Overview's How a score is made", () => {
+describe("the Overview's How a score is made tab", () => {
   it("lists what the period's mark was made from, not the company's set as it is now", () => {
     render(<ScoringSettingsBody canManage={false} period={cycle(FROZEN)} />);
     expect(rowsOf()).toEqual([
