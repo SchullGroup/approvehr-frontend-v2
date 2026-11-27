@@ -23,7 +23,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
   return { ...real, request: (...args: unknown[]) => request(...args) };
 });
 
-const { attendanceApi, expectedHours, policyForRow } =
+const { attendanceApi, expectedHours, lateAfterLabel, policyForRow } =
   await import("@/lib/api/attendance");
 
 beforeEach(() => {
@@ -160,6 +160,44 @@ describe("policyForRow", () => {
 
   it("is the company's policy as it was for a row that says nothing", () => {
     expect(policyForRow(policy, undefined)).toEqual(policy);
+  });
+});
+
+describe("lateAfterLabel", () => {
+  const policy = { shiftStart: "08:00", shiftEnd: "17:00" };
+  const late = (expectedStart?: string | null) => ({
+    status: "LATE" as const,
+    ...(expectedStart === undefined ? {} : { expectedStart }),
+  });
+
+  it("says the company's start when the rows carry none, exactly as it always did", () => {
+    expect(lateAfterLabel(policy, [late(), late()])).toBe("after 08:00");
+    expect(lateAfterLabel(policy, [late(null)])).toBe("after 08:00");
+  });
+
+  it("says the one start the late people were all due at, when they were", () => {
+    expect(lateAfterLabel(policy, [late("07:30"), late("07:30")])).toBe(
+      "after 07:30",
+    );
+  });
+
+  it("does not name the company's start for people who were due at another", () => {
+    expect(lateAfterLabel(policy, [late("07:30")])).toBe("after 07:30");
+  });
+
+  it("does not pick one when they were due at different times", () => {
+    expect(lateAfterLabel(policy, [late("07:30"), late()])).toBe(
+      "after their start",
+    );
+  });
+
+  it("counts only the late rows", () => {
+    expect(
+      lateAfterLabel(policy, [
+        late("07:30"),
+        { status: "PRESENT" as const, expectedStart: "09:00" },
+      ]),
+    ).toBe("after 07:30");
   });
 });
 

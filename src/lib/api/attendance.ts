@@ -940,6 +940,35 @@ export function expectedHours(
 }
 
 /**
+ * What the "Late" figure on the roster is late *after*, in words.
+ *
+ * One start time when everybody counted as late was due at the same one (the
+ * company's, in a company with no schedules: exactly what it always said), each
+ * person's own where the rows carry it. When the late people were due at
+ * different times there is no single one to name, and naming the company's would
+ * be wrong for most of them, so it says so.
+ */
+export function lateAfterLabel(
+  policy: Pick<ApiAttendancePolicy, "shiftStart" | "shiftEnd">,
+  rows: readonly Pick<
+    ApiRosterRow,
+    "status" | "expectedStart" | "expectedEnd"
+  >[],
+): string {
+  const starts = new Set(
+    rows
+      .filter((row) => row.status === "LATE")
+      .map((row) => expectedHours(policy, row).start),
+  );
+  const [only] = starts;
+  return starts.size === 1 && only !== undefined
+    ? `after ${only}`
+    : starts.size === 0
+      ? `after ${policy.shiftStart}`
+      : "after their start";
+}
+
+/**
  * The policy as it reads for one person that day: the company's, with the shift
  * replaced by their own hours where the roster row carries them.
  *

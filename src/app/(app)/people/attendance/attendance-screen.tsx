@@ -32,7 +32,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { type ApiRosterRow } from "@/lib/api/attendance";
+import { lateAfterLabel, type ApiRosterRow } from "@/lib/api/attendance";
 import { useWorkLocations } from "@/lib/store/attendance";
 import {
   addDays,
@@ -502,7 +502,7 @@ function TodayView({
             count("LATE") > 0 && roster.policy
               ? {
                   direction: "down",
-                  label: `after ${roster.policy.shiftStart}`,
+                  label: lateAfterLabel(roster.policy, roster.rows),
                 }
               : undefined
           }
