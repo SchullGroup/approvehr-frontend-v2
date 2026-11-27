@@ -394,7 +394,7 @@ describe("what the parts list may say while it waits", () => {
   });
 });
 
-describe("the self-assessment card is named as the company names the part", () => {
+describe("the self-assessment part is named as the company names it", () => {
   const ownRating: Part = {
     id: "p-self",
     source: "SELF_ASSESSMENT",
@@ -405,19 +405,23 @@ describe("the self-assessment card is named as the company names the part", () =
   it("uses the company's name for the part, not the built-in one", () => {
     view = viewOf([delivery, ownRating]);
     mount();
-    expect(
-      screen.getByRole("heading", { name: "Own rating" }),
-    ).toBeInTheDocument();
+    const part = within(row("SELF_ASSESSMENT")!);
+    expect(part.getByText("Own rating")).toBeInTheDocument();
+    expect(part.queryByText("Self-assessment")).toBeNull();
     expect(
       screen.queryByRole("heading", { name: "Self-assessment" }),
     ).toBeNull();
   });
 
-  it("says Self-assessment when the company has written no part from it", () => {
+  it("has nothing about it where the company has written no part from it", () => {
     view = viewOf([delivery]);
     mount();
+    expect(row("SELF_ASSESSMENT")).toBeNull();
     expect(
-      screen.getByRole("heading", { name: "Self-assessment" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Self-assessment" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "About self-assessment" }),
+    ).toBeNull();
   });
 });
