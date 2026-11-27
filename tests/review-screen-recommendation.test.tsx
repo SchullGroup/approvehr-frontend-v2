@@ -25,7 +25,11 @@ import { ReviewScreen } from "@/app/(app)/performance/reviews/[id]/review-screen
  * The comparison is exercised here too, on the screen it lives on: the old two
  * cards ("What was asked, and what was answered" and "What they said about their
  * own period") are gone, and the words Self review and Manager review stand in
- * their place.
+ * their place, on the Answers tab.
+ *
+ * HR's recommendation is text under the rating, with no card and no heading of its
+ * own, because the person reads it with their rating. What the score is made of is
+ * one list, and every sentence about it is one tooltip.
  */
 
 const state = vi.hoisted(() => ({
@@ -188,12 +192,17 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** The Answers tab, where the two reviews sit side by side. */
+const openAnswers = async () =>
+  userEvent.click(screen.getByRole("tab", { name: "Answers" }));
+
 describe("the two reviews on the page", () => {
-  it("are one card, and the old two headings are gone", () => {
+  it("are one card on the Answers tab, with no heading, and the old two headings are gone", async () => {
     mount();
+    await openAnswers();
     expect(
-      screen.getByRole("heading", { name: "Self review and manager review" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Self review and manager review" }),
+    ).toBeNull();
     expect(
       screen.queryByText("What was asked, and what was answered"),
     ).toBeNull();
@@ -201,44 +210,43 @@ describe("the two reviews on the page", () => {
       screen.queryByText("What they said about their own period"),
     ).toBeNull();
     expect(screen.queryByText(/Their answers, as they sent them/)).toBeNull();
+    /* Both answers are there, side by side. */
+    expect(screen.getByText("A good one.")).toBeInTheDocument();
+    expect(screen.getByText("Steady.")).toBeInTheDocument();
   });
 
-  it("carries the manager's recommendations beside the person's closing words", () => {
+  it("carries the manager's recommendations beside the person's closing words", async () => {
     mount();
-    const row = within(
-      screen.getByText("Closing note and recommendations").closest("li")!,
-    );
+    await openAnswers();
+    const row = within(screen.getByText("Note").closest("li")!);
     expect(row.getByText("Recommend the team lead role.")).toBeInTheDocument();
     expect(row.getByText("Nothing added")).toBeInTheDocument();
   });
 
-  it("does not say the closing note a second time in the top card", () => {
+  it("does not say the closing note on the Rating tab", () => {
     mount();
     expect(screen.queryByText("In summary")).toBeNull();
-    expect(screen.getAllByText("Recommend the team lead role.")).toHaveLength(
-      1,
-    );
+    expect(screen.queryByText("Recommend the team lead role.")).toBeNull();
   });
 });
 
 describe("HR's recommendation on the record", () => {
-  it("is a card of its own, dated by when the rating was made final", () => {
+  it("is text under the rating, with no card, no heading and no date of its own", () => {
     state.review = review({
       finalised: true,
       finalisedAt: "2026-10-20T09:00:00.000Z",
       hrRecommendation: "Negotiation training first.\nThen the lead role.",
     });
     mount();
-    const heading = screen.getByRole("heading", {
-      name: "HR's recommendation",
-    });
-    expect(heading).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "HR's recommendation" });
+    expect(region).toHaveTextContent("Negotiation training first.");
+    expect(region).toHaveTextContent("Then the lead role.");
     expect(
-      screen.getByText(/Added when the rating was made final on/),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "HR's recommendation" }),
+    ).toBeNull();
     expect(
-      screen.getByText(/Negotiation training first\./),
-    ).toBeInTheDocument();
+      screen.queryByText(/Added when the rating was made final/),
+    ).toBeNull();
   });
 
   it.each([
@@ -251,14 +259,16 @@ describe("HR's recommendation on the record", () => {
       ...(value === undefined ? {} : { hrRecommendation: value }),
     });
     mount();
-    expect(screen.queryByText("HR's recommendation")).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "HR's recommendation" }),
+    ).toBeNull();
   });
 
   it("is not drawn on a self review, which is nobody's rating of record", () => {
     state.review = selfReview({ hrRecommendation: "Should never be here." });
     state.self = null;
     mount();
-    expect(screen.queryByText("HR's recommendation")).toBeNull();
+    expect(screen.queryByText("Should never be here.")).toBeNull();
   });
 });
 
@@ -330,60 +340,67 @@ describe("making the rating final", () => {
   });
 });
 
+const part = (
+  component: string,
+  label: string,
+  weightBp: number,
+  effectiveWeightBp: number,
+  scoreBp: number | null,
+  evidenceCount: number,
+  over: Record<string, unknown> = {},
+) => ({
+  component,
+  label,
+  scoreBp,
+  weightBp,
+  effectiveWeightBp,
+  included: effectiveWeightBp > 0,
+  excludedBecause: effectiveWeightBp > 0 ? null : "NO_DATA",
+  excludedNote:
+    effectiveWeightBp > 0
+      ? null
+      : "Nothing was recorded against this, so it is left out rather than scored 0.",
+  evidenceCount,
+  ...over,
+});
+
+const withParts = (components: ReturnType<typeof part>[]) => {
+  state.score = { ...score, components } as unknown as ApiEmployeeScore;
+};
+
 describe("where HR's recommendation sits", () => {
-  it("is directly under the rating, ahead of the score and the reviews", () => {
+  it("is directly under the rating, ahead of the parts of the score", () => {
     state.review = review({
       finalised: true,
       finalisedAt: "2026-10-20T09:00:00.000Z",
       hrRecommendation: "Negotiation training first.",
+      outcome: { bandLabel: "Meets Expectations", scoreOutOf5: 3.4 },
     });
+    withParts([
+      part("CORE_COMPETENCY", "Core competencies", 5000, 5000, 7500, 2),
+    ]);
     mount();
-    const rating = screen.getByRole("heading", { name: "The rating" });
-    const reco = screen.getByRole("heading", { name: "HR's recommendation" });
-    const mark = screen.getByRole("heading", {
-      name: "What the score is made of",
-    });
-    const reviews = screen.getByRole("heading", {
-      name: "Self review and manager review",
-    });
+    const rating = screen.getByText("Meets Expectations · 3.4");
+    const reco = screen.getByRole("region", { name: "HR's recommendation" });
+    const parts = screen.getByText("Core competencies");
     const before = (a: HTMLElement, b: HTMLElement) =>
       Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     expect(before(rating, reco)).toBe(true);
-    expect(before(reco, mark)).toBe(true);
-    expect(before(reco, reviews)).toBe(true);
+    expect(before(reco, parts)).toBe(true);
   });
 });
 
 describe("what the score is made of, when parts were left out", () => {
-  const part = (
-    component: string,
-    label: string,
-    weightBp: number,
-    effectiveWeightBp: number,
-    scoreBp: number | null,
-    evidenceCount: number,
-    over: Record<string, unknown> = {},
-  ) => ({
-    component,
-    label,
-    scoreBp,
-    weightBp,
-    effectiveWeightBp,
-    included: effectiveWeightBp > 0,
-    excludedBecause: effectiveWeightBp > 0 ? null : "NO_DATA",
-    excludedNote:
-      effectiveWeightBp > 0
-        ? null
-        : "Nothing was recorded against this, so it is left out rather than scored 0.",
-    evidenceCount,
-    ...over,
-  });
-
-  const withParts = (components: ReturnType<typeof part>[]) => {
-    state.score = { ...score, components } as unknown as ApiEmployeeScore;
+  /** Everything the one tooltip says, opened. */
+  const tooltip = async () => {
+    await userEvent.click(
+      screen.getByRole("button", { name: "About this score" }),
+    );
+    return screen.getByText(/left out, so the other parts|by the company\./)
+      .textContent as string;
   };
 
-  it("says why once, naming the part, and gives each part only what was set", () => {
+  it("says why once, naming the part, in one tooltip, and draws only the parts that have a score", async () => {
     withParts([
       part("OBJECTIVES", "Delivery against objectives", 500, 0, null, 0),
       part("CORE_COMPETENCY", "Core competencies", 4000, 4211, 7500, 2),
@@ -399,22 +416,30 @@ describe("what the score is made of, when parts were left out", () => {
       part("SELF_ASSESSMENT", "Self-assessment", 1000, 1053, 8438, 8),
     ]);
     mount();
+    /* On the page: four rows. The part that gave up its weight has none. */
+    const list = screen.getByText("Core competencies").closest("ul")!;
+    expect(within(list).getAllByRole("progressbar")).toHaveLength(5);
+    expect(within(list).queryByText("Delivery against objectives")).toBeNull();
+    /* And none of the sentences. */
+    expect(screen.queryByText(/left out, so the other parts/)).toBeNull();
+    expect(screen.queryByText(/by the company\./)).toBeNull();
+    expect(screen.queryByText("Based on 8 ratings")).toBeNull();
+
+    const said = await tooltip();
     expect(
-      screen.getAllByText(
-        "Delivery against objectives was left out, so the other parts share its weight and count for more than the company set.",
+      said.match(
+        /Delivery against objectives was left out, so the other parts/g,
       ),
     ).toHaveLength(1);
-    /* The reason is not said again on any part. */
-    expect(
-      screen.queryByText(/because Delivery against objectives/),
-    ).toBeNull();
-    expect(screen.getAllByText("Set at 40% by the company.")).toHaveLength(2);
-    expect(screen.getByText("Set at 5% by the company.")).toBeInTheDocument();
-    expect(screen.getByText("Set at 10% by the company.")).toBeInTheDocument();
-    expect(screen.getByText("Based on 8 ratings")).toBeInTheDocument();
+    expect(said).toContain("Core competencies: Set at 40% by the company.");
+    expect(said).toContain(
+      "Behavioural competencies: Set at 40% by the company.",
+    );
+    expect(said).toContain("Leadership: Set at 5% by the company.");
+    expect(said).toContain("Self-assessment: Set at 10% by the company.");
   });
 
-  it("names two parts together, with were and their", () => {
+  it("names two parts together, with were and their, and keeps the API's own words for a part left out", async () => {
     withParts([
       part("OBJECTIVES", "Delivery against objectives", 500, 0, null, 0),
       part("LEADERSHIP", "Leadership", 500, 0, 7500, 1, {
@@ -424,18 +449,16 @@ describe("what the score is made of, when parts were left out", () => {
       part("CORE_COMPETENCY", "Core competencies", 4000, 4444, 7500, 2),
     ]);
     mount();
-    expect(
-      screen.getByText(
-        "Delivery against objectives and Leadership were left out, so the other parts share their weight and count for more than the company set.",
-      ),
-    ).toBeInTheDocument();
-    /* A part that is left out keeps the API's own words for it. */
-    expect(
-      screen.getByText("THE API'S WORDS FOR A RATED LEADERSHIP"),
-    ).toBeInTheDocument();
+    const said = await tooltip();
+    expect(said).toContain(
+      "Delivery against objectives and Leadership were left out, so the other parts share their weight and count for more than the company set.",
+    );
+    expect(said).toContain(
+      "Leadership: THE API'S WORDS FOR A RATED LEADERSHIP",
+    );
   });
 
-  it("says nothing about weights when every part counts for what was set", () => {
+  it("says nothing about weights, and draws no tooltip, when every part counts for what was set", () => {
     withParts([
       part("CORE_COMPETENCY", "Core competencies", 5000, 5000, 7500, 2),
       part(
@@ -450,6 +473,10 @@ describe("what the score is made of, when parts were left out", () => {
     mount();
     expect(screen.queryByText(/left out, so the other parts/)).toBeNull();
     expect(screen.queryByText(/by the company\./)).toBeNull();
+    /* The period's weights were frozen and said nothing about the score. */
+    expect(
+      screen.queryByRole("button", { name: "About this score" }),
+    ).toBeNull();
   });
 
   it("does not count a part weighted at nothing as one that gave up a weight", () => {
@@ -462,5 +489,8 @@ describe("what the score is made of, when parts were left out", () => {
     ]);
     mount();
     expect(screen.queryByText(/left out, so the other parts/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "About this score" }),
+    ).toBeNull();
   });
 });

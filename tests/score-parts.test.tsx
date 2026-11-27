@@ -133,6 +133,36 @@ describe("what a row says", () => {
   });
 });
 
+describe("the total", () => {
+  it("is the first row, in the words it is given, only when one is given", () => {
+    render(
+      <ScoreParts
+        components={[objectives, competencies]}
+        total={{ scoreBp: 6000, words: "Meets Expectations · 3.4" }}
+      />,
+    );
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("Score");
+    expect(rows[0]).toHaveTextContent("Meets Expectations · 3.4");
+    expect(rows[1]).toHaveTextContent("Objectives");
+    cleanup();
+    render(<ScoreParts components={[objectives, competencies]} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByText("Score")).toBeNull();
+  });
+
+  it("is not drawn without parts: a total of nothing is not a score", () => {
+    const { container } = render(
+      <ScoreParts
+        components={[leadership]}
+        total={{ scoreBp: 6000, words: "3.4 out of 5" }}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
 describe("the tooltip", () => {
   it("is the only place a sentence is said, one line each", () => {
     const { lines } = scorePartsOf(

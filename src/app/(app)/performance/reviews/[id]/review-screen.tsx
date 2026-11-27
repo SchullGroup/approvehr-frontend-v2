@@ -3,47 +3,31 @@
 import { useState } from "react";
 import { FileQuestion, LineChart } from "lucide-react";
 import {
+  AttentionMark,
   Badge,
   Button,
   ButtonLink,
   Card,
   CardBody,
-  CardFooter,
-  CardHeader,
-  AttentionMark,
-  Disclosure,
   EmptyState,
+  NextStep,
   Spinner,
-  Stat,
+  Tabs,
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { AskPeersButton } from "../../periods/[id]/ask-peers";
 import { ApiError } from "@/lib/api/client";
 import {
-  dayLabel,
-  dayOf,
   outcomeWords,
-  outOf5FromBp,
-  outOf5Label,
   ratingWordsFrom,
-  scoreLabel,
   scoreWords,
   showsOverallMark,
-  visibleComponents,
-  weightLabel,
   weightsFromNote,
-  type ApiComponentScore,
   type ApiEmployeeScore,
   type ApiReviewDetail,
 } from "@/lib/api/performance";
-import {
-  appraiserMarkHint,
-  evidenceLine,
-  leftOutLabels,
-  leftOutNote,
-  setAtNote,
-} from "@/lib/performance/score-wording";
+import { appraiserStripLine } from "@/lib/performance/score-wording";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
@@ -55,12 +39,17 @@ import {
   useSubjectSelfReview,
 } from "@/lib/store/performance";
 import { useProjectsGate } from "@/lib/store/project-session";
-import { AppraiserStrip } from "../../review-parts";
+import { useWorkEvidence } from "@/lib/store/work-trackers";
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { WorkBehindTheMark } from "@/components/performance/kept-work";
+import {
+  ScoreParts,
+  partScoreWords,
+} from "@/components/performance/score-parts";
 import { FinaliseDialog } from "./finalise-dialog";
-import { ReviewFormCard } from "./review-form-card";
+import { ReviewFormCard, hasAnswers } from "./review-form-card";
 import { SignOffDialog } from "./sign-off-dialog";
+import { recordLine, recordStatus, recordTitle } from "./record-words";
 import {
   RecordCheck,
   StatusBadge,
@@ -84,6 +73,26 @@ import {
  * permission, and the API refuses anything the projection would have hidden
  * anyway. A screen that only *hides* a control is a screen where the API is the
  * real gate, which is exactly the arrangement to want.
+ *
+ * The page does not say which reading it is. It used to open with "You are
+ * reading this as the person who wrote it", which tells a reader what they did
+ * not ask; what it says instead is whose appraisal this is, in the title.
+ *
+ * ## Tabs, not a stack of cards
+ *
+ * The record was up to eight cards one above the other, and the answers people
+ * came for sat under the machinery. It is now a page with one status in its
+ * header and one thing to do above the tabs, then:
+ *
+ * | Tab | What it holds | Who sees it |
+ * |---|---|---|
+ * | Rating | the rating, who wrote it and when, what the score is made of | everybody |
+ * | Answers | the questions and what was answered, beside the self review | when there is something to read |
+ * | Work | what was finished in the period (`WorkTab`) | when there is work to read |
+ * | HR | the score against the evidence | only who may read it (`VIEW_FAIRNESS`, not the subject, not the author) |
+ *
+ * Nothing a reader could not see before is shown to them now: each tab is the
+ * same gate around the same component, and a tab with nothing in it is not drawn.
  *
  * ## The rating and the score are different figures and both can be absent
  *
@@ -120,9 +129,13 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const canSeeFairness = useCan("VIEW_FAIRNESS");
   const signOff = useSignOff();
   const toast = useToast();
+  const projects = useProjectsGate();
 
   const [signingOff, setSigningOff] = useState(false);
   const [finalising, setFinalising] = useState(false);
+  /* The tab somebody chose. Null until they do, so that what is open follows
+     what there is (see `tabs`) rather than a default fixed before it is known. */
+  const [chosen, setChosen] = useState<string | null>(null);
 
   const isSubject = review !== null && review.subjectId === actingId;
 
@@ -151,6 +164,18 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       !isSubject &&
       !review.mine,
   );
+
+  /* Whether there is work to read, so that the Work tab is there only when it
+     has something in it. The project boards' list is there whenever the company
+     has Projects (and the kind is not peer feedback, which has none); what is
+     left to ask is the connected tools' evidence, and only where the boards do
+     not already settle it. */
+  const boards = projects.enabled && review?.kind !== "PEER";
+  const tools = useWorkEvidence(
+    boards ? null : (review?.subjectId ?? null),
+    review?.cycleId ? { cycleId: review.cycleId } : {},
+  );
+  const hasWork = boards || (tools.evidence?.tasks.length ?? 0) > 0;
 
   if (loading && !review) {
     return (
@@ -225,13 +250,15 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     (review.mine || canSeeCompany);
 
   /* The subject owes an acknowledgement only once the mark is theirs, and
-     only once. Disputing is no longer something they do here — see the
-     callout below and `assertMayDispute` on the API, which is the actual
+     only once. Disputing is no longer something they do here — see
+     `SignOffDialog` and `assertMayDispute` on the API, which is the actual
      gate this mirrors. */
   const owesAcknowledgement =
     isSubject && review.finalised && !review.acknowledged && !review.disputed;
 
-  const answered = review.acknowledged || review.disputed;
+  /* The author's own form, not sent. Its next step is to fill it in, and that is
+     all the page says about it. */
+  const filling = review.mine && !review.submitted;
 
   /* Whether anything on this page speaks of an overall mark. The company's
      setting says whether its forms end with one, and a mark already given is
@@ -241,39 +268,97 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const outcomeLine =
     review.kind === "MANAGER" ? outcomeWords(review.outcome) : null;
   /* With their self review in, the two overall marks are one row of the
-     comparison below, side by side. Said again in this card they would be said
-     twice, the manager's here and both there. */
+     comparison on the Answers tab, side by side. Said again here they would be
+     said twice. */
   const comparing = review.kind === "MANAGER" && selfReview !== null;
+  /* The person it is about reads the one answer and no other figure: the
+     author's own overall mark and the breakdown are for whoever decides. */
+  const readsOutcomeOnly = isSubject && outcomeLine !== null;
+  const ownMark =
+    markShown && !comparing && review.rating !== null && !readsOutcomeOnly
+      ? ratingWords(review.rating)
+      : null;
+
+  const tabs = [
+    { id: "rating", label: "Rating" },
+    ...(hasAnswers(review, selfReview)
+      ? [{ id: "answers", label: "Answers" }]
+      : []),
+    ...(hasWork ? [{ id: "work", label: "Work" }] : []),
+    ...(record.flag ? [{ id: "hr", label: "HR" }] : []),
+  ];
+  /* Open on the rating once there is one to read, and on the answers while the
+     form is still being written. */
+  const fallback =
+    !review.submitted && tabs.some((tab) => tab.id === "answers")
+      ? "answers"
+      : "rating";
+  const active =
+    chosen !== null && tabs.some((tab) => tab.id === chosen)
+      ? chosen
+      : fallback;
+
+  const status = recordStatus(review);
+
+  const panel =
+    active === "answers" ? (
+      <ReviewFormCard
+        review={review}
+        selfReview={selfReview}
+        selfLoading={selfLoading}
+        ratingWords={ratingWords}
+      />
+    ) : active === "work" ? (
+      <WorkTab review={review} own={isSubject} />
+    ) : active === "hr" && record.flag ? (
+      <Card>
+        <CardBody>
+          <RecordCheck
+            cycleId={review.cycleId}
+            flag={record.flag}
+            claims={record.claims}
+          />
+        </CardBody>
+      </Card>
+    ) : (
+      <RatingCard
+        review={review}
+        isSubject={isSubject}
+        headline={outcomeLine ?? ownMark}
+        rated={outcomeLine !== null && !isSubject ? ownMark : null}
+        score={
+          review.kind === "MANAGER" && !readsOutcomeOnly
+            ? {
+                score: score.score,
+                loading: score.loading,
+                message: score.available ? score.error?.message : undefined,
+                showTotal: outcomeLine === null,
+              }
+            : null
+        }
+      />
+    );
 
   return (
     <>
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
-        title={review.kindLabel}
+        title={recordTitle(review, isSubject)}
+        subline={review.cycleName}
         meta={
           <>
-            <Badge
-              tone={review.submitted ? "neutral" : "warning"}
-              size="sm"
-              dot
-            >
-              {review.submitted ? "Sent" : "Not sent yet"}
-            </Badge>
-            {review.finalised && (
-              <Badge tone="accent" size="sm">
-                Final
+            {/* One status. The ones that used to sit beside it (Sent, Final,
+                Acknowledged) are the furthest of the four, and the dates are
+                the line under the rating. A form being filled in says it as
+                the next step below, and not here as well. */}
+            {!filling && (
+              <Badge tone={status.tone} size="sm">
+                {status.label}
               </Badge>
             )}
-            {review.acknowledged && (
-              <Badge tone="success" size="sm">
-                Acknowledged
-              </Badge>
-            )}
-            {review.disputed && (
-              <Badge tone="danger" size="sm">
-                Disputed
-              </Badge>
-            )}
+            {/* The one thing the HR tab says that belongs in the header, for
+                the people who can see it. */}
+            {record.flag && <StatusBadge status={record.flag.status} />}
           </>
         }
         /* One mark is not a judgement about somebody — it is one point on a
@@ -313,35 +398,18 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       />
 
       <PageBody>
-        <div className="flex flex-col gap-6">
-          {/* Which reading this is. One route serves every reader, so saying so
-              saves somebody wondering why a colleague sees a button they do not.
-
-              **Not to the subject.** "You are reading this as the person it is
-              about" tells somebody opening their own appraisal a thing they
-              knew before they clicked, at the top of the screen, in the place
-              a reader looks first. The line earns its space for the other
-              three readings, where the asymmetry is real. */}
-          {!isSubject && (
-            <p className="text-body-sm text-muted">
-              {review.mine
-                ? "You are reading this as the person who wrote it."
-                : canSeeCompany
-                  ? "You are reading this with the records permission."
-                  : "You are reading this as their manager."}
-            </p>
-          )}
-
+        <div className="flex flex-col gap-5">
+          {/* The one thing to do. The subject's is a banner with one button, and
+              what acknowledging means is one tooltip beside it. The author's
+              and HR's are a next step, and only where it can be done: in the
+              demo the rating cannot be made final, and a button that could
+              only refuse is not drawn. */}
           {owesAcknowledgement && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm">
-              <span className="font-medium text-ink">
-                Your rating is final and needs your response
-              </span>
+              <span className="font-medium text-ink">Your rating is final</span>
               <AttentionMark
-                text={[
-                  `Your rating for ${review.cycleName} is final. Please acknowledge that you have seen it. The date is recorded.`,
-                  "Acknowledging is not agreeing. It only records that you have seen your rating.",
-                ]}
+                text="This records that you saw it, not that you agree."
+                label="What acknowledging means"
               />
               <Button
                 variant="accent"
@@ -352,250 +420,32 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               </Button>
             </div>
           )}
-
-          {/* -------------------------------------------------------- the mark */}
-          <Card>
-            <CardHeader
-              title={
-                review.kind === "MANAGER"
-                  ? "The rating"
-                  : markShown
-                    ? "The self-rating"
-                    : `The ${review.kindLabel.toLowerCase()}`
-              }
-              description={
-                review.kind === "MANAGER"
-                  ? "The appraiser's overall view, in their own words, with the date it was sent."
-                  : markShown
-                    ? "Shown beside the manager's rating. It does not count towards the final score unless the company has turned that on."
-                    : review.kind === "SELF"
-                      ? "Shown beside the manager's review."
-                      : undefined
-              }
+          {filling && (
+            <NextStep
+              title="Not sent yet"
+              action={{
+                label: "Fill it in",
+                href: `/performance/reviews/${review.id}/answer`,
+              }}
             />
-            <CardBody className="flex flex-col gap-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                {/* The one answer (U36 / PERF-2). Once the review is final or
-                    the period published the API sends the score of record as
-                    the company's band word and out of 5, and the person it is
-                    about reads that and no other figure: the overall question's
-                    answer and the breakdown below are for whoever decides. */}
-                {outcomeLine && (
-                  <Stat
-                    label={isSubject ? "Your rating" : "Rating"}
-                    value={outcomeLine}
-                    /* rating-scale-prose: says what the figure beside the word is (U36). */
-                    hint="Out of 5, in your company's words for each level."
-                  />
-                )}
-                {/* Absent, never zero: a form the author chose not to put a
-                    number on is not a form scored nought. And where the
-                    company does not ask for an overall mark there is no row at
-                    all: "None given" would read as something missing from a
-                    form that never had a place for it. A mark somebody already
-                    gave is shown whatever the setting says now. */}
-                {markShown && !comparing && !(isSubject && outcomeLine) && (
-                  <Stat
-                    label="Overall rating"
-                    value={
-                      review.rating === null
-                        ? "None given"
-                        : (ratingWords(review.rating) as string)
-                    }
-                    {...(review.rating === null
-                      ? {
-                          hint: "No overall rating. The answers stand on their own.",
-                        }
-                      : {})}
-                  />
-                )}
-                <Stat
-                  label="Written by"
-                  value={
-                    /* `Review.authorId` is not nullable, so a name is missing
-                       only when the API withholds it — which it does for peer
-                       feedback and nothing else. "Nobody yet" would read as a
-                       pending event rather than a withheld fact. */
-                    review.anonymous
-                      ? "Not attributed"
-                      : (review.authorName ?? "Not recorded")
-                  }
-                  {...(review.submittedAt
-                    ? { hint: `Sent ${dayOf(review.submittedAt)}` }
-                    : review.dueDate
-                      ? { hint: `Due ${dayLabel(review.dueDate)}` }
-                      : {})}
-                />
-              </div>
-
-              {/* The third Stat here used to read "Rating of record — Yes /
-                  Final on 3 September", which is what the "Final" badge at the
-                  top of the page already says, in a heavier register, six
-                  inches away. Two claims about one fact is the clutter the
-                  feedback named; the date is worth keeping and a Stat is not
-                  the shape for it.
-
-                  In every other state something else on the screen already
-                  says it: the callout above asks the subject for an answer, the
-                  card below records the one they gave, and the footer tells an
-                  appraiser what finalising will do. */}
-              {review.finalisedAt && (
-                <p className="text-body-sm text-muted">
-                  Made final on {dayOf(review.finalisedAt)}.
-                </p>
-              )}
-
-              {review.appraiser && (
-                <AppraiserStrip
-                  appraiser={review.appraiser}
-                  mine={review.mine}
-                  asksMark={review.overallMark === true}
-                />
-              )}
-            </CardBody>
-
-            {mayFinalise && (
-              <CardFooter className="flex-col items-start gap-2 sm:flex-row sm:items-center">
-                <p className="text-body-sm text-body">
-                  Making it final tells {review.subjectName} their rating. It
-                  cannot be changed afterwards.
-                </p>
-                {signOff.canFinalise ? (
-                  <Button
-                    variant="approve"
-                    size="sm"
-                    onClick={() => setFinalising(true)}
-                  >
-                    Make it final
-                  </Button>
-                ) : (
-                  <span className="text-body-sm text-muted">
-                    {signOff.finaliseRefusal}
-                  </span>
-                )}
-              </CardFooter>
-            )}
-          </Card>
-
-          {/* What HR recommended as they made the rating final. Directly under
-              the rating it travels with, because the person reads it with their
-              rating and a card at the foot of a long page is one they can
-              acknowledge without ever reaching. Absent when there is none: a
-              card saying HR recommended nothing would be a claim about a choice
-              nobody made. */}
-          {review.kind === "MANAGER" && review.hrRecommendation && (
-            <Card>
-              <CardHeader
-                title="HR's recommendation"
-                description={
-                  review.finalisedAt
-                    ? `Added when the rating was made final on ${dayOf(review.finalisedAt)}.`
-                    : undefined
-                }
-              />
-              <CardBody>
-                <p className="text-body-sm leading-relaxed whitespace-pre-line text-ink">
-                  {review.hrRecommendation}
-                </p>
-              </CardBody>
-            </Card>
           )}
-
-          {/* --------------------------------------------- the employee's answer */}
-          {answered && (
-            <Card>
-              <CardHeader
-                title={review.disputed ? "Disputed" : "Acknowledged"}
-                description={
-                  review.disputed
-                    ? "The rating stays as it is and the dispute is recorded beside it."
-                    : isSubject
-                      ? "This shows you have seen your rating. It does not mean you agree with it."
-                      : "This shows the person has seen their rating. It does not mean they agree with it."
-                }
-              />
-              <CardBody className="flex flex-col gap-2">
-                {/* To the person themselves in the second person (U36 /
-                    PERF-2: Halima read her own name back about herself). */}
-                <p className="text-body-sm text-body">
-                  {isSubject ? "You" : review.subjectName}{" "}
-                  {review.disputed ? "disputed this" : "acknowledged this"} on{" "}
-                  {dayOf(
-                    (review.disputedAt ?? review.acknowledgedAt) as string,
-                  )}
-                  .
-                </p>
-                {review.employeeComment ? (
-                  <p className="border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-ink">
-                    {review.employeeComment}
-                  </p>
-                ) : (
-                  <p className="text-body-sm text-muted">
-                    {isSubject
-                      ? "You did not add a comment."
-                      : "They did not add a comment."}
-                  </p>
-                )}
-              </CardBody>
-            </Card>
-          )}
-
-          {/* ------------------------------------------- what the mark is made of */}
-          {review.kind === "MANAGER" && !(isSubject && outcomeLine) && (
-            <ScorePanel
-              score={score.score}
-              loading={score.loading}
-              overallMark={review.overallMark}
-              message={score.available ? score.error?.message : score.refusal}
+          {mayFinalise && signOff.canFinalise && (
+            <NextStep
+              title="Ready to make final"
+              action={{
+                label: "Make it final",
+                onClick: () => setFinalising(true),
+              }}
             />
           )}
 
-          {review.kind === "MANAGER" && record.flag && (
-            <Card>
-              <CardHeader
-                title="Score against the evidence"
-                description="Their score beside what their objectives, peer feedback and past scores suggest. Their manager doesn't see this."
-                action={<StatusBadge status={record.flag.status} />}
-              />
-              <CardBody>
-                <RecordCheck
-                  cycleId={review.cycleId}
-                  flag={record.flag}
-                  claims={record.claims}
-                />
-              </CardBody>
-            </Card>
+          {tabs.length > 1 ? (
+            <Tabs items={tabs} value={active} onChange={setChosen}>
+              {panel}
+            </Tabs>
+          ) : (
+            panel
           )}
-          {/* ---------------------------------------- tickets from connected tools */}
-          <WorkEvidence
-            employeeId={review.subjectId}
-            range={review.cycleId ? { cycleId: review.cycleId } : {}}
-            title="Work from connected tools this period"
-          />
-
-          {/* ------------------------------------------- finished on the project boards */}
-          {/* Read-only evidence beside the answers, for the self review and the
-              manager's. Peer feedback is an aggregate nobody signs, so it has none. */}
-          <WorkBehindTheMark
-            reviewId={review.id}
-            kind={review.kind}
-            final={review.finalised}
-            disputed={review.disputed}
-            subjectId={review.subjectId}
-            cycleId={review.cycleId}
-            periodStart={review.periodStart}
-            periodEnd={review.periodEnd}
-            subjectName={review.subjectName}
-            own={isSubject}
-          />
-
-          {/* ------------------------------------------------------------- the form */}
-          <ReviewFormCard
-            review={review}
-            selfReview={selfReview}
-            selfLoading={selfLoading}
-            ratingWords={ratingWords}
-          />
         </div>
       </PageBody>
 
@@ -640,235 +490,200 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * What the composite mark is made of, component by component.
+ * The Rating tab: one card with no heading.
  *
- * This panel is the answer to "why is my score what it is", which is the
- * question the whole module exists to be able to answer. Three rules it keeps:
+ * The rating large, in the company's words with its figure out of 5; one small
+ * line under it saying who wrote it and when each thing happened (`recordLine`);
+ * what the person said when they acknowledged it, if they said anything; what HR
+ * recommended as it was made final, as text and nothing else; and what the score
+ * is made of (`ScoreParts`).
  *
- * - **An excluded component is shown, with its reason, and never as a zero.**
- *   "Rated 0 on leadership" and "manages nobody, so not rated" are different
- *   claims and the API sends the reason for exactly this.
- * - **The weight it actually carried is shown beside the weight the company
- *   set**, because when a component drops out the rest are renormalised and a
- *   reader comparing 25% to a mark computed over 33% cannot check the sum.
- * - **The appraisers' own overall mark is shown apart from the score, and the
- *   sentence beside it says whether the score counts it.** It does only where a
- *   period weights the Manager appraisal part, which is a company's choice to
- *   count one judgement twice (once here, once in the levels recorded under
- *   Competency ratings) and not a default. The sentence is read off the part
- *   (`appraiserMarkHint`), never assumed.
+ * Every fact is said once. The card used to have a title and a description, three
+ * stat tiles, a badge for each of Sent, Final and Acknowledged, "Made final on
+ * 5 Sep" and a sentence under the button. What the appraiser's share of the score
+ * is, and the rules about the breakdown, are tooltips.
+ *
+ * **HR's recommendation** travels with the rating, and the person reads it with
+ * their rating, so it is here and not behind a tab only HR can open. It is absent
+ * when there is none: a card saying HR recommended nothing would be a claim about
+ * a choice nobody made.
  */
-function ScorePanel({
+function RatingCard({
+  review,
+  isSubject,
+  headline,
+  rated,
   score,
-  loading,
-  message,
-  overallMark,
 }: {
-  score: ApiEmployeeScore | null;
-  loading: boolean;
-  message: string | undefined;
-  /** The company's setting, from the review. See `showsOverallMark`. */
-  overallMark: boolean | undefined;
+  review: ApiReviewDetail;
+  isSubject: boolean;
+  /** The rating, in words, or null where there is none to say. */
+  headline: string | null;
+  /** The author's own overall rating, when the headline is the score of record. */
+  rated: string | null;
+  /** What the score is made of, for a manager review the reader may see it for. */
+  score: {
+    score: ApiEmployeeScore | null;
+    loading: boolean;
+    message: string | undefined;
+    showTotal: boolean;
+  } | null;
 }) {
-  const projects = useProjectsGate();
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader title="What the score is made of" />
-        <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-          <Spinner size="sm" />
-          Loading the score
-        </CardBody>
-      </Card>
-    );
-  }
-
-  if (!score) {
-    return (
-      <Card>
-        <CardHeader title="What the score is made of" />
-        <CardBody>
-          {/* The API's own sentence, whatever it is — including "your rating is
-              not final yet", which is a refusal with a reason rather than an
-              error. Rendering a blank panel here would look like a score of
-              nothing. */}
-          <p className="text-body-sm leading-relaxed text-body">
-            {message ?? "There is no score for this period yet."}
-          </p>
-        </CardBody>
-      </Card>
-    );
-  }
+  const line = recordLine(review, { rated });
+  const strip = review.appraiser
+    ? [
+        review.appraiser.note,
+        appraiserStripLine({
+          appraiser: review.appraiser,
+          mine: review.mine,
+          asksMark: review.overallMark === true,
+        }),
+      ]
+    : [];
 
   return (
     <Card>
-      <CardHeader title="What the score is made of" />
       <CardBody className="flex flex-col gap-5">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Stat
-            label="Overall score"
-            /* An em dash, not a sentence — the reason lives in `hint`
-               already, and a dash reads as the same kind of thing as the
-               percentage it stands in for. */
-            value={
-              score.scoreBp === null ? (
-                <span className="text-faint">—</span>
-              ) : (
-                scoreWords(score)
-              )
-            }
-            hint={
-              score.scoreBp === null
-                ? "Nothing recorded yet, so there is no score"
-                : "Built from the parts that have something recorded"
-            }
-          />
-          {/* Only where the company asks for an overall mark, or an appraiser
-              already gave one. Otherwise this is a dash under a heading about
-              a figure nobody can enter. */}
-          {showsOverallMark({
-            rating: score.appraiserMark.ratingBp,
-            overallMark,
-          }) && (
-            <Stat
-              /* Out of 5 with one decimal (U88): a weighted average across
-               several appraisers does not land on a whole level, and the
-               decimal keeps what rounding to one would throw away. */
-              label="Appraisers' overall rating"
-              value={
-                score.appraiserMark.ratingBp === null ? (
-                  <span className="text-faint">—</span>
-                ) : (
-                  /* rating-scale-prose: an average of appraisers' ratings has no word (U88). */
-                  `${outOf5Label(outOf5FromBp(score.appraiserMark.ratingBp))} out of 5`
-                )
-              }
-              hint={appraiserMarkHint(score.appraiserMark, score.components)}
-            />
-          )}
-          <Stat
-            label="Objectives agreed"
-            value={String(score.objectives.agreed)}
-            hint={
-              score.objectives.awaitingApproval > 0
-                ? `${score.objectives.awaitingApproval} still waiting to be agreed`
-                : score.objectives.agreed === 0
-                  ? "None agreed for this period"
-                  : `${score.objectives.measured} of them measured`
-            }
-          />
-        </div>
-
-        {/* Why the parts that count are counting for more than was set, said
-            once and naming what was left out. On each part it was the same
-            sentence four times. */}
-        {leftOutNote(leftOutLabels(score.components)) && (
-          <p className="text-body-sm text-body">
-            {leftOutNote(leftOutLabels(score.components))}
-          </p>
-        )}
-
-        <ul className="flex flex-col gap-3">
-          {visibleComponents(score.components, {
-            projects: projects.enabled,
-          }).map((component) => (
-            <ComponentRow key={component.component} component={component} />
-          ))}
-        </ul>
-
-        {score.unmappedRatings > 0 && (
-          <p className="text-body-sm text-muted">
-            {score.unmappedRatings === 1
-              ? "1 rating belongs to a category that no part of the score uses, so it is not in the score."
-              : `${score.unmappedRatings} ratings belong to categories that no part of the score uses, so they are not in the score.`}
-          </p>
-        )}
-
-        {score.exceptions.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {score.exceptions.map((issue) => (
-              <p
-                key={issue.code}
-                className={
-                  issue.severity === "BLOCKER"
-                    ? "text-body-sm text-danger-text"
-                    : "text-body-sm text-muted"
-                }
-              >
-                {issue.message}
+        {(headline || line || strip.some(Boolean)) && (
+          <div className="flex flex-col gap-1.5">
+            {headline && (
+              <p className="tabular text-h3 font-semibold text-ink">
+                {headline}
               </p>
-            ))}
+            )}
+            {(line || strip.some(Boolean)) && (
+              <p className="flex flex-wrap items-center gap-x-2 text-body-sm text-muted">
+                {line}
+                <AttentionMark
+                  tone="info"
+                  text={strip}
+                  label="About this appraiser"
+                />
+              </p>
+            )}
           </div>
         )}
 
-        {/* Two paragraphs about how the product computes, on the screen where
-            somebody reads what was decided about them. Both are true and worth
-            keeping — one is the difference between a mark that can be moved
-            later and one that cannot — and neither is what the reader came for.
-            `PARITY.md` Rule 5: reference-shaped detail goes behind a reveal,
-            and what needs acting on stays open. Nothing here needs acting on;
-            the exceptions above do, and they are outside it. */}
-        {score.weightsFrom !== "snapshot" && (
-          <Disclosure
-            level={4}
-            dense
-            title="How this score is put together"
-            hint="The weights used."
-          >
-            <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
-              <p>
-                {score.weightsFrom === "period"
-                  ? weightsFromNote("period")
-                  : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this score, even though it has already been given."}
-              </p>
-            </div>
-          </Disclosure>
+        {/* What the person said as they acknowledged it. It is theirs by being
+            under their rating, so nothing here needs to say "you". */}
+        {review.employeeComment && (
+          <section aria-label={isSubject ? "Your comment" : "Their comment"}>
+            <p className="border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed whitespace-pre-line text-ink">
+              {review.employeeComment}
+            </p>
+          </section>
         )}
+
+        {review.kind === "MANAGER" && review.hrRecommendation && (
+          <section aria-label="HR's recommendation">
+            <p className="text-body-sm leading-relaxed whitespace-pre-line text-ink">
+              {review.hrRecommendation}
+            </p>
+          </section>
+        )}
+
+        {score && <RatingParts {...score} />}
       </CardBody>
     </Card>
   );
 }
 
-/** One component: what it scored, what it was worth, and why if it was left out. */
-function ComponentRow({ component }: { component: ApiComponentScore }) {
-  const setAt = setAtNote(component);
+/**
+ * What the score is made of, on the record: the one list (`ScoreParts`) and, in
+ * its one tooltip, the sentences that used to be a paragraph above it, a note
+ * under each part, a line about ratings no part uses and a reveal below.
+ *
+ * Absent where there is nothing to say: no card saying there is no score. A
+ * refusal ("your rating is not final yet") is a state the status badge already
+ * names. A read that failed is a plain muted line, since that is the one thing
+ * here somebody may need to know went wrong.
+ */
+function RatingParts({
+  score,
+  loading,
+  message,
+  showTotal,
+}: {
+  score: ApiEmployeeScore | null;
+  loading: boolean;
+  message: string | undefined;
+  /** Before there is a rating of record, the score the parts add up to is the figure to read. */
+  showTotal: boolean;
+}) {
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 text-body-sm text-muted">
+        <Spinner size="sm" />
+        Loading the score
+      </p>
+    );
+  }
+  if (!score) {
+    return message ? (
+      <p className="text-body-sm text-muted">{message}</p>
+    ) : null;
+  }
+
   return (
-    <li className="rounded-md border border-line p-3.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-body-sm font-medium text-ink">
-          {component.label}
-        </span>
-        <span className="tabular flex flex-wrap items-center gap-2 text-body-sm">
-          {/* Absent is absent. A component with nothing recorded prints the
-              words, never a 0% that reads as a mark somebody was given. */}
-          {component.scoreBp === null ? (
-            <span className="text-muted">Nothing recorded</span>
-          ) : (
-            <span className="text-ink">{scoreLabel(component.scoreBp)}</span>
-          )}
-          <Badge tone={component.included ? "accent" : "neutral"} size="sm">
-            {component.included
-              ? `counts for ${weightLabel(component.effectiveWeightBp)}`
-              : "not counted"}
-          </Badge>
-        </span>
-      </div>
+    <ScoreParts
+      components={score.components}
+      {...(showTotal && score.scoreBp !== null
+        ? {
+            total: {
+              scoreBp: score.scoreBp,
+              /* The headline's own words: the band and the figure where the API
+                 sent a band, the figure out of 5 where it did not. */
+              words: score.bandLabel
+                ? (scoreWords(score) ?? "")
+                : partScoreWords(score.scoreBp),
+            },
+          }
+        : {})}
+      notes={[
+        score.weightsFrom === "period"
+          ? weightsFromNote("period")
+          : score.weightsFrom === "current"
+            ? "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this score, even though it has already been given."
+            : null,
+        score.unmappedRatings === 1
+          ? "1 rating belongs to a category that no part of the score uses, so it is not in the score."
+          : score.unmappedRatings > 1
+            ? `${String(score.unmappedRatings)} ratings belong to categories that no part of the score uses, so they are not in the score.`
+            : null,
+        ...score.exceptions.map((issue) => issue.message),
+      ]}
+    />
+  );
+}
 
-      {/* Three cases, each saying only what is specific to the row. A part left
-          out says why, in the API's words, because that is different every
-          time. A part counting for something other than the company set says
-          what was set, since the badge beside it has the other figure; why it
-          moved is said once above the list. A part counting for exactly what was
-          set says nothing, because the badge already did. */}
-      {component.excludedNote ? (
-        <p className="mt-1.5 text-body-sm text-body">
-          {component.excludedNote}
-        </p>
-      ) : setAt ? (
-        <p className="mt-1.5 text-body-sm text-body">{setAt}</p>
-      ) : null}
-
-      <p className="mt-1 text-meta text-muted">{evidenceLine(component)}</p>
-    </li>
+/**
+ * The Work tab: the two work components, as they are.
+ *
+ * Connected tools' tickets, and what was finished on the project boards (the
+ * kept record where the rating is final and one was kept, the live list
+ * otherwise). Kept as one small block so that what they say inside can change
+ * without this screen changing.
+ */
+function WorkTab({ review, own }: { review: ApiReviewDetail; own: boolean }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <WorkEvidence
+        employeeId={review.subjectId}
+        range={review.cycleId ? { cycleId: review.cycleId } : {}}
+        title="Work from connected tools this period"
+      />
+      <WorkBehindTheMark
+        reviewId={review.id}
+        kind={review.kind}
+        final={review.finalised}
+        disputed={review.disputed}
+        subjectId={review.subjectId}
+        cycleId={review.cycleId}
+        periodStart={review.periodStart}
+        periodEnd={review.periodEnd}
+        subjectName={review.subjectName}
+        own={own}
+      />
+    </div>
   );
 }

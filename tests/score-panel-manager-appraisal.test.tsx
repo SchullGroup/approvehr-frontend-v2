@@ -1,4 +1,5 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ApiEmployeeScore,
@@ -13,9 +14,13 @@ import { ReviewScreen } from "@/app/(app)/performance/reviews/[id]/review-screen
  * It was reference only, always, and the sentence beside the figure said so. It is
  * scored where a period weights the Manager appraisal part, and then "does not
  * count towards the score" beside a part that says "counts for 30%" would be two
- * mutually exclusive claims on one screen. So the sentence is read off the part,
- * on the record page and on the history page alike, and a server that sends no
- * such part keeps the words it always had, which were true of it.
+ * mutually exclusive claims on one screen.
+ *
+ * It is a row of the list of parts where the part carries a weight and a score,
+ * and nowhere else on the page: the stat tile that said "for reference" or "it is
+ * what Manager appraisal is scored from" is gone, and with it a claim that could
+ * disagree with the list. What the appraiser's share is worth is one tooltip
+ * beside who wrote it.
  */
 
 const state = vi.hoisted(() => ({
@@ -199,63 +204,43 @@ describe("the record page's appraisers' overall rating", () => {
     render(<ReviewScreen reviewId="r-1" />);
   };
 
-  it("says it is for reference where the part is at 0%, as it always did", () => {
+  it("is not a stat tile any more, and says nothing is for reference", () => {
     mount([objectives, managerPart(0)]);
-    expect(
-      screen.getByText("For reference. It does not count towards the score."),
-    ).toBeInTheDocument();
-  });
-
-  it("says it is for reference, in those same words, from a server that sends no such part", () => {
-    mount([objectives]);
-    expect(
-      screen.getByText("For reference. It does not count towards the score."),
-    ).toBeInTheDocument();
-  });
-
-  it("points at the part where it is scored, and never says it is for reference", () => {
-    mount([objectives, managerPart(3000)]);
-    expect(
-      screen.getByText("It is what Manager appraisal is scored from."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Appraisers' overall rating")).toBeNull();
     expect(screen.queryByText(/for reference/i)).toBeNull();
     expect(screen.queryByText(/does not count/i)).toBeNull();
+    expect(screen.queryByText(/is scored from/i)).toBeNull();
   });
 
-  it("says how much of the weight is in across several appraisers, and still points at the part", () => {
-    mount([objectives, managerPart(3000)], mark(3, 6667));
-    expect(
-      screen.getByText(
-        "66.67% of the weight is in, across 3 appraisers. It is what Manager appraisal is scored from.",
-      ),
-    ).toBeInTheDocument();
+  it("says the same from a server that sends no such part", () => {
+    mount([objectives]);
+    expect(screen.queryByText(/for reference/i)).toBeNull();
+    expect(screen.queryByText(/is scored from/i)).toBeNull();
   });
 
-  it("follows the company's own name for the part", () => {
-    mount([objectives, part("MANAGER_APPRAISAL", "Line view", 3000)]);
-    expect(
-      screen.getByText("It is what Line view is scored from."),
-    ).toBeInTheDocument();
-  });
-
-  it("lists the part among what the score is made of only where it carries a weight", () => {
+  it("is listed among what the score is made of only where it carries a weight", () => {
     mount([objectives, managerPart(0)]);
-    expect(
-      screen.queryByText("Manager appraisal", { selector: "span" }),
-    ).toBeNull();
+    expect(screen.queryByText("Manager appraisal")).toBeNull();
     cleanup();
     mount([objectives, managerPart(3000)]);
     const list = screen.getByText("Delivery against objectives").closest("ul");
     expect(list).not.toBeNull();
-    expect(
-      within(list as HTMLElement).getByText("Manager appraisal"),
-    ).toBeInTheDocument();
-    expect(
-      within(list as HTMLElement).getByText("Based on 1 overall rating"),
-    ).toBeInTheDocument();
+    const row = within(list as HTMLElement)
+      .getByText("Manager appraisal")
+      .closest("li") as HTMLElement;
+    expect(row).toHaveTextContent("4.0 out of 5");
+    expect(row).toHaveTextContent("30% weight");
+    /* The evidence line under it is not drawn. */
+    expect(screen.queryByText("Based on 1 overall rating")).toBeNull();
   });
 
-  it("says in the API's words why a weighted part counted for nobody yet, never as a nought", () => {
+  it("follows the company's own name for the part", () => {
+    mount([objectives, part("MANAGER_APPRAISAL", "Line view", 3000)]);
+    expect(screen.getByText("Line view")).toBeInTheDocument();
+    expect(screen.queryByText("Manager appraisal")).toBeNull();
+  });
+
+  it("says in the API's words why a weighted part counted for nobody yet, in the tooltip, never as a nought", async () => {
     mount([
       objectives,
       managerPart(3000, {
@@ -267,50 +252,70 @@ describe("the record page's appraisers' overall rating", () => {
         evidenceCount: 0,
       }),
     ]);
+    /* Not on the page, and not as a row: nothing was recorded. */
+    expect(screen.queryByText("Nothing recorded")).toBeNull();
     expect(
-      screen.getByText("No appraiser has sent an overall rating yet."),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Nothing recorded")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Manager appraisal was left out, so the other parts share its weight and count for more than the company set.",
-      ),
-    ).toBeInTheDocument();
+      screen.queryByText("No appraiser has sent an overall rating yet."),
+    ).toBeNull();
+    expect(screen.queryByText("Manager appraisal")).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "About this score" }),
+    );
+    const said = screen.getByText(/Manager appraisal was left out/)
+      .textContent as string;
+    expect(said).toContain(
+      "Manager appraisal was left out, so the other parts share its weight and count for more than the company set.",
+    );
+    expect(said).toContain(
+      "Manager appraisal: No appraiser has sent an overall rating yet.",
+    );
   });
 });
 
-describe("the strip above the record", () => {
-  const appraiser = (markShareBp?: number) => ({
+describe("the line above the record, about the appraiser", () => {
+  const appraiser = (markShareBp?: number, over: object = {}) => ({
     role: "LINE_MANAGER",
     roleLabel: "Line manager",
     weightBp: 10000,
     note: null,
     appraiserCount: 1,
     ...(markShareBp === undefined ? {} : { markShareBp }),
+    ...over,
   });
   const mount = (over: Record<string, unknown>) => {
     state.review = { ...(review() as object), ...over };
     state.score = scoreWith([objectives, managerPart(0)]);
     render(<ReviewScreen reviewId="r-1" />);
   };
+  const said = async () => {
+    await userEvent.click(
+      screen.getByRole("button", { name: "About this appraiser" }),
+    );
+    return document.body.textContent as string;
+  };
 
-  it("says what the overall rating is worth, from the period's share", () => {
+  it("says what the overall rating is worth, from the period's share, in one tooltip", async () => {
     mount({ appraiser: appraiser(3000) });
     expect(
-      screen.getByText("This overall rating counts for 30% of the score."),
-    ).toBeInTheDocument();
+      screen.queryByText("This overall rating counts for 30% of the score."),
+    ).toBeNull();
+    expect(await said()).toContain(
+      "This overall rating counts for 30% of the score.",
+    );
   });
 
-  it("says it does not count where the form asks for a score and the period does not weight the part", () => {
+  it("says it does not count where the form asks for a score and the period does not weight the part", async () => {
     mount({ overallMark: true, appraiser: appraiser(0) });
-    expect(
-      screen.getByText("This overall rating does not count towards the score."),
-    ).toBeInTheDocument();
+    expect(await said()).toContain(
+      "This overall rating does not count towards the score.",
+    );
   });
 
-  it("says nothing about the score where the form does not ask for one", () => {
+  it("says nothing about the score where the form does not ask for one, and draws no tooltip", () => {
     mount({ overallMark: false, appraiser: appraiser(0) });
-    expect(screen.getByText("Line manager")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "About this appraiser" }),
+    ).toBeNull();
     expect(
       screen.queryByText(
         "This overall rating does not count towards the score.",
@@ -320,8 +325,20 @@ describe("the strip above the record", () => {
 
   it("makes no claim from a server that does not say, and never says the review counts", () => {
     mount({ appraiser: appraiser() });
-    expect(screen.getByText("Line manager")).toBeInTheDocument();
     expect(screen.queryByText(/This overall rating/)).toBeNull();
     expect(screen.queryByText(/review counts/i)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "About this appraiser" }),
+    ).toBeNull();
+  });
+
+  it("names the appraiser's role beside their name only when there are several", () => {
+    mount({ appraiser: appraiser(undefined, { appraiserCount: 2 }) });
+    expect(
+      screen.getByText(/Chidinma Ipoola \(Line manager\)/),
+    ).toBeInTheDocument();
+    cleanup();
+    mount({ appraiser: appraiser(undefined, { appraiserCount: 1 }) });
+    expect(screen.queryByText(/Line manager/)).toBeNull();
   });
 });

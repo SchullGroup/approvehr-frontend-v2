@@ -106,11 +106,19 @@ export const partScoreWords = (scoreBp: number): string =>
 export function ScoreParts({
   components,
   notes,
+  total,
   className,
 }: {
   components: readonly ApiComponentScore[];
   /** Other sentences about this score (frozen weights, what was not counted), for the one tooltip. */
   notes?: readonly (string | null | false)[];
+  /**
+   * The score the parts add up to, as the first row of the list, for a place
+   * with no headline above it saying so. The record of an appraisal passes it
+   * before there is a rating of record; once there is, the headline is the same
+   * figure and this is left out.
+   */
+  total?: { scoreBp: number; words: string };
   className?: string;
 }) {
   const projects = useProjectsGate();
@@ -123,6 +131,19 @@ export function ScoreParts({
   return (
     <div className={cn("flex items-start gap-3", className)}>
       <ul className="flex min-w-0 flex-1 flex-col gap-4">
+        {total && (
+          <li className="border-b border-line pb-4">
+            <ProgressMeter
+              size="sm"
+              label="Score"
+              value={total.scoreBp}
+              max={10000}
+              valueLabel={
+                <span className="font-semibold text-ink">{total.words}</span>
+              }
+            />
+          </li>
+        )}
         {rows.map((row) => (
           <li key={row.component}>
             <ProgressMeter
