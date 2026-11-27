@@ -18,33 +18,33 @@ const mount = () =>
   );
 
 describe("the manager's team list (mock-up)", () => {
-  it("shows overall progress and a row per person with a bar", () => {
+  it("shows overall progress and the people grouped by department, with a bar only on the one in progress", () => {
     mount();
     expect(screen.getByText("2 of 6 people done")).toBeVisible();
-    expect(screen.getAllByRole("progressbar").length).toBeGreaterThan(6);
+    for (const department of ["Sales", "Finance", "Operations"]) {
+      expect(screen.getByRole("heading", { name: department })).toBeVisible();
+    }
+    /* The overall bar, and Team member C's. */
+    expect(screen.getAllByRole("progressbar")).toHaveLength(2);
   });
 
-  it("locks a row until the self review is sent, says why and offers a Nudge", async () => {
+  it("locks a row until the self review is sent, says why and offers a Remind that goes once used", async () => {
     mount();
     const row = screen.getByText("Team member E").closest("li") as HTMLElement;
-    expect(
-      within(row).getByText(/Waiting for their self review/),
-    ).toBeVisible();
+    expect(within(row).getByText("Waiting on their self review")).toBeVisible();
     expect(within(row).queryByRole("button", { name: "Start" })).toBeNull();
-    await userEvent.click(within(row).getByRole("button", { name: "Nudge" }));
-    expect(
-      within(row).getByRole("button", { name: "Reminded today" }),
-    ).toBeDisabled();
+    await userEvent.click(within(row).getByRole("button", { name: "Remind" }));
+    await vi.waitFor(() =>
+      expect(within(row).queryByRole("button", { name: "Remind" })).toBeNull(),
+    );
+    expect(within(row).queryByRole("button")).toBeNull();
   });
 
-  it("filters by status", async () => {
+  it("has no filter: a manager's own team is a short list", () => {
     mount();
-    await userEvent.click(screen.getByRole("button", { name: /^Filters/ }));
-    await userEvent.selectOptions(
-      screen.getByLabelText("Status"),
-      "Waiting for their self review",
-    );
-    expect(screen.queryByText("Team member A")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Filters/ })).toBeNull();
+    expect(screen.queryByLabelText("Status")).toBeNull();
+    expect(screen.getByText("Team member A")).toBeVisible();
     expect(screen.getByText("Team member E")).toBeVisible();
   });
 
