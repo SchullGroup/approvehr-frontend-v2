@@ -48,6 +48,7 @@ const intro = (over: Partial<ApiReviewDetail> = {}) =>
       resumed={false}
       answered={0}
       onShowWork={null}
+      kept={["your recommendations"]}
     />,
   );
 

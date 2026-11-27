@@ -182,7 +182,15 @@ describe("whether a subsection question has been answered", () => {
         ordinary({ id: "c" }),
       ],
     };
-    expect(startIndex(review, { mark: "", summary: "", step: 0 })).toBe(2);
+    expect(
+      startIndex(review, {
+        mark: "",
+        summary: "",
+        step: 0,
+        potential: "",
+        potentialReason: "",
+      }),
+    ).toBe(2);
   });
 });
 

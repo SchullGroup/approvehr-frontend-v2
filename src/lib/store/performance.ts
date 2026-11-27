@@ -3231,6 +3231,8 @@ export function useCycleMutations() {
           periodEnd?: string | null;
           instructions?: string | null;
           guideUrl?: string | null;
+          /** When answers are due, `YYYY-MM-DD`, or `null` to clear it. */
+          dueDate?: string | null;
           /** The whole set, or `null` for the weights in Settings. */
           weights?: WeightSet | null;
         },

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { YourAppraisal } from "@/components/performance/your-appraisal";
 import { LoadState } from "@/components/ui";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { useAppraisals, useScoringWeights } from "@/lib/store/performance";
@@ -35,7 +36,14 @@ export function PerformanceScreen() {
       <PageHeader title="Performance" action={<StartPeriodButton withIcon />} />
       <PageBody>
         {canManage ? (
-          <AppraisalHome />
+          /* An administrator is also somebody's employee, and has a form of
+             their own like everybody else. It sits under the period cards and
+             not above them: it draws only once the progress has been read, and
+             arriving above what is already on screen would push it down. */
+          <div className="flex flex-col gap-6">
+            <AppraisalHome />
+            <YourAppraisal />
+          </div>
         ) : canSeeCompany ? (
           <div className="flex flex-col gap-6">
             <PeriodsTab />

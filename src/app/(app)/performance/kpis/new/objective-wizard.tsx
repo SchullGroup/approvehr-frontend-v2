@@ -45,6 +45,7 @@ import {
   periodsTakingObjectives,
   stepProblems,
   targetChangesOf,
+  withoutOwnLine,
   type ObjectiveDraft,
   type ObjectiveLevel,
   type ObjectiveStep,
@@ -53,6 +54,11 @@ import {
   type TargetEdit,
 } from "@/lib/performance/objective-wizard";
 import { agreesLine, sentLine } from "@/lib/performance/objective-wizard";
+import {
+  DeclineByline,
+  EarlierDeclines,
+} from "@/components/performance/decline-trail";
+import { declineEntries } from "@/lib/performance/declines";
 import {
   approvalWords,
   whoseWords as goalWhose,
@@ -198,12 +204,12 @@ export function ObjectiveWizard({
   const visible = useKpis(scope);
   const parents = useMemo(
     () =>
-      visible.goals
+      withoutOwnLine(visible.goals, edit)
         .filter(
           (goal) => goal.status !== "DONE" && goal.approval !== "REJECTED",
         )
         .sort((a, b) => a.title.localeCompare(b.title)),
-    [visible.goals],
+    [visible.goals, edit],
   );
 
   /* ------------------------------------------------------------ the answers */
@@ -774,6 +780,7 @@ export function ObjectiveWizard({
     goal?.approval === "NEEDS_REVISION" && goal.approvalNote
       ? goal.approvalNote
       : null;
+  const latestDecline = goal ? declineEntries(goal)[0] : undefined;
 
   return (
     <WizardShell
@@ -865,9 +872,15 @@ export function ObjectiveWizard({
       {feedback && (
         <div className="border-l-2 border-line-strong pl-3 text-body-sm">
           <p className="text-meta text-muted">Feedback when it was declined</p>
+          {latestDecline && <DeclineByline entry={latestDecline} />}
           <p className="mt-0.5 whitespace-pre-line leading-relaxed text-body">
             {feedback}
           </p>
+          {goal && (
+            <div className="mt-2">
+              <EarlierDeclines goal={goal} />
+            </div>
+          )}
         </div>
       )}
 

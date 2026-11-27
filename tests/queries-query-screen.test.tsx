@@ -13,8 +13,8 @@ import { can, detail, SUBJECT_LINE, WHAT_HAPPENED } from "./queries-fixtures";
  * before the button**, and a sent reply is read back frozen with no box; receipt is a button that
  * says it is not agreement; the issuer is not offered the outcome form unless the server says so,
  * and is told the rule in words instead; a server that sends no `can` offers nothing; silence is
- * never described with an accusing word; a person served on paper reads "Nobody was told in the
- * product"; and only staff get the printed letter.
+ * never described with an accusing word; a person served on paper reads "Nobody was told in
+ * ApproveHR"; and only staff get the printed letter.
  */
 
 let employeeId: string | null = "e-1";
@@ -447,7 +447,7 @@ describe("somebody who works queries", () => {
     ).toBeInTheDocument();
   });
 
-  it("says nobody was told in the product for a letter served in person", () => {
+  it("says nobody was told in ApproveHR for a letter served in person", () => {
     mount(
       detail({
         issuedById: "u-other",
@@ -460,11 +460,11 @@ describe("somebody who works queries", () => {
       }),
     );
     expect(
-      screen.getAllByText("Nobody was told in the product.").length,
+      screen.getAllByText("Nobody was told in ApproveHR.").length,
     ).toBeGreaterThan(0);
   });
 
-  it("says it plainly when it was marked as served in the product and nobody was", () => {
+  it("says it plainly when it was marked as served in ApproveHR and nobody was", () => {
     mount(
       detail({
         issuedById: "u-other",
@@ -472,14 +472,14 @@ describe("somebody who works queries", () => {
       }),
     );
     expect(
-      screen.getAllByText("Nobody was told in the product.").length,
+      screen.getAllByText("Nobody was told in ApproveHR.").length,
     ).toBeGreaterThan(0);
   });
 
-  it("shows no 'nobody was told' for a letter served in the product to somebody who was told", () => {
+  it("shows no 'nobody was told' for a letter served in ApproveHR to somebody who was told", () => {
     mount(detail({ issuedById: "u-other" }));
     expect(
-      screen.queryByText("Nobody was told in the product."),
+      screen.queryByText("Nobody was told in ApproveHR."),
     ).not.toBeInTheDocument();
   });
 
@@ -522,7 +522,7 @@ describe("a draft", () => {
     expect(actions.issue).not.toHaveBeenCalled();
   });
 
-  it("says nobody can be told in the product for a person with no sign-in", () => {
+  it("says nobody can be told in ApproveHR for a person with no sign-in", () => {
     employeeId = "e-9";
     held = new Set(["ISSUE_QUERIES"]);
     mount(
@@ -539,7 +539,7 @@ describe("a draft", () => {
     );
     expect(
       screen.getByText(
-        /This person has no sign-in, so nobody can be told in the product/,
+        /This person has no sign-in, so nobody can be told in ApproveHR/,
       ),
     ).toBeInTheDocument();
   });

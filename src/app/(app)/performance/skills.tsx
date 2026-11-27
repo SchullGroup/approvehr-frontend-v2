@@ -32,6 +32,11 @@ import { DepartmentCard } from "@/components/ui/department-card";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
+import { useCan } from "@/lib/permissions";
+import {
+  NO_FRAMEWORK_TITLE,
+  noFrameworkWords,
+} from "@/lib/performance/framework-empty";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { RecordLevelDialog } from "./rating-dialog";
 import { SKILLS_TABS, type SkillsTabId } from "./skills/tabs";
@@ -83,6 +88,7 @@ export function SkillsTab({
 }) {
   const { isConnected, employeeId, actingId } = useSession();
   const me = isConnected ? employeeId : actingId;
+  const canEditFramework = useCan("MANAGE_SETTINGS");
 
   const mine = useSkills(me);
   const gaps = useGaps(canSeeCompany || isManager);
@@ -144,8 +150,8 @@ export function SkillsTab({
             <EmptyState
               compact
               icon={<GraduationCap aria-hidden="true" />}
-              title="No framework yet"
-              description="Finish setup and the four standard parts are created for you."
+              title={NO_FRAMEWORK_TITLE}
+              description={noFrameworkWords(canEditFramework)}
             />
           ) : (
             <div className="flex flex-col gap-8">

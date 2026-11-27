@@ -14174,6 +14174,232 @@ back to the first tab like any unknown tab. If the page has one tab, the strip i
 - The design rule worth keeping if it returns: every cell printed its average as text, with the tint only a second
   channel, and a cell with people below target carried an icon and a spoken count.
 
+# "Ask everyone to set theirs" goes quietly where the server cannot do it
+
+Found on 25 November 2026, walking the Performance module as a real user. The empty Objectives screen's **Ask everyone to set theirs**
+button called `POST /performance/cycles/:id/notify-objectives`, a route the backend did not have, so it showed "That did not send" with the
+address it had tried. The route is backend branch `fix/ask-objectives-route-20261125`. This is the web half, and it makes the screen safe either
+way round.
+
+- **A 404 or 410 takes the button away and says so once,** in a calm line ("Asking everyone is not available yet"), the way the period's Get-ready
+  list already did. It no longer shows the address. Any other refusal still shows the server's own sentence and keeps the button.
+- **The button is offered only with `MANAGE_SETTINGS`,** the permission the route needs and the one the period's own page uses, so nobody is handed a
+  refusal.
+- **The result line is the shared one** (`askedLine`): it now also says how many have no sign-in and so could not be asked in the app (`noAccount`, new
+  and optional on `ApiNotifyObjectives`), and tells "everyone was asked in the last day" from "nobody new was asked" by the time the server sends
+  (`askedAt` is present only when people were asked in the day). A server that sends neither reads as before.
+- The toast's detail is two lines at most; the first wording was cut off mid-sentence in a screenshot ("...and tell...") and is shorter.
+
+**Verified.** `tests/empty-objectives-guides.test.tsx` (rewritten, 7 tests) and `tests/notify-objectives.test.ts` (7): 14 pass. Seven deliberate breaks, each
+caught (the permission, the 404 handling, the button staying, a bare count, the server's sentence replaced, no-sign-in people, "everyone was asked" said
+when nobody was left); the first run of that driver passed a bad argument and reported seven false catches, which is why it now refuses a run that ran no
+tests. `tsc --noEmit` is clean and ESLint reports no errors on the files touched. In a browser, against a scratch API running the route (10 of 10 checks):
+the button for the administrator and not the employee, "Asked 9 people.", "Everyone was asked in the last day." on a second press, the button going with a
+calm line when the route is made to answer 404, and the line in the employee's notifications.
+
+**Not exercised:** a deployed server, iOS Safari or any real device, demo mode, the whole vitest suite in one run, `npm run check` in full (the gates that need
+a sibling backend were not run).
+
+# The Performance walkthrough of 25 November: 47 findings, seven clusters, one branch
+
+A tester walked the whole Performance module as a real user on 25 November 2026 and wrote 49 findings (F1 to F49, with
+screenshots, in the author's `out/performance-test-2026-11-25/FINDINGS.md`, which is not in the repository). Forty-seven are
+fixed here, in seven clusters on one branch per repository (`fix/performance-walkthrough-20261125`, web and backend), one
+commit per cluster. The two that are not in the clusters are F10 (a button that answered 404) and F43 (a score), below. The
+backend half goes first: every web change reads a missing field as "the server did not say" and falls back to what it said
+before.
+
+## What each cluster did
+
+1. **F42, one rating, one name.** A manager's overall rating is one appraiser's mark; the rating a person is told is the
+   period's score of record. Four surfaces still called the appraiser's mark "the rating". `GET /reviews/mine`'s `aboutMe` rows
+   now carry `outcome` (the same value `GET /reviews/:id` sends), and `ratingToRead` decides the one line a person reads for a
+   final review. With no score to quote the screens name no figure.
+2. **The weights (F2, F3, F4, F5, F6, F44), web only.** The wizard read the company's weights in a component that rendered
+   before they arrived, so it always started from the defaults, and the mocked-hook test could not see it because a mock answers
+   before the first render. The wrapper now reads them once and holds the last complete answer while a save reloads them. A
+   save is one `PUT /scoring-weights` of the whole set, which the server accepts or refuses whole (it used to add and change
+   parts one at a time, which could leave a company at 84%). Tasks done is disabled while Projects is off, with the reason on the
+   page. The "How a score is made" list is the parts the period's own weights counted.
+3. **Stale "weekly" wording (F18, F45).** The objectives upload no longer ends "weekly tasks can only be logged against an
+   agreed objective". "Your period, as recorded" draws a tasks section only when something was logged in the period.
+4. **Saved in the browser only (F30, F39).** The potential page showed `1`, `2`, `3` but the form's key handler did not know
+   it, so pressing 1 picked nothing and the send body was `{}`; it was never the API. "Your answers save as you go" was true only
+   of the questions: the overall rating, how far they could go and the closing note travel with the send and live in this
+   browser (`draft-storage.ts`). Each page now says which it is. `scripts/verify-demo.ts` allows two exact "Kept in this browser
+   only" sentences, which are true in production.
+5. **Objectives say what they know (F11 to F14, F16, F17, F35).** A declined objective shows who declined it and when and keeps
+   every decline. An unchosen "On track" is not drawn for an objective nothing has been read for or that is not agreed. An
+   objective being edited is not offered as its own parent. A first reading that is not a number is refused on the box.
+6. **A period says where it stands (F7, F8, F9, F19, F21 to F28; backend F24, F25, F31, F36, F40).** Administrators and HR see
+   "Your appraisal" (this reverses a code comment); the card shows the stage and not a percent; the reviews-to-write notice is
+   its own row and whoever starts the period is told; Leadership is not listed for people who lead nobody; a moved score carries
+   both figures; moving a stage asks first.
+7. **The checks and small honesty fixes (F31, F33, F34, F38, F40, F41, F49).** Progress counts answers; the language check
+   catches "and always late", "compared to <Name>" and "compared with his colleagues" and still passes "compared to January"
+   (its known cost: "He was in the meeting and never raised it" is flagged as an absolute); Ask colleagues does not offer the
+   person asking; `WizardShell` uses `useFocusTrap`, which touches every wizard that uses it (setup, objective, questions,
+   nine-box, preview).
+
+## Two things added on top, after the clusters
+
+- **F13, a declined or refused objective takes no reading (backend, with the web half from cluster 5).** The web stopped
+  offering the box and "Mark done"; the API still took the write. `assertTakesReadings` in
+  `modules/performance/service.ts` refuses `NEEDS_REVISION` and `REJECTED` on the five paths that write a reading or finish an
+  objective: recording progress, patching a current value, creating a measure that carries a first reading, confirming a
+  done-or-not-done measure and completing the objective. Editing a target, adding a measure with no reading and taking a
+  confirmation back stay open, because changing what is aimed at is what a declined objective is for. Drafts, objectives waiting
+  to be agreed and resent-and-agreed ones take readings as before. **The rule is narrower than Settings' wording**, which says
+  unapproved objectives "are not read": a person may well be underway before the agreement is made.
+- **F10, "Ask everyone to set theirs".** The web had called `POST /performance/cycles/:id/notify-objectives` since 24 November
+  and the backend had no such route, so the button answered 404 and the toast showed a raw address. The route now exists (one
+  in-app line, in the bell, for each person the period covers who has not put an objective forward; nobody is asked twice in a
+  day; `MANAGE_SETTINGS`; any stage but published), and the web goes quiet where a server cannot do it.
+
+## Decisions not to undo
+
+- **A mocked store hook answers before the first render, and the real one cannot.** A test of a screen that reads a store should
+  use the real hook over a mocked API where the bug is "reads before it arrives" (cluster 2 found one this way).
+- **Part of what the browser keeps is not on the server, and the screens say which part.** Making it follow a person to another
+  device is a decision (below); do not put a draft in `Review.rating` or `Review.summary`, which the backend reads in about eight
+  places.
+- **A score is computed live on every read.** Any change to scoring changes published periods the moment it is deployed.
+
+## Not done, and why (each needs a rule from the owner or is another surface)
+
+F15 (who may agree an objective is described, notified and enforced inconsistently), F20 (the person with no manager is
+"appraised by HR", which is nobody), F29 (a part that is weighted and can never be fed: employees are never asked for an overall
+rating), F37 (colleagues are asked for feedback on a form with no questions), F46 (nowhere on HR's record to record a formal
+dispute; inferred, not traced), F47 (a department head cannot set a department objective), F48 (the HR manager can change the
+company's scoring weights), F36's one-notification-per-rating, F25(b) (the staff message at start is on forms only), F11's
+"Ask everyone" menu item (it waits on F10's route being on the server), F30's server-side draft (a nullable `draft` JSON column
+on `Review`, a route to write it, returned to the author only and cleared on send), and the API's built-in name and description
+of the tasks part, which still say "Weekly tasks" in 98 places across 15 backend files. Changing only the default is unsafe:
+`ensureOwnParts` copies it into a converted company's stored rows. It needs a data-only migration, the label mapping accepting
+the old literal (running periods froze it), a per-source default and the refusal message changed with it; about eight backend
+test files pin the old text. The web's `TASKS_NAME` / `TASKS_WORDS` in `setup-choices.ts` is the stop-gap.
+
+## F43 is a separate pull request, and it is the owner's decision
+
+An agreed objective with no reading keeps a stored progress of 0, and the Delivery part averaged it in as 0%, so a manager
+who rated somebody Exceptional could see them published as "Below Expectations, 2.3". The fix leaves such an objective out of
+the part (the other parts take its share), the rule the product already follows for any part with nothing recorded.
+**Because scores are computed live, deploying it changes how every period already published reads**, including a rating
+somebody was told and acknowledged; the appraiser's own overall rating is stored and does not move. It is its own backend pull
+request for that reason, with the question in its description.
+
+## Verified, and what was not
+
+Per cluster: `tsc --noEmit`, ESLint and Prettier on both repositories; tests written for each change (each rule was broken on
+purpose and a test failed, in clusters 1 to 5 and for F13 and F10; **the deliberate-break run was not done for clusters 6 and
+7**); `npm run check` run with `APPROVEHR_BACKEND_DIR` at the backend branch so the four cross-repo gates compared and did not
+skip. In a real browser against a scratch API on a real Postgres and a production build, as the people concerned: F42, the
+weights (F2 to F6, F44), F45, F39 and F30 (desktop and 375px with touch, each ending in a real send) and F10. The pictures are
+in the author's scratchpad and are not in the repository.
+
+The walkthrough (`docs/walkthroughs/performance.md`) was updated for cluster 4 only (step 17); the wording changes of clusters 5
+and 6 are not in it yet.
+
+**Not exercised:** a browser pass over clusters 5 to 7 together, Safari or a real device, the QA site, demo mode in a browser, a
+company whose weights were saved before the parts existed, and the whole backend suite in one run (CI runs the cheaper
+`check`).
+
+Seen and not changed, not mine: `tests/questions-tab-dead-ends.test.tsx` and `tests/set-up-attendance.test.tsx` fail on plain
+`dev`; `GET /scoring-parts` writes (`ensureOwnParts`) and races, so two first reads at once give a 409; two same-named "Move to
+manager review" buttons on the period page; `signatures-screen` prints `due ${record.dueDate}` raw; `weekly-line.ts` and its test
+are dead code; the company report still has a "weekly tasks" finding.
+
+---
+
+# Queries say "In ApproveHR", not "In the product"
+
+The owner looked at the letter form's field **How it will be served**, whose options read "In the product", "In person" and
+"Outside the product", and asked for plainer English: a company reader does not know what "the product" is, and "outside the
+product" does not say what the other way is. Branch `fix/query-served-wording-20261126` in both repositories, one pull request
+each (frontend into `dev`, backend into `staging`). Either side can merge first.
+
+## What changed
+
+| Where                                           | Was                                                                                    | Is                                                                                                  |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| The three options (`SERVED_HOW_LABEL`)          | In the product / In person / Outside the product                                       | **In ApproveHR** / In person / **By post or email**                                                 |
+| Help under the field, in ApproveHR              | "They are told in the product and can read and answer it there. …"                     | "They are told in ApproveHR and can read and answer it there. …"                                    |
+| Help under the field, in person                 | "… Nobody is told in the product."                                                     | "… Nobody is told in ApproveHR."                                                                    |
+| Help under the field, by post or email          | "Sent some other way, by post or email. Nobody is told in the product."                | "Sent by post, email or any other way outside ApproveHR. Nobody is told in ApproveHR."              |
+| Issue confirmation, letter page, issue toast    | "Nobody is told / was told in the product."                                            | "Nobody is told / was told in ApproveHR."                                                           |
+| Draft, person with no sign-in                   | "… so nobody can be told in the product. …"                                            | "… so nobody can be told in ApproveHR. …"                                                           |
+| Document request toast                          | "Nobody was told in the product. They have no sign-in, …"                              | "Nobody was told in ApproveHR. They have no sign-in, …"                                             |
+| A sent reply                                    | "Sent in the product on <time>." / "Sent in the product."                              | "Sent in ApproveHR on <time>." / "Sent in ApproveHR."                                               |
+| Linked records                                  | "Made in their own part of the product and noted as following this query. …"           | "Made in their own part of ApproveHR and noted as following this query. …"                          |
+| Queries settings                                | "… and the product does not guess."                                                    | "… and ApproveHR does not guess."                                                                   |
+| The printed letter                              | `Served: <label>`, so it follows the table                                             | unchanged code, new words ("Served: By post or email.")                                             |
+| Backend, issuing an incomplete letter (`422`)   | "how it will be served (in the product, in person or outside the product)"             | "how it will be served (in ApproveHR, in person or by post or email)"                               |
+
+**The enum values did not change** (`IN_PRODUCT`, `IN_PERSON`, `OUTSIDE_PRODUCT`, and the fields `toldInProduct` and
+`nobodyToldInProduct`). They are the wire contract; renaming them would be a migration and a contract change for no reader's
+benefit. A comment on `QueryServedHow` says the screens call them something else, and so does the backend repository's
+`docs/backend/queries-stage1-handover.md`.
+
+## Decisions worth not undoing
+
+- **One word for this application: "ApproveHR".** It is the name the company bought and is the same word the sentence "told in
+  ApproveHR" needs. "The product" is how this team talks and is not a word a company reader uses.
+- **"By post or email" for the third way.** The old help sentence already said "by post or email" under a label that said
+  "outside the product", so the label now says what the help always said. The help adds "or any other way" because that choice is
+  what is left once "in ApproveHR" and "in person" are taken out.
+- **The backend's sentence is shown verbatim by the web** (a refusal is the server's own sentence), so the two had to change
+  together. Against a backend from before this change, that one refusal still says "in the product"; nothing else depends on it.
+  Either side can merge first.
+- **A test stops the word coming back.** `tests/queries-served-wording.test.tsx` reads every file of the Queries module
+  (`people/queries`, `settings/queries`, `components/queries`, `lib/queries`, `lib/api/queries.ts`, `lib/api/query-ties.ts` and
+  the two query stores) with the TypeScript parser and fails if a **string, template text or JSX text** contains the word
+  "product". Comments are not read, because a comment may explain why an enum is spelt `IN_PRODUCT`. The scan is itself checked:
+  it must find known strings in the real files, flag the word in a string, a template and JSX text, and ignore a comment, so it
+  cannot pass by reading nothing. `IN_PRODUCT` and `nobodyToldInProduct` do not match (the word has to stand alone).
+
+## Verified
+
+Web, in the worktree: the whole `npx tsc --noEmit` (tests included); ESLint and Prettier on every changed file; the 17 Queries
+test files, 460 tests (`tests/queries-*`, `tests/query-*`). The new file has 21 tests: the three labels and three help sentences
+word for word; the draft's `<select>` offers exactly the three options and shows the matching sentence under the choice; the issue
+confirmation, the issue toast, the printed letter and a sent reply (with and without a time) use the new words; and the scan.
+
+**Deliberate breaks, 18 (17 exact replacements, each in one source file, and one added file), plus one control; the file restored
+with `git checkout` and the tree checked clean after each. All 18 were caught and the control passed.** The labels and the three help
+sentences put back, the confirmation, the toast, the no-sign-in warning, the letter page, both reply sentences, the document
+toast, linked records and the settings sentence put back, the option text read from the key instead of the label table, the help
+line removed, the printed letter printing the raw enum, and a new file with the word in a string. Three of them (linked records,
+the settings sentence, the issue toast before its own test existed) were caught **only** by the scan: the toast then got a behavioural
+test of its own, and the break was run a second time and caught by both. The control, a comment that says "the product", does not fail
+the scan.
+
+Backend: the seven query test files, 231 tests, on a real Postgres made for the job; three deliberate breaks in
+`missingForIssue` (the old sentence, "outside ApproveHR" for "by post or email", and the item removed), each caught, tree clean
+after each; ESLint and Prettier on the changed files; the whole `npx tsc --noEmit`.
+
+**Re-checked before the pull requests were opened (26 Nov, in fresh worktrees, by somebody who had not written the change).**
+Web: the whole `npx tsc --noEmit`, ESLint and Prettier on the changed files, and the 17 Queries test files, 460 passing.
+Backend: `db:test:deploy` onto a new database, the whole `tsc --noEmit`, ESLint and Prettier on the changed files, and the seven
+Queries test files, 231 passing. Leftover "in the product" in any string of the Queries screens or the backend `queries` module:
+none (searched).
+
+**Not exercised: a browser.** Everything above is component tests with the store mocked, and the backend over HTTP. Nobody has
+looked at the draft form on a running page since the words changed.
+
+## Found, and not changed
+
+- **The Query film quotes the old words.** `out/query-video-2026-11-24/chapters/ch02-issue.mjs` chooses **"In the product"** in
+  the select, so re-running it against a build with this change fails at that step; `captions.txt` line 227 and
+  `chapters/ch99-outro.mjs` say "served outside the product". The rendered film shows the old labels. Files under `out/` were left
+  alone on purpose.
+- **`docs/components/frontend-v2.md` is stale on `dev`** for reasons unrelated to this change (rows for
+  `src/lib/employment-status.ts` and a payroll screen). No export changed here, so it was not regenerated; the pull request that
+  adds the `my-letters.tsx` row (#722) regenerates the whole file and fixes it.
+- **This and #722 both append a HANDOVER entry at the end of the file**, so whichever merges second needs `dev` merged in and the
+  two entries kept.
+- The conduct screen has the same habit in a code comment (`people/[id]/conduct.tsx`, "the product reached nobody"). It is not
+  user-facing and not a Queries file, so it was left.
+
 ---
 
 # Everybody has a Queries row, and the person a letter was issued to has a page

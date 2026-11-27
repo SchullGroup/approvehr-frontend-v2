@@ -13,10 +13,17 @@ import { periodWords } from "./review-parts";
 /**
  * The appraisal periods, as large cards.
  *
- * A card says three things: the name, the dates, and how far along it is. No
- * status word, no counts and no button, because the whole card is the way in and
- * what to do next is the period page's job. Running periods are under **Open**;
- * published ones, which are a record, are under **History**.
+ * A card says three things: the name, the dates, and which stage it is at. No
+ * counts and no button, because the whole card is the way in and what to do next
+ * is the period page's job. Running periods are under **Open**; published ones,
+ * which are a record, are under **History**.
+ *
+ * It names the stage and does **not** draw a percentage. The old card filled a
+ * bar by the share of stages passed, so a period read "25%" with nothing sent
+ * and "100%" once published with self-reviews still outstanding: a figure that
+ * is about the calendar, wearing the face of a figure about the work. A period
+ * that has not started says so in words and draws no bar, so it no longer looks
+ * like an open one.
  */
 export function PeriodsTab() {
   const appraisals = useAppraisals();
@@ -74,13 +81,22 @@ export function PeriodsTab() {
 const STEPS = ["SELF", "MANAGER", "CALIBRATION", "PUBLISHED"] as const;
 
 /**
- * How far along a period is, as a share of the way through, with nothing asked
- * of the API: the stage it has reached already says it. A draft has not started
- * and fills nothing.
+ * Where a period is, in words and as a step number, with nothing asked of the
+ * API beyond the stage and the label it already sends. `step` is null for a
+ * period that has not started: a draft is not step zero of anything.
  */
-export function progressOf(period: Pick<ApiCycle, "stage">): number {
-  const reached = STEPS.indexOf(period.stage as (typeof STEPS)[number]);
-  return reached < 0 ? 0 : (reached + 1) / STEPS.length;
+export function stageOf(period: Pick<ApiCycle, "stage" | "stageLabel">): {
+  label: string;
+  step: number | null;
+  of: number;
+} {
+  const index = STEPS.indexOf(period.stage as (typeof STEPS)[number]);
+  const words = period.stageLabel.trim() || "not started";
+  return {
+    label: words.charAt(0).toUpperCase() + words.slice(1),
+    step: index < 0 ? null : index + 1,
+    of: STEPS.length,
+  };
 }
 
 /**
@@ -94,9 +110,8 @@ export function PeriodCard({
   period: ApiCycle;
   className?: string;
 }) {
-  const share = progressOf(period);
+  const where = stageOf(period);
   const dates = periodWords(period.periodStart, period.periodEnd);
-  const started = share > 0;
   const finished = period.stage === "PUBLISHED";
   /* Each period keeps its own light colour, taken from its name, so a list of them
      is easy to tell apart at a glance and the same period is the same colour on
@@ -131,27 +146,31 @@ export function PeriodCard({
       </div>
 
       <div className="mt-auto flex flex-col gap-3">
-        <div className="flex items-baseline justify-between">
-          <span className="text-body-sm text-muted">Progress</span>
-          {started && (
-            <span className="tabular text-h3 font-semibold text-ink">
-              {Math.round(share * 100)}%
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-body-sm font-medium text-ink">
+            {where.label}
+          </span>
+          {where.step !== null && (
+            <span className="tabular text-body-sm text-muted">
+              Step {where.step} of {where.of}
             </span>
           )}
         </div>
-        <div
-          role="progressbar"
-          aria-label={`${period.name} progress`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(share * 100)}
-          className="h-1.5 w-full overflow-hidden rounded-full bg-sunken"
-        >
-          <div
-            className="h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none"
-            style={{ width: `${String(share * 100)}%`, background: tone }}
-          />
-        </div>
+        {where.step !== null && (
+          /* The words above say it; the segments are the same fact drawn, so a
+             screen reader is not told twice. */
+          <div aria-hidden="true" className="grid grid-cols-4 gap-1">
+            {STEPS.map((step, index) => (
+              <span
+                key={step}
+                className="h-1.5 rounded-full bg-line"
+                style={
+                  index < (where.step ?? 0) ? { background: tone } : undefined
+                }
+              />
+            ))}
+          </div>
+        )}
         {period.dueDate && (
           <p className="flex items-center gap-1.5 text-meta text-muted">
             <CalendarClock aria-hidden="true" className="size-3.5" />

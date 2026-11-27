@@ -15,6 +15,7 @@ import {
 import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCycle, CycleWeights } from "@/lib/api/performance";
+import { periodWeightsLine } from "@/lib/performance/score-wording";
 import { useCycleMutations, useScoringWeights } from "@/lib/store/performance";
 
 /**
@@ -135,11 +136,7 @@ function DraftWeights({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-meta text-muted">
-        {weights.basis === "period"
-          ? "Set for this period."
-          : "Same as your company's weights."}
-      </p>
+      <p className="text-meta text-muted">{periodWeightsLine(weights.basis)}</p>
       <PeriodWeights
         value={value}
         onChange={setValue}

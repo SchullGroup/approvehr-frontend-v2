@@ -16,8 +16,30 @@ describe("ask everyone to set objectives", () => {
     );
   });
   it("a second press inside the day is not an error", () => {
-    expect(askedLine({ notified: 0, alreadyHad: 7 })).toBe(
-      "Everyone was asked in the last day. 7 already have objectives.",
+    expect(
+      askedLine({
+        notified: 0,
+        alreadyHad: 7,
+        askedAt: "2026-11-24T10:00:00.000Z",
+      }),
+    ).toBe("Everyone was asked in the last day. 7 already have objectives.");
+  });
+  it("does not say everyone was asked when there was nobody left to ask", () => {
+    /* Asking nobody has two causes, and the server's time tells them apart: it has
+       one when people were asked in the last day and none when nobody had to be. */
+    expect(askedLine({ notified: 0, alreadyHad: 10 })).toBe(
+      "Nobody new was asked. 10 already have objectives.",
+    );
+  });
+  it("says who could not be asked in the app because they have no sign-in", () => {
+    expect(askedLine({ notified: 4, alreadyHad: 2, noAccount: 1 })).toBe(
+      "Asked 4 people. 2 already have objectives. 1 has no sign-in, so could not be asked in the app.",
+    );
+    expect(askedLine({ notified: 4, alreadyHad: 0, noAccount: 3 })).toBe(
+      "Asked 4 people. 3 have no sign-in, so could not be asked in the app.",
+    );
+    expect(askedLine({ notified: 4, alreadyHad: 0, noAccount: 0 })).toBe(
+      "Asked 4 people.",
     );
   });
   it("reads a missing figure tolerantly", () => {
