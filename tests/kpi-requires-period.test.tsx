@@ -144,18 +144,29 @@ describe("Edit a KPI", () => {
     expect(screen.queryByText(/Counts towards this person/)).toBeNull();
   });
 
-  it("follows the period with the quarter, from where the period starts", async () => {
+  it("gives an objective with no quarter the one its period starts in", async () => {
     state.cycles = [
       { ...H1, periodStart: "2027-01-01", periodEnd: "2027-06-30" } as never,
       H2,
     ];
-    const { onSave, user } = edit();
+    const { onSave, user } = edit({ dueQuarter: null });
     await user.selectOptions(periodField()!, "c-h1");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(onSave).toHaveBeenCalledWith("g-1", {
       reviewCycleId: "c-h1",
       dueQuarter: "2027-Q1",
     });
+  });
+
+  it("does not move a quarter it already has because a period was picked", async () => {
+    state.cycles = [
+      { ...H1, periodStart: "2027-01-01", periodEnd: "2027-06-30" } as never,
+      H2,
+    ];
+    const { onSave, user } = edit({ dueQuarter: "2026-Q4" });
+    await user.selectOptions(periodField()!, "c-h1");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSave).toHaveBeenCalledWith("g-1", { reviewCycleId: "c-h1" });
   });
 
   it("keeps the quarter it had when the period has no dates", async () => {

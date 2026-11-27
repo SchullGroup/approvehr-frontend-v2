@@ -867,15 +867,14 @@ export function EditGoalDialog({
     }
     if (reviewCycleId !== (goal.reviewCycleId ?? "")) {
       body.reviewCycleId = reviewCycleId === "" ? null : reviewCycleId;
-      /* The quarter follows the period: it is the one it starts in, or, for a
-         period with no dates, the one it is due in, and otherwise what the
-         objective already had. */
+      /* An objective with no quarter gets the one its period starts in (or,
+         for a period with no dates, is due in), so nobody types beside a
+         period what it already says. One that has a quarter keeps it: it was
+         somebody's choice, and picking a period is not a reason to move it. */
       const cycle = periods.find((period) => period.id === reviewCycleId);
-      const derived = cycle
-        ? quarterOfPeriod(cycle, goal.dueQuarter ?? quarters[1] ?? "")
-        : "";
-      if (derived !== "" && derived !== (goal.dueQuarter ?? "")) {
-        body.dueQuarter = derived;
+      if (cycle && !goal.dueQuarter) {
+        const derived = quarterOfPeriod(cycle, quarters[1] ?? "");
+        if (derived !== "") body.dueQuarter = derived;
       }
     }
     /* Only a company with no periods at all asks for the quarter itself. */

@@ -138,8 +138,9 @@ import {
  * A cost or a time-to-hire target progresses as the number **falls**. The bar
  * fills as it falls, because `percent` comes from the API and the API's
  * arithmetic is direction-aware — this screen never divides current by target.
- * The direction is also stated in words beside it, with an arrow, so a
- * cost-reduction row at 50% cannot be misread as half-failed.
+ * A target that counts down carries a small arrow (and "from" its starting
+ * figure), so a cost-reduction row at 50% cannot be misread as half-failed;
+ * one that counts up, which is what every reader expects, says nothing.
  *
  * ## Two axes on every card, and they disagree on purpose
  *
