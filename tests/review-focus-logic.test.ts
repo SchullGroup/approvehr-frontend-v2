@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApiFormQuestion } from "@/lib/api/performance";
 import {
-  KEPT_HERE,
   KEPT_HERE_STATUS,
   keptInBrowser,
   keptInBrowserLine,
@@ -230,18 +229,11 @@ describe("what is kept in this browser, and how it is said", () => {
     );
   });
 
-  it("opens with the words each page uses, so it is one statement said twice", () => {
-    expect(
-      keptInBrowserLine(["a"]).startsWith(KEPT_HERE.replace(/\.$/, ":")),
-    ).toBe(true);
-  });
-
   it("says nothing for an empty list", () => {
     expect(keptInBrowserLine([])).toBe("");
   });
 
   it("never calls it saved", () => {
-    expect(KEPT_HERE).not.toMatch(/saved/i);
     expect(KEPT_HERE_STATUS).not.toMatch(/saved/i);
     expect(keptInBrowserLine(["a"])).not.toMatch(/saved/i);
   });

@@ -142,8 +142,13 @@ export function IntroStep({
     .filter(Boolean)
     .join(" · ");
   const appraiserNote = review.appraiser?.note ?? null;
+  /* The period's message is addressed to the people being appraised, so it is
+     theirs and nobody else's: `PeriodFraming` draws it for a self-review only,
+     and a link to it is not offered where it would open on nothing. */
   const hasNotes = Boolean(
-    review.instructions || review.guideUrl || appraiserNote,
+    (review.kind === "SELF" && review.instructions) ||
+    review.guideUrl ||
+    appraiserNote,
   );
 
   return (
@@ -191,6 +196,7 @@ export function IntroStep({
             periodEnd={review.periodEnd}
             instructions={review.instructions}
             guideUrl={review.guideUrl}
+            kind={review.kind}
           />
           {appraiserNote && (
             <p className="whitespace-pre-line text-body-sm text-body">
@@ -454,6 +460,9 @@ export function CheckStep({
   withMark,
   markRequired = false,
   mark,
+  withPotential = false,
+  potential = "",
+  potentialReason = "",
   summary,
   outstanding,
   onEdit,
@@ -472,10 +481,14 @@ export function CheckStep({
   /** This period needs one, so a missing mark is something to answer, like a required question. */
   markRequired?: boolean;
   mark: string;
+  /** A manager's form in a period that asks how far they could go, so it has a row here. */
+  withPotential?: boolean;
+  potential?: string;
+  potentialReason?: string;
   summary: string;
   outstanding: ApiFormQuestion[];
-  /** Jump to the page where a question (or the mark, or the note) is answered. */
-  onEdit: (where: ApiFormQuestion | "mark" | "summary") => void;
+  /** Jump to the page where a question (or the mark, the potential or the note) is answered. */
+  onEdit: (where: ApiFormQuestion | "mark" | "potential" | "summary") => void;
 }) {
   const words = ratingWordsFrom(scale.levels);
   const markMissing = withMark && markRequired && !mark;
@@ -544,6 +557,35 @@ export function CheckStep({
             </button>
           </li>
         )}
+        {withPotential && (
+          <li>
+            <button
+              type="button"
+              onClick={() => onEdit("potential")}
+              className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+            >
+              <p className="text-meta font-medium text-muted">
+                How far could{" "}
+                {review.subjectName.split(" ")[0] ?? review.subjectName} go?
+              </p>
+              <p className="mt-1 text-body-sm leading-relaxed text-ink">
+                {potential
+                  ? (POTENTIAL_WORDS[potential] ?? potential)
+                  : "Not answered"}
+              </p>
+              {potential === "HIGH" && potentialReason.trim() && (
+                <p className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-body">
+                  {potentialReason.trim()}
+                </p>
+              )}
+              {potentialNeedsReason(potential, potentialReason) && (
+                <span className="mt-1.5 block">
+                  <Badge size="sm">Needed</Badge>
+                </span>
+              )}
+            </button>
+          </li>
+        )}
         <li>
           <button
             type="button"
@@ -577,6 +619,20 @@ export const POTENTIAL_WORDS: Record<string, string> = Object.fromEntries(
 /** Why "Ready for a bigger role" needs a sentence behind it. */
 export const POTENTIAL_REASON_MIN = 10;
 
+/**
+ * "Ready for a bigger role" is read by whoever decides a promotion, so it has to
+ * say why; the other two answers need nothing more. Said once, for the page that
+ * holds Next away, the preview row and the send, which must all agree.
+ */
+export function potentialNeedsReason(
+  potential: string,
+  reason: string,
+): boolean {
+  return potential === "HIGH" && reason.trim().length < POTENTIAL_REASON_MIN;
+}
+
+const REASON_LABEL = "potential-reason-label";
+
 export function PotentialStep({
   firstName,
   potential,
@@ -602,12 +658,24 @@ export function PotentialStep({
           onPick={onPick}
         />
         {potential === "HIGH" && (
-          <WriteBox
-            labelledBy={HEADING}
-            value={reason}
-            onChange={onReason}
-            placeholder="What you have seen that puts them here."
-          />
+          <div className="flex flex-col gap-2">
+            {/* The box was named by the page's heading, so what was typed in it
+                was nobody's answer to anything once the placeholder had gone. */}
+            <span id={REASON_LABEL} className="sr-only">
+              Your reason
+            </span>
+            <WriteBox
+              labelledBy={REASON_LABEL}
+              value={reason}
+              onChange={onReason}
+              placeholder="What you have seen that puts them here."
+            />
+            {potentialNeedsReason(potential, reason) && (
+              <span>
+                <Badge size="sm">Needed</Badge>
+              </span>
+            )}
+          </div>
         )}
         {potential && (
           <p className="text-meta text-muted">

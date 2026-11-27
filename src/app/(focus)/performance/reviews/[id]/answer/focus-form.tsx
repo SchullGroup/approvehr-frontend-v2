@@ -31,11 +31,14 @@ import {
 } from "./draft-storage";
 import { draftForPick, pickOptions, ratingOptions } from "./focus-question";
 import {
+  KEPT_HERE_STATUS,
   asksOverallMark,
   closingNoteWords,
   continueKeys,
   footerAction,
   keyboardHint,
+  keptInBrowser,
+  keptInBrowserLine,
   needsOverallMark,
   onRecordOf,
   savedAnswerStands,
@@ -48,10 +51,11 @@ import {
   CheckStep,
   IntroStep,
   MarkStep,
-  POTENTIAL_REASON_MIN,
+  POTENTIAL_OPTIONS,
   PotentialStep,
   QuestionStep,
   SummaryStep,
+  potentialNeedsReason,
 } from "./focus-steps";
 
 /**
@@ -73,7 +77,9 @@ import {
  * changing, on every move between pages, when the tab is hidden, when the page
  * is left, and on close. The overall mark and the closing note have no endpoint
  * of their own — they travel with the send — so those are kept in this browser
- * until it goes (`draft-storage.ts`).
+ * until it goes (`draft-storage.ts`). The header never calls that "Saved": on the
+ * pages that hold one of them it says "Kept in this browser", with the list in a
+ * tooltip, because a person who finishes on a phone should not find it gone.
  *
  * ## The overall mark is the company's choice, and sometimes the period's
  *
@@ -190,7 +196,9 @@ export function FocusForm({
   );
 
   const [local] = useState(() => readLocalDraft(review.id));
-  const [start] = useState(() => startIndex(review, local, withMark));
+  const [start] = useState(() =>
+    startIndex(review, local, withMark, withPotential),
+  );
   const [index, setIndex] = useState(start);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [draft, setDraft] = useState<Record<string, Draft>>({});
@@ -251,6 +259,10 @@ export function FocusForm({
 
   /** The period needs an overall mark and none has been picked. */
   const markMissing = withMark && markRequired && !mark;
+
+  /** "Ready for a bigger role" with no reason yet: the API would refuse it at the send. */
+  const potentialShort =
+    withPotential && potentialNeedsReason(potential, potentialReason);
 
   /** Manager and peer forms get the language note beside the closing note; a self-review does not. */
   const coaching = review.kind !== "SELF";
@@ -401,16 +413,14 @@ export function FocusForm({
       current.question.required &&
       !filled(current.question, onRecord(current.question))) ||
     (current.kind === "mark" && markMissing) ||
-    (current.kind === "potential" &&
-      potential === "HIGH" &&
-      potentialReason.trim().length < POTENTIAL_REASON_MIN);
+    (current.kind === "potential" && potentialShort);
 
   const footer = footerAction({
     page: current.kind,
     resumed: start > 0,
     blocked,
     skippable: optionalAndEmpty,
-    toAnswer: toAnswerLine(outstanding.length, markMissing),
+    toAnswer: toAnswerLine(outstanding.length, markMissing, potentialShort),
     sendClosed,
   });
 
@@ -477,21 +487,24 @@ export function FocusForm({
     moveOnSoon(draft);
   };
 
-  /** Walk to the first thing still to answer: the questions in order, then the mark. */
+  /** Walk to the first thing still to answer: the questions in order, the mark, then the reason. */
   const toFirstAnswer = () => {
     if (outstanding.length > 0) {
       go(1 + review.questions.indexOf(outstanding[0] as ApiFormQuestion));
     } else if (markMissing) {
       /* The page straight after the questions. */
       go(1 + review.questions.length);
+    } else if (potentialShort) {
+      go(steps.findIndex((step) => step.kind === "potential"));
     }
   };
 
   const sendIt = async () => {
     if (sendLock.current || reading || sendClosed) return;
-    if (outstanding.length > 0 || markMissing) {
+    if (outstanding.length > 0 || markMissing || potentialShort) {
       /* The preview does not offer Send while there is something to answer; this
-         is the same rule where a send is reached some other way. */
+         is the same rule where a send is reached some other way. A browser draft
+         can arrive at the preview with a bigger role and no reason. */
       toFirstAnswer();
       return;
     }
@@ -579,12 +592,15 @@ export function FocusForm({
         Boolean(target?.isContentEditable);
       if (typing) return;
 
-      const options =
+      const options:
+        readonly { key?: string | undefined; value: string }[] | null =
         current.kind === "question"
           ? pickOptions(current.question, scale)
           : current.kind === "mark"
             ? ratingOptions(scale)
-            : null;
+            : current.kind === "potential"
+              ? POTENTIAL_OPTIONS
+              : null;
       if (options) {
         const pressed = event.key.length === 1 ? event.key.toUpperCase() : "";
         /* An option past what one key can name has an empty key. Shift, Tab and
@@ -596,7 +612,8 @@ export function FocusForm({
         if (hit) {
           event.preventDefault();
           if (current.kind === "question") pick(current.question, hit.value);
-          else pickMark(hit.value);
+          else if (current.kind === "mark") pickMark(hit.value);
+          else setPotential(hit.value);
           return;
         }
       }
@@ -610,6 +627,22 @@ export function FocusForm({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  });
+
+  /* "Saved" is about the answers to the questions. On the pages that ask for
+     what is only held in this browser it would be a claim about the wrong thing,
+     so the header says where that is, once there is something in it. */
+  const onHeldPage =
+    current.kind === "mark" ||
+    current.kind === "potential" ||
+    current.kind === "summary";
+  const heldHere =
+    (current.kind === "mark" && mark !== "") ||
+    (current.kind === "potential" && potential !== "") ||
+    (current.kind === "summary" && summary.trim() !== "");
+  const kept = keptInBrowser(review.kind, {
+    mark: withMark,
+    potential: withPotential,
   });
 
   const lastIndex = steps.length - 1;
@@ -660,7 +693,7 @@ export function FocusForm({
               <Spinner size="sm" /> Saving
             </>
           )}
-          {saveState === "saved" && (
+          {saveState === "saved" && !onHeldPage && (
             <>
               <Check
                 aria-hidden="true"
@@ -669,6 +702,20 @@ export function FocusForm({
               Saved
             </>
           )}
+          {onHeldPage &&
+            heldHere &&
+            saveState !== "saving" &&
+            saveState !== "failed" && (
+              /* Not on a phone: it takes a third of the bar and cuts the page's
+                 own name to "Recommendati…". */
+              <span className="hidden items-center gap-1.5 sm:inline-flex">
+                {KEPT_HERE_STATUS}
+                <InfoTooltip
+                  label="Where this is kept"
+                  text={keptInBrowserLine(kept)}
+                />
+              </span>
+            )}
           {saveState === "failed" && (
             <span className="font-medium text-danger-text">Not saved</span>
           )}
@@ -806,18 +853,23 @@ export function FocusForm({
               withMark={withMark}
               markRequired={markRequired}
               mark={mark}
+              withPotential={withPotential}
+              potential={potential}
+              potentialReason={potentialReason}
               summary={summary}
               outstanding={outstanding}
               onEdit={(where) =>
                 go(
                   where === "mark"
                     ? 1 + review.questions.length
-                    : where === "summary"
-                      ? 1 +
-                        review.questions.length +
-                        (withMark ? 1 : 0) +
-                        (withPotential ? 1 : 0)
-                      : 1 + review.questions.indexOf(where),
+                    : where === "potential"
+                      ? 1 + review.questions.length + (withMark ? 1 : 0)
+                      : where === "summary"
+                        ? 1 +
+                          review.questions.length +
+                          (withMark ? 1 : 0) +
+                          (withPotential ? 1 : 0)
+                        : 1 + review.questions.indexOf(where),
                 )
               }
             />

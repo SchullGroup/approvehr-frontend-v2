@@ -16,8 +16,9 @@ import type { ApiRatingScale, ApiReviewDetail } from "@/lib/api/performance";
  * It also covers what the form says about where the answer lives. How far they
  * could go, the overall rating and the closing note are kept in this browser
  * until the review is sent, and "Saved" in the header is about the answers to the
- * questions. A page that said both "your answers save as you go" and "Saved"
- * while those three sat in one browser was wrong.
+ * questions. A header that said "Saved" over a page whose answer sat in one
+ * browser was wrong. The form says it once, in the header, and in a tooltip: no
+ * line on the pages.
  */
 
 const send = vi.fn(async () => undefined);
@@ -161,30 +162,40 @@ describe("answering with the number keys", () => {
     expect(radios().HIGH).toBe(true);
   });
 
-  it("says that the keys work", async () => {
+  it("says that the keys work, behind the keyboard icon and not on the page", async () => {
     mount();
     await toPotential();
-    expect(screen.getByText(/press its number/i)).toBeInTheDocument();
+    expect(screen.queryByText(/press its number/i)).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Keyboard shortcuts" }),
+    );
+    expect(
+      screen.getByText(/Press an answer's key to pick it\./),
+    ).toBeInTheDocument();
   });
 });
 
 describe("a bigger role has to say why", () => {
-  it("holds Next shut and says what is missing, without a red alarm", async () => {
+  it("draws no Next and says what is missing, without a red alarm", async () => {
     mount();
     await toPotential();
     await userEvent.keyboard("1");
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
-    expect(
-      screen.getByText("Say why in a sentence, at least 10 characters."),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    /* Enter goes on only where Next would be there. */
+    await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+    expect(heading("How far could Ngozi go?")).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText(REASON), "Led the move.");
-    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
-    expect(screen.queryByText(/Say why in a sentence/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(screen.queryByText("Needed")).toBeNull();
   });
 
-  it("walks a send that arrives at the preview without one back to the page, and sends nothing", async () => {
+  it("offers the way back to it, not Send, when the preview is reached without one", async () => {
     /* A browser draft can bring somebody to the preview with a bigger role and
-       no reason, which the API would refuse. They are taken to what is missing. */
+       no reason, which the API would refuse. The preview has no Send for it: it
+       has the way to what is missing, as it does for a required question. */
     window.localStorage.setItem(
       "ahr:review-draft:r1",
       JSON.stringify({
@@ -197,8 +208,9 @@ describe("a bigger role has to say why", () => {
     );
     mount();
     expect(heading("Preview")).toBeInTheDocument();
-    expect(screen.getByText("Say why")).toBeInTheDocument();
-    await press("Send it");
+    expect(screen.getByText("Needed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send it" })).toBeNull();
+    await press("1 to answer");
     expect(heading("How far could Ngozi go?")).toBeInTheDocument();
     expect(send).not.toHaveBeenCalled();
   });
@@ -359,8 +371,15 @@ describe("coming back to it", () => {
   });
 });
 
+/** The sentence behind the header's "Kept in this browser", opened. */
+const keptLine = async () => {
+  await userEvent.click(
+    screen.getByRole("button", { name: "Where this is kept" }),
+  );
+};
+
 describe("what the form says about saving", () => {
-  it("does not promise that everything saves as you go", async () => {
+  it("does not promise on the introduction that everything saves as you go", async () => {
     mount({
       questions: [
         {
@@ -371,60 +390,71 @@ describe("what the form says about saving", () => {
         } as never,
       ],
     });
-    expect(screen.queryByText(/^Your answers save as you go/)).toBeNull();
-    expect(
-      screen.getByText(/Your answers to the questions save as you go/),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/save as you go/i)).toBeNull();
+    expect(screen.queryByText(/Kept in this browser/)).toBeNull();
   });
 
-  it("names what is held in this browser, on a form that asks for the mark and the potential", () => {
+  it("names what is held in this browser, on a form that asks for the mark and the potential", async () => {
     mount({ overallMark: true });
+    await press("Start");
+    await press("Skip");
+    await press("Skip");
+    expect(heading("Your recommendations")).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox"), "Promote in the spring.");
+    await keptLine();
     expect(
       screen.getByText(
         "Kept in this browser only, until you send: your overall rating, how far they could go and your recommendations.",
-        { exact: false },
       ),
     ).toBeInTheDocument();
   });
 
-  it("names only what the form asks for", () => {
+  it("names only what the form asks for", async () => {
     mount({ askPotential: false });
+    await press("Start");
+    await userEvent.type(screen.getByRole("textbox"), "Promote in the spring.");
+    await keptLine();
     expect(
       screen.getByText(
         "Kept in this browser only, until you send: your recommendations.",
-        { exact: false },
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/how far they could go/)).toBeNull();
   });
 
-  it("says it on a self-review too, where there is only the note", () => {
+  it("says it on a self-review too, where there is only the note", async () => {
     mount({ kind: "SELF", askPotential: undefined });
+    await press("Start");
+    await userEvent.type(screen.getByRole("textbox"), "A line.");
+    await keptLine();
     expect(
       screen.getByText(
         "Kept in this browser only, until you send: what you add at the end.",
-        { exact: false },
       ),
     ).toBeInTheDocument();
   });
 
-  it("says it on each page that holds one of them", async () => {
+  it("says it on each page that holds one of them, once there is something in it", async () => {
     mount({ overallMark: true });
     await press("Start");
     expect(heading("Is there an overall rating?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Kept in this browser only, until you send\./),
-    ).toBeInTheDocument();
-    await press("Skip");
-    expect(heading("How far could Ngozi go?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Kept in this browser only, until you send\./),
-    ).toBeInTheDocument();
-    await press("Skip");
+    expect(screen.queryByText("Kept in this browser")).toBeNull();
+    await userEvent.keyboard("3");
+    expect(screen.getByText("Kept in this browser")).toBeInTheDocument();
+
+    /* Picking a rating goes on by itself, after a beat. */
+    await waitFor(() =>
+      expect(heading("How far could Ngozi go?")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Kept in this browser")).toBeNull();
+    await userEvent.keyboard("2");
+    expect(screen.getByText("Kept in this browser")).toBeInTheDocument();
+
+    await press("Next");
     expect(heading("Your recommendations")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Kept in this browser only, until you send\./),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Kept in this browser")).toBeNull();
+    await userEvent.type(screen.getByRole("textbox"), "A note.");
+    expect(screen.getByText("Kept in this browser")).toBeInTheDocument();
   });
 
   it("says Saved about the questions, and says where the rest is on the pages that hold it", async () => {
@@ -466,85 +496,29 @@ describe("what the form says about saving", () => {
 });
 
 describe("how the pages lay it out", () => {
-  it("gives the browser-only fact its own line on the introduction, not the tail of another", () => {
-    mount();
-    const line = screen.getByText(
-      /^Kept in this browser only, until you send:/,
-    );
-    expect(line.tagName).toBe("P");
-    expect(line.textContent).not.toMatch(/save as you go|Close this/);
-  });
-
-  it("sets the browser-only line in the muted colour, so it does not read as the page's main promise", () => {
-    mount();
-    expect(
-      screen.getByText(/^Kept in this browser only, until you send:/),
-    ).toHaveClass("text-muted");
-  });
-
-  it("does not tell a touch screen to press a number on the overall rating either", async () => {
-    mount({ overallMark: true });
-    await press("Start");
-    expect(heading("Is there an overall rating?")).toBeInTheDocument();
-    expect(screen.getByText("Pick one, or press its number.")).toHaveClass(
-      "pointer-coarse:hidden",
-    );
-  });
-
   it("keeps the header's status off a phone, where it cut the page's own name to 'Recommendati…'", async () => {
     mount({ askPotential: false });
     await press("Start");
     await userEvent.type(screen.getByRole("textbox"), "A note.");
     const status = screen.getByText("Kept in this browser");
-    expect(status).toHaveClass("hidden", "sm:inline");
+    expect(status).toHaveClass("hidden", "sm:inline-flex");
   });
 
-  it("does not tell a touch screen to press keys", async () => {
-    mount({
-      questions: [
-        { id: "q1", prompt: "First", kind: "TEXT", required: false },
-      ] as never,
-    });
-    await press("Start");
-    /* A written question: "Press Ctrl Enter to go on." */
-    expect(screen.getByText(/to go on\./)).toHaveClass("pointer-coarse:hidden");
-    await press("Skip");
-    /* How far could they go: "Pick one, or press its number." */
-    expect(screen.getByText("Pick one, or press its number.")).toHaveClass(
-      "pointer-coarse:hidden",
-    );
-    await press("Skip");
-    /* The closing note. */
-    expect(screen.getByText(/to go on\./)).toHaveClass("pointer-coarse:hidden");
-  });
-
-  it("keeps 'Needed' and 'Optional' for a touch screen, which is not a keyboard hint", async () => {
-    mount({
-      questions: [
-        { id: "q1", prompt: "First", kind: "TEXT", required: true },
-      ] as never,
-    });
-    await press("Start");
-    const line = screen.getByText(/^Needed\./);
-    expect(line).not.toHaveClass("pointer-coarse:hidden");
-  });
-
-  it("labels the reason box, so what is typed in it is not a nameless paragraph", async () => {
+  it("names the reason box, so what is typed in it is not a nameless paragraph", async () => {
     mount();
     await toPotential();
     await userEvent.keyboard("1");
-    expect(screen.getByText("Your reason")).toBeInTheDocument();
     expect(screen.getByPlaceholderText(REASON)).toHaveAccessibleName(
       "Your reason",
     );
   });
 
-  it("says nothing of a reason until a bigger role is picked", async () => {
+  it("has no box for a reason until a bigger role is picked", async () => {
     mount();
     await toPotential();
-    expect(screen.queryByText("Your reason")).toBeNull();
+    expect(screen.queryByPlaceholderText(REASON)).toBeNull();
     await userEvent.keyboard("2");
-    expect(screen.queryByText("Your reason")).toBeNull();
+    expect(screen.queryByPlaceholderText(REASON)).toBeNull();
   });
 
   it("does not style the reason like the answer it explains, on the preview", async () => {

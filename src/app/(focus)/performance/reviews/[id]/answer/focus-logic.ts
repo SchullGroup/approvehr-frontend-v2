@@ -78,13 +78,12 @@ export function keptInBrowser(
 }
 
 /**
- * The introduction's sentence about them, built from `keptInBrowser`.
+ * The sentence behind the header's "Kept in this browser", built from
+ * `keptInBrowser`. It is said in a tooltip, once, and not on the pages.
  *
  * "Kept in this browser only, until you send: …" and the list, so it needs no
  * verb to agree with it: the items are "your recommendations" and "what you add
  * at the end", and "is" or "are" is wrong for one of them whichever is chosen.
- * It opens with the words `KEPT_HERE` uses on each page, so they read as one
- * statement said in two places.
  */
 export function keptInBrowserLine(parts: readonly string[]): string {
   if (parts.length === 0) return "";
@@ -94,9 +93,6 @@ export function keptInBrowserLine(parts: readonly string[]): string {
       : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1] as string}`;
   return `Kept in this browser only, until you send: ${list}.`;
 }
-
-/** On the page that asks for one of them. Short: the introduction has the whole sentence. */
-export const KEPT_HERE = "Kept in this browser only, until you send.";
 
 /** In the header, in place of "Saved", on those pages: "Saved" is about the questions. */
 export const KEPT_HERE_STATUS = "Kept in this browser";
@@ -208,14 +204,15 @@ export function startingMark(args: {
 
 /**
  * What is left to answer before this can go, as the text of one neutral link:
- * the questions that need an answer, and the overall mark where the period needs
- * one. Null when nothing is.
+ * the questions that need an answer, the overall mark where the period needs one,
+ * and the reason a bigger role needs. Null when nothing is.
  */
 export function toAnswerLine(
   questions: number,
   markMissing: boolean,
+  potentialMissing = false,
 ): string | null {
-  const count = questions + (markMissing ? 1 : 0);
+  const count = questions + (markMissing ? 1 : 0) + (potentialMissing ? 1 : 0);
   return count === 0 ? null : `${String(count)} to answer`;
 }
 
@@ -323,7 +320,11 @@ export function keyboardHint(
   if (page === "intro" || page === "check") return null;
   const close = "Esc saves and closes.";
   if (picks) return `Press an answer's key to pick it and go on. ${close}`;
-  if (page === "potential") return `Enter goes on. ${close}`;
+  /* Picked by its key too, but it does not go on by itself: a bigger role has a
+     reason to give first. */
+  if (page === "potential") {
+    return `Press an answer's key to pick it. Enter goes on. ${close}`;
+  }
   return `${keys} goes on. ${close}`;
 }
 

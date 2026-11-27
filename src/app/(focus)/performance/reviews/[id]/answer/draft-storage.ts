@@ -8,8 +8,8 @@
  * page after writing a paragraph in "anything to add" would lose it — which is
  * exactly what a person trusts a page that says it saves as you go *not* to do.
  *
- * It is also all this is: the page says so wherever it asks for one of the three
- * (`keptInBrowserLine` in `focus-logic.ts`), because a draft that follows nobody
+ * It is also all this is: the header says so, on the pages that hold one of the
+ * three (`keptInBrowserLine` in `focus-logic.ts`), because a draft that follows nobody
  * to another device, described as "saved", is a claim a person finds out is false
  * on the morning they open their laptop instead of their phone.
  *

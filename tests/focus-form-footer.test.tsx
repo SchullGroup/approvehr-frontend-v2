@@ -188,6 +188,34 @@ describe("the first screen", () => {
     expect(screen.queryByText("Answer for the whole half.")).toBeNull();
   });
 
+  it("keeps the period's message to staff off a form about somebody else", async () => {
+    /* "Please complete your self-review" is addressed to the people being
+       appraised. A manager writing about somebody is not asked to do that. */
+    mount({
+      kind: "MANAGER",
+      kindLabel: "Manager review",
+      questions: [question("a")],
+      periodStart: "2026-07-01",
+      periodEnd: "2026-12-31",
+      instructions: "Please complete your self-review.",
+      guideUrl: "https://example.com/guide",
+    });
+    await press("Read the instructions");
+    expect(screen.queryByText("Please complete your self-review.")).toBeNull();
+    expect(screen.getByText(/For the period/)).toBeInTheDocument();
+    expect(screen.getByText("Read the company's guide")).toBeInTheDocument();
+  });
+
+  it("has no instructions link on a form about somebody else when the message is all there is", () => {
+    mount({
+      kind: "MANAGER",
+      kindLabel: "Manager review",
+      questions: [question("a")],
+      instructions: "Please complete your self-review.",
+    });
+    expect(button("Read the instructions")).toBeNull();
+  });
+
   it("says that sending is not open once, in the API's own sentence, and only when it is true", () => {
     const view = mount({
       questions: [question("a")],
