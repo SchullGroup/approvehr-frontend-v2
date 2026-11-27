@@ -546,8 +546,10 @@ export function PeriodScreen({
     anybodyToNudge(nudging);
   /* The move out of the stage is the next step only once nobody owes anything. While
      somebody does, the reminder is, and the move is in the menu: it stays reachable
-     for the person who has to close a stage with somebody on leave. */
-  const moveInMenu = remindable && moveOn !== null ? moveOn : null;
+     for the person who has to close a stage with somebody on leave. It is also
+     here while who owes what is not known, so it is never out of reach. */
+  const moveInMenu =
+    (remindable || nudging === null) && moveOn !== null ? moveOn : null;
 
   if (sendAway) return null;
 
