@@ -939,6 +939,22 @@ export function expectedHours(
   };
 }
 
+/**
+ * The policy as it reads for one person that day: the company's, with the shift
+ * replaced by their own hours where the roster row carries them.
+ *
+ * For anything that measures a day against `shiftStart` and `shiftEnd` (the
+ * running timer's "a full day at", its "over"). Handed the company's 08:00 to
+ * 17:00, somebody on a 07:30 to 14:00 Saturday would be told their day was nine
+ * hours long and that they had five hours to go.
+ */
+export function policyForRow<
+  P extends Pick<ApiAttendancePolicy, "shiftStart" | "shiftEnd">,
+>(policy: P, row?: Pick<ApiRosterRow, "expectedStart" | "expectedEnd"> | null) {
+  const { start, end } = expectedHours(policy, row);
+  return { ...policy, shiftStart: start, shiftEnd: end };
+}
+
 export type TimesheetParams = {
   /** Working days to look back over. The API caps this at 90. */
   days?: number;

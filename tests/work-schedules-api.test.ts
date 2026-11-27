@@ -23,7 +23,8 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
   return { ...real, request: (...args: unknown[]) => request(...args) };
 });
 
-const { attendanceApi, expectedHours } = await import("@/lib/api/attendance");
+const { attendanceApi, expectedHours, policyForRow } =
+  await import("@/lib/api/attendance");
 
 beforeEach(() => {
   request.mockReset().mockResolvedValue(undefined);
@@ -138,6 +139,27 @@ describe("expectedHours", () => {
       start: "07:30",
       end: "17:00",
     });
+  });
+});
+
+describe("policyForRow", () => {
+  const policy = {
+    id: "p",
+    shiftStart: "08:00",
+    shiftEnd: "17:00",
+    graceMinutes: 15,
+    workingWeekdays: [1, 2, 3, 4, 5],
+    selfServiceClockIn: true,
+  };
+
+  it("is the company's policy with the person's hours in the shift, and nothing else changed", () => {
+    expect(
+      policyForRow(policy, { expectedStart: "07:30", expectedEnd: "14:00" }),
+    ).toEqual({ ...policy, shiftStart: "07:30", shiftEnd: "14:00" });
+  });
+
+  it("is the company's policy as it was for a row that says nothing", () => {
+    expect(policyForRow(policy, undefined)).toEqual(policy);
   });
 });
 
