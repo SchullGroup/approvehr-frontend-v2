@@ -54,6 +54,7 @@ import {
   LOAN_STATUS_LABEL,
   finishesLabel,
   useLoanActions,
+  useLoanToday,
   useLoans,
   useLoanSummary,
 } from "@/lib/store/loans";
@@ -258,6 +259,7 @@ export function LoansScreen() {
   });
   const { summary } = useLoanSummary(seeEverybody);
   const { approve } = useLoanActions();
+  const today = useLoanToday();
 
   /* Set during render, guarded so it settles: React re-renders at once with the
      new value and the condition is false the second time. */
@@ -270,12 +272,12 @@ export function LoansScreen() {
     () =>
       seeEverybody
         ? sortPeople(
-            groupLoansByPerson(list.loans).filter((person) =>
+            groupLoansByPerson(list.loans, today).filter((person) =>
               matchesLoanSearch(person, search),
             ),
           )
         : [],
-    [seeEverybody, list.loans, search],
+    [seeEverybody, list.loans, search, today],
   );
   const loanCount = people.reduce((total, person) => total + person.count, 0);
 
@@ -643,7 +645,14 @@ function FigureCells({
     <>
       <TD align="right">{money(figures.borrowedKobo)}</TD>
       <TD align="right">{money(figures.leftKobo)}</TD>
-      <TD align="right">{money(figures.monthlyKobo)}</TD>
+      <TD align="right">
+        {money(figures.monthlyKobo)}
+        {figures.monthlyFor ? (
+          <span className="block text-meta text-muted">
+            {monthLabel(figures.monthlyFor)} payroll
+          </span>
+        ) : null}
+      </TD>
       <TD>
         {figures.finishes ? (
           monthLabel(figures.finishes)
@@ -913,7 +922,15 @@ function CardFigures({
         </span>
       </div>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-body-sm text-muted">A month</span>
+        <span className="text-body-sm text-muted">
+          A month
+          {figures.monthlyFor ? (
+            <span className="text-meta">
+              {" "}
+              ({monthLabel(figures.monthlyFor)} payroll)
+            </span>
+          ) : null}
+        </span>
         <span className="tabular text-body-sm text-body">
           {money(figures.monthlyKobo)}
         </span>

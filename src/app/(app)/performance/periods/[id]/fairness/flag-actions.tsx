@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Field, Modal, Textarea, useToast } from "@/components/ui";
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
+import { exactPct } from "@/components/performance/record-check";
 import { ApiError } from "@/lib/api/client";
 import type { ApiReviewFlag, ReviewCycleStage } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
@@ -90,6 +91,10 @@ export function FlagActions({
         <div className="text-body-sm text-body">
           <p>
             <span className="font-medium text-ink">Score changed</span>
+            {typeof resolution.originalBp === "number" &&
+            typeof resolution.calibratedBp === "number"
+              ? ` from ${exactPct(resolution.originalBp)} to ${exactPct(resolution.calibratedBp)}`
+              : ""}
             {resolution.by ? ` by ${resolution.by}` : ""} on{" "}
             {day(resolution.at)}.
           </p>

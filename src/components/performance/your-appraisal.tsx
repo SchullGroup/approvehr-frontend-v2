@@ -10,6 +10,10 @@ import {
   performanceApi,
   type ApiAppraisalProgress,
 } from "@/lib/api/performance";
+import {
+  hasStarted,
+  stepLine as stepsLine,
+} from "@/lib/performance/progress-words";
 import { useAppraisalProgress, useAppraisals } from "@/lib/store/performance";
 
 /**
@@ -22,13 +26,13 @@ import { useAppraisalProgress, useAppraisals } from "@/lib/store/performance";
 
 type Mine = NonNullable<ApiAppraisalProgress["mine"]>;
 
-/** "Step 2 of 4: Core competencies", from the steps. Null when there are none. */
+/**
+ * "Step 2 of 4: Core competencies", and how much of it is answered once
+ * something is. Null when there are no steps or every one is done. The words
+ * are `progress-words`', shared with the team list.
+ */
 export function stepLine(mine: Mine): string | null {
-  if (mine.steps.length === 0) return null;
-  const index = mine.steps.findIndex((step) => !step.done);
-  if (index === -1) return null;
-  const step = mine.steps[index];
-  return `Step ${String(index + 1)} of ${String(mine.steps.length)}: ${step?.label ?? ""}`;
+  return stepsLine(mine.steps);
 }
 
 export function YourAppraisalCard({ mine }: { mine: Mine }) {
@@ -45,8 +49,9 @@ export function YourAppraisalCard({ mine }: { mine: Mine }) {
       {...(mine.reviewId
         ? {
             action: {
-              label:
-                line && mine.steps.some((s) => s.done) ? "Continue" : "Start",
+              /* Continue once anything is answered, not only once a whole step
+                 is done: somebody part-way through the first step has begun. */
+              label: hasStarted(mine.steps) ? "Continue" : "Start",
               href: `/performance/reviews/${mine.reviewId}/answer`,
             },
           }

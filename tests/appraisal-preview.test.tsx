@@ -12,6 +12,15 @@ const cont = () =>
   userEvent.click(screen.getByRole("button", { name: "Continue" }));
 
 describe("the employee appraisal steps (mock-up)", () => {
+  it("says nothing is saved, because its answers live in this tab and nowhere else", () => {
+    /* It said "saved as you go, so you can leave and come back", under a page
+       whose own description and file header say nothing is saved. */
+    render(<AppraisalPreview />);
+    expect(screen.getByText(/Nothing is saved or sent/)).toBeInTheDocument();
+    expect(screen.queryByText(/saved as you go/i)).toBeNull();
+    expect(screen.queryByText(/come back/i)).toBeNull();
+  });
+
   it("walks questions, Core, Behavioural, then review, with a progress bar", async () => {
     render(<AppraisalPreview />);
     expect(

@@ -26,6 +26,7 @@ import {
   outcomeWords,
   outOf5FromBp,
   outOf5Label,
+  ratingToRead,
   ratingWordsFrom,
   scoreLabel,
   scoreWords,
@@ -602,9 +603,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       {signingOff && (
         <SignOffDialog
           review={review}
-          ratingLabel={
-            review.rating === null ? null : ratingWords(review.rating)
-          }
+          /* What the person is acknowledging is the rating they were told, the
+             period's score of record, and not one appraiser's mark (F42): the
+             receipt they keep must read what their record reads. */
+          ratingLabel={ratingToRead(review, ratingWords)}
           onClose={() => setSigningOff(false)}
           onConfirm={async (comment) => {
             const outcome = await settle(() =>
@@ -620,6 +622,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       <FinaliseDialog
         open={finalising}
         review={review}
+        /* What the person will read as their rating: the period's score as it
+           stands now. Absent where the score cannot be read here, and then the
+           dialog says nothing about a figure rather than naming the wrong one. */
+        scoreNow={score.score ? scoreWords(score.score) : null}
         /* Only where the server says it keeps one. A server that predates the
            recommendation ignores the body of the finalise, so a box offered
            there would be followed by "saved" for words nobody kept, on a

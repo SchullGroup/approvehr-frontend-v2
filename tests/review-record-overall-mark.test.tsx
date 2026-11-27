@@ -357,13 +357,16 @@ describe("making a rating final", () => {
     ).toBeInTheDocument();
   });
 
-  it("names the rating where there is one", () => {
+  it("names the appraiser's own mark as theirs where there is one, and not as the rating the person reads", () => {
     renderDialog({ overallMark: false, rating: 4 });
+    const dialog = within(screen.getByRole("dialog"));
     expect(
-      within(screen.getByRole("dialog")).getByText(
-        /Their rating becomes "Exceeds Expectations"\./,
+      dialog.getByText(
+        /own overall rating, "Exceeds Expectations", stays with the review\./,
       ),
     ).toBeInTheDocument();
+    /* The old sentence made one appraiser's mark the person's rating (F42). */
+    expect(dialog.queryByText(/Their rating becomes/)).toBeNull();
   });
 
   it("says the same in the account of what it recorded, where the company does not ask for a score", async () => {

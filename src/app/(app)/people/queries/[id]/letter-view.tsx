@@ -35,7 +35,7 @@ export function LetterView({
   const told =
     served.how === "IN_PRODUCT" && !served.nobodyToldInProduct
       ? null
-      : "Nobody was told in the product.";
+      : "Nobody was told in ApproveHR.";
 
   return (
     <Card>

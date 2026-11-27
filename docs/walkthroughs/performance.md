@@ -989,8 +989,21 @@ the module, so it is worth walking properly.
 | **Click**      | **Fill it in** on the row, answer the questions, read the **Preview**, then **Send it** |
 | **You'll see** | The row leaves _Waiting on you_, and a _Sent_ badge appears on the form                 |
 
-- **Save and finish later** keeps a half-typed answer without sending it. Nobody else can see a form
-  that has not been sent.
+- **What is saved, and what is not.** The answers to the questions are saved to the server as you go, and
+  **Saved** shows in the top bar after each one. Three things are **not**: the overall rating (where one is
+  asked), **How far could they go?** (on a manager's form) and the closing note (**Your recommendations** on a
+  manager's form, **Anything to add?** on the others). They go with the send, so they are kept in **this browser
+  only** until it. The introduction says so (_"Kept in this browser only, until you send: how far they could go and
+  your recommendations."_), each of those pages says _"Kept in this browser only, until you send."_, and while one
+  of them is on screen the top bar reads **Kept in this browser** in place of **Saved**. Coming back in the same
+  browser reopens the page you left with them still there; on another device, or after clearing site data, they
+  are not. Nobody else can see a form that has not been sent.
+- **How far could they go?** is the last question on a manager's form in a period that asks it. Pick one of three
+  answers or press **1** (_Ready for a bigger role_), **2** (_Could grow in this role_) or **3** (_Happy where they
+  are_). The first needs a reason of at least 10 characters, the box takes the cursor, and the page says _"Say why in
+  a sentence, at least 10 characters."_ until there is one. The **Preview** has a row for it, _Not answered_ when it was
+  left blank, with the reason under a bigger role. It is what fills the talent map (step 27) when the form is sent. A
+  reason typed for a bigger role is not sent with a different answer.
 - The form ends on **Preview**. It reads every answer back and sends nothing: press anything on it
   to change it, and **Send it** is what sends. There is no overall rating to give unless the company
   has switched one on (step 2). Then one optional page, **Is there an overall rating?**, sits between
@@ -1269,7 +1282,7 @@ gaps worth a second look. It does not change a score.
 | **Where**      | `/performance/periods/{id}/fairness`                                                                                                                  |
 | **Who**        | Whoever holds the **See the fairness check** permission                                                                                               |
 | **Click**      | **Fairness check**, at the top of the period screen once the period has started                                                                       |
-| **You'll see** | **Scores compared**, **Gaps flagged**, **Groups hidden** and **Company average**, then three tabs: **Groups**, **Managers** and **Calibration moves** |
+| **You'll see** | **Scores compared**, **Group gaps flagged**, **Groups hidden** and **Company average**, then three tabs: **Groups**, **Managers** and **Calibration moves** |
 
 - **Groups** is one card per way of grouping people — the permission names gender, age, time at the
   company, location, contract type and department. Each card reads **Flagged**, **No clear gap** or

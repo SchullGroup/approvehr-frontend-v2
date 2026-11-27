@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button, Disclosure, LoadFailure, Skeleton } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -88,6 +88,7 @@ export function WorkThisCycle({
   own,
   enabled = true,
   startOpen,
+  whenNothing,
 }: {
   /** Whose work: the person the review is about, always. */
   subjectId: string;
@@ -104,6 +105,15 @@ export function WorkThisCycle({
    * open.
    */
   startOpen?: boolean;
+  /**
+   * Said in the places this draws nothing once it has settled: Projects is off,
+   * the API will not answer this reader, or there is no list. A drawer that is
+   * only for this panel would otherwise open on its title and nothing under
+   * it, which reads as the page being broken. Left out, those cases still draw
+   * nothing, as they do beside a review. It is not said while anything is still
+   * being read.
+   */
+  whenNothing?: ReactNode;
 }) {
   const timeZone = useOrgTimezone();
   const phone = usePhone();
@@ -126,7 +136,9 @@ export function WorkThisCycle({
     enabled: active,
   });
 
-  if (!active) return null;
+  if (!active) {
+    return enabled && !projects.loading ? (whenNothing ?? null) : null;
+  }
   if (read.loading) {
     return <Skeleton className="h-16 w-full" aria-label="Loading work" />;
   }
@@ -136,7 +148,7 @@ export function WorkThisCycle({
       read.error instanceof ApiError &&
       (read.error.status === 403 || read.error.status === 404)
     ) {
-      return null;
+      return whenNothing ?? null;
     }
     return (
       <LoadFailure
@@ -147,7 +159,7 @@ export function WorkThisCycle({
     );
   }
   const work = read.data;
-  if (!work) return null;
+  if (!work) return whenNothing ?? null;
   const flagged = flagging.countIn(work.items.map((item) => item.id));
 
   const open = choice ?? startOpen ?? !phone;

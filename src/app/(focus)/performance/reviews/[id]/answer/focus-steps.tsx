@@ -40,7 +40,9 @@ import {
   ratingOptions,
 } from "./focus-question";
 import {
+  KEPT_HERE,
   closingNoteWords,
+  keptInBrowserLine,
   markPageWords,
   stillNeededLine,
 } from "./focus-logic";
@@ -129,11 +131,18 @@ export function IntroStep({
   resumed,
   answered,
   onShowWork,
+  kept,
 }: {
   review: ApiReviewDetail;
   resumed: boolean;
   answered: number;
   onShowWork: (() => void) | null;
+  /**
+   * What this form holds in the browser until it is sent (`keptInBrowser`). The
+   * introduction says "saves as you go" only of the answers to the questions,
+   * which is all that is true of, and names the rest.
+   */
+  kept: readonly string[];
 }) {
   const total = review.questions.length;
   return (
@@ -156,6 +165,7 @@ export function IntroStep({
         periodEnd={review.periodEnd}
         instructions={review.instructions}
         guideUrl={review.guideUrl}
+        kind={review.kind}
       />
 
       {review.appraiser && (
@@ -183,8 +193,13 @@ export function IntroStep({
         <p className="text-muted">
           {resumed
             ? `You have answered ${String(answered)} of ${String(total)}. They are saved, so pick up where you left off.`
-            : "Your answers save as you go. Close this at any point and come back to it."}
+            : total > 0
+              ? "Your answers to the questions save as you go. Close this at any point and come back to it."
+              : "Close this at any point and come back to it."}
         </p>
+        {kept.length > 0 && (
+          <p className="text-muted">{keptInBrowserLine(kept)}</p>
+        )}
         {onShowWork && (
           <p>
             <button
@@ -281,12 +296,15 @@ export function QuestionStep({
           onBusyChange={onBusyChange}
         />
         <p className="text-meta text-muted">
-          {question.required ? "Needed. " : "Optional. "}
-          {pickKind
-            ? "Pick one, or press its key."
-            : isWriting
-              ? `Press ${continueKeys()} to go on.`
-              : ""}
+          {question.required ? "Needed." : "Optional."}{" "}
+          {(pickKind || isWriting) && (
+            /* A keyboard instruction is noise to somebody on a touch screen. */
+            <span className="pointer-coarse:hidden">
+              {pickKind
+                ? "Pick one, or press its key."
+                : `Press ${continueKeys()} to go on.`}
+            </span>
+          )}
         </p>
         {savedStays && (
           <p className="text-body-sm text-body">
@@ -359,18 +377,23 @@ export function MarkStep({
           value={mark || undefined}
           onPick={onPick}
         />
-        <p className="text-meta text-muted">
-          Pick one, or press its number.{" "}
-          {mark && !required && !held && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
-            >
-              Leave it blank instead
-            </button>
-          )}
-        </p>
+        <div className="flex flex-col gap-1 text-meta text-muted">
+          <p>
+            <span className="pointer-coarse:hidden">
+              Pick one, or press its number.
+            </span>{" "}
+            {mark && !required && !held && (
+              <button
+                type="button"
+                onClick={onClear}
+                className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
+              >
+                Leave it blank instead
+              </button>
+            )}
+          </p>
+          <p>{KEPT_HERE}</p>
+        </div>
         {nudged && required && !mark && (
           <p role="alert" className="text-body-sm font-medium text-danger-text">
             This one needs an answer before you can go on.
@@ -407,7 +430,12 @@ export function SummaryStep({
           labelledBy={HEADING}
           placeholder={words.placeholder}
         />
-        <p className="text-meta text-muted">Press {continueKeys()} to go on.</p>
+        <div className="flex flex-col gap-1 text-meta text-muted">
+          <p className="pointer-coarse:hidden">
+            Press {continueKeys()} to go on.
+          </p>
+          <p>{KEPT_HERE}</p>
+        </div>
       </div>
 
       {/* Development areas, on a form about somebody else. Not on a
@@ -455,6 +483,9 @@ export function CheckStep({
   withMark,
   markRequired = false,
   mark,
+  withPotential = false,
+  potential = "",
+  potentialReason = "",
   summary,
   outstanding,
   coaching,
@@ -476,6 +507,10 @@ export function CheckStep({
   /** This period needs one, so a missing mark is something to answer, like a required question. */
   markRequired?: boolean;
   mark: string;
+  /** A manager's form in a period that asks how far they could go, so it has a row here. */
+  withPotential?: boolean;
+  potential?: string;
+  potentialReason?: string;
   summary: string;
   outstanding: ApiFormQuestion[];
   /** A manager or peer form: the language check applies. */
@@ -483,7 +518,7 @@ export function CheckStep({
   languageTexts: string[];
   languageSeen: boolean;
   /** Jump to the page where a question (or the mark, or the note) is answered. */
-  onEdit: (where: ApiFormQuestion | "mark" | "summary") => void;
+  onEdit: (where: ApiFormQuestion | "mark" | "potential" | "summary") => void;
 }) {
   const words = ratingWordsFrom(scale.levels);
   const markMissing = withMark && markRequired && !mark;
@@ -567,6 +602,37 @@ export function CheckStep({
             </button>
           </li>
         )}
+        {withPotential && (
+          <li>
+            <button
+              type="button"
+              onClick={() => onEdit("potential")}
+              className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+            >
+              <p className="text-meta font-medium text-muted">
+                How far could{" "}
+                {review.subjectName.split(" ")[0] ?? review.subjectName} go?
+              </p>
+              <p className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-ink">
+                {potential
+                  ? (POTENTIAL_WORDS[potential] ?? potential)
+                  : "Not answered"}
+              </p>
+              {potential === "HIGH" && potentialReason.trim() && (
+                <p className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-body">
+                  {potentialReason.trim()}
+                </p>
+              )}
+              {potentialNeedsReason(potential, potentialReason) && (
+                <span className="mt-1.5 block">
+                  <Badge tone="danger" size="sm">
+                    Say why
+                  </Badge>
+                </span>
+              )}
+            </button>
+          </li>
+        )}
         <li>
           <button
             type="button"
@@ -602,6 +668,8 @@ export function sendLabel(languageSeen: boolean, hasFindings: boolean): string {
   return languageSeen && hasFindings ? "Send anyway" : "Send it";
 }
 
+const REASON_LABEL = "potential-reason-label";
+
 /** How far could they go: the three answers a manager can give. */
 export const POTENTIAL_OPTIONS = [
   { value: "HIGH", label: "Ready for a bigger role", key: "1" },
@@ -615,6 +683,18 @@ export const POTENTIAL_WORDS: Record<string, string> = Object.fromEntries(
 
 /** Why "Ready for a bigger role" needs a sentence behind it. */
 export const POTENTIAL_REASON_MIN = 10;
+
+/**
+ * "Ready for a bigger role" is read by whoever decides a promotion, so it has to
+ * say why. The other two answers need nothing more. Said once, for the page that
+ * holds Next shut, the preview row and the send, which must all agree.
+ */
+export function potentialNeedsReason(
+  potential: string,
+  reason: string,
+): boolean {
+  return potential === "HIGH" && reason.trim().length < POTENTIAL_REASON_MIN;
+}
 
 export function PotentialStep({
   firstName,
@@ -641,24 +721,44 @@ export function PotentialStep({
           onPick={onPick}
         />
         {potential === "HIGH" && (
-          <WriteBox
-            labelledBy={HEADING}
-            value={reason}
-            onChange={onReason}
-            placeholder="What you have seen that puts them here."
-          />
+          <div className="flex flex-col gap-2">
+            {/* A placeholder is gone the moment somebody types, and the box
+                was named by the page's heading, so what was typed had no
+                label at all. */}
+            <p id={REASON_LABEL} className="text-meta font-medium text-muted">
+              Your reason
+            </p>
+            <WriteBox
+              labelledBy={REASON_LABEL}
+              value={reason}
+              onChange={onReason}
+              placeholder="What you have seen that puts them here."
+            />
+            {potentialNeedsReason(potential, reason) && (
+              <p className="text-meta text-muted">
+                Say why in a sentence, at least {POTENTIAL_REASON_MIN}{" "}
+                characters.
+              </p>
+            )}
+          </div>
         )}
-        {potential && (
-          <p className="text-meta text-muted">
-            <button
-              type="button"
-              onClick={onClear}
-              className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
-            >
-              Leave it blank instead
-            </button>
+        <div className="flex flex-col gap-1 text-meta text-muted">
+          <p>
+            <span className="pointer-coarse:hidden">
+              Pick one, or press its number.
+            </span>{" "}
+            {potential && (
+              <button
+                type="button"
+                onClick={onClear}
+                className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
+              >
+                Leave it blank instead
+              </button>
+            )}
           </p>
-        )}
+          <p>{KEPT_HERE}</p>
+        </div>
       </div>
     </Frame>
   );

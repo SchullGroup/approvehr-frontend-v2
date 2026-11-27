@@ -138,8 +138,7 @@ export function AppraisalPreview() {
       }
     >
       <p className="text-body-sm text-muted">
-        Preview with example answers. Saved as you go, so you can leave and come
-        back.
+        Preview with example answers. Nothing is saved or sent.
       </p>
       <Checkbox
         label="I manage people (adds the Leadership step)"

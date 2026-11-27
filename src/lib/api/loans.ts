@@ -94,6 +94,14 @@ export type ApiLoan = {
   monthlyRepaymentKobo: number;
   /** Recomputed from the schedule on every write, so it cannot drift. */
   outstandingKobo: number;
+  /**
+   * What comes off this person's pay for this loan at the next payroll: the unpaid part of every
+   * instalment that has fallen due, so a part-paid or missed one is in it. Not the scheduled monthly
+   * figure. Null when nothing comes off; absent from an API that does not send it.
+   */
+  nextDueKobo?: number | null;
+  /** `YYYY-MM-01`: the payroll `nextDueKobo` comes off. */
+  nextDueMonth?: string | null;
 
   status: LoanStatus;
   reason: string | null;
@@ -357,6 +365,20 @@ export const loansApi = {
     request<ApiLoanDetail>(`/loans/${id}/repayments/${sequence}/undo`, {
       method: "POST",
       body: { reason },
+    }),
+
+  /**
+   * Spreading what is still owed on a running loan over a number of months, from a month. The instalments before it
+   * stay (cut to a smaller figure set for the payroll being worked, with the difference spread); what is owed does not
+   * change. The reason is required.
+   */
+  respread: (
+    id: string,
+    body: { startPeriod: string; termMonths: number; reason: string },
+  ) =>
+    request<ApiLoanDetail>(`/loans/${id}/respread`, {
+      method: "POST",
+      body,
     }),
 
   /** Giving up company money. The note is the record, so it is required. */

@@ -125,7 +125,7 @@ export function QueryScreen({ id }: { id: string }) {
           title={title}
           breadcrumb={
             isSubject
-              ? [{ href: "/profile", label: "My profile" }]
+              ? [{ href: "/people/queries", label: "Queries" }]
               : [
                   { href: "/people", label: "Employees" },
                   { href: "/people/queries", label: "Queries" },

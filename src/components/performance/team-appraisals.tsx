@@ -6,6 +6,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { ProgressMeter } from "@/components/ui/progress";
 import { actionMessage } from "@/lib/use-action";
 import type { ApiProgressPerson } from "@/lib/api/performance";
+import { answeredLine, hasStarted } from "@/lib/performance/progress-words";
 
 /**
  * A manager's team and where each person's appraisal stands (owner, 24 Nov
@@ -25,6 +26,8 @@ export type TeamPerson = {
   stepsTotal: number;
   /** Why a locked row is locked, in the API's words. */
   lockedReason?: string | null;
+  /** "1 of 3 answered", once something is. Absent when nothing is. */
+  answered?: string | null;
 };
 
 export const STATUS_WORDS: Record<TeamStatus, string> = {
@@ -44,12 +47,16 @@ export function personOf(row: ApiProgressPerson): TeamPerson {
       ? "done"
       : row.locked
         ? "locked"
-        : done > 0
+        : /* In progress once any question is answered, not only once a whole
+             step is finished: a form somebody has started is not "Ready to
+             start". */
+          hasStarted(row.steps)
           ? "in-progress"
           : "ready",
     stepsDone: done,
     stepsTotal: row.steps.length,
     lockedReason: row.lockedReason,
+    answered: answeredLine(row.steps),
   };
 }
 
@@ -158,6 +165,9 @@ export function TeamAppraisals({
               </p>
               {person.status === "locked" && person.lockedReason && (
                 <p className="text-meta text-muted">{person.lockedReason}</p>
+              )}
+              {person.status !== "done" && person.answered && (
+                <p className="text-meta text-muted">{person.answered}</p>
               )}
               <ProgressMeter
                 className="mt-2"

@@ -43,7 +43,7 @@ import {
   weightsToText,
   type WeightText,
 } from "@/components/performance/period-weights";
-import { weightSetFromRows } from "@/lib/api/performance";
+import { dayLabel, weightSetFromRows } from "@/lib/api/performance";
 import { StartPeriodDialog } from "../../start-period";
 
 /**
@@ -863,7 +863,7 @@ export function DraftPeriodWizard() {
                 <div className="flex flex-wrap gap-2">
                   <dt className="text-muted">Answers due</dt>
                   <dd className="text-ink">
-                    {dueDate === "" ? "Not set" : dueDate}
+                    {dueDate === "" ? "Not set" : dayLabel(dueDate)}
                   </dd>
                 </div>
                 <div className="flex flex-wrap gap-2">

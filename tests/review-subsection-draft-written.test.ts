@@ -144,7 +144,15 @@ describe("whether a written subsection question has been answered", () => {
         base({ id: "c" }),
       ],
     };
-    expect(startIndex(review, { mark: "", summary: "", step: 0 })).toBe(2);
+    expect(
+      startIndex(review, {
+        mark: "",
+        summary: "",
+        step: 0,
+        potential: "",
+        potentialReason: "",
+      }),
+    ).toBe(2);
   });
 
   it("opens past it once it has words: on the page after the questions", () => {
@@ -152,12 +160,28 @@ describe("whether a written subsection question has been answered", () => {
       questions: [written({ answer: answer({ textValue: "Done." }) })],
     };
     /* 0 is the introduction and 1 the question, so 2 is the closing note. */
-    expect(startIndex(review, { mark: "", summary: "", step: 0 })).toBe(2);
+    expect(
+      startIndex(review, {
+        mark: "",
+        summary: "",
+        step: 0,
+        potential: "",
+        potentialReason: "",
+      }),
+    ).toBe(2);
   });
 
   it("opens on the introduction while there is nothing yet", () => {
     const review = { questions: [written()] };
-    expect(startIndex(review, { mark: "", summary: "", step: 0 })).toBe(0);
+    expect(
+      startIndex(review, {
+        mark: "",
+        summary: "",
+        step: 0,
+        potential: "",
+        potentialReason: "",
+      }),
+    ).toBe(0);
   });
 });
 

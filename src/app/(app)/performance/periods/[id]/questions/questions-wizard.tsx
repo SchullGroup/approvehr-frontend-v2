@@ -22,6 +22,7 @@ import {
   DEFAULT_WHO,
   GROUP_TITLE,
   WHO_LABEL,
+  whoOptionsFor,
   answerOf,
   audienceOf,
   countWords,
@@ -439,7 +440,7 @@ function QuestionForm({
             setValue({ ...value, who: event.target.value as Who })
           }
         >
-          {(Object.keys(WHO_LABEL) as Who[]).map((key) => (
+          {whoOptionsFor(group).map((key) => (
             <option key={key} value={key}>
               {WHO_LABEL[key]}
             </option>

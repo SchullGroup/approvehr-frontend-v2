@@ -1,4 +1,5 @@
 import { PAGE_INDEX } from "@/lib/page-index.generated";
+import type { PermissionKey } from "@/lib/permission-keys";
 import {
   PAGE_MODULE,
   PAGE_WORDS,
@@ -41,6 +42,21 @@ const PERSONAL = new Set([
   "/equipment",
   "/notifications",
 ]);
+
+/**
+ * Pages that are **narrower than the door they sit behind**: they are offered only to somebody who
+ * holds one of the permissions listed.
+ *
+ * A page borrows its owner's visibility, which is right when the owner's door is the same size as
+ * the page. It is wrong when the door was opened to more people than the page is for. The Queries
+ * row is in everybody's sidebar (a person reads their own letters there), but the counts are for the
+ * people who write or decide queries, and without this a person would be offered "Counts" in the
+ * search and be told on opening it that it is not theirs. A mistake here costs a title, not data:
+ * the page still answers for itself.
+ */
+const PAGE_NEEDS: Readonly<Record<string, readonly PermissionKey[]>> = {
+  "/people/queries/counts": ["ISSUE_QUERIES", "DECIDE_QUERIES"],
+};
 
 /**
  * Other words people type for a page that is not a sidebar door. Kept to what
@@ -103,6 +119,11 @@ export function searchPages(
   visible: readonly NavGroup[],
   everything: readonly NavGroup[],
   query: string,
+  /**
+   * What the person holds, for the pages in `PAGE_NEEDS`. Left out, it is nothing: a page that
+   * needs a permission is then not offered, which loses a result and never offers a wrong one.
+   */
+  held: ReadonlySet<PermissionKey> = new Set(),
 ): PageHit[] {
   const terms = termsOf(query);
   if (terms.length === 0) return [];
@@ -137,6 +158,8 @@ export function searchPages(
     const owner = ownerOf(page.href, known);
     const allowed = owner ? visibleHrefs.has(owner) : PERSONAL.has(page.href);
     if (!allowed) return;
+    const needs = PAGE_NEEDS[page.href];
+    if (needs && !needs.some((permission) => held.has(permission))) return;
 
     const moduleName =
       PAGE_MODULE[page.href] ??
