@@ -459,9 +459,7 @@ describe("sending it", () => {
       name: '"Fill the two Lagos roles" is waiting to be agreed',
     });
     expect(done).toBeInTheDocument();
-    expect(
-      screen.getByText("Sent to 1 person who can agree it."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Sent to 1 person.")).toBeInTheDocument();
     /* One button, and the X: no Close button of its own. */
     expect(
       screen.getByRole("button", { name: "Back to objectives" }),
