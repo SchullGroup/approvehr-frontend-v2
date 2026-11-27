@@ -14,14 +14,19 @@ import {
   Select,
   Spinner,
   Switch,
+  Tabs,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { ApiAttendancePolicy, PolicyBody } from "@/lib/api/attendance";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { sourceNote } from "@/lib/demo";
 import { useAttendancePolicy } from "@/lib/store/attendance";
+import { SchedulesPanel } from "./schedules";
+import { SpecialDaysPanel } from "./special-days";
+import { ATTENDANCE_TABS, type AttendanceTab } from "./tabs";
 
 /**
  * The company's working hours.
@@ -92,10 +97,29 @@ function weekdayNames(iso: number[]): string {
     .join(", ");
 }
 
-export function AttendancePolicyForm() {
+const TAB_ITEMS = [
+  { id: "hours", label: "Company hours" },
+  { id: "schedules", label: "Schedules" },
+  { id: "special-days", label: "Special days" },
+];
+
+export function AttendancePolicyForm({
+  initialTab = "hours",
+}: {
+  initialTab?: AttendanceTab;
+} = {}) {
   const { policy, loading, error, saving, editable, source, save } =
     useAttendancePolicy();
   const toast = useToast();
+  const [chosenTab, changeTab] = useUrlTab<AttendanceTab>(
+    initialTab,
+    ATTENDANCE_TABS,
+  );
+  /* Schedules and special days exist on the server only. Offline there is
+     nothing to show for them, so the tabs are not offered at all and this is the
+     one screen it always was. */
+  const tabbed = source === "api";
+  const tab = tabbed ? chosenTab : "hours";
 
   /* Keyed by the policy it was started from, so a policy that arrives or
      changes underneath replaces the draft instead of being edited blind. No
@@ -153,6 +177,142 @@ export function AttendancePolicyForm() {
     }
   };
 
+  /* The company-hours form, exactly as it was. */
+  const hours = (
+    <>
+      <LoadFailure subject="the working-hours policy" error={error} />
+
+      {loading ? (
+        <span className="flex items-center gap-2 text-body-sm text-muted">
+          <Spinner size="sm" />
+          Loading
+        </span>
+      ) : !editable ? (
+        <ReadOnlyPolicy policy={policy} />
+      ) : (
+        <>
+          <Card>
+            <CardHeader
+              title="Shift"
+              description="What everybody's clock-in is measured against. Shown to staff before they clock in, so they know what they are aiming for."
+            />
+            <CardBody className="grid gap-5 sm:grid-cols-2">
+              <Field label="Starts" required>
+                <Input
+                  type="time"
+                  value={value.shiftStart}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    set("shiftStart", next);
+                  }}
+                />
+              </Field>
+              <Field label="Ends" required>
+                <Input
+                  type="time"
+                  value={value.shiftEnd}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    set("shiftEnd", next);
+                  }}
+                />
+              </Field>
+              <Field label="Grace" help={graceHelp(value.graceMinutes)}>
+                <Select
+                  value={String(value.graceMinutes)}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    set("graceMinutes", next);
+                  }}
+                >
+                  {withCurrent(GRACE_CHOICES, value.graceMinutes).map(
+                    (minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes === 0 ? "None" : `${minutes} minutes`}
+                      </option>
+                    ),
+                  )}
+                </Select>
+              </Field>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Working days"
+              description="Days measured for attendance. A day left off is never counted as a no-show."
+            />
+            <CardBody>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {WEEKDAYS.map((day) => (
+                  <Checkbox
+                    key={day.iso}
+                    label={day.label}
+                    checked={value.workingWeekdays.includes(day.iso)}
+                    onChange={() => toggleDay(day.iso)}
+                  />
+                ))}
+              </div>
+              {noWorkingDays && (
+                <p className="mt-3 text-body-sm text-warning-text">
+                  No working days chosen: every day would count as a day off,
+                  and attendance would have nothing to measure.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody>
+              <Switch
+                label="Staff clock themselves in"
+                description="Off means only HR records attendance, and the clock-in button on everybody's own screen disappears: attendance itself stays on."
+                checked={value.selfServiceClockIn}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  set("selfServiceClockIn", next);
+                }}
+              />
+            </CardBody>
+          </Card>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
+            <p className="text-body-sm text-muted">
+              {dirty
+                ? `${changed.length} ${changed.length === 1 ? "change" : "changes"} not saved yet.`
+                : `${value.shiftStart}–${value.shiftEnd}, ${weekdayNames(value.workingWeekdays)}.`}
+            </p>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                variant="secondary"
+                disabled={!dirty || saving}
+                onClick={() => setEdited(null)}
+              >
+                Discard
+              </Button>
+              <Button
+                variant="accent"
+                loading={saving}
+                disabled={!dirty || noWorkingDays}
+                onClick={() => void onSave()}
+              >
+                Save changes
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  /* What a day that is switched on starts from, and the week a new schedule
+     starts as. */
+  const companyHours = {
+    start: policy.shiftStart,
+    end: policy.shiftEnd,
+    weekdays: policy.workingWeekdays,
+  };
+
   return (
     <>
       <PageHeader
@@ -168,127 +328,27 @@ export function AttendancePolicyForm() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure subject="the working-hours policy" error={error} />
-
-        {loading ? (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </span>
-        ) : !editable ? (
-          <ReadOnlyPolicy policy={policy} />
-        ) : (
-          <>
-            <Card>
-              <CardHeader
-                title="Shift"
-                description="What everybody's clock-in is measured against. Shown to staff before they clock in, so they know what they are aiming for."
-              />
-              <CardBody className="grid gap-5 sm:grid-cols-2">
-                <Field label="Starts" required>
-                  <Input
-                    type="time"
-                    value={value.shiftStart}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      set("shiftStart", next);
-                    }}
-                  />
-                </Field>
-                <Field label="Ends" required>
-                  <Input
-                    type="time"
-                    value={value.shiftEnd}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      set("shiftEnd", next);
-                    }}
-                  />
-                </Field>
-                <Field label="Grace" help={graceHelp(value.graceMinutes)}>
-                  <Select
-                    value={String(value.graceMinutes)}
-                    onChange={(event) => {
-                      const next = Number(event.target.value);
-                      set("graceMinutes", next);
-                    }}
-                  >
-                    {withCurrent(GRACE_CHOICES, value.graceMinutes).map(
-                      (minutes) => (
-                        <option key={minutes} value={minutes}>
-                          {minutes === 0 ? "None" : `${minutes} minutes`}
-                        </option>
-                      ),
-                    )}
-                  </Select>
-                </Field>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="Working days"
-                description="Days measured for attendance. A day left off is never counted as a no-show."
-              />
-              <CardBody>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {WEEKDAYS.map((day) => (
-                    <Checkbox
-                      key={day.iso}
-                      label={day.label}
-                      checked={value.workingWeekdays.includes(day.iso)}
-                      onChange={() => toggleDay(day.iso)}
-                    />
-                  ))}
-                </div>
-                {noWorkingDays && (
-                  <p className="mt-3 text-body-sm text-warning-text">
-                    No working days chosen: every day would count as a day off,
-                    and attendance would have nothing to measure.
-                  </p>
-                )}
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardBody>
-                <Switch
-                  label="Staff clock themselves in"
-                  description="Off means only HR records attendance, and the clock-in button on everybody's own screen disappears: attendance itself stays on."
-                  checked={value.selfServiceClockIn}
-                  onChange={(event) => {
-                    const next = event.target.checked;
-                    set("selfServiceClockIn", next);
-                  }}
-                />
-              </CardBody>
-            </Card>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
-              <p className="text-body-sm text-muted">
-                {dirty
-                  ? `${changed.length} ${changed.length === 1 ? "change" : "changes"} not saved yet.`
-                  : `${value.shiftStart}–${value.shiftEnd}, ${weekdayNames(value.workingWeekdays)}.`}
-              </p>
-              <div className="flex shrink-0 gap-2">
-                <Button
-                  variant="secondary"
-                  disabled={!dirty || saving}
-                  onClick={() => setEdited(null)}
-                >
-                  Discard
-                </Button>
-                <Button
-                  variant="accent"
-                  loading={saving}
-                  disabled={!dirty || noWorkingDays}
-                  onClick={() => void onSave()}
-                >
-                  Save changes
-                </Button>
-              </div>
+        {tabbed ? (
+          <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
+            <div key={tab} className="animate-open flex flex-col gap-6">
+              {tab === "hours" ? (
+                hours
+              ) : loading ? (
+                <span className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Loading
+                </span>
+              ) : error ? (
+                <LoadFailure subject="the working-hours policy" error={error} />
+              ) : tab === "schedules" ? (
+                <SchedulesPanel hours={companyHours} />
+              ) : (
+                <SpecialDaysPanel hours={companyHours} />
+              )}
             </div>
-          </>
+          </Tabs>
+        ) : (
+          hours
         )}
       </PageBody>
     </>
