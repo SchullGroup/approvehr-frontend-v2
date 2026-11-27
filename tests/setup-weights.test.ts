@@ -37,7 +37,7 @@ describe("balanceWeights", () => {
     "LEADERSHIP",
   ] as never[];
   const total = (shares: Record<string, number | undefined>) =>
-    Object.values(shares).reduce((sum, one) => sum + (one ?? 0), 0);
+    Object.values(shares).reduce<number>((sum, one) => sum + (one ?? 0), 0);
 
   it("gives the last part what the others leave, so the total is always 100", () => {
     const shares = balanceWeights(four, {
