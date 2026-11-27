@@ -176,8 +176,8 @@ export function IntroStep({
             {onShowWork && (
               <button type="button" onClick={onShowWork} className={LINK}>
                 {review.kind === "SELF"
-                  ? "See what you did this period"
-                  : `See what ${review.subjectName.split(" ")[0] ?? review.subjectName} did this period`}
+                  ? "Your work"
+                  : `${review.subjectName.split(" ")[0] ?? review.subjectName}'s work`}
               </button>
             )}
           </p>

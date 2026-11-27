@@ -89,7 +89,9 @@ beforeEach(() => {
 describe("the self review", () => {
   it("has a button for what you did, and the drawer holds the record and the panel", async () => {
     mount();
-    await userEvent.click(screen.getByRole("button", { name: "Your work" }));
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Your work" })[0]!,
+    );
     const dialog = screen.getByRole("dialog");
     expect(
       within(dialog).getByRole("heading", { name: "Your work" }),
@@ -105,7 +107,9 @@ describe("the self review", () => {
 describe("an empty drawer", () => {
   it("has one quiet line that shows only when nothing else is drawn in it", async () => {
     mount();
-    await userEvent.click(screen.getByRole("button", { name: "Your work" }));
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Your work" })[0]!,
+    );
     const line = within(screen.getByRole("dialog")).getByText("Not recorded");
     /* Hidden unless it is the only thing there: a drawer is never left blank, and never says it twice. */
     expect(line.className).toMatch(/\bhidden\b/);
@@ -114,7 +118,9 @@ describe("an empty drawer", () => {
 
   it("has no description under its title: the button already said what it is", async () => {
     mount();
-    await userEvent.click(screen.getByRole("button", { name: "Your work" }));
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Your work" })[0]!,
+    );
     expect(
       within(screen.getByRole("dialog")).queryByText(
         "For reference while you answer.",
@@ -134,7 +140,9 @@ describe("the manager's review", () => {
 
   it("has a button for what the person did, and the drawer holds the panel about them", async () => {
     mount(manager);
-    await userEvent.click(screen.getByRole("button", { name: "Ngozi's work" }));
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Ngozi's work" })[0]!,
+    );
     const dialog = screen.getByRole("dialog");
     expect(
       within(dialog).getByRole("heading", { name: "Ngozi's work" }),
@@ -146,15 +154,18 @@ describe("the manager's review", () => {
 
   it("never shows the writer's own objectives and tasks under the person's name", async () => {
     mount(manager);
-    await userEvent.click(screen.getByRole("button", { name: "Ngozi's work" }));
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Ngozi's work" })[0]!,
+    );
     expect(screen.queryByTestId("self-evidence")).toBeNull();
   });
 
   it("offers it from the introduction too", async () => {
     mount(manager);
+    /* The header button and the link on the first screen, one word for both. */
     expect(
-      screen.getByRole("button", { name: "See what Ngozi did this period" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Ngozi's work" }),
+    ).toHaveLength(2);
   });
 });
 
