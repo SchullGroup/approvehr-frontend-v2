@@ -347,29 +347,26 @@ describe("a pick from the subsection's own choices", () => {
     for (const one of screen.getAllByRole("radio")) {
       expect(one).not.toBeChecked();
     }
-    await next("Next");
-    expect(
-      await screen.findByText("This one needs an answer before you can go on."),
-    ).toBeInTheDocument();
+    /* Not answered, so there is no Next to press. */
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
   });
 });
 
 describe("being required", () => {
-  it("is held to like any other required question: it will not go on without an answer", async () => {
+  it("is held to like any other required question: it will not go on without an answer, so there is no Next", async () => {
     mount({ questions: [direct()] });
     await toTheQuestion();
-    await next("Next");
 
-    expect(
-      await screen.findByText("This one needs an answer before you can go on."),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.queryByText(/needs an answer/i)).toBeNull();
     expect(save).not.toHaveBeenCalled();
   });
 
-  it("says it is needed", async () => {
+  it("says it is needed, with a small tag, and not in a line under the answers", async () => {
     mount({ questions: [direct()] });
     await toTheQuestion();
-    expect(screen.getByText(/Needed\./)).toBeInTheDocument();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
+    expect(screen.queryByText(/Pick one, or press its key/)).toBeNull();
   });
 });
 
@@ -418,7 +415,7 @@ describe("the preview", () => {
     expect(screen.getByText("Yes")).toBeInTheDocument();
   });
 
-  it("says Not answered, and that it needs an answer, for one nobody answered, and never a nought", async () => {
+  it("says Not answered, and that it is needed, for one nobody answered, and never a nought", async () => {
     /* A browser that remembers it was on the last page: the only way to the
        preview with a required question left blank, since Next will not go on. */
     window.localStorage.setItem(
@@ -432,9 +429,9 @@ describe("the preview", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Adaptability")).toBeInTheDocument();
     expect(screen.getByText("Not answered")).toBeInTheDocument();
-    expect(screen.getByText("Needs an answer")).toBeInTheDocument();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
     expect(
-      screen.getByText("1 question still needs an answer before this can go."),
+      screen.getByRole("button", { name: "1 to answer" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("0")).not.toBeInTheDocument();
     expect(screen.queryByText(/0 of 5/)).not.toBeInTheDocument();
