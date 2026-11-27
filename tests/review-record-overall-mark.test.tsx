@@ -5,7 +5,6 @@ import type { ApiEmployeeScore, ApiReviewDetail } from "@/lib/api/performance";
 import { showsOverallMark } from "@/lib/api/performance";
 import { ReviewScreen } from "@/app/(app)/performance/reviews/[id]/review-screen";
 import { FinaliseDialog } from "@/app/(app)/performance/reviews/[id]/finalise-dialog";
-import { finalisedCopy } from "@/app/(app)/performance/reviews/[id]/sign-off-copy";
 
 /**
  * The record of an appraisal follows the company's overall-mark setting.
@@ -339,83 +338,31 @@ describe("making a rating final", () => {
       />,
     );
 
-  it("does not tell the manager there is no overall rating where the company does not ask for one", () => {
-    renderDialog({ overallMark: false });
-    const dialog = screen.getByRole("dialog");
-    expect(
-      within(dialog).getByText(/They will read the answers\./),
-    ).toBeInTheDocument();
-    expect(within(dialog).queryByText(/no overall rating/i)).toBeNull();
-  });
-
-  it("still says so where the company asks and none was given", () => {
-    renderDialog({ overallMark: true });
-    expect(
-      within(screen.getByRole("dialog")).getByText(
-        /This form has no overall rating, so they will read the answers\./,
-      ),
-    ).toBeInTheDocument();
+  it("says the answers are what they will read where there is no overall rating, whatever the company asks", () => {
+    for (const overallMark of [false, true]) {
+      renderDialog({ overallMark });
+      const dialog = screen.getByRole("dialog");
+      expect(
+        within(dialog).getByText(/Emeka will read the answers\./),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByText(/no overall rating/i)).toBeNull();
+      cleanup();
+    }
   });
 
   it("names the rating where there is one", () => {
     renderDialog({ overallMark: false, rating: 4 });
     expect(
       within(screen.getByRole("dialog")).getByText(
-        /Their rating becomes "Exceeds Expectations"\./,
+        /Emeka will be told their rating, "Exceeds Expectations"\./,
       ),
     ).toBeInTheDocument();
   });
 
-  it("says the same in the account of what it recorded, where the company does not ask for a score", async () => {
-    const user = userEvent.setup();
-    renderDialog({ overallMark: false });
-    await user.click(screen.getByRole("button", { name: "Make it final" }));
+  it("says it once, in one sentence, that it cannot be changed", () => {
+    renderDialog({ overallMark: false, rating: 4 });
     expect(
-      await screen.findByText("Emeka will read the answers."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/no overall rating/i)).toBeNull();
-  });
-
-  it("keeps saying there is no overall rating in that account where the company asks for one", async () => {
-    const user = userEvent.setup();
-    renderDialog({ overallMark: true });
-    await user.click(screen.getByRole("button", { name: "Make it final" }));
-    expect(
-      await screen.findByText(
-        "Year-end review 2026 has no overall rating, so Emeka will read the answers.",
-      ),
-    ).toBeInTheDocument();
-  });
-});
-
-describe("the statement that a rating is final", () => {
-  const base = {
-    subjectName: "Emeka Anyanwu",
-    cycleName: "Year-end review 2026",
-    ratingLabel: null,
-    subjectNotified: true,
-  };
-
-  it("leaves out a score that does not exist where the company does not ask", () => {
-    expect(finalisedCopy({ ...base, markShown: false }).lead).toBe(
-      "Emeka will read the answers.",
-    );
-  });
-
-  it("keeps the old wording where the company asks, and where nobody says", () => {
-    const old =
-      "Year-end review 2026 has no overall rating, so Emeka will read the answers.";
-    expect(finalisedCopy({ ...base, markShown: true }).lead).toBe(old);
-    expect(finalisedCopy(base).lead).toBe(old);
-  });
-
-  it("quotes the rating whenever there is one", () => {
-    expect(
-      finalisedCopy({
-        ...base,
-        ratingLabel: "Meets Expectations",
-        markShown: false,
-      }).lead,
-    ).toBe('The rating for Year-end review 2026 is "Meets Expectations".');
+      within(screen.getByRole("dialog")).getAllByText(/cannot be changed/),
+    ).toHaveLength(1);
   });
 });

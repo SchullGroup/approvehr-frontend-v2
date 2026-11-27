@@ -193,10 +193,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     );
   }
 
-  /* One write, and no announcement: acknowledging and finalising each turn
-     their own dialog into the statement of what was recorded, so a toast on top
-     of it would say it twice. A failure is still a toast, and leaves the dialog
-     on its question. */
+  /* One write. Finalising turns its dialog into the statement of what was
+     recorded, so a toast on top of it would say it twice; acknowledging closes
+     its dialog and says "Acknowledged" in a toast. A failure is a toast, and
+     leaves the dialog on its question. */
   const settle = async <T,>(
     action: () => Promise<T>,
   ): Promise<{ ok: true; value: T } | { ok: false }> => {
@@ -601,18 +601,14 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 
       {signingOff && (
         <SignOffDialog
-          review={review}
-          ratingLabel={
-            review.rating === null ? null : ratingWords(review.rating)
-          }
           onClose={() => setSigningOff(false)}
           onConfirm={async (comment) => {
             const outcome = await settle(() =>
               signOff.acknowledge(review, comment),
             );
-            return outcome.ok
-              ? { at: outcome.value?.acknowledgedAt ?? null }
-              : null;
+            if (outcome.ok)
+              toast.push({ title: "Acknowledged", tone: "success" });
+            return outcome.ok;
           }}
         />
       )}
@@ -633,10 +629,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             signOff.finalise(review.id, recommendation),
           );
           return outcome.ok
-            ? {
-                subjectNotified: outcome.value.subjectNotified,
-                kept: outcome.value.workEvidence ?? null,
-              }
+            ? { subjectNotified: outcome.value.subjectNotified }
             : null;
         }}
       />
