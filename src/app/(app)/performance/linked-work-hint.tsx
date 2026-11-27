@@ -1,7 +1,7 @@
 "use client";
 
+import { useId, useState } from "react";
 import Link from "next/link";
-import { Disclosure } from "@/components/ui";
 import { dayLabel } from "@/lib/api/performance";
 import {
   linkedTaskHref,
@@ -30,9 +30,14 @@ import { formatDateShort } from "@/lib/time";
  *
  * Nothing for a company that has not switched the assists on (and then no request is made at all),
  * nothing for a server that has no such route, nothing for a reader the API refuses, nothing for a
- * failed read. A hint that did not arrive is not a reason to say anything or to hold up Confirm. An
- * answer that **is** a list may be empty, and then it says so in words: "No task is linked to this
- * measure" is a fact, and is never a count or a percentage.
+ * failed read, and nothing for an answer that is an empty list: a sentence saying no task is linked
+ * is an empty state, and a hint that did not arrive is not a reason to say anything or to hold up
+ * Confirm.
+ *
+ * ## It is a link, and a count
+ *
+ * "3 linked tasks", in the plain-link style, opens the list in place. Nothing else is said about
+ * the tasks: not whose list one is on, and not how the list was found.
  *
  * ## Truncation is said
  *
@@ -56,53 +61,85 @@ export function LinkedWorkHint({ measureId }: { measureId: string }) {
     instant: (value: string) => formatDateShort(value, timeZone),
   };
 
-  if (work.items.length === 0 && work.total === 0) {
-    return (
-      <p className="text-body-sm text-muted">
-        No task is linked to this target.
-      </p>
-    );
-  }
+  if (work.items.length === 0 && work.total === 0) return null;
+
+  return <LinkedTasks work={work} formats={formats} />;
+}
+
+function LinkedTasks({
+  work,
+  formats,
+}: {
+  work: {
+    items: readonly LinkedTask[];
+    total: number;
+    truncated: boolean;
+  };
+  formats: {
+    day: (value: string) => string;
+    instant: (value: string) => string;
+  };
+}) {
+  const [shown, setShown] = useState(false);
+  const panel = useId();
+  const noun = work.total === 1 ? "task" : "tasks";
 
   return (
-    <Disclosure
-      title="Tasks linked to this target"
-      meta={String(work.total)}
-      level={4}
-      dense
-    >
-      <ul className="divide-y divide-line">
-        {openableFirst(work.items).map((item) =>
-          item.canOpen ? (
-            <li
-              key={item.issueId}
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2 text-body-sm"
-            >
-              <Link
-                href={linkedTaskHref(item.issueId)}
-                className="tabular font-medium text-accent-text underline-offset-4 hover:underline"
-              >
-                {item.key}
-              </Link>
-              <span className="text-muted">{stateWords(item, formats)}</span>
-              {item.personal && (
-                <span className="text-meta text-muted">On a personal list</span>
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        aria-expanded={shown}
+        aria-controls={panel}
+        onClick={() => setShown((now) => !now)}
+        className="cursor-pointer self-start text-body-sm text-muted underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        {work.total} linked {noun}
+      </button>
+      <div
+        id={panel}
+        role="region"
+        aria-label={`${String(work.total)} linked ${noun}`}
+        hidden={!shown}
+      >
+        {shown && (
+          <>
+            <ul className="divide-y divide-line">
+              {openableFirst(work.items).map((item) =>
+                item.canOpen ? (
+                  <li
+                    key={item.issueId}
+                    className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2 text-body-sm"
+                  >
+                    <Link
+                      href={linkedTaskHref(item.issueId)}
+                      className="tabular font-medium text-accent-text underline-offset-4 hover:underline"
+                    >
+                      {item.key}
+                    </Link>
+                    <span className="text-muted">
+                      {stateWords(item, formats)}
+                    </span>
+                  </li>
+                ) : (
+                  /* Counted in the total, and nothing else: no key, no state, no day. */
+                  <li
+                    key={item.issueId}
+                    className="py-2 text-body-sm text-muted"
+                  >
+                    A task you cannot open
+                  </li>
+                ),
               )}
-            </li>
-          ) : (
-            /* Counted in the total, and nothing else: no key, no state, no day. */
-            <li key={item.issueId} className="py-2 text-body-sm text-muted">
-              A task you cannot open
-            </li>
-          ),
+            </ul>
+            {work.truncated && (
+              <p className="pt-1 text-meta text-muted">
+                Showing {work.items.length} of {work.total}.
+              </p>
+            )}
+          </>
         )}
-      </ul>
-      {work.truncated && (
-        <p className="pt-1 text-meta text-muted">
-          Showing {work.items.length} of {work.total}.
-        </p>
-      )}
-    </Disclosure>
+      </div>
+    </div>
   );
 }
 

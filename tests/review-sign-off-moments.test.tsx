@@ -1,43 +1,37 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ApiReview, ApiReviewDetail } from "@/lib/api/performance";
+import type { ApiReviewDetail } from "@/lib/api/performance";
 import { SignOffDialog } from "@/app/(app)/performance/reviews/[id]/sign-off-dialog";
 import { FinaliseDialog } from "@/app/(app)/performance/reviews/[id]/finalise-dialog";
 
 /**
  * Acknowledging a rating and making one final: the two evidential completions of
- * an appraisal, which used to be a toast and are now a statement of what was
- * recorded.
+ * an appraisal.
  *
- * What `tsc` cannot see, and what each test pins: the dialog stays after the
- * write and shows the moment in place of the form; a failure leaves it on the
- * question; and "has been told" is said only when the API said it told them.
+ * What `tsc` cannot see, and what each test pins: acknowledging is the optional
+ * comment and one button, and closes once it is recorded (the screen says
+ * "Acknowledged" in a toast); making final stays open and says what was recorded;
+ * a failure leaves either on its question; and "could not be told" is said only
+ * when the API said so.
  */
 
-const review = {
-  id: "review-1",
-  cycleName: "H1 2026",
-  rating: 3,
-} as unknown as ApiReview;
-
 describe("acknowledging a rating", () => {
-  it("turns the form into a statement of what was recorded", async () => {
+  it("asks for nothing but the optional comment, and closes when it is recorded", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const onConfirm = vi.fn(async () => ({
-      at: "2026-10-09T09:15:00.000Z",
-    }));
-    render(
-      <SignOffDialog
-        review={review}
-        ratingLabel="Meets Expectations"
-        onClose={onClose}
-        onConfirm={onConfirm}
-      />,
-    );
+    const onConfirm = vi.fn(async () => true);
+    render(<SignOffDialog onClose={onClose} onConfirm={onConfirm} />);
 
     const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: "Acknowledge this rating" }),
+    ).toBeInTheDocument();
+    /* One field and two buttons: no paragraph of rules above the form. */
+    expect(within(dialog).getAllByRole("textbox")).toHaveLength(1);
+    expect(within(dialog).queryByText(/does not mean you agree/i)).toBeNull();
+    expect(within(dialog).queryByText(/once/i)).toBeNull();
+
     await user.type(
       within(dialog).getByRole("textbox"),
       "Thanks, I will pick this up.",
@@ -47,68 +41,27 @@ describe("acknowledging a rating", () => {
     );
 
     expect(onConfirm).toHaveBeenCalledWith("Thanks, I will pick this up.");
-    expect(
-      await within(dialog).findByRole("heading", {
-        name: "Your acknowledgement is recorded",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'Your rating for H1 2026 was "Meets Expectations", and you saw it on 9 Oct 2026.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        "It records that you saw your rating, not that you agree with it.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("Your comment is saved with it."),
-    ).toBeInTheDocument();
-    /* The form has gone, so it cannot be sent twice. */
-    expect(within(dialog).queryByRole("textbox")).toBeNull();
-    expect(
-      within(dialog).queryByRole("button", { name: "I have seen this" }),
-    ).toBeNull();
-    expect(onClose).not.toHaveBeenCalled();
-
-    await user.click(within(dialog).getByRole("button", { name: "Done" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
-  it("does not mention a comment that was not written", async () => {
+  it("sends no comment when none was written", async () => {
     const user = userEvent.setup();
-    render(
-      <SignOffDialog
-        review={review}
-        ratingLabel={null}
-        onClose={vi.fn()}
-        onConfirm={async () => ({ at: null })}
-      />,
-    );
+    const onConfirm = vi.fn(async () => true);
+    render(<SignOffDialog onClose={vi.fn()} onConfirm={onConfirm} />);
     await user.click(screen.getByRole("button", { name: "I have seen this" }));
-    expect(
-      await screen.findByText(/You saw your appraisal for H1 2026 on/),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/comment is saved/i)).toBeNull();
+    expect(onConfirm).toHaveBeenCalledWith(undefined);
   });
 
   it("stays on the form when the write failed", async () => {
     const user = userEvent.setup();
-    render(
-      <SignOffDialog
-        review={review}
-        ratingLabel="Meets Expectations"
-        onClose={vi.fn()}
-        onConfirm={async () => null}
-      />,
-    );
+    const onClose = vi.fn();
+    render(<SignOffDialog onClose={onClose} onConfirm={async () => false} />);
     await user.click(screen.getByRole("button", { name: "I have seen this" }));
 
     expect(
       await screen.findByRole("button", { name: "I have seen this" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 
@@ -120,7 +73,7 @@ const detail = {
 } as unknown as ApiReviewDetail;
 
 describe("making a rating final", () => {
-  it("says they have been told when the API says it told them", async () => {
+  it("says what was recorded, and nothing more, when the API told them", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(
@@ -148,16 +101,9 @@ describe("making a rating final", () => {
         name: "Chidi Nwosu's rating is final",
       }),
     ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'The rating for H1 2026 is "Meets Expectations · 3.1".',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        "Chidi has been told, and is asked to acknowledge it.",
-      ),
-    ).toBeInTheDocument();
+    /* The title says it. Nothing is repeated after the act. */
+    expect(within(dialog).queryByText(/has been told/)).toBeNull();
+    expect(within(dialog).queryByText(/cannot be changed/)).toBeNull();
     expect(
       within(dialog).queryByRole("button", { name: "Make it final" }),
     ).toBeNull();

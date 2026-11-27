@@ -5,6 +5,10 @@ import { ProgressMeter, Spinner } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { cn } from "@/lib/cn";
 import {
+  StageProgress,
+  STAGE_WORDS,
+} from "@/components/performance/stage-progress";
+import {
   EXCEPTION_CODE_SUMMARY,
   dayLabel,
   type ApiAppraiserException,
@@ -83,28 +87,28 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
   if (progress) {
     return [
       {
-        label: "Self",
+        label: STAGE_WORDS[0],
         stage: "SELF",
         done: progress.self.done,
         total: progress.self.of,
         notYet: "Nobody has a form yet",
       },
       {
-        label: "Manager",
+        label: STAGE_WORDS[1],
         stage: "MANAGER",
         done: progress.manager.done,
         total: progress.manager.of,
         notYet: "No manager review is due yet",
       },
       {
-        label: "Scores final",
+        label: STAGE_WORDS[2],
         stage: "CALIBRATION",
         done: progress.finalised.done,
         total: progress.finalised.of,
         notYet: "Nobody is in this period yet",
       },
       {
-        label: "Signed off",
+        label: STAGE_WORDS[3],
         stage: "PUBLISHED",
         done: progress.acknowledged.done,
         total: progress.acknowledged.of,
@@ -115,14 +119,14 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
   /* An API that predates `progress`. */
   return [
     {
-      label: "Self",
+      label: STAGE_WORDS[0],
       stage: "SELF",
       done: report?.forms.selfIn ?? 0,
       total: report?.forms.people ?? 0,
       notYet: "Nobody has a form yet",
     },
     {
-      label: "Manager",
+      label: STAGE_WORDS[1],
       stage: "MANAGER",
       done: report?.forms.managerIn ?? 0,
       /* Reviews, not people. See the header. */
@@ -132,14 +136,14 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       notYet: "No manager review is due yet",
     },
     {
-      label: "Scores final",
+      label: STAGE_WORDS[2],
       stage: "CALIBRATION",
       done: report?.marks.finalised ?? 0,
       total: report?.marks.people ?? 0,
       notYet: "Nobody is in this period yet",
     },
     {
-      label: "Signed off",
+      label: STAGE_WORDS[3],
       stage: "PUBLISHED",
       done: report?.marks.acknowledged ?? 0,
       /* You can only answer a mark you have been told, so the denominator is
@@ -150,15 +154,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
   ];
 }
 
-function RailSegment({
-  segment,
-  live,
-  showFigures,
-}: {
-  segment: Segment;
-  live: boolean;
-  showFigures: boolean;
-}) {
+function RailSegment({ segment, live }: { segment: Segment; live: boolean }) {
   const nothingToMeasure = segment.total === 0;
 
   return (
@@ -180,12 +176,7 @@ function RailSegment({
         )}
       </p>
 
-      {!showFigures ? (
-        /* No numerator, no denominator, no bar. The stage names and which one
-           is live are the whole of what somebody outside the register is
-           entitled to, and they are worth having. */
-        <p className="mt-1 text-body-sm text-muted">{live ? "Now" : ""}</p>
-      ) : nothingToMeasure ? (
+      {nothingToMeasure ? (
         <p className="mt-1.5 text-body-sm text-muted">{segment.notYet}</p>
       ) : (
         <>
@@ -308,6 +299,7 @@ export function PeriodStatus({
   cycle,
   canSeeCompany,
   showExceptions = true,
+  showDue = true,
 }: {
   cycle: ApiCycle;
   canSeeCompany: boolean;
@@ -317,6 +309,11 @@ export function PeriodStatus({
    * render it a second time.
    */
   showExceptions?: boolean;
+  /**
+   * False when the caller already says when answers are due, so the line is
+   * not printed a second time under the stages.
+   */
+  showDue?: boolean;
 }) {
   const { report, loading } = useCycleReport(cycle.id, canSeeCompany);
 
@@ -343,18 +340,21 @@ export function PeriodStatus({
         <PeriodExceptionNotice cycle={cycle} canSeeCompany={canSeeCompany} />
       )}
 
-      <div className="flex flex-wrap overflow-hidden rounded-md border border-line">
-        {segments.map((segment) => (
-          <RailSegment
-            key={segment.label}
-            segment={segment}
-            live={segment.stage === cycle.stage}
-            showFigures={showFigures}
-          />
-        ))}
-      </div>
+      {showFigures ? (
+        <div className="flex flex-wrap overflow-hidden rounded-md border border-line">
+          {segments.map((segment) => (
+            <RailSegment
+              key={segment.label}
+              segment={segment}
+              live={segment.stage === cycle.stage}
+            />
+          ))}
+        </div>
+      ) : (
+        <StageProgress stage={cycle.stage} label={cycle.name} />
+      )}
 
-      {cycle.dueDate && (
+      {showDue && cycle.dueDate && (
         <p className="text-meta text-muted">
           Answers due {dayLabel(cycle.dueDate)}
         </p>

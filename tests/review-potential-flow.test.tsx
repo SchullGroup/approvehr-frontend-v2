@@ -169,11 +169,14 @@ describe("answering with the number keys", () => {
 });
 
 describe("a bigger role has to say why", () => {
-  it("holds Next shut and says what is missing, without a red alarm", async () => {
+  it("draws no Next and says what is missing, without a red alarm, until the reason is written", async () => {
     mount();
     await toPotential();
     await userEvent.keyboard("1");
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    /* Nothing in the footer can only refuse: with the reason missing there is no
+       Next to press, and the page says why. */
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
     expect(
       screen.getByText("Say why in a sentence, at least 10 characters."),
     ).toBeInTheDocument();
@@ -359,9 +362,13 @@ describe("coming back to it", () => {
   });
 });
 
+/** The line a page that holds something in this browser carries. */
+const KEPT = "Kept in this browser only, until you send.";
+
 describe("what the form says about saving", () => {
-  it("does not promise that everything saves as you go", async () => {
+  it("promises nothing about saving on the introduction, and names no list there", () => {
     mount({
+      overallMark: true,
       questions: [
         {
           id: "q1",
@@ -371,63 +378,46 @@ describe("what the form says about saving", () => {
         } as never,
       ],
     });
-    expect(screen.queryByText(/^Your answers save as you go/)).toBeNull();
-    expect(
-      screen.getByText(/Your answers to the questions save as you go/),
-    ).toBeInTheDocument();
-  });
-
-  it("names what is held in this browser, on a form that asks for the mark and the potential", () => {
-    mount({ overallMark: true });
-    expect(
-      screen.getByText(
-        "Kept in this browser only, until you send: your overall rating, how far they could go and your recommendations.",
-        { exact: false },
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("names only what the form asks for", () => {
-    mount({ askPotential: false });
-    expect(
-      screen.getByText(
-        "Kept in this browser only, until you send: your recommendations.",
-        { exact: false },
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/how far they could go/)).toBeNull();
-  });
-
-  it("says it on a self-review too, where there is only the note", () => {
-    mount({ kind: "SELF", askPotential: undefined });
-    expect(
-      screen.getByText(
-        "Kept in this browser only, until you send: what you add at the end.",
-        { exact: false },
-      ),
-    ).toBeInTheDocument();
+    /* The first version said "Your answers save as you go", which was true of
+       the questions and false of the rest (F39). The introduction says neither
+       that nor where the rest is: the pages that hold it say so themselves. */
+    expect(screen.queryByText(/save as you go/i)).toBeNull();
+    expect(screen.queryByText(/Kept in this browser/)).toBeNull();
+    expect(screen.queryByText("Saved")).toBeNull();
   });
 
   it("says it on each page that holds one of them", async () => {
     mount({ overallMark: true });
     await press("Start");
     expect(heading("Is there an overall rating?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Kept in this browser only, until you send\./),
-    ).toBeInTheDocument();
+    expect(screen.getByText(KEPT)).toBeInTheDocument();
     await press("Skip");
     expect(heading("How far could Ngozi go?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Kept in this browser only, until you send\./),
-    ).toBeInTheDocument();
+    expect(screen.getByText(KEPT)).toBeInTheDocument();
     await press("Skip");
     expect(heading("Your recommendations")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Kept in this browser only, until you send\./),
-    ).toBeInTheDocument();
+    expect(screen.getByText(KEPT)).toBeInTheDocument();
   });
 
-  it("says Saved about the questions, and says where the rest is on the pages that hold it", async () => {
+  it("says it on the closing note of a self-review too", async () => {
+    mount({ kind: "SELF", askPotential: undefined });
+    await press("Start");
+    expect(heading("Anything to add?")).toBeInTheDocument();
+    expect(screen.getByText(KEPT)).toBeInTheDocument();
+  });
+
+  it("says it on no page that holds nothing in this browser", async () => {
+    mount({
+      questions: [
+        { id: "q1", prompt: "First", kind: "TEXT", required: false },
+      ] as never,
+    });
+    await press("Start");
+    expect(screen.getByText("First")).toBeInTheDocument();
+    expect(screen.queryByText(KEPT)).toBeNull();
+  });
+
+  it("says Saved about the questions, and nothing in the header on the pages that hold the rest", async () => {
     mount({
       questions: [
         { id: "q1", prompt: "First", kind: "TEXT", required: false },
@@ -443,8 +433,11 @@ describe("what the form says about saving", () => {
     await press("Skip");
     expect(heading("How far could Ngozi go?")).toBeInTheDocument();
     await userEvent.keyboard("2");
+    /* "Saved" is about the questions: on this page it would be a claim about
+       the wrong thing, so the header says nothing and the page says where it is. */
     expect(screen.queryByText("Saved")).toBeNull();
-    expect(screen.getByText("Kept in this browser")).toBeInTheDocument();
+    expect(screen.queryByText("Kept in this browser")).toBeNull();
+    expect(screen.getByText(KEPT)).toBeInTheDocument();
   });
 
   it("says nothing in the header on a page that holds nothing yet", async () => {
@@ -454,79 +447,51 @@ describe("what the form says about saving", () => {
     expect(screen.queryByText("Kept in this browser")).toBeNull();
   });
 
-  it("says Kept here for the closing note once there is one", async () => {
+  it("says where the closing note is on its page, and not in the header, once there is one", async () => {
     mount({ askPotential: false });
     await press("Start");
     expect(heading("Your recommendations")).toBeInTheDocument();
     await userEvent.type(screen.getByRole("textbox"), "Promote in the spring.");
     await act(async () => undefined);
-    expect(screen.getByText("Kept in this browser")).toBeInTheDocument();
+    expect(screen.getByText(KEPT)).toBeInTheDocument();
+    expect(screen.queryByText("Kept in this browser")).toBeNull();
     expect(screen.queryByText("Saved")).toBeNull();
   });
 });
 
 describe("how the pages lay it out", () => {
-  it("gives the browser-only fact its own line on the introduction, not the tail of another", () => {
+  it("gives the browser-only fact its own line on the page, not the tail of another", async () => {
     mount();
-    const line = screen.getByText(
-      /^Kept in this browser only, until you send:/,
-    );
+    await toPotential();
+    const line = screen.getByText(KEPT);
     expect(line.tagName).toBe("P");
-    expect(line.textContent).not.toMatch(/save as you go|Close this/);
+    expect(line.textContent).toBe(KEPT);
   });
 
-  it("sets the browser-only line in the muted colour, so it does not read as the page's main promise", () => {
-    mount();
-    expect(
-      screen.getByText(/^Kept in this browser only, until you send:/),
-    ).toHaveClass("text-muted");
-  });
-
-  it("does not tell a touch screen to press a number on the overall rating either", async () => {
-    mount({ overallMark: true });
-    await press("Start");
-    expect(heading("Is there an overall rating?")).toBeInTheDocument();
-    expect(screen.getByText("Pick one, or press its number.")).toHaveClass(
-      "pointer-coarse:hidden",
-    );
-  });
-
-  it("keeps the header's status off a phone, where it cut the page's own name to 'Recommendati…'", async () => {
+  it("sets the browser-only line in the muted colour, so it does not read as the page's main promise", async () => {
     mount({ askPotential: false });
     await press("Start");
-    await userEvent.type(screen.getByRole("textbox"), "A note.");
-    const status = screen.getByText("Kept in this browser");
-    expect(status).toHaveClass("hidden", "sm:inline");
+    expect(screen.getByText(KEPT)).toHaveClass("text-muted");
   });
 
-  it("does not tell a touch screen to press keys", async () => {
-    mount({
-      questions: [
-        { id: "q1", prompt: "First", kind: "TEXT", required: false },
-      ] as never,
-    });
-    await press("Start");
-    /* A written question: "Press Ctrl Enter to go on." */
-    expect(screen.getByText(/to go on\./)).toHaveClass("pointer-coarse:hidden");
-    await press("Skip");
-    /* How far could they go: "Pick one, or press its number." */
+  it("does not tell a touch screen to press a number on how far they could go", async () => {
+    mount();
+    await toPotential();
     expect(screen.getByText("Pick one, or press its number.")).toHaveClass(
       "pointer-coarse:hidden",
     );
-    await press("Skip");
-    /* The closing note. */
-    expect(screen.getByText(/to go on\./)).toHaveClass("pointer-coarse:hidden");
   });
 
-  it("keeps 'Needed' and 'Optional' for a touch screen, which is not a keyboard hint", async () => {
+  it("shows 'Needed' for a required question as a label, which is not a keyboard hint", async () => {
     mount({
       questions: [
         { id: "q1", prompt: "First", kind: "TEXT", required: true },
       ] as never,
     });
     await press("Start");
-    const line = screen.getByText(/^Needed\./);
-    expect(line).not.toHaveClass("pointer-coarse:hidden");
+    const label = screen.getByText("Needed");
+    expect(label).not.toHaveClass("pointer-coarse:hidden");
+    expect(label.closest(".pointer-coarse\\:hidden")).toBeNull();
   });
 
   it("labels the reason box, so what is typed in it is not a nameless paragraph", async () => {

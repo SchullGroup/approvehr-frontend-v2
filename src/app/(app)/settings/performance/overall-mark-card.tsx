@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, CardBody, CardHeader, Switch, useToast } from "@/components/ui";
+import { Switch, useToast } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import {
   overallMarkSavedTitle,
   overallMarkSwitchNote,
@@ -17,6 +18,13 @@ import {
 
 /**
  * Whether an appraisal form ends with an overall mark.
+ *
+ * ## It is the top of the Rating names card, not a card of its own
+ *
+ * One switch, whose name says everything, and then the names beneath it. It has
+ * no heading and no line under the switch: when it applies, that a rating already
+ * given never changes, and the Manager appraisal exception are all behind one
+ * info icon beside the switch's name.
  *
  * ## What the switch decides, and what it does not
  *
@@ -111,36 +119,39 @@ export function OverallMarkCard({
   }
 
   return (
-    <Card>
-      <CardHeader
-        title="Overall rating"
-        level={3}
-        info="It applies to forms opened from now on. A rating already given never changes."
-      />
-      <CardBody className="flex flex-col gap-4">
-        {reading ? (
-          <p className="text-body-sm text-muted">{LOADING}</p>
-        ) : switchable ? (
-          <>
-            <Switch
-              label="Ask for an overall rating at the end of each appraisal"
-              description={overallMarkSwitchNote(managerAppraisal)}
-              checked={on}
-              disabled={!features.editable || features.saving === "overallMark"}
-              onChange={(event) => void set(event.target.checked)}
-            />
-            {!features.editable && (
-              <p className="text-body-sm text-muted">{READ_ONLY}</p>
-            )}
-          </>
-        ) : failed ? (
-          <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
-        ) : (
-          <p className="text-body-sm text-muted">
-            {connected ? NOT_ON_SERVER : NO_SERVER}
-          </p>
-        )}
-      </CardBody>
-    </Card>
+    <div className="flex flex-col gap-3 px-5 py-4">
+      {reading ? (
+        <p className="text-body-sm text-muted">{LOADING}</p>
+      ) : switchable ? (
+        <>
+          <Switch
+            /* The name is set here and not left to the label, because the label
+               holds the tooltip's button and would add its name to the switch's. */
+            aria-label="Ask for an overall rating at the end of each appraisal"
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                Ask for an overall rating at the end of each appraisal
+                <InfoTooltip
+                  label="About the overall rating"
+                  text={`It applies to forms opened from now on. A rating already given never changes. ${overallMarkSwitchNote(managerAppraisal)}`}
+                />
+              </span>
+            }
+            checked={on}
+            disabled={!features.editable || features.saving === "overallMark"}
+            onChange={(event) => void set(event.target.checked)}
+          />
+          {!features.editable && (
+            <p className="text-body-sm text-muted">{READ_ONLY}</p>
+          )}
+        </>
+      ) : failed ? (
+        <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
+      ) : (
+        <p className="text-body-sm text-muted">
+          {connected ? NOT_ON_SERVER : NO_SERVER}
+        </p>
+      )}
+    </div>
   );
 }

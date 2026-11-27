@@ -9,6 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiPin } from "@/lib/api/work-pins";
 import type { Completion, WorkThisCycle } from "@/lib/projects/completions";
@@ -17,22 +18,20 @@ import type { Completion, WorkThisCycle } from "@/lib/projects/completions";
  * Choosing finished work to put beside an answer.
  *
  * What is proved: the list is the person's own finished work for this review's period and is asked for
- * only while the dialog is open; nothing can be added until a task is picked, and the note waits for
- * a task; the title is shown to the person and the dialog says it is not saved, and what is sent has no
- * title in it; adding keeps the dialog open for the next one, says what was added, clears the pick and
- * the note, and keeps focus inside the dialog; a task already on the answer cannot be picked again; at
- * the limit nothing can be added and it says why; a refusal is the server's own sentence and the pick
- * and the note stay; a pin that was written but could not be read back says so; a note over the limit
- * is a problem and cannot be sent; a dialog opens fresh every time and is not wiped by the list being
- * read again while somebody is choosing; and an empty list says nothing was recorded, which says
- * nothing about the work.
+ * only while the dialog is open; nothing can be added until a task is picked; the title is shown to the
+ * person and what is sent has no title in it; every rule (who reads it, that the title is not saved, that
+ * it moves no mark, the limit) is one tooltip in the footer and not a paragraph above the list; the only
+ * buttons are Cancel and Add, and Add closes the dialog; a task already on the answer cannot be picked
+ * again; a refusal is the server's own sentence and the pick and the note stay; a pin that was written
+ * but could not be read back says so where it will be seen, since the dialog is going; a note over the
+ * limit is a problem and cannot be sent; a dialog opens fresh every time and is not wiped by the list
+ * being read again while somebody is choosing; and an empty list is "Not recorded", which says nothing
+ * about the work.
  *
  * And what it does not claim and does not throw away: an answer that cannot be read (a period with no
- * dates, a read that failed, the moment the dialog is going away) is never "no tasks were recorded";
- * the list is asked for as long as the dialog has been open, so closing it does not turn a list into a
- * sentence for the length of its exit; Done, the cross, Escape and the backdrop ask first when a task is
- * picked or a note is typed that has not been added (keep editing, discard, or add it and close) and
- * close at once when nothing is; and nothing closes it while a request is out, so a refusal is always
+ * dates, a read that failed, the moment the dialog is going away) is never "no tasks were recorded"; the
+ * list is asked for as long as the dialog has been open, so closing it does not turn a list into a
+ * sentence for the length of its exit; and nothing closes it while a request is out, so a refusal is always
  * seen, in the server's own words, with the pick and the note still there.
  */
 
@@ -129,23 +128,41 @@ const mount = (
   open = true,
 ) =>
   render(
+    <ToastProvider>
+      <PinWorkDialog
+        open={open}
+        onClose={onClose}
+        work={WORK}
+        prompt="What did you achieve?"
+        pinned={[]}
+        onPin={onPin}
+        {...over}
+      />
+    </ToastProvider>,
+  );
+
+const dialog = () => screen.getByRole("dialog");
+const addButton = () => within(dialog()).getByRole("button", { name: "Add" });
+const cancelButton = () =>
+  within(dialog()).getByRole("button", { name: "Cancel" });
+const note = () => within(dialog()).getByRole("textbox");
+const pick = (name: RegExp) =>
+  userEvent.click(within(dialog()).getByRole("radio", { name }));
+
+/** The same dialog, as another render of it: the list read again, or the dialog opened and closed. */
+const element = (over: Partial<Parameters<typeof PinWorkDialog>[0]> = {}) => (
+  <ToastProvider>
     <PinWorkDialog
-      open={open}
+      open
       onClose={onClose}
       work={WORK}
       prompt="What did you achieve?"
       pinned={[]}
       onPin={onPin}
       {...over}
-    />,
-  );
-
-const dialog = () => screen.getByRole("dialog");
-const addButton = () =>
-  within(dialog()).getByRole("button", { name: "Add to this answer" });
-const note = () => within(dialog()).getByRole("textbox");
-const pick = (name: RegExp) =>
-  userEvent.click(within(dialog()).getByRole("radio", { name }));
+    />
+  </ToastProvider>
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -190,8 +207,11 @@ describe("the list", () => {
     ).toBe(true);
   });
 
-  it("says which answer it is for", () => {
+  it("says which answer it is for, under a short title", () => {
     mount();
+    expect(
+      within(dialog()).getByRole("heading", { name: "Add work" }),
+    ).toBeInTheDocument();
     expect(
       within(dialog()).getByText("What did you achieve?"),
     ).toBeInTheDocument();
@@ -215,46 +235,43 @@ describe("the list", () => {
     ).toBeInTheDocument();
   });
 
-  it("says the title is shown to help choose and is not saved with the pin", () => {
+  it("keeps every rule behind one info mark in the footer, and no paragraph above the list", async () => {
     mount();
-    expect(
-      within(dialog()).getByText(
-        /The title is shown here to help you choose and is not saved with the pin/,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog()).getByText(/It does not change your score/),
-    ).toBeInTheDocument();
+    for (const rule of [
+      /is shown here to help you choose/,
+      /It does not change your score/,
+      /Up to 5 on each answer/,
+      /The people who read your review/,
+      /one press away/,
+    ]) {
+      expect(within(dialog()).queryByText(rule)).not.toBeInTheDocument();
+    }
+    await userEvent.click(
+      within(dialog()).getByRole("button", { name: "About adding work" }),
+    );
+    const rules = screen.getByText(/The people who read your review/);
+    expect(rules).toHaveTextContent(
+      "the task's key, the day it was finished and your note",
+    );
+    expect(rules).toHaveTextContent(
+      "The title is shown here to help you choose and is not saved",
+    );
+    expect(rules).toHaveTextContent("It does not change your score");
+    expect(rules).toHaveTextContent("Up to 5 on each answer");
   });
 
-  it("says what readers see, and that they open the task only where they are allowed to", () => {
-    mount();
+  it("has no heading over the list and no count under it", () => {
+    mount({ pinned: [pinned()] });
     expect(
-      within(dialog()).getByText(
-        /Readers see the task's key, the day it was finished and your note, and can open the task to read it where they are allowed to\./,
-      ),
-    ).toBeInTheDocument();
-    /* Nothing here promises a link that works for everybody. */
-    expect(
-      within(dialog()).queryByText(/anyone who reads (it )?can open/i),
+      within(dialog()).queryByText("Your finished work in this period"),
     ).not.toBeInTheDocument();
-  });
-
-  it("says that what it adds is not the whole picture", () => {
-    mount();
-    expect(
-      within(dialog()).getByText(
-        /The full list of your finished work is still one press away for them/,
-      ),
-    ).toBeInTheDocument();
+    expect(within(dialog()).queryByText(/of 5 added/)).not.toBeInTheDocument();
   });
 
   it("says when it shows the latest of more", () => {
     hook.read = read(work([task()], { capped: true, total: 80 }));
     mount();
-    expect(
-      within(dialog()).getByText("Showing your latest 1 of 80 finished tasks."),
-    ).toBeInTheDocument();
+    expect(within(dialog()).getByText("Latest 1 of 80")).toBeInTheDocument();
   });
 
   it("shows a loading state, and nothing to pick while it loads", () => {
@@ -278,31 +295,76 @@ describe("the list", () => {
     expect(within(dialog()).queryByText(/500/)).not.toBeInTheDocument();
   });
 
-  it("says nothing was recorded, which is nothing about the work, when there is nothing to pick", () => {
+  it("says Not recorded, which is nothing about the work, when there is nothing to pick", () => {
     hook.read = read(work([]));
     mount();
+    expect(within(dialog()).getByText("Not recorded")).toBeInTheDocument();
     expect(
-      within(dialog()).getByText(
-        /No finished tasks were recorded for you on the project boards in this period, so there is nothing to add\. That says nothing about the work itself/,
-      ),
-    ).toBeInTheDocument();
+      within(dialog()).queryByText(/said nothing|No finished tasks/),
+    ).not.toBeInTheDocument();
     expect(within(dialog()).queryByRole("radio")).not.toBeInTheDocument();
     expect(addButton()).toBeDisabled();
   });
 });
 
-describe("picking and adding", () => {
-  it("cannot add until a task is picked, and the note waits for one", () => {
+describe("two buttons", () => {
+  it("are Cancel and Add, and nothing asks a second question", () => {
     mount();
-    expect(addButton()).toBeDisabled();
-    expect(note()).toBeDisabled();
+    const names = within(dialog())
+      .getAllByRole("button")
+      .map((one) => one.getAttribute("aria-label") ?? one.textContent);
+    expect(names).toEqual(
+      expect.arrayContaining(["Cancel", "Add", "About adding work"]),
+    );
+    for (const gone of [
+      "Done",
+      "Keep editing",
+      "Discard",
+      "Add it and close",
+      "Add to this answer",
+    ]) {
+      expect(names).not.toContain(gone);
+    }
   });
 
-  it("can add once a task is picked, and then the note is for it", async () => {
+  it("close at once on Cancel, with a task picked and a note typed, and send nothing", async () => {
+    mount();
+    await pick(/PLT-12/);
+    await userEvent.type(note(), "half a thought");
+    await userEvent.click(cancelButton());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onPin).not.toHaveBeenCalled();
+  });
+
+  it("close at once by every other way too, asking nothing", async () => {
+    mount();
+    await pick(/PLT-12/);
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await userEvent.click(
+      within(dialog()).getByRole("button", { name: "Close dialog" }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(2);
+    fireEvent.click(
+      document.querySelector(
+        '[aria-hidden="true"].absolute.inset-0',
+      ) as Element,
+    );
+    expect(onClose).toHaveBeenCalledTimes(3);
+    expect(within(dialog()).queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("picking and adding", () => {
+  it("cannot add until a task is picked", () => {
+    mount();
+    expect(addButton()).toBeDisabled();
+  });
+
+  it("can add once a task is picked", async () => {
     mount();
     await pick(/PLT-12/);
     expect(addButton()).toBeEnabled();
-    expect(note()).toBeEnabled();
   });
 
   it("sends the task's id and the note, and nothing else: no title", async () => {
@@ -323,55 +385,37 @@ describe("picking and adding", () => {
     await waitFor(() => expect(onPin).toHaveBeenCalledWith("i1", ""));
   });
 
-  it("says what was added, clears the pick and the note, and stays open for the next", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await userEvent.type(note(), "Led it");
-    await userEvent.click(addButton());
-    expect(
-      await within(dialog()).findByText("PLT-12 was added to this answer."),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog()).getByRole("radio", { name: /PLT-12/ }),
-    ).not.toBeChecked();
-    expect(note()).toHaveValue("");
-    expect(addButton()).toBeDisabled();
-    expect(onClose).not.toHaveBeenCalled();
-    expect(dialog()).toBeInTheDocument();
-  });
-
-  it("keeps focus inside the dialog after an add, on the list heading, where the next pick is a key away", async () => {
+  it("closes once it is added, and says nothing about it: the chip under the question is the answer", async () => {
     mount();
     await pick(/PLT-12/);
     await userEvent.click(addButton());
-    await within(dialog()).findByText("PLT-12 was added to this answer.");
-    /* Not left on the button that has just gone off: a disabled control drops focus to the page. */
-    expect(document.activeElement).toBe(
-      within(dialog()).getByRole("heading", {
-        name: "Your finished work in this period",
-      }),
-    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByText(/was added to this answer/),
+    ).not.toBeInTheDocument();
   });
 
-  it("says a pin that was written but could not be read back, and does not say it failed", async () => {
+  it("says a pin that was written but could not be read back, where it will be seen, and does not say it failed", async () => {
     onPin.mockResolvedValue(null);
     mount();
     await pick(/PLT-12/);
     await userEvent.click(addButton());
+    expect(await screen.findByText("PLT-12 was saved")).toBeInTheDocument();
     expect(
-      await within(dialog()).findByText(
-        "PLT-12 was saved, but this page could not read it back. Reload the review to see it.",
+      screen.getByText(
+        "This page could not read it back. Reload the review to see it.",
       ),
     ).toBeInTheDocument();
-    expect(within(dialog()).queryByRole("alert")).not.toBeInTheDocument();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("closes only when told to", async () => {
+  it("says nothing extra for a pin that was read back", async () => {
     mount();
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Done" }),
-    );
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await pick(/PLT-12/);
+    await userEvent.click(addButton());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/was saved/)).not.toBeInTheDocument();
   });
 });
 
@@ -390,18 +434,6 @@ describe("what is already on the answer", () => {
       within(dialog()).getByRole("radio", { name: /PLT-13/ }),
     ).toBeEnabled();
   });
-
-  it("says how many are on it", () => {
-    mount({ pinned: [pinned()] });
-    expect(within(dialog()).getByText("1 of 5 added.")).toBeInTheDocument();
-  });
-
-  it("says the limit before anything is added", () => {
-    mount();
-    expect(
-      within(dialog()).getByText("Up to 5 on each answer."),
-    ).toBeInTheDocument();
-  });
 });
 
 describe("the limit", () => {
@@ -413,17 +445,12 @@ describe("the limit", () => {
     }),
   );
 
-  it("turns adding off at five, and says why and what to do", () => {
+  it("turns adding off at five, without a sentence: the plus that opens this is gone by then", () => {
     mount({ pinned: five });
     expect(addButton()).toBeDisabled();
     expect(
-      within(dialog()).getByText("5 of 5 added. Unpin one to add another."),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog()).getByText(
-        "5 is the most one answer carries. Unpin one to add another.",
-      ),
-    ).toBeInTheDocument();
+      within(dialog()).queryByText(/Unpin one to add another/),
+    ).not.toBeInTheDocument();
     for (const radio of within(dialog()).getAllByRole("radio")) {
       expect(radio).toBeDisabled();
     }
@@ -431,10 +458,9 @@ describe("the limit", () => {
 
   it("is not claimed below five", () => {
     mount({ pinned: five.slice(0, 4) });
-    expect(within(dialog()).getByText("4 of 5 added.")).toBeInTheDocument();
     expect(
-      within(dialog()).queryByText(/is the most one answer carries/),
-    ).not.toBeInTheDocument();
+      within(dialog()).getByRole("radio", { name: /PLT-13/ }),
+    ).toBeEnabled();
   });
 });
 
@@ -458,6 +484,7 @@ describe("a refusal", () => {
       within(dialog()).getByRole("radio", { name: /PLT-13/ }),
     ).toBeChecked();
     expect(note()).toHaveValue("Led it");
+    expect(onClose).not.toHaveBeenCalled();
     /* And it can be tried again once something is changed. */
     expect(addButton()).toBeEnabled();
   });
@@ -500,6 +527,15 @@ describe("a refusal", () => {
 });
 
 describe("the note", () => {
+  it("is optional, and is there from the start", () => {
+    mount();
+    expect(note()).toBeEnabled();
+    expect(note()).toHaveAttribute(
+      "placeholder",
+      "Optional, up to 280 characters",
+    );
+  });
+
   it("is a problem over 280 characters, and cannot be sent", async () => {
     mount();
     await pick(/PLT-12/);
@@ -537,29 +573,11 @@ describe("a fresh dialog every time it opens", () => {
     const view = mount();
     await pick(/PLT-12/);
     await userEvent.type(note(), "half a thought");
-    view.rerender(
-      <PinWorkDialog
-        open={false}
-        onClose={onClose}
-        work={WORK}
-        prompt="What did you achieve?"
-        pinned={[]}
-        onPin={onPin}
-      />,
-    );
+    view.rerender(element({ open: false }));
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
-    view.rerender(
-      <PinWorkDialog
-        open
-        onClose={onClose}
-        work={WORK}
-        prompt="What did you achieve?"
-        pinned={[]}
-        onPin={onPin}
-      />,
-    );
+    view.rerender(element());
     expect(
       within(dialog()).getByRole("radio", { name: /PLT-12/ }),
     ).not.toBeChecked();
@@ -577,16 +595,7 @@ describe("a fresh dialog every time it opens", () => {
         task({ id: "i2", key: "PLT-13", title: "Fix the payslip PDF" }),
       ]),
     );
-    view.rerender(
-      <PinWorkDialog
-        open
-        onClose={onClose}
-        work={WORK}
-        prompt="What did you achieve?"
-        pinned={[]}
-        onPin={onPin}
-      />,
-    );
+    view.rerender(element());
     expect(
       within(dialog()).getByRole("radio", { name: /PLT-12/ }),
     ).toBeChecked();
@@ -595,14 +604,10 @@ describe("a fresh dialog every time it opens", () => {
 });
 
 describe("an answer that cannot be read", () => {
-  it("is not 'no tasks were recorded': it says only that this period's work cannot be read here", () => {
+  it("is not 'no tasks were recorded': it says Not recorded, and offers nothing to choose from", () => {
     hook.read = read(null);
     mount();
-    expect(
-      within(dialog()).getByText(
-        "This period's work cannot be read here, so there is nothing to choose from.",
-      ),
-    ).toBeInTheDocument();
+    expect(within(dialog()).getByText("Not recorded")).toBeInTheDocument();
     expect(
       within(dialog()).queryByText(/No finished tasks were recorded/),
     ).not.toBeInTheDocument();
@@ -614,241 +619,34 @@ describe("an answer that cannot be read", () => {
     hook.honourEnabled = true;
     const view = mount();
     expect(within(dialog()).getAllByRole("radio")).toHaveLength(3);
-    view.rerender(
-      <PinWorkDialog
-        open={false}
-        onClose={onClose}
-        work={WORK}
-        prompt="What did you achieve?"
-        pinned={[]}
-        onPin={onPin}
-      />,
-    );
+    view.rerender(element({ open: false }));
     /* The dialog is still on screen for the length of its exit, and is still showing the list. */
     expect(dialog()).toBeInTheDocument();
     expect(within(dialog()).getAllByRole("radio")).toHaveLength(3);
     expect(
-      within(dialog()).queryByText(/No finished tasks were recorded/),
-    ).not.toBeInTheDocument();
-    expect(
-      within(dialog()).queryByText(/cannot be read here/),
+      within(dialog()).queryByText("Not recorded"),
     ).not.toBeInTheDocument();
     expect(hook.args.at(-1)).toMatchObject({ enabled: true });
   });
 
   it("asks again, for a fresh list, when it is opened again, and never asked while it had never been opened", async () => {
     hook.honourEnabled = true;
-    const element = (open: boolean) => (
-      <PinWorkDialog
-        open={open}
-        onClose={onClose}
-        work={WORK}
-        prompt="What did you achieve?"
-        pinned={[]}
-        onPin={onPin}
-      />
-    );
-    const view = render(element(false));
+    const view = render(element({ open: false }));
     expect(
       hook.args.every(
         (args) => (args as { enabled: boolean }).enabled === false,
       ),
     ).toBe(true);
-    view.rerender(element(true));
+    view.rerender(element({ open: true }));
     expect(hook.args.at(-1)).toMatchObject({ enabled: true });
     expect(within(dialog()).getAllByRole("radio")).toHaveLength(3);
-    view.rerender(element(false));
+    view.rerender(element({ open: false }));
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
-    view.rerender(element(true));
+    view.rerender(element({ open: true }));
     expect(hook.args.at(-1)).toMatchObject({ enabled: true });
     expect(within(dialog()).getAllByRole("radio")).toHaveLength(3);
-  });
-});
-
-describe("closing with something not added", () => {
-  const done = () =>
-    userEvent.click(within(dialog()).getByRole("button", { name: "Done" }));
-  const asked = () => within(dialog()).queryByRole("alert");
-
-  it("closes at once when nothing is picked and nothing is typed, by every way of closing it", async () => {
-    mount();
-    await done();
-    expect(onClose).toHaveBeenCalledTimes(1);
-    await userEvent.keyboard("{Escape}");
-    expect(onClose).toHaveBeenCalledTimes(2);
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Close dialog" }),
-    );
-    expect(onClose).toHaveBeenCalledTimes(3);
-    fireEvent.click(
-      document.querySelector(
-        '[aria-hidden="true"].absolute.inset-0',
-      ) as Element,
-    );
-    expect(onClose).toHaveBeenCalledTimes(4);
-    expect(asked()).not.toBeInTheDocument();
-  });
-
-  it("asks first when a task is picked, and closes nothing yet, whichever way it is closed", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await done();
-    expect(asked()).toHaveTextContent(
-      "You picked PLT-12 and have not added it.",
-    );
-    expect(onClose).not.toHaveBeenCalled();
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Keep editing" }),
-    );
-    expect(asked()).not.toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-    expect(asked()).toHaveTextContent(
-      "You picked PLT-12 and have not added it.",
-    );
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Keep editing" }),
-    );
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Close dialog" }),
-    );
-    expect(asked()).toHaveTextContent(
-      "You picked PLT-12 and have not added it.",
-    );
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Keep editing" }),
-    );
-    fireEvent.click(
-      document.querySelector(
-        '[aria-hidden="true"].absolute.inset-0',
-      ) as Element,
-    );
-    expect(asked()).toHaveTextContent(
-      "You picked PLT-12 and have not added it.",
-    );
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it("offers keep editing, discard and add it and close, with the pick and the note still there", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await userEvent.type(note(), "half a thought");
-    await done();
-    for (const name of ["Keep editing", "Discard", "Add it and close"]) {
-      expect(
-        within(dialog()).getByRole("button", { name }),
-      ).toBeInTheDocument();
-    }
-    expect(
-      within(dialog()).queryByRole("button", { name: "Add to this answer" }),
-    ).not.toBeInTheDocument();
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Keep editing" }),
-    );
-    expect(
-      within(dialog()).getByRole("radio", { name: /PLT-12/ }),
-    ).toBeChecked();
-    expect(note()).toHaveValue("half a thought");
-    expect(
-      within(dialog()).getByRole("button", { name: "Add to this answer" }),
-    ).toBeInTheDocument();
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it("closes, throwing the pick away, on Discard, and sends nothing", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await done();
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Discard" }),
-    );
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(onPin).not.toHaveBeenCalled();
-  });
-
-  it("adds it, with its note, and then closes, on Add it and close", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await userEvent.type(note(), "Led it");
-    await done();
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Add it and close" }),
-    );
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(onPin).toHaveBeenCalledTimes(1);
-    expect(onPin).toHaveBeenCalledWith("i1", "Led it");
-  });
-
-  it("stays open, says the server's refusal and keeps the pick and the note, when Add it and close is refused", async () => {
-    onPin.mockRejectedValue(
-      new ApiError(
-        422,
-        "unprocessable",
-        "Five pins is the most one answer carries.",
-      ),
-    );
-    mount();
-    await pick(/PLT-12/);
-    await userEvent.type(note(), "Led it");
-    await done();
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Add it and close" }),
-    );
-    expect(await within(dialog()).findByRole("alert")).toHaveTextContent(
-      "Five pins is the most one answer carries.",
-    );
-    expect(onClose).not.toHaveBeenCalled();
-    expect(
-      within(dialog()).getByRole("radio", { name: /PLT-12/ }),
-    ).toBeChecked();
-    expect(note()).toHaveValue("Led it");
-    /* The question has been answered: the dialog is back to what it was. */
-    expect(
-      within(dialog()).getByRole("button", { name: "Add to this answer" }),
-    ).toBeInTheDocument();
-  });
-
-  it("says a note was written, and cannot be added, when what it was written for is no longer listed", async () => {
-    const element = () => (
-      <PinWorkDialog
-        open
-        onClose={onClose}
-        work={WORK}
-        prompt="What did you achieve?"
-        pinned={[]}
-        onPin={onPin}
-      />
-    );
-    const view = mount();
-    await pick(/PLT-12/);
-    await userEvent.type(note(), "half a thought");
-    /* The list is read again and the task is not in it any more. */
-    hook.read = read(
-      work([task({ id: "i2", key: "PLT-13", title: "Another" })]),
-    );
-    view.rerender(element());
-    await done();
-    expect(asked()).toHaveTextContent(
-      "You wrote a note and have not added it.",
-    );
-    expect(
-      within(dialog()).getByRole("button", { name: "Add it and close" }),
-    ).toBeDisabled();
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Discard" }),
-    );
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("closes at once once what was picked has been added", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await userEvent.click(addButton());
-    await within(dialog()).findByText("PLT-12 was added to this answer.");
-    await done();
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(asked()).not.toBeInTheDocument();
   });
 });
 
@@ -869,15 +667,13 @@ describe("while a request is out", () => {
     };
   };
 
-  it("cannot be closed by Done, the cross, Escape or the backdrop, and asks nothing", async () => {
+  it("cannot be closed by Cancel, the cross, Escape or the backdrop, and closes when it is added", async () => {
     const out = pending();
     mount();
     await pick(/PLT-12/);
     await userEvent.click(addButton());
     await waitFor(() => expect(onPin).toHaveBeenCalledTimes(1));
-    expect(
-      within(dialog()).getByRole("button", { name: "Done" }),
-    ).toBeDisabled();
+    expect(cancelButton()).toBeDisabled();
     await userEvent.keyboard("{Escape}");
     await userEvent.click(
       within(dialog()).getByRole("button", { name: "Close dialog" }),
@@ -888,13 +684,10 @@ describe("while a request is out", () => {
       ) as Element,
     );
     expect(onClose).not.toHaveBeenCalled();
-    expect(
-      within(dialog()).queryByText(/have not added it/),
-    ).not.toBeInTheDocument();
     await act(async () => {
       out.resolve(pinned());
     });
-    await within(dialog()).findByText("PLT-12 was added to this answer.");
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
   it("shows the server's own refusal in the dialog, with the pick and the note, and can be closed again after", async () => {
@@ -918,69 +711,18 @@ describe("while a request is out", () => {
       within(dialog()).getByRole("radio", { name: /PLT-12/ }),
     ).toBeChecked();
     expect(note()).toHaveValue("Led it");
-    /* The answer is in: closing is allowed again, and asks, since the pick was never added. */
+    /* The answer is in: closing is allowed again. */
     await userEvent.keyboard("{Escape}");
-    expect(
-      within(dialog()).getByText("You picked PLT-12 and have not added it."),
-    ).toBeInTheDocument();
-  });
-
-  it("holds Add it and close too: the answer is waited for, and the dialog closes only on success", async () => {
-    const out = pending();
-    mount();
-    await pick(/PLT-12/);
-    await userEvent.keyboard("{Escape}");
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Add it and close" }),
-    );
-    await waitFor(() => expect(onPin).toHaveBeenCalledTimes(1));
-    expect(onClose).not.toHaveBeenCalled();
-    await userEvent.keyboard("{Escape}");
-    expect(onClose).not.toHaveBeenCalled();
-    await act(async () => {
-      out.resolve(pinned());
-    });
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("where focus goes when it asks before closing", () => {
-  const pressDone = async () => {
-    const done = within(dialog()).getByRole("button", { name: "Done" });
-    done.focus();
-    await userEvent.keyboard("{Enter}");
-  };
-
-  it("is on Keep editing when the question appears, not on the page behind the open dialog", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await pressDone();
-    const keep = await within(dialog()).findByRole("button", {
-      name: "Keep editing",
-    });
-    expect(keep).toHaveFocus();
-    expect(document.body).not.toHaveFocus();
-  });
-
-  it("goes back to Done when Keep editing is pressed, since the button that was pressed has gone", async () => {
-    mount();
-    await pick(/PLT-12/);
-    await pressDone();
-    await userEvent.click(
-      await within(dialog()).findByRole("button", { name: "Keep editing" }),
-    );
-    expect(
-      within(dialog()).getByRole("button", { name: "Done" }),
-    ).toHaveFocus();
-  });
-});
-
-describe("where focus goes when the dialog that asked is closed", () => {
+describe("where focus goes when the dialog is closed", () => {
   /** A button that opens the dialog, and a dialog that really closes when asked, as the answer page's does. */
   function Opener() {
     const [open, setOpen] = useState(false);
     return (
-      <>
+      <ToastProvider>
         <button type="button" onClick={() => setOpen(true)}>
           Open the picker
         </button>
@@ -992,38 +734,28 @@ describe("where focus goes when the dialog that asked is closed", () => {
           pinned={[]}
           onPin={onPin}
         />
-      </>
+      </ToastProvider>
     );
   }
 
-  it("is handed back to the button that opened it after Discard, and not taken back into the dialog that is leaving", async () => {
+  it("is handed back to the button that opened it after Cancel, and not taken back into the dialog that is leaving", async () => {
     render(<Opener />);
     const opener = screen.getByRole("button", { name: "Open the picker" });
     await userEvent.click(opener);
     await pick(/PLT-12/);
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Done" }),
-    );
-    await userEvent.click(
-      await within(dialog()).findByRole("button", { name: "Discard" }),
-    );
+    await userEvent.click(cancelButton());
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
     expect(opener).toHaveFocus();
   });
 
-  it("is handed back to it after Add it and close, too", async () => {
+  it("is handed back to it after Add, too", async () => {
     render(<Opener />);
     const opener = screen.getByRole("button", { name: "Open the picker" });
     await userEvent.click(opener);
     await pick(/PLT-12/);
-    await userEvent.click(
-      within(dialog()).getByRole("button", { name: "Done" }),
-    );
-    await userEvent.click(
-      await within(dialog()).findByRole("button", { name: "Add it and close" }),
-    );
+    await userEvent.click(addButton());
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
@@ -1035,7 +767,7 @@ describe("the list of tasks", () => {
   it("is a named group, so the radios are announced as choices of something", () => {
     mount();
     const group = within(dialog()).getByRole("group", {
-      name: "Which task to add to this answer",
+      name: "Which task to add",
     });
     expect(within(group).getAllByRole("radio")).toHaveLength(3);
     expect(within(dialog()).getAllByRole("radio")).toHaveLength(3);
@@ -1045,9 +777,7 @@ describe("the list of tasks", () => {
     hook.read = read(work([]));
     mount();
     expect(
-      within(dialog()).queryByRole("group", {
-        name: "Which task to add to this answer",
-      }),
+      within(dialog()).queryByRole("group", { name: "Which task to add" }),
     ).not.toBeInTheDocument();
   });
 });

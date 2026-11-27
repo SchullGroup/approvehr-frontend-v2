@@ -3,6 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { Check } from "lucide-react";
 import { Badge, Button, Textarea } from "@/components/ui";
+import { WizardLink } from "@/components/performance/wizard-shell";
 import { LinkedText } from "@/components/ui/linked-text";
 import type { ApiKeyResult } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
@@ -16,11 +17,18 @@ import { LinkedWorkHint } from "./linked-work-hint";
  * ## Who says it is done is not the person it is about
  *
  * A manager confirms it, with an optional note or a link to the evidence; the
- * person whose work it is cannot, and sees a sentence saying who will. A yes
+ * person whose work it is cannot, and is simply not offered the button. A yes
  * typed by the person being judged is the weakest evidence there is, which is
  * why this is its own act and not a number to type into a box. The API enforces
  * it and says why in words about confirming; the screen only declines to offer
- * a button that could never work for this reader.
+ * a button that could never work for this reader, and does not explain the
+ * absence.
+ *
+ * ## The state is said once
+ *
+ * One badge: "Not done yet", or "Done · Chidi, 4 Nov" with who confirmed it and
+ * when. Nothing repeats it in a line beneath, and "Take it back" is a plain link
+ * and not a button that sits there for good.
  *
  * ## Until it is confirmed it counts as not done
  *
@@ -77,6 +85,9 @@ export function DoneMeasureRow({
   const when = measure.confirmedAt
     ? formatDateShort(measure.confirmedAt, timeZone)
     : null;
+  /* "Done · Chidi Nwosu, 4 Nov": who and when, each only if it is known. */
+  const doneBy = [measure.confirmedByName, when].filter(Boolean).join(", ");
+  const doneWords = doneBy ? `Done · ${doneBy}` : "Done";
 
   const run = async (act: () => Promise<boolean>) => {
     setBusy(true);
@@ -98,28 +109,15 @@ export function DoneMeasureRow({
           size="sm"
           {...(confirmed ? { icon: <Check aria-hidden="true" /> } : {})}
         >
-          {confirmed ? "Done" : "Not done yet"}
+          {confirmed ? doneWords : "Not done yet"}
         </Badge>
       </div>
 
-      {confirmed ? (
-        <>
-          <p className="text-body-sm text-body">
-            Confirmed
-            {measure.confirmedByName ? ` by ${measure.confirmedByName}` : ""}
-            {when ? ` on ${when}` : ""}.
-          </p>
-          {measure.confirmNote && (
-            <p className="text-body-sm text-body">
-              <LinkedText>{measure.confirmNote}</LinkedText>
-            </p>
-          )}
-        </>
-      ) : isOwner ? (
-        <p className="text-body-sm text-muted">
-          Your manager confirms it when it is done.
+      {confirmed && measure.confirmNote && (
+        <p className="text-body-sm text-body">
+          <LinkedText>{measure.confirmNote}</LinkedText>
         </p>
-      ) : null}
+      )}
 
       {/* The tasks linked to this measure, for whoever is about to confirm it. It lists and never
           decides, draws nothing unless the company switched the assists on, and is shown only while
@@ -129,7 +127,7 @@ export function DoneMeasureRow({
       {act && !confirmed && !asking && (
         <div>
           <Button size="sm" onClick={() => setAsking(true)}>
-            Confirm it is done
+            Confirm
             <span className="sr-only">: {measure.label}</span>
           </Button>
         </div>
@@ -180,14 +178,13 @@ export function DoneMeasureRow({
 
       {act && confirmed && (
         <div>
-          <Button
-            size="sm"
-            loading={busy}
+          <WizardLink
+            disabled={busy}
             onClick={() => void run(() => act.unconfirm(measure.id))}
           >
             Take it back
             <span className="sr-only">: {measure.label}</span>
-          </Button>
+          </WizardLink>
         </div>
       )}
     </li>

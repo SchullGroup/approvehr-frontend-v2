@@ -48,7 +48,7 @@ const ROWS = [
 describe("the people tab", () => {
   it("opens on a card for each department that still has people waiting", async () => {
     const user = userEvent.setup();
-    render(<PeriodPeople rows={ROWS} onRemind={null} />);
+    render(<PeriodPeople rows={ROWS} />);
     expect(
       screen.getByRole("button", { name: /Engineering/ }),
     ).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe("the people tab", () => {
 
   it("shows a person once, with the reviewers under them once opened", async () => {
     const user = userEvent.setup();
-    render(<PeriodPeople rows={ROWS} onRemind={null} />);
+    render(<PeriodPeople rows={ROWS} />);
     await user.click(screen.getByRole("button", { name: /Engineering/ }));
     expect(screen.getAllByText("Grace Effiong")).toHaveLength(1);
     expect(screen.queryByText("Their own review")).toBeNull();
@@ -74,26 +74,38 @@ describe("the people tab", () => {
     ).toBeInTheDocument();
     expect(within(card).getByText("Review by Halima Sani")).toBeInTheDocument();
     expect(within(card).getByText("1 of 3 in")).toBeInTheDocument();
+    /* A review that is in can still be opened: the second appraiser's has no
+       other door on the period page. */
+    expect(within(card).getAllByRole("link", { name: "Open" })).toHaveLength(3);
+    expect(within(card).getByText("Sent")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /All departments/ }));
     expect(
       screen.getByRole("button", { name: /Engineering/ }),
     ).toBeInTheDocument();
   });
 
-  it("finds a person across departments, and offers a reminder only when it can send one", async () => {
-    const remind = vi.fn();
+  it("finds a person across departments, and has no reminder button of its own", async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<PeriodPeople rows={ROWS} onRemind={remind} />);
-    await user.click(screen.getByRole("button", { name: "Send a reminder" }));
-    expect(remind).toHaveBeenCalledTimes(1);
+    render(<PeriodPeople rows={ROWS} />);
+    expect(
+      screen.queryByRole("button", { name: "Send a reminder" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remind" })).toBeNull();
     await user.type(screen.getByLabelText("Find a person"), "grace");
     expect(screen.getByText("Grace Effiong")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("Find a person"));
     await user.type(screen.getByLabelText("Find a person"), "zzz");
     expect(screen.getByText("Nobody matches")).toBeInTheDocument();
-    rerender(<PeriodPeople rows={ROWS} onRemind={null} />);
-    expect(
-      screen.queryByRole("button", { name: "Send a reminder" }),
-    ).toBeNull();
+  });
+
+  it("has no search and no switch inside an open department, and shows everyone in it", async () => {
+    const user = userEvent.setup();
+    render(<PeriodPeople rows={ROWS} />);
+    await user.click(screen.getByRole("button", { name: /Engineering/ }));
+    expect(screen.queryByLabelText("Find a person")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Who to show" })).toBeNull();
+    expect(screen.getByText("Grace Effiong")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /All departments/ }));
+    expect(screen.getByLabelText("Find a person")).toBeInTheDocument();
   });
 });

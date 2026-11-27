@@ -188,7 +188,7 @@ describe("starting it", () => {
     ).toBeInTheDocument();
   });
 
-  it("stays up with the API's own sentences when it has some, until Done", async () => {
+  it("says what happened in a toast, with the API's own sentences, and closes", async () => {
     const notes = [
       '"H2 2026 Appraisal" asks the new one.',
       'A job role\'s target is a level, so "Engineer" no longer expects it.',
@@ -199,25 +199,14 @@ describe("starting it", () => {
     await userEvent.click(confirm());
 
     expect(
-      await screen.findByRole("dialog", {
-        name: "Started a new version of Teamwork",
-      }),
+      await screen.findByText("Started a new version of Teamwork"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Teamwork is now answered as a level on a scale. Teamwork (retired) keeps its 12 ratings and every score made from them.",
-      ),
-    ).toBeInTheDocument();
-    for (const note of notes) {
-      expect(screen.getByText(note)).toBeInTheDocument();
-    }
-    /* The list was told the moment the API said yes, and the dialog is still up. */
+    /* Their detail, in full as a hover; the toast shows the first lines. */
+    expect(screen.getByText(notes.join(" "))).toBeInTheDocument();
+    /* No second window to read and dismiss. */
+    expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
     expect(onStarted).toHaveBeenCalledTimes(1);
-    expect(onClose).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(onStarted).toHaveBeenCalledTimes(1);
   });
 });
 

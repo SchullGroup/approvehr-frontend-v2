@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ApiFormQuestion } from "@/lib/api/performance";
 import {
   KEPT_HERE,
-  KEPT_HERE_STATUS,
-  keptInBrowser,
-  keptInBrowserLine,
   onRecordOf,
   savedAnswerStands,
   sigOf,
@@ -187,62 +184,12 @@ describe("startIndex on a manager's form that asks how far they could go", () =>
   });
 });
 
-describe("what is kept in this browser, and how it is said", () => {
-  it("is the closing note on every form, named for who is writing it", () => {
-    expect(keptInBrowser("SELF", { mark: false, potential: false })).toEqual([
-      "what you add at the end",
-    ]);
-    expect(keptInBrowser("MANAGER", { mark: false, potential: false })).toEqual(
-      ["your recommendations"],
-    );
-  });
-
-  it("adds the mark and the potential only where the form asks", () => {
-    expect(keptInBrowser("MANAGER", { mark: true, potential: true })).toEqual([
-      "your overall rating",
-      "how far they could go",
-      "your recommendations",
-    ]);
-    expect(keptInBrowser("MANAGER", { mark: false, potential: true })).toEqual([
-      "how far they could go",
-      "your recommendations",
-    ]);
-  });
-
-  it("reads as one sentence that needs no verb to agree with its list", () => {
-    expect(keptInBrowserLine(["what you add at the end"])).toBe(
-      "Kept in this browser only, until you send: what you add at the end.",
-    );
-    expect(keptInBrowserLine(["your recommendations"])).toBe(
-      "Kept in this browser only, until you send: your recommendations.",
-    );
-    expect(
-      keptInBrowserLine([
-        "your overall rating",
-        "how far they could go",
-        "your recommendations",
-      ]),
-    ).toBe(
-      "Kept in this browser only, until you send: your overall rating, how far they could go and your recommendations.",
-    );
-    expect(keptInBrowserLine(["a", "b"])).toBe(
-      "Kept in this browser only, until you send: a and b.",
-    );
-  });
-
-  it("opens with the words each page uses, so it is one statement said twice", () => {
-    expect(
-      keptInBrowserLine(["a"]).startsWith(KEPT_HERE.replace(/\.$/, ":")),
-    ).toBe(true);
-  });
-
-  it("says nothing for an empty list", () => {
-    expect(keptInBrowserLine([])).toBe("");
+describe("what is said about what is kept in this browser", () => {
+  it("is one short line, said on each page that holds something", () => {
+    expect(KEPT_HERE).toBe("Kept in this browser only, until you send.");
   });
 
   it("never calls it saved", () => {
     expect(KEPT_HERE).not.toMatch(/saved/i);
-    expect(KEPT_HERE_STATUS).not.toMatch(/saved/i);
-    expect(keptInBrowserLine(["a"])).not.toMatch(/saved/i);
   });
 });

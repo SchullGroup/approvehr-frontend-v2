@@ -108,7 +108,7 @@ vi.mock("@/lib/permissions", () => ({
 
 const offered = () => {
   render(<RecordLevelDialog open onClose={vi.fn()} onSave={vi.fn()} />);
-  const select = screen.getByLabelText(/Employee/);
+  const select = screen.getByLabelText(/Person/);
   return within(select)
     .getAllByRole("option")
     .map((option) => option.textContent)
@@ -141,11 +141,29 @@ describe("a line manager, who holds no records permission", () => {
 describe("somebody who holds the records permission", () => {
   it("is offered everybody except themselves, by full name", () => {
     canEditRecords = true;
-    expect(offered()).toEqual([
+    expect(offered().sort()).toEqual([
+      "Amara Nwachukwu · Owner",
       "Chidi Nwosu · Engineer",
       "Emeka Anyanwu · Analyst",
       "Fatima Bello · Designer",
-      "Amara Nwachukwu · Owner",
+    ]);
+  });
+
+  it("sees them grouped by department, the groups in name order", () => {
+    canEditRecords = true;
+    render(<RecordLevelDialog open onClose={vi.fn()} onSave={vi.fn()} />);
+    const groups = Array.from(
+      screen.getByLabelText(/Person/).querySelectorAll("optgroup"),
+    ).map((group) => [
+      group.label,
+      Array.from(group.querySelectorAll("option")).map(
+        (option) => option.textContent,
+      ),
+    ]);
+    expect(groups).toEqual([
+      ["Design", ["Fatima Bello · Designer"]],
+      ["Engineering", ["Chidi Nwosu · Engineer", "Emeka Anyanwu · Analyst"]],
+      ["Management", ["Amara Nwachukwu · Owner"]],
     ]);
   });
 });

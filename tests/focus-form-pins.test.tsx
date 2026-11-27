@@ -13,13 +13,13 @@ import type { Completion, WorkThisCycle } from "@/lib/projects/completions";
 /**
  * Finished work pinned to an answer, in the page-by-page form.
  *
- * What is proved: "Add work" is on each question of a person's own unsent self-review where the
- * company has switched the setting on, and nowhere else (not on a manager's form, not with the setting
- * off or not said, not offline); a pin is saved to the server as it is added, not with the answer, and
+ * What is proved: the small plus ("Add work") is on each question of a person's own unsent self-review
+ * where the company has switched the setting on, and nowhere else (not on a manager's form, not with the
+ * setting off or not said, not offline); a pin is saved to the server as it is added, not with the answer, and
  * appears on the page; a pin written while the setting was on can still be taken off and read when it
  * has since been turned off; the form leaves its keys alone while the picker is open, so a letter typed
  * on a task does not pick an answer behind it and Enter does not move on; the preview reads the pins
- * back as plain text, with no link inside a row that is a button; and a refusal is the server's own
+ * back as plain chips, with no link inside a row that is a button; and a refusal is the server's own
  * sentence.
  */
 
@@ -244,26 +244,24 @@ describe("adding", () => {
     );
     await userEvent.type(within(picker()).getByRole("textbox"), "Fixed it");
     await userEvent.click(
-      within(picker()).getByRole("button", { name: "Add to this answer" }),
+      within(picker()).getByRole("button", { name: "Add" }),
     );
     await waitFor(() => expect(api.pin).toHaveBeenCalledTimes(1));
     expect(api.pin).toHaveBeenCalledWith("r1", "q1", {
       issueId: "i2",
       note: "Fixed it",
     });
-    await userEvent.click(
-      within(picker()).getByRole("button", { name: "Done" }),
-    );
+    /* Adding closes the picker: nothing else to press. */
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
-    expect(
-      screen.getByText("Work you added to this answer"),
-    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /PLT-13/ })).toHaveAttribute(
       "href",
       "/projects/tasks/i2",
     );
+    expect(
+      screen.queryByText("Work you added to this answer"),
+    ).not.toBeInTheDocument();
     /* It went to the server by itself: the answers' own save was not involved. */
     expect(save).not.toHaveBeenCalled();
   });
@@ -282,7 +280,7 @@ describe("adding", () => {
       within(picker()).getByRole("radio", { name: /PLT-12/ }),
     );
     await userEvent.click(
-      within(picker()).getByRole("button", { name: "Add to this answer" }),
+      within(picker()).getByRole("button", { name: "Add" }),
     );
     expect(await within(picker()).findByRole("alert")).toHaveTextContent(
       "5 pins is the most one answer can carry. Take one off to add another.",
@@ -301,13 +299,10 @@ describe("adding", () => {
       within(picker()).getByRole("radio", { name: /PLT-12/ }),
     );
     await userEvent.click(
-      within(picker()).getByRole("button", { name: "Add to this answer" }),
+      within(picker()).getByRole("button", { name: "Add" }),
     );
     await waitFor(() =>
       expect(api.pin).toHaveBeenCalledWith("r1", "q1", { issueId: "i1" }),
-    );
-    await userEvent.click(
-      within(picker()).getByRole("button", { name: "Done" }),
     );
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -315,7 +310,7 @@ describe("adding", () => {
     await next("Skip");
     expect(heading("What was hard?")).toBeInTheDocument();
     expect(
-      screen.queryByText("Work you added to this answer"),
+      screen.queryByRole("link", { name: /PLT-12/ }),
     ).not.toBeInTheDocument();
   });
 });
@@ -325,9 +320,7 @@ describe("what was already written", () => {
 
   it("is read and can be taken off, even where the setting has since been turned off", async () => {
     await onFirstQuestion({ ...written, workPins: false });
-    expect(
-      screen.getByText("Work you added to this answer"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /PLT-12/ })).toBeInTheDocument();
     expect(screen.getByText("Led it")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add work" }),
@@ -336,7 +329,7 @@ describe("what was already written", () => {
     await waitFor(() => expect(api.unpin).toHaveBeenCalledWith("r1", "pin1"));
     await waitFor(() =>
       expect(
-        screen.queryByText("Work you added to this answer"),
+        screen.queryByRole("link", { name: /PLT-12/ }),
       ).not.toBeInTheDocument(),
     );
   });
@@ -350,15 +343,16 @@ describe("what was already written", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You have already sent this review.",
     );
-    expect(
-      screen.getByText("Work you added to this answer"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /PLT-12/ })).toBeInTheDocument();
   });
 
   it("is drawn nowhere on a manager's form even if a server sent pins on it", async () => {
     await onFirstQuestion({ ...written, kind: "MANAGER" });
     expect(
-      screen.queryByText("Work you added to this answer"),
+      screen.queryByRole("button", { name: "Unpin PLT-12" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Work" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -383,12 +377,8 @@ describe("the form's keys while the picker is open", () => {
     await userEvent.click(radio);
     /* Focus is on a radio, which the form does not count as typing, and "Y" is the key for Yes. */
     await userEvent.keyboard("y");
-    /* A task is picked and not added, so Done asks before it throws the choice away. */
     await userEvent.click(
-      within(picker()).getByRole("button", { name: "Done" }),
-    );
-    await userEvent.click(
-      within(picker()).getByRole("button", { name: "Discard" }),
+      within(picker()).getByRole("button", { name: "Cancel" }),
     );
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -406,10 +396,7 @@ describe("the form's keys while the picker is open", () => {
     await userEvent.keyboard("{Enter}");
     expect(picker()).toBeInTheDocument();
     await userEvent.click(
-      within(picker()).getByRole("button", { name: "Done" }),
-    );
-    await userEvent.click(
-      within(picker()).getByRole("button", { name: "Discard" }),
+      within(picker()).getByRole("button", { name: "Cancel" }),
     );
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -422,7 +409,7 @@ describe("the form's keys while the picker is open", () => {
     await onFirstQuestion(yesNo);
     await userEvent.click(screen.getByRole("button", { name: "Add work" }));
     await userEvent.click(
-      within(picker()).getByRole("button", { name: "Done" }),
+      within(picker()).getByRole("button", { name: "Cancel" }),
     );
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -438,15 +425,15 @@ describe("the preview", () => {
     questions: [question({ pins: [wirePin()] })],
   };
 
-  it("reads the pins back under the answer, as plain text with no link inside the row's button", async () => {
+  it("reads the pins back under the answer, as plain chips with no link inside the row's button", async () => {
     await onFirstQuestion(pinned);
     await next("Skip");
     await next("Skip");
     expect(heading("Preview")).toBeInTheDocument();
     const row = screen.getByRole("button", { name: /What did you achieve\?/ });
     expect(
-      within(row).getByText("Work pinned to this answer"),
-    ).toBeInTheDocument();
+      within(row).queryByText(/pinned to this answer/),
+    ).not.toBeInTheDocument();
     expect(within(row).getByText("PLT-12")).toBeInTheDocument();
     expect(within(row).getByText("Led it")).toBeInTheDocument();
     expect(within(row).queryByRole("link")).not.toBeInTheDocument();
@@ -460,12 +447,9 @@ describe("the preview", () => {
       within(picker()).getByRole("radio", { name: /PLT-13/ }),
     );
     await userEvent.click(
-      within(picker()).getByRole("button", { name: "Add to this answer" }),
+      within(picker()).getByRole("button", { name: "Add" }),
     );
     await waitFor(() => expect(api.pin).toHaveBeenCalled());
-    await userEvent.click(
-      within(picker()).getByRole("button", { name: "Done" }),
-    );
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
@@ -567,28 +551,26 @@ describe("where focus goes when the last pin is taken off, in the real form", ()
     await waitFor(() => expect(api.unpin).toHaveBeenCalledWith("r1", "pin1"));
     await waitFor(() =>
       expect(
-        screen.queryByText("Work you added to this answer"),
+        screen.queryByRole("link", { name: /PLT-12/ }),
       ).not.toBeInTheDocument(),
     );
   };
 
   it("is on the empty region that is left, and not on the page, when the setting is off", async () => {
     await takeOffTheOnlyPin({ workPins: false });
-    const landing = screen.getByRole("region", {
-      name: "Work added to this answer",
-    });
+    const landing = screen.getByRole("region", { name: "Work" });
     await waitFor(() => expect(landing).toHaveFocus());
     expect(document.body).not.toHaveFocus();
   });
 
-  it("is on Add work, and not on the page, when the setting is on", async () => {
+  it("is on the plus, and not on the page, when the setting is on", async () => {
     await takeOffTheOnlyPin({ workPins: true });
     const add = screen.getByRole("button", { name: "Add work" });
     await waitFor(() => expect(add).toHaveFocus());
     expect(document.body).not.toHaveFocus();
   });
 
-  it("is on the label over the list when pins are left and the setting is off", async () => {
+  it("is on the row's region when pins are left and the setting is off, since there is no plus to land on", async () => {
     await onFirstQuestion({
       workPins: false,
       questions: [
@@ -604,8 +586,8 @@ describe("where focus goes when the last pin is taken off, in the real form", ()
     unpin.focus();
     await userEvent.keyboard("{Enter}");
     await waitFor(() => expect(api.unpin).toHaveBeenCalledWith("r1", "pin2"));
-    const label = await screen.findByText("Work you added to this answer");
-    await waitFor(() => expect(label).toHaveFocus());
+    const region = await screen.findByRole("region", { name: "Work" });
+    await waitFor(() => expect(region).toHaveFocus());
     expect(
       screen.getByRole("button", { name: "Unpin PLT-12" }),
     ).toBeInTheDocument();

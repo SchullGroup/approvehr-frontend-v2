@@ -1,4 +1,4 @@
-import type { ApiFormQuestion } from "@/lib/api/performance";
+import type { ApiFormQuestion, ReviewKind } from "@/lib/api/performance";
 
 /**
  * The self review and the manager review of one person, lined up question by
@@ -24,10 +24,14 @@ export const SELF_REVIEW_LABEL = "Self review";
 export const MANAGER_REVIEW_LABEL = "Manager review";
 
 /**
- * The closing note is where a manager writes what they recommend, and where the
- * person writes anything they wanted to add, so the row is named for both.
+ * One word for the closing note, by who wrote it: a manager's is their
+ * recommendations, anybody else's is a note. It is one field, and it was named
+ * "Closing note and recommendations" on the record and three other things in the
+ * form. A comparison of two reviews, which is both at once, says "Note".
  */
-export const CLOSING_NOTE_LABEL = "Closing note and recommendations";
+export function closingNoteLabel(kind: ReviewKind | "BOTH"): string {
+  return kind === "MANAGER" ? "Recommendations" : "Note";
+}
 
 export type ComparisonRow = {
   id: string;

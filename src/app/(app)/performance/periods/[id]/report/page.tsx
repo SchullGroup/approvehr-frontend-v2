@@ -4,9 +4,8 @@ import { PeriodReportScreen } from "./report-screen";
 import { REPORT_TABS } from "./tabs";
 
 export const metadata: Metadata = {
-  title: "Period report",
-  description:
-    "How the period went: how scores are spread, what has come in, and who is still missing a score or a final rating.",
+  title: "Report",
+  description: "How the period went and who is still to follow up.",
 };
 
 /**

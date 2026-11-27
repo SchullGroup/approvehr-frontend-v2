@@ -46,9 +46,6 @@ const mount = (
       onRecord={() => ({})}
       summary="Steady quarter."
       outstanding={[]}
-      coaching={false}
-      languageTexts={[]}
-      languageSeen={false}
       onEdit={onEdit}
     />,
   );

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiGoal } from "@/lib/api/performance";
 
 /**
- * "Your objectives", on the page somebody rates themselves from.
+ * Their objectives, as bars, in the drawer somebody rates themselves from.
  *
  * They are about to put a number on their own period, so a "0% done" beside an
  * objective whose measures nobody has read is not a harmless default: it is the
@@ -16,7 +16,6 @@ const store = vi.hoisted(() => ({ goals: [] as unknown[] }));
 vi.mock("@/lib/store/performance", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/store/performance")>()),
   useKpis: () => ({ goals: store.goals, loading: false }),
-  useMyTasks: () => ({ tasks: [], loading: false }),
 }));
 
 const { SelfEvidence } = await import("@/app/(app)/performance/self-evidence");
@@ -37,7 +36,7 @@ const goal = (
 
 const show = (...goals: ApiGoal[]) => {
   store.goals = goals;
-  render(<SelfEvidence periodStart={null} periodEnd={null} />);
+  render(<SelfEvidence />);
 };
 
 beforeEach(() => {
@@ -50,12 +49,9 @@ describe("an objective in the list somebody rates themselves from", () => {
       goal("Grow the team", 0, [{ lastReadAt: null }, { lastReadAt: null }]),
     );
     expect(screen.getByText("Grow the team")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "No reading entered yet, so there is no figure to show.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("0% done")).not.toBeInTheDocument();
+    expect(screen.getByText("Not recorded")).toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("shows its figure once a measure has been read", () => {
@@ -65,22 +61,34 @@ describe("an objective in the list somebody rates themselves from", () => {
         { lastReadAt: null },
       ]),
     );
-    expect(screen.getByText("40% done")).toBeInTheDocument();
+    expect(screen.getByText("40%")).toBeInTheDocument();
     expect(
-      screen.queryByText(/No reading entered yet/),
-    ).not.toBeInTheDocument();
+      screen.getByRole("progressbar", { name: "Grow the team" }),
+    ).toHaveAttribute("aria-valuenow", "40");
+    expect(screen.queryByText("Not recorded")).not.toBeInTheDocument();
   });
 
   it("shows the figure somebody entered by hand when it has no measures", () => {
     show(goal("Keep the books", 25, []));
-    expect(screen.getByText("25% done")).toBeInTheDocument();
+    expect(screen.getByText("25%")).toBeInTheDocument();
   });
 
   it("makes no claim about readings on a server that does not say", () => {
     show(goal("Grow the team", 0, [{}, {}]));
-    expect(screen.getByText("0% done")).toBeInTheDocument();
-    expect(
-      screen.queryByText(/No reading entered yet/),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.queryByText("Not recorded")).not.toBeInTheDocument();
+  });
+});
+
+describe("what is drawn for nobody with objectives", () => {
+  it("is nothing: no heading, no sentence, no empty list", () => {
+    const { container } = render(<SelfEvidence />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("leaves out the company's own goals, which are nobody's to mark themselves against", () => {
+    store.goals = [{ ...goal("Company growth", 50, []), companyWide: true }];
+    const { container } = render(<SelfEvidence />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

@@ -4,13 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiRatingScale, ApiReviewDetail } from "@/lib/api/performance";
 
 /**
- * Where "Work this cycle" sits in the two reviews people write.
+ * Where "Your work" sits in the two reviews people write.
  *
  * What is proved: the self review shows what you did and the manager review
  * shows what the person it is about did, each one press away at the top of the
- * form; peer feedback shows neither; and the panel is handed the person the
- * review is about and the cycle it belongs to, so it can never be pointed at
- * somebody else.
+ * form, under one word ("Your work", or "Ngozi's work") for the button and the
+ * drawer it opens; peer feedback shows neither; and the list is handed the
+ * person the review is about and the cycle it belongs to, so it can never be
+ * pointed at somebody else.
  */
 
 const scale: ApiRatingScale = {
@@ -89,14 +90,42 @@ describe("the self review", () => {
   it("has a button for what you did, and the drawer holds the record and the panel", async () => {
     mount();
     await userEvent.click(
-      screen.getByRole("button", { name: "What you did this period" }),
+      screen.getAllByRole("button", { name: "Your work" })[0]!,
     );
     const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: "Your work" }),
+    ).toBeInTheDocument();
     expect(within(dialog).getByTestId("self-evidence")).toBeInTheDocument();
     const panel = within(dialog).getByTestId("work-this-cycle");
     expect(panel).toHaveAttribute("data-subject", "e1");
     expect(panel).toHaveAttribute("data-cycle", "c1");
     expect(panel).toHaveAttribute("data-own", "true");
+  });
+});
+
+describe("an empty drawer", () => {
+  it("has one quiet line that shows only when nothing else is drawn in it", async () => {
+    mount();
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Your work" })[0]!,
+    );
+    const line = within(screen.getByRole("dialog")).getByText("Not recorded");
+    /* Hidden unless it is the only thing there: a drawer is never left blank, and never says it twice. */
+    expect(line.className).toMatch(/\bhidden\b/);
+    expect(line.className).toMatch(/only:block/);
+  });
+
+  it("has no description under its title: the button already said what it is", async () => {
+    mount();
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Your work" })[0]!,
+    );
+    expect(
+      within(screen.getByRole("dialog")).queryByText(
+        "For reference while you answer.",
+      ),
+    ).toBeNull();
   });
 });
 
@@ -112,13 +141,11 @@ describe("the manager's review", () => {
   it("has a button for what the person did, and the drawer holds the panel about them", async () => {
     mount(manager);
     await userEvent.click(
-      screen.getByRole("button", { name: "What Ngozi did this period" }),
+      screen.getAllByRole("button", { name: "Ngozi's work" })[0]!,
     );
     const dialog = screen.getByRole("dialog");
     expect(
-      within(dialog).getByRole("heading", {
-        name: "What Ngozi did this period",
-      }),
+      within(dialog).getByRole("heading", { name: "Ngozi's work" }),
     ).toBeInTheDocument();
     const panel = within(dialog).getByTestId("work-this-cycle");
     expect(panel).toHaveAttribute("data-subject", "e9");
@@ -128,25 +155,24 @@ describe("the manager's review", () => {
   it("never shows the writer's own objectives and tasks under the person's name", async () => {
     mount(manager);
     await userEvent.click(
-      screen.getByRole("button", { name: "What Ngozi did this period" }),
+      screen.getAllByRole("button", { name: "Ngozi's work" })[0]!,
     );
     expect(screen.queryByTestId("self-evidence")).toBeNull();
   });
 
   it("offers it from the introduction too", async () => {
     mount(manager);
+    /* The header button and the link on the first screen, one word for both. */
     expect(
-      screen.getByRole("button", { name: "See what Ngozi did this period" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Ngozi's work" }),
+    ).toHaveLength(2);
   });
 });
 
 describe("peer feedback", () => {
   it("has no work button and no panel", () => {
     mount({ kind: "PEER", kindLabel: "Peer feedback", mine: true });
-    expect(
-      screen.queryByRole("button", { name: /did this period/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /work$/i })).toBeNull();
     expect(screen.queryByTestId("work-this-cycle")).toBeNull();
   });
 });

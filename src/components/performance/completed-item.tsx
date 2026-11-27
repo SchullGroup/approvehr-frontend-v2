@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { Checkbox } from "@/components/ui";
 import type { Completion } from "@/lib/projects/completions";
 import { isLinked } from "@/lib/projects/types";
 import { isPersonalSource, workIssueHref } from "@/lib/projects/objectives";
-import { formatDateShort } from "@/lib/time";
+import { workFacts } from "@/lib/performance/work-in-answers";
+import { WorkRow } from "./work-row";
 
 /**
  * One finished task, as a fact.
@@ -15,6 +15,9 @@ import { formatDateShort } from "@/lib/time";
  * objective it is linked to if anybody linked one. There is no grade here and
  * nothing that looks like one: on time and late are the same quiet word, and a
  * task with no link says nothing about links at all.
+ *
+ * The row and its line of facts are `WorkRow` and `workFacts`, the same for every
+ * list of finished work.
  */
 
 const LEVEL_WORDS = {
@@ -46,12 +49,41 @@ export type ItemSelection = {
   disabled?: boolean;
 };
 
+/**
+ * The quiet facts under one finished task: the project (or "Personal"), the day, on time or late, and
+ * who set it when somebody else did. Who finished it only where the list is not already under their
+ * name. The same words as every other list of finished work (`workFacts`).
+ */
+export function completionFacts(
+  item: Completion,
+  timeZone: string,
+  showPerson = false,
+): string[] {
+  return workFacts(
+    {
+      person: showPerson ? item.personName : null,
+      personal:
+        item.personal ||
+        isPersonalSource({ key: item.key, projectId: item.projectId }),
+      where: item.projectName,
+      doneAt: item.doneAt,
+      finishedOn: item.doneDay,
+      timing: item.onTime === null ? null : item.onTime ? "ON_TIME" : "LATE",
+      /* Only when somebody else set it: work somebody asked for reads differently from work the
+         person set themselves, and the person's own is the ordinary case and says nothing. */
+      setBy: item.setBy ?? null,
+    },
+    timeZone,
+  );
+}
+
 export function CompletedItem({
   item,
   timeZone,
   selection,
   showPerson = false,
   extra,
+  action,
 }: {
   item: Completion;
   timeZone: string;
@@ -63,61 +95,31 @@ export function CompletedItem({
    * flag that it is wrong. Drawn last, under the facts; nothing for none.
    */
   extra?: React.ReactNode;
+  /** What can be done to the row, after it: today, the person's flag menu. */
+  action?: React.ReactNode;
 }) {
-  const link = linkLine(item);
-  const where = isPersonalSource({ key: item.key, projectId: item.projectId })
-    ? "Personal"
-    : item.projectName;
-  const facts: React.ReactNode[] = [
-    ...(showPerson ? [item.personName] : []),
-    <span key="where" className="min-w-0 break-words">
-      {where}
-    </span>,
-    `Finished ${formatDateShort(item.doneAt, timeZone)}`,
-    ...(item.onTime !== null ? [item.onTime ? "On time" : "Late"] : []),
-    /* Only when somebody else set it: work somebody asked for reads differently from work the
-       person set themselves, and the person's own is the ordinary case and says nothing. */
-    ...(item.setBy ? [`Set by ${item.setBy.name}`] : []),
-  ];
   return (
-    <li className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
-      {selection && (
-        <Checkbox
-          checked={selection.checked}
-          disabled={selection.disabled === true && !selection.checked}
-          onChange={selection.onChange}
-          hiddenLabel={`Select ${item.key} ${item.title}`}
-          className="mt-0.5"
-        />
-      )}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          {/* Only where the reader may open it: a task off a board they are not on
-              is named, not linked to a page that would refuse them. */}
-          {item.canOpen === false ? (
-            <span className="tabular text-body-sm font-medium text-ink">
-              {item.key}
-            </span>
-          ) : (
-            <Link
-              href={workIssueHref(item)}
-              className="tabular text-body-sm font-medium text-accent-text hover:underline"
-            >
-              {item.key}
-            </Link>
-          )}
-          <span className="min-w-0 break-words text-body-sm text-ink">
-            {item.title}
-          </span>
-        </p>
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-muted">
-          {facts.map((fact, index) => (
-            <span key={index}>{fact}</span>
-          ))}
-        </p>
-        {link && <p className="text-meta text-muted">{link}</p>}
-        {extra}
-      </div>
-    </li>
+    <WorkRow
+      itemKey={item.key}
+      title={item.title}
+      /* Only where the reader may open it: a task off a board they are not on
+         is named, not linked to a page that would refuse them. */
+      href={item.canOpen === false ? null : workIssueHref(item)}
+      facts={completionFacts(item, timeZone, showPerson)}
+      link={linkLine(item)}
+      before={
+        selection ? (
+          <Checkbox
+            checked={selection.checked}
+            disabled={selection.disabled === true && !selection.checked}
+            onChange={selection.onChange}
+            hiddenLabel={`Select ${item.key} ${item.title}`}
+            className="mt-0.5"
+          />
+        ) : undefined
+      }
+      action={action}
+      extra={extra}
+    />
   );
 }

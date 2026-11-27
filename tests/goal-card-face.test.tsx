@@ -102,19 +102,18 @@ const open = async (card: ApiGoal) => {
 };
 
 describe("the window an objective opens into", () => {
-  it("labels a bar with nothing read for what it is, and draws no figure beside it", async () => {
+  it("draws no bar and no figure for an objective with nothing read, and says nothing about it", async () => {
     const dialog = await open(goal([{ lastReadAt: null }]));
-    expect(dialog.getByText("Progress, nothing read yet")).toBeInTheDocument();
-    /* A 0% beside "nothing read yet" would be the claim the label denies. */
+    expect(dialog.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(dialog.queryByText("0%")).not.toBeInTheDocument();
     expect(
-      dialog.getByText(
-        "Its target has not been read. Nothing is counted yet, so the figure above is not a result.",
-      ),
-    ).toBeInTheDocument();
+      dialog.queryByText(/nothing read|not read|not a result/i),
+    ).toBeNull();
+    /* Said once, in the empty box. */
+    expect(dialog.getAllByPlaceholderText("Not recorded")).toHaveLength(1);
   });
 
-  it("says how much of a figure is a reading when some targets are read", async () => {
+  it("draws one bar, called Progress, and the figure, when some targets are read", async () => {
     const dialog = await open(
       goal(
         [{ lastReadAt: STAMP }, { lastReadAt: null }, { lastReadAt: null }],
@@ -124,26 +123,28 @@ describe("the window an objective opens into", () => {
         },
       ),
     );
-    expect(
-      dialog.getByText("Progress, from the targets read so far"),
-    ).toBeInTheDocument();
+    expect(dialog.getAllByRole("progressbar")).toHaveLength(1);
+    expect(dialog.getByText("Progress")).toBeInTheDocument();
     expect(dialog.getByText("40%")).toBeInTheDocument();
-    expect(
-      dialog.getByText(
-        "1 of 3 targets read. The others are left out of the figure above until somebody enters a reading.",
-      ),
-    ).toBeInTheDocument();
+    expect(dialog.queryByText(/targets read/)).not.toBeInTheDocument();
   });
 
-  it("labels it as before, and says nothing more, when every target is read", async () => {
+  it("draws the same one bar, and no sentence, when every target is read", async () => {
     const dialog = await open(
       goal([{ lastReadAt: STAMP }, { lastReadAt: STAMP }], {
         measuredProgress: 40,
         progress: 40,
       }),
     );
-    expect(dialog.getByText("Progress, from 2 targets")).toBeInTheDocument();
-    expect(dialog.queryByText(/targets read\./)).not.toBeInTheDocument();
+    expect(dialog.getAllByRole("progressbar")).toHaveLength(1);
+    expect(dialog.getByText("Progress")).toBeInTheDocument();
+    expect(dialog.queryByText(/targets read/)).not.toBeInTheDocument();
+  });
+
+  it("says the period once, small, and never tells the reader to add a quarter", async () => {
+    const dialog = await open(goal([], { reviewCycleName: "H1 2026" }));
+    expect(dialog.getByText("H1 2026")).toBeInTheDocument();
+    expect(dialog.queryByText(/Give this a quarter/)).toBeNull();
   });
 });
 

@@ -15,7 +15,6 @@ import {
 import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCycle, CycleWeights } from "@/lib/api/performance";
-import { periodWeightsLine } from "@/lib/performance/score-wording";
 import { useCycleMutations, useScoringWeights } from "@/lib/store/performance";
 
 /**
@@ -136,7 +135,6 @@ function DraftWeights({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-meta text-muted">{periodWeightsLine(weights.basis)}</p>
       <PeriodWeights
         value={value}
         onChange={setValue}
@@ -156,17 +154,20 @@ function DraftWeights({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="accent"
-          size="sm"
-          loading={saving}
-          disabled={problem !== null || !dirty}
-          onClick={() =>
-            void run({ weights: weightsFromText(value) }, "Weights saved")
-          }
-        >
-          Save the weights
-        </Button>
+        {/* Only once something has changed and the set is valid: the donut says
+            what is left to give out, so a Save that waits needs no reason. */}
+        {dirty && problem === null && (
+          <Button
+            variant="accent"
+            size="sm"
+            loading={saving}
+            onClick={() =>
+              void run({ weights: weightsFromText(value) }, "Weights saved")
+            }
+          >
+            Save the weights
+          </Button>
+        )}
         {/* Only when this period's weights are not the company's: otherwise there
             is nothing for it to change. */}
         {weightsDifferFromCompany(

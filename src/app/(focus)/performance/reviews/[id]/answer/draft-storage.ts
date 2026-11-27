@@ -9,8 +9,8 @@
  * exactly what a person trusts a page that says it saves as you go *not* to do.
  *
  * It is also all this is: the page says so wherever it asks for one of the three
- * (`keptInBrowserLine` in `focus-logic.ts`), because a draft that follows nobody
- * to another device, described as "saved", is a claim a person finds out is false
+ * (`KEPT_HERE` in `focus-logic.ts`), because a draft that follows nobody to
+ * another device, described as "saved", is a claim a person finds out is false
  * on the morning they open their laptop instead of their phone.
  *
  * It also remembers which page they were on, so coming back is coming back to

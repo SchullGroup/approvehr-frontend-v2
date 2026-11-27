@@ -103,7 +103,12 @@ beforeEach(() => {
   ];
 });
 
-const companyObjective = {
+const companyObjective: {
+  id: string;
+  title: string;
+  departmentId: string | null;
+  dueQuarter: string | null;
+} = {
   id: "g-company",
   title: "Grow the business",
   departmentId: null,
@@ -167,7 +172,7 @@ describe("Give a KPI to people, as a department head", () => {
     expect(people()).toHaveLength(5);
   });
 
-  it("offers a plain employee nobody but themselves, and says why", () => {
+  it("offers a plain employee nobody but themselves", () => {
     state.employeeId = "eng-1";
     render(
       <AssignKpiDialog
@@ -180,7 +185,7 @@ describe("Give a KPI to people, as a department head", () => {
     expect(people()).toEqual([expect.stringContaining("Tunde Bello")]);
   });
 
-  it("tells somebody in an empty department that nobody is there, not that they cannot lead them", () => {
+  it("says nothing about an empty department: the menu does not offer the dialog then", () => {
     state.people = [];
     render(
       <AssignKpiDialog
@@ -190,9 +195,9 @@ describe("Give a KPI to people, as a department head", () => {
         onAssign={vi.fn()}
       />,
     );
-    expect(
-      screen.getByText(/nobody is in this department yet/i),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/nobody is in this department/i)).toBeNull();
+    expect(screen.queryByText(/yours to set goals for/i)).toBeNull();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 });
 
@@ -215,7 +220,7 @@ describe("Give a KPI to people, opened a second time", () => {
     };
   };
 
-  it("starts blank: no title, nobody ticked", async () => {
+  it("starts on the parent's own title with nobody ticked", async () => {
     const { again } = reopen(companyObjective, companyObjective);
     screen.getAllByRole("checkbox")[1]?.click();
     expect(
@@ -286,5 +291,90 @@ describe("Give a KPI to people, when the API says no", () => {
     expect(await screen.findByText(refusal)).toBeInTheDocument();
     expect(onAssign).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("Give a KPI to people, what it asks", () => {
+  const open = (
+    over: Partial<typeof companyObjective> = {},
+    onAssign = vi.fn().mockResolvedValue({ created: [], alreadyHad: [] }),
+  ) => {
+    render(
+      <AssignKpiDialog
+        open
+        parent={{ ...companyObjective, ...over }}
+        onClose={vi.fn()}
+        onAssign={onAssign}
+      />,
+    );
+    return { onAssign, user: userEvent.setup() };
+  };
+
+  it("has the parent's title already in the title field", () => {
+    open();
+    expect(screen.getByLabelText(/Objective title/)).toHaveValue(
+      "Grow the business",
+    );
+  });
+
+  it("has no help line, no description and no footer paragraph", () => {
+    open();
+    expect(screen.queryByLabelText(/Description/)).toBeNull();
+    expect(screen.queryByText(/worded once/)).toBeNull();
+    expect(screen.queryByText(/Anybody, since this is a company/)).toBeNull();
+    expect(screen.queryByText(/not the same as agreeing/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /More about/ })).toBeNull();
+  });
+
+  it("asks for a quarter only where the objective has none", () => {
+    open();
+    expect(screen.getByLabelText(/Due quarter/)).toBeInTheDocument();
+  });
+
+  it("does not ask for a quarter when the objective has one, and gives it that one", async () => {
+    const { onAssign, user } = open({ dueQuarter: "2026-Q4" });
+    expect(screen.queryByLabelText(/Due quarter/)).toBeNull();
+    await user.click(screen.getAllByRole("checkbox")[1]!);
+    await user.click(
+      screen.getByRole("button", { name: "Assign to 1 person" }),
+    );
+    expect(onAssign).toHaveBeenCalledWith("g-company", {
+      title: "Grow the business",
+      employeeIds: ["eng-1"],
+      dueQuarter: "2026-Q4",
+    });
+  });
+
+  it("is not sendable until somebody is picked and the title is there", async () => {
+    const { user } = open();
+    const assign = screen.getByRole("button", { name: "Assign" });
+    expect(assign).toBeDisabled();
+    await user.click(screen.getAllByRole("checkbox")[0]!);
+    expect(
+      screen.getByRole("button", { name: "Assign to 1 person" }),
+    ).toBeEnabled();
+    await user.clear(screen.getByLabelText(/Objective title/));
+    expect(
+      screen.getByRole("button", { name: "Assign to 1 person" }),
+    ).toBeDisabled();
+    expect(screen.queryByText(/at least three characters/)).toBeNull();
+    expect(screen.queryByText(/Pick at least one person/)).toBeNull();
+  });
+
+  it("groups the people by department, and ticks a whole department at once", async () => {
+    const { user } = open();
+    expect(screen.getByText("Engineering")).toBeInTheDocument();
+    expect(screen.getByText("Finance")).toBeInTheDocument();
+    /* Finance has one person here, so there is nothing to select all of. */
+    const all = screen.getAllByRole("button", { name: "Select all" });
+    expect(all).toHaveLength(1);
+
+    await user.click(all[0]!);
+    expect(
+      screen.getByRole("button", { name: "Assign to 3 people" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.getByRole("button", { name: "Assign" })).toBeDisabled();
   });
 });

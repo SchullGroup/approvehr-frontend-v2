@@ -63,24 +63,6 @@ export const KIND_BADGE: Record<AnswerKind, string> = {
   TEXT: "Written",
 };
 
-/**
- * A subsection as a picker lists it: its name, and how it is rated when that is not
- * a level.
- *
- * "Teamwork, yes or no" and "Customer feedback, pick one", in the same comma form the
- * Section picker beside it uses ("Core competency, 40% of the mark"). A subsection
- * rated by a level stays its bare name: that is what almost every subsection is, and
- * a tag on every option would say the same thing down the whole list. The Subsection
- * picker said nothing for any of them, so somebody filing a question under "Teamwork"
- * could not tell from the list that a manager answers it yes or no and not on the
- * scale. The words are the row badge's ("Yes or no", "Pick one", "Written") in lower
- * case.
- */
-export function subsectionOptionLabel(name: string, kind: AnswerKind): string {
-  if (kind === "RATING") return name;
-  return `${name}, ${KIND_BADGE[kind].toLowerCase()}`;
-}
-
 /** The option in the "How it is answered" picker. */
 export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
   switch (kind) {
@@ -92,28 +74,6 @@ export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
       return "Pick one from a list";
     case "TEXT":
       return "In their own words";
-  }
-}
-
-/**
- * What picking a kind means, in one sentence each.
- *
- * Yes or no and a pick say they have no target and are left out of the gap list,
- * because it is about levels and the API filters it to `RATING`. Said here so HR is not left wondering where a yes-or-no subsection
- * went, which is the question that sentence exists to answer. A written answer says
- * the larger thing instead, that it never counts towards the mark, and nobody
- * expects a target or a gap from words.
- */
-export function kindLine(kind: AnswerKind, scaleMax: number): string {
-  switch (kind) {
-    case "RATING":
-      return `A level from 1 to ${String(scaleMax)}, with a target if one is set. It shows in the gap list.`;
-    case "BOOLEAN":
-      return "A yes or a no. Yes scores 100% and no scores 0%, with nothing to set. It has no target, so it is left out of the gap list.";
-    case "CHOICE":
-      return "One pick from the list below, and each pick scores what you set for it. It has no target, so it is left out of the gap list.";
-    case "TEXT":
-      return WRITTEN_NEVER_COUNTS;
   }
 }
 
