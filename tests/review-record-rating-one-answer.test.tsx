@@ -5,14 +5,15 @@ import type { ApiEmployeeScore, ApiReviewDetail } from "@/lib/api/performance";
 import { ReviewScreen } from "@/app/(app)/performance/reviews/[id]/review-screen";
 
 /**
- * The record page hands the right rating to the two dialogs it opens (F42).
+ * The record page hands the right rating to the dialog it opens (F42).
  *
  * A manager's overall rating is one appraiser's mark; the rating a person is told is
- * the period's score of record. The person's receipt for acknowledging it, and the
- * confirmation HR reads before making it final, both quoted the appraiser's mark
- * ("Exceeds Expectations") while the record they sat on said "Meets Expectations ·
- * 3.1". The dialogs' own words are pinned in rating-one-answer-surfaces; what is
- * pinned here is that the page passes them the score.
+ * the period's score of record. The confirmation HR reads before making it final
+ * quoted the appraiser's mark ("Exceeds Expectations") while the record it sat on
+ * said "Meets Expectations · 3.1". The dialog's own words are pinned in
+ * rating-one-answer-surfaces; what is pinned here is that the page passes it the
+ * score. (The receipt a person kept for acknowledging is gone: acknowledging closes
+ * the dialog and says "Acknowledged".)
  *
  * (Set-up taken from review-outcome-one-answer.test.tsx.)
  */
@@ -69,8 +70,6 @@ vi.mock("@/lib/store/performance", async (importOriginal) => ({
     })),
   }),
 }));
-
-const SCORE = { bandLabel: "Meets Expectations", scoreOutOf5: 3.1 };
 
 const review = (over: Partial<ApiReviewDetail> = {}): ApiReviewDetail =>
   ({
@@ -131,51 +130,8 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("the person acknowledging their rating", () => {
-  it("is given a receipt that reads the score of record, as their record does", async () => {
-    const user = userEvent.setup();
-    state.actingId = "emp-subject";
-    state.review = review({
-      finalised: true,
-      finalisedAt: "2026-11-25T09:00:00.000Z",
-      outcome: SCORE,
-    });
-    render(<ReviewScreen reviewId="r-1" />);
-
-    await user.click(screen.getByRole("button", { name: "I have seen this" }));
-    const dialog = within(screen.getByRole("dialog"));
-    await user.click(dialog.getByRole("button", { name: "I have seen this" }));
-
-    expect(
-      await dialog.findByText(
-        /Your rating for Q4 2026 performance appraisal was "Meets Expectations · 3\.1"/,
-      ),
-    ).toBeInTheDocument();
-    /* Not the appraiser's mark, which is not what they were told. */
-    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
-  });
-
-  it("is given the review's own mark from a server that sends no score, as it always was", async () => {
-    const user = userEvent.setup();
-    state.actingId = "emp-subject";
-    state.review = review({
-      finalised: true,
-      finalisedAt: "2026-11-25T09:00:00.000Z",
-    });
-    render(<ReviewScreen reviewId="r-1" />);
-
-    await user.click(screen.getByRole("button", { name: "I have seen this" }));
-    const dialog = within(screen.getByRole("dialog"));
-    await user.click(dialog.getByRole("button", { name: "I have seen this" }));
-
-    expect(
-      await dialog.findByText(/was "Exceeds Expectations"/),
-    ).toBeInTheDocument();
-  });
-});
-
 describe("whoever makes the rating final", () => {
-  it("is told the rating the person will read is the period's score, as it stands now", async () => {
+  it("is told the rating the person will be told is the period's score, as it stands now", async () => {
     const user = userEvent.setup();
     render(<ReviewScreen reviewId="r-1" />);
 
@@ -184,14 +140,11 @@ describe("whoever makes the rating final", () => {
 
     expect(
       dialog.getByText(
-        /The rating they will read is the score for the period, "Meets Expectations · 3\.1" as it stands now\./,
+        /Chidi will be told their rating, "Meets Expectations · 3\.1"\./,
       ),
     ).toBeInTheDocument();
-    expect(
-      dialog.getByText(
-        /Adaeze Okonkwo's own overall rating, "Exceeds Expectations", stays with the review\./,
-      ),
-    ).toBeInTheDocument();
+    /* Not the appraiser's own mark, which is one person's. */
+    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
   });
 
   it("is told no figure where the score cannot be read here", async () => {
@@ -203,11 +156,9 @@ describe("whoever makes the rating final", () => {
     const dialog = within(screen.getByRole("dialog"));
 
     expect(
-      dialog.getByText(
-        /The rating they will read is the score for the period\./,
-      ),
+      dialog.getByText(/Chidi will be told their rating\./),
     ).toBeInTheDocument();
-    expect(dialog.queryByText(/as it stands now/)).toBeNull();
     expect(dialog.queryByText(/3\.1/)).toBeNull();
+    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
   });
 });

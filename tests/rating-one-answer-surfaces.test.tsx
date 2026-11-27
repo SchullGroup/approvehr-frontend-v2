@@ -10,8 +10,9 @@ import type { ApiReview, ApiReviewDetail } from "@/lib/api/performance";
  * the period's score of record, and their record opens on it: "Meets Expectations ·
  * 3.1". Chidi's Overview said "Your rating is final: Exceeds Expectations", the
  * dialog that made it final said "Their rating becomes Exceeds Expectations", and the
- * receipt he keeps said the same, all of them the appraiser's mark. Two screens gave
- * two different ratings for the same period.
+ * receipt he kept said the same, all of them the appraiser's mark. Two screens gave
+ * two different ratings for the same period. (The receipt is gone: acknowledging
+ * closes the dialog and says "Acknowledged".)
  *
  * What is pinned, surface by surface: the line the person reads is the score; the
  * appraiser's mark is said as theirs where it is shown at all; and a server that does
@@ -212,77 +213,62 @@ describe("the dialog that makes a rating final", () => {
       />,
     );
 
-  it("says the rating they will read is the period's score, as it stands now", () => {
+  it("says the rating they will be told is the period's score, not the appraiser's mark", () => {
     open({}, "Meets Expectations · 3.1");
     const dialog = within(screen.getByRole("dialog"));
     expect(
       dialog.getByText(
-        /The rating they will read is the score for the period, "Meets Expectations · 3\.1" as it stands now\./,
+        /Chidi will be told their rating, "Meets Expectations · 3\.1"\./,
       ),
     ).toBeInTheDocument();
+    /* The mark the sentence used to quote as their rating. */
+    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
   });
 
-  it("says the appraiser's own mark is theirs, and not what the person reads", () => {
-    open({}, "Meets Expectations · 3.1");
-    const dialog = within(screen.getByRole("dialog"));
-    expect(
-      dialog.getByText(
-        /Adaeze Okonkwo's own overall rating, "Exceeds Expectations", stays with the review\./,
-      ),
-    ).toBeInTheDocument();
-    /* The sentence it replaced made that mark the person's rating. */
-    expect(dialog.queryByText(/Their rating becomes/)).toBeNull();
-  });
-
-  it("names no figure for the score where the page could not read it, and still names the mark as theirs", () => {
+  it("names no figure for the score where the page could not read it, and never the appraiser's mark", () => {
     open({}, null);
     const dialog = within(screen.getByRole("dialog"));
     expect(
-      dialog.getByText(
-        /The rating they will read is the score for the period\./,
-      ),
+      dialog.getByText(/Chidi will be told their rating\./),
     ).toBeInTheDocument();
-    expect(dialog.queryByText(/as it stands now/)).toBeNull();
     expect(dialog.queryByText(/3\.1/)).toBeNull();
-    expect(
-      dialog.getByText(
-        /Adaeze Okonkwo's own overall rating, "Exceeds Expectations"/,
-      ),
-    ).toBeInTheDocument();
+    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
   });
 
   it("is told nothing about a score by a caller that does not pass one", () => {
     open({});
     const dialog = within(screen.getByRole("dialog"));
-    expect(dialog.queryByText(/as it stands now/)).toBeNull();
+    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
+    expect(dialog.queryByText(/3\.1/)).toBeNull();
   });
 
-  it("keeps saying a form has no overall rating where the company asks for one and none was given", () => {
+  it("says they will read the answers where there is no overall rating and no score to quote", () => {
+    open({ rating: null }, null);
+    const dialog = within(screen.getByRole("dialog"));
+    expect(
+      dialog.getByText(/Chidi will read the answers\./),
+    ).toBeInTheDocument();
+  });
+
+  it("still names the score where the form gave no overall rating", () => {
     open({ rating: null }, "Meets Expectations · 3.1");
     const dialog = within(screen.getByRole("dialog"));
     expect(
       dialog.getByText(
-        /This form has no overall rating, so they will read the answers\./,
+        /Chidi will be told their rating, "Meets Expectations · 3\.1"\./,
       ),
     ).toBeInTheDocument();
-    expect(dialog.queryByText(/own overall rating/)).toBeNull();
   });
 
-  it("gives an account of what was recorded that leads with the score and says whose mark is whose", async () => {
+  it("gives an account that is its title, and never names the appraiser's mark", async () => {
     const user = userEvent.setup();
     open({}, "Meets Expectations · 3.1");
     const dialog = within(screen.getByRole("dialog"));
     await user.click(dialog.getByRole("button", { name: "Make it final" }));
 
     expect(
-      await dialog.findByText(
-        'The rating for Q4 2026 is "Meets Expectations · 3.1".',
-      ),
+      await dialog.findByText("Chidi Nwosu's rating is final"),
     ).toBeInTheDocument();
-    expect(
-      dialog.getByText(
-        `Adaeze Okonkwo's own overall rating, "Exceeds Expectations", stays with the review.`,
-      ),
-    ).toBeInTheDocument();
+    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
   });
 });

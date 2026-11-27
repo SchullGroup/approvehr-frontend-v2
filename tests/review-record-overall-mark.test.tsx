@@ -343,11 +343,15 @@ describe("making a rating final", () => {
   const detail = (over: Partial<ApiReviewDetail> = {}) =>
     review({ rating: null, ...over });
 
-  const renderDialog = (over: Partial<ApiReviewDetail>) =>
+  const renderDialog = (
+    over: Partial<ApiReviewDetail>,
+    scoreNow: string | null = null,
+  ) =>
     render(
       <FinaliseDialog
         open
         review={detail(over)}
+        scoreNow={scoreNow}
         onClose={() => {}}
         onConfirm={async () => ({ subjectNotified: true })}
       />,
@@ -365,13 +369,15 @@ describe("making a rating final", () => {
     }
   });
 
-  it("names the rating where there is one", () => {
-    renderDialog({ overallMark: false, rating: 4 });
+  it("names the rating they will read, which is the period's score and not the appraiser's mark", () => {
+    renderDialog({ overallMark: false, rating: 4 }, "Meets Expectations · 3.1");
+    const dialog = within(screen.getByRole("dialog"));
     expect(
-      within(screen.getByRole("dialog")).getByText(
-        /Emeka will be told their rating, "Exceeds Expectations"\./,
+      dialog.getByText(
+        /Emeka will be told their rating, "Meets Expectations · 3\.1"\./,
       ),
     ).toBeInTheDocument();
+    expect(dialog.queryByText(/Exceeds Expectations/)).toBeNull();
   });
 
   it("says it once, in one sentence, that it cannot be changed", () => {

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { Button, Field, Modal, SuccessMoment, Textarea } from "@/components/ui";
-import { ratingWordsFrom, type ApiReviewDetail } from "@/lib/api/performance";
-import { useRatingScale } from "@/lib/store/performance";
+import type { ApiReviewDetail } from "@/lib/api/performance";
 import { finalisedCopy, type SignOffCopy } from "./sign-off-copy";
 
 /**
@@ -40,12 +39,20 @@ import { finalisedCopy, type SignOffCopy } from "./sign-off-copy";
 export function FinaliseDialog({
   open,
   review,
+  scoreNow = null,
   canRecommend = false,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   review: ApiReviewDetail;
+  /**
+   * The period's score for this person as it stands now, "Meets Expectations ·
+   * 3.1": the rating they will read once this is final. It is not this review's
+   * own mark, which is one appraiser's. `null` where the page cannot read it, and
+   * then the question names no figure rather than the wrong one (F42).
+   */
+  scoreNow?: string | null;
   /** Whether to offer HR's recommendation box. */
   canRecommend?: boolean;
   onClose: () => void;
@@ -58,13 +65,6 @@ export function FinaliseDialog({
     recommendation?: string,
   ) => Promise<{ subjectNotified: boolean | undefined } | null>;
 }) {
-  /* Its own read of the same cached scale rather than a prop. This dialog
-     quotes the mark somebody is about to make final, and quoting it in the
-     default words while the screen behind it uses the company's would be the
-     picker-versus-record split all over again, inside one screen. */
-  const { scale } = useRatingScale();
-  const ratingWords = ratingWordsFrom(scale.levels);
-
   const [busy, setBusy] = useState(false);
   /* What it said. While it is set the dialog shows it in place of the question,
      because this is the one act on the page that cannot be taken back and
@@ -150,9 +150,15 @@ export function FinaliseDialog({
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-body-sm leading-relaxed text-body">
-            {review.rating === null
-              ? `${firstName(review.subjectName)} will read the answers.`
-              : `${firstName(review.subjectName)} will be told their rating, "${ratingWords(review.rating)}".`}{" "}
+            {/* The rating they read is the period's score, the line their own
+                record opens on, and not this review's mark: one appraiser's mark
+                said as "their rating" made this question and their record
+                disagree (F42). */}
+            {scoreNow
+              ? `${firstName(review.subjectName)} will be told their rating, "${scoreNow}".`
+              : review.rating === null
+                ? `${firstName(review.subjectName)} will read the answers.`
+                : `${firstName(review.subjectName)} will be told their rating.`}{" "}
             This cannot be changed.
           </p>
 

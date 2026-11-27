@@ -466,6 +466,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       <FinaliseDialog
         open={finalising}
         review={review}
+        /* The period's score as it stands now, the rating they will read; null
+           where this page cannot read it, and then no figure is named. */
+        scoreNow={score.score ? scoreWords(score.score) : null}
         /* Only where the server says it keeps one. A server that predates the
            recommendation ignores the body of the finalise, so a box offered
            there would be followed by "saved" for words nobody kept, on a

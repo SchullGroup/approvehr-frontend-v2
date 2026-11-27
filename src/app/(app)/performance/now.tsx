@@ -29,6 +29,7 @@ import {
 import {
   dayLabel,
   dayOf,
+  ratingToRead,
   ratingWordsFrom,
   weightLabel,
   type ApiCycle,
@@ -126,8 +127,6 @@ export function WhatNeedsYouTab({
   const features = useFeatures();
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
-  const { scale } = useRatingScale();
-  const ratingWords = ratingWordsFrom(scale.levels);
   const mineGoals = useKpis("mine");
   const { isConnected, actingId, employeeId } = useSession();
 
@@ -488,32 +487,7 @@ export function WhatNeedsYouTab({
           />
           <CardBody className="flex flex-col gap-2">
             {owesAnswer.map((review) => (
-              <div
-                key={review.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-body-sm font-medium text-ink">
-                    {review.cycleName}
-                    {review.rating !== null
-                      ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall rating"}
-                  </p>
-                  <p className="mt-1 text-meta text-muted">
-                    {review.finalisedAt
-                      ? `Final on ${dayOf(review.finalisedAt)}`
-                      : "Final"}
-                    {review.authorName ? ` · from ${review.authorName}` : ""}
-                  </p>
-                </div>
-                <ButtonLink
-                  variant="accent"
-                  size="sm"
-                  href={`/performance/reviews/${review.id}`}
-                >
-                  Read it and answer
-                </ButtonLink>
-              </div>
+              <FinalRatingRow key={review.id} review={review} />
             ))}
           </CardBody>
         </Card>
@@ -903,50 +877,7 @@ export function WhatNeedsYouTab({
         >
           <div className="flex flex-col gap-2">
             {written.reviews.map((review) => (
-              <div
-                key={review.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-body-sm font-medium text-ink">
-                    {review.subjectName}
-                    {review.rating !== null
-                      ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall rating"}
-                  </p>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                    <span>{review.cycleName}</span>
-                    {/* Four states, never three: not answered is not the same
-                        fact as disagreed, and nobody having been asked yet is
-                        the common one. Same rule the register's sign-off
-                        column follows. */}
-                    {review.disputed ? (
-                      <Badge tone="danger" size="sm" dot>
-                        Disputed
-                      </Badge>
-                    ) : review.acknowledged ? (
-                      <Badge tone="success" size="sm" dot>
-                        Acknowledged
-                      </Badge>
-                    ) : review.finalised ? (
-                      <Badge tone="warning" size="sm" dot>
-                        Final, not answered yet
-                      </Badge>
-                    ) : (
-                      <Badge tone="info" size="sm" dot>
-                        Written, not final
-                      </Badge>
-                    )}
-                  </p>
-                </div>
-                <ButtonLink
-                  variant="accent"
-                  size="sm"
-                  href={`/performance/reviews/${review.id}`}
-                >
-                  {review.finalised ? "Read it" : "Open it"}
-                </ButtonLink>
-              </div>
+              <WrittenReviewRow key={review.id} review={review} />
             ))}
           </div>
         </Disclosure>
@@ -1109,6 +1040,99 @@ function TaskRow({
 }
 
 /**
+ * One final rating the person has not yet answered, on the card that tells them it
+ * is final.
+ *
+ * The rating on the row is the one their record opens on: the period's score of
+ * record, "Meets Expectations · 3.1" (U36 / PERF-2). It is not the mark of the
+ * appraiser the row is "from", which is one person's: the Overview used to say
+ * "Exceeds Expectations" here over a record that said "Meets Expectations" (F42).
+ */
+export function FinalRatingRow({ review }: { review: ApiReview }) {
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
+      <div className="min-w-0">
+        <p className="text-body-sm font-medium text-ink">
+          {review.cycleName}
+          {` · ${ratingToRead(review, ratingWords) ?? "no overall rating"}`}
+        </p>
+        <p className="mt-1 text-meta text-muted">
+          {review.finalisedAt
+            ? `Final on ${dayOf(review.finalisedAt)}`
+            : "Final"}
+          {review.authorName ? ` · from ${review.authorName}` : ""}
+        </p>
+      </div>
+      <ButtonLink
+        variant="accent"
+        size="sm"
+        href={`/performance/reviews/${review.id}`}
+      >
+        Read it and answer
+      </ButtonLink>
+    </div>
+  );
+}
+
+/**
+ * One review the signed-in person wrote about somebody, in "Reviews you have
+ * written".
+ *
+ * The mark on the row is theirs and is said as theirs, "you rated Exceeds
+ * Expectations". The rating the person it is about is told is the period's score,
+ * which is not this: a name followed by a bare "Exceeds Expectations" read as the
+ * outcome, and the person's own record could say something else (F42).
+ */
+export function WrittenReviewRow({ review }: { review: ApiReview }) {
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
+      <div className="min-w-0">
+        <p className="text-body-sm font-medium text-ink">
+          {review.subjectName}
+          {review.rating !== null
+            ? ` · you rated ${ratingWords(review.rating)}`
+            : " · no overall rating"}
+        </p>
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+          <span>{review.cycleName}</span>
+          {/* Four states, never three: not answered is not the same fact as
+              disagreed, and nobody having been asked yet is the common one. Same
+              rule the register's sign-off column follows. */}
+          {review.disputed ? (
+            <Badge tone="danger" size="sm" dot>
+              Disputed
+            </Badge>
+          ) : review.acknowledged ? (
+            <Badge tone="success" size="sm" dot>
+              Acknowledged
+            </Badge>
+          ) : review.finalised ? (
+            <Badge tone="warning" size="sm" dot>
+              Final, not answered yet
+            </Badge>
+          ) : (
+            <Badge tone="info" size="sm" dot>
+              Written, not final
+            </Badge>
+          )}
+        </p>
+      </div>
+      <ButtonLink
+        variant="accent"
+        size="sm"
+        href={`/performance/reviews/${review.id}`}
+      >
+        {review.finalised ? "Read it" : "Open it"}
+      </ButtonLink>
+    </div>
+  );
+}
+
+/**
  * One review, as a row.
  *
  * The second name on the row is different in the two lists, and getting it
@@ -1146,6 +1170,15 @@ export function ReviewRow(
         ? review.authorName
         : null;
 
+  /* In the record, the rating the person was told: the period's score of
+     record where there is one. On a form still to write it is the author's own
+     mark. Absent, not zero: a form the author put no number on is not a form
+     marked nought. */
+  const mark =
+    context === "record"
+      ? ratingToRead(review, ratingWords)
+      : ratingWords(review.rating);
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
       <div className="min-w-0">
@@ -1166,7 +1199,7 @@ export function ReviewRow(
           {review.dueDate && <span>Due {dayLabel(review.dueDate)}</span>}
           {/* Absent, not zero: a form the author put no number on is not a form
               marked nought. */}
-          {review.rating !== null && <span>{ratingWords(review.rating)}</span>}
+          {mark !== null && <span>{mark}</span>}
           <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
             {review.submitted ? "Sent" : "Not sent"}
           </Badge>
