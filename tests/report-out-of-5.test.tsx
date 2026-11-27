@@ -75,13 +75,12 @@ describe("the period report, out of 5", () => {
   });
 });
 
-/* U96 / PERF-16: a published period is a record. */
-describe("the report of a published period", () => {
-  it("does not call its highest scores the ones so far", () => {
-    render(<TopPerformers register={register} published />);
-    expect(
-      screen.getByText("The highest scores in this period."),
-    ).toBeInTheDocument();
+/* U96 / PERF-16: a published period is a record, and no card explains itself. */
+describe("the report's cards", () => {
+  it("carry a title and no sentence about what they show", () => {
+    render(<TopPerformers register={register} />);
+    expect(screen.getByText("Top performers")).toBeInTheDocument();
+    expect(screen.queryByText("The highest scores in this period.")).toBeNull();
     expect(screen.queryByText(/so far/)).toBeNull();
   });
 });
