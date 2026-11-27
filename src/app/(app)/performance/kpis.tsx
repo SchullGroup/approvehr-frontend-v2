@@ -86,7 +86,7 @@ import {
   type KpiScope,
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog } from "./approval-dialogs";
-import { goalFacts } from "./goal-facts";
+import { goalFacts, shownStatus, takesReadings } from "./goal-facts";
 import {
   kpisAssignedSaid,
   markedDoneSaid,
@@ -594,7 +594,7 @@ export function KpisTab({
         return false;
       }
       if (approval !== "" && goal.approval !== approval) return false;
-      if (progress !== "" && goal.status !== progress) return false;
+      if (progress !== "" && shownStatus(goal) !== progress) return false;
       /* A company or department objective has no owner. It is not "somebody
          else's", it is nobody's — so it drops out of an owner filter rather
          than being counted against whoever is selected. */
@@ -1338,6 +1338,9 @@ export function GoalCard({
 }) {
   const facts = goalFacts(goal);
   const { progress, done, reads } = facts;
+  /* The status somebody set, or the one that is a claim about progress: an
+     ON_TRACK nothing has been read for is the default, and is not drawn. */
+  const shown = shownStatus(goal);
 
   /* The detail is a modal, and this is the card's only piece of state.
      Everything the modal renders comes from the same `goal` the card has, so
@@ -1381,9 +1384,11 @@ export function GoalCard({
             </Badge>
           </TD>
           <TD>
-            <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-              {GOAL_STATUS_LABEL[goal.status]}
-            </Badge>
+            {shown && (
+              <Badge tone={GOAL_STATUS_TONE[shown]} size="sm" dot>
+                {GOAL_STATUS_LABEL[shown]}
+              </Badge>
+            )}
           </TD>
         </TR>
         <GoalDetailModal
@@ -1528,9 +1533,11 @@ export function GoalCard({
               <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
                 {approvalWords(goal)}
               </Badge>
-              <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-                {GOAL_STATUS_LABEL[goal.status]}
-              </Badge>
+              {shown && (
+                <Badge tone={GOAL_STATUS_TONE[shown]} size="sm" dot>
+                  {GOAL_STATUS_LABEL[shown]}
+                </Badge>
+              )}
             </span>
           </div>
         </button>
@@ -1721,7 +1728,7 @@ function GoalDetailModal({
                   key={measure.id}
                   measure={measure}
                   goalId={goal.id}
-                  editable={!done}
+                  editable={!done && takesReadings(goal)}
                   onRecord={onRecord}
                 />
               ),
@@ -1799,7 +1806,7 @@ function GoalDetailModal({
               }
             }
             if (editable) {
-              if (!done)
+              if (!done && takesReadings(goal))
                 items.push({
                   key: "done",
                   label: "Mark done",

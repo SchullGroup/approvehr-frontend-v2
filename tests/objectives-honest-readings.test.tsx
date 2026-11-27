@@ -9,8 +9,7 @@ import type { ApiGoal } from "@/lib/api/performance";
  * `status` is a stored column that starts at ON_TRACK, so "On track" beside an
  * objective nothing had been read for, or one that had been declined, was the
  * default dressed as a claim. A declined objective also took a reading and
- * offered "Mark done". And only the latest decline was shown, with no name or
- * date, though the API keeps every one. None of that is a type error.
+ * offered "Mark done". None of that is a type error.
  */
 
 vi.mock("@/lib/store/ai", async (importOriginal) => ({
@@ -25,7 +24,7 @@ vi.mock("@/lib/store/ai", async (importOriginal) => ({
 }));
 
 const { GoalCard } = await import("@/app/(app)/performance/kpis");
-const { shownStatus, takesReadings, noReadingsWords } =
+const { shownStatus, takesReadings } =
   await import("@/app/(app)/performance/goal-facts");
 
 const STAMP = "2026-10-22T09:00:00.000Z";
@@ -183,17 +182,17 @@ describe("an objective that was declined takes no readings (F13)", () => {
     for (const approval of ["DRAFT", "AWAITING_APPROVAL", "AGREED"] as const) {
       expect(takesReadings({ approval })).toBe(true);
     }
-    expect(noReadingsWords({ approval: "AGREED" })).toBeNull();
   });
 
-  it("offers no box for a reading, and says why", async () => {
+  it("offers no box for a reading, and no sentence about it either", async () => {
     const dialog = await open(declined());
     expect(
       within(dialog).queryByLabelText(/Latest number for|First reading for/),
     ).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText(/declined, so it takes no readings/),
-    ).toBeInTheDocument();
+    /* The figure is still there to read; "Edit and resend" is the way to
+       change it, and the card says it was declined. */
+    expect(within(dialog).getByText("of 10")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/takes no readings/)).toBeNull();
   });
 
   it("offers no Mark done", async () => {
@@ -221,58 +220,11 @@ describe("an objective that was declined takes no readings (F13)", () => {
   });
 });
 
-describe("what a declined objective was told (F12)", () => {
-  const declines = [
-    {
-      at: "2026-11-20T10:00:00.000Z",
-      byName: "Fatima Bello",
-      reason: "First: too vague to measure.",
-    },
-    {
-      at: "2026-11-22T10:00:00.000Z",
-      byName: "Amara Nwachukwu",
-      reason: "Second: still no number.",
-    },
-  ];
-  const declined = goal([], {
-    approval: "NEEDS_REVISION",
-    approvalLabel: "Sent back",
-    approvalNote: "Second: still no number.",
-    targetFrozen: false,
-    declines,
-  });
-
-  it("names who declined it, and when, on the card", () => {
-    show(declined);
-    expect(
-      screen.getByText("Amara Nwachukwu, 22 Nov 2026"),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Second: still no number\./)).toBeInTheDocument();
-  });
-
-  it("keeps the earlier decline one press away on the card", async () => {
-    const user = userEvent.setup();
-    show(declined);
-    expect(screen.getByText("1 earlier decline")).toBeInTheDocument();
-    await user.click(screen.getByText("1 earlier decline"));
-    expect(screen.getByText("Fatima Bello, 20 Nov 2026")).toBeInTheDocument();
-    expect(
-      screen.getByText(/First: too vague to measure\./),
-    ).toBeInTheDocument();
-  });
-
-  it("shows every decline, newest first, in the objective's own window", async () => {
-    const dialog = await open(declined);
-    const text = dialog.textContent ?? "";
-    expect(text).toContain("First: too vague to measure.");
-    expect(text).toContain("Second: still no number.");
-    expect(text.indexOf("Second: still no number.")).toBeLessThan(
-      text.indexOf("First: too vague to measure."),
-    );
-    expect(text).toContain("Fatima Bello, 20 Nov 2026");
-  });
-
-  it("says nothing it does not know when the server sends only the note", () => {
+describe("what a declined objective shows (F12)", () => {
+  /* Who declined it, and when, and the earlier declines, are on the Edit and
+     resend page and in To agree. The card carries the latest feedback and
+     nothing more: its face is the redesign's. */
+  it("shows the feedback it was given, and nothing it does not know", () => {
     show(
       goal([], {
         approval: "NEEDS_REVISION",

@@ -71,19 +71,6 @@ export function takesReadings(goal: Pick<ApiGoal, "approval">): boolean {
   return goal.approval !== "NEEDS_REVISION" && goal.approval !== "REJECTED";
 }
 
-/** Said under a declined or refused objective's targets, in place of a box. */
-export function noReadingsWords(
-  goal: Pick<ApiGoal, "approval">,
-): string | null {
-  if (goal.approval === "NEEDS_REVISION") {
-    return "It was declined, so it takes no readings until it is agreed. Edit and resend it to change it.";
-  }
-  if (goal.approval === "REJECTED") {
-    return "It was refused, so it takes no readings.";
-  }
-  return null;
-}
-
 export type GoalFacts = {
   rung: string;
   progress: number;
