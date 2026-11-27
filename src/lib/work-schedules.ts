@@ -1,3 +1,4 @@
+import { formatDay } from "@/lib/time";
 import type {
   ApiSpecialDay,
   ApiWorkSchedule,
@@ -28,6 +29,13 @@ export const WEEKDAYS = [
 ] as const;
 
 const SHORT = new Map<number, string>(WEEKDAYS.map((d) => [d.iso, d.short]));
+
+/**
+ * The one rule for whose hours apply, for an info icon. Said once, in these
+ * words, wherever a schedule or a special day is edited.
+ */
+export const PRECEDENCE =
+  "A person's schedule beats their department's, which beats the company hours. A special day beats all of them.";
 
 /** `07:30–14:00`. An en dash, the way every other time range in the product is written. */
 export function timeRange(start: string, end: string): string {
@@ -106,6 +114,18 @@ export function specialDayWho(
   if (day.scope === "DEPARTMENT") return day.departmentName ?? "A department";
   if (day.scope === "PERSON") return day.employeeName ?? "A person";
   return "Everybody";
+}
+
+/**
+ * `Sat 5 Dec 2026`: the day of the week, then the date the way every screen
+ * writes one. The weekday is worked out from the date itself in UTC, which has no
+ * time zone to move it, and never from the clock.
+ */
+export function dayLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return formatDay(date);
+  const iso = parsed.getUTCDay() === 0 ? 7 : parsed.getUTCDay();
+  return `${SHORT.get(iso) ?? ""} ${formatDay(date)}`.trim();
 }
 
 /** `Off`, or `07:30–12:00`. */
