@@ -1441,6 +1441,18 @@ export function useAttendanceTimesheet(
  */
 export { useWorkLocations, type LocationsState } from "./work-locations";
 
+/**
+ * Work schedules and special days live beside the locations, for the same
+ * reason: a screen that edits them has no use for two hundred clock-ins. They
+ * are connected-only; see `./work-schedules`.
+ */
+export {
+  useSpecialDays,
+  useWorkSchedules,
+  type SpecialDaysState,
+  type WorkSchedulesState,
+} from "./work-schedules";
+
 /* ---------------------------------------------------------------- mutations */
 
 /**
