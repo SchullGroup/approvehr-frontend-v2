@@ -74,6 +74,17 @@ const show = () =>
     </ToastProvider>,
   );
 
+/** The select in the small dialog a section's menu opens: Counts towards. */
+const openCounts = async (name = "Company values") => {
+  await userEvent.click(
+    screen.getByRole("button", { name: `More actions for ${name}` }),
+  );
+  await userEvent.click(
+    screen.getByRole("menuitem", { name: "Counts towards" }),
+  );
+  return screen.getByLabelText(`What ${name} counts towards`);
+};
+
 beforeEach(() => {
   scoringRows = SETTINGS;
   sections = [section({})];
@@ -84,10 +95,7 @@ beforeEach(() => {
 describe("what a section counts towards", () => {
   it("can be chosen for an existing section, and is sent as the component", async () => {
     show();
-    await userEvent.click(
-      screen.getByRole("button", { name: /Company values/ }),
-    );
-    const select = screen.getByLabelText("What Company values counts towards");
+    const select = await openCounts();
     await userEvent.selectOptions(select, "BEHAVIOURAL_COMPETENCY");
     await waitFor(() =>
       expect(updateSection).toHaveBeenCalledWith("s1", {
@@ -99,91 +107,67 @@ describe("what a section counts towards", () => {
   it("clearing it sends null, which is how a section is taken out of the score", async () => {
     sections = [section({ component: "CORE_COMPETENCY", weightBp: 4000 })];
     show();
-    await userEvent.click(
-      screen.getByRole("button", { name: /Company values/ }),
-    );
-    await userEvent.selectOptions(
-      screen.getByLabelText("What Company values counts towards"),
-      "",
-    );
+    const select = await openCounts();
+    await userEvent.selectOptions(select, "");
     await waitFor(() =>
       expect(updateSection).toHaveBeenCalledWith("s1", { component: null }),
     );
   });
 
-  it("is offered when a section is created", async () => {
+  it("is not asked when a section is created: it starts unscored, and its row says so", async () => {
     show();
-    await userEvent.click(screen.getByRole("button", { name: "Add a group" }));
-    await userEvent.type(screen.getByLabelText("New section"), "Our values");
-    await userEvent.selectOptions(
-      screen.getByLabelText("What the new section counts towards"),
-      "CORE_COMPETENCY",
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add a section" }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Add it" }));
+    await userEvent.type(
+      screen.getByLabelText("New section"),
+      "Our values{Enter}",
+    );
     await waitFor(() =>
       expect(createSection).toHaveBeenCalledWith({
         name: "Our values",
         order: 1,
-        component: "CORE_COMPETENCY",
       }),
     );
+    expect(screen.queryByLabelText(/counts towards/i)).not.toBeInTheDocument();
   });
 
-  it("lists every one of the company's parts by its name in Settings, and greys out the ones ratings cannot feed", async () => {
+  it("lists the company's parts that ratings can feed, by their names in Settings, and not the ones they cannot", async () => {
     show();
-    await userEvent.click(
-      screen.getByRole("button", { name: /Company values/ }),
-    );
-    const select = screen.getByLabelText("What Company values counts towards");
+    const select = await openCounts();
     const labels = within(select)
       .getAllByRole("option")
       .map((option) => option.textContent);
-    expect(labels).toEqual([
-      "No part of the score (ratings are only recorded)",
-      "C (scored from tasks finished in Projects, not from a section)",
-      "A",
-      "Our values",
-      "How I did",
-    ]);
-    expect(
-      within(select).getByRole("option", { name: "How I did" }),
-    ).toBeEnabled();
-    expect(within(select).getByRole("option", { name: /^C / })).toBeDisabled();
-    expect(within(select).getByRole("option", { name: "A" })).toBeEnabled();
+    /* Tasks done is scored from tasks, so it is absent, not greyed with a
+       sentence. */
+    expect(labels).toEqual(["Not scored", "A", "Our values", "How I did"]);
+    for (const option of within(select).getAllByRole("option")) {
+      expect(option).toBeEnabled();
+    }
   });
 
-  it("says so when a section feeds a source the company has no part for", async () => {
+  it("reads Not scored for a section that feeds a source the company has no part for", async () => {
     sections = [section({ component: "LEADERSHIP", weightBp: null })];
     show();
-    await userEvent.click(
-      screen.getByRole("button", { name: /Company values/ }),
-    );
-    const select = screen.getByLabelText("What Company values counts towards");
-    expect(select).toHaveValue("LEADERSHIP");
+    expect(screen.getByText("Not scored")).toBeInTheDocument();
+    const select = await openCounts();
+    expect(select).toHaveValue("");
     expect(
-      within(select).getByRole("option", {
-        name: /not one of your scoring parts/i,
-      }),
-    ).toBeInTheDocument();
+      within(select).queryByText(/not one of your scoring parts/i),
+    ).not.toBeInTheDocument();
   });
 
-  it("offers only 'no part' when Settings has no rated parts", async () => {
+  it("offers only Not scored when Settings has no part ratings can feed", async () => {
     scoringRows = scoringRows.map((row) => ({
       ...row,
       isPart: row.component === "TASKS",
     }));
     show();
-    await userEvent.click(
-      screen.getByRole("button", { name: /Company values/ }),
-    );
-    const select = screen.getByLabelText("What Company values counts towards");
+    const select = await openCounts();
     expect(
       within(select)
         .getAllByRole("option")
         .map((option) => option.textContent),
-    ).toEqual([
-      "No part of the score (ratings are only recorded)",
-      "C (scored from tasks finished in Projects, not from a section)",
-    ]);
+    ).toEqual(["Not scored"]);
   });
 });
