@@ -1349,10 +1349,11 @@ export function GoalCard({
             </span>
           </TD>
           <TD align="right">
+            {/* Empty, not "No reading yet": a row with nothing read has no
+                figure to show, and the words said it again for every row
+                (owner, 27 Nov 2026). The card still says it on its face. */}
             <span className="tabular">
-              {reads?.read === 0
-                ? readCountShort(reads)
-                : `${String(progress)}%`}
+              {reads?.read === 0 ? null : `${String(progress)}%`}
             </span>
           </TD>
           <TD>

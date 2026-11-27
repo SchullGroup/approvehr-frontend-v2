@@ -150,15 +150,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
   ];
 }
 
-function RailSegment({
-  segment,
-  live,
-  showFigures,
-}: {
-  segment: Segment;
-  live: boolean;
-  showFigures: boolean;
-}) {
+function RailSegment({ segment, live }: { segment: Segment; live: boolean }) {
   const nothingToMeasure = segment.total === 0;
 
   return (
@@ -180,12 +172,7 @@ function RailSegment({
         )}
       </p>
 
-      {!showFigures ? (
-        /* No numerator, no denominator, no bar. The stage names and which one
-           is live are the whole of what somebody outside the register is
-           entitled to, and they are worth having. */
-        <p className="mt-1 text-body-sm text-muted">{live ? "Now" : ""}</p>
-      ) : nothingToMeasure ? (
+      {nothingToMeasure ? (
         <p className="mt-1.5 text-body-sm text-muted">{segment.notYet}</p>
       ) : (
         <>
@@ -203,6 +190,60 @@ function RailSegment({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The stages as a bar cut into four, for a reader who is shown stages and not
+ * figures (an employee: no numerator, no denominator). The stage the period is
+ * in is named, and the ones up to it are filled.
+ *
+ * A period that has not started is about to be at Self, so Self is the current
+ * stage until it moves (owner, 27 Nov 2026).
+ */
+function StageTrack({
+  segments,
+  stage,
+}: {
+  segments: Segment[];
+  stage: ReviewCycleStage;
+}) {
+  const at = Math.max(
+    0,
+    segments.findIndex((segment) => segment.stage === stage),
+  );
+  return (
+    <ol className="grid grid-cols-4 gap-1.5" aria-label="Stages of the period">
+      {segments.map((segment, index) => {
+        const current = index === at;
+        return (
+          <li
+            key={segment.label}
+            aria-current={current ? "step" : undefined}
+            className="min-w-0"
+          >
+            <div
+              aria-hidden="true"
+              className={cn(
+                "h-1.5 rounded-full",
+                index <= at ? "bg-accent" : "bg-sunken",
+              )}
+            />
+            <p
+              className={cn(
+                "mt-1.5 truncate text-meta",
+                current ? "font-semibold text-accent-text" : "text-muted",
+              )}
+            >
+              {segment.label}
+              {current && (
+                <span className="sr-only"> — the stage this period is in</span>
+              )}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -308,6 +349,7 @@ export function PeriodStatus({
   cycle,
   canSeeCompany,
   showExceptions = true,
+  showDue = true,
 }: {
   cycle: ApiCycle;
   canSeeCompany: boolean;
@@ -317,6 +359,11 @@ export function PeriodStatus({
    * render it a second time.
    */
   showExceptions?: boolean;
+  /**
+   * False when the caller already says when answers are due, so the line is
+   * not printed a second time under the stages.
+   */
+  showDue?: boolean;
 }) {
   const { report, loading } = useCycleReport(cycle.id, canSeeCompany);
 
@@ -343,18 +390,21 @@ export function PeriodStatus({
         <PeriodExceptionNotice cycle={cycle} canSeeCompany={canSeeCompany} />
       )}
 
-      <div className="flex flex-wrap overflow-hidden rounded-md border border-line">
-        {segments.map((segment) => (
-          <RailSegment
-            key={segment.label}
-            segment={segment}
-            live={segment.stage === cycle.stage}
-            showFigures={showFigures}
-          />
-        ))}
-      </div>
+      {showFigures ? (
+        <div className="flex flex-wrap overflow-hidden rounded-md border border-line">
+          {segments.map((segment) => (
+            <RailSegment
+              key={segment.label}
+              segment={segment}
+              live={segment.stage === cycle.stage}
+            />
+          ))}
+        </div>
+      ) : (
+        <StageTrack segments={segments} stage={cycle.stage} />
+      )}
 
-      {cycle.dueDate && (
+      {showDue && cycle.dueDate && (
         <p className="text-meta text-muted">
           Answers due {dayLabel(cycle.dueDate)}
         </p>
