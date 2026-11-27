@@ -59,12 +59,15 @@ const SCOPE = [
   "lib/api/projects.ts",
   "lib/api/programs.ts",
   "app/(app)/performance/plan-work-dialog.tsx",
-  /* Finished project work, where it shows in Performance: the Work record, the
-     work inside a review, and the completed work under an objective. */
+  /* Finished project work, where it shows in Performance: the work inside a
+     review, and the completed work under an objective. */
   "components/performance/completed-item.tsx",
   "components/performance/completed-work.tsx",
   "components/performance/work-this-cycle.tsx",
-  "components/performance/work-record.tsx",
+  "components/performance/work-list.tsx",
+  "components/performance/work-row.tsx",
+  "components/performance/kept-work.tsx",
+  "components/performance/work-evidence.tsx",
   "lib/store/completions.ts",
   "lib/api/completions.ts",
   "components/portal/nav.tsx",

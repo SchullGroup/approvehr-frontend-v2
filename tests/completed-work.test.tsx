@@ -130,7 +130,7 @@ describe("under a team objective", () => {
       .closest("section")!;
     expect(within(bola).getByText("2 tasks")).toBeInTheDocument();
     expect(within(bola).getByText("Close the books")).toBeInTheDocument();
-    expect(within(bola).getByText("Late")).toBeInTheDocument();
+    expect(within(bola).getByText(/· Late$/)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Chi Ada/ }),
     ).toBeInTheDocument();

@@ -8,12 +8,11 @@ import type { Completion, WorkThisCycle } from "@/lib/projects/completions";
 /**
  * Label in name (WCAG 2.5.3), for every button and link the work-in-review-answers screens add.
  *
- * What is proved: the accessible name of each control **starts with the words drawn on it**. A button
- * that says "Change" and is announced as "Change why PLT-12 is wrong" cannot be reached by somebody
- * speaking its label ("click Change") to a voice-control tool, which matches what they see against what
- * is announced; the item's key stays in the name, after the visible words, so a list of the page's
- * buttons still says which row each belongs to. The visible words are read the way a person sees them:
- * text that is only for a screen reader, and icons, are not counted.
+ * What is proved: the accessible name of each control **starts with the words drawn on it**. A menu item
+ * that says "Change" is announced as "Change", and the row's menu, which is an icon and so draws no words,
+ * is named for the row it belongs to ("More actions for PRF-2") so a list of the page's buttons still says
+ * which row each belongs to. The visible words are read the way a person sees them: text that is only for
+ * a screen reader, and icons, are not counted.
  */
 
 vi.mock("@/lib/store/session", () => ({
@@ -25,7 +24,7 @@ vi.mock("@/lib/store/completions", () => ({
 }));
 
 import { AnswerPins, type Pinning } from "@/components/performance/answer-pins";
-import { FlagDialog, FlagLine } from "@/components/performance/work-flags";
+import { FlagDialog, FlagMenu } from "@/components/performance/work-flags";
 import { PinWorkDialog } from "@/components/performance/pin-work-dialog";
 import { controlsWithWords, expectLabelInName } from "./label-in-name";
 
@@ -36,14 +35,12 @@ const flag: ApiWorkFlag = {
   flaggedAt: "2026-11-06T09:00:00.000Z",
 };
 
-const line = (
-  over: Partial<Parameters<typeof FlagLine>[0]> = {},
+const menu = (
+  over: Partial<Parameters<typeof FlagMenu>[0]> = {},
 ): React.ReactElement => (
-  <FlagLine
+  <FlagMenu
     itemKey="PRF-2"
     flag={null}
-    by="you"
-    timeZone="Africa/Lagos"
     canRaise
     canWithdraw
     busy={false}
@@ -54,36 +51,44 @@ const line = (
   />
 );
 
+/** Opens the row's menu and reads what is in it, as the words each choice shows. */
+const openedWords = async () => {
+  await userEvent.click(
+    screen.getByRole("button", { name: "More actions for PRF-2" }),
+  );
+  return expectLabelInName(document.body);
+};
+
 describe("a flag on a row of finished work", () => {
-  it("is raised with a button that says This is wrong, announced as that and the item", () => {
-    const { container } = render(line());
-    expect(expectLabelInName(container)).toEqual(["This is wrong"]);
+  it("is on the row's menu, which is an icon announced for its row, and has no words to match", () => {
+    const { container } = render(menu());
+    expect(controlsWithWords(container)).toEqual([]);
     expect(
-      screen.getByRole("button", { name: "This is wrong, PRF-2" }),
+      screen.getByRole("button", { name: "More actions for PRF-2" }),
     ).toBeInTheDocument();
   });
 
-  it("is changed or taken back with buttons announced as exactly what they say, and the item", () => {
-    const { container } = render(line({ flag }));
-    expect(expectLabelInName(container)).toEqual(["Change", "Take it back"]);
-    expect(
-      screen.getByRole("button", { name: "Change, flag on PRF-2" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Take it back, flag on PRF-2" }),
-    ).toBeInTheDocument();
+  it("is raised with a choice that says This is wrong, announced as that", async () => {
+    render(menu());
+    expect(await openedWords()).toEqual(["This is wrong"]);
   });
 
-  it("is taken back alone, once the setting is off, in the same words", () => {
-    const { container } = render(line({ flag, canRaise: false }));
-    expect(expectLabelInName(container)).toEqual(["Take it back"]);
+  it("is changed or taken back with choices announced as exactly what they say", async () => {
+    render(menu({ flag }));
+    expect(await openedWords()).toEqual(["Change", "Take it back"]);
+  });
+
+  it("is taken back alone, once the setting is off, in the same words", async () => {
+    render(menu({ flag, canRaise: false }));
+    expect(await openedWords()).toEqual(["Take it back"]);
   });
 
   it("names nothing that is not on screen, and no control at all for a reader", () => {
     const { container } = render(
-      line({ flag, canRaise: false, canWithdraw: false }),
+      menu({ flag, canRaise: false, canWithdraw: false }),
     );
     expect(controlsWithWords(container)).toEqual([]);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
@@ -169,12 +174,16 @@ hook.read = {
 };
 
 describe("pins under an answer", () => {
-  it("has a link, an Unpin and Add work announced as the words on them", () => {
+  it("has a link with its key, and an Unpin and a plus that are icons announced for what they do", () => {
     const { container } = render(<AnswerPins pinning={pinning()} />);
     const words = expectLabelInName(container);
-    expect(words).toEqual(
-      expect.arrayContaining(["PLT-12", "Unpin", "Add work"]),
-    );
+    expect(words).toEqual(["PLT-12"]);
+    expect(
+      screen.getByRole("button", { name: "Unpin PLT-12" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add work" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -195,24 +204,19 @@ describe("the picker of finished work", () => {
     />
   );
 
-  it("has Done and Add to this answer announced as the words on them", () => {
-    render(picker);
-    const words = expectLabelInName(screen.getByRole("dialog"));
-    expect(words).toEqual(
-      expect.arrayContaining(["Done", "Add to this answer"]),
-    );
-  });
-
-  it("has the three buttons of its question announced as the words on them", async () => {
+  it("has Cancel and Add announced as the words on them, and no third button to answer", async () => {
     render(picker);
     const dialog = screen.getByRole("dialog");
+    expect(expectLabelInName(dialog)).toEqual(
+      expect.arrayContaining(["Cancel", "Add"]),
+    );
     await userEvent.click(
       within(dialog).getByRole("radio", { name: /PLT-12/ }),
     );
-    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-    const words = expectLabelInName(dialog);
-    expect(words).toEqual(
-      expect.arrayContaining(["Keep editing", "Discard", "Add it and close"]),
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel" }),
     );
+    /* Cancel closes, as it says: there is no "Keep editing / Discard" question. */
+    expect(screen.queryByText("Keep editing")).not.toBeInTheDocument();
   });
 });

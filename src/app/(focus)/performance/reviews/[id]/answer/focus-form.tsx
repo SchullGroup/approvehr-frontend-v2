@@ -617,6 +617,8 @@ export function FocusForm({
   const ownReview = review.kind === "SELF";
   const showWork = ownReview || review.kind === "MANAGER";
   const firstName = review.subjectName.split(" ")[0] ?? review.subjectName;
+  /* One word for the button and the drawer it opens. */
+  const workWords = ownReview ? "Your work" : `${firstName}'s work`;
 
   /* A fixed frame: the bar, the progress line and the buttons stay where they
      are, and only the middle scrolls. On a phone a tall page — a five-option
@@ -661,17 +663,11 @@ export function FocusForm({
         {showWork && (
           <Button
             size="sm"
-            aria-label={
-              ownReview
-                ? "What you did this period"
-                : `What ${firstName} did this period`
-            }
+            aria-label={workWords}
             onClick={() => setWorkOpen(true)}
           >
             <ListChecks aria-hidden="true" className="size-4" />
-            <span className="hidden sm:inline">
-              {ownReview ? "Your work" : `${firstName}'s work`}
-            </span>
+            <span className="hidden sm:inline">{workWords}</span>
           </Button>
         )}
       </header>
@@ -857,25 +853,10 @@ export function FocusForm({
         <Drawer
           open={workOpen}
           onClose={() => setWorkOpen(false)}
-          title={
-            ownReview
-              ? "What you did this period"
-              : `What ${firstName} did this period`
-          }
-          description="For reference while you answer."
+          title={workWords}
         >
           <div className="flex flex-col gap-6">
-            {ownReview && (
-              <SelfEvidence
-                periodStart={review.periodStart}
-                periodEnd={review.periodEnd}
-                whenNothing={
-                  <p className="text-body-sm text-muted">
-                    Nothing is logged for this period yet.
-                  </p>
-                }
-              />
-            )}
+            {ownReview && <SelfEvidence />}
             <WorkThisCycle
               subjectId={review.subjectId}
               cycleId={review.cycleId}
@@ -883,8 +864,12 @@ export function FocusForm({
               periodEnd={review.periodEnd}
               subjectName={review.subjectName}
               own={ownReview}
-              startOpen
             />
+            {/* The one line for a drawer with nothing in it, and only then: when the list and the
+                objectives draw nothing this is the only child and shows. */}
+            <p className="hidden text-body-sm text-muted only:block">
+              Not recorded
+            </p>
           </div>
         </Drawer>
       )}
