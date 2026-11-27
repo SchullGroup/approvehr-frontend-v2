@@ -393,3 +393,31 @@ describe("what the parts list may say while it waits", () => {
     expect(screen.queryByRole("button", { name: "Add part" })).toBeNull();
   });
 });
+
+describe("the self-assessment card is named as the company names the part", () => {
+  const ownRating: Part = {
+    id: "p-self",
+    source: "SELF_ASSESSMENT",
+    name: "Own rating",
+    weightBp: 2000,
+  };
+
+  it("uses the company's name for the part, not the built-in one", () => {
+    view = viewOf([delivery, ownRating]);
+    mount();
+    expect(
+      screen.getByRole("heading", { name: "Own rating" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Self-assessment" }),
+    ).toBeNull();
+  });
+
+  it("says Self-assessment when the company has written no part from it", () => {
+    view = viewOf([delivery]);
+    mount();
+    expect(
+      screen.getByRole("heading", { name: "Self-assessment" }),
+    ).toBeInTheDocument();
+  });
+});

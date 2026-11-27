@@ -1,7 +1,12 @@
 import {
+  SCORE_COMPONENT_ORDER,
+  shareOfTotalBp,
   weightLabel,
   type ApiAppraiserContext,
   type ApiComponentScore,
+  type ApiScoringWeights,
+  type CycleWeights,
+  type ScoreComponent,
 } from "@/lib/api/performance";
 
 /**
@@ -219,3 +224,95 @@ export function appraiserStripLine(args: {
  */
 export const WEIGHTS_RULE =
   "A part's weight is its share of the score, so the weights add up to 100%.";
+
+/* -------------------------------------------------------------------------- */
+/* Whose weights a mark is made from                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Whose weights a period's mark is made from, in one line, or `null` where the
+ * server does not say (an API older than per-period weights), because a line
+ * about whose weights apply is a claim and none is made without an answer.
+ *
+ * One copy, said by the period's Settings tab, by its Get ready card and by the
+ * Overview: the card used to say "The company's weights" over a period that had
+ * set its own (F6), and the Overview listed the company's current weights over a
+ * mark that was made from the period's (F44).
+ */
+export function periodWeightsLine(
+  basis: CycleWeights["basis"] | undefined,
+): string | null {
+  switch (basis) {
+    case "period":
+      return "Set for this period.";
+    case "company":
+      return "Same as your company's weights.";
+    case "frozen":
+      return "Locked when this period started.";
+    default:
+      return null;
+  }
+}
+
+export type ShownPart = {
+  component: ScoreComponent;
+  /** The company's name for the part, as Settings shows it. */
+  label: string;
+  /** Its weight over the total of the parts shown, in basis points. */
+  shareBp: number;
+};
+
+/**
+ * The parts a mark is made of and what each counts for, read off the weights it
+ * is made from: the period's own when the server sent them, otherwise the
+ * company's as they are today (`from` says which, so the screen can say so).
+ *
+ * Only parts that count are listed. A source the company has no part for, and a
+ * part at 0%, are not how a mark is made, and listing "Weekly tasks 0%" over a
+ * period that never had it was a part that no longer exists (F44).
+ *
+ * Shares are weight over total, so a set that does not add up to 100% (an older
+ * period) still reads as what each part is worth. Names are the company's as
+ * they are now: the period carries weights, not names.
+ */
+export function partsShown(
+  company: ApiScoringWeights | null,
+  period: CycleWeights | undefined,
+): { from: "period" | "company"; parts: ShownPart[] } {
+  const labelOf = (component: ScoreComponent) =>
+    company?.rows.find((row) => row.component === component)?.label ??
+    component;
+
+  if (period) {
+    const counted = SCORE_COMPONENT_ORDER.filter(
+      (component) =>
+        (period.parts === undefined || period.parts.includes(component)) &&
+        (period.values[component] ?? 0) > 0,
+    );
+    const total = counted.reduce(
+      (sum, component) => sum + (period.values[component] ?? 0),
+      0,
+    );
+    return {
+      from: "period",
+      parts: counted.map((component) => ({
+        component,
+        label: labelOf(component),
+        shareBp: shareOfTotalBp(period.values[component] ?? 0, total),
+      })),
+    };
+  }
+
+  const rows = (company?.rows ?? []).filter(
+    (row) => row.isPart !== false && row.weightBp > 0,
+  );
+  const total = rows.reduce((sum, row) => sum + row.weightBp, 0);
+  return {
+    from: "company",
+    parts: rows.map((row) => ({
+      component: row.component,
+      label: row.label,
+      shareBp: shareOfTotalBp(row.weightBp, total),
+    })),
+  };
+}

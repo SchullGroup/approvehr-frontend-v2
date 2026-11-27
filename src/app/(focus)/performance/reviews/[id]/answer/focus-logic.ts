@@ -56,6 +56,52 @@ export function closingNoteWords(kind: ApiReviewDetail["kind"]): {
 }
 
 /**
+ * What this form holds in this browser and nowhere else until it is sent.
+ *
+ * Answers to the questions are saved to the server as they are written. These are
+ * not, because they travel with the send and nothing takes them before it
+ * (`draft-storage.ts`). Said from one list, so the introduction, the pages that
+ * ask for them and the header cannot name different things.
+ *
+ * The closing note is on every form, so it is always in the list; the other two
+ * only where the form asks.
+ */
+export function keptInBrowser(
+  kind: ApiReviewDetail["kind"],
+  asks: { mark: boolean; potential: boolean },
+): string[] {
+  return [
+    ...(asks.mark ? ["your overall rating"] : []),
+    ...(asks.potential ? ["how far they could go"] : []),
+    kind === "MANAGER" ? "your recommendations" : "what you add at the end",
+  ];
+}
+
+/**
+ * The introduction's sentence about them, built from `keptInBrowser`.
+ *
+ * "Kept in this browser only, until you send: …" and the list, so it needs no
+ * verb to agree with it: the items are "your recommendations" and "what you add
+ * at the end", and "is" or "are" is wrong for one of them whichever is chosen.
+ * It opens with the words `KEPT_HERE` uses on each page, so they read as one
+ * statement said in two places.
+ */
+export function keptInBrowserLine(parts: readonly string[]): string {
+  if (parts.length === 0) return "";
+  const list =
+    parts.length === 1
+      ? (parts[0] as string)
+      : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1] as string}`;
+  return `Kept in this browser only, until you send: ${list}.`;
+}
+
+/** On the page that asks for one of them. Short: the introduction has the whole sentence. */
+export const KEPT_HERE = "Kept in this browser only, until you send.";
+
+/** In the header, in place of "Saved", on those pages: "Saved" is about the questions. */
+export const KEPT_HERE_STATUS = "Kept in this browser";
+
+/**
  * Whether the form ends with an overall mark: the company's setting, or a period
  * that needs one from this appraiser.
  *
@@ -196,22 +242,30 @@ export const sigOf = (held: Draft): string =>
  * on the introduction.
  *
  * `withMark` is whether the company asks for an overall mark at all
- * (`ApiReviewDetail.overallMark`). A mark held in this browser only counts as
- * something done while it is being asked for.
+ * (`ApiReviewDetail.overallMark`), and `withPotential` whether this is a
+ * manager's form in a period that asks how far the person could go. Something
+ * held in this browser only counts as something done while it is being asked for.
  */
 export function startIndex(
   review: Pick<ApiReviewDetail, "questions">,
   local: LocalDraft,
   withMark = false,
+  withPotential = false,
 ): number {
-  const last = review.questions.length + (withMark ? 3 : 2);
+  /* The pages are the introduction, the questions, the mark and the potential
+     where asked, the note and the preview. The last index is one less than that
+     count, so a page remembered on the preview is not pulled back one for want
+     of counting the potential page. */
+  const last =
+    review.questions.length + 2 + (withMark ? 1 : 0) + (withPotential ? 1 : 0);
   if (local.step > 0) return Math.min(local.step, last);
 
   const hasAnswers = review.questions.some((question) =>
     filled(question, draftFrom(question)),
   );
   const heldMark = withMark && local.mark !== "";
-  if (!hasAnswers && !heldMark && !local.summary) return 0;
+  const heldPotential = withPotential && local.potential !== "";
+  if (!hasAnswers && !heldMark && !heldPotential && !local.summary) return 0;
   const open = review.questions.findIndex(
     (question) => question.required && !filled(question, draftFrom(question)),
   );

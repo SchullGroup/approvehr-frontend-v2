@@ -193,12 +193,26 @@ const COMPARISONS = [
   "unlike his",
   "unlike her",
   "unlike their",
-  "compared to his colleague",
-  "compared to her colleague",
   "the weakest",
   "the worst",
   "bottom of the team",
 ];
+
+/**
+ * "compared to his colleague", "compared with other team mates": a comparison
+ * with somebody who is not named. The listed phrases cannot carry this, because
+ * what follows "compared to" is the part that varies.
+ */
+const COMPARED_TO_COLLEAGUES = String.raw`(?:compared (?:to|with)|in comparison (?:to|with)|relative to)\s+(?:his|her|their|a|another|other|the other|the rest of the)\s+(?:colleagues?|peers?|team ?mates?|co-?workers?|team)`;
+
+/**
+ * "compared to Emeka": a comparison with somebody named. A name cannot be known
+ * here, so it is read as a capitalised word after the comparing words, and
+ * only with that capital (the check is otherwise case-blind), minus the
+ * capitalised words that are not people: months, weekdays, and a few openers.
+ * "compared to last year" and "compared to Q3" are not flagged.
+ */
+const COMPARED_TO_NAMED = String.raw`\b[Cc]ompared (?:to|with)\s+(?!(?:January|February|March|April|May|June|July|August|September|October|November|December|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|The|This|That|Last|Next|Our|Your|My|Nigeria|Lagos|Abuja)\b)[A-Z][a-z]{2,}\b`;
 
 /* ------------------------------------------------------------------ matching */
 
@@ -213,8 +227,9 @@ function findAll(
   kind: FindingKind,
   says: string,
   instead: string,
+  flags = "gi",
 ): Finding[] {
-  const pattern = new RegExp(source, "gi");
+  const pattern = new RegExp(source, flags);
   const found: Finding[] = [];
   let match: RegExpExecArray | null = pattern.exec(text);
   while (match !== null) {
@@ -265,6 +280,17 @@ export function reviewLanguageFindings(
       "“Always” and “never” cannot be shown to be true.",
       "One counter-example is enough to lose this in a dispute. Say how often, or give the instance you mean.",
     ),
+    /* "Chidi is quite disorganised and always late": the second claim is
+       joined to the first by "and", so the subject is not beside "always".
+       It starts at "always", not at the subject, because the first claim
+       already starts there and a match at the same place is dropped. */
+    ...findAll(
+      text,
+      `(?<=\\b(?:${subjects})\\s+${COPULA}\\s+[^.!?;\\n]{1,60}?\\s(?:and|but)\\s)(?:always|never)\\s+\\w+`,
+      "absolute",
+      "“Always” and “never” cannot be shown to be true.",
+      "One counter-example is enough to lose this in a dispute. Say how often, or give the instance you mean.",
+    ),
     ...findAll(
       text,
       `\\b(?:${SENSITIVE_WORDS.map(escape).join("|")})\\b`,
@@ -278,6 +304,21 @@ export function reviewLanguageFindings(
       "comparison",
       "This measures them against a colleague.",
       "A rating is against what they agreed to deliver, not against somebody else's year.",
+    ),
+    ...findAll(
+      text,
+      COMPARED_TO_COLLEAGUES,
+      "comparison",
+      "This measures them against a colleague.",
+      "A rating is against what they agreed to deliver, not against somebody else's year.",
+    ),
+    ...findAll(
+      text,
+      COMPARED_TO_NAMED,
+      "comparison",
+      "This measures them against a colleague.",
+      "A rating is against what they agreed to deliver, not against somebody else's year.",
+      "g",
     ),
   ];
 
@@ -318,8 +359,10 @@ export function findingsHeadline(count: number): string {
  *  that presents as authority gets argued with; one that reads as a prompt
  *  gets read. */
 export const FINDINGS_CAVEAT =
-  "Nothing here stops you sending the review. It checks for four specific " +
-  "things and cannot tell whether what you wrote is fair. Only you can.";
+  "Nothing here stops you sending the review. It checks for four things: " +
+  "words about what somebody is rather than what they did, “always” and " +
+  "“never”, personal characteristics, and comparisons with a colleague. It " +
+  "cannot tell whether what you wrote is fair. Only you can.";
 
 /**
  * The same caveat, for words that are saved and not a review that is sent: a written
@@ -329,5 +372,7 @@ export const FINDINGS_CAVEAT =
  * it does not know whether it is fair).
  */
 export const ANSWER_CAVEAT =
-  "Nothing here stops you saving it. It checks for four specific " +
-  "things and cannot tell whether what you wrote is fair. Only you can.";
+  "Nothing here stops you saving it. It checks for four things: " +
+  "words about what somebody is rather than what they did, “always” and " +
+  "“never”, personal characteristics, and comparisons with a colleague. It " +
+  "cannot tell whether what you wrote is fair. Only you can.";

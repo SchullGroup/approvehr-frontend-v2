@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { MEASURE_NUMBER_PROBLEM } from "@/lib/api/performance";
 
 /**
  * Add a target, in two steps.
@@ -203,6 +204,33 @@ describe("a number to reach", () => {
       await screen.findByText("Set the number you are aiming at."),
     ).toBeInTheDocument();
     expect(onAdd).not.toHaveBeenCalled();
+  });
+});
+
+describe("a first reading that is not a number (F17)", () => {
+  it("is refused under its own box, in the API's words, and nothing is sent", async () => {
+    const user = userEvent.setup();
+    const { onAdd } = open();
+    await next(user);
+    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
+    await user.type(screen.getByLabelText(/Target value/), "10");
+    await user.type(screen.getByLabelText(/Current value/), "abc");
+    await user.click(screen.getByRole("button", { name: "Add target" }));
+
+    expect(await screen.findByText(MEASURE_NUMBER_PROBLEM)).toBeInTheDocument();
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it("is not asked about when it is left blank", async () => {
+    const user = userEvent.setup();
+    const { onAdd } = open();
+    await next(user);
+    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
+    await user.type(screen.getByLabelText(/Target value/), "10");
+    await user.click(screen.getByRole("button", { name: "Add target" }));
+
+    expect(screen.queryByText(MEASURE_NUMBER_PROBLEM)).not.toBeInTheDocument();
+    expect(onAdd).toHaveBeenCalledTimes(1);
   });
 });
 

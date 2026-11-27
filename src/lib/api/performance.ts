@@ -226,6 +226,15 @@ export type ApiGoal = {
    * that no longer exists.
    */
   approvalNote: string | null;
+  /**
+   * Every time it was declined, oldest first: who, when, and what they said.
+   *
+   * `approvalNote` is cleared when the objective is sent again, so this is the
+   * only record of an earlier decline once it has been resent. Absent from a
+   * server that does not send it, and from the demo; a screen then has only
+   * `approvalNote` and says nothing about earlier ones.
+   */
+  declines?: ApiDecline[];
   /** How often an agreed target has been reopened. Zero is the ordinary case. */
   revisionCount: number;
   revisedAt: string | null;
@@ -234,6 +243,9 @@ export type ApiGoal = {
   createdAt: string;
   updatedAt: string;
 };
+
+/** One decline of an objective, as the API keeps it. */
+export type ApiDecline = { at: string; byName: string; reason: string };
 
 /* -------------------------------------------------- the approval lifecycle */
 
@@ -696,6 +708,13 @@ export type ApiAppraisalProgress = {
 export type ApiNotifyObjectives = {
   notified: number;
   alreadyHad: number;
+  /** People with no sign-in cannot be told in the app. Absent from older servers. */
+  noAccount?: number;
+  /**
+   * When people were last asked: now, or the last time when this press asked
+   * nobody because they had all been asked in the day. Absent when nobody has
+   * been asked at all.
+   */
   askedAt?: string;
 };
 
@@ -887,7 +906,20 @@ export type ApiReview = {
   subjectName: string;
   authorId: string | null;
   authorName: string | null;
+  /** One appraiser's overall mark. Not the rating the person is told: see `outcome`. */
   rating: number | null;
+  /**
+   * The rating a person is told, which is the period's score of record and not any
+   * one appraiser's mark (UAT 23 Nov, U36 / PERF-2; and F42 of the Performance test,
+   * where an Overview said "Exceeds Expectations", one appraiser's mark, for a
+   * person whose record said "Meets Expectations, 3.1"). On a manager's review once
+   * it is final or the period is published: the company's band word and the score on
+   * the 1.0 to 5.0 scale, each `null` when nothing was recorded. `null` on any other
+   * form. Sent by the review itself and by the rows of the person's own list
+   * (`aboutMe`); absent from an older API. Read it through `outcomeWords`, and
+   * decide which line to print with `ratingToRead`.
+   */
+  outcome?: { bandLabel: string | null; scoreOutOf5: number | null } | null;
   summary: string | null;
   submitted: boolean;
   submittedAt: string | null;
@@ -1000,15 +1032,6 @@ export type ApiFormQuestion = {
 export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
-  /**
-   * The one answer a person is given (UAT 23 Nov, U36 / PERF-2: "Exceeds
-   * Expectations", "Overall score 41.94%" and "Meets expectations" on three
-   * screens). On a manager's review once it is final or the period is
-   * published: the score of record as the company's band word and on the 1.0 to
-   * 5.0 scale. Null before then and on any other form; absent from an older
-   * API. Read it through `outcomeWords`.
-   */
-  outcome?: { bandLabel: string | null; scoreOutOf5: number | null } | null;
   /**
    * Whether the company's appraisal forms end with an overall mark: its setting
    * in Appraisal scoring, sent with the form so the page that draws it needs no
@@ -1919,7 +1942,19 @@ export type ApiReviewStatus = "below" | "above" | "matches" | "unclear";
 export type ApiFlagResolution =
   | { state: "open" }
   | { state: "waiting"; since: string; reason: string }
-  | { state: "moved"; by: string | null; at: string; reason: string }
+  | {
+      state: "moved";
+      by: string | null;
+      at: string;
+      reason: string;
+      /**
+       * What the score is now and what the answers produced before it was moved,
+       * in basis points. Optional: a server from before they were sent says
+       * only that it moved, and then so does the screen.
+       */
+      calibratedBp?: number;
+      originalBp?: number;
+    }
   | { state: "stands"; by: string | null; at: string; note: string | null };
 
 export type ApiReviewFlag = {
@@ -3040,6 +3075,8 @@ export const performanceApi = {
       periodEnd?: string | null;
       instructions?: string | null;
       guideUrl?: string | null;
+      /** When answers are due, `YYYY-MM-DD`, or `null` to clear it. */
+      dueDate?: string | null;
       /**
        * Meaningful on a draft, and near enough inert afterwards — which is why
        * the API does not guard either to `DRAFT`.
@@ -4093,6 +4130,20 @@ export function parseMeasure(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * The number the API takes for a measure: at most 14 digits before the point and
+ * 4 after, no thousands commas, no unit. `Decimal(18,4)` is the reason, and the
+ * API's own sentence is the one below. A box that checks only "is it empty" sends
+ * "abc" and learns about it from a 400 that says "Some fields are not valid"
+ * (F17), so every place a person types a figure asks this first.
+ */
+export const MEASURE_NUMBER_PROBLEM =
+  "Use a plain number with at most four decimal places.";
+
+export function isPlainNumber(value: string): boolean {
+  return /^-?\d{1,14}(\.\d{1,4})?$/.test(value.trim());
+}
+
 /** Is this a done-or-not-done measure? Absent `kind` is a number. */
 export function isDoneMeasure(measure: Pick<ApiKeyResult, "kind">): boolean {
   return measure.kind === "DONE";
@@ -4304,6 +4355,25 @@ export function outcomeWords(
     outcome.scoreOutOf5 === null ? null : outOf5Label(outcome.scoreOutOf5),
   ].filter((part): part is string => Boolean(part));
   return parts.length === 0 ? null : parts.join(" · ");
+}
+
+/**
+ * The rating a person reads for one final review, as one line, or null where there
+ * is none to read.
+ *
+ * The period's score of record when the API sent one ("Meets Expectations · 3.1"):
+ * that is the one answer a person is given, and it is what their record says. A
+ * review's own `rating` is one appraiser's mark, and announcing it as "your rating"
+ * is what made an Overview say "Exceeds Expectations" over a record that said
+ * "Meets Expectations" (F42). It is the line only where the API sent no figure to
+ * read, which is an API from before the list rows carried `outcome`, and a person
+ * nothing was recorded for. The row still says who it is from, beside it.
+ */
+export function ratingToRead(
+  review: Pick<ApiReview, "rating" | "outcome">,
+  ratingWords: (level: number | null | undefined) => string | null,
+): string | null {
+  return outcomeWords(review.outcome) ?? ratingWords(review.rating);
 }
 
 /**

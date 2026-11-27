@@ -529,6 +529,7 @@ function AddMeasureForm({
       target,
     });
     if (problems.label) found["label"] = problems.label;
+    if (problems.start) found["start"] = problems.start;
     if (problems.target) found["target"] = problems.target;
 
     setErrors(found);
@@ -639,7 +640,11 @@ function AddMeasureForm({
               start is one that comes down, so there is nothing to tick. The
               unit is typed once, and shows on both as a suffix. */}
           <div className="grid gap-4 sm:grid-cols-[1fr_1fr_7rem]">
-            <Field label="From" required>
+            <Field
+              label="From"
+              required
+              {...(errors["start"] ? { error: errors["start"] } : {})}
+            >
               <Input
                 inputMode="decimal"
                 value={start}

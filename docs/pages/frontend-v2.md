@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `88fe0a47` (2026-11-26) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `f1573bd7` (2026-11-26) · regenerate with `npm run docs`, never by hand
 
 **178 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -188,7 +188,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/people/org-chart`             | Org chart                      | The company by department, with who leads each one and who reports to whom, and a way to rearrange it.                                                                                                              | `src/app/(app)/people/org-chart/page.tsx`             |
 | `/people/overtime`              | Overtime                       | Extra hours worked out from the clock, what they come to, and what is still waiting for approval.                                                                                                                   | `src/app/(app)/people/overtime/page.tsx`              |
 | `/people/probation`             | Probation                      | Whose probation is ending, who is overdue a decision, and who is on one nobody has dated.                                                                                                                           | `src/app/(app)/people/probation/page.tsx`             |
-| `/people/queries`               | Queries                        | Written queries to staff, their one written reply, and the outcome recorded on each.                                                                                                                                | `src/app/(app)/people/queries/page.tsx`               |
+| `/people/queries`               | Queries                        | Letters that ask for a written explanation, and what came of each: the register for the people who write them, your own letters for everybody else.                                                                 | `src/app/(app)/people/queries/page.tsx`               |
 | `/people/queries/[id]`          | Letter                         | One written letter, the reply to it, and the outcome.                                                                                                                                                               | `src/app/(app)/people/queries/[id]/page.tsx`          |
 | `/people/queries/counts`        | Query counts                   | How many queries were served in a year, by where they stand and by month, with small figures withheld.                                                                                                              | `src/app/(app)/people/queries/counts/page.tsx`        |
 | `/people/shifts`                | Shifts                         | Who works when: nights, earlies and weekend cover, and the cover requests waiting on an answer.                                                                                                                     | `src/app/(app)/people/shifts/page.tsx`                |
@@ -380,9 +380,9 @@ Seven questions that decide which modules a new company sees.
 
 No sidebar and no top bar, for a task that wants somebody's whole attention. Behind the sign-in gate; today it is answering a review one question at a time.
 
-| Route                              | Title       | What it is                                                                                     | File                                                       |
-| ---------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `/performance/reviews/[id]/answer` | Your review | One question at a time. Your answers are saved as you go, so you can close this and come back. | `src/app/(focus)/performance/reviews/[id]/answer/page.tsx` |
+| Route                              | Title       | What it is                                                                                                      | File                                                       |
+| ---------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `/performance/reviews/[id]/answer` | Your review | One question at a time. Your answers to the questions are saved as you go, so you can close this and come back. | `src/app/(focus)/performance/reviews/[id]/answer/page.tsx` |
 
 ---
 

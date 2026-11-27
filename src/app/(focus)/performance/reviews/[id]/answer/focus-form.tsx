@@ -203,8 +203,14 @@ export function FocusForm({
     startingMark({ asks: withMark, local: local.mark, held: review.rating }),
   );
   const [summary, setSummary] = useState(local.summary);
-  const [potential, setPotential] = useState("");
-  const [potentialReason, setPotentialReason] = useState("");
+  /* Remembered in this browser like the mark and the note: they travel with the send
+     and nothing holds them before it. Only read on a form that asks for them. */
+  const [potential, setPotential] = useState(() =>
+    withPotential ? local.potential : "",
+  );
+  const [potentialReason, setPotentialReason] = useState(() =>
+    withPotential ? local.potentialReason : "",
+  );
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [failed, setFailed] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -358,8 +364,14 @@ export function FocusForm({
 
   /* The two boxes with nowhere to go before the send, and the page. */
   useEffect(() => {
-    writeLocalDraft(review.id, { mark, summary, step: index });
-  }, [review.id, mark, summary, index]);
+    writeLocalDraft(review.id, {
+      mark,
+      summary,
+      step: index,
+      potential,
+      potentialReason,
+    });
+  }, [review.id, mark, summary, index, potential, potentialReason]);
 
   /* A move queued by picking an option is for the page it was picked on. */
   useEffect(
@@ -493,7 +505,9 @@ export function FocusForm({
       if (summary.trim()) body.summary = summary.trim();
       if (withPotential && potential) {
         body.potential = potential as "LOW" | "MEDIUM" | "HIGH";
-        if (potentialReason.trim())
+        /* The reason belongs to "ready for a bigger role" and goes only beside it:
+           one typed and then left behind by a change of answer is not sent. */
+        if (potential === "HIGH" && potentialReason.trim())
           body.potentialReason = potentialReason.trim();
       }
       onSending(true);

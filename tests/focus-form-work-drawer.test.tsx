@@ -77,8 +77,12 @@ vi.mock("@/lib/api/work-flags", async (original) => ({
   ...(await original<typeof import("@/lib/api/work-flags")>()),
   workFlagsApi: flagsApi,
 }));
+/* Draws what the form says to show when there is nothing on file, as the real
+   card does, so the wording of that is the form's and is tested here. */
 vi.mock("@/app/(app)/performance/self-evidence", () => ({
-  SelfEvidence: () => null,
+  SelfEvidence: ({ whenNothing }: { whenNothing?: React.ReactNode }) => (
+    <>{whenNothing ?? null}</>
+  ),
 }));
 
 import { FocusForm } from "@/app/(focus)/performance/reviews/[id]/answer/focus-form";
@@ -248,5 +252,17 @@ describe("the drawer on its own", () => {
     );
     await userEvent.keyboard("{Control>}{Enter}{/Control}");
     expect(heading()).toBe("Second question");
+  });
+});
+
+describe("the drawer when there is nothing on file", () => {
+  it("says what is missing, which is objectives: there is no log to add to any more", async () => {
+    const drawer = await openDrawer();
+    expect(
+      within(drawer).getByText(
+        "No objectives of your own are on file for this period.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(drawer).queryByText(/logged/i)).toBeNull();
   });
 });
