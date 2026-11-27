@@ -169,9 +169,11 @@ describe("the reading box", () => {
     const onRecord = row();
     await user.type(screen.getByLabelText(/Latest number for/), "abc");
     expect(screen.getByText(MEASURE_NUMBER_PROBLEM)).toBeInTheDocument();
-    const save = screen.getByRole("button", { name: /Save/ });
-    expect(save).toBeDisabled();
-    await user.click(save);
+    /* Nothing to press until it is a number: Save is not drawn, Cancel is. */
+    expect(
+      screen.queryByRole("button", { name: /Save/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Cancel/ })).toBeInTheDocument();
     expect(onRecord).not.toHaveBeenCalled();
   });
 

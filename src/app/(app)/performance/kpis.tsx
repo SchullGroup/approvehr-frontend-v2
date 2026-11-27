@@ -50,6 +50,7 @@ import {
 } from "@/lib/performance/objectives-by-department";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { newObjectiveHref } from "@/lib/performance/objective-wizard";
+import { askedLine, notSwitchedOn } from "@/lib/performance/notify-objectives";
 import { approvalWords } from "@/lib/performance/objective-queue";
 import { useAction } from "@/lib/use-action";
 import {
@@ -61,8 +62,10 @@ import { useTaskSummarySuggestion } from "@/lib/store/ai";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
+  MEASURE_NUMBER_PROBLEM,
   formatMeasure,
   isDoneMeasure,
+  isPlainNumber,
   isUnread,
   type ApiGoal,
   type ApiKeyResult,
@@ -198,6 +201,11 @@ export function EmptyObjectives({
   const periods = useCycleMutations();
   const scoring = useScoringWeights();
   const [asking, setAsking] = useState(false);
+  /* A server that does not have the route: the button goes, and says so once. */
+  const [unavailable, setUnavailable] = useState(false);
+  /* The route needs the permission that manages a period. Showing the button to
+     anybody else would hand them a refusal. */
+  const mayManage = useCan("MANAGE_SETTINGS");
   /* What objectives are worth in the score, so the page says why they matter. */
   const weight = Math.round(
     (scoring.weights?.rows.find((row) => row.component === "OBJECTIVES")
@@ -205,7 +213,12 @@ export function EmptyObjectives({
   );
   /* Somebody can only be asked in the name of a period, so the button waits for one. */
   const period = appraisals.cycles.find((one) => one.stage !== "PUBLISHED");
-  const mayAsk = href !== null && scope === "company" && period !== undefined;
+  const mayAsk =
+    href !== null &&
+    scope === "company" &&
+    period !== undefined &&
+    mayManage &&
+    !unavailable;
 
   const ask = async () => {
     if (!period) return;
@@ -215,17 +228,25 @@ export function EmptyObjectives({
       toast.push({
         title: "Everyone has been asked",
         tone: "success",
-        detail: `${String(result.notified)} ${result.notified === 1 ? "person was" : "people were"} told in the app.`,
+        detail: askedLine(result),
       });
     } catch (caught) {
-      toast.push({
-        title: "That did not send",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Something went wrong. Try again.",
-      });
+      if (notSwitchedOn(caught)) {
+        setUnavailable(true);
+        toast.push({
+          title: "Asking everyone is not available yet",
+          tone: "info",
+        });
+      } else {
+        toast.push({
+          title: "That did not send",
+          tone: "danger",
+          detail:
+            caught instanceof ApiError
+              ? caught.message
+              : "Something went wrong. Try again.",
+        });
+      }
     } finally {
       setAsking(false);
     }
@@ -1952,6 +1973,12 @@ export function MeasureRow({
     draft !== null &&
     draft.trim() !== "" &&
     (unread || draft.trim() !== measure.currentValue);
+  /* The API takes a plain number: "abc" was saved and came back as "Some fields
+     are not valid", which names no box. Said under the box, and Save waits. */
+  const notANumber =
+    changed && draft !== null && !isPlainNumber(draft)
+      ? MEASURE_NUMBER_PROBLEM
+      : null;
 
   const reset = () => {
     setDraft(null);
@@ -1960,7 +1987,7 @@ export function MeasureRow({
   };
 
   const save = async () => {
-    if (!changed) return;
+    if (!changed || notANumber) return;
     setSaving(true);
     setFailed(null);
     try {
@@ -1973,9 +2000,11 @@ export function MeasureRow({
       setNote("");
       summary.clear();
     } catch (error) {
+      /* The API names the field it refused; its general sentence does not say
+         which box, so the field's own comes first. */
       setFailed(
         error instanceof ApiError
-          ? error.message
+          ? (error.messageFor("currentValue") ?? error.message)
           : "Could not save that number. Try again.",
       );
     } finally {
@@ -2022,6 +2051,7 @@ export function MeasureRow({
             className="h-8 w-36"
             {...(unread ? { placeholder: "Not recorded" } : {})}
             value={value}
+            aria-invalid={notANumber ? true : undefined}
             onChange={(event) => setDraft(event.target.value)}
           />
           <span className="tabular text-body-sm text-muted">
@@ -2031,14 +2061,19 @@ export function MeasureRow({
           </span>
           {changed && (
             <>
-              <Button
-                variant="accent"
-                size="sm"
-                loading={saving}
-                onClick={() => void save()}
-              >
-                Save<span className="sr-only"> {measure.label}</span>
-              </Button>
+              {/* Not drawn while the box holds something the API would refuse:
+                  the sentence under it says what, and there is nothing to press
+                  until it is a number. */}
+              {notANumber === null && (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  loading={saving}
+                  onClick={() => void save()}
+                >
+                  Save<span className="sr-only"> {measure.label}</span>
+                </Button>
+              )}
               <Button size="sm" onClick={reset}>
                 Cancel<span className="sr-only"> {measure.label}</span>
               </Button>
@@ -2097,9 +2132,9 @@ export function MeasureRow({
         </div>
       )}
 
-      {failed && (
+      {(notANumber ?? failed) && (
         <p className="text-body-sm text-danger-text" role="status">
-          {failed}
+          {notANumber ?? failed}
         </p>
       )}
     </li>

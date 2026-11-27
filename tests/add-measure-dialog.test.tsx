@@ -207,29 +207,47 @@ describe("a number to reach", () => {
   });
 });
 
-describe("a first reading that is not a number (F17)", () => {
+describe("a figure that is not a number (F17)", () => {
   it("is refused under its own box, in the API's words, and nothing is sent", async () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
-    await user.type(screen.getByLabelText(/Target value/), "10");
-    await user.type(screen.getByLabelText(/Current value/), "abc");
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^To/), "abc");
     await user.click(screen.getByRole("button", { name: "Add target" }));
 
-    expect(await screen.findByText(MEASURE_NUMBER_PROBLEM)).toBeInTheDocument();
+    expect(
+      await screen.findByText(new RegExp(MEASURE_NUMBER_PROBLEM)),
+    ).toBeInTheDocument();
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it("is not asked about when it is left blank", async () => {
+  it("is refused for the starting figure too, and says it is the start", async () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
-    await user.type(screen.getByLabelText(/Target value/), "10");
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    const from = screen.getByLabelText(/^From/);
+    await user.clear(from);
+    await user.type(from, "abc");
+    await user.type(screen.getByLabelText(/^To/), "10");
     await user.click(screen.getByRole("button", { name: "Add target" }));
 
-    expect(screen.queryByText(MEASURE_NUMBER_PROBLEM)).not.toBeInTheDocument();
+    expect(await screen.findByText(/starting number/)).toBeInTheDocument();
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it("is not asked about when both are plain numbers", async () => {
+    const user = userEvent.setup();
+    const { onAdd } = open();
+    await next(user);
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^To/), "10");
+    await user.click(screen.getByRole("button", { name: "Add target" }));
+
+    expect(
+      screen.queryByText(new RegExp(MEASURE_NUMBER_PROBLEM)),
+    ).not.toBeInTheDocument();
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
 });
