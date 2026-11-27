@@ -362,8 +362,7 @@ function RulesCard({
         {settings.retention === "archive_only" && (
           <p className="text-body-sm text-muted">
             A closed query is archived and never deleted. How long a closed file
-            is kept is a matter for your counsel, and the product does not
-            guess.
+            is kept is a matter for your counsel, and ApproveHR does not guess.
           </p>
         )}
 

@@ -61,7 +61,7 @@ import { QueryFiles } from "./query-files";
  * ## Issuing freezes it
  *
  * The confirmation says what issuing does: the wording stops being editable, a reference is taken,
- * and (for a person with a sign-in, served in the product) they are told that **a letter** is
+ * and (for a person with a sign-in, served in ApproveHR) they are told that **a letter** is
  * waiting, with nothing about what it is. Unsaved changes are saved first, in the same press, so
  * the letter issued is the letter on screen.
  */
@@ -170,7 +170,7 @@ export function DraftEditor({
          were read in the confirmation, and a copy that differs from the preview was not. */
       const notes = [
         result.nobodyToldInProduct === true
-          ? "Nobody was told in the product."
+          ? "Nobody was told in ApproveHR."
           : null,
         changed > 0
           ? `${changed} ${changed === 1 ? "reference differs" : "references differ"} from the preview you saw.`
@@ -359,10 +359,9 @@ export function DraftEditor({
             )}
             {how === "IN_PRODUCT" && noSignIn && (
               <p className="text-body-sm text-warning-text">
-                This person has no sign-in, so nobody can be told in the
-                product. You can still issue it, and the record will say so. If
-                you are going to hand them a printout, serve it in person
-                instead.
+                This person has no sign-in, so nobody can be told in ApproveHR.
+                You can still issue it, and the record will say so. If you are
+                going to hand them a printout, serve it in person instead.
               </p>
             )}
 
@@ -543,7 +542,7 @@ export function DraftEditor({
               to reply by. The notification says nothing about what it is.
             </p>
           ) : (
-            <p>Nobody is told in the product.</p>
+            <p>Nobody is told in ApproveHR.</p>
           )}
           <p>
             A query changes no pay, no status and no exit. Anything that follows
