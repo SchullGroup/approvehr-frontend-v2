@@ -168,15 +168,13 @@ beforeEach(() => {
 });
 
 describe("the part scored from Manager appraisal", () => {
-  it("puts the explanation behind one info icon beside the heading, not in a row", () => {
+  it("puts the explanation behind one info icon beside the part's name, not in a row", () => {
     mount();
     const icons = screen.getAllByRole("button", {
       name: "What the manager appraisal weight does",
     });
     expect(icons).toHaveLength(1);
-    expect(screen.getByText("The parts of the score")).toContainElement(
-      icons[0]!,
-    );
+    expect(row("MANAGER_APPRAISAL")).toContainElement(icons[0]!);
     expect(screen.queryByText(NOTE)).toBeNull();
     expect(screen.queryByText(/overall mark before it can be sent/)).toBeNull();
   });
@@ -294,23 +292,33 @@ describe("what the form tells the overall-score card about the part", () => {
   const BASE = "People pick one of the rating names below.";
   const has = (label: string) =>
     `${BASE} Managers must give one in a period that weights ${label}.`;
+  /* The rules are behind the info icon beside the switch's name. */
+  const openTip = () =>
+    userEvent.click(
+      screen.getByRole("button", { name: "About the overall rating" }),
+    );
+  const said = (text: string) =>
+    screen.getByText((content) => content.includes(text));
 
-  it("the company has a part scored from it: the card names the exception, in the company's own word", () => {
+  it("the company has a part scored from it: the card names the exception, in the company's own word", async () => {
     mount("marks");
-    expect(screen.getByText(has("Line view"))).toBeInTheDocument();
+    await openTip();
+    expect(said(has("Line view"))).toBeInTheDocument();
     expect(screen.queryByText(/is not counted in it/)).toBeNull();
   });
 
-  it("the server lists the source and the company has no part from it yet: the card names it by the source's own name", () => {
+  it("the server lists the source and the company has no part from it yet: the card names it by the source's own name", async () => {
     view = viewOf([delivery]);
     mount("marks");
-    expect(screen.getByText(has("Manager appraisal"))).toBeInTheDocument();
+    await openTip();
+    expect(said(has("Manager appraisal"))).toBeInTheDocument();
   });
 
-  it("the server does not list the source, so it predates the part: no exception is named", () => {
+  it("the server does not list the source, so it predates the part: no exception is named", async () => {
     view = viewOf([delivery], { listsManager: false });
     mount("marks");
-    expect(screen.getByText(BASE)).toBeInTheDocument();
+    await openTip();
+    expect(said(BASE)).toBeInTheDocument();
     expect(screen.queryByText(/Managers must/)).toBeNull();
   });
 
@@ -319,10 +327,11 @@ describe("what the form tells the overall-score card about the part", () => {
     ["failed", "failed"],
   ] as const)(
     "the parts %s: nothing is known, so the card says nothing about managers or the score counting",
-    (_name, state) => {
+    async (_name, state) => {
       read = state;
       mount("marks");
-      expect(screen.getByText(BASE)).toBeInTheDocument();
+      await openTip();
+      expect(said(BASE)).toBeInTheDocument();
       expect(screen.queryByText(/Managers must/)).toBeNull();
       expect(screen.queryByText(/is not counted in it/)).toBeNull();
     },
@@ -385,7 +394,7 @@ describe("what the parts list may say while it waits", () => {
   });
 });
 
-describe("the self-assessment card is named as the company names the part", () => {
+describe("the self-assessment part is named as the company names it", () => {
   const ownRating: Part = {
     id: "p-self",
     source: "SELF_ASSESSMENT",
@@ -393,22 +402,34 @@ describe("the self-assessment card is named as the company names the part", () =
     weightBp: 2000,
   };
 
-  it("uses the company's name for the part, not the built-in one", () => {
+  it("uses the company's name for the part on its row, and says what it is read from beside an icon", () => {
     view = viewOf([delivery, ownRating]);
     mount();
+    const own = row("SELF_ASSESSMENT");
+    expect(own).not.toBeNull();
     expect(
-      screen.getByRole("heading", { name: "Own rating" }),
+      within(own as HTMLElement).getByText("Own rating"),
     ).toBeInTheDocument();
+    /* The built-in name is not on the row as its name. */
+    expect(
+      within(own as HTMLElement).queryByText("Self-assessment"),
+    ).toBeNull();
+    expect(
+      within(own as HTMLElement).getByRole("button", {
+        name: "About self-assessment",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("has no row for it, and no card in its place, when the company has written no part from it", () => {
+    view = viewOf([delivery]);
+    mount();
+    expect(row("SELF_ASSESSMENT")).toBeNull();
     expect(
       screen.queryByRole("heading", { name: "Self-assessment" }),
     ).toBeNull();
-  });
-
-  it("says Self-assessment when the company has written no part from it", () => {
-    view = viewOf([delivery]);
-    mount();
     expect(
-      screen.getByRole("heading", { name: "Self-assessment" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "About self-assessment" }),
+    ).toBeNull();
   });
 });

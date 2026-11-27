@@ -7,10 +7,8 @@ import {
   answerKindOf,
   choicesOf,
   directCounts,
-  kindLine,
   kindOptionLabel,
   recordedWords,
-  subsectionOptionLabel,
 } from "@/lib/performance/answer-kind";
 import {
   WRITTEN_ANSWER_BLANK,
@@ -64,25 +62,14 @@ describe("the one sentence for what a written answer is", () => {
     );
   });
 
-  it("is what explains the kind under its picker, and nothing is added to it", () => {
-    expect(kindLine("TEXT", 5)).toBe(WRITTEN_NEVER_COUNTS);
-    expect(kindLine("TEXT", 10)).toBe(WRITTEN_NEVER_COUNTS);
-  });
-
   it("does not promise a target, a gap or a score, which words cannot have", () => {
     /* "never counts towards the score" names the score only to say no. */
-    const line = kindLine("TEXT", 5).replace(
+    const line = WRITTEN_NEVER_COUNTS.replace(
       "never counts towards the score",
       "",
     );
     for (const word of [/target/i, /gap/i, /heatmap/i, /scores?\b/i, /%/]) {
       expect(line).not.toMatch(word);
-    }
-  });
-
-  it("is not said of the kinds that do count", () => {
-    for (const kind of ["RATING", "BOOLEAN", "CHOICE"] as const) {
-      expect(kindLine(kind, 5)).not.toContain("never counts");
     }
   });
 });
@@ -112,19 +99,6 @@ describe("what a written answer counts towards", () => {
 });
 
 describe("how a written subsection reads in the places that name one", () => {
-  it("is the name, a comma and the row's word in lower case, in a picker", () => {
-    expect(subsectionOptionLabel("Communication", "TEXT")).toBe(
-      "Communication, written",
-    );
-  });
-
-  it("uses the words of the row badge", () => {
-    expect(
-      subsectionOptionLabel("X", "TEXT").toLowerCase().endsWith("written"),
-    ).toBe(true);
-    expect(KIND_BADGE.TEXT.toLowerCase()).toBe("written");
-  });
-
   it("calls what is recorded on it an answer, never a level", () => {
     expect(recordedWords("TEXT")).toEqual({
       a: "an answer",

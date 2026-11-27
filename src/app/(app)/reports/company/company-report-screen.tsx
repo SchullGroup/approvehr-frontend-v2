@@ -33,6 +33,7 @@ import { DepartmentsTab } from "./departments-tab";
 import { Overview } from "./overview";
 import { PrintBody, PrintHeading } from "./print-layout";
 import { COMPANY_TABS, type CompanyTabId } from "./tabs";
+import { stageWords } from "@/lib/performance/stage-words";
 
 /** What the print layout contains, recorded in the audit trail with the print. */
 const PRINT_SECTIONS = [
@@ -141,7 +142,8 @@ export function CompanyReportScreen({
                   >
                     {report.cycles.map((cycle) => (
                       <option key={cycle.id} value={cycle.id}>
-                        {cycle.name} ({cycle.stageLabel.toLowerCase()})
+                        {cycle.name} (
+                        {stageWords(cycle.stageLabel).toLowerCase()})
                       </option>
                     ))}
                   </Select>
@@ -259,7 +261,7 @@ function Masthead({ report, zone }: { report: CompanyReport; zone: string }) {
       {cycle ? (
         <>
           <span className="font-medium text-ink">{cycle.name}.</span>{" "}
-          {cycle.stageLabel}
+          {stageWords(cycle.stageLabel)}
           {cycle.marksMayMove ? ". Scores can still move." : "."}{" "}
         </>
       ) : null}

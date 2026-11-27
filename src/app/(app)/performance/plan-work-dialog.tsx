@@ -2,31 +2,27 @@
 
 import { useEffect, useState } from "react";
 import {
-  ChevronRight,
-  LayoutList,
-  Link,
   Loader2,
+  Pencil,
   Plus,
   RotateCw,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 import {
+  AttentionMark,
   Button,
-  Callout,
   Checkbox,
-  Disclosure,
   Field,
+  IconButton,
   Input,
   Modal,
   Select,
   Textarea,
   useToast,
 } from "@/components/ui";
-import { cn } from "@/lib/cn";
+import { InfoTooltip } from "@/components/ui/field";
 import { ApiError } from "@/lib/api/client";
-import { formatDateShort } from "@/lib/time";
 import {
   draftObjectivePlan,
   type ApiPlanPerson,
@@ -39,14 +35,7 @@ import {
   type CommitPlanStory,
 } from "@/lib/api/projects";
 import type { ApiGoal } from "@/lib/api/performance";
-import {
-  EFFORT,
-  INITIATIVE,
-  SUBTASK,
-  TASK,
-  count as countNoun,
-  nounFor,
-} from "@/lib/projects/terms";
+import { TASK, nounFor, count as countNoun } from "@/lib/projects/terms";
 import type { Project } from "@/lib/projects/types";
 
 /**
@@ -54,47 +43,39 @@ import type { Project } from "@/lib/projects/types";
  *
  * Pick a project the caller leads, draft (`POST /ai/plan/objective`, writes
  * nothing), edit, then create (`POST /projects/:id/plan`). Who could take each
- * story is ranked by the API in code, and its reasons are shown in full.
+ * task is ranked by the API in code, and the first of them is who it starts on.
+ *
+ * ## One row per task
+ *
+ * A title, who takes it, and a pencil for the one thing worth writing about it:
+ * what done looks like. Effort, labels and the target a task moves are what the
+ * draft proposed and are sent as it proposed them, without a field each, and
+ * the draft's steps are not created at all (they were never shown, and nothing
+ * is created that was not on screen). A row with no title is left out when the
+ * plan is created, and nothing is said about it.
  */
 
-const POINT_OPTIONS = [1, 2, 3, 5, 8, 13] as const;
-const MAX_STEPS = 8;
-
-type DraftStory = {
+type DraftTask = {
   title: string;
   detail: string;
   keyResultId: string | null;
   points: number | null;
-  labels: string;
-  subtasks: string[];
+  labels: string[];
   assigneeId: string | null;
   candidates: ApiPlanStory["candidates"];
 };
 
-function storyFromApi(s: ApiPlanStory): DraftStory {
+function taskFromApi(s: ApiPlanStory): DraftTask {
   return {
     title: s.title,
     detail: s.detail,
     keyResultId: s.keyResultId,
     points: s.points,
-    labels: s.labels.join(", "),
-    subtasks: s.subtasks,
+    labels: s.labels,
     assigneeId: s.candidates[0]?.employeeId ?? null,
     candidates: s.candidates,
   };
 }
-
-const labelsOf = (text: string): string[] => [
-  ...new Set(
-    text
-      .split(",")
-      .map((l) => l.trim().toLowerCase().replace(/\s+/g, "-"))
-      .filter(Boolean),
-  ),
-];
-
-/** Leave dates are calendar days, so they are read as UTC to stay on the same day. */
-const shortDate = (iso: string): string => formatDateShort(iso, "UTC");
 
 export function PlanWorkDialog({
   goal,
@@ -145,7 +126,7 @@ export function PlanWorkDialog({
   const [drafting, setDrafting] = useState(false);
   const [draft, setDraft] = useState<ApiWorkPlanOutcome | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [stories, setStories] = useState<DraftStory[]>([]);
+  const [tasks, setTasks] = useState<DraftTask[]>([]);
   const [people, setPeople] = useState<ApiPlanPerson[]>([]);
   const [linkProject, setLinkProject] = useState(true);
   const [committing, setCommitting] = useState(false);
@@ -161,7 +142,7 @@ export function PlanWorkDialog({
       });
       setDraft(result);
       if (result.available) {
-        setStories(result.stories.map(storyFromApi));
+        setTasks(result.stories.map(taskFromApi));
         setPeople(result.people);
         setLinkProject(result.project.goalLink !== "this");
       }
@@ -180,40 +161,41 @@ export function PlanWorkDialog({
     setProjectId(id);
     setDraft(null);
     setDraftError(null);
-    setStories([]);
+    setTasks([]);
   };
 
   const measureLabel = (id: string | null) =>
     goal.keyResults.find((kr) => kr.id === id)?.label ?? null;
 
+  /* A row with no title is left out, and nothing is said about it: what is
+     created is what is on screen with a name. */
+  const named = tasks.filter((task) => task.title.trim().length > 0);
+
   const handleCommit = async () => {
-    if (!draft?.available) return;
+    if (!draft?.available || named.length === 0) return;
     setCommitting(true);
     try {
-      const storiesToSend: CommitPlanStory[] = stories.map((s) => {
-        const measure = measureLabel(s.keyResultId);
+      const toSend: CommitPlanStory[] = named.map((task) => {
+        const measure = measureLabel(task.keyResultId);
         const description = [
-          s.detail.trim(),
+          task.detail.trim(),
           measure ? `Moves the target "${measure}".` : "",
         ]
           .filter(Boolean)
           .join("\n\n");
-        const labels = labelsOf(s.labels);
-        const subtasks = s.subtasks.map((t) => t.trim()).filter(Boolean);
         return {
-          title: s.title.trim(),
+          title: task.title.trim(),
           ...(description ? { description } : {}),
-          ...(s.points != null ? { points: s.points } : {}),
-          ...(labels.length > 0 ? { labels } : {}),
-          assigneeId: s.assigneeId,
-          ...(subtasks.length > 0 ? { subtasks } : {}),
+          ...(task.points != null ? { points: task.points } : {}),
+          ...(task.labels.length > 0 ? { labels: task.labels } : {}),
+          assigneeId: task.assigneeId,
         };
       });
       const result = await commitObjectivePlan(projectId, {
         goalId: goal.id,
         linkProject,
         epic: { title: draft.epic.title, description: draft.epic.description },
-        stories: storiesToSend,
+        stories: toSend,
       });
       const taskWord = nounFor(result.issues.length, "task");
       const linked = result.linked
@@ -236,37 +218,29 @@ export function PlanWorkDialog({
     }
   };
 
-  const setStory = (index: number, patch: Partial<DraftStory>) =>
-    setStories((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, ...patch } : s)),
+  const setTask = (index: number, patch: Partial<DraftTask>) =>
+    setTasks((prev) =>
+      prev.map((task, i) => (i === index ? { ...task, ...patch } : task)),
     );
 
-  const removeStory = (index: number) =>
-    setStories((prev) => prev.filter((_, i) => i !== index));
+  const removeTask = (index: number) =>
+    setTasks((prev) => prev.filter((_, i) => i !== index));
 
-  const addStory = () =>
-    setStories((prev) => [
+  const addTask = () =>
+    setTasks((prev) => [
       ...prev,
       {
         title: "",
         detail: "",
         keyResultId: null,
         points: null,
-        labels: "",
-        subtasks: [],
+        labels: [],
         assigneeId: null,
         candidates: [],
       },
     ]);
 
   const available = draft?.available === true ? draft : null;
-  const untitled = stories.filter((s) => s.title.trim().length === 0).length;
-  const blocker =
-    stories.length === 0
-      ? `Keep at least one ${TASK.one}.`
-      : untitled > 0
-        ? `Give ${untitled === 1 ? `every ${TASK.one}` : `all ${String(untitled)} untitled ${TASK.many}`} a title first.`
-        : null;
 
   return (
     <Modal
@@ -274,6 +248,21 @@ export function PlanWorkDialog({
       onClose={onClose}
       title={`Plan the work for "${goal.title}"`}
       size="xl"
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          {/* Absent, not disabled, while there is nothing to create. */}
+          {available && named.length > 0 && (
+            <Button
+              variant="accent"
+              loading={committing}
+              onClick={() => void handleCommit()}
+            >
+              Create {countNoun(named.length, "task")}
+            </Button>
+          )}
+        </>
+      }
     >
       <div className="flex flex-col gap-5">
         <Field label="Project to plan onto">
@@ -283,14 +272,10 @@ export function PlanWorkDialog({
               Loading your projects
             </div>
           ) : projectsError ? (
-            <Callout tone="warning" title="No projects to plan onto">
-              {projectsError}
-            </Callout>
+            <p className="text-body-sm text-muted">{projectsError}</p>
           ) : projects.length === 0 ? (
             <p className="text-body-sm text-muted">
-              Only a project&apos;s lead (or HR) can plan work onto it, and you
-              lead none. Start a project under Projects, or ask its lead to plan
-              from here.
+              You do not lead a project yet.
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
@@ -335,106 +320,63 @@ export function PlanWorkDialog({
         {drafting && (
           <div className="flex items-center gap-2 text-body-sm text-muted">
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            Reading the objective and what is already on the board
+            Drafting the tasks
           </div>
         )}
 
-        {draftError && (
-          <Callout tone="warning" title="No plan this time">
-            {draftError}
-          </Callout>
-        )}
-
+        {/* What went wrong is the API's own sentence, as one plain line: no
+            callout and no title over it. */}
+        {draftError && <p className="text-body-sm text-muted">{draftError}</p>}
         {draft && !draft.available && (
-          <Callout tone="neutral" title="Suggestions are unavailable">
-            {draft.reason}
-          </Callout>
+          <p className="text-body-sm text-muted">{draft.reason}</p>
         )}
 
         {available && (
           <>
+            {available.project.goalLink !== "this" && (
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <Checkbox
+                  checked={linkProject}
+                  onChange={(e) => setLinkProject(e.target.checked)}
+                />
+                <span className="text-body-sm font-medium text-ink">
+                  Link {available.project.name} to this objective
+                </span>
+                {available.project.goalLink === "other" &&
+                  available.project.linkedGoalTitle && (
+                    <InfoTooltip
+                      text={`It is linked to "${available.project.linkedGoalTitle}" now. Linking it here moves where its finished ${TASK.many} show, not only this plan's.`}
+                      label="About linking"
+                    />
+                  )}
+              </label>
+            )}
+
             <div className="flex flex-col gap-2">
-              <p className="text-meta text-muted">
-                Drafted from {available.groundedIn.summary}. Nothing is created
-                until you press Create.
-              </p>
-              {available.groundedIn.facts.length > 0 && (
-                <Disclosure
-                  title="What this was based on"
-                  meta={`${String(available.groundedIn.facts.length)} facts`}
-                  dense
-                >
-                  <ul className="flex list-disc flex-col gap-1 pl-4 text-meta text-muted">
-                    {available.groundedIn.facts.map((fact, index) => (
-                      <li key={`${String(index)}-${fact.slice(0, 24)}`}>
-                        {fact}
-                      </li>
-                    ))}
-                  </ul>
-                </Disclosure>
-              )}
-            </div>
-
-            <ProjectLinkNotice
-              goalLink={available.project.goalLink}
-              linkedGoalTitle={available.project.linkedGoalTitle}
-              projectName={available.project.name}
-              linkProject={linkProject}
-              onChangeLinkProject={setLinkProject}
-            />
-
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-body-sm font-medium text-ink">
-                  {countNoun(stories.length, "task")} under the {INITIATIVE.one}{" "}
-                  &ldquo;{available.epic.title}&rdquo;
-                </p>
-                <Button variant="ghost" size="sm" onClick={addStory}>
-                  <Plus aria-hidden="true" className="size-3.5" />
-                  Add a {TASK.one}
-                </Button>
-              </div>
-              <ol className="flex flex-col gap-4">
-                {stories.map((story, index) => (
-                  <StoryCard
+              <ol className="flex flex-col gap-2">
+                {tasks.map((task, index) => (
+                  <TaskRow
                     key={index}
                     index={index}
-                    story={story}
-                    keyResults={goal.keyResults}
+                    task={task}
                     people={people}
-                    onChange={(patch) => setStory(index, patch)}
-                    onRemove={() => removeStory(index)}
+                    onChange={(patch) => setTask(index, patch)}
+                    onRemove={() => removeTask(index)}
                   />
                 ))}
               </ol>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start"
+                onClick={addTask}
+              >
+                <Plus aria-hidden="true" className="size-3.5" />
+                Add a {TASK.one}
+              </Button>
             </div>
-
-            {people.length > 0 && <PeoplePanel people={people} />}
           </>
         )}
-
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          {available && (
-            <span className="flex flex-wrap items-center gap-3">
-              {blocker && (
-                <span className="text-meta text-muted">{blocker}</span>
-              )}
-              <Button
-                variant="accent"
-                size="sm"
-                loading={committing}
-                disabled={blocker !== null}
-                onClick={() => void handleCommit()}
-              >
-                <LayoutList aria-hidden="true" className="size-4" />
-                Create {countNoun(stories.length, "task")}
-              </Button>
-            </span>
-          )}
-        </div>
       </div>
     </Modal>
   );
@@ -442,352 +384,98 @@ export function PlanWorkDialog({
 
 /* -------------------------------------------------------------------------- */
 
-function ProjectLinkNotice({
-  goalLink,
-  linkedGoalTitle,
-  projectName,
-  linkProject,
-  onChangeLinkProject,
-}: {
-  goalLink: "this" | "none" | "other";
-  linkedGoalTitle: string | null;
-  projectName: string;
-  linkProject: boolean;
-  onChangeLinkProject: (v: boolean) => void;
-}) {
-  if (goalLink === "this") {
-    return (
-      <p className="flex items-center gap-2 text-body-sm text-muted">
-        <Link
-          aria-hidden="true"
-          className="size-4 shrink-0 text-success-text"
-        />
-        {projectName} is linked to this objective, so its finished {TASK.many}{" "}
-        show under it.
-      </p>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <label className="flex cursor-pointer items-start gap-2.5">
-        <Checkbox
-          checked={linkProject}
-          onChange={(e) => onChangeLinkProject(e.target.checked)}
-        />
-        <span>
-          <span className="block text-body-sm font-medium text-ink">
-            Link {projectName} to this objective (optional)
-          </span>
-          {goalLink === "other" && linkedGoalTitle ? (
-            <span className="mt-0.5 block text-meta text-muted">
-              It is linked to &ldquo;{linkedGoalTitle}&rdquo; now. Linking it
-              here moves where its finished work shows, not only this
-              plan&apos;s.
-            </span>
-          ) : (
-            <span className="mt-0.5 block text-meta text-muted">
-              Its finished {TASK.many} then show under this objective.
-            </span>
-          )}
-        </span>
-      </label>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function StoryCard({
+/**
+ * One task: its title, who takes it, and a pencil for what done looks like.
+ *
+ * Who takes it is one control. The people the API ranked for the task come
+ * first, marked as suggested, then everyone else on the project; the one the
+ * task would not count for is marked with a small icon that says why, and not
+ * with a box of its own.
+ */
+function TaskRow({
   index,
-  story,
-  keyResults,
+  task,
   people,
   onChange,
   onRemove,
 }: {
   index: number;
-  story: DraftStory;
-  keyResults: ApiGoal["keyResults"];
+  task: DraftTask;
   people: ApiPlanPerson[];
-  onChange: (patch: Partial<DraftStory>) => void;
+  onChange: (patch: Partial<DraftTask>) => void;
   onRemove: () => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [writing, setWriting] = useState(false);
   const n = String(index + 1);
-  const assignee =
-    people.find((p) => p.employeeId === story.assigneeId) ?? null;
+  const assignee = people.find((p) => p.employeeId === task.assigneeId) ?? null;
   const others = people.filter(
-    (p) => !story.candidates.some((c) => c.employeeId === p.employeeId),
+    (p) => !task.candidates.some((c) => c.employeeId === p.employeeId),
   );
 
-  const setStep = (at: number, value: string) =>
-    onChange({
-      subtasks: story.subtasks.map((s, i) => (i === at ? value : s)),
-    });
-
   return (
-    <li className="rounded-lg border border-line bg-surface">
-      <div className="flex items-start gap-2 p-3">
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className={cn(
-            "mt-2.5 shrink-0 text-muted transition-transform",
-            expanded && "rotate-90",
-          )}
-          aria-expanded={expanded}
-          aria-label={
-            expanded ? `Collapse ${TASK.one} ${n}` : `Expand ${TASK.one} ${n}`
-          }
-        >
-          <ChevronRight className="size-4" aria-hidden="true" />
-        </button>
+    <li className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-2.5">
+      <div className="flex flex-wrap items-center gap-2">
         <Input
-          value={story.title}
+          value={task.title}
           onChange={(e) => onChange({ title: e.target.value })}
           placeholder="What has to be done, starting with a verb"
           aria-label={`${TASK.One} ${n} title`}
-          className="flex-1 font-medium"
+          className="min-w-48 flex-1 font-medium"
         />
-        <button
-          type="button"
-          onClick={onRemove}
-          className="mt-2.5 shrink-0 text-muted hover:text-danger-text"
-          aria-label={`Remove ${TASK.one} ${n}`}
+        <span className="flex items-center gap-1">
+          <Select
+            value={task.assigneeId ?? ""}
+            onChange={(e) => onChange({ assigneeId: e.target.value || null })}
+            aria-label={`${TASK.One} ${n} assignee`}
+            className="w-44"
+          >
+            <option value="">Nobody yet</option>
+            {task.candidates.map((c) => {
+              const person = people.find((p) => p.employeeId === c.employeeId);
+              return person ? (
+                <option key={c.employeeId} value={c.employeeId}>
+                  {person.name} (suggested)
+                </option>
+              ) : null;
+            })}
+            {others.map((p) => (
+              <option key={p.employeeId} value={p.employeeId}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+          {assignee && !assignee.ownKpiId && (
+            <AttentionMark
+              text={`${assignee.name} has no agreed objective under this one, so finishing this ${TASK.one} will not be filed against it.`}
+            />
+          )}
+        </span>
+        <IconButton
+          label={`Write what done looks like for ${TASK.one} ${n}`}
+          size="sm"
+          aria-expanded={writing}
+          onClick={() => setWriting((now) => !now)}
         >
-          <Trash2 className="size-4" aria-hidden="true" />
-        </button>
+          <Pencil aria-hidden="true" className="size-4" />
+        </IconButton>
+        <IconButton
+          label={`Remove ${TASK.one} ${n}`}
+          size="sm"
+          onClick={onRemove}
+        >
+          <Trash2 aria-hidden="true" className="size-4" />
+        </IconButton>
       </div>
 
-      {expanded && (
-        <div className="flex flex-col gap-4 border-t border-line p-3">
-          <Textarea
-            value={story.detail}
-            onChange={(e) => onChange({ detail: e.target.value })}
-            rows={2}
-            placeholder="What done looks like"
-            aria-label={`${TASK.One} ${n} detail`}
-          />
-
-          <div className="flex flex-wrap gap-3">
-            <Field label={EFFORT.One} className="w-24 shrink-0">
-              <Select
-                value={story.points ?? ""}
-                onChange={(e) =>
-                  onChange({
-                    points:
-                      e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              >
-                <option value="">None</option>
-                {POINT_OPTIONS.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            {keyResults.length > 0 && (
-              <Field
-                label="Moves the target"
-                help={`Written into the ${TASK.one}'s description.`}
-                className="min-w-40 flex-1"
-              >
-                <Select
-                  value={story.keyResultId ?? ""}
-                  onChange={(e) =>
-                    onChange({ keyResultId: e.target.value || null })
-                  }
-                >
-                  <option value="">None</option>
-                  {keyResults.map((kr) => (
-                    <option key={kr.id} value={kr.id}>
-                      {kr.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            )}
-
-            <Field
-              label="Labels"
-              help="Separate with commas."
-              className="min-w-40 flex-1"
-            >
-              <Input
-                value={story.labels}
-                onChange={(e) => onChange({ labels: e.target.value })}
-                placeholder="design, outreach"
-              />
-            </Field>
-          </div>
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-meta text-muted">Who takes it</legend>
-            {story.candidates.length > 0 && (
-              <ul className="flex flex-col gap-2">
-                {story.candidates.map((c) => {
-                  const person = people.find(
-                    (p) => p.employeeId === c.employeeId,
-                  );
-                  const chosen = story.assigneeId === c.employeeId;
-                  return (
-                    <li key={c.employeeId}>
-                      <button
-                        type="button"
-                        onClick={() => onChange({ assigneeId: c.employeeId })}
-                        aria-pressed={chosen}
-                        className={cn(
-                          "w-full rounded-md border p-2.5 text-left transition-colors",
-                          chosen
-                            ? "border-accent-line bg-accent-soft"
-                            : "border-line bg-canvas hover:border-control-line",
-                        )}
-                      >
-                        <span className="block text-body-sm font-medium text-ink">
-                          {person?.name ?? "Someone on the project"}
-                          {person?.jobTitle && (
-                            <span className="ml-1.5 font-normal text-muted">
-                              {person.jobTitle}
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-1 block text-meta text-muted">
-                          {c.reasons.join(" · ")}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <Select
-              value={story.assigneeId ?? ""}
-              onChange={(e) => onChange({ assigneeId: e.target.value || null })}
-              aria-label={`${TASK.One} ${n} assignee`}
-            >
-              <option value="">Nobody yet</option>
-              {story.candidates.map((c) => {
-                const person = people.find(
-                  (p) => p.employeeId === c.employeeId,
-                );
-                return person ? (
-                  <option key={c.employeeId} value={c.employeeId}>
-                    {person.name} (suggested)
-                  </option>
-                ) : null;
-              })}
-              {others.map((p) => (
-                <option key={p.employeeId} value={p.employeeId}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-            {assignee && !assignee.ownKpiId && (
-              <Callout tone="warning" title="This work would not count">
-                {assignee.name} has no agreed objective under this one, so
-                finishing this {TASK.one} will not be filed against it. Give
-                them one with &ldquo;Give an objective to people&rdquo; on the
-                objective, or choose someone else.
-              </Callout>
-            )}
-          </fieldset>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-meta text-muted">
-              Steps, created as unassigned {SUBTASK.many}
-            </p>
-            {story.subtasks.length > 0 && (
-              <ol className="flex flex-col gap-2">
-                {story.subtasks.map((step, si) => (
-                  <li key={si} className="flex items-center gap-2">
-                    <Input
-                      value={step}
-                      onChange={(e) => setStep(si, e.target.value)}
-                      aria-label={`${TASK.One} ${n} step ${String(si + 1)}`}
-                      className="flex-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChange({
-                          subtasks: story.subtasks.filter((_, i) => i !== si),
-                        })
-                      }
-                      className="shrink-0 text-muted hover:text-danger-text"
-                      aria-label={`Remove step ${String(si + 1)}`}
-                    >
-                      <X className="size-4" aria-hidden="true" />
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            )}
-            {story.subtasks.length < MAX_STEPS && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="self-start"
-                onClick={() => onChange({ subtasks: [...story.subtasks, ""] })}
-              >
-                <Plus aria-hidden="true" className="size-3.5" />
-                Add a step
-              </Button>
-            )}
-          </div>
-        </div>
+      {writing && (
+        <Textarea
+          value={task.detail}
+          onChange={(e) => onChange({ detail: e.target.value })}
+          rows={2}
+          placeholder="What done looks like"
+          aria-label={`${TASK.One} ${n} detail`}
+        />
       )}
     </li>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function PeoplePanel({ people }: { people: ApiPlanPerson[] }) {
-  return (
-    <Disclosure
-      title="Everyone on the project"
-      meta={`${String(people.length)} people`}
-    >
-      <ul className="flex flex-col gap-2">
-        {people.map((person) => (
-          <li
-            key={person.employeeId}
-            className="flex flex-wrap items-center justify-between gap-2"
-          >
-            <span className="text-body-sm font-medium text-ink">
-              {person.name}
-              {person.jobTitle && (
-                <span className="ml-1.5 font-normal text-muted">
-                  {person.jobTitle}
-                </span>
-              )}
-            </span>
-            <span className="flex flex-wrap items-center gap-2 text-meta text-muted">
-              <span>
-                {person.openIssues === 0
-                  ? "Nothing open"
-                  : `${String(person.openIssues)} open${person.openPoints > 0 ? `, ${String(person.openPoints)} ${EFFORT.one}` : ""}`}
-                {person.led ? "" : " on this project"}
-              </span>
-              {person.leave && (
-                <span className="text-warning-text">
-                  On leave {shortDate(person.leave.start)} to{" "}
-                  {shortDate(person.leave.end)}
-                </span>
-              )}
-              {!person.ownKpiId && (
-                <span className="text-warning-text">
-                  No objective under this one
-                </span>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Disclosure>
   );
 }

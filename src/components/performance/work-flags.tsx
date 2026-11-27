@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button, Field, Modal, Textarea } from "@/components/ui";
 import {
-  FLAG_REASON_MAX,
-  FLAG_REASON_MIN,
-  type ApiWorkFlag,
-} from "@/lib/api/work-flags";
+  Button,
+  Field,
+  Modal,
+  RowActions,
+  Textarea,
+  type RowAction,
+} from "@/components/ui";
+import { type ApiWorkFlag } from "@/lib/api/work-flags";
 import { actionMessage } from "@/lib/use-action";
 import {
-  FLAG_PURPOSE,
   flagLine,
+  flagSentence,
   flaggedCount,
   reasonProblem,
   reasonReady,
@@ -25,9 +28,15 @@ import { useWorkFlags } from "@/lib/store/work-flags";
  *
  * The person the work is about says, in a few words, that an item the reader is looking at is not
  * right: not theirs, the wrong day, a task that was never finished. The appraiser reads it on the
- * row. **It removes nothing from the list and moves no mark**, and the dialog and the panel say so, so
+ * row. **It removes nothing from the list and moves no mark**, and the list's one tooltip says so, so
  * a flag is never taken for a correction somebody made. Only the person can raise one, and they can
  * change the reason or take it back.
+ *
+ * ## One menu on the row, and the flag as a line of text
+ *
+ * A row carries no button of its own. The person's controls are in the row's menu ("This is wrong"; once
+ * a flag is there, "Change" and "Take it back"), and the flag itself is a line of text under the task, so
+ * a list of fifty finished tasks is fifty quiet rows and not fifty buttons.
  *
  * ## What is drawn, and what can be done
  *
@@ -60,23 +69,41 @@ import { useWorkFlags } from "@/lib/store/work-flags";
  *
  * A write changes what a row is made of (the button that was pressed may not exist afterwards), and
  * focus left on something that is gone falls to the page, where the answering form's keys act. After a
- * flag is raised or taken back, focus goes to that row's own control.
+ * flag is raised or taken back, focus goes to that row's own menu.
  */
 
 /**
- * The line a row carries when it has been flagged, and the person's controls on it.
- *
- * Each button's accessible name **starts with the words drawn on it** and then says which item it is
- * for ("This is wrong, PLT-12"), as the sidebar's back button does. A name that begins with other words
- * ("Say that PLT-12 is wrong") cannot be reached by somebody who speaks the label they can see to a
- * voice-control tool (WCAG 2.5.3, label in name), and a name with no key would not say which row of a
- * list of fifty a button belongs to.
+ * The line a row carries when it has been flagged: who said so, when and what they said. Nothing for a
+ * row with no flag.
  */
-export function FlagLine({
-  itemKey,
+export function FlagText({
   flag,
   by,
   timeZone,
+}: {
+  /** The flag on this row, or `null`. */
+  flag: ApiWorkFlag | null;
+  /** Whose flag it is: "you" or the person's name. The person is the only one who can raise one. */
+  by: string;
+  timeZone: string;
+}) {
+  if (!flag) return null;
+  return (
+    <p className="whitespace-pre-line break-words text-meta text-ink">
+      {flagLine(flag, by, timeZone)}
+    </p>
+  );
+}
+
+/**
+ * The person's controls on one row, behind the row's menu.
+ *
+ * The menu's name says which row it belongs to ("More actions for PLT-12"), as every row menu in the
+ * product does, so a list of fifty is not fifty identical buttons.
+ */
+export function FlagMenu({
+  itemKey,
+  flag,
   canRaise,
   canWithdraw,
   busy,
@@ -87,9 +114,6 @@ export function FlagLine({
   itemKey: string;
   /** The flag on this row, or `null`. */
   flag: ApiWorkFlag | null;
-  /** Whose flag it is: "you" or the person's name. The person is the only one who can raise one. */
-  by: string;
-  timeZone: string;
   /** A flag can be raised or changed: the reader is the person and the server says the setting is on. */
   canRaise: boolean;
   /** The reader is the person: a flag that is there can be taken back, whatever the setting says. */
@@ -101,60 +125,27 @@ export function FlagLine({
   onRaise: () => void;
   onWithdraw: () => void;
 }) {
-  if (flag) {
+  const items: RowAction[] = flag
+    ? [
+        {
+          label: "Change",
+          onSelect: onRaise,
+          available: canRaise,
+          disabled: busy,
+        },
+        {
+          label: "Take it back",
+          onSelect: onWithdraw,
+          available: canWithdraw,
+          disabled: busy,
+        },
+      ]
+    : [{ label: "This is wrong", onSelect: onRaise, available: canRaise }];
+  if (items.some((item) => item.available !== false)) {
     return (
-      <div
-        ref={rowRef}
-        tabIndex={-1}
-        className="flex flex-col gap-1 outline-none"
-      >
-        <p className="whitespace-pre-line break-words text-meta text-ink">
-          {flagLine(flag, by, timeZone)}
-        </p>
-        {(canRaise || canWithdraw) && (
-          <p className="flex flex-wrap gap-x-3">
-            {canRaise && (
-              <Button
-                size="sm"
-                variant="ghost"
-                data-flag-control="change"
-                aria-label={`Change, flag on ${itemKey}`}
-                disabled={busy}
-                onClick={onRaise}
-              >
-                Change
-              </Button>
-            )}
-            {canWithdraw && (
-              <Button
-                size="sm"
-                variant="ghost"
-                data-flag-control="withdraw"
-                aria-label={`Take it back, flag on ${itemKey}`}
-                disabled={busy}
-                onClick={onWithdraw}
-              >
-                Take it back
-              </Button>
-            )}
-          </p>
-        )}
-      </div>
-    );
-  }
-  if (canRaise) {
-    return (
-      <p ref={rowRef} tabIndex={-1} className="outline-none">
-        <Button
-          size="sm"
-          variant="ghost"
-          data-flag-control="raise"
-          aria-label={`This is wrong, ${itemKey}`}
-          onClick={onRaise}
-        >
-          This is wrong
-        </Button>
-      </p>
+      <span ref={rowRef} tabIndex={-1} className="inline-flex outline-none">
+        <RowActions label={`More actions for ${itemKey}`} items={items} />
+      </span>
     );
   }
   /* The person's own row, with nothing to say and nothing to press (the setting is off and no flag is
@@ -227,7 +218,6 @@ function FlagBody({ open, target, onClose, onSave }: Props) {
             : `Why is ${target.key} wrong?`
           : "Why is this wrong?"
       }
-      description={FLAG_PURPOSE}
       size="md"
       footer={
         <>
@@ -253,7 +243,6 @@ function FlagBody({ open, target, onClose, onSave }: Props) {
         )}
         <Field
           label="What is wrong with it?"
-          help={`In your own words, ${String(FLAG_REASON_MIN)} to ${String(FLAG_REASON_MAX)} characters. Whoever reads your work sees it on the row.`}
           {...(problem ? { error: problem } : {})}
         >
           <Textarea
@@ -270,8 +259,8 @@ function FlagBody({ open, target, onClose, onSave }: Props) {
 }
 
 /**
- * Everything a panel of finished work needs to carry flags: the line for a row, the one dialog, the
- * count for the heading, and what the note above the list should say.
+ * Everything a panel of finished work needs to carry flags: the line and the menu for a row, the one
+ * dialog, the count for the summary, and the sentence for the list's tooltip.
  *
  * `known` is whether the server said anything about flags. Where it did not (not asked yet, offline, a
  * reader the server refuses, a server one deploy behind, a failed request) a panel draws **no flag, no
@@ -299,9 +288,7 @@ export function useFlagging(args: {
   const [open, setOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [refocus, setRefocus] = useState<{ id: string; prefer: string } | null>(
-    null,
-  );
+  const [refocus, setRefocus] = useState<{ id: string } | null>(null);
   const rows = useRef(new Map<string, HTMLElement>());
 
   const known = held !== null;
@@ -309,18 +296,12 @@ export function useFlagging(args: {
   const canWithdraw = own && known;
   const by = own ? "you" : subjectName;
 
-  /* After a write: this row's own control, or the row itself when it has none. */
+  /* After a write: this row's own menu, or the row itself when it has none. */
   useEffect(() => {
     if (refocus === null) return;
     const row = rows.current.get(refocus.id);
     if (!row) return;
-    (
-      row.querySelector<HTMLElement>(
-        `[data-flag-control="${refocus.prefer}"]:not([disabled])`,
-      ) ??
-      row.querySelector<HTMLElement>("button:not([disabled])") ??
-      row
-    ).focus();
+    (row.querySelector<HTMLElement>("button:not([disabled])") ?? row).focus();
   }, [refocus]);
 
   const withdraw = async (issueId: string) => {
@@ -329,10 +310,10 @@ export function useFlagging(args: {
     setProblem(null);
     try {
       await flags.unflag(issueId);
-      setRefocus({ id: issueId, prefer: "raise" });
+      setRefocus({ id: issueId });
     } catch (caught) {
       setProblem(actionMessage(caught, "that change"));
-      setRefocus({ id: issueId, prefer: "withdraw" });
+      setRefocus({ id: issueId });
     } finally {
       setWithdrawing(null);
     }
@@ -340,18 +321,25 @@ export function useFlagging(args: {
 
   const save = async (issueId: string, reason: string) => {
     await flags.flag(issueId, reason);
-    setRefocus({ id: issueId, prefer: "change" });
+    setRefocus({ id: issueId });
   };
 
-  const lineFor = (issueId: string, key: string): ReactNode => {
+  /** The flag on a row, as a line of text under the task. Nothing for none. */
+  const lineFor = (issueId: string): ReactNode => {
+    if (held === null) return null;
+    return (
+      <FlagText flag={held.get(issueId) ?? null} by={by} timeZone={timeZone} />
+    );
+  };
+
+  /** The person's controls on a row, behind the row's menu. Nothing where there is nothing to press. */
+  const menuFor = (issueId: string, key: string): ReactNode => {
     if (held === null) return null;
     const flag = held.get(issueId) ?? null;
     return (
-      <FlagLine
+      <FlagMenu
         itemKey={key}
         flag={flag}
-        by={by}
-        timeZone={timeZone}
         canRaise={canRaise}
         canWithdraw={canWithdraw}
         busy={withdrawing !== null}
@@ -369,18 +357,17 @@ export function useFlagging(args: {
   };
 
   return {
-    /** A flag can be raised or changed now. */
-    on: flags.on,
-    /** The server said something about flags, so a flag that exists is drawn. */
-    known,
-    /** At least one flag exists for this person and cycle. */
-    any: held !== null && held.size > 0,
-    own,
-    canRaise,
-    canWithdraw,
+    /** What a flag is, for the list's tooltip, or `null` where the server said nothing about flags. */
+    sentence: flagSentence({
+      known,
+      own,
+      on: flags.on,
+      any: held !== null && held.size > 0,
+    }),
     /** A failed take-back, in the server's words, for the panel to show. */
     problem,
     lineFor,
+    menuFor,
     /** "2 flagged as wrong" for the rows that are in this panel, or `null` for none or not known. */
     countIn: (issueIds: readonly string[]): string | null =>
       held === null

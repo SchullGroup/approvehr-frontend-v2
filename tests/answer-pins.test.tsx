@@ -8,24 +8,34 @@ import type { ApiPin } from "@/lib/api/work-pins";
 /**
  * Finished work pinned to an answer: read, and added and removed by the person.
  *
- * What is proved: a pin reads as the task's key (a link that opens it), the day it was finished, on
- * time or late, who set it when somebody else did, the person's own note and whose choice it was, and
- * never a title; nothing is drawn for no pins; a row that is itself a button gets no link; the person's
- * own list has an Unpin on each pin, which asks the server, waits, and shows the server's own sentence
- * when it refuses; "Add work" is there only where the review allows it, opens the picker, and says
- * the limit; it is off at five; the form is told when the picker opens and closes, and is not left
- * switched off when the page goes away with it open; where the person can neither add nor remove,
- * pins are read-only; a key is a link only where the server says the reader may open the task (a
- * server that says nothing makes no claim, so the key is plain text, and so is one that says "may
- * not"); and focus is never
- * left on something that has gone, because focus on the page is where the answering form's keys act:
- * after a pin is taken off, and after the picker closes, it is on "Add work", or on the label over the
- * list when that is off, or on the empty region that is left; after a refusal it is on the "Unpin" that
- * was pressed.
+ * What is proved: a pin reads as a chip with the task's key (a link that opens it) and nothing else, the
+ * day it was finished, on time or late and who set it being the chip's hover text, the person's note inside
+ * the chip it belongs to, and never a title, a heading, a count or a "pinned by"; nothing is drawn for no
+ * pins; a row that is itself a button gets no link; the person's own list has an Unpin on each chip,
+ * which asks the server, waits, and shows the server's own sentence when it refuses; a small plus is
+ * there only where the review allows adding AND there is finished work to add AND there is room, and is
+ * absent, never disabled, otherwise; the form is told when the picker opens and closes, and is not left
+ * switched off when the page goes away with it open; where the person can neither add nor remove, pins
+ * are read-only; a key is a link only where the server says the reader may open the task (a server that
+ * says nothing makes no claim, so the key is plain text, and so is one that says "may not"); and focus
+ * is never left on something that has gone, because focus on the page is where the answering form's keys
+ * act: after a pin is taken off, and after the picker closes, it is on the plus, or on the row's region
+ * when that is gone; after a refusal it is on the Unpin that was pressed.
  */
 
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
+}));
+/* What was finished in the period decides whether there is anything to add. */
+const finished = vi.hoisted(() => ({
+  read: null as unknown,
+  args: [] as unknown[],
+}));
+vi.mock("@/lib/store/completions", () => ({
+  useWorkThisCycle: (args: unknown) => {
+    finished.args.push(args);
+    return finished.read;
+  },
 }));
 vi.mock("@/components/performance/pin-work-dialog", () => ({
   PinWorkDialog: ({
@@ -83,25 +93,26 @@ const unsaid = (over: Partial<ApiPin> = {}): ApiPin => {
 };
 
 describe("reading pins", () => {
-  it("draws the key as a link to the task, the quiet facts, the note, and whose choice it was", () => {
-    render(<PinsRead pins={[pin()]} pinnedBy="Chidi Nwosu" />);
-    expect(screen.getByText("Work pinned to this answer")).toBeInTheDocument();
+  it("draws the key as a link to the task, and nothing else: the facts are its hover text and the note is in the chip", () => {
+    render(<PinsRead pins={[pin()]} />);
     const link = screen.getByRole("link", { name: "PLT-12" });
     expect(link).toHaveAttribute("href", "/projects/tasks/i1");
     expect(link).not.toHaveAttribute("target");
-    expect(screen.getByText("Finished 4 Nov 2026")).toBeInTheDocument();
-    expect(screen.getByText("On time")).toBeInTheDocument();
-    expect(screen.getByText("Set by Pat Projects")).toBeInTheDocument();
-    expect(screen.getByText("Under an objective")).toBeInTheDocument();
+    expect(link).toHaveAttribute(
+      "title",
+      "Finished 4 Nov 2026 · On time · Set by Pat Projects · Under an objective",
+    );
     expect(screen.getByText("Led it end to end")).toBeInTheDocument();
-    expect(
-      screen.getByText("Pinned by Chidi Nwosu on 5 Nov 2026"),
-    ).toBeInTheDocument();
+    /* No heading, no count, no sentence of any kind. */
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByText(/pinned/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Finished 4 Nov 2026")).not.toBeInTheDocument();
+    expect(screen.queryByText("On time")).not.toBeInTheDocument();
   });
 
   describe("whether the reader may open the task", () => {
     it("is a link where the server says they may", () => {
-      render(<PinsRead pins={[pin({ canOpen: true })]} pinnedBy="you" />);
+      render(<PinsRead pins={[pin({ canOpen: true })]} />);
       expect(screen.getByRole("link", { name: "PLT-12" })).toHaveAttribute(
         "href",
         "/projects/tasks/i1",
@@ -109,35 +120,38 @@ describe("reading pins", () => {
     });
 
     it("is plain text where the server says nothing: an absent answer makes no claim, so no link is offered", () => {
-      render(<PinsRead pins={[unsaid()]} pinnedBy="Chidi Nwosu" />);
+      render(<PinsRead pins={[unsaid()]} />);
       expect(screen.queryByRole("link")).not.toBeInTheDocument();
       expect(screen.getByText("PLT-12")).toBeInTheDocument();
       /* Everything else about the pin is read as usual. */
-      expect(screen.getByText("Finished 4 Nov 2026")).toBeInTheDocument();
+      expect(screen.getByText("PLT-12")).toHaveAttribute(
+        "title",
+        expect.stringContaining("Finished 4 Nov 2026"),
+      );
       expect(screen.getByText("Led it end to end")).toBeInTheDocument();
     });
 
     it("is plain text, with everything else still read, where the server says they may not", () => {
-      render(
-        <PinsRead pins={[pin({ canOpen: false })]} pinnedBy="Chidi Nwosu" />,
-      );
+      render(<PinsRead pins={[pin({ canOpen: false })]} />);
       expect(screen.queryByRole("link")).not.toBeInTheDocument();
       expect(screen.getByText("PLT-12")).toBeInTheDocument();
-      expect(screen.getByText("Finished 4 Nov 2026")).toBeInTheDocument();
       expect(screen.getByText("Led it end to end")).toBeInTheDocument();
-      expect(
-        screen.getByText("Pinned by Chidi Nwosu on 5 Nov 2026"),
-      ).toBeInTheDocument();
     });
 
     it("is decided per pin, so one the reader may not open does not take the others' links away", () => {
       render(
         <PinsRead
           pins={[
-            pin({ canOpen: false }),
-            pin({ id: "pin2", issueId: "i2", key: "PLT-13", canOpen: true }),
-            pin({ id: "pin3", issueId: "i3", key: "PLT-14" }),
-            unsaid({ id: "pin4", issueId: "i4", key: "PLT-15" }),
+            pin({ canOpen: false, note: null }),
+            pin({
+              id: "pin2",
+              issueId: "i2",
+              key: "PLT-13",
+              canOpen: true,
+              note: null,
+            }),
+            pin({ id: "pin3", issueId: "i3", key: "PLT-14", note: null }),
+            unsaid({ id: "pin4", issueId: "i4", key: "PLT-15", note: null }),
           ]}
         />,
       );
@@ -176,30 +190,23 @@ describe("reading pins", () => {
     });
   });
 
-  it("says it was the reader's own choice when the reader is the person", () => {
-    render(<PinsRead pins={[pin()]} pinnedBy="you" />);
-    expect(screen.getByText("Pinned by you on 5 Nov 2026")).toBeInTheDocument();
-  });
-
-  it("says only when, when it is not known whose choice it was", () => {
-    render(<PinsRead pins={[pin()]} pinnedBy={null} />);
-    expect(screen.getByText("Pinned on 5 Nov 2026")).toBeInTheDocument();
-  });
-
-  it("has no 'pinned by' line when the caller leaves it out", () => {
-    render(<PinsRead pins={[pin()]} />);
+  it("does not say whose choice it was, whatever the caller knows: the chips sit under the author's own answer", () => {
+    render(<PinsRead pins={[pin()]} pinnedBy="Chidi Nwosu" />);
+    expect(screen.queryByText(/Chidi/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Pinned/)).not.toBeInTheDocument();
   });
 
-  it("counts them in the heading from two", () => {
+  it("is one line of chips, however many there are, with no count over them", () => {
     render(
       <PinsRead
-        pins={[pin(), pin({ id: "pin2", issueId: "i2", key: "PLT-13" })]}
+        pins={[
+          pin({ note: null }),
+          pin({ id: "pin2", issueId: "i2", key: "PLT-13", note: null }),
+        ]}
       />,
     );
-    expect(
-      screen.getByText("2 pieces of work pinned to this answer"),
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(2);
+    expect(screen.queryByText(/pieces of work/)).not.toBeInTheDocument();
   });
 
   it("draws nothing for none: an answer with no pins is the ordinary case", () => {
@@ -219,7 +226,7 @@ describe("reading pins", () => {
 
   it("never draws a title, even for a pin that arrived with one", () => {
     const withTitle = { ...pin(), title: "Chemo schedule for Ada" } as ApiPin;
-    render(<PinsRead pins={[withTitle]} pinnedBy="you" />);
+    render(<PinsRead pins={[withTitle]} />);
     expect(screen.queryByText(/Chemo/)).not.toBeInTheDocument();
   });
 
@@ -236,10 +243,10 @@ describe("reading pins", () => {
         ]}
       />,
     );
-    expect(screen.queryByText("On time")).not.toBeInTheDocument();
-    expect(screen.queryByText("Late")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Set by/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Under an objective")).not.toBeInTheDocument();
+    const hover = screen
+      .getByRole("link", { name: "PLT-12" })
+      .getAttribute("title");
+    expect(hover).toBe("Finished 4 Nov 2026");
   });
 
   it("keeps the paragraphs of a note and does not let a long word run out of its row", () => {
@@ -251,6 +258,21 @@ describe("reading pins", () => {
     const note = screen.getByText(/Line one/);
     expect(note.className).toMatch(/whitespace-pre-line/);
     expect(note.className).toMatch(/break-words/);
+  });
+
+  it("says a note only for a pin that has one", () => {
+    render(
+      <PinsRead
+        pins={[
+          pin({ note: null }),
+          pin({ id: "pin2", issueId: "i2", key: "PLT-13", note: "Mine" }),
+        ]}
+      />,
+    );
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    /* In the chip of its own pin, and in no other. */
+    expect(screen.getByText("Mine").closest("li")).toHaveTextContent("PLT-13");
+    expect(screen.getAllByText("PLT-13")).toHaveLength(1);
   });
 });
 
@@ -273,8 +295,18 @@ const pinning = (over: Partial<Pinning> = {}): Pinning => ({
   ...over,
 });
 
+/** What the picker would read: the person's finished work in the period. */
+const reading = (items: { id: string }[]) => ({
+  data: { items, summary: {}, total: items.length, capped: false },
+  loading: false,
+  error: null,
+  reload: vi.fn(),
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
+  finished.args = [];
+  finished.read = reading([{ id: "t1" }]);
   onUnpin.mockResolvedValue(undefined);
 });
 
@@ -340,18 +372,32 @@ describe("the person's own list", () => {
     render(<AnswerPins pinning={pinning()} />);
     expect(screen.queryByText(/^Pinned/)).not.toBeInTheDocument();
   });
+
+  it("has no heading, no label and no sentence over the chips", () => {
+    render(<AnswerPins pinning={pinning()} />);
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Work you added/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/added\./)).not.toBeInTheDocument();
+  });
 });
 
-describe("Add work", () => {
-  it("is there where the review allows it, and says the limit and who reads it", () => {
+describe("the plus", () => {
+  it("is there where the review allows it, with nothing said under the question about the limit or who reads it", () => {
     render(<AnswerPins pinning={pinning({ pins: [] })} />);
     expect(screen.getByRole("button", { name: "Add work" })).toBeEnabled();
-    expect(screen.getByText(/Up to 5 on each answer\./)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /The people who read your review see it beside your answer/,
-      ),
-    ).toBeInTheDocument();
+      screen.queryByText(/Up to 5 on each answer/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/The people who read your review/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("is a small icon, which says its name on hover", () => {
+    render(<AnswerPins pinning={pinning({ pins: [] })} />);
+    const button = screen.getByRole("button", { name: "Add work" });
+    expect(button).toHaveAttribute("title", "Add work");
+    expect(button.textContent).toBe("");
   });
 
   it("opens the picker for this question", async () => {
@@ -362,7 +408,7 @@ describe("Add work", () => {
     );
   });
 
-  it("is off at five, with the count said", () => {
+  it("is absent at five, not disabled, and says nothing about a count", () => {
     const five = [1, 2, 3, 4, 5].map((n) =>
       pin({
         id: `p${String(n)}`,
@@ -371,10 +417,72 @@ describe("Add work", () => {
       }),
     );
     render(<AnswerPins pinning={pinning({ pins: five })} />);
-    expect(screen.getByRole("button", { name: "Add work" })).toBeDisabled();
     expect(
-      screen.getByText(/5 of 5 added\. Unpin one to add another\./),
+      screen.queryByRole("button", { name: "Add work" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/5 of 5/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(5);
+  });
+
+  it("is there at four", () => {
+    const four = [1, 2, 3, 4].map((n) =>
+      pin({
+        id: `p${String(n)}`,
+        issueId: `x${String(n)}`,
+        key: `PLT-${String(n)}`,
+      }),
+    );
+    render(<AnswerPins pinning={pinning({ pins: four })} />);
+    expect(screen.getByRole("button", { name: "Add work" })).toBeEnabled();
+  });
+
+  it("is absent when nothing was finished in the period: there is nothing to add, so no button opens an empty box", () => {
+    finished.read = reading([]);
+    render(<AnswerPins pinning={pinning({ pins: [] })} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("is absent while the finished work is on its way and when it cannot be read, since neither is a list to pick from", () => {
+    finished.read = {
+      data: null,
+      loading: true,
+      error: null,
+      reload: vi.fn(),
+    };
+    const { unmount } = render(<AnswerPins pinning={pinning({ pins: [] })} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    unmount();
+    finished.read = {
+      data: null,
+      loading: false,
+      error: null,
+      reload: vi.fn(),
+    };
+    render(<AnswerPins pinning={pinning({ pins: [] })} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("still reads and unpins the pins already there when there is nothing left to add", () => {
+    finished.read = reading([]);
+    render(<AnswerPins pinning={pinning()} />);
+    expect(screen.getByRole("link", { name: /PLT-12/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Unpin PLT-12" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add work" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("asks for the person's finished work in the period only while adding is allowed", () => {
+    render(<AnswerPins pinning={pinning({ canAdd: false })} />);
+    expect(finished.args.at(-1)).toMatchObject({ enabled: false });
+    render(<AnswerPins pinning={pinning({ canAdd: true })} />);
+    expect(finished.args.at(-1)).toMatchObject({
+      enabled: true,
+      subjectId: "e1",
+      cycleId: "c1",
+    });
   });
 
   it("is not there where the review does not allow it, though pins already written are read", () => {
@@ -432,14 +540,16 @@ describe("telling the form about the picker", () => {
     expect(changed).toHaveBeenLastCalledWith(false);
   });
 
-  it("lays out the pins before the button, under one labelled region", () => {
+  it("lays out the chips and then the plus, in one row under one labelled region", () => {
     render(<AnswerPins pinning={pinning()} />);
-    const region = screen.getByRole("region", {
-      name: "Work added to this answer",
-    });
+    const region = screen.getByRole("region", { name: "Work" });
+    const link = within(region).getByRole("link", { name: /PLT-12/ });
+    const plus = within(region).getByRole("button", { name: "Add work" });
+    /* The chips come first and the plus last, at the right of the same row. */
     expect(
-      within(region).getByText("Work you added to this answer"),
-    ).toBeInTheDocument();
+      link.compareDocumentPosition(plus) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(link.closest("div.flex")).toBe(plus.closest("div.flex"));
   });
 });
 
@@ -478,7 +588,7 @@ describe("where focus goes", () => {
   }
   const add = () => screen.getByRole("button", { name: "Add work" });
 
-  it("is on Add work after a pin is taken off, not on the page, when one is left", async () => {
+  it("is on the plus after a pin is taken off, not on the page, when one is left", async () => {
     render(<Live initial={[pin(), second()]} />);
     await userEvent.click(screen.getByRole("button", { name: "Unpin PLT-12" }));
     await waitFor(() => expect(add()).toHaveFocus());
@@ -487,7 +597,7 @@ describe("where focus goes", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("is on Add work after the last pin is taken off, where something can be added", async () => {
+  it("is on the plus after the last pin is taken off, where something can be added", async () => {
     render(<Live initial={[pin()]} />);
     await userEvent.click(screen.getByRole("button", { name: "Unpin PLT-12" }));
     await waitFor(() => expect(add()).toHaveFocus());
@@ -496,15 +606,13 @@ describe("where focus goes", () => {
   it("is on the empty region that is left after the last pin is taken off, where nothing can be added", async () => {
     render(<Live initial={[pin()]} canAdd={false} />);
     await userEvent.click(screen.getByRole("button", { name: "Unpin PLT-12" }));
-    const region = await screen.findByRole("region", {
-      name: "Work added to this answer",
-    });
+    const region = await screen.findByRole("region", { name: "Work" });
     await waitFor(() => expect(region).toHaveFocus());
     expect(region).toBeEmptyDOMElement();
     expect(document.body).not.toHaveFocus();
   });
 
-  it("is on the label over the list when Add work is off, because the list is full and one was taken off then added", async () => {
+  it("is on the region when the plus has gone, because the list is now full and closing the picker has nowhere else to give focus", async () => {
     const four = [1, 2, 3, 4].map((n) =>
       pin({
         id: `p${String(n)}`,
@@ -515,15 +623,17 @@ describe("where focus goes", () => {
     render(<Live initial={four} />);
     await userEvent.click(add());
     await userEvent.click(screen.getByRole("button", { name: "Pin one" }));
-    /* Five now, so Add work is off; closing the picker has nowhere to give focus back to. */
-    expect(add()).toBeDisabled();
+    /* Five now, so the plus is gone; closing the picker has nowhere to give focus back to. */
+    expect(
+      screen.queryByRole("button", { name: "Add work" }),
+    ).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Close picker" }));
     await waitFor(() =>
-      expect(screen.getByText("Work you added to this answer")).toHaveFocus(),
+      expect(screen.getByRole("region", { name: "Work" })).toHaveFocus(),
     );
   });
 
-  it("is on Add work when the picker is closed, where it was opened from", async () => {
+  it("is on the plus when the picker is closed, where it was opened from", async () => {
     render(<Live initial={[pin()]} />);
     await userEvent.click(add());
     await userEvent.click(screen.getByRole("button", { name: "Close picker" }));

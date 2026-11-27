@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { NoticeLine } from "@/components/portal/notice-line";
+import { InfoTooltip } from "@/components/ui/field";
 import { AnswerPins, type Pinning } from "@/components/performance/answer-pins";
 import { PinsRead } from "@/components/performance/pins-read";
-import { LanguageCheck } from "@/components/performance/language-check";
+import { LanguageNote } from "@/components/performance/language-check";
 import {
   SuggestButton,
   SuggestionPanel,
@@ -14,20 +14,18 @@ import {
 import type { useDevelopmentSuggestions } from "@/lib/store/ai";
 import type { ApiPin } from "@/lib/api/work-pins";
 import {
-  dayLabel,
   ratingWordsFrom,
   type ApiFormQuestion,
   type ApiRatingScale,
   type ApiReviewDetail,
 } from "@/lib/api/performance";
 import {
-  AppraiserStrip,
   PeriodFraming,
   ReadAnswer,
   SelfAnswerLine,
-  filled,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
+import { shortDate } from "@/lib/today";
 import {
   isSubsectionQuestion,
   questionKind,
@@ -39,13 +37,7 @@ import {
   WriteBox,
   ratingOptions,
 } from "./focus-question";
-import {
-  KEPT_HERE,
-  closingNoteWords,
-  keptInBrowserLine,
-  markPageWords,
-  stillNeededLine,
-} from "./focus-logic";
+import { KEPT_HERE, closingNoteWords, markPageWords } from "./focus-logic";
 
 /**
  * What each page of the review says.
@@ -100,123 +92,120 @@ function Frame({
 
 const HEADING = "focus-heading";
 
-/** The shortcut for "go on", in the words of the machine somebody is using. */
-function continueKeys(): string {
-  if (typeof navigator === "undefined") return "Ctrl Enter";
-  return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ Enter" : "Ctrl Enter";
-}
-
 /**
- * Why Send is shut, said where somebody is about to start and again where they
- * are about to press it.
+ * Why Send is shut, said where somebody is about to start and again where Send
+ * would be.
  *
  * The reason is the API's own sentence, shown as it comes: it names the person
  * and, when there is one, the date that would release it. A manager used to find
  * this out only when Send was refused, after the whole form was filled in, and
  * reported it as being unable to do the appraisal at all. They can answer now;
- * what waits is Send.
+ * what waits is Send. It is plain text, not a warning: nothing is wrong.
  */
 export function SendClosed({ reason }: { reason: string }) {
   return (
-    <NoticeLine tone="warning">
-      <span>
-        <span className="font-medium">Sending is not open yet.</span> {reason}
-      </span>
-    </NoticeLine>
+    <p className="text-body-sm text-muted">
+      <span className="font-medium text-ink">Sending is not open yet.</span>{" "}
+      {reason}
+    </p>
   );
 }
 
+/** A plain link in the middle of a page: the extra actions are links, never buttons. */
+const LINK =
+  "cursor-pointer font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent";
+
+/**
+ * The first screen: the title, one small line and the start button in the footer.
+ *
+ * The company's instructions and guide (and the period they are for, and any note
+ * the appraiser was given) are behind one plain link, and the link is only there
+ * when there is something behind it.
+ */
 export function IntroStep({
   review,
-  resumed,
-  answered,
   onShowWork,
-  kept,
 }: {
   review: ApiReviewDetail;
-  resumed: boolean;
-  answered: number;
   onShowWork: (() => void) | null;
-  /**
-   * What this form holds in the browser until it is sent (`keptInBrowser`). The
-   * introduction says "saves as you go" only of the answers to the questions,
-   * which is all that is true of, and names the rest.
-   */
-  kept: readonly string[];
 }) {
+  const [notesOpen, setNotesOpen] = useState(false);
   const total = review.questions.length;
+  const facts = [
+    total === 0
+      ? "No questions yet"
+      : total === 1
+        ? "1 question"
+        : `${String(total)} questions`,
+    review.dueDate ? `due ${shortDate(review.dueDate)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const appraiserNote = review.appraiser?.note ?? null;
+  /* The company's message to staff is for the people being appraised: a manager
+     writing about somebody or a colleague giving feedback is not asked to
+     complete a self-review, and `PeriodFraming` draws it only for one. The link
+     must agree with it, or it opens on a box with nothing in it. */
+  const hasNotes = Boolean(
+    (review.kind === "SELF" && review.instructions) ||
+    review.guideUrl ||
+    appraiserNote,
+  );
+
   return (
     <Frame
       headingId={HEADING}
-      eyebrow={`${review.kindLabel} · ${review.cycleName}`}
       title={
         review.kind === "SELF"
           ? "Your self-review"
           : `${review.kindLabel} for ${review.subjectName}`
       }
-      lead={
-        review.kind === "SELF"
-          ? "Your own words about your own work."
-          : `About ${review.subjectName}.`
-      }
     >
-      <PeriodFraming
-        periodStart={review.periodStart}
-        periodEnd={review.periodEnd}
-        instructions={review.instructions}
-        guideUrl={review.guideUrl}
-        kind={review.kind}
-      />
-
-      {review.appraiser && (
-        <AppraiserStrip
-          appraiser={review.appraiser}
-          mine={review.mine}
-          asksMark={review.overallMark === true}
-        />
-      )}
-
-      {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
-
-      <div className="flex flex-col gap-1.5 text-body-sm text-body">
-        {total === 0 ? (
-          <p>This appraisal period has no questions for this form yet.</p>
-        ) : (
-          <p>
-            {total === 1 ? "1 question" : `${String(total)} questions`}.
-            {review.dueDate ? ` Due ${dayLabel(review.dueDate)}.` : ""}
-          </p>
-        )}
+      <div className="flex flex-col gap-2 text-body-sm text-muted">
+        <p>{facts}</p>
         {review.anonymous && (
           <p>This is anonymous. Nobody is told who wrote it.</p>
         )}
-        <p className="text-muted">
-          {resumed
-            ? `You have answered ${String(answered)} of ${String(total)}. They are saved, so pick up where you left off.`
-            : total > 0
-              ? "Your answers to the questions save as you go. Close this at any point and come back to it."
-              : "Close this at any point and come back to it."}
-        </p>
-        {kept.length > 0 && (
-          <p className="text-muted">{keptInBrowserLine(kept)}</p>
-        )}
-        {onShowWork && (
-          <p>
-            <button
-              type="button"
-              onClick={onShowWork}
-              className="cursor-pointer font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
-            >
-              {review.kind === "SELF"
-                ? "See what you did this period"
-                : `See what ${review.subjectName.split(" ")[0] ?? review.subjectName} did this period`}
-            </button>{" "}
-            <span className="text-muted">
-              (it stays one press away at the top.)
-            </span>
+        {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
+        {(hasNotes || onShowWork) && (
+          <p className="flex flex-wrap gap-x-4 gap-y-1">
+            {hasNotes && (
+              <button
+                type="button"
+                aria-expanded={notesOpen}
+                onClick={() => setNotesOpen((open) => !open)}
+                className={LINK}
+              >
+                {notesOpen ? "Hide the instructions" : "Read the instructions"}
+              </button>
+            )}
+            {onShowWork && (
+              <button type="button" onClick={onShowWork} className={LINK}>
+                {review.kind === "SELF"
+                  ? "Your work"
+                  : `${review.subjectName.split(" ")[0] ?? review.subjectName}'s work`}
+              </button>
+            )}
           </p>
         )}
       </div>
+
+      {notesOpen && (
+        <div className="flex flex-col gap-3">
+          <PeriodFraming
+            periodStart={review.periodStart}
+            periodEnd={review.periodEnd}
+            instructions={review.instructions}
+            guideUrl={review.guideUrl}
+            kind={review.kind}
+          />
+          {appraiserNote && (
+            <p className="whitespace-pre-line text-body-sm text-body">
+              {appraiserNote}
+            </p>
+          )}
+        </div>
+      )}
     </Frame>
   );
 }
@@ -229,7 +218,6 @@ export function QuestionStep({
   scale,
   editable,
   savedStays,
-  nudged,
   pinning = null,
   onPinDialogChange,
   onChange,
@@ -244,8 +232,6 @@ export function QuestionStep({
   editable: boolean;
   /** The box is empty, but an answer saved earlier will stand. */
   savedStays: boolean;
-  /** They tried to go on without answering a required question. */
-  nudged: boolean;
   /**
    * The finished work pinned to this answer and what can be done to it, or nothing to draw. Only
    * on a person's own self-review, and only where the company has switched the setting on or a
@@ -263,7 +249,6 @@ export function QuestionStep({
      says which. */
   const kind = questionKind(question);
   const isWriting = kind === "TEXT";
-  const pickKind = kind === "RATING" || kind === "CHOICE" || kind === "BOOLEAN";
   /* What the person said of themselves, on their manager's form, once they have
      sent it. Nothing at all otherwise: not "No answer", and never a zero. */
   const own = isSubsectionQuestion(question)
@@ -278,6 +263,11 @@ export function QuestionStep({
         <>
           {String(position)}
           <ArrowRight aria-hidden="true" className="size-3.5" />
+          {question.required && (
+            <Badge size="sm" className="font-normal">
+              Needed
+            </Badge>
+          )}
         </>
       }
       title={question.prompt}
@@ -295,34 +285,11 @@ export function QuestionStep({
           onPick={onPick}
           onBusyChange={onBusyChange}
         />
-        <p className="text-meta text-muted">
-          {question.required ? "Needed." : "Optional."}{" "}
-          {(pickKind || isWriting) && (
-            /* A keyboard instruction is noise to somebody on a touch screen. */
-            <span className="pointer-coarse:hidden">
-              {pickKind
-                ? "Pick one, or press its key."
-                : `Press ${continueKeys()} to go on.`}
-            </span>
-          )}
-        </p>
         {savedStays && (
-          <p className="text-body-sm text-body">
-            The answer you saved stays unless you write a new one. A saved
-            answer cannot be taken back, only replaced.
+          <p className="text-meta text-muted">
+            Your saved answer stands until you write a new one.
           </p>
         )}
-        {nudged &&
-          question.required &&
-          !filled(question, held) &&
-          !savedStays && (
-            <p
-              role="alert"
-              className="text-body-sm font-medium text-danger-text"
-            >
-              This one needs an answer before you can go on.
-            </p>
-          )}
         {pinning && (
           <AnswerPins
             pinning={pinning}
@@ -344,7 +311,6 @@ export function MarkStep({
   required = false,
   appraiser,
   held = false,
-  nudged = false,
 }: {
   scale: ApiRatingScale;
   mark: string;
@@ -353,23 +319,39 @@ export function MarkStep({
   /** This period needs it: there is no "leave it blank". See `needsOverallMark`. */
   required?: boolean;
   /**
-   * What the author is to the subject, for the line that says why a mark is needed
-   * and what it counts for: the strip's own figures, so the two pages agree.
+   * What the author is to the subject, for the tooltip that says what a mark
+   * counts for: the strip's own figures, so the two screens agree.
    */
   appraiser?: ApiReviewDetail["appraiser"];
   /**
-   * The record already holds a mark, and a given mark can be replaced and not
+   * The record already holds a mark, and a given mark can be replaced but not
    * taken back, so there is no "Leave it blank instead" for it: pressing that
    * would empty the box and leave the record's mark standing under a preview that
    * said there was none.
    */
   held?: boolean;
-  /** They tried to go on without one. */
-  nudged?: boolean;
 }) {
   const words = markPageWords(required, appraiser);
+  const canClear = Boolean(mark) && !required && !held;
   return (
-    <Frame headingId={HEADING} title={words.title} lead={words.lead}>
+    <Frame
+      headingId={HEADING}
+      title={words.title}
+      eyebrow={
+        required || words.tip ? (
+          <>
+            {required && (
+              <Badge size="sm" className="font-normal">
+                Needed
+              </Badge>
+            )}
+            {words.tip && (
+              <InfoTooltip label="What this counts for" text={words.tip} />
+            )}
+          </>
+        ) : undefined
+      }
+    >
       <div className="flex flex-col gap-3">
         <PickList
           name="overall-mark"
@@ -377,28 +359,20 @@ export function MarkStep({
           value={mark || undefined}
           onPick={onPick}
         />
-        <div className="flex flex-col gap-1 text-meta text-muted">
-          <p>
-            <span className="pointer-coarse:hidden">
-              Pick one, or press its number.
-            </span>{" "}
-            {mark && !required && !held && (
-              <button
-                type="button"
-                onClick={onClear}
-                className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
-              >
-                Leave it blank instead
-              </button>
-            )}
-          </p>
-          <p>{KEPT_HERE}</p>
-        </div>
-        {nudged && required && !mark && (
-          <p role="alert" className="text-body-sm font-medium text-danger-text">
-            This one needs an answer before you can go on.
+        {canClear && (
+          <p className="text-meta text-muted">
+            <button
+              type="button"
+              onClick={onClear}
+              className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
+            >
+              Leave it blank instead
+            </button>
           </p>
         )}
+        {/* The mark travels with the send and is held in this browser until
+            then, which the answers to the questions are not (F39). */}
+        <p className="text-meta text-muted">{KEPT_HERE}</p>
       </div>
     </Frame>
   );
@@ -409,11 +383,18 @@ export function SummaryStep({
   summary,
   onChange,
   development,
+  languageTexts,
 }: {
   review: ApiReviewDetail;
   summary: string;
   onChange: (next: string) => void;
   development: ReturnType<typeof useDevelopmentSuggestions>;
+  /**
+   * Every box on a manager's or peer's form that carries prose, for the quiet note
+   * beside this one. Left out on a self-review: the check is about whether a
+   * judgement of somebody else would survive a dispute.
+   */
+  languageTexts?: string[];
 }) {
   const words = closingNoteWords(review.kind);
   return (
@@ -430,12 +411,13 @@ export function SummaryStep({
           labelledBy={HEADING}
           placeholder={words.placeholder}
         />
-        <div className="flex flex-col gap-1 text-meta text-muted">
-          <p className="pointer-coarse:hidden">
-            Press {continueKeys()} to go on.
-          </p>
-          <p>{KEPT_HERE}</p>
-        </div>
+        <p className="text-meta text-muted">{KEPT_HERE}</p>
+        {languageTexts && (
+          <LanguageNote
+            texts={languageTexts}
+            subjectName={review.subjectName}
+          />
+        )}
       </div>
 
       {/* Development areas, on a form about somebody else. Not on a
@@ -488,9 +470,6 @@ export function CheckStep({
   potentialReason = "",
   summary,
   outstanding,
-  coaching,
-  languageTexts,
-  languageSeen,
   onEdit,
 }: {
   review: ApiReviewDetail;
@@ -513,29 +492,14 @@ export function CheckStep({
   potentialReason?: string;
   summary: string;
   outstanding: ApiFormQuestion[];
-  /** A manager or peer form: the language check applies. */
-  coaching: boolean;
-  languageTexts: string[];
-  languageSeen: boolean;
   /** Jump to the page where a question (or the mark, or the note) is answered. */
   onEdit: (where: ApiFormQuestion | "mark" | "potential" | "summary") => void;
 }) {
   const words = ratingWordsFrom(scale.levels);
   const markMissing = withMark && markRequired && !mark;
-  const stillNeeded = stillNeededLine(outstanding.length, markMissing);
   return (
-    <Frame
-      headingId={HEADING}
-      title="Preview"
-      lead="Press anything to change it. Nothing goes until you send it."
-    >
+    <Frame headingId={HEADING} title="Preview">
       {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
-
-      {stillNeeded && (
-        <p role="alert" className="text-body-sm text-danger-text">
-          {stillNeeded}
-        </p>
-      )}
 
       <ul className="flex flex-col gap-2">
         {review.questions.map((question) => {
@@ -568,9 +532,7 @@ export function CheckStep({
                 {pinsFor && <PinsRead pins={pinsFor(question.id)} linkless />}
                 {missing && (
                   <span className="mt-1.5 block">
-                    <Badge tone="danger" size="sm">
-                      Needs an answer
-                    </Badge>
+                    <Badge size="sm">Needed</Badge>
                   </span>
                 )}
               </button>
@@ -594,9 +556,7 @@ export function CheckStep({
               </p>
               {markMissing && (
                 <span className="mt-1.5 block">
-                  <Badge tone="danger" size="sm">
-                    Needs an answer
-                  </Badge>
+                  <Badge size="sm">Needed</Badge>
                 </span>
               )}
             </button>
@@ -648,27 +608,9 @@ export function CheckStep({
           </button>
         </li>
       </ul>
-
-      {/* What a mark could not be defended on. Manager and peer forms only,
-          and it never blocks: the first press of Send shows it, the second
-          sends anyway. */}
-      {coaching && (
-        <LanguageCheck
-          texts={languageTexts}
-          subjectName={review.subjectName}
-          acknowledged={languageSeen}
-        />
-      )}
     </Frame>
   );
 }
-
-/** Used by the form's footer, so the wording of the last button lives with the pages. */
-export function sendLabel(languageSeen: boolean, hasFindings: boolean): string {
-  return languageSeen && hasFindings ? "Send anyway" : "Send it";
-}
-
-const REASON_LABEL = "potential-reason-label";
 
 /** How far could they go: the three answers a manager can give. */
 export const POTENTIAL_OPTIONS = [
@@ -695,6 +637,8 @@ export function potentialNeedsReason(
 ): boolean {
   return potential === "HIGH" && reason.trim().length < POTENTIAL_REASON_MIN;
 }
+
+const REASON_LABEL = "potential-reason-label";
 
 export function PotentialStep({
   firstName,

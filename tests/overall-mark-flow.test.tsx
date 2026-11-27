@@ -150,9 +150,7 @@ describe("where the company asks for an overall rating", () => {
     mount({ overallMark: true });
     await next("Start");
     expect(heading("Is there an overall rating?")).toBeInTheDocument();
-    expect(
-      screen.getByText("Optional. Leave it if the answers say enough."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Optional/)).toBeNull();
     /* Nothing picked, so the button says it can be passed over. */
     expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
   });

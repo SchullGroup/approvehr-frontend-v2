@@ -12,6 +12,11 @@ import type { ApiScoringWeights, ScoreComponent } from "@/lib/api/performance";
  * used to stand here mocked the hook to answer before the first render, which is
  * the one thing the real one cannot do, and so it passed while the wizard ignored
  * everything the company had saved (F4).
+ *
+ * It never asks for a total: the last weight is worked out from the others, so
+ * the weights add up to 100 and Continue is never refused over a figure. Tasks
+ * done is shown as unavailable, with the reason, where there is no Projects to
+ * do tasks in.
  */
 
 const session = vi.hoisted(() => ({ isConnected: true }));
@@ -178,15 +183,19 @@ async function setWeights(user: User, values: Record<string, string>) {
   }
 }
 
-const FOUR_AT_40_25_20_15 = {
+/* The last ticked part is shown and not typed: it is what the others leave. With
+   Self-assessment and Manager appraisal off, that is Leadership, so 40 + 25 + 20
+   typed is 15 for it, which is what the company had. */
+const THREE_AT_40_25_20 = {
   "Delivery against objectives": "40",
   "Core competencies": "25",
   "Behavioural competencies": "20",
-  Leadership: "15",
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  /* Reset, not only clear: a refusal queued with `mockRejectedValueOnce` that a
+     test never reached would otherwise answer the next test's first write. */
+  vi.resetAllMocks();
   session.isConnected = true;
   gate.enabled = true;
   gate.loading = false;
@@ -304,7 +313,12 @@ describe("where it starts", () => {
       45,
     );
     expect(screen.getByLabelText("Core competencies")).toHaveValue(25);
-    expect(screen.getByLabelText("Self-assessment")).toHaveValue(null);
+    /* The new part is the last, so it is what the others leave, and the others
+       were already 100: it starts with nothing. */
+    expect(screen.getByLabelText("Self-assessment")).toHaveValue(0);
+    expect(screen.getByLabelText("Self-assessment")).toHaveAttribute(
+      "readonly",
+    );
     /* It adds up to 100 and still cannot go on: a ticked part with nothing to
        count for would be saved as no part. */
     expect(screen.getByTestId("pie-total")).toHaveTextContent("100%");
@@ -313,24 +327,76 @@ describe("where it starts", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 
-    await setWeights(user, {
-      "Self-assessment": "10",
-      "Delivery against objectives": "35",
-    });
+    /* Taking 10 off another part is how it is given one. */
+    await setWeights(user, { "Delivery against objectives": "35" });
+    expect(screen.getByLabelText("Self-assessment")).toHaveValue(10);
     expect(screen.queryByText(/needs a share/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
-  it("only lets it go on at exactly 100%", async () => {
+  it("works the last weight out, so the total is 100 and Continue is never refused", async () => {
     const user = userEvent.setup();
+    api.scoringWeights.mockResolvedValue(
+      weights(rows(BUILT_IN_FOUR), "default"),
+    );
     open();
-    await user.click(await choice(/Delivery against objectives/));
-    await user.click(await choice(/Delivery against objectives/));
+    await choice(/Delivery against objectives/);
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await setWeights(user, { Leadership: "20" });
-    expect(screen.getByText("Take 5% off somewhere")).toBeInTheDocument();
+
+    /* The last one is shown, not typed. */
+    expect(screen.getByLabelText("Leadership")).toHaveAttribute("readonly");
+    const first = screen.getByLabelText("Delivery against objectives");
+    await user.clear(first);
+    await user.type(first, "50");
+
+    /* 50 + 25 + 20 of the rest, so 5 is what is left for the last. */
+    expect(screen.getByLabelText("Leadership")).toHaveValue(5);
+    expect(screen.getByTestId("pie-total")).toHaveTextContent("100%");
+    expect(screen.queryByText(/off somewhere|more somewhere/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("holds a box to what the others have left, and never to more than 100", async () => {
+    const user = userEvent.setup();
+    api.scoringWeights.mockResolvedValue(
+      weights(rows(BUILT_IN_FOUR), "default"),
+    );
+    open();
+    await choice(/Delivery against objectives/);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const first = screen.getByLabelText("Delivery against objectives");
+    await user.clear(first);
+    await user.type(first, "90");
+
+    /* The other two typed parts hold 25 + 20, so 55 is the most this can have. */
+    expect(first).toHaveValue(55);
+    expect(screen.getByLabelText("Leadership")).toHaveValue(0);
+    expect(screen.getByTestId("pie-total")).toHaveTextContent("100%");
+    /* Nothing is left for the last part, which would be saved as no part at all,
+       so it says so and does not go on. */
+    expect(screen.getByText(/Leadership needs a share/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    await setWeights(user, { Leadership: "15" });
+  });
+
+  it("counts an empty box as 0, works the last out from it, and holds Save with the reason until the part has a share", async () => {
+    const user = userEvent.setup();
+    api.scoringWeights.mockResolvedValue(
+      weights(rows(BUILT_IN_FOUR), "default"),
+    );
+    open();
+    await choice(/Delivery against objectives/);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.clear(screen.getByLabelText("Core competencies"));
+    expect(screen.getByLabelText("Leadership")).toHaveValue(40);
+    /* An emptied box is a part with nothing to count for, which would be saved as
+       no part, so it is named and Save waits for a share. */
+    expect(
+      screen.getByText(/Core competencies needs a share/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await user.type(screen.getByLabelText("Core competencies"), "10");
+    expect(screen.queryByText(/needs a share/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 });
@@ -493,12 +559,13 @@ describe("saving", () => {
     await user.click(await choice(/Self-assessment/));
     await user.click(await choice(/Manager appraisal/));
     await user.click(screen.getByRole("button", { name: "Continue" }));
+    /* Leadership is the last, so 30 + 30 + 25 leaves it 15. */
     await setWeights(user, {
       "Delivery against objectives": "30",
       "Core competencies": "30",
       "Behavioural competencies": "25",
-      Leadership: "15",
     });
+    expect(screen.getByLabelText("Leadership")).toHaveValue(15);
     await user.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByRole("heading", { name: "All set" });
 
@@ -537,7 +604,7 @@ describe("saving", () => {
     await user.click(await choice(/Self-assessment/));
     await user.click(await choice(/Manager appraisal/));
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await setWeights(user, FOUR_AT_40_25_20_15);
+    await setWeights(user, THREE_AT_40_25_20);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
@@ -564,7 +631,7 @@ describe("saving", () => {
     await user.click(await choice(/Self-assessment/));
     await user.click(await choice(/Manager appraisal/));
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await setWeights(user, FOUR_AT_40_25_20_15);
+    await setWeights(user, THREE_AT_40_25_20);
     await user.click(screen.getByRole("button", { name: "Save" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/not clear whether/);

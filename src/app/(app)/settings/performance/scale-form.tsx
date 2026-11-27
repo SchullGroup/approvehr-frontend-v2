@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { Pencil } from "lucide-react";
 import {
   Badge,
   Button,
   Callout,
-  Card,
-  CardBody,
-  CardHeader,
+  ConfirmDialog,
   Field,
+  IconButton,
   Input,
+  Modal,
+  RowActions,
   Spinner,
   Textarea,
   useToast,
@@ -22,7 +23,6 @@ import {
   RATING_LABELS,
   RATING_MEANING,
   type ApiRatingLevel,
-  type ApiRatingScale,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useRatingScale } from "@/lib/store/performance";
@@ -43,6 +43,14 @@ import { LOADING, NEXT_PERIOD, READ_ONLY_MANY } from "./setting-copy";
  *
  * So the five words are configuration, and this is where they are set.
  *
+ * ## Five rows, and a pencil on each
+ *
+ * A row is a number and its word. The pencil opens that rating's word and what
+ * it means, and saving there writes the whole set (below), so there is no page
+ * of ten boxes to scan to change one word, no Save button waiting at the foot,
+ * and no draft to lose. "Reset to built-in names" is in a menu, since it is
+ * rare, and asks first because it saves at once.
+ *
  * ## The whole set, never one level
  *
  * `PUT /performance/rating-scale` takes all five for the same reason
@@ -56,37 +64,25 @@ import { LOADING, NEXT_PERIOD, READ_ONLY_MANY } from "./setting-copy";
  *
  * `source` says which. A company that has never chosen follows whatever the
  * product ships; one that has chosen keeps its words exactly, even if the
- * defaults later move. That is why *Use the built-in five* is a real action
- * with an observable effect rather than a cosmetic reset — and why the badge
- * says which state somebody is looking at.
+ * defaults later move. That is why *Reset to built-in names* is a real action
+ * with an observable effect rather than a cosmetic reset, and why it is offered
+ * only to a company whose own words are saved: for one that follows the
+ * defaults there is nothing to reset.
  *
  * ## A running period keeps the words it started with
  *
  * `ReviewCycle.scoringSnapshot` freezes the scale at activation. A mark from
  * 2026 has to explain itself in 2029, in the words it was given in — so
- * renaming a level here never rewrites a mark already awarded, and the copy
- * below says so rather than leaving somebody to hope.
+ * renaming a level here never rewrites a mark already awarded, and the toast
+ * after a save says when it applies.
  */
-type Draft = Record<number, { label: string; meaning: string }>;
-
-const draftFrom = (scale: ApiRatingScale): Draft =>
-  Object.fromEntries(
-    scale.levels.map((entry) => [
-      entry.level,
-      { label: entry.label, meaning: entry.meaning },
-    ]),
-  );
-
-const defaultsDraft = (max: number): Draft =>
-  Object.fromEntries(
-    Array.from({ length: max }, (_, index) => index + 1).map((level) => [
-      level,
-      {
-        label: RATING_LABELS[level] ?? String(level),
-        meaning: RATING_MEANING[level] ?? "",
-      },
-    ]),
-  );
+/** The built-in word and meaning for every level of a scale of this size. */
+const defaultLevels = (max: number): ApiRatingLevel[] =>
+  Array.from({ length: max }, (_, index) => index + 1).map((level) => ({
+    level,
+    label: RATING_LABELS[level] ?? String(level),
+    meaning: RATING_MEANING[level] ?? "",
+  }));
 
 /**
  * Why this set cannot be saved, in the API's own words, or null.
@@ -94,7 +90,8 @@ const defaultsDraft = (max: number): Draft =>
  * Checked here **as well as** on the server, never instead of it: the server
  * is where the rule is real, and this exists so nobody meets the refusal by
  * surprise after pressing Save. The sentences match the service's, so the two
- * cannot come to disagree about what is wrong.
+ * cannot come to disagree about what is wrong. The form does not print the
+ * sentence: it marks the box that is the problem and leaves Save off.
  */
 export function scaleProblem(
   entries: { level: number; label: string }[],
@@ -116,47 +113,16 @@ export function RatingScaleForm() {
   const { scale, loading, error, source, editable, refusal, save } =
     useRatingScale();
   const toast = useToast();
+  const change = canManage && editable;
 
-  /* Keyed by the set it was started from, so a scale arriving or changing
-     underneath replaces the draft instead of being edited blind. No setState
-     in an effect, and no stale form after a save — the same shape as
-     `weights-form.tsx`. */
-  const [edited, setEdited] = useState<{
-    from: ApiRatingScale;
-    value: Draft;
-  } | null>(null);
+  /* The rating whose word is open in the dialog, and whether the built-in names
+     are being offered. */
+  const [editing, setEditing] = useState<number | null>(null);
+  const [resetting, setResetting] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const draft: Draft =
-    edited && edited.from === scale ? edited.value : draftFrom(scale);
-
-  /* Changes the one field it was given and keeps the level's other one: a
-     level's word and its meaning are edited separately, and typing in one must
-     not wipe the other. */
-  const set = (level: number, part: "label" | "meaning", text: string) => {
-    const current = draft[level] ?? { label: "", meaning: "" };
-    setEdited({
-      from: scale,
-      value: { ...draft, [level]: { ...current, [part]: text } },
-    });
-  };
-
-  const entries: ApiRatingLevel[] = scale.levels.map((entry) => ({
-    level: entry.level,
-    label: draft[entry.level]?.label ?? "",
-    meaning: draft[entry.level]?.meaning ?? "",
-  }));
-
-  const problem = scaleProblem(entries);
-  const dirty = entries.some((entry) => {
-    const saved = scale.levels.find((row) => row.level === entry.level);
-    return (
-      entry.label !== (saved?.label ?? "") ||
-      entry.meaning !== (saved?.meaning ?? "")
-    );
-  });
-
-  const onSave = async () => {
+  /** Writes the whole set and says so, or says it was refused. */
+  const write = async (entries: ApiRatingLevel[]) => {
     setSaving(true);
     try {
       await save(
@@ -166,7 +132,8 @@ export function RatingScaleForm() {
           meaning: entry.meaning.trim(),
         })),
       );
-      setEdited(null);
+      setEditing(null);
+      setResetting(false);
       toast.push({
         tone: "success",
         title: "Rating names saved",
@@ -188,125 +155,181 @@ export function RatingScaleForm() {
     }
   };
 
+  const demo = sourceNote(source === "api");
+  const canReset = change && scale.source === "saved";
+  const open = scale.levels.find((entry) => entry.level === editing);
+
   return (
-    <Card>
-      <CardHeader
-        title="Rating names"
-        info="Forms show these names instead of numbers. A period keeps the names it started with, so a rating already given never changes."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {sourceNote(source === "api") && (
-              <Badge tone="warning" size="sm" dot>
-                {sourceNote(source === "api")}
-              </Badge>
-            )}
-            <Badge
-              tone={scale.source === "saved" ? "accent" : "neutral"}
-              size="sm"
-            >
-              {scale.source === "saved" ? "Your own names" : "Built-in names"}
-            </Badge>
-          </div>
-        }
-      />
-      <CardBody className="flex flex-col gap-5">
-        <LoadFailure subject="the rating scale" error={error} />
+    <div className="flex flex-col gap-3 px-5 py-4">
+      <LoadFailure subject="the rating scale" error={error} />
 
-        {loading ? (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            {LOADING}
-          </span>
-        ) : (
-          <>
-            {!editable && (
-              <Callout tone="warning" title="You can't change these here">
-                <p>{refusal}</p>
-              </Callout>
-            )}
-            {editable && !canManage && (
-              <p className="text-body-sm text-muted">{READ_ONLY_MANY}</p>
-            )}
+      {loading ? (
+        <span className="flex items-center gap-2 text-body-sm text-muted">
+          <Spinner size="sm" />
+          {LOADING}
+        </span>
+      ) : (
+        <>
+          {!editable && (
+            <Callout tone="warning" title="You can't change these here">
+              <p>{refusal}</p>
+            </Callout>
+          )}
+          {editable && !canManage && (
+            <p className="text-body-sm text-muted">{READ_ONLY_MANY}</p>
+          )}
 
-            <div className="flex flex-col gap-5">
-              {/* Highest first. The form reads top-down as "best to worst",
-                  which is the order the company's own guide will be written in
-                  and the order a reader expects; the API stores and serves them
-                  ascending by level, and nothing about the order here changes
-                  what is sent. */}
-              {[...entries].reverse().map((entry) => (
-                <div
-                  key={entry.level}
-                  className="grid gap-3 sm:grid-cols-[3rem_1fr] sm:items-start"
-                >
-                  <div className="pt-2 text-body-md font-semibold text-ink">
-                    {entry.level}
-                  </div>
-                  <div className="flex min-w-0 flex-col gap-2">
-                    <Field label={`Level ${String(entry.level)} name`}>
-                      <Input
-                        value={entry.label}
-                        disabled={!canManage || !editable}
-                        maxLength={40}
-                        onChange={(event) =>
-                          set(entry.level, "label", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field
-                      optional
-                      label={`Level ${String(entry.level)} meaning`}
-                      help="Shown under the name on every form."
-                    >
-                      <Textarea
-                        rows={2}
-                        value={entry.meaning}
-                        disabled={!canManage || !editable}
-                        maxLength={300}
-                        onChange={(event) =>
-                          set(entry.level, "meaning", event.target.value)
-                        }
-                      />
-                    </Field>
-                  </div>
-                </div>
-              ))}
+          {(demo || canReset) && (
+            <div className="flex items-center justify-end gap-2">
+              {demo && (
+                <Badge tone="warning" size="sm" dot>
+                  {demo}
+                </Badge>
+              )}
+              {/* Rare, so in a menu; and absent when the company follows the
+                  built-in names, since there is nothing to go back to. */}
+              <RowActions
+                label="More actions for rating names"
+                items={[
+                  {
+                    label: "Reset to built-in names",
+                    onSelect: () => setResetting(true),
+                    available: canReset,
+                  },
+                ]}
+              />
             </div>
+          )}
 
-            {problem && (
-              <Callout tone="warning" title="Can't save yet">
-                <p>{problem}</p>
-              </Callout>
-            )}
-
-            {canManage && editable && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="accent"
-                  loading={saving}
-                  disabled={!dirty || problem !== null}
-                  onClick={() => void onSave()}
-                >
-                  Save names
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={saving}
-                  onClick={() =>
-                    setEdited({ from: scale, value: defaultsDraft(scale.max) })
-                  }
-                >
-                  <RotateCcw aria-hidden="true" className="size-3.5" />
-                  Reset to built-in names
-                </Button>
-                {dirty && (
-                  <span className="text-meta text-muted">Unsaved changes</span>
+          {/* Highest first. The list reads top-down as "best to worst", which is
+              the order the company's own guide will be written in and the order
+              a reader expects; the API stores and serves them ascending by
+              level, and nothing about the order here changes what is sent. */}
+          <ul className="divide-y divide-line">
+            {[...scale.levels].reverse().map((entry) => (
+              <li key={entry.level} className="flex items-center gap-4 py-2.5">
+                <span className="tabular w-6 text-body-md font-semibold text-ink">
+                  {entry.level}
+                </span>
+                <span className="min-w-0 flex-1 text-body-sm text-ink">
+                  {entry.label}
+                </span>
+                {change && (
+                  <IconButton
+                    label={`Edit rating ${String(entry.level)}`}
+                    size="sm"
+                    onClick={() => setEditing(entry.level)}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </IconButton>
                 )}
-              </div>
-            )}
-          </>
-        )}
-      </CardBody>
-    </Card>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {open && (
+        <RatingDialog
+          level={open}
+          levels={scale.levels}
+          saving={saving}
+          onClose={() => setEditing(null)}
+          onSave={(next) =>
+            void write(
+              scale.levels.map((entry) =>
+                entry.level === next.level ? next : entry,
+              ),
+            )
+          }
+        />
+      )}
+
+      <ConfirmDialog
+        open={resetting}
+        onClose={() => setResetting(false)}
+        title="Reset to the built-in names?"
+        body={null}
+        confirmLabel="Reset"
+        tone="primary"
+        loading={saving}
+        onConfirm={() => void write(defaultLevels(scale.max))}
+      />
+    </div>
+  );
+}
+
+/**
+ * One rating's word and what it means.
+ *
+ * The word is the box that can be wrong: blank, or the same as another rating's
+ * (a reader could not tell them apart). It is marked, with no sentence under it,
+ * and Save stays off until it is right. Nothing is held between openings: it
+ * starts from the saved rating each time.
+ */
+function RatingDialog({
+  level,
+  levels,
+  saving,
+  onClose,
+  onSave,
+}: {
+  level: ApiRatingLevel;
+  levels: ApiRatingLevel[];
+  saving: boolean;
+  onClose: () => void;
+  onSave: (next: ApiRatingLevel) => void;
+}) {
+  const [label, setLabel] = useState(level.label);
+  const [meaning, setMeaning] = useState(level.meaning);
+
+  const next: ApiRatingLevel = { level: level.level, label, meaning };
+  const problem = scaleProblem(
+    levels.map((entry) => (entry.level === level.level ? next : entry)),
+  );
+  const changed = label !== level.label || meaning !== level.meaning;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Rating ${String(level.level)}`}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            disabled={!changed || problem !== null}
+            onClick={() => onSave(next)}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label="Name">
+          <Input
+            autoFocus
+            value={label}
+            maxLength={40}
+            aria-invalid={problem !== null ? true : undefined}
+            onChange={(event) => setLabel(event.target.value)}
+          />
+        </Field>
+        <Field label="Meaning" optional>
+          <Textarea
+            rows={3}
+            value={meaning}
+            maxLength={300}
+            onChange={(event) => setMeaning(event.target.value)}
+          />
+        </Field>
+      </div>
+    </Modal>
   );
 }

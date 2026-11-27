@@ -317,21 +317,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "What is waiting on you, and how the running appraisal period is going."
   },
   {
-    "href": "/performance/appraisal-preview",
-    "title": "Appraisal flow preview",
-    "description": "A mock-up of the step-by-step appraisal for an employee, with example answers. Nothing is saved."
-  },
-  {
-    "href": "/performance/appraisal-preview/manager",
-    "title": "Manager appraisal preview",
-    "description": "A mock-up of a manager's team list and the step-by-step appraisal of one person, with example data. Nothing is saved."
-  },
-  {
-    "href": "/performance/appraisals",
-    "title": "Appraisals",
-    "description": "Where your appraisal stands, step by step, and where your team's do."
-  },
-  {
     "href": "/performance/appraisers",
     "title": "Who appraises whom",
     "description": "Who appraises whom: everybody's line manager by default, and the exceptions period by period."

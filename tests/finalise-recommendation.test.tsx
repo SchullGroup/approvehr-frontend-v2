@@ -3,16 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiReviewDetail } from "@/lib/api/performance";
 import { FinaliseDialog } from "@/app/(app)/performance/reviews/[id]/finalise-dialog";
-import { finalisedCopy } from "@/app/(app)/performance/reviews/[id]/sign-off-copy";
 
 /**
  * HR can add a recommendation as they make a rating final.
  *
  * The box is offered only where the caller says the reader is HR, because the API
  * refuses a recommendation from anybody else and leaves the rating not final: a
- * box everybody saw would be a box that could cost somebody their finalise. It
- * says who will read it before anybody types, and the confirmation says it was
- * saved only when one went.
+ * box everybody saw would be a box that could cost somebody their finalise. Who
+ * will read it is the field's own help, behind its icon.
  */
 
 const review = {
@@ -58,14 +56,18 @@ const box = () => screen.getByLabelText(/Your recommendation/);
 afterEach(cleanup);
 
 describe("who is offered the box", () => {
-  it("offers it to HR, and says who reads it on the page and not behind an icon", () => {
+  it("offers it to HR, and says who reads it as the field's help", () => {
     mount({ canRecommend: true });
     expect(box()).toBeInTheDocument();
-    const line = screen.getByText("Femi will read it with their rating.");
-    expect(line).toBeInTheDocument();
-    /* Not the field's help, which sits behind an icon and is read out by assistive
-       technology alone: the consequence of writing it has to be on the screen. */
-    expect(line.closest(".sr-only")).toBeNull();
+    expect(box()).toHaveAccessibleDescription(
+      "Femi will read it with their rating.",
+    );
+    /* A tooltip, not a line under the box. */
+    expect(
+      screen
+        .getByText("Femi will read it with their rating.")
+        .closest(".sr-only"),
+    ).not.toBeNull();
     expect(
       screen.getByText("Your recommendation (optional)"),
     ).toBeInTheDocument();
@@ -81,10 +83,7 @@ describe("who is offered the box", () => {
   it("still says what making it final does", () => {
     mount({ canRecommend: true });
     expect(
-      screen.getByText(/will be told, and will be asked to acknowledge it/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/It cannot be changed afterwards/),
+      screen.getByText(/Femi will read the answers\. This cannot be changed\./),
     ).toBeInTheDocument();
   });
 });
@@ -191,41 +190,19 @@ describe("a new form each time it is opened", () => {
 });
 
 describe("what the confirmation says", () => {
-  it("says the recommendation is saved only when one went", () => {
-    const base = {
-      subjectName: "Femi Balogun",
-      cycleName: "H2 2026 Appraisal",
-      ratingLabel: null,
-      subjectNotified: true,
-    };
-    expect(finalisedCopy({ ...base, recommended: true }).details).toContain(
-      "Your recommendation is saved with it.",
-    );
-    expect(
-      finalisedCopy({ ...base, recommended: false }).details,
-    ).not.toContain("Your recommendation is saved with it.");
-    expect(finalisedCopy(base).details.join(" ")).not.toMatch(/recommendation/);
-  });
-
-  it("shows it in the dialog after a recommendation was sent, and not after one was not", async () => {
+  it("is the title alone, whether or not a recommendation went", async () => {
     mount({ canRecommend: true });
     await userEvent.type(box(), "Ready for more.");
     await userEvent.click(
       screen.getByRole("button", { name: "Make it final" }),
     );
     expect(
-      await screen.findByText("Your recommendation is saved with it."),
+      await screen.findByRole("heading", {
+        name: "Femi Balogun's rating is final",
+      }),
     ).toBeInTheDocument();
-    cleanup();
-
-    mount({ canRecommend: true });
-    await userEvent.click(
-      screen.getByRole("button", { name: "Make it final" }),
-    );
-    await screen.findByText(/rating is final/);
-    expect(
-      screen.queryByText("Your recommendation is saved with it."),
-    ).toBeNull();
+    expect(screen.queryByText(/recommendation is saved/i)).toBeNull();
+    expect(screen.queryByText(/cannot be changed/i)).toBeNull();
   });
 
   it("stays on its question when the write fails, with what was typed still there", async () => {

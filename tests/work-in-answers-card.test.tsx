@@ -9,12 +9,14 @@ import { expectLabelInName } from "./label-in-name";
  * Whether people may use their own finished project work in their review answers, in Appraisal scoring
  * > Records.
  *
- * What is proved: the switch is off for a company that has not chosen, and turning it on asks first,
- * says what it does and what a company should do before it, and changes nothing until it is confirmed;
- * turning it off is one press and says what it keeps; somebody who may look and not change gets a switch
- * that is off; the card tells "loading" from "could not be read" from "this server has not been updated"
- * from "no server", in four different sentences, and offers no switch for any of them; Projects being
- * off is said, not hidden; and a refusal is the server's own sentence, shown where it can be read.
+ * What is proved: the switch is off for a company that has not chosen, and turning it on asks first, in
+ * one question with no paragraph, and changes nothing until it is confirmed; what it does and what a
+ * company should do before it are behind the icon beside the switch's name; turning it off is one press
+ * and says what it keeps; somebody who may look and not change gets a switch that is off; no switch is
+ * offered, and nothing is drawn, for "loading", "could not be read", "this server has not been updated"
+ * or "no server" (the months field above says which, once); with Projects off the switch is absent, not
+ * explained, unless it is already on; and a refusal is the server's own sentence, shown where it can be
+ * read.
  */
 
 const setWorkInAnswers = vi.fn<(next: boolean) => Promise<object>>(
@@ -50,7 +52,7 @@ const THE_SWITCH = /Let people add their finished work/;
 const dialog = () => screen.getByRole("dialog");
 const openInfo = () =>
   userEvent.click(
-    screen.getByRole("button", { name: "About Work in review answers" }),
+    screen.getByRole("button", { name: "About work in review answers" }),
   );
 
 beforeEach(() => {
@@ -66,17 +68,18 @@ beforeEach(() => {
 });
 
 describe("a company that has not chosen", () => {
-  it("is off, and the switch says what it does", () => {
+  it("is off", () => {
     mount();
     expect(screen.getByRole("switch", { name: THE_SWITCH })).not.toBeChecked();
   });
 
-  it("says it never changes a score, on the switch itself", () => {
+  it("has no line under the switch: the rule is not said twice", () => {
     mount();
-    expect(screen.getByText("It never changes a score.")).toBeInTheDocument();
+    expect(screen.queryByText("It never changes a score.")).toBeNull();
+    expect(screen.queryByRole("heading")).toBeNull();
   });
 
-  it("says behind the info icon what it does, that no title is saved, and what turning it off keeps", async () => {
+  it("says behind the info icon what it does, that no title is saved, what turning it off keeps, and what to do before switching it on", async () => {
     mount();
     await openInfo();
     const said = screen.getByText(/attach up to five finished tasks/);
@@ -84,6 +87,9 @@ describe("a company that has not chosen", () => {
     expect(said).toHaveTextContent(/never changes a score/);
     expect(said).toHaveTextContent(
       /Turning it off stops anything new and keeps what's there/,
+    );
+    expect(said).toHaveTextContent(
+      /tell your staff and check with whoever handles data protection whether an assessment is needed/,
     );
   });
 });
@@ -102,32 +108,20 @@ describe("turning it on", () => {
     expect(screen.getByRole("switch", { name: THE_SWITCH })).not.toBeChecked();
   });
 
-  it("says what it does, what to do before it, that it needs Projects, and that off keeps everything", async () => {
+  it("is the question, Cancel and the action, with no paragraph, and makes no legal claim", async () => {
     mount();
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
-    const body = within(dialog());
+    const question = within(dialog());
     expect(
-      body.getByText(/attach finished tasks from their own list/),
-    ).toBeInTheDocument();
-    expect(body.getByText(/Task titles aren't saved/)).toBeInTheDocument();
-    expect(
-      body.getByText(/flag a wrong item on their list/),
+      question.getByRole("button", { name: "Cancel" }),
     ).toBeInTheDocument();
     expect(
-      body.getByText(/colleagues who shared a project are listed first/),
+      question.getByRole("button", { name: "Switch it on" }),
     ).toBeInTheDocument();
-    expect(body.getByText(/It needs Projects/)).toBeInTheDocument();
-    expect(
-      body.getByText(
-        /tell your staff and check with whoever handles data protection whether an assessment is needed/,
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("makes no legal claim of its own: it names no law and does not say a company must file", async () => {
-    mount();
-    await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     const text = dialog().textContent ?? "";
+    expect(text).not.toMatch(
+      /attach finished tasks|Task titles|data protection|Projects/,
+    );
     expect(text).not.toMatch(
       /NDPA|NDPR|GAID|Act\b|legally|required by law|compliant/i,
     );
@@ -190,16 +184,9 @@ describe("turning it off", () => {
 });
 
 describe("somebody who may look and not change", () => {
-  it("gets a switch that is off, and the reason", () => {
+  it("gets a switch that is off, and no sentence of its own: the months field says why, once for the card", () => {
     mount(true, { editable: false });
     expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeDisabled();
-    expect(
-      screen.getByText("Only people who manage settings can change this."),
-    ).toBeInTheDocument();
-  });
-
-  it("does not offer the reason to somebody who can change it", () => {
-    mount();
     expect(
       screen.queryByText(/Only people who manage settings/),
     ).not.toBeInTheDocument();
@@ -217,94 +204,59 @@ describe("somebody who may look and not change", () => {
 });
 
 describe("Projects", () => {
-  it("is said to be off, with a way to switch it on, and the switch is still there", () => {
+  it("being off leaves the switch out, with no sentence about it", () => {
     mount(true, { flags: { projects: false } });
     expect(
-      screen.getByText(/Needs Projects\. Turn it on in/),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Features" })).toHaveAttribute(
-      "href",
-      "/settings/features",
-    );
-    expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeEnabled();
+      screen.queryByRole("switch", { name: THE_SWITCH }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Needs Projects/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Features" })).toBeNull();
   });
 
-  it("says nothing about it while Projects is on", () => {
+  it("being off still shows a switch that is already on, so it can be turned off", () => {
+    mount(true, { flags: { projects: false }, workInAnswers: true });
+    expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeChecked();
+  });
+
+  it("being on shows the switch with nothing said about it", () => {
     mount();
+    expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeEnabled();
     expect(screen.queryByText(/Needs Projects/)).not.toBeInTheDocument();
   });
 });
 
 describe("what the card says when it cannot say", () => {
-  const SWITCHLESS = () =>
+  /* Nothing: the months field above is the one place that says which of the four it is. */
+  const NOTHING = () => {
     expect(
       screen.queryByRole("switch", { name: THE_SWITCH }),
     ).not.toBeInTheDocument();
+    expect(document.body.textContent).toBe("");
+  };
 
   it("is reading, while the setting is on its way", () => {
     mount(true, { workInAnswers: null, loading: true });
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
-    SWITCHLESS();
+    NOTHING();
   });
 
   it("is a failed read, and offers no switch rather than a guess", () => {
     mount(true, { workInAnswers: null, error: new Error("boom") });
-    expect(
-      screen.getByText(
-        "This setting didn't load. Reload the page to try again.",
-      ),
-    ).toBeInTheDocument();
-    SWITCHLESS();
+    NOTHING();
   });
 
   it("is a server a deploy behind: not off", () => {
     mount(true, { workInAnswers: null });
-    expect(
-      screen.getByText(/This server doesn't offer this setting yet/),
-    ).toBeInTheDocument();
-    SWITCHLESS();
+    NOTHING();
   });
 
   it("is no server at all", () => {
     mount(false, { workInAnswers: null });
-    expect(
-      screen.getByText("This setting is kept on the server."),
-    ).toBeInTheDocument();
-    SWITCHLESS();
+    NOTHING();
   });
 
   it("offers no switch offline even where a value is somehow held", () => {
     mount(false, { workInAnswers: true });
-    SWITCHLESS();
-  });
-
-  it("says each of the four in its own words and never two at once", () => {
-    const sentences = [
-      "Loading…",
-      "didn't load",
-      "doesn't offer this setting",
-      "kept on the server",
-    ];
-    const states: [boolean, Partial<FeatureState>][] = [
-      [true, { workInAnswers: null, loading: true }],
-      [true, { workInAnswers: null, error: new Error("x") }],
-      [true, { workInAnswers: null }],
-      [false, { workInAnswers: null }],
-    ];
-    const base = { ...features };
-    states.forEach(([connected, over], index) => {
-      features = { ...base, ...over };
-      const { unmount } = render(
-        <ToastProvider>
-          <WorkInAnswersCard connected={connected} />
-        </ToastProvider>,
-      );
-      const text = document.body.textContent ?? "";
-      sentences.forEach((sentence, at) => {
-        expect(text.includes(sentence)).toBe(at === index);
-      });
-      unmount();
-    });
+    NOTHING();
   });
 });
 
@@ -353,11 +305,8 @@ describe("a refusal", () => {
 });
 
 describe("the words on its controls", () => {
-  it("are the start of each control's announced name: the link and the confirmation's buttons", async () => {
-    mount(true, { flags: { projects: false } });
-    expect(expectLabelInName(document.body)).toEqual(
-      expect.arrayContaining(["Features"]),
-    );
+  it("are the start of each control's announced name: the confirmation's buttons", async () => {
+    mount();
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
     const words = expectLabelInName(dialog());
     expect(words).toEqual(expect.arrayContaining(["Switch it on"]));

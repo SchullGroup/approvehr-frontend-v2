@@ -1,25 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Modal,
-  Switch,
-  TextLink,
-  useToast,
-} from "@/components/ui";
+import { Button, Modal, Switch, useToast } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { actionMessage } from "@/lib/use-action";
 import { useFeatureSettings } from "@/lib/store/features";
-import {
-  LOADING,
-  LOAD_FAILED,
-  NOT_ON_SERVER,
-  NO_SERVER,
-  READ_ONLY,
-} from "./setting-copy";
 
 /**
  * Whether the two assists are offered: the list of linked tasks beside Confirm on a done-or-not
@@ -41,18 +26,29 @@ import {
  * offers, so it starts off for every company and turning it on says what it does first. Turning it
  * off is one press and deletes nothing, because the assists store nothing.
  *
- * ## It needs Projects
+ * ## It needs Projects, so without Projects it is not there
  *
- * The tasks are on the project boards, so with Projects off nothing is offered however this is set.
- * The card says so rather than leaving a switch that appears to do nothing.
+ * The tasks are on the project boards, so with Projects off nothing is offered however this is set, and
+ * a switch that appears to do nothing is absent rather than explained. One that is already on stays, so
+ * it can still be turned off.
  *
- * ## Three states that are not "off"
+ * ## It is a row of the Records card
  *
- * `workAssists` is `null` when the server has not said: an API one deploy behind, or no server at
- * all. That is not a company's answer, so no switch is offered for it, and four different sentences
- * say which of loading, could not be read, server behind and no server it is. It is the second of the
- * two "work in reviews" switches, and sits under the first.
+ * No heading, no line under the switch and no paragraph in the question: what it does and what it does
+ * not govern are behind the icon beside the switch's name, and the question is its title, Cancel and
+ * the action.
+ *
+ * ## States that are not "off"
+ *
+ * `workAssists` is `null` when the server has not said: an API one deploy behind, or no server at all.
+ * That is not a company's answer, so no switch is offered for it, and nothing is drawn in its place: the
+ * months field says which of loading, could not be read, server behind and no server it is, once for the
+ * card. It is the second of the two "work in reviews" switches, and sits under the first.
  */
+
+/** What it does, and what it does not govern, behind the icon beside the switch's name. */
+const INFO =
+  "A manager confirming a done-or-not target sees the tasks linked to it. Only people who may confirm see that list, not the person whose objective it is. Nothing is filed, graded or scored. Closing a task as won't do, and accepting one, aren't affected by this switch.";
 export function WorkAssistsCard({ connected }: { connected: boolean }) {
   const features = useFeatureSettings();
   const toast = useToast();
@@ -60,8 +56,6 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
   const [asking, setAsking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  const reading = features.loading && on === null;
-  const failed = !features.loading && features.error != null;
   const switchable = connected && on !== null;
   const saving = features.saving === "workAssists";
   const projectsOff = !features.flags.projects;
@@ -92,55 +86,38 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
     }
   }
 
+  /* Absent, not explained: nothing is offered without Projects. A switch that is
+     already on stays, so it can still be turned off. */
+  if (!switchable || (projectsOff && !on)) return null;
+
   return (
     <>
-      <Card>
-        <CardHeader
-          title="Task suggestions"
-          level={3}
-          info="A manager confirming a done-or-not target sees the tasks linked to it. Only people who may confirm see that list, not the person whose objective it is. Nothing is filed, graded or scored. Closing a task as won't do, and accepting one, aren't affected by this switch."
+      <div className="flex flex-col gap-3 px-5 py-4">
+        <Switch
+          /* The name is set here and not left to the label, because the label
+             holds the tooltip's button and would add its name to the switch's. */
+          aria-label="Show linked tasks next to Confirm"
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              Show linked tasks next to Confirm
+              <InfoTooltip label="About task suggestions" text={INFO} />
+            </span>
+          }
+          checked={on}
+          disabled={!features.editable || saving}
+          onChange={(event) => {
+            /* On asks first. Off is one press: nothing is stored by either assist, so there
+               is nothing to be careful about. */
+            if (event.target.checked) setAsking(true);
+            else void save(false);
+          }}
         />
-        <CardBody className="flex flex-col gap-4">
-          {reading ? (
-            <p className="text-body-sm text-muted">{LOADING}</p>
-          ) : switchable ? (
-            <>
-              <Switch
-                label="Show linked tasks next to Confirm"
-                description="It never changes a score."
-                checked={on}
-                disabled={!features.editable || saving}
-                onChange={(event) => {
-                  /* On asks first. Off is one press: nothing is stored by either assist, so there
-                     is nothing to be careful about. */
-                  if (event.target.checked) setAsking(true);
-                  else void save(false);
-                }}
-              />
-              {problem && (
-                <p role="alert" className="text-body-sm text-danger-text">
-                  {problem}
-                </p>
-              )}
-              {projectsOff && (
-                <p className="text-body-sm text-muted">
-                  Needs Projects. Turn it on in{" "}
-                  <TextLink href="/settings/features">Features</TextLink>.
-                </p>
-              )}
-              {!features.editable && (
-                <p className="text-body-sm text-muted">{READ_ONLY}</p>
-              )}
-            </>
-          ) : failed ? (
-            <p className="text-body-sm text-muted">{LOAD_FAILED}</p>
-          ) : (
-            <p className="text-body-sm text-muted">
-              {connected ? NOT_ON_SERVER : NO_SERVER}
-            </p>
-          )}
-        </CardBody>
-      </Card>
+        {problem && (
+          <p role="alert" className="text-body-sm text-danger-text">
+            {problem}
+          </p>
+        )}
+      </div>
 
       {/* A Modal with its own footer rather than `ConfirmDialog`, which has no idea a request is out:
           Cancel is off and Escape does nothing while the save is, as in the won't-do dialog. */}
@@ -170,13 +147,7 @@ export function WorkAssistsCard({ connected }: { connected: boolean }) {
           </>
         }
       >
-        <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
-          <p>
-            Managers see the tasks linked to a done-or-not target next to
-            Confirm. The list never says a target is done; a manager still
-            decides. Task titles aren&apos;t saved. It needs Projects.
-          </p>
-        </div>
+        {null}
       </Modal>
     </>
   );

@@ -47,7 +47,6 @@ vi.mock("@/lib/store/session", async (importActual) => ({
 vi.mock("@/lib/store/performance", async (importActual) => ({
   ...(await importActual<typeof import("@/lib/store/performance")>()),
   useAppraisals: () => state.appraisals,
-  useMyTasks: () => state.tasks,
   useKpis: () => state.kpis,
   useTaskActions: () => ({
     submit: async () => {},

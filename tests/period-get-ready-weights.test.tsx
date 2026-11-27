@@ -21,8 +21,10 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/permissions", () => ({
   useCan: (permission: string) =>
     permission === "MANAGE_SETTINGS" ? canManage : true,
+  usePermissions: () => ({ loading: false }),
 }));
-vi.mock("@/lib/store/performance", () => ({
+vi.mock("@/lib/store/performance", async (original) => ({
+  ...(await original<typeof import("@/lib/store/performance")>()),
   useKpis: () => ({
     goals: [],
     cascade: [],

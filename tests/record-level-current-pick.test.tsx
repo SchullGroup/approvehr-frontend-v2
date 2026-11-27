@@ -133,15 +133,15 @@ const mount = () => {
 };
 
 const pick = async (person = "e-chidi") => {
-  await userEvent.selectOptions(screen.getByLabelText(/Employee/), person);
+  await userEvent.selectOptions(screen.getByLabelText(/Person/), person);
   await userEvent.selectOptions(
-    screen.getByLabelText(/Which competency/),
+    screen.getByLabelText(/Competency/),
     "Customer feedback",
   );
 };
 const answer = () => screen.getByLabelText(/^Answer/) as HTMLSelectElement;
 const save = () =>
-  userEvent.click(screen.getByRole("button", { name: "Save it" }));
+  userEvent.click(screen.getByRole("button", { name: "Save" }));
 
 beforeEach(() => {
   rowsOf = {};
@@ -184,9 +184,7 @@ describe("opening on the answer they already have", () => {
     await pick();
 
     expect(answer().value).toBe("");
-    expect(
-      screen.queryByText(/Their current answer is/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Their answer was/)).not.toBeInTheDocument();
   });
 
   it("chooses nothing for somebody with no answer on record", async () => {
@@ -203,9 +201,7 @@ describe("opening on the answer they already have", () => {
     await pick();
 
     expect(answer().value).toBe("");
-    expect(
-      screen.queryByText(/Their current answer is/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Their answer was/)).not.toBeInTheDocument();
   });
 });
 
@@ -225,7 +221,7 @@ describe("when the choice they picked is no longer on the list", () => {
     expect(answer().value).toBe("");
     expect(
       screen.getByText(
-        /Their current answer is .Retired choice., which is no longer on the list/,
+        /Their answer was .Retired choice., which is no longer offered/,
       ),
     ).toBeVisible();
 
@@ -264,7 +260,7 @@ describe("a different answer, and a different person", () => {
     await pick("e-chidi");
     expect(answer().value).toBe("o-c");
 
-    await userEvent.selectOptions(screen.getByLabelText(/Employee/), "e-emeka");
+    await userEvent.selectOptions(screen.getByLabelText(/Person/), "e-emeka");
     expect(answer().value).toBe("");
   });
 
@@ -274,7 +270,7 @@ describe("a different answer, and a different person", () => {
     await userEvent.selectOptions(answer(), "o-a");
     expect(answer().value).toBe("o-a");
 
-    await userEvent.selectOptions(screen.getByLabelText(/Employee/), "e-emeka");
+    await userEvent.selectOptions(screen.getByLabelText(/Person/), "e-emeka");
     expect(answer().value).toBe("");
   });
 });

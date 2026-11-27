@@ -272,7 +272,7 @@ describe("Ask colleagues", () => {
       .getAllByRole("checkbox")
       .map((box) => box.closest("li")?.textContent ?? "");
 
-  it("lists those who shared a project first, each saying how many, and says so", () => {
+  it("lists those who shared a project first, each saying how many, with no sentence about it", () => {
     mount();
     const rows = names();
     expect(rows[0]).toContain("Dayo Ola");
@@ -281,11 +281,7 @@ describe("Ask colleagues", () => {
     expect(rows[1]).toContain("Analyst · Shared 1 project");
     expect(rows[2]).toContain("Ada Obi");
     expect(rows[2]).not.toContain("Shared");
-    expect(
-      screen.getByText(
-        "People who shared a project with Femi Balogun are listed first. You still choose who to ask.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/are listed first/)).toBeNull();
   });
 
   it("never lists the person themselves", () => {
