@@ -550,15 +550,14 @@ export function WhatNeedsYouTab({
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
                       {openPeriod.name}
-                      <Badge
-                        tone={
-                          openPeriod.stage === "PUBLISHED" ? "neutral" : "info"
-                        }
-                        size="sm"
-                        dot
-                      >
-                        {openPeriod.stageLabel}
-                      </Badge>
+                      {/* The stage is the bar below. Only "not started" is said in
+                          words, because a bar with nothing filled cannot say it
+                          (owner, 27 Nov 2026). */}
+                      {openPeriod.stage === "DRAFT" && (
+                        <Badge tone="info" size="sm" dot>
+                          {openPeriod.stageLabel}
+                        </Badge>
+                      )}
                     </p>
                     {openPeriod.dueDate && (
                       <p className="mt-1 flex items-center gap-1.5 text-meta text-muted">

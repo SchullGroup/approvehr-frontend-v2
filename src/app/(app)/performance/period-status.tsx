@@ -5,6 +5,10 @@ import { ProgressMeter, Spinner } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { cn } from "@/lib/cn";
 import {
+  StageProgress,
+  STAGE_WORDS,
+} from "@/components/performance/stage-progress";
+import {
   EXCEPTION_CODE_SUMMARY,
   dayLabel,
   type ApiAppraiserException,
@@ -83,28 +87,28 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
   if (progress) {
     return [
       {
-        label: "Self",
+        label: STAGE_WORDS[0],
         stage: "SELF",
         done: progress.self.done,
         total: progress.self.of,
         notYet: "Nobody has a form yet",
       },
       {
-        label: "Manager",
+        label: STAGE_WORDS[1],
         stage: "MANAGER",
         done: progress.manager.done,
         total: progress.manager.of,
         notYet: "No manager review is due yet",
       },
       {
-        label: "Scores final",
+        label: STAGE_WORDS[2],
         stage: "CALIBRATION",
         done: progress.finalised.done,
         total: progress.finalised.of,
         notYet: "Nobody is in this period yet",
       },
       {
-        label: "Signed off",
+        label: STAGE_WORDS[3],
         stage: "PUBLISHED",
         done: progress.acknowledged.done,
         total: progress.acknowledged.of,
@@ -115,14 +119,14 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
   /* An API that predates `progress`. */
   return [
     {
-      label: "Self",
+      label: STAGE_WORDS[0],
       stage: "SELF",
       done: report?.forms.selfIn ?? 0,
       total: report?.forms.people ?? 0,
       notYet: "Nobody has a form yet",
     },
     {
-      label: "Manager",
+      label: STAGE_WORDS[1],
       stage: "MANAGER",
       done: report?.forms.managerIn ?? 0,
       /* Reviews, not people. See the header. */
@@ -132,14 +136,14 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       notYet: "No manager review is due yet",
     },
     {
-      label: "Scores final",
+      label: STAGE_WORDS[2],
       stage: "CALIBRATION",
       done: report?.marks.finalised ?? 0,
       total: report?.marks.people ?? 0,
       notYet: "Nobody is in this period yet",
     },
     {
-      label: "Signed off",
+      label: STAGE_WORDS[3],
       stage: "PUBLISHED",
       done: report?.marks.acknowledged ?? 0,
       /* You can only answer a mark you have been told, so the denominator is
@@ -190,60 +194,6 @@ function RailSegment({ segment, live }: { segment: Segment; live: boolean }) {
         </>
       )}
     </div>
-  );
-}
-
-/**
- * The stages as a bar cut into four, for a reader who is shown stages and not
- * figures (an employee: no numerator, no denominator). The stage the period is
- * in is named, and the ones up to it are filled.
- *
- * A period that has not started is about to be at Self, so Self is the current
- * stage until it moves (owner, 27 Nov 2026).
- */
-function StageTrack({
-  segments,
-  stage,
-}: {
-  segments: Segment[];
-  stage: ReviewCycleStage;
-}) {
-  const at = Math.max(
-    0,
-    segments.findIndex((segment) => segment.stage === stage),
-  );
-  return (
-    <ol className="grid grid-cols-4 gap-1.5" aria-label="Stages of the period">
-      {segments.map((segment, index) => {
-        const current = index === at;
-        return (
-          <li
-            key={segment.label}
-            aria-current={current ? "step" : undefined}
-            className="min-w-0"
-          >
-            <div
-              aria-hidden="true"
-              className={cn(
-                "h-1.5 rounded-full",
-                index <= at ? "bg-accent" : "bg-sunken",
-              )}
-            />
-            <p
-              className={cn(
-                "mt-1.5 truncate text-meta",
-                current ? "font-semibold text-accent-text" : "text-muted",
-              )}
-            >
-              {segment.label}
-              {current && (
-                <span className="sr-only"> — the stage this period is in</span>
-              )}
-            </p>
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
@@ -401,7 +351,7 @@ export function PeriodStatus({
           ))}
         </div>
       ) : (
-        <StageTrack segments={segments} stage={cycle.stage} />
+        <StageProgress stage={cycle.stage} label={cycle.name} />
       )}
 
       {showDue && cycle.dueDate && (
