@@ -41,8 +41,13 @@ vi.mock("@/lib/store/ai", () => ({
   }),
 }));
 
-const { DeleteGoalDialog, EditGoalDialog, deleteBlocker, mayEditGoal } =
-  await import("@/app/(app)/performance/goal-dialogs");
+const {
+  DeleteGoalDialog,
+  EditGoalDialog,
+  StopKpiDialog,
+  deleteBlocker,
+  mayEditGoal,
+} = await import("@/app/(app)/performance/goal-dialogs");
 
 const goal = (over: Partial<ApiGoal> = {}): ApiGoal =>
   ({
@@ -198,9 +203,13 @@ describe("the delete dialog", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/along with its 2 targets/)).toBeInTheDocument();
     expect(screen.getByText(/cannot be undone/)).toBeInTheDocument();
+    /* One line: where Stop would do instead is not argued with somebody who
+       has already chosen Delete. */
+    expect(screen.queryByText(/use Stop instead/)).toBeNull();
+    expect(screen.queryByText(/no agreement to lose/)).toBeNull();
   });
 
-  it("deletes only when asked to, and keeping it deletes nothing", async () => {
+  it("deletes only when asked to, and cancelling deletes nothing", async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn().mockResolvedValue(true);
     const onClose = vi.fn();
@@ -212,7 +221,7 @@ describe("the delete dialog", () => {
         onDelete={onDelete}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Keep it" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalled();
     expect(onDelete).not.toHaveBeenCalled();
 
@@ -220,5 +229,46 @@ describe("the delete dialog", () => {
     expect(onDelete).toHaveBeenCalledWith(
       expect.objectContaining({ id: "g-1" }),
     );
+  });
+});
+
+describe("the stop dialog", () => {
+  const stop = (onStop = vi.fn().mockResolvedValue(undefined)) => {
+    render(
+      <StopKpiDialog
+        goalTitle="Grow qualified pipeline"
+        open
+        onClose={vi.fn()}
+        onStop={onStop}
+      />,
+    );
+    return { onStop, user: userEvent.setup() };
+  };
+
+  it("is the question, one reason field with no help under it, Cancel and Stop it", () => {
+    stop();
+    expect(
+      screen.getByRole("heading", { name: "Stop this objective?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Why are you stopping it/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/It will show as off track/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /More about/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it("is not available until there is a reason, and shows nothing in red for an empty box", async () => {
+    const { onStop, user } = stop();
+    const button = screen.getByRole("button", { name: "Stop it" });
+    expect(button).toBeDisabled();
+    expect(screen.queryByText(/Say why in a few words/)).toBeNull();
+    await user.type(
+      screen.getByLabelText(/Why are you stopping it/),
+      "Dropped",
+    );
+    expect(button).toBeEnabled();
+    await user.click(button);
+    expect(onStop).toHaveBeenCalledWith("Dropped");
   });
 });

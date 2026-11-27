@@ -178,3 +178,62 @@ describe("an agreement", () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("the question before it is sent", () => {
+  const ask = (over: Partial<ApiGoal> = {}) => {
+    render(
+      wrapped(
+        <SendForAgreementDialog
+          goal={{ ...goal, ...over } as ApiGoal}
+          viewerId="emp-chidi"
+          send={async () => ({ value: undefined })}
+          onClose={vi.fn()}
+        />,
+      ),
+    );
+    return within(screen.getByRole("dialog"));
+  };
+
+  it("is the title, Cancel and Send it, with no account of who agrees it or what agreement fixes", () => {
+    const dialog = ask();
+    expect(
+      dialog.getByRole("heading", {
+        name: 'Send "Ship the billing flow" to be agreed?',
+      }),
+    ).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Send it" })).toBeInTheDocument();
+    expect(dialog.queryByText(/Nobody agrees their own/)).toBeNull();
+    expect(dialog.queryByText(/Once it is agreed/)).toBeNull();
+    expect(dialog.queryByText(/states by hand/)).toBeNull();
+  });
+
+  it("has a target and a period, so there is nothing else on it", () => {
+    const dialog = ask();
+    expect(dialog.queryByText(/^No /)).toBeNull();
+  });
+
+  it("says in one neutral line that it has no target, and still lets it be sent", () => {
+    const dialog = ask({ keyResults: [] });
+    expect(dialog.getByText("No target yet.")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Send it" })).toBeEnabled();
+  });
+
+  it("says it is in no period, and still lets it be sent (a shared one need not be in one)", () => {
+    const dialog = ask({ reviewCycleId: null });
+    expect(dialog.getByText("No appraisal period yet.")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Send it" })).toBeEnabled();
+  });
+
+  it("says both at once as one line", () => {
+    const dialog = ask({ keyResults: [], reviewCycleId: null });
+    expect(
+      dialog.getByText("No target and no appraisal period yet."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not call an objective with others under it short of a target", () => {
+    const dialog = ask({ keyResults: [], childCount: 2 });
+    expect(dialog.queryByText(/No target/)).toBeNull();
+  });
+});

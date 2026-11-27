@@ -28,6 +28,8 @@ import {
 } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
+import { WizardLink } from "@/components/performance/wizard-shell";
+import type { DirectoryPerson } from "@/lib/types";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { goesDown, measureProblems } from "@/lib/performance/measure-problems";
 import { todayIn } from "@/lib/time";
@@ -155,6 +157,38 @@ export function quarterOfPeriod(
  * saying while somebody is still looking at the two fields.
  */
 /**
+ * Who a shared objective could be given to, by the caller's own reach.
+ *
+ * Everybody when the objective is the company's; the department's own people
+ * when it is a department's. Filing a Sales KPI under Marketing's target is
+ * something the API refuses, so the list does not offer it.
+ *
+ * ...and then the caller's own reach, which this once did not apply at all.
+ * Narrowing by the parent's department answers "whose KPI could this be" and
+ * not "whose KPI may *you* set". So the dialog was identical for every role
+ * tested: ten checkboxes and no narrowing, on a control that reads as a bulk
+ * action, while `assignGoal` refuses each name one at a time — *"… is not
+ * somebody you set goals for."* For an employee every box was a dead option.
+ *
+ * Read by the dialog and by the objective's menu, which does not offer "Give
+ * an objective to people" to somebody who has nobody to give it to.
+ */
+export function useAssignablePeople(departmentId: string | null): {
+  employees: DirectoryPerson[];
+  loading: boolean;
+} {
+  const { people: inScope, loading } = useEmployeeDirectory(
+    departmentId ? { departmentId, pageSize: 200 } : { pageSize: 200 },
+  );
+  const reach = useLeadReach();
+  const employees = useMemo(
+    () => peopleILead(inScope, reach),
+    [inScope, reach],
+  );
+  return { employees, loading: loading === true };
+}
+
+/**
  * Give one KPI to several people, under a shared objective.
  *
  * The feedback's first point was that *"a KPI can only be assigned to a single
@@ -174,9 +208,12 @@ export function quarterOfPeriod(
  * department, so it earns a button and not a panel — a form this size sitting
  * open on the KPI screen is exactly the layout complaint that started this.
  *
- * Every KPI it creates is a **draft**. Assigning is not agreeing; the person
- * it belongs to still sends it to be agreed, which is what makes an agreement
- * worth anything.
+ * ## What it asks
+ *
+ * A title, already the parent's own, and the people, grouped by department
+ * with a Select all for each. The quarter is the parent's, so it is asked only
+ * where the parent has none. Every KPI it creates is a **draft**: assigning is
+ * not agreeing, and the person it belongs to still sends it to be agreed.
  */
 export function AssignKpiDialog({
   parent: parentProp,
@@ -209,33 +246,10 @@ export function AssignKpiDialog({
   const [parent, setParent] = useState(parentProp);
   if (parentProp && parentProp !== parent) setParent(parentProp);
 
-  /* Everybody when the objective is the company's; the department's own people
-     when it is a department's. Filing a Sales KPI under Marketing's target is
-     something the API refuses, so the list does not offer it. */
-  const { people: inScope } = useEmployeeDirectory(
-    parent?.departmentId
-      ? { departmentId: parent.departmentId, pageSize: 200 }
-      : { pageSize: 200 },
-  );
-  const reach = useLeadReach();
-
-  /**
-   * ...and then the caller's own reach, which this did not apply at all.
-   *
-   * Narrowing by the parent's department answers "whose KPI could this be" and
-   * not "whose KPI may *you* set". So the dialog was identical for every role
-   * tested: ten checkboxes and no narrowing, on a control that reads as a bulk
-   * action, while `assignGoal` refuses each name one at a time — *"… is not
-   * somebody you set goals for."* For an employee every box was a dead option.
-   */
-  const employees = useMemo(
-    () => peopleILead(inScope, reach),
-    [inScope, reach],
-  );
+  const { employees } = useAssignablePeople(parent?.departmentId ?? null);
 
   const quarters = quarterOptions(useQuarterToday());
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(parent?.title ?? "");
   const [chosen, setChosen] = useState<string[]>([]);
   const [quarter, setQuarter] = useState(
     parent?.dueQuarter ?? quarters[1] ?? quarters[0] ?? "",
@@ -252,12 +266,10 @@ export function AssignKpiDialog({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setTitle("");
-      setDescription("");
+      const fresh = parentProp ?? parent;
+      setTitle(fresh?.title ?? "");
       setChosen([]);
-      setQuarter(
-        (parentProp ?? parent)?.dueQuarter ?? quarters[1] ?? quarters[0] ?? "",
-      );
+      setQuarter(fresh?.dueQuarter ?? quarters[1] ?? quarters[0] ?? "");
       setError(null);
     }
   }
@@ -276,25 +288,30 @@ export function AssignKpiDialog({
       was.includes(id) ? was.filter((one) => one !== id) : [...was, id],
     );
 
+  /* By department, in the order the directory gave them within each. A person
+     with none is last. */
+  const groups = groupByDepartment(employees);
+  const toggleGroup = (ids: string[]) =>
+    setChosen((was) =>
+      ids.every((id) => was.includes(id))
+        ? was.filter((id) => !ids.includes(id))
+        : [...was, ...ids.filter((id) => !was.includes(id))],
+    );
+
+  /* Not sendable until it can be: the button says so by being unavailable, and
+     nothing is written under it. */
+  const ready = title.trim().length >= 3 && picked.length > 0;
+
   const submit = async () => {
-    if (title.trim().length < 3) {
-      setError("Give it a title of at least three characters.");
-      return;
-    }
-    if (picked.length === 0) {
-      setError("Pick at least one person.");
-      return;
-    }
+    if (!ready) return;
     setError(null);
     setSaving(true);
     try {
       const body: {
         title: string;
-        description?: string;
         employeeIds: string[];
         dueQuarter?: string;
       } = { title: title.trim(), employeeIds: picked };
-      if (description.trim()) body.description = description.trim();
       if (quarter) body.dueQuarter = quarter;
       await onAssign(parent.id, body);
     } catch (cause) {
@@ -321,22 +338,20 @@ export function AssignKpiDialog({
           <Button
             variant="accent"
             loading={saving}
+            disabled={!ready}
             onClick={() => void submit()}
           >
-            {picked.length === 1
-              ? "Assign to 1 person"
-              : `Assign to ${picked.length} people`}
+            {picked.length === 0
+              ? "Assign"
+              : picked.length === 1
+                ? "Assign to 1 person"
+                : `Assign to ${picked.length} people`}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        <Field
-          label="Objective title"
-          required
-          {...(error ? { error } : {})}
-          help="The same objective, worded once. Each person gets their own copy to track."
-        >
+        <Field label="Objective title" required>
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -344,67 +359,91 @@ export function AssignKpiDialog({
           />
         </Field>
 
-        <Field label="Due quarter" required>
-          <Select
-            value={quarter}
-            onChange={(event) => setQuarter(event.target.value)}
-          >
-            {quarters.map((option) => (
-              <option key={option} value={option}>
-                {quarterText(option)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field
-          label="Assigned to"
-          required
-          help={
-            parent.departmentId
-              ? "The people in this department."
-              : "Anybody, since this is a company objective."
-          }
-        >
-          {employees.length === 0 ? (
-            <p className="text-body-sm text-muted">
-              {inScope.length === 0
-                ? "Nobody is in this department yet, so there is nobody to give it to."
-                : "Nobody here is yours to set goals for. You can assign to the people who report to you and to the departments you head."}
-            </p>
-          ) : (
-            /* Scrolls rather than growing the modal past the screen. A
-               hundred-person department is the case this feature exists for. */
-            <div className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border border-line p-2">
-              {employees.map((person) => (
-                <Checkbox
-                  key={person.id}
-                  checked={chosen.includes(person.id)}
-                  onChange={() => toggle(person.id)}
-                  label={`${person.fullName} · ${person.jobTitle}`}
-                />
+        {/* The parent's own quarter is the one it is given for. */}
+        {!parent.dueQuarter && (
+          <Field label="Due quarter" required>
+            <Select
+              value={quarter}
+              onChange={(event) => setQuarter(event.target.value)}
+            >
+              {quarters.map((option) => (
+                <option key={option} value={option}>
+                  {quarterText(option)}
+                </option>
               ))}
-            </div>
-          )}
+            </Select>
+          </Field>
+        )}
+
+        <Field label="Assigned to" required>
+          {/* Scrolls rather than growing the modal past the screen. A
+              hundred-person department is the case this feature exists for. */}
+          <div className="flex max-h-64 flex-col gap-3 overflow-y-auto rounded-md border border-line p-2">
+            {groups.map((group) => {
+              const ids = group.people.map((person) => person.id);
+              const all = ids.every((id) => chosen.includes(id));
+              return (
+                <div key={group.key} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    {groups.length > 1 ? (
+                      <span className="text-meta font-medium text-muted">
+                        {group.name}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    {ids.length > 1 && (
+                      <WizardLink onClick={() => toggleGroup(ids)}>
+                        {all ? "Clear" : "Select all"}
+                      </WizardLink>
+                    )}
+                  </div>
+                  {group.people.map((person) => (
+                    <Checkbox
+                      key={person.id}
+                      checked={chosen.includes(person.id)}
+                      onChange={() => toggle(person.id)}
+                      label={`${person.fullName} · ${person.jobTitle}`}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </Field>
 
-        <Field optional label="Description">
-          <Textarea
-            rows={2}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </Field>
-
-        {/* Said before the button, not after the save. Somebody assigning eight
-            KPIs should know they are drafts, or they will wonder why nothing is
-            agreed. */}
-        <p className="text-body-sm text-muted">
-          Each person gets their own objective as a draft. They send it to be
-          agreed — assigning it is not the same as agreeing it.
-        </p>
+        {error && (
+          <p role="status" className="text-body-sm text-danger-text">
+            {error}
+          </p>
+        )}
       </div>
     </Modal>
+  );
+}
+
+/** People by department name, A to Z, with nobody's department last. */
+function groupByDepartment(people: readonly DirectoryPerson[]): {
+  key: string;
+  name: string;
+  people: DirectoryPerson[];
+}[] {
+  const byKey = new Map<
+    string,
+    { key: string; name: string; people: DirectoryPerson[] }
+  >();
+  for (const person of people) {
+    const key = person.departmentId ?? person.department ?? "";
+    const group = byKey.get(key) ?? {
+      key,
+      name: person.department ?? "No department",
+      people: [],
+    };
+    group.people.push(person);
+    byKey.set(key, group);
+  }
+  return [...byKey.values()].sort((x, y) =>
+    x.key === "" ? 1 : y.key === "" ? -1 : x.name.localeCompare(y.name),
   );
 }
 
@@ -656,17 +695,17 @@ export function StopKpiDialog({
   if (goalTitleProp && goalTitleProp !== goalTitle) setGoalTitle(goalTitleProp);
 
   const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   if (goalTitle === null) return null;
 
+  /* Three characters, as the API asks. Until then the button is unavailable:
+     the field's name says it is needed, and nothing is shown in red for an
+     empty box. */
+  const ready = reason.trim().length >= 3;
+
   const submit = async () => {
-    if (reason.trim().length < 3) {
-      setError("Say why in a few words. Whoever owns this will be told.");
-      return;
-    }
-    setError(null);
+    if (!ready) return;
     setSaving(true);
     try {
       await onStop(reason.trim());
@@ -679,15 +718,16 @@ export function StopKpiDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Stop this objective"
+      title="Stop this objective?"
       description={goalTitle}
       size="sm"
       footer={
         <>
-          <Button onClick={onClose}>Keep it</Button>
+          <Button onClick={onClose}>Cancel</Button>
           <Button
             variant="danger"
             loading={saving}
+            disabled={!ready}
             onClick={() => void submit()}
           >
             Stop it
@@ -695,18 +735,7 @@ export function StopKpiDialog({
         </>
       }
     >
-      <Field
-        label="Why are you stopping it"
-        required
-        {...(error ? { error } : {})}
-        /* What actually happens, which is not what this used to promise.
-           `cancelGoal` sets the status to off track and sends the reason to
-           the objective's owner as a notification. It does **not** write it
-           onto the objective — there is no cancelled status and no reason
-           column — so "with this reason against it" was a claim the reader
-           would go looking for and not find. See BE-35. */
-        help="It will show as off track, and the reason goes to whoever owns it. It is not kept on the objective itself."
-      >
+      <Field label="Why are you stopping it" required>
         <Textarea
           rows={3}
           value={reason}
@@ -967,8 +996,9 @@ export function EditGoalDialog({
  * Deleting an objective that nobody has agreed.
  *
  * Says what goes with it, because a delete is the one move here that leaves no
- * trace to open later: its measures go too, and nothing is kept. The button names
- * the act rather than saying "Confirm", and the safe choice is the first one.
+ * trace to open later: its measures go too, and nothing is kept. That is the one
+ * line; where Stop would do instead is not argued here. The button names the act
+ * rather than saying "Confirm", and the safe choice is the first one.
  */
 export function DeleteGoalDialog({
   goal,
@@ -999,7 +1029,7 @@ export function DeleteGoalDialog({
       size="sm"
       footer={
         <>
-          <Button onClick={onClose}>Keep it</Button>
+          <Button onClick={onClose}>Cancel</Button>
           <Button
             variant="danger"
             loading={saving}
@@ -1020,10 +1050,6 @@ export function DeleteGoalDialog({
               measures === 1 ? "target" : "targets"
             }. It cannot be undone.`
           : "This removes it for good. It cannot be undone."}
-      </p>
-      <p className="mt-3 text-body-sm text-muted">
-        Nobody has agreed it yet, so there is no agreement to lose. If it should
-        stay on record as stopped, use Stop instead.
       </p>
     </Modal>
   );

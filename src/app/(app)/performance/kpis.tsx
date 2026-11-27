@@ -103,6 +103,7 @@ import {
   DeleteGoalDialog,
   deleteBlocker,
   mayEditGoal,
+  useAssignablePeople,
 } from "./goal-dialogs";
 import { CompletedWork } from "@/components/performance/completed-work";
 import { useCanUploadObjectives } from "./kpis/import/access";
@@ -1593,6 +1594,7 @@ function GoalDetailModal({
   progress,
   done,
   canShare,
+  noPeriod,
   reads,
   editable,
   canPlan,
@@ -1616,6 +1618,8 @@ function GoalDetailModal({
   progress: number;
   done: boolean;
   canShare: boolean;
+  /** Belongs to no period and no quarter, so it cannot be sent to be agreed. */
+  noPeriod: boolean;
   /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
   reads: { read: number; of: number } | null;
   editable: boolean;
@@ -1712,146 +1716,199 @@ function GoalDetailModal({
             each is the next thing to do; what does not fit goes under the dots,
             and the one that cannot be undone goes last. Each is only listed where
             the API will take it, so none comes back as a refusal. */}
-        {(() => {
-          type Item = {
-            key: string;
-            label: string;
-            onSelect?: () => void;
-            href?: string;
-            tone?: "danger";
-          };
-          const items: Item[] = [];
-          if (mayBeSubmitted(goal)) {
-            items.push(
-              goal.approval === "NEEDS_REVISION" &&
-                editable &&
-                mayEditGoal(goal)
-                ? {
-                    key: "resend",
-                    label: "Edit and resend",
-                    href: newObjectiveHref({ edit: goal.id }),
-                  }
-                : {
-                    key: "submit",
-                    label:
-                      goal.approval === "NEEDS_REVISION"
-                        ? "Send it again"
-                        : "Send to be agreed",
-                    onSelect: act(() => onSubmit(goal)),
-                  },
-            );
-          }
-          if (goal.approval === "AGREED" && !done) {
-            items.push({
-              key: "reopen",
-              label: "Reopen the objective",
-              onSelect: act(() => onReopen(goal)),
-            });
-            if (canPlan && onPlan) {
+        <AssignableGate goal={goal} active={open}>
+          {(canAssign) => {
+            type Item = {
+              key: string;
+              label: string;
+              onSelect?: () => void;
+              href?: string;
+              tone?: "danger";
+            };
+            const items: Item[] = [];
+            /* With no period and no quarter it cannot be sent at all, and the
+               way forward is to give it one. The menu says that where Send
+               would have been, instead of a paragraph above it. */
+            if (
+              noPeriod &&
+              (goal.approval === "DRAFT" ||
+                goal.approval === "NEEDS_REVISION") &&
+              editable &&
+              mayEditGoal(goal)
+            ) {
               items.push({
-                key: "plan",
-                label: "Plan work",
-                onSelect: act(() => onPlan(goal)),
-              });
-            }
-          }
-          if (editable) {
-            if (!done)
-              items.push({
-                key: "done",
-                label: "Mark done",
-                onSelect: act(() => onComplete(goal)),
-              });
-            if (!goal.targetFrozen) {
-              items.push({
-                key: "target",
-                label: "Add a target",
-                onSelect: act(() => onAddMeasure(goal)),
-              });
-            }
-            if (mayEditGoal(goal))
-              items.push({
-                key: "edit",
-                label: "Edit",
+                key: "period",
+                label: "Add a period",
                 onSelect: act(() => onEdit(goal)),
               });
-            items.push({
-              key: "child",
-              label: "Add an objective under this",
-              onSelect: act(() => onAddChild(goal.id)),
-            });
-            if (goal.ownerId === null) {
-              items.push({
-                key: "assign",
-                label: "Give an objective to people",
-                onSelect: act(() => onAssign(goal)),
-              });
             }
-            if (canShare)
-              items.push({
-                key: "share",
-                label: "Tell the people affected",
-                onSelect: act(() => onShare(goal)),
-              });
-            if (!done)
-              items.push({
-                key: "stop",
-                label: "Stop this objective",
-                onSelect: act(() => onStop(goal)),
-              });
-            if (deleteBlocker(goal) === null) {
-              items.push({
-                key: "delete",
-                label: "Delete",
-                tone: "danger",
-                onSelect: act(() => onDelete(goal)),
-              });
+            if (mayBeSubmitted(goal)) {
+              items.push(
+                goal.approval === "NEEDS_REVISION" &&
+                  editable &&
+                  mayEditGoal(goal)
+                  ? {
+                      key: "resend",
+                      label: "Edit and resend",
+                      href: newObjectiveHref({ edit: goal.id }),
+                    }
+                  : {
+                      key: "submit",
+                      label:
+                        goal.approval === "NEEDS_REVISION"
+                          ? "Send it again"
+                          : "Send to be agreed",
+                      onSelect: act(() => onSubmit(goal)),
+                    },
+              );
             }
-          }
-          const shown = items.slice(0, 2);
-          const more = items.slice(2);
-          if (items.length === 0) return null;
-          return (
-            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
-              {shown.map((item, index) =>
-                item.href ? (
-                  <ButtonLink
-                    key={item.key}
-                    variant={index === 0 ? "accent" : "secondary"}
-                    size="sm"
-                    href={item.href}
-                  >
-                    {item.label}
-                  </ButtonLink>
-                ) : (
-                  <Button
-                    key={item.key}
-                    variant={index === 0 ? "accent" : "secondary"}
-                    size="sm"
-                    onClick={item.onSelect}
-                  >
-                    {item.label}
-                  </Button>
-                ),
-              )}
-              {more.length > 0 && (
-                <RowActions
-                  label="More for this objective"
-                  items={more.map((item) => ({
-                    key: item.key,
-                    label: item.label,
-                    ...(item.href ? { href: item.href } : {}),
-                    ...(item.onSelect ? { onSelect: item.onSelect } : {}),
-                    ...(item.tone ? { tone: item.tone } : {}),
-                  }))}
-                />
-              )}
-            </div>
-          );
-        })()}
+            if (goal.approval === "AGREED" && !done) {
+              items.push({
+                key: "reopen",
+                label: "Reopen the objective",
+                onSelect: act(() => onReopen(goal)),
+              });
+              if (canPlan && onPlan) {
+                items.push({
+                  key: "plan",
+                  label: "Plan work",
+                  onSelect: act(() => onPlan(goal)),
+                });
+              }
+            }
+            if (editable) {
+              if (!done)
+                items.push({
+                  key: "done",
+                  label: "Mark done",
+                  onSelect: act(() => onComplete(goal)),
+                });
+              if (!goal.targetFrozen) {
+                items.push({
+                  key: "target",
+                  label: "Add a target",
+                  onSelect: act(() => onAddMeasure(goal)),
+                });
+              }
+              if (mayEditGoal(goal))
+                items.push({
+                  key: "edit",
+                  label: "Edit",
+                  onSelect: act(() => onEdit(goal)),
+                });
+              items.push({
+                key: "child",
+                label: "Add an objective under this",
+                onSelect: act(() => onAddChild(goal.id)),
+              });
+              if (goal.ownerId === null && canAssign) {
+                items.push({
+                  key: "assign",
+                  label: "Give an objective to people",
+                  onSelect: act(() => onAssign(goal)),
+                });
+              }
+              if (canShare)
+                items.push({
+                  key: "share",
+                  label: "Tell the people affected",
+                  onSelect: act(() => onShare(goal)),
+                });
+              if (!done)
+                items.push({
+                  key: "stop",
+                  label: "Stop this objective",
+                  onSelect: act(() => onStop(goal)),
+                });
+              if (deleteBlocker(goal) === null) {
+                items.push({
+                  key: "delete",
+                  label: "Delete",
+                  tone: "danger",
+                  onSelect: act(() => onDelete(goal)),
+                });
+              }
+            }
+            const shown = items.slice(0, 2);
+            const more = items.slice(2);
+            if (items.length === 0) return null;
+            return (
+              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+                {shown.map((item, index) =>
+                  item.href ? (
+                    <ButtonLink
+                      key={item.key}
+                      variant={index === 0 ? "accent" : "secondary"}
+                      size="sm"
+                      href={item.href}
+                    >
+                      {item.label}
+                    </ButtonLink>
+                  ) : (
+                    <Button
+                      key={item.key}
+                      variant={index === 0 ? "accent" : "secondary"}
+                      size="sm"
+                      onClick={item.onSelect}
+                    >
+                      {item.label}
+                    </Button>
+                  ),
+                )}
+                {more.length > 0 && (
+                  <RowActions
+                    label="More for this objective"
+                    items={more.map((item) => ({
+                      key: item.key,
+                      label: item.label,
+                      ...(item.href ? { href: item.href } : {}),
+                      ...(item.onSelect ? { onSelect: item.onSelect } : {}),
+                      ...(item.tone ? { tone: item.tone } : {}),
+                    }))}
+                  />
+                )}
+              </div>
+            );
+          }}
+        </AssignableGate>
       </div>
     </Modal>
   );
+}
+
+/**
+ * Whether the objective has anybody to be given to, for its menu.
+ *
+ * "Give an objective to people" is offered only on a shared objective, and only
+ * to somebody who leads at least one person it could go to: a list with nobody
+ * in it is a dialog that can only refuse. The people are asked for only while
+ * the window is open, and only for a shared objective, so a page of cards makes
+ * no request. While they are on their way the item stays, rather than
+ * appearing late under somebody's cursor.
+ */
+function AssignableGate({
+  goal,
+  active,
+  children,
+}: {
+  goal: ApiGoal;
+  active: boolean;
+  children: (canAssign: boolean) => React.ReactNode;
+}) {
+  if (goal.ownerId !== null) return <>{children(false)}</>;
+  if (!active) return <>{children(true)}</>;
+  return <AssignableProbe goal={goal}>{children}</AssignableProbe>;
+}
+
+function AssignableProbe({
+  goal,
+  children,
+}: {
+  goal: ApiGoal;
+  children: (canAssign: boolean) => React.ReactNode;
+}) {
+  const { employees, loading } = useAssignablePeople(goal.departmentId);
+  return <>{children(loading || employees.length > 0)}</>;
 }
 
 /* -------------------------------------------------------------------------- */
