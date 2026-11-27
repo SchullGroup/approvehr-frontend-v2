@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { ScoreBand } from "@/lib/api/performance";
 import { pct, points } from "@/components/performance/record-check";
+import { domainFor, ticksFor } from "@/lib/performance/fairness-domain";
 
 export { pct, points };
-
-const DOMAIN = [4000, 8000] as const;
 
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
@@ -50,14 +49,24 @@ export function RangeChart({
   const height = top + rows.length * rowH + 26;
   const x0 = labelW;
   const x1 = Math.max(x0 + 40, width - countW - 8);
+  /* The range comes from the figures drawn. It was fixed at 40% to 80%, so a
+     group at 37% was pinned to the 40% line and the axis said nothing was
+     below it. */
+  const domain = domainFor(
+    rows.flatMap((row) =>
+      [row.meanBp, row.lowBp, row.highBp].filter(
+        (value): value is number => value !== null,
+      ),
+    ),
+    referenceBp,
+  );
   const x = (bp: number) =>
     x0 +
-    ((Math.min(Math.max(bp, DOMAIN[0]), DOMAIN[1]) - DOMAIN[0]) /
-      (DOMAIN[1] - DOMAIN[0])) *
+    ((Math.min(Math.max(bp, domain[0]), domain[1]) - domain[0]) /
+      (domain[1] - domain[0])) *
       (x1 - x0);
-  const ticks = [4000, 5000, 6000, 7000, 8000].filter(
-    (t) => !narrow || t % 2000 === 0,
-  );
+  const gridlines = ticksFor(domain, false);
+  const ticks = ticksFor(domain, narrow);
 
   return (
     <div ref={ref}>
@@ -69,7 +78,7 @@ export function RangeChart({
           aria-label={caption}
           className="block overflow-visible"
         >
-          {[4000, 5000, 6000, 7000, 8000].map((t) => (
+          {gridlines.map((t) => (
             <line
               key={t}
               x1={x(t)}

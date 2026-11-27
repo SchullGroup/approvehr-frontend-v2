@@ -84,6 +84,20 @@ export function whoOf(asked: readonly ReviewAudience[]): Who {
   return self && !manager ? "EMPLOYEE" : manager && !self ? "MANAGER" : "BOTH";
 }
 
+/**
+ * Who a question added on this page may be asked of. A question lands on the page
+ * of whoever answers it, so offering "The manager" on the employee's page made a
+ * question vanish from the page it had just been added on: it was saved, and it
+ * was now on the other one. The two pages offer the answerer they are about, or
+ * both; the competency pages (one question for everybody who rates) offer all
+ * three.
+ */
+export function whoOptionsFor(group: QuestionGroup): Who[] {
+  if (group === "self") return ["EMPLOYEE", "BOTH"];
+  if (group === "manager") return ["MANAGER", "BOTH"];
+  return ["EMPLOYEE", "MANAGER", "BOTH"];
+}
+
 /** Who answers a new question to begin with, on each screen. */
 export const DEFAULT_WHO: Record<QuestionGroup, Who> = {
   self: "EMPLOYEE",

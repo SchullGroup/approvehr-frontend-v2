@@ -1,4 +1,8 @@
-import { readCount, type ApiGoal } from "@/lib/api/performance";
+import {
+  readCount,
+  type ApiGoal,
+  type GoalStatus,
+} from "@/lib/api/performance";
 import type { DirectoryPerson } from "@/lib/types";
 
 /**
@@ -28,6 +32,56 @@ export function rungLabel(goal: ApiGoal): string {
       : "Department objective";
   }
   return "Personal objective";
+}
+
+/**
+ * The status to draw beside an objective, or null when there is none to draw.
+ *
+ * `status` is a stored column that starts at ON_TRACK and is changed only when
+ * somebody changes it (marks it done, stops it, sets it). So an ON_TRACK that
+ * nobody chose says nothing, and drawing it said "On track" beside an
+ * objective nothing had been read for, and beside one that was declined (F14,
+ * F13). A status somebody set (at risk, off track, done) is always shown. An
+ * ON_TRACK is shown only once the objective is agreed and something has been
+ * read against it, which is the only time it can be a claim about progress.
+ */
+export function shownStatus(goal: ApiGoal): GoalStatus | null {
+  if (goal.status !== "ON_TRACK") return goal.status;
+  const read = readCount(goal.keyResults);
+  const nothingRead =
+    read?.read === 0 || (goal.keyResults.length === 0 && goal.progress === 0);
+  return nothingRead || goal.approval !== "AGREED" ? null : "ON_TRACK";
+}
+
+/**
+ * Does this objective take a reading, or "Mark done"?
+ *
+ * Not once it has been declined or refused (F13). A declined objective is one
+ * its approver would not agree to as written, the company's own sentence says
+ * an unagreed objective is not counted, and a reading typed against it turned
+ * "Declined" into "25% · On track · Mark done". Until it is agreed again the
+ * way to change it is Edit and resend. A draft and one waiting to be agreed
+ * still take readings: nobody has said no to them, and a person may want to
+ * record where they started.
+ *
+ * This is the screen's rule. The API still takes the write, so a client that
+ * does not ask this can still record one.
+ */
+export function takesReadings(goal: Pick<ApiGoal, "approval">): boolean {
+  return goal.approval !== "NEEDS_REVISION" && goal.approval !== "REJECTED";
+}
+
+/** Said under a declined or refused objective's targets, in place of a box. */
+export function noReadingsWords(
+  goal: Pick<ApiGoal, "approval">,
+): string | null {
+  if (goal.approval === "NEEDS_REVISION") {
+    return "It was declined, so it takes no readings until it is agreed. Edit and resend it to change it.";
+  }
+  if (goal.approval === "REJECTED") {
+    return "It was refused, so it takes no readings.";
+  }
+  return null;
 }
 
 export type GoalFacts = {

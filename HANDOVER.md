@@ -14174,6 +14174,141 @@ back to the first tab like any unknown tab. If the page has one tab, the strip i
 - The design rule worth keeping if it returns: every cell printed its average as text, with the tint only a second
   channel, and a cell with people below target carried an icon and a spoken count.
 
+# "Ask everyone to set theirs" goes quietly where the server cannot do it
+
+Found on 25 November 2026, walking the Performance module as a real user. The empty Objectives screen's **Ask everyone to set theirs**
+button called `POST /performance/cycles/:id/notify-objectives`, a route the backend did not have, so it showed "That did not send" with the
+address it had tried. The route is backend branch `fix/ask-objectives-route-20261125`. This is the web half, and it makes the screen safe either
+way round.
+
+- **A 404 or 410 takes the button away and says so once,** in a calm line ("Asking everyone is not available yet"), the way the period's Get-ready
+  list already did. It no longer shows the address. Any other refusal still shows the server's own sentence and keeps the button.
+- **The button is offered only with `MANAGE_SETTINGS`,** the permission the route needs and the one the period's own page uses, so nobody is handed a
+  refusal.
+- **The result line is the shared one** (`askedLine`): it now also says how many have no sign-in and so could not be asked in the app (`noAccount`, new
+  and optional on `ApiNotifyObjectives`), and tells "everyone was asked in the last day" from "nobody new was asked" by the time the server sends
+  (`askedAt` is present only when people were asked in the day). A server that sends neither reads as before.
+- The toast's detail is two lines at most; the first wording was cut off mid-sentence in a screenshot ("...and tell...") and is shorter.
+
+**Verified.** `tests/empty-objectives-guides.test.tsx` (rewritten, 7 tests) and `tests/notify-objectives.test.ts` (7): 14 pass. Seven deliberate breaks, each
+caught (the permission, the 404 handling, the button staying, a bare count, the server's sentence replaced, no-sign-in people, "everyone was asked" said
+when nobody was left); the first run of that driver passed a bad argument and reported seven false catches, which is why it now refuses a run that ran no
+tests. `tsc --noEmit` is clean and ESLint reports no errors on the files touched. In a browser, against a scratch API running the route (10 of 10 checks):
+the button for the administrator and not the employee, "Asked 9 people.", "Everyone was asked in the last day." on a second press, the button going with a
+calm line when the route is made to answer 404, and the line in the employee's notifications.
+
+**Not exercised:** a deployed server, iOS Safari or any real device, demo mode, the whole vitest suite in one run, `npm run check` in full (the gates that need
+a sibling backend were not run).
+
+# The Performance walkthrough of 25 November: 47 findings, seven clusters, one branch
+
+A tester walked the whole Performance module as a real user on 25 November 2026 and wrote 49 findings (F1 to F49, with
+screenshots, in the author's `out/performance-test-2026-11-25/FINDINGS.md`, which is not in the repository). Forty-seven are
+fixed here, in seven clusters on one branch per repository (`fix/performance-walkthrough-20261125`, web and backend), one
+commit per cluster. The two that are not in the clusters are F10 (a button that answered 404) and F43 (a score), below. The
+backend half goes first: every web change reads a missing field as "the server did not say" and falls back to what it said
+before.
+
+## What each cluster did
+
+1. **F42, one rating, one name.** A manager's overall rating is one appraiser's mark; the rating a person is told is the
+   period's score of record. Four surfaces still called the appraiser's mark "the rating". `GET /reviews/mine`'s `aboutMe` rows
+   now carry `outcome` (the same value `GET /reviews/:id` sends), and `ratingToRead` decides the one line a person reads for a
+   final review. With no score to quote the screens name no figure.
+2. **The weights (F2, F3, F4, F5, F6, F44), web only.** The wizard read the company's weights in a component that rendered
+   before they arrived, so it always started from the defaults, and the mocked-hook test could not see it because a mock answers
+   before the first render. The wrapper now reads them once and holds the last complete answer while a save reloads them. A
+   save is one `PUT /scoring-weights` of the whole set, which the server accepts or refuses whole (it used to add and change
+   parts one at a time, which could leave a company at 84%). Tasks done is disabled while Projects is off, with the reason on the
+   page. The "How a score is made" list is the parts the period's own weights counted.
+3. **Stale "weekly" wording (F18, F45).** The objectives upload no longer ends "weekly tasks can only be logged against an
+   agreed objective". "Your period, as recorded" draws a tasks section only when something was logged in the period.
+4. **Saved in the browser only (F30, F39).** The potential page showed `1`, `2`, `3` but the form's key handler did not know
+   it, so pressing 1 picked nothing and the send body was `{}`; it was never the API. "Your answers save as you go" was true only
+   of the questions: the overall rating, how far they could go and the closing note travel with the send and live in this
+   browser (`draft-storage.ts`). Each page now says which it is. `scripts/verify-demo.ts` allows two exact "Kept in this browser
+   only" sentences, which are true in production.
+5. **Objectives say what they know (F11 to F14, F16, F17, F35).** A declined objective shows who declined it and when and keeps
+   every decline. An unchosen "On track" is not drawn for an objective nothing has been read for or that is not agreed. An
+   objective being edited is not offered as its own parent. A first reading that is not a number is refused on the box.
+6. **A period says where it stands (F7, F8, F9, F19, F21 to F28; backend F24, F25, F31, F36, F40).** Administrators and HR see
+   "Your appraisal" (this reverses a code comment); the card shows the stage and not a percent; the reviews-to-write notice is
+   its own row and whoever starts the period is told; Leadership is not listed for people who lead nobody; a moved score carries
+   both figures; moving a stage asks first.
+7. **The checks and small honesty fixes (F31, F33, F34, F38, F40, F41, F49).** Progress counts answers; the language check
+   catches "and always late", "compared to <Name>" and "compared with his colleagues" and still passes "compared to January"
+   (its known cost: "He was in the meeting and never raised it" is flagged as an absolute); Ask colleagues does not offer the
+   person asking; `WizardShell` uses `useFocusTrap`, which touches every wizard that uses it (setup, objective, questions,
+   nine-box, preview).
+
+## Two things added on top, after the clusters
+
+- **F13, a declined or refused objective takes no reading (backend, with the web half from cluster 5).** The web stopped
+  offering the box and "Mark done"; the API still took the write. `assertTakesReadings` in
+  `modules/performance/service.ts` refuses `NEEDS_REVISION` and `REJECTED` on the five paths that write a reading or finish an
+  objective: recording progress, patching a current value, creating a measure that carries a first reading, confirming a
+  done-or-not-done measure and completing the objective. Editing a target, adding a measure with no reading and taking a
+  confirmation back stay open, because changing what is aimed at is what a declined objective is for. Drafts, objectives waiting
+  to be agreed and resent-and-agreed ones take readings as before. **The rule is narrower than Settings' wording**, which says
+  unapproved objectives "are not read": a person may well be underway before the agreement is made.
+- **F10, "Ask everyone to set theirs".** The web had called `POST /performance/cycles/:id/notify-objectives` since 24 November
+  and the backend had no such route, so the button answered 404 and the toast showed a raw address. The route now exists (one
+  in-app line, in the bell, for each person the period covers who has not put an objective forward; nobody is asked twice in a
+  day; `MANAGE_SETTINGS`; any stage but published), and the web goes quiet where a server cannot do it.
+
+## Decisions not to undo
+
+- **A mocked store hook answers before the first render, and the real one cannot.** A test of a screen that reads a store should
+  use the real hook over a mocked API where the bug is "reads before it arrives" (cluster 2 found one this way).
+- **Part of what the browser keeps is not on the server, and the screens say which part.** Making it follow a person to another
+  device is a decision (below); do not put a draft in `Review.rating` or `Review.summary`, which the backend reads in about eight
+  places.
+- **A score is computed live on every read.** Any change to scoring changes published periods the moment it is deployed.
+
+## Not done, and why (each needs a rule from the owner or is another surface)
+
+F15 (who may agree an objective is described, notified and enforced inconsistently), F20 (the person with no manager is
+"appraised by HR", which is nobody), F29 (a part that is weighted and can never be fed: employees are never asked for an overall
+rating), F37 (colleagues are asked for feedback on a form with no questions), F46 (nowhere on HR's record to record a formal
+dispute; inferred, not traced), F47 (a department head cannot set a department objective), F48 (the HR manager can change the
+company's scoring weights), F36's one-notification-per-rating, F25(b) (the staff message at start is on forms only), F11's
+"Ask everyone" menu item (it waits on F10's route being on the server), F30's server-side draft (a nullable `draft` JSON column
+on `Review`, a route to write it, returned to the author only and cleared on send), and the API's built-in name and description
+of the tasks part, which still say "Weekly tasks" in 98 places across 15 backend files. Changing only the default is unsafe:
+`ensureOwnParts` copies it into a converted company's stored rows. It needs a data-only migration, the label mapping accepting
+the old literal (running periods froze it), a per-source default and the refusal message changed with it; about eight backend
+test files pin the old text. The web's `TASKS_NAME` / `TASKS_WORDS` in `setup-choices.ts` is the stop-gap.
+
+## F43 is a separate pull request, and it is the owner's decision
+
+An agreed objective with no reading keeps a stored progress of 0, and the Delivery part averaged it in as 0%, so a manager
+who rated somebody Exceptional could see them published as "Below Expectations, 2.3". The fix leaves such an objective out of
+the part (the other parts take its share), the rule the product already follows for any part with nothing recorded.
+**Because scores are computed live, deploying it changes how every period already published reads**, including a rating
+somebody was told and acknowledged; the appraiser's own overall rating is stored and does not move. It is its own backend pull
+request for that reason, with the question in its description.
+
+## Verified, and what was not
+
+Per cluster: `tsc --noEmit`, ESLint and Prettier on both repositories; tests written for each change (each rule was broken on
+purpose and a test failed, in clusters 1 to 5 and for F13 and F10; **the deliberate-break run was not done for clusters 6 and
+7**); `npm run check` run with `APPROVEHR_BACKEND_DIR` at the backend branch so the four cross-repo gates compared and did not
+skip. In a real browser against a scratch API on a real Postgres and a production build, as the people concerned: F42, the
+weights (F2 to F6, F44), F45, F39 and F30 (desktop and 375px with touch, each ending in a real send) and F10. The pictures are
+in the author's scratchpad and are not in the repository.
+
+The walkthrough (`docs/walkthroughs/performance.md`) was updated for cluster 4 only (step 17); the wording changes of clusters 5
+and 6 are not in it yet.
+
+**Not exercised:** a browser pass over clusters 5 to 7 together, Safari or a real device, the QA site, demo mode in a browser, a
+company whose weights were saved before the parts existed, and the whole backend suite in one run (CI runs the cheaper
+`check`).
+
+Seen and not changed, not mine: `tests/questions-tab-dead-ends.test.tsx` and `tests/set-up-attendance.test.tsx` fail on plain
+`dev`; `GET /scoring-parts` writes (`ensureOwnParts`) and races, so two first reads at once give a 409; two same-named "Move to
+manager review" buttons on the period page; `signatures-screen` prints `due ${record.dueDate}` raw; `weekly-line.ts` and its test
+are dead code; the company report still has a "weekly tasks" finding.
+
 ---
 
 # Queries say "In ApproveHR", not "In the product"

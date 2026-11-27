@@ -1,4 +1,9 @@
-import { parseMeasure, type MeasureKind } from "@/lib/api/performance";
+import {
+  MEASURE_NUMBER_PROBLEM,
+  isPlainNumber,
+  parseMeasure,
+  type MeasureKind,
+} from "@/lib/api/performance";
 
 /**
  * What is wrong with a target as it is typed, field by field.
@@ -8,7 +13,9 @@ import { parseMeasure, type MeasureKind } from "@/lib/api/performance";
  * direction rule on save; this says it before anything is sent.
  *
  * Empty means nothing is wrong. The keys are the fields the sentence belongs
- * under: `label` and `target`.
+ * under: `label`, `start` and `target`. A start or a target that is not a plain
+ * number is refused here and not left to `parseMeasure`, which turns it into 0
+ * and then calls it "the same as the starting number" (F17).
  */
 export function measureProblems({
   kind,
@@ -22,8 +29,8 @@ export function measureProblems({
   start: string;
   target: string;
   countDown: boolean;
-}): { label?: string; target?: string } {
-  const found: { label?: string; target?: string } = {};
+}): { label?: string; start?: string; target?: string } {
+  const found: { label?: string; start?: string; target?: string } = {};
   if (label.trim().length < 2) {
     found.label =
       kind === "DONE"
@@ -36,6 +43,14 @@ export function measureProblems({
     found.target = "Set the number you are aiming at.";
     return found;
   }
+  if (start.trim() && !isPlainNumber(start)) {
+    found.start = `The starting number is not a number. ${MEASURE_NUMBER_PROBLEM}`;
+  }
+  if (!isPlainNumber(target)) {
+    found.target = MEASURE_NUMBER_PROBLEM;
+    return found;
+  }
+  if (found.start) return found;
   const from = parseMeasure(start.trim() || "0");
   const to = parseMeasure(target.trim());
   if (from === to) {

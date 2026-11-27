@@ -14,7 +14,9 @@ import {
   Textarea,
 } from "@/components/ui";
 import {
+  MEASURE_NUMBER_PROBLEM,
   currentQuarter,
+  isPlainNumber,
   type ApiGoal,
   type CreateKeyResultBody,
   type MeasureKind,
@@ -480,7 +482,13 @@ function AddMeasureForm({
       countDown,
     });
     if (problems.label) found["label"] = problems.label;
+    if (problems.start) found["start"] = problems.start;
     if (problems.target) found["target"] = problems.target;
+    /* A first reading is optional, but when there is one it has to be a number
+       the API will take: it is the one box here that was not checked at all. */
+    if (step !== "DONE" && current.trim() && !isPlainNumber(current)) {
+      found["current"] = MEASURE_NUMBER_PROBLEM;
+    }
 
     setErrors(found);
     if (Object.keys(found).length > 0) return;
@@ -589,7 +597,11 @@ function AddMeasureForm({
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Starting value" required>
+            <Field
+              label="Starting value"
+              required
+              {...(errors["start"] ? { error: errors["start"] } : {})}
+            >
               <Input
                 inputMode="decimal"
                 value={start}
@@ -609,6 +621,7 @@ function AddMeasureForm({
             </Field>
             <Field
               label="Current value"
+              {...(errors["current"] ? { error: errors["current"] } : {})}
               help="Leave blank if nothing has been measured yet. The target then counts as unread and stays out of the objective's progress until a reading is entered."
             >
               <Input

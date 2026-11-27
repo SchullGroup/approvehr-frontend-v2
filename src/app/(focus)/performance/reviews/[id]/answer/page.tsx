@@ -4,7 +4,7 @@ import { ReviewFocus } from "./review-focus";
 export const metadata: Metadata = {
   title: "Your review",
   description:
-    "One question at a time. Your answers are saved as you go, so you can close this and come back.",
+    "One question at a time. Your answers to the questions are saved as you go, so you can close this and come back.",
 };
 
 /**

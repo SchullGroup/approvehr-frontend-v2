@@ -54,6 +54,7 @@ import {
   type ReadyStep,
 } from "@/components/performance/next-step";
 import { fallbackCountLine } from "@/lib/performance/appraiser-fill";
+import { periodWeightsLine } from "@/lib/performance/score-wording";
 import {
   askedLine,
   lastAskedLine,
@@ -78,7 +79,6 @@ import {
   type ApiRevisionRequest,
   type ApiScoreRegister,
   type ApiScoreRow,
-  type ReviewCycleStage,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import {
@@ -100,12 +100,19 @@ import {
   nudgeMessage,
   nudgeTitle,
   peerLine,
+  TOLD_WHERE,
 } from "./nudge";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { publishLock } from "./fairness/fairness-status";
 import { flaggedCount } from "./fairness/people-to-review";
+import {
+  PeriodDatesCard,
+  PeriodMessageCard,
+  PeriodReminderCard,
+} from "./period-details";
 import { PeriodWeightsSection } from "./period-weights-section";
 import { RenamePeriodDialog } from "./rename-period";
+import { STAGE_AFTER, moveWordsFor } from "./stage-move";
 
 /**
  * Running one appraisal period.
@@ -159,30 +166,6 @@ import { RenamePeriodDialog } from "./rename-period";
  * "Scored nought" and "nothing was recorded" are different claims about a person,
  * and only one of them is ever true here.
  */
-/**
- * What the next stage is called on the button, and what follows what.
- *
- * `PUBLISHED` is deliberately absent as a destination: closing the period is
- * what publishes it, the API refuses `stage: PUBLISHED` outright, and the
- * "Publish the results" button beside this one is that act with its own
- * confirmation. So this only ever walks SELF → MANAGER → CALIBRATION.
- */
-const STAGE_AFTER: Partial<Record<ReviewCycleStage, ReviewCycleStage>> = {
-  SELF: "MANAGER",
-  MANAGER: "CALIBRATION",
-};
-
-const STAGE_NEXT_LABEL: Record<string, string> = {
-  MANAGER: "manager reviews",
-  CALIBRATION: "checking scores",
-};
-
-/** What the main button says for the move out of the current stage. */
-const NEXT_BUTTON: Record<string, string> = {
-  MANAGER: "Open manager reviews",
-  CALIBRATION: "Check scores",
-};
-
 type PeriodTabId = "overview" | "people" | "questions" | "marks" | "settings";
 
 /** A quiet icon button that goes somewhere. The name is the tooltip and the label. */
@@ -244,6 +227,7 @@ export function PeriodScreen({
     initialTab ?? null,
   );
   const [advancing, setAdvancing] = useState(false);
+  const [confirmingAdvance, setConfirmingAdvance] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noObjectives, setNoObjectives] = useState<number>(0);
@@ -277,6 +261,7 @@ export function PeriodScreen({
      published one is a record. `undefined` at calibration, which is the last
      stage before publishing. */
   const nextStage = running && period ? STAGE_AFTER[period.stage] : undefined;
+  const moveWords = running && period ? moveWordsFor(period.stage) : null;
   const lock = publishLock(review.flags, period?.stage ?? null);
 
   const failed = (error: unknown) => {
@@ -305,7 +290,7 @@ export function PeriodScreen({
       toast.push({
         title: `${period.name} started`,
         tone: "success",
-        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told in the app. No emails are sent from here.`,
+        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told ${TOLD_WHERE}.`,
       });
       /* A count, never the names: people without an objective are an
          invitation to add them, not a failure (owner, 24 Nov 2026). */
@@ -368,23 +353,21 @@ export function PeriodScreen({
   };
 
   const advance = async () => {
-    if (!period || !nextStage) return;
+    if (!period || !nextStage || !moveWords) return;
     setAdvancing(true);
     try {
       await periods.advance(cycleId, nextStage);
       toast.push({
-        title: `${period.name} moved to ${STAGE_NEXT_LABEL[nextStage]}`,
+        title: moveWords.done.title(period.name),
         tone: "success",
-        detail:
-          nextStage === "MANAGER"
-            ? "Managers write their reviews now. Self-reviews already in are kept."
-            : "Scores are in. Nothing more is asked of anyone until you publish.",
+        detail: moveWords.done.detail,
       });
       detail.reload();
     } catch (error) {
       failed(error);
     } finally {
       setAdvancing(false);
+      setConfirmingAdvance(false);
     }
   };
 
@@ -495,7 +478,11 @@ export function PeriodScreen({
             id: "weights",
             label: "How the score is made up",
             done: true,
-            detail: "The company's weights. Change them on the Settings tab.",
+            /* Whose weights, as the Settings tab says it: a period that set its own
+               used to be told "The company's weights" here (F6). */
+            detail: periodWeightsLine(period.weights?.basis)
+              ? `${periodWeightsLine(period.weights?.basis) ?? ""} Change them on the Settings tab.`
+              : "Change how the score is made up on the Settings tab.",
             action: {
               label: "Review",
               onClick: () => setPeriodTab("settings"),
@@ -546,14 +533,10 @@ export function PeriodScreen({
                 </Button>
               </>
             )}
-            {canManage && nextStage && (
-              <Button
-                size="sm"
-                loading={advancing}
-                onClick={() => void advance()}
-              >
+            {canManage && nextStage && moveWords && (
+              <Button size="sm" onClick={() => setConfirmingAdvance(true)}>
                 <ArrowRight aria-hidden="true" className="size-3.5" />
-                {NEXT_BUTTON[nextStage]}
+                {moveWords.button}
               </Button>
             )}
             {canManage && period?.stage === "CALIBRATION" && (
@@ -643,10 +626,10 @@ export function PeriodScreen({
           {canManage && running && period && (
             <WhatIsNext
               waiting={nudging ? nudging.names.length : 0}
-              nextLabel={nextStage ? NEXT_BUTTON[nextStage] : null}
+              nextLabel={moveWords ? moveWords.button : null}
               noObjectives={noObjectives}
               startedWith={startedWith}
-              onAdvance={() => void advance()}
+              onAdvance={() => setConfirmingAdvance(true)}
               advancing={advancing}
             />
           )}
@@ -921,6 +904,20 @@ export function PeriodScreen({
       {/* Moved here from the card's own description: the moment somebody is
           about to press it is when "the form is fixed after this" actually
           matters, not on page load before they have looked at anything. */}
+      {/* One-way, and it does less than its old buttons said: see `stage-move`. */}
+      {confirmingAdvance && period && moveWords && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirmingAdvance(false)}
+          onConfirm={() => void advance()}
+          loading={advancing}
+          title={moveWords.title}
+          confirmLabel={moveWords.confirm}
+          tone="primary"
+          body={moveWords.body}
+        />
+      )}
+
       {confirmingStart && period && (
         <ConfirmDialog
           open
@@ -1078,7 +1075,9 @@ export function QuestionsPanel({
             />
             <CardBody className="flex flex-col gap-3">
               <p className="text-meta text-muted">
-                Read by managers. Not part of the score.
+                Written answers. They are read, and never scored.
+                {rated.length > 0 &&
+                  " What is rated below does count towards the score."}
               </p>
               <ul className="flex flex-col gap-2">
                 {extra.map((q) => (
@@ -1231,6 +1230,10 @@ function PeriodSettings({
           <p className="text-body-sm text-ink">{period.name}</p>
         </CardBody>
       </Card>
+
+      <PeriodDatesCard period={period} onChanged={onChanged} />
+      <PeriodMessageCard period={period} onChanged={onChanged} />
+      <PeriodReminderCard period={period} onChanged={onChanged} />
 
       <PeriodWeightsSection period={period} onChanged={onChanged} />
 
