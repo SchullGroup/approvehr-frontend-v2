@@ -362,7 +362,7 @@ export function ScheduleEditor({
                   className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <Switch
-                    className="sm:w-48"
+                    className="sm:w-40"
                     label={long}
                     checked={day.on}
                     onChange={(event) => {
@@ -371,7 +371,7 @@ export function ScheduleEditor({
                     }}
                   />
                   {day.on && (
-                    <div className="flex flex-col gap-1 sm:w-64">
+                    <div className="flex flex-col gap-1 sm:w-80">
                       <FieldRow cols={2} phone="pair">
                         <Input
                           type="time"
