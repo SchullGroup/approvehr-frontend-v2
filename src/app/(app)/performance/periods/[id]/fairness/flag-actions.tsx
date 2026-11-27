@@ -10,6 +10,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
+import { exactPct } from "@/components/performance/record-check";
 import { RevisionDialog } from "@/components/performance/revision-dialog";
 import { ApiError } from "@/lib/api/client";
 import type { ApiReviewFlag, ReviewCycleStage } from "@/lib/api/performance";
@@ -90,6 +91,12 @@ export function FlagActions({
         <div className="text-body-sm text-body">
           <p>
             <span className="font-medium text-ink">Score changed</span>
+            {/* From what to what, only where the server sent both: half an answer
+                invents no figure. */}
+            {typeof resolution.originalBp === "number" &&
+            typeof resolution.calibratedBp === "number"
+              ? ` from ${exactPct(resolution.originalBp)} to ${exactPct(resolution.calibratedBp)}`
+              : ""}
             {resolution.by ? ` by ${resolution.by}` : ""} on{" "}
             {day(resolution.at)}.
           </p>
