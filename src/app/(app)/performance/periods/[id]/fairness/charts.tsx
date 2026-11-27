@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ScoreBand } from "@/lib/api/performance";
 import { pct, points } from "@/components/performance/record-check";
 
 export { pct, points };
@@ -156,80 +155,6 @@ export function RangeChart({
           })}
         </svg>
       )}
-    </div>
-  );
-}
-
-export const BANDS: { key: ScoreBand; label: string; fill: string }[] = [
-  { key: "BELOW", label: "Below", fill: "var(--color-cat-4)" },
-  {
-    key: "PARTIALLY_MEETS",
-    label: "Partially meets",
-    fill: "var(--color-warning)",
-  },
-  { key: "MEETS", label: "Meets", fill: "var(--color-line-strong)" },
-  { key: "EXCEEDS", label: "Exceeds", fill: "var(--color-info)" },
-  {
-    key: "OUTSTANDING",
-    label: "Outstanding",
-    fill: "var(--color-success-strong)",
-  },
-];
-
-export function BandBars({
-  rows,
-}: {
-  rows: { label: string; people: number; bands: Record<ScoreBand, number> }[];
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div
-        className="flex flex-wrap gap-x-4 gap-y-1 text-meta text-body"
-        aria-hidden="true"
-      >
-        {BANDS.map((band) => (
-          <span key={band.key} className="inline-flex items-center gap-1.5">
-            <i
-              className="size-2.5 rounded-xs"
-              style={{ background: band.fill }}
-            />
-            {band.label}
-          </span>
-        ))}
-      </div>
-      {rows.map((row) => {
-        const above = row.bands.EXCEEDS + row.bands.OUTSTANDING;
-        return (
-          <div
-            key={row.label}
-            className="grid grid-cols-[104px_1fr_48px] items-center gap-3 sm:grid-cols-[140px_1fr_48px]"
-          >
-            <span className="truncate text-meta text-ink">{row.label}</span>
-            <div
-              className="flex h-4 gap-0.5"
-              role="img"
-              aria-label={BANDS.map(
-                (b) => `${b.label} ${String(row.bands[b.key])}`,
-              ).join(", ")}
-            >
-              {BANDS.filter((b) => row.bands[b.key] > 0).map((band) => (
-                <div
-                  key={band.key}
-                  className="h-full rounded-xs"
-                  style={{
-                    width: `${String((row.bands[band.key] / row.people) * 100)}%`,
-                    background: band.fill,
-                  }}
-                  title={`${band.label}: ${String(row.bands[band.key])}`}
-                />
-              ))}
-            </div>
-            <span className="text-right text-meta text-muted tabular-nums">
-              {Math.round((above / row.people) * 100)}%
-            </span>
-          </div>
-        );
-      })}
     </div>
   );
 }

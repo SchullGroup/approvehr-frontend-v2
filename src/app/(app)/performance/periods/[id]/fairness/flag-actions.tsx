@@ -1,21 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Field, Modal, Textarea, useToast } from "@/components/ui";
+import {
+  Button,
+  Field,
+  Modal,
+  RowActions,
+  Textarea,
+  useToast,
+} from "@/components/ui";
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
+import { RevisionDialog } from "@/components/performance/revision-dialog";
 import { ApiError } from "@/lib/api/client";
 import type { ApiReviewFlag, ReviewCycleStage } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
-import { useCycleMutations, useFlagDecisions } from "@/lib/store/performance";
+import { useFlagDecisions } from "@/lib/store/performance";
 
+/** What a manager is sent back with, until the person writes their own. */
 const ASK_PROMPT =
   "Please add the work this score is based on, or reconsider it before calibration.";
 
 /**
- * What has been decided about one flagged mark, and the three ways to decide
- * it. Publishing waits until every flagged mark has an answer here.
+ * What has been decided about one flagged mark, and how to decide it: the score
+ * stands, or it changes. Sending the review back is the rarer third, so it sits
+ * in a menu. Publishing waits until every flagged mark has an answer here.
  */
 export function FlagActions({
   cycleId,
@@ -62,16 +72,6 @@ export function FlagActions({
 
   return (
     <section className="mt-10 border-t border-line pt-6">
-      <h3 className="mb-2 text-body-sm font-semibold text-ink">Decision</h3>
-
-      {resolution.state === "open" && (
-        <p className="text-body-sm text-body">
-          Not decided yet.
-          {published
-            ? ""
-            : " Publishing waits until every flagged score has a decision."}
-        </p>
-      )}
       {resolution.state === "stands" && (
         <div className="text-body-sm text-body">
           <p>
@@ -104,8 +104,7 @@ export function FlagActions({
             <span className="font-medium text-ink">
               Waiting on their manager
             </span>{" "}
-            since {day(resolution.since)}. {first} comes back here for a
-            decision once the review is sent again.
+            since {day(resolution.since)}.
           </p>
           <blockquote className="mt-2 border-l-2 border-line-strong pl-3 text-ink">
             {resolution.reason}
@@ -114,7 +113,7 @@ export function FlagActions({
       )}
 
       {!published && resolution.state === "open" && (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="accent"
             size="sm"
@@ -131,15 +130,16 @@ export function FlagActions({
               Change the score
             </Button>
           )}
-          {canAsk && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setDialog("ask")}
-            >
-              Ask the manager
-            </Button>
-          )}
+          <RowActions
+            label={`More for ${first}`}
+            items={[
+              {
+                label: "Send back",
+                available: canAsk,
+                onSelect: () => setDialog("ask"),
+              },
+            ]}
+          />
         </div>
       )}
       {!published && resolution.state === "stands" && (
@@ -173,13 +173,17 @@ export function FlagActions({
         existing={null}
         showEvidence={false}
       />
-      <AskManagerDialog
-        open={dialog === "ask"}
-        onClose={() => setDialog(null)}
-        onDone={onChanged}
-        cycleId={cycleId}
-        person={person}
-      />
+      {canAsk && (
+        <RevisionDialog
+          open={dialog === "ask"}
+          onClose={() => setDialog(null)}
+          onChanged={onChanged}
+          cycleId={cycleId}
+          employeeId={person.employeeId}
+          employeeName={person.name}
+          message={ASK_PROMPT}
+        />
+      )}
     </section>
   );
 }
@@ -231,7 +235,6 @@ function MarkStandsDialog({
       open={open}
       onClose={onClose}
       title={`Let ${person.firstName}'s score stand?`}
-      description="Recorded with your name and today's date. If the score changes later, this reopens."
       size="sm"
       footer={
         <div className="flex justify-end gap-2">
@@ -246,7 +249,6 @@ function MarkStandsDialog({
     >
       <Field
         label="Why it stands (optional)"
-        help="Kept with the decision, so it explains itself if anybody asks later."
         {...(failed ? { error: failed } : {})}
       >
         <Textarea
@@ -255,95 +257,6 @@ function MarkStandsDialog({
           disabled={busy}
           placeholder="The manager showed the client work behind the score at the calibration meeting."
           onChange={(event) => setNote(event.target.value)}
-        />
-      </Field>
-    </Modal>
-  );
-}
-
-function AskManagerDialog({
-  open,
-  onClose,
-  onDone,
-  cycleId,
-  person,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onDone: () => void;
-  cycleId: string;
-  person: ApiReviewFlag;
-}) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-  const [reason, setReason] = useState(ASK_PROMPT);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const manager = person.managerName ?? "their manager";
-
-  const send = async () => {
-    if (reason.trim().length < 10) {
-      setFailed(
-        "Say what you need in a sentence: this is what they will read.",
-      );
-      return;
-    }
-    setBusy(true);
-    setFailed(null);
-    try {
-      await periods.requestRevision(cycleId, {
-        employeeId: person.employeeId,
-        targetStage: "MANAGER",
-        reason: reason.trim(),
-      });
-      toast.push({
-        title: `Sent back to ${manager}`,
-        tone: "success",
-        detail: `${person.firstName} comes back to the queue once the review is sent again.`,
-      });
-      setReason(ASK_PROMPT);
-      onClose();
-      onDone();
-    } catch (caught) {
-      setFailed(
-        caught instanceof ApiError || caught instanceof Error
-          ? caught.message
-          : "Could not send that back.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={`Ask ${manager} to look again`}
-      description={`Reopens ${person.firstName}'s manager review with your message.`}
-      size="sm"
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="accent" loading={busy} onClick={() => void send()}>
-            Send it back
-          </Button>
-        </div>
-      }
-    >
-      <Field
-        label="Message"
-        required
-        help={`${manager} sees only this message. The fairness check, its summary and its patterns are never shared with them.`}
-        {...(failed ? { error: failed } : {})}
-      >
-        <Textarea
-          rows={4}
-          value={reason}
-          disabled={busy}
-          onChange={(event) => setReason(event.target.value)}
         />
       </Field>
     </Modal>
