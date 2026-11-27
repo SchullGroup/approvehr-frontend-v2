@@ -14399,3 +14399,104 @@ looked at the draft form on a running page since the words changed.
   two entries kept.
 - The conduct screen has the same habit in a code comment (`people/[id]/conduct.tsx`, "the product reached nobody"). It is not
   user-facing and not a Queries file, so it was left.
+
+---
+
+# Everybody has a Queries row, and the person a letter was issued to has a page
+
+Owner, 26 Nov 2026, testing on the QA site: the Owner could issue a query, but "the person that the query is issued to
+cannot see the query I issued. I can't even see where query is for the Employees view", and the same for a manager.
+
+## What was found, on a running stack and not from the code
+
+A scratch API (the backend's `staging` with the Performance fixes, a real Postgres) and a build of `dev`, signed in for
+real as the seeded Owner, the HR manager, a line manager and an employee, the company's `queries` switch on and one query
+issued to the employee.
+
+- **Nothing was broken in the data.** `GET /queries/mine` returned the letter to the employee, the notification "A letter
+  from HR is waiting for you" was sent and linked to the letter, the letter page rendered with its reply box, and the
+  profile showed the "Letters from HR" card.
+- **There was no way to find it.** The sidebar's Queries row was `anyPermission: ISSUE_QUERIES, DECIDE_QUERIES,
+  DRAFT_QUERIES`, so an employee, and any manager without the drafting permission, had no row in Core HR. The routes that
+  existed were the bell (a small dot, then the Notifications page, then **Open**) and the card on **My profile**, which is
+  reached from the user menu. The row had been left out on purpose ("a row labelled Queries would say what the letter is
+  before they have opened it"); the cost was a person who could not tell the feature existed.
+- **A manager cannot read a report's letter, and that is the design.** The API answers a line manager, a colleague and an
+  auditor with the answer a record that does not exist gets (404 on the letter, an empty `mine`). A manager is shown their
+  own letters, as anybody is. Letting a manager see that a report has an open query is a different decision (see below).
+
+## What changed
+
+- **`/people/queries` is one route for every reader, and its row is in Core HR for everybody** while the company's switch is
+  on. The people who work queries get the register (unchanged), a manager given `DRAFT_QUERIES` gets their own drafts
+  (unchanged), and **everybody else gets the letters addressed to them** (`my-letters.tsx`), where the page used to say "You
+  cannot open the queries register".
+- **A person who works queries, or drafts them, and is also sent a letter** sees it above the register or the drafts
+  (`MyLetters alongside`), and only when there is one: nothing for no letter, a failed read or a read still going.
+- **The lines are neutral and shared** (`LetterList` in `entries.tsx`): a reference, where it stands and the reply-by time,
+  never a subject line. The profile card uses the same list and now says where the rest are beyond five letters instead of
+  cutting them off.
+- **An empty list says so in words, but only once the read has answered.** See the next section for the flaw that nearly
+  shipped.
+- **Smaller:** the person's letter page goes back to **Queries**, not to My profile; the title row has the way back to the
+  directory only for people who can open it, and a line saying what the page is for everybody else; the sidebar Find box
+  finds the row by "letter" and "explain"; **Open it** is 44px high under a finger; and the header search no longer offers
+  **Query counts** to somebody who cannot open it (`PAGE_NEEDS` in `page-search.ts`).
+
+## A flaw found by thinking about the read, not by a test
+
+`useFetched` reports `loading: active && !matched`. The letters are not asked for until the company's settings have said
+queries are on, so for that moment the read is **inactive: not loading, no data, no error**. `LoadState` takes that for an
+answer, and the first version drew "Nothing has been sent to you" over it for everybody on first paint. A test with
+`loading: true` could not see it. `MyLetters` now treats "no data, no error, settings not failed" as still waiting, and a
+settings failure as the failure to show. Any screen whose read is switched on by something else can have the same hole:
+check what the hook returns while it is **inactive**, not only while it is loading.
+
+## Decisions not to undo
+
+1. **No permission on the row, because the page is the permission.** What a reader sees is decided by `QueriesScreen` from
+   what they hold, and the server answers every request on its own authority. Do not put `anyPermission` back.
+2. **The list never carries a subject line**, as the profile card never did. A letter about somebody's conduct is for the
+   letter.
+3. **A page that borrows its door's visibility can be wider than the page.** When a door is opened to more people, list the
+   pages behind it that are narrower in `PAGE_NEEDS`. The failure is a title in a search, never data.
+
+## Not done
+
+- **A manager seeing that a report has an open query** (not its subject). Not built: the server hides it, and the letter is
+  the person's. If the owner wants it, that is a backend decision first.
+- **A dashboard card, or a count on the sidebar row, for a letter waiting for a reply.** The bell, the Queries row and the
+  profile card are the three doors for now.
+- **`GET /setup/checklist` answers 403 to everybody without `MANAGE_SETTINGS`** and the web still asks for it on every page,
+  so every employee session logs one 403. Seen in this walk, not caused by it, and nothing on screen breaks.
+- **The QA site gets this only through the `dev` to `test` promotion.** Nothing here is pushed.
+
+## Verified
+
+- **`npm run check` exit 0**, read from the log's own last line, run with `APPROVEHR_BACKEND_DIR` at the backend worktree so
+  the cross-repo gates compared and did not skip. Typecheck clean; ESLint 0 errors and 42 warnings, none in a file this change
+  touches; Prettier clean after three of the new test files were formatted (the first whole run stopped there).
+- **Tests.** The new `tests/queries-my-letters.test.tsx` has 25, and six existing files changed with it (`queries-wiring`,
+  `queries-register-screen`, `queries-entries`, `queries-query-screen`, `query-manager-and-counts`,
+  `command-palette-pages`). A wide `vitest related` run covered 153 files: 148 passed and 5 failed (`applications-queue`,
+  `applications-queue-bulk`, `hired-list`, `questions-tab-dead-ends`, `set-up-attendance`). None of the five is a file this
+  change edits. The three recruitment ones time out under load, which HANDOVER already records for that family; the other
+  two were shown not to come from this change.
+- **Deliberate breaks: 17, all caught.** Each was one exact replacement in one source file, restored by copy and checked with
+  `cmp`. Fourteen were caught the first time. The two that were not (an empty state drawn before the settings answer, and a
+  settings failure read as "nothing sent") escaped because the test said `loading: true`, and the real hook reports neither
+  loading nor data while it is inactive. Those tests now use what the real hook returns, and both breaks, plus a third (a retry
+  button that could not work), are caught.
+- **In a browser, against a real API.** A scratch API on a real Postgres (the backend's `staging` with the Performance fixes)
+  and `next dev` of this branch, signed in for real as the seeded employee, a line manager and the HR manager, with the
+  company's `queries` switch on and a query issued to the employee. The employee has **Queries** in Core HR and sees the
+  letter: a reference, where it stands and the reply-by time, no subject line. The line manager has the same row and page and
+  reads "Nothing has been sent to you"; the report's letter is not on it. The HR manager still gets the register, with her own
+  letter above it when one is addressed to her. At 375px with touch there is no sideways scroll, and **Open it** is 44px high
+  under a finger (24px with a mouse).
+
+## Not exercised
+
+The QA site; iOS Safari or any real device; the Owner's own account (the register path was walked as the HR manager, who
+holds the same query permissions); a company with the `queries` switch off, in a browser (a test covers the redirect home); a
+manager who holds `DRAFT_QUERIES` and is also sent a letter, in a browser (a test covers it); demo mode (queries have none).

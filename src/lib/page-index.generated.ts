@@ -289,7 +289,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/people/queries",
     "title": "Queries",
-    "description": "Written queries to staff, their one written reply, and the outcome recorded on each."
+    "description": "Letters that ask for a written explanation, and what came of each: the register for the people who write them, your own letters for everybody else."
   },
   {
     "href": "/people/queries/counts",
