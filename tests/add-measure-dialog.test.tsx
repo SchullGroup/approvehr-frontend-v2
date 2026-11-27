@@ -3,14 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 /**
- * Add a measure, in two steps.
+ * Add a target, in two steps.
  *
  * `tsc` cannot see what these pin: that a number sends no `kind` (a server that
  * predates kinds has a strict body and refuses an unknown key), that a
- * done-or-not-done measure sends nothing but its kind and its words (the API
- * refuses a number, a unit or a direction on it by name), and that the dialog
- * opens clean every time instead of showing the last measure's fields against a
- * different objective.
+ * done-or-not-done target sends nothing but its kind and its words (the API
+ * refuses a number, a unit or a direction on it by name), that the direction is
+ * read from the two figures and never asked, and that the dialog opens clean
+ * every time instead of showing the last target's fields against a different
+ * objective.
  */
 
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
@@ -67,7 +68,10 @@ describe("the first step", () => {
     expect(kind(/A number to reach/)).toBeChecked();
     expect(kind(/Done or not done/)).not.toBeChecked();
     /* The fields come after the question, not beside it. */
-    expect(screen.queryByLabelText(/Target value/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^To/)).not.toBeInTheDocument();
+    /* Two cards with a name each, and no sentence under either. */
+    expect(screen.queryByText(/revenue of/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/A manager confirms/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add target" }),
     ).not.toBeInTheDocument();
@@ -77,8 +81,10 @@ describe("the first step", () => {
     const user = userEvent.setup();
     open();
     await next(user);
-    expect(screen.getByLabelText(/Target value/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Starting value/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^What/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^From/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^To/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Unit/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Back" }));
     expect(kind(/A number to reach/)).toBeChecked();
@@ -90,8 +96,8 @@ describe("a number to reach", () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
-    await user.type(screen.getByLabelText(/Target value/), "10");
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^To/), "10");
     await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
@@ -105,41 +111,92 @@ describe("a number to reach", () => {
     expect(body).not.toHaveProperty("kind");
   });
 
-  it("sends no current value when it is left blank, which is what leaves it unread", async () => {
+  it("never asks for a current value, so a new target is always unread until its first reading", async () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
-    await user.type(screen.getByLabelText(/Target value/), "10");
+    expect(screen.queryByLabelText(/Current value/)).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^To/), "10");
     await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(onAdd.mock.calls[0]?.[0]).not.toHaveProperty("currentValue");
   });
 
-  it("sends the current value when one is typed, which is a reading", async () => {
-    const user = userEvent.setup();
-    const { onAdd } = open();
-    await next(user);
-    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
-    await user.type(screen.getByLabelText(/Target value/), "10");
-    await user.type(screen.getByLabelText(/Current value/), "3");
-    await user.click(screen.getByRole("button", { name: "Add target" }));
-
-    expect(onAdd.mock.calls[0]?.[0]).toMatchObject({ currentValue: "3" });
-  });
-
-  it("says what a blank current value means before it is left blank", async () => {
+  it("has no help line and no tick box: three fields and a unit", async () => {
     const user = userEvent.setup();
     open();
     await next(user);
-    expect(screen.getByText(/counts as unread/)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByText(/should go down/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/counts as unread/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/whatever you say out loud/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /More about/ })).toBeNull();
+  });
+
+  it("sends the unit, and shows it on both figures", async () => {
+    const user = userEvent.setup();
+    const { onAdd } = open();
+    await next(user);
+    await user.type(screen.getByLabelText(/^What/), "Revenue");
+    await user.type(screen.getByLabelText(/^To/), "20");
+    await user.type(screen.getByLabelText(/^Unit/), "₦m");
+    expect(screen.getAllByText("₦m")).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Add target" }));
+
+    expect(onAdd.mock.calls[0]?.[0]).toMatchObject({ unit: "₦m" });
+  });
+
+  it("counts up when To is above From, and says nothing of direction", async () => {
+    const user = userEvent.setup();
+    const { onAdd } = open();
+    await next(user);
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^To/), "10");
+    await user.click(screen.getByRole("button", { name: "Add target" }));
+
+    expect(onAdd.mock.calls[0]?.[0]).not.toHaveProperty("lowerIsBetter");
+  });
+
+  it("counts down when To is below From, without being told", async () => {
+    const user = userEvent.setup();
+    const { onAdd } = open();
+    await next(user);
+    await user.type(screen.getByLabelText(/^What/), "Days to hire");
+    const from = screen.getByLabelText(/^From/);
+    await user.clear(from);
+    await user.type(from, "40");
+    await user.type(screen.getByLabelText(/^To/), "20");
+    await user.click(screen.getByRole("button", { name: "Add target" }));
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd.mock.calls[0]?.[0]).toEqual({
+      label: "Days to hire",
+      targetValue: "20",
+      startValue: "40",
+      lowerIsBetter: true,
+    });
+  });
+
+  it("refuses a To that is the same as From, since there is nothing to measure", async () => {
+    const user = userEvent.setup();
+    const { onAdd } = open();
+    await next(user);
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^To/), "0");
+    await user.click(screen.getByRole("button", { name: "Add target" }));
+
+    expect(
+      await screen.findByText(/same as the starting number/),
+    ).toBeInTheDocument();
+    expect(onAdd).not.toHaveBeenCalled();
   });
 
   it("refuses a target with no target value, and sends nothing", async () => {
     const user = userEvent.setup();
     const { onAdd } = open();
     await next(user);
-    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
     await user.click(screen.getByRole("button", { name: "Add target" }));
 
     expect(
@@ -161,8 +218,8 @@ describe("done or not done", () => {
     await choose(user);
 
     expect(screen.getByLabelText(/What does done mean/)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Target value/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Starting value/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^To/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^From/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Unit/)).not.toBeInTheDocument();
   });
 
@@ -196,16 +253,17 @@ describe("done or not done", () => {
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it("says who confirms it, and what it counts as until then", async () => {
+  it("is one field with no help under it", async () => {
     const user = userEvent.setup();
     open();
     await choose(user);
     expect(
-      screen.getByText(/A manager confirms it when it is done/),
-    ).toBeInTheDocument();
+      screen.queryByText(/A manager confirms it when it is done/),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/until then it counts as not done/),
-    ).toBeInTheDocument();
+      screen.queryByText(/until then it counts as not done/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /More about/ })).toBeNull();
   });
 });
 
@@ -218,15 +276,15 @@ describe("opening it again", () => {
     const { rerender } = render(<AddMeasureDialog {...props} open />);
 
     await next(user);
-    await user.type(screen.getByLabelText(/^Name/), "Offers accepted");
-    await user.type(screen.getByLabelText(/Target value/), "10");
+    await user.type(screen.getByLabelText(/^What/), "Offers accepted");
+    await user.type(screen.getByLabelText(/^To/), "10");
 
     rerender(<AddMeasureDialog {...props} open={false} />);
     rerender(<AddMeasureDialog {...props} goalTitle="Another one" open />);
 
     expect(kind(/A number to reach/)).toBeChecked();
     await next(user);
-    expect(screen.getByLabelText(/^Name/)).toHaveValue("");
-    expect(screen.getByLabelText(/Target value/)).toHaveValue("");
+    expect(screen.getByLabelText(/^What/)).toHaveValue("");
+    expect(screen.getByLabelText(/^To/)).toHaveValue("");
   });
 });

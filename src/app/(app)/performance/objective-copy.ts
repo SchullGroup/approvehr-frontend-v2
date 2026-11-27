@@ -1,7 +1,6 @@
 import {
   formatMeasure,
   isDoneMeasure,
-  isUnread,
   quarterLabel,
   type ApiGoal,
   type ApiKeyResult,
@@ -54,7 +53,6 @@ export type GoalFacts = Pick<
   | "reviewCycleName"
   | "dueQuarter"
   | "approval"
-  | "parentTitle"
 > & { keyResults: readonly unknown[] };
 
 /** The period an objective is scored in, or null when it has none to name. */
@@ -128,44 +126,7 @@ export function namesPhrase(names: readonly string[]): string {
   return `${names.slice(0, 2).join(", ")} and ${String(rest)} others`;
 }
 
-const DRAFT_NOTE = "It is a draft until it is sent to be agreed.";
-
 /* ------------------------------------------------------------------ toasts */
-
-/**
- * An objective was made. Its detail opens next, which is where KPIs go under
- * it, so the toast names it and says what state it is in.
- */
-export function objectiveCreatedSaid(
-  goal: GoalFacts,
-  viewerId?: string | null,
-): Said {
-  const period = periodOf(goal);
-  const lead =
-    `${possessive(goal, viewerId)} objective` +
-    (period ? ` for ${period}.` : ".");
-  return {
-    title: `"${goal.title}" created`,
-    detail:
-      goal.approval === "DRAFT"
-        ? `${lead} It is a draft, so add objectives under it and send it to be agreed.`
-        : lead,
-  };
-}
-
-/** A KPI was added under an objective, or on its own. */
-export function kpiAddedSaid(goal: GoalFacts, viewerId?: string | null): Said {
-  const period = periodOf(goal);
-  const lead =
-    `${possessive(goal, viewerId)} objective` +
-    (goal.parentTitle ? ` under "${goal.parentTitle}"` : "") +
-    (period ? `, for ${period}` : "") +
-    ".";
-  return {
-    title: `"${goal.title}" added`,
-    detail: goal.approval === "DRAFT" ? `${lead} ${DRAFT_NOTE}` : lead,
-  };
-}
 
 /**
  * One KPI given to several people.
@@ -217,23 +178,15 @@ export function kpisAssignedSaid({
  * done-or-not-done measure, which has none: the server stores a 0 and a 1 for it
  * and "0 to 1" would read as a target somebody chose.
  *
- * What it counts for until somebody acts is said, because the person who just
- * added it is about to look at the objective's progress and wonder why it did
- * not move: a done-or-not-done measure counts as not done until it is
- * confirmed, and a number added with no reading is left out until it has one.
- * Both come from what the server sent, and a server that sends neither field
- * (an older one) gets the figures alone.
+ * Nothing is said about what it counts for until somebody acts: that a number
+ * with no reading is left out of progress, or that a done-or-not-done measure
+ * counts as not done, is a rule and not a fact about what just happened. The
+ * row it lands on says "Not recorded" once, and that is enough.
  */
 export function measureAddedSaid(
   measure: Pick<
     ApiKeyResult,
-    | "label"
-    | "unit"
-    | "startValue"
-    | "targetValue"
-    | "lowerIsBetter"
-    | "kind"
-    | "lastReadAt"
+    "label" | "unit" | "startValue" | "targetValue" | "lowerIsBetter" | "kind"
   >,
   goalTitle?: string | null,
 ): Said {
@@ -241,66 +194,15 @@ export function measureAddedSaid(
     ? `"${measure.label}" added to "${goalTitle}"`
     : `"${measure.label}" added`;
 
-  if (isDoneMeasure(measure)) {
-    return {
-      title,
-      detail: "Done or not done. It counts as not done until it is confirmed.",
-    };
-  }
-
-  const figures =
-    `${formatMeasure(measure.startValue, measure.unit)} to ` +
-    `${formatMeasure(measure.targetValue, measure.unit)}` +
-    `${measure.lowerIsBetter ? ", counting down" : ""}.`;
+  if (isDoneMeasure(measure)) return { title };
 
   return {
     title,
-    detail: isUnread(measure)
-      ? `${figures} No reading yet, so it is left out of progress until there is one.`
-      : figures,
+    detail:
+      `${formatMeasure(measure.startValue, measure.unit)} to ` +
+      `${formatMeasure(measure.targetValue, measure.unit)}` +
+      `${measure.lowerIsBetter ? ", counting down" : ""}.`,
   };
-}
-
-/**
- * What is said under an objective's progress when some of its measures have
- * never been read, from `readCount` (which is null, and so says nothing, when
- * every one has been, or when the server does not say).
- *
- * The consequence is the point and not the count. With none read, the bar above
- * is the 0 the objective was made with and not a result; with some read, it is
- * the average of those alone. Either way somebody looking at a figure has to be
- * told what it is a figure of, which a bare "1 of 3" does not do.
- */
-export function readCountLine(reads: { read: number; of: number }): string {
-  if (reads.read === 0) {
-    return reads.of === 1
-      ? "Its target has not been read. Nothing is counted yet, so the figure above is not a result."
-      : `0 of ${String(reads.of)} targets read. Nothing is counted yet, so the figure above is not a result.`;
-  }
-  return `${String(reads.read)} of ${String(reads.of)} targets read. The others are left out of the figure above until somebody enters a reading.`;
-}
-
-/**
- * What sits under the Average progress figure on the KPIs screen.
- *
- * `counted` is how many objectives the average was taken over, `tracked` how many
- * there are. An objective with nothing read has no figure to average, so it is
- * left out, and the caption has to say how many of them that is: "across 6 KPIs"
- * under a mean of five is a claim about a denominator that was not used. Null
- * when nothing is tracked, where the figure is a dash and there is nothing to add.
- */
-export function averageProgressHint(
-  counted: number,
-  tracked: number,
-): string | null {
-  if (tracked === 0) return null;
-  if (counted === 0) return "nothing read yet";
-  if (counted === tracked) {
-    return tracked === 1
-      ? "across 1 objective"
-      : `across ${String(tracked)} objectives`;
-  }
-  return `across ${String(counted)} of ${String(tracked)} objectives, the rest not read yet`;
 }
 
 /**
@@ -312,22 +214,6 @@ export function readCountShort(reads: { read: number; of: number }): string {
   return reads.read === 0
     ? "No reading yet"
     : `${String(reads.read)} of ${String(reads.of)} read`;
-}
-
-/**
- * The label on an objective's progress bar, which has to say what the figure is
- * made of. "From 3 measures" is true only while all three have been read.
- */
-export function progressLabel(
-  measures: number,
-  reads: { read: number; of: number } | null,
-): string {
-  if (measures === 0) return "Progress, entered by hand";
-  if (reads?.read === 0) return "Progress, nothing read yet";
-  if (reads) return "Progress, from the targets read so far";
-  return measures === 1
-    ? "Progress, from 1 target"
-    : `Progress, from ${String(measures)} targets`;
 }
 
 /**
@@ -403,15 +289,6 @@ export function sentBackSaid(
   };
 }
 
-/** An objective was refused, which is terminal. */
-export function refusedSaid(goal: Pick<GoalFacts, "title">): Said {
-  return {
-    title: `"${goal.title}" refused`,
-    detail:
-      "Your reason is on the record. A refused objective cannot be sent again.",
-  };
-}
-
 /* ----------------------------------------------------------------- moments */
 
 /**
@@ -459,11 +336,10 @@ export function sentToAgreeCopy({
   if (sentTo) {
     details.push(
       sentTo.length === 1
-        ? "Sent to 1 person who can agree it."
-        : `Sent to ${String(sentTo.length)} people who can agree it.`,
+        ? "Sent to 1 person."
+        : `Sent to ${String(sentTo.length)} people.`,
     );
   }
-  details.push("Once it is agreed it is fixed. Progress still moves.");
 
   return {
     kind: "moment",
@@ -486,9 +362,6 @@ export function agreedCopy(goal: GoalFacts): MomentCopy {
   return {
     title: `"${goal.title}" is agreed`,
     lead: describeObjective(goal),
-    details: [
-      "It is fixed. Progress still moves.",
-      "Changing it now takes a revision, which is recorded.",
-    ],
+    details: ["It is fixed. Progress still moves."],
   };
 }
