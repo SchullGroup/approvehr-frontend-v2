@@ -80,9 +80,10 @@ function Harness({
   );
 }
 
+/* The label alone: the row's paragraph also holds the info icon beside it. */
 const rowLabels = () =>
   Array.from(document.querySelectorAll("[data-weight-row]")).map(
-    (row) => row.querySelector("p")?.textContent ?? "",
+    (row) => row.querySelector("p")?.firstChild?.textContent ?? "",
   );
 
 describe("the text a period's weights are typed as", () => {

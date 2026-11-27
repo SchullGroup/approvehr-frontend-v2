@@ -172,9 +172,11 @@ describe("the new-period wizard", () => {
     expect(draftIt).toBeEnabled();
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "150");
+    /* The row says so by being marked, not by a sentence under it. */
+    expect(screen.getByLabelText("Weekly tasks")).toBeInvalid();
     expect(
-      screen.getByText("Each weight is a whole number from 0 to 100."),
-    ).toBeInTheDocument();
+      screen.queryByText("Each weight is a whole number from 0 to 100."),
+    ).toBeNull();
     expect(draftIt).toBeDisabled();
   });
 
@@ -271,19 +273,25 @@ describe("a period's own settings", () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it("keeps Save off for a total other than 100 and for a bad row", async () => {
+  it("shows Save only once something changed and the set is valid", async () => {
     const user = userEvent.setup();
     render(<PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />);
+    /* Nothing changed: nothing to save, and no button that waits. */
+    expect(
+      screen.queryByRole("button", { name: "Save the weights" }),
+    ).toBeNull();
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "5");
+    /* Not a total of 100: the donut says what is left, and Save is not there. */
     expect(
-      screen.getByRole("button", { name: "Save the weights" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Save the weights" }),
+    ).toBeNull();
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "2.5");
     expect(
-      screen.getByRole("button", { name: "Save the weights" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Save the weights" }),
+    ).toBeNull();
+    expect(screen.queryByText(/whole number/i)).toBeNull();
   });
 
   it("'Use my company's weights' sends weights: null", async () => {
@@ -315,17 +323,18 @@ describe("a period's own settings", () => {
       expect(screen.getByLabelText("Weekly tasks")).toHaveValue(0),
     );
     expect(
-      screen.getByRole("button", { name: "Save the weights" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Save the weights" }),
+    ).toBeNull();
   });
 
-  it("says which set a draft is using", () => {
+  it("does not say which set a draft is using: the reset button is there only when it differs", () => {
     const { unmount } = render(
       <PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />,
     );
+    expect(screen.queryByText("Same as your company's weights.")).toBeNull();
     expect(
-      screen.getByText("Same as your company's weights."),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Use my company's weights" }),
+    ).toBeNull();
     unmount();
     render(
       <PeriodWeightsSection
@@ -333,7 +342,7 @@ describe("a period's own settings", () => {
         onChanged={vi.fn()}
       />,
     );
-    expect(screen.getByText("Set for this period.")).toBeInTheDocument();
+    expect(screen.queryByText("Set for this period.")).toBeNull();
   });
 
   it("shows the server's 409 message if one comes back", async () => {

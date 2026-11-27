@@ -457,9 +457,10 @@ describe("a period's own weights", () => {
     expect(screen.queryByText(/off somewhere/)).toBeNull();
   });
 
-  it("states a fixed set that is over 100% without advice nobody can follow", () => {
+  it("shows a started period's weights as rows only, with no donut and no advice", () => {
     render(<Harness readOnly start={{ ...START, OBJECTIVES: "50" }} />);
-    expect(screen.getByText("Adds up to 110%")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.queryByTestId("pie-total")).toBeNull();
     expect(screen.queryByText(/off somewhere/)).toBeNull();
   });
 });
