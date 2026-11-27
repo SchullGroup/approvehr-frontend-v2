@@ -175,11 +175,11 @@ const openDialog = () =>
 const dialog = () => screen.getByRole("dialog", { name: "Record a level" });
 const inDialog = () => within(dialog());
 const pickPerson = () =>
-  userEvent.selectOptions(inDialog().getByLabelText(/Employee/), "e-chidi");
+  userEvent.selectOptions(inDialog().getByLabelText(/Person/), "e-chidi");
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(inDialog().getByLabelText(/Which competency/), name);
+  userEvent.selectOptions(inDialog().getByLabelText(/Competency/), name);
 const save = () =>
-  userEvent.click(inDialog().getByRole("button", { name: "Save it" }));
+  userEvent.click(inDialog().getByRole("button", { name: "Save" }));
 
 beforeEach(() => {
   mineRows = [];

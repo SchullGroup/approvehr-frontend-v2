@@ -8,7 +8,6 @@ import type {
   RateBody,
 } from "@/lib/api/performance";
 import { RecordLevelDialog } from "@/app/(app)/performance/rating-dialog";
-import { WRITTEN_NEVER_COUNTS } from "@/lib/performance/answer-kind";
 
 /**
  * Recording a written answer on a subsection, under Record a level.
@@ -146,9 +145,9 @@ const mount = () => {
 };
 
 const pickPerson = (id = "e-chidi") =>
-  userEvent.selectOptions(screen.getByLabelText(/Employee/), id);
+  userEvent.selectOptions(screen.getByLabelText(/Person/), id);
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(screen.getByLabelText(/Which competency/), name);
+  userEvent.selectOptions(screen.getByLabelText(/Competency/), name);
 const words = () => screen.getByLabelText(/Answer/) as HTMLTextAreaElement;
 const write = (text: string) => userEvent.type(words(), text);
 /** Pasted, because typing four thousand characters one key at a time is not a test. */
@@ -157,7 +156,7 @@ const paste = async (text: string) => {
   await userEvent.paste(text);
 };
 const save = () =>
-  userEvent.click(screen.getByRole("button", { name: "Save it" }));
+  userEvent.click(screen.getByRole("button", { name: "Save" }));
 const sent = (onSave: ReturnType<typeof mount>["onSave"]) => ({
   skill: onSave.mock.calls[0]?.[0],
   body: onSave.mock.calls[0]?.[1],
@@ -174,8 +173,8 @@ describe("a subsection answered in the person's own words", () => {
     await pickSkill("Communication");
 
     expect(words().tagName).toBe("TEXTAREA");
-    expect(screen.queryByLabelText(/Current level/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Target level/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Level/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Target/)).not.toBeInTheDocument();
   });
 
   it("does not offer the choices it was once given, however many the API still lists", async () => {
@@ -189,20 +188,10 @@ describe("a subsection answered in the person's own words", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("says once, in the one sentence every screen uses, that it is read by people and never counts", async () => {
+  it("does not say that it never counts: the rule is not repeated in the form", async () => {
     mount();
     await pickSkill("Communication");
-    expect(screen.getAllByText(WRITTEN_NEVER_COUNTS)).toHaveLength(1);
-  });
-
-  it("says it on the page, not behind an icon, and not for a kind it is not true of", async () => {
-    mount();
-    await pickSkill("Punctuality");
-    expect(screen.queryByText(WRITTEN_NEVER_COUNTS)).not.toBeInTheDocument();
-    await pickSkill("Follows safety procedures");
-    expect(screen.queryByText(WRITTEN_NEVER_COUNTS)).not.toBeInTheDocument();
-    await pickSkill("Communication");
-    expect(screen.getByText(WRITTEN_NEVER_COUNTS)).toBeVisible();
+    expect(screen.queryByText(/never counts/)).not.toBeInTheDocument();
   });
 
   it("sends the words, trimmed, in `textValue` and in none of the other three", async () => {
@@ -244,8 +233,9 @@ describe("a subsection answered in the person's own words", () => {
     await pickPerson();
     await pickSkill("Communication");
     await write("Clear and early.");
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
     await userEvent.type(
-      screen.getByLabelText(/Anything to add/),
+      screen.getByLabelText(/Note/),
       "Said so in the standup",
     );
     await save();
@@ -501,20 +491,17 @@ describe("the words already on record", () => {
   });
 });
 
-describe("the appraisal period", () => {
+describe("the period", () => {
   beforeEach(() => {
     cycles = [{ id: "p-1", name: "H2 2026 Appraisal", stage: "SELF" }];
   });
 
-  it("is carried with the words", async () => {
+  it("is carried with the words, without being asked for", async () => {
     const { onSave } = mount();
     await pickPerson();
     await pickSkill("Communication");
     await write("Clear and early.");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "p-1",
-    );
+    expect(screen.queryByLabelText(/Period/)).not.toBeInTheDocument();
     await save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
@@ -525,61 +512,16 @@ describe("the appraisal period", () => {
     });
   });
 
-  it("says, with none chosen, that it is a snapshot, and promises nothing about a score", async () => {
+  it("says nothing about snapshots, filing or counting, behind More", async () => {
     mount();
     await pickSkill("Communication");
-    /* It starts in the running period (U93), so choose none. */
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "",
-    );
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByLabelText(/Period/)).toHaveValue("p-1");
     expect(
-      screen.getByText("A snapshot of where they are now."),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/This will not affect any appraisal score/),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText(/Counts towards/)).not.toBeInTheDocument();
-  });
-
-  it("says, with one chosen, that it is filed there and replaces the last, and never that it counts", async () => {
-    mount();
-    await pickSkill("Communication");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "p-1",
-    );
-    expect(
-      screen.getByText(
-        "Filed under that period. Each person has one answer per period, so writing it again replaces this one.",
+      screen.queryByText(
+        /snapshot|Filed under|Counts towards|never counts|not affect any/,
       ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Counts towards this person's score/),
     ).not.toBeInTheDocument();
-  });
-
-  it("keeps saying it counts for a level, which does", async () => {
-    mount();
-    await pickSkill("Punctuality");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "p-1",
-    );
-    expect(
-      screen.getByText(/Counts towards this person's score for that period/),
-    ).toBeInTheDocument();
-  });
-
-  it("says the whole of it only once: the sentence under the box is the one place a written answer is said not to count", async () => {
-    mount();
-    await pickSkill("Communication");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "p-1",
-    );
-    const sayings = screen.queryAllByText(/never counts|not affect any/);
-    expect(sayings).toHaveLength(1);
   });
 });
 
