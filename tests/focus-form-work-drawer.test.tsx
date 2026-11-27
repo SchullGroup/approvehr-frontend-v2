@@ -29,6 +29,7 @@ const save = vi.fn(async () => undefined);
 const send = vi.fn(async () => undefined);
 const push = vi.fn();
 const hook = vi.hoisted(() => ({ read: null as unknown }));
+const gate = vi.hoisted(() => ({ enabled: true }));
 const flagsApi = vi.hoisted(() => ({
   read: vi.fn(),
   flag: vi.fn(),
@@ -71,18 +72,14 @@ vi.mock("@/lib/store/completions", () => ({
   useWorkThisCycle: () => hook.read,
 }));
 vi.mock("@/lib/store/project-session", () => ({
-  useProjectsGate: () => ({ enabled: true, loading: false }),
+  useProjectsGate: () => ({ enabled: gate.enabled, loading: false }),
 }));
 vi.mock("@/lib/api/work-flags", async (original) => ({
   ...(await original<typeof import("@/lib/api/work-flags")>()),
   workFlagsApi: flagsApi,
 }));
-/* Draws what the form says to show when there is nothing on file, as the real
-   card does, so the wording of that is the form's and is tested here. */
 vi.mock("@/app/(app)/performance/self-evidence", () => ({
-  SelfEvidence: ({ whenNothing }: { whenNothing?: React.ReactNode }) => (
-    <>{whenNothing ?? null}</>
-  ),
+  SelfEvidence: () => null,
 }));
 
 import { FocusForm } from "@/app/(focus)/performance/reviews/[id]/answer/focus-form";
@@ -145,6 +142,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   clearSharedResources();
   window.localStorage.clear();
+  gate.enabled = true;
   flagsApi.read.mockResolvedValue({ on: true, flags: [] });
   flagsApi.flag.mockResolvedValue(null);
   hook.read = {
@@ -256,13 +254,31 @@ describe("the drawer on its own", () => {
 });
 
 describe("the drawer when there is nothing on file", () => {
-  it("says what is missing, which is objectives: there is no log to add to any more", async () => {
-    const drawer = await openDrawer();
-    expect(
-      within(drawer).getByText(
-        "No objectives of your own are on file for this period.",
-      ),
-    ).toBeInTheDocument();
+  /* The line is always in the markup and is shown by CSS (`only:block`) when it is
+     the only thing in the drawer. A company without Projects has no finished work
+     to list, and (with the objectives drawing nothing too) the drawer is then that
+     one line and nothing else. */
+  const line = (drawer: HTMLElement) =>
+    within(drawer).getByText("Not recorded");
+
+  it("says Not recorded, alone, and nothing about a log", async () => {
+    gate.enabled = false;
+    render(
+      <FocusForm review={review()} onSent={vi.fn()} onSending={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Start" }));
+    await userEvent.click(screen.getByRole("button", { name: "Your work" }));
+    const drawer = await screen.findByRole("dialog", { name: "Your work" });
+    expect(line(drawer)).toHaveClass("hidden", "only:block");
+    expect(line(drawer).parentElement?.children).toHaveLength(1);
     expect(within(drawer).queryByText(/logged/i)).toBeNull();
+  });
+
+  it("is not the only thing in the drawer when there is finished work to show", async () => {
+    const drawer = await openDrawer();
+    const own = within(drawer)
+      .getAllByText("Not recorded")
+      .find((one) => one.classList.contains("only:block"));
+    expect(own?.parentElement?.children.length).toBeGreaterThan(1);
   });
 });
