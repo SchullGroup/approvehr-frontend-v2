@@ -65,6 +65,9 @@ export function QuestionsPanel({
   onChanged?: () => void;
 }) {
   const { questions, loading, error, reload } = useCycleQuestions(cycleId);
+  /* The demo framework is fixed, so a draft there reads its competencies as
+     words, like a period that has started. */
+  const { editable: connected } = useFrameworkActions();
   const own = questions.filter((q) => !q.answersSubsection);
   const asked = questions.filter((q) => q.answersSubsection);
   const wizard = `/performance/periods/${cycleId}/questions`;
@@ -129,7 +132,7 @@ export function QuestionsPanel({
           )
         )}
 
-        {editable && draft ? (
+        {editable && draft && connected === true ? (
           <CompetencyChoices
             cycleId={cycleId}
             questions={asked}
@@ -186,8 +189,8 @@ const CHOICE_ORDER: AskedChoice[] = ["none", "employee", "manager", "both"];
 /**
  * Which competencies this draft asks, and of whom.
  *
- * Only for somebody who can change the framework and the period, connected to
- * the API (the demo framework is fixed). Rows read from the period's own
+ * Only for somebody who can change the period, connected to the API (the caller
+ * checks: the demo framework is fixed). Rows read from the period's own
  * questions, so a control never says Off about a form nobody has read: until the
  * questions are in, no rows are drawn.
  */
@@ -201,8 +204,7 @@ function CompetencyChoices({
   onChanged: () => void;
 }) {
   const { groups, loading } = useFramework();
-  const { editable: connected } = useFrameworkActions();
-  if (connected !== true || loading) return null;
+  if (loading) return null;
 
   const askedOf = new Map(
     questions.flatMap((q) =>

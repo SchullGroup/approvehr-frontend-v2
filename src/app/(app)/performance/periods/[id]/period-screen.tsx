@@ -292,6 +292,11 @@ export function PeriodScreen({
      stage before publishing. */
   const nextStage = running && period ? STAGE_AFTER[period.stage] : undefined;
   const lock = publishLock(review.flags, period?.stage ?? null);
+  /* Whether the fairness check has been read, for somebody who may read it: until
+     it has, whether anything is waiting for a decision is not known, and Publish
+     would be offered and then refused. */
+  const fairnessKnown =
+    !canSeeFairness || !review.loading || review.flags !== null;
   const undecided = undecidedScores(review.flags, period?.stage ?? null);
 
   const failed = (error: unknown) => {
@@ -529,7 +534,7 @@ export function PeriodScreen({
             onClick: () => void advance(),
             loading: advancing,
           }
-        : period.stage === "CALIBRATION" && lock === null
+        : period.stage === "CALIBRATION" && lock === null && fairnessKnown
           ? { label: "Publish", onClick: () => setPublishing(true) }
           : null
       : null;

@@ -175,10 +175,15 @@ describe("the Questions tab of a draft", () => {
     ).toBeNull();
   });
 
-  it("has no competency controls without the API", () => {
+  it("reads the competencies as words without the API, rather than losing them", () => {
     state.connected = false;
     draw();
     expect(screen.queryByRole("combobox")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Competencies" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Integrity")).toBeInTheDocument();
+    expect(screen.getByText("Person and manager")).toBeInTheDocument();
   });
 });
 
