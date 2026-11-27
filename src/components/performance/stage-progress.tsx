@@ -65,7 +65,7 @@ export function StageProgress({
   const word = STAGE_WORDS[current] ?? STAGE_WORDS[0];
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div className={cn("@container flex flex-col gap-3", className)}>
       <div className="flex items-baseline justify-between">
         <span className="text-body-sm text-muted">Progress</span>
         {started && (
@@ -105,8 +105,10 @@ export function StageProgress({
           ))}
         </div>
 
-        {/* The word under each section. On a phone only the current one fits, so
-            only it is shown there. */}
+        {/* The word under each section. Where the bar is narrow (a phone, a small
+            card) only the current one fits, so only it is shown; the others come
+            in once the bar is wide enough to hold them. Measured on the bar's own
+            width, not the screen's. */}
         <ol className="grid grid-cols-4 gap-1.5" aria-hidden="true">
           {STAGE_WORDS.map((name, index) => (
             <li
@@ -119,7 +121,7 @@ export function StageProgress({
                 index === current
                   ? "block font-semibold text-ink"
                   : cn(
-                      "hidden sm:block",
+                      "hidden @sm:block",
                       index < reached ? "text-body" : "text-faint",
                     ),
               )}
