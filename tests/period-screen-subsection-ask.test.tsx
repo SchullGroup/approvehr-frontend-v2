@@ -97,10 +97,10 @@ vi.mock(
   }),
 );
 vi.mock(
-  "@/app/(app)/performance/periods/[id]/fairness/fairness-status",
+  "@/app/(app)/performance/periods/[id]/fairness/publish-lock",
   () => ({
-    FairnessStatus: () => null,
     publishLock: () => null,
+    undecidedScores: () => 0,
   }),
 );
 vi.mock("@/app/(app)/performance/periods/[id]/period-weights-section", () => ({

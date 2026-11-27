@@ -102,7 +102,7 @@ import {
   peerLine,
 } from "./nudge";
 import { CalibrationAudit } from "./fairness/calibration-audit";
-import { publishLock } from "./fairness/fairness-status";
+import { publishLock } from "./fairness/publish-lock";
 import { flaggedCount } from "./fairness/people-to-review";
 import { PeriodWeightsSection } from "./period-weights-section";
 import { RenamePeriodDialog } from "./rename-period";

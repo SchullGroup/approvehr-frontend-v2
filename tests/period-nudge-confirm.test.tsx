@@ -124,8 +124,8 @@ vi.mock(
   () => ({ CalibrationAudit: () => null }),
 );
 vi.mock(
-  "@/app/(app)/performance/periods/[id]/fairness/fairness-status",
-  () => ({ FairnessStatus: () => null, publishLock: () => null }),
+  "@/app/(app)/performance/periods/[id]/fairness/publish-lock",
+  () => ({ publishLock: () => null, undecidedScores: () => 0 }),
 );
 vi.mock("@/app/(app)/performance/periods/[id]/period-weights-section", () => ({
   PeriodWeightsSection: () => null,
