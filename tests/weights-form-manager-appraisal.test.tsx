@@ -168,15 +168,13 @@ beforeEach(() => {
 });
 
 describe("the part scored from Manager appraisal", () => {
-  it("puts the explanation behind one info icon beside the heading, not in a row", () => {
+  it("puts the explanation behind one info icon beside the part's name, not in a row", () => {
     mount();
     const icons = screen.getAllByRole("button", {
       name: "What the manager appraisal weight does",
     });
     expect(icons).toHaveLength(1);
-    expect(screen.getByText("The parts of the score")).toContainElement(
-      icons[0]!,
-    );
+    expect(row("MANAGER_APPRAISAL")).toContainElement(icons[0]!);
     expect(screen.queryByText(NOTE)).toBeNull();
     expect(screen.queryByText(/overall mark before it can be sent/)).toBeNull();
   });

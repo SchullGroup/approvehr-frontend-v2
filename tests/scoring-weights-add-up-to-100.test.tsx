@@ -184,16 +184,31 @@ beforeEach(() => {
 });
 
 describe("the company's parts card", () => {
-  it("says the rule in its one helper line", () => {
+  it("has no heading, no rule sentence, no chart and no footer sentence", () => {
     view = twoParts(6000, 4000);
     mount();
-    expect(screen.getByText(new RegExp(WEIGHTS_RULE))).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "The parts of the score" }),
+    ).toBeNull();
+    expect(screen.queryByText(new RegExp(WEIGHTS_RULE))).toBeNull();
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(
+      screen.queryByText(/A period keeps the parts and weights/),
+    ).toBeNull();
   });
 
-  it("says nothing more at exactly 100%", () => {
+  it("says nothing more at exactly 100%, and no Total", () => {
     view = twoParts(6000, 4000);
     mount();
     expect(screen.queryByText(NOT_100)).toBeNull();
+    expect(screen.queryByText("Total")).toBeNull();
+  });
+
+  it("says the Total only when it is not 100%", () => {
+    view = twoParts(6000, 5000);
+    mount();
+    expect(screen.getByText("Total")).toBeInTheDocument();
+    expect(screen.getAllByText("110%").length).toBeGreaterThan(0);
   });
 
   it("says a set saved at 110% has to come down, and what it means until then", () => {
