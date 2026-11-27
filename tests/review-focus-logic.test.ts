@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ApiFormQuestion } from "@/lib/api/performance";
 import {
+  KEPT_HERE,
   onRecordOf,
   savedAnswerStands,
   sigOf,
@@ -41,7 +42,13 @@ const answered = (text: string): ApiFormQuestion["answer"] =>
     attachment: null,
   }) as unknown as ApiFormQuestion["answer"];
 
-const none = { mark: "", summary: "", step: 0 };
+const none = {
+  mark: "",
+  summary: "",
+  step: 0,
+  potential: "",
+  potentialReason: "",
+};
 
 describe("startIndex", () => {
   it("opens a review with nothing in it on the introduction", () => {
@@ -153,5 +160,36 @@ describe("sigOf", () => {
     expect(sigOf({ text: "a" })).toBe(sigOf({ text: "a" }));
     expect(sigOf({ text: "a" })).not.toBe(sigOf({ text: "b" }));
     expect(sigOf({})).toBe(sigOf({ text: undefined }));
+  });
+});
+
+describe("startIndex on a manager's form that asks how far they could go", () => {
+  const review = { questions: [question("a"), question("b")] };
+
+  it("counts the potential page, so the last page is the preview and not the note", () => {
+    /* intro a b potential note preview: the preview is index 5. Counted without
+       the potential page a page remembered on the preview came back one early. */
+    expect(startIndex(review, { ...none, step: 99 }, false, true)).toBe(5);
+    expect(startIndex(review, { ...none, step: 99 }, false, false)).toBe(4);
+  });
+
+  it("counts the mark and the potential page together", () => {
+    expect(startIndex(review, { ...none, step: 99 }, true, true)).toBe(6);
+  });
+
+  it("treats a remembered answer as having started, only where it is asked", () => {
+    const held = { ...none, potential: "MEDIUM" };
+    expect(startIndex(review, held, false, true)).toBe(1);
+    expect(startIndex(review, held, false, false)).toBe(0);
+  });
+});
+
+describe("what is said about what is kept in this browser", () => {
+  it("is one short line, said on each page that holds something", () => {
+    expect(KEPT_HERE).toBe("Kept in this browser only, until you send.");
+  });
+
+  it("never calls it saved", () => {
+    expect(KEPT_HERE).not.toMatch(/saved/i);
   });
 });

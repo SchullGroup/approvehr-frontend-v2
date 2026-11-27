@@ -1,40 +1,69 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, LoadState } from "@/components/ui";
 import { BigChoice, WizardShell } from "@/components/performance/wizard-shell";
 import { WeightsPie, sliceColour } from "@/components/performance/weights-pie";
-import { performanceApi, type ScoreComponent } from "@/lib/api/performance";
+import { kindOf, serverSentence } from "@/lib/api/failure";
+import {
+  performanceApi,
+  type ApiScoringWeights,
+  type ScoreComponent,
+} from "@/lib/api/performance";
 import { actionMessage } from "@/lib/use-action";
+import { useHeld } from "@/lib/use-held";
 import {
   useFramework,
   useFrameworkActions,
-  useScoringParts,
   useScoringWeights,
   useSections,
 } from "@/lib/store/performance";
-import { splitEvenly } from "@/lib/performance/setup-weights";
+import { useProjectsGate } from "@/lib/store/project-session";
+import { balanceWeights } from "@/lib/performance/setup-weights";
+import {
+  WIZARD_ORDER,
+  choicesFrom,
+  evenly,
+  firstWithoutShare,
+  startingPoint,
+  weightBody,
+} from "@/lib/performance/setup-choices";
 
 /**
  * Setting appraisals up, once, one question to a screen.
  *
  * What counts towards a mark, how much each counts, and what is rated under each
- * competency part. Every screen is pre-filled, so a company happy with the
- * defaults presses Continue. Nothing is written until the last question has been
- * answered, and what is written is the company's own scoring parts and
- * competencies, the same ones Settings and Competency ratings edit afterwards.
+ * competency part. Every screen is pre-filled with what the company is scored on
+ * today, so a company happy with that presses Continue. Nothing is written until
+ * the last question has been answered, and what is written is the company's own
+ * scoring parts and competencies, the same ones Settings and Competency ratings
+ * edit afterwards.
+ *
+ * ## Saving is one write
+ *
+ * The weights, for every part, go in a single request that the server accepts or
+ * refuses whole. It used to add and change parts one at a time, so a part the
+ * server refused (Tasks done, with Projects off) was refused after the ones
+ * before it had been rewritten, and the company was left at a total nobody had
+ * chosen. Parts that were taken off are removed afterwards, and by then they are
+ * already at 0%, so a failure there leaves a part that counts for nothing. The
+ * competency changes come last and each is remembered once it lands, so pressing
+ * Save again finishes the rest and never repeats one.
+ *
+ * ## It starts from what is saved
+ *
+ * The wrapper reads the weights and hands them down, because the first render of
+ * a component that reads them itself has no answer yet and would start from the
+ * defaults, ignoring what the company saved.
+ *
+ * ## A total is never asked for
+ *
+ * The last weight is worked out from the others, so the weights always add up to
+ * 100 and Continue is never refused over a figure. See `balanceWeights`. The one
+ * thing that does hold Continue is a ticked part left with nothing to count for,
+ * which would be saved as no part at all.
  */
-
-const CHOICES: { source: ScoreComponent; label: string }[] = [
-  { source: "OBJECTIVES", label: "Objectives they delivered" },
-  { source: "CORE_COMPETENCY", label: "Core competencies" },
-  { source: "BEHAVIOURAL_COMPETENCY", label: "Behaviour" },
-  { source: "LEADERSHIP", label: "Leadership" },
-  { source: "MANAGER_APPRAISAL", label: "Manager's overall rating" },
-  { source: "SELF_ASSESSMENT", label: "Their own rating" },
-  { source: "TASKS", label: "Tasks done" },
-];
 
 const COMPETENCY_PARTS: ScoreComponent[] = [
   "CORE_COMPETENCY",
@@ -42,58 +71,46 @@ const COMPETENCY_PARTS: ScoreComponent[] = [
   "LEADERSHIP",
 ];
 
-const DEFAULT_TICKED: ScoreComponent[] = [
-  "OBJECTIVES",
-  "CORE_COMPETENCY",
-  "BEHAVIOURAL_COMPETENCY",
-  "LEADERSHIP",
-];
-
-const labelOf = (source: ScoreComponent) =>
-  CHOICES.find((choice) => choice.source === source)?.label ?? source;
+type Scoring = ReturnType<typeof useScoringWeights>;
 
 function SetupWizardInner({
   open,
   onClose,
   onDone,
+  scoring,
+  scored,
 }: {
   open: boolean;
   onClose: () => void;
   /** Called after everything is saved, when the person chooses to start an appraisal. */
   onDone: (startPeriod: boolean) => void;
+  scoring: Scoring;
+  /** What the company is scored on today, already read: this is where the wizard starts. */
+  scored: ApiScoringWeights;
 }) {
-  const parts = useScoringParts();
   const sections = useSections();
   const framework = useFramework();
   const actions = useFrameworkActions();
 
-  /* What the company is scored on today, whether or not it ever saved its own
-     parts: a company on the built-in weights sees those, not an even split. */
-  const scoring = useScoringWeights();
-  const current = (scoring.weights?.rows ?? []).filter(
-    (row) => row.isPart !== false && row.weightBp > 0,
+  /* Tasks done counts the tasks done in Projects, and the server refuses a weight
+     on it while Projects is off. Offering it would be offering what Save then
+     refuses, with the way out in another part of the product. Only a known "off"
+     counts: while the answer is on its way the choice is offered as before. */
+  const gate = useProjectsGate();
+  const projectsOff = !gate.loading && !gate.enabled;
+  const tasksSaved = scored.rows.some(
+    (row) =>
+      row.component === "TASKS" && row.isPart !== false && row.weightBp > 0,
   );
-  const [ticked, setTicked] = useState<ScoreComponent[]>(() =>
-    current.length > 0 ? current.map((row) => row.component) : DEFAULT_TICKED,
-  );
-  const [weights, setWeights] = useState<
-    Partial<Record<ScoreComponent, string>>
-  >(() =>
-    current.length > 0
-      ? Object.fromEntries(
-          current.map((row) => [
-            row.component,
-            String(Math.round(row.weightBp / 100)),
-          ]),
-        )
-      : Object.fromEntries(
-          Object.entries(splitEvenly(DEFAULT_TICKED)).map(([k, v]) => [
-            k,
-            String(v),
-          ]),
-        ),
-  );
-  const [touched, setTouched] = useState(false);
+
+  const choices = useMemo(() => choicesFrom(scored.rows), [scored.rows]);
+  const nameOf = (source: ScoreComponent) =>
+    choices.find((choice) => choice.source === source)?.name ?? source;
+
+  const [initial] = useState(() => startingPoint(scored, projectsOff));
+  const [picked, setPicked] = useState<ScoreComponent[]>(initial.ticked);
+  const [weights, setWeights] = useState(initial.percents);
+  const [touched, setTouched] = useState(initial.touched);
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState<Partial<Record<ScoreComponent, string[]>>>(
     {},
@@ -102,6 +119,15 @@ function SetupWizardInner({
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* What has already landed, so pressing Save again after a failure finishes the
+     rest and never makes one of these twice. */
+  const landed = useRef(new Set<string>());
+
+  /* What counts, in the order they are listed. Tasks done is never in it while
+     Projects is off, whatever was ticked before the answer arrived. */
+  const ticked = WIZARD_ORDER.filter(
+    (source) => picked.includes(source) && !(projectsOff && source === "TASKS"),
+  );
 
   const competencySteps = useMemo(
     () =>
@@ -110,7 +136,8 @@ function SetupWizardInner({
           ticked.includes(source) &&
           sections.sections.some((section) => section.component === source),
       ),
-    [ticked, sections.sections],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `ticked` is derived from `picked` and `projectsOff` each render; those are the inputs
+    [picked, projectsOff, sections.sections],
   );
   const total = 3 + competencySteps.length;
   // 0 parts, 1 weights, 2.. competencies, last = done
@@ -124,51 +151,96 @@ function SetupWizardInner({
           : "competencies";
   const compSource = competencySteps[step - 2];
 
-  const percent = (source: ScoreComponent) =>
-    Math.max(0, Math.round(Number(weights[source]) || 0));
-  const sum = ticked.reduce((n, source) => n + percent(source), 0);
+  /* The last part is the remainder, so the total is 100 whatever is typed. */
+  const shares = balanceWeights(ticked, weights);
+  const percent = (source: ScoreComponent) => shares[source] ?? 0;
+  const lastSource = ticked[ticked.length - 1];
+  /* A part that is ticked and has nothing to count for would be saved as no part
+     at all (a new one is never created at 0%), which is not what ticking says. */
+  const empty = firstWithoutShare(ticked, percent);
+
+  /* What a box shows: what was typed, unless the others have left less than
+     that (a total saved before the 100% rule), and then what it really counts
+     for. Typed text is kept as it is otherwise, so a box can be emptied to be
+     retyped. */
+  const shown = (source: ScoreComponent) => {
+    const typed = weights[source] ?? "";
+    return (Number(typed) || 0) === percent(source)
+      ? typed
+      : String(percent(source));
+  };
+
+  /* What was typed for a part, held to what the other typed parts have left. */
+  const changeWeight = (source: ScoreComponent, text: string) => {
+    setTouched(true);
+    const others = ticked
+      .slice(0, -1)
+      .filter((one) => one !== source)
+      .reduce((n, one) => n + percent(one), 0);
+    const allowed = 100 - others;
+    const typed = Number(text);
+    setWeights({
+      ...weights,
+      [source]:
+        text !== "" && Number.isFinite(typed) && typed > allowed
+          ? String(allowed)
+          : text,
+    });
+  };
 
   const toggle = (source: ScoreComponent) => {
-    const next = ticked.includes(source)
-      ? ticked.filter((one) => one !== source)
-      : [...ticked, source];
-    setTicked(next);
+    const next = picked.includes(source)
+      ? picked.filter((one) => one !== source)
+      : [...picked, source];
+    setPicked(next);
+    /* An untouched default is re-split evenly. A set the company chose keeps its
+       numbers: the part just added starts without one, and says so. */
     if (!touched) {
       setWeights(
-        Object.fromEntries(
-          Object.entries(splitEvenly(next)).map(([k, v]) => [k, String(v)]),
+        evenly(
+          WIZARD_ORDER.filter(
+            (one) => next.includes(one) && !(projectsOff && one === "TASKS"),
+          ),
         ),
       );
     }
   };
 
   const save = async () => {
+    if (!scoring.editable) {
+      setError(scoring.refusal);
+      return;
+    }
     setSaving(true);
     setError(null);
+    let phase: "weights" | "parts" | "competencies" = "weights";
     try {
-      const have = new Map(
-        (await performanceApi.scoringParts()).parts.map((part) => [
-          part.source,
-          part,
-        ]),
-      );
-      for (const source of ticked) {
-        const weightBp = percent(source) * 100;
-        const existing = have.get(source);
-        if (existing) {
-          if (existing.weightBp !== weightBp) {
-            await parts.update(existing.id, { weightBp });
-          }
-        } else {
-          await parts.add({ source, name: labelOf(source), weightBp });
+      /* Reading the parts is what makes the company own them, and it gives the
+         ids of the ones that are being taken off. */
+      const mine = await performanceApi.scoringParts();
+      /* The whole set, in one write. If the server refuses it, nothing below
+         has run and nothing has changed. */
+      await scoring.save(weightBody(scored.rows, ticked, percent));
+
+      phase = "parts";
+      for (const part of mine.parts) {
+        if (ticked.includes(part.source)) continue;
+        try {
+          await performanceApi.deleteScoringPart(part.id);
+        } catch (caught) {
+          /* Gone already is what was asked for. */
+          if (kindOf(caught) === "missing") continue;
+          throw new Error(
+            `The weights are saved. "${part.name}" could not be taken off your parts and stays at 0%, which counts for nothing. ${actionMessage(caught, "that")} Press Save to try that again.`,
+          );
         }
       }
-      const fresh = await performanceApi.scoringParts();
-      for (const part of fresh.parts) {
-        if (!ticked.includes(part.source)) await parts.remove(part.id);
-      }
+
+      phase = "competencies";
       for (const id of removed) {
+        if (landed.current.has(id)) continue;
         await actions.updateCompetency(id, { active: false });
+        landed.current.add(id);
       }
       for (const source of COMPETENCY_PARTS) {
         const section = sections.sections.find(
@@ -176,18 +248,38 @@ function SetupWizardInner({
         );
         if (!section) continue;
         for (const name of added[source] ?? []) {
+          const key = `${source}|${name}`;
+          if (landed.current.has(key)) continue;
           await actions.createCompetency({
             name,
             sectionId: section.id,
             scaleMax: 5,
           });
+          landed.current.add(key);
         }
       }
       framework.reload();
       sections.reload();
       setStep(total - 1);
     } catch (caught) {
-      setError(actionMessage(caught, "the setup"));
+      if (
+        phase === "parts" &&
+        caught instanceof Error &&
+        !serverSentence(caught)
+      ) {
+        setError(caught.message);
+      } else if (phase === "competencies") {
+        setError(
+          `The weights are saved. ${actionMessage(caught, "the change to the competencies")} Press Save to finish the rest.`,
+        );
+      } else {
+        const said = actionMessage(caught, "the setup");
+        /* A refusal of the one write means nothing was written, which is the point
+           of it being one write. A timeout means nobody can say, so it says nothing. */
+        setError(
+          serverSentence(caught) ? `${said} Nothing was changed.` : said,
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -227,7 +319,7 @@ function SetupWizardInner({
         ? "How much does each count?"
         : kind === "done"
           ? "All set"
-          : `What do you rate under ${labelOf(compSource ?? "CORE_COMPETENCY")}?`;
+          : `What do you rate under ${nameOf(compSource ?? "CORE_COMPETENCY")}?`;
 
   return (
     <WizardShell
@@ -242,7 +334,7 @@ function SetupWizardInner({
         kind === "parts"
           ? ticked.length > 0
           : kind === "weights"
-            ? sum === 100
+            ? empty === undefined
             : true
       }
       busy={saving}
@@ -251,24 +343,52 @@ function SetupWizardInner({
       hideNext={kind === "done"}
     >
       {kind === "parts" && (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {CHOICES.map((choice) => {
+        <div className="grid gap-2">
+          {choices.map((choice) => {
             const on = ticked.includes(choice.source);
+            const blocked = projectsOff && choice.source === "TASKS";
             return (
               <button
                 key={choice.source}
                 type="button"
                 aria-pressed={on}
+                disabled={blocked}
                 onClick={() => toggle(choice.source)}
                 className={
-                  "flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-body font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 " +
+                  "flex min-h-14 items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed " +
                   (on
                     ? "border-accent bg-accent-soft text-accent-text"
-                    : "border-line bg-surface text-ink hover:border-accent")
+                    : blocked
+                      ? "border-line bg-sunken text-ink"
+                      : "border-line bg-surface text-ink hover:border-accent")
                 }
               >
-                {choice.label}
-                {on && <Check aria-hidden="true" className="size-4" />}
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span
+                    className={
+                      "text-body font-medium" + (blocked ? " text-muted" : "")
+                    }
+                  >
+                    {choice.name}
+                  </span>
+                  {blocked ? (
+                    <span className="text-body-sm text-muted">
+                      Needs Projects, which is switched off for your company.
+                      {tasksSaved
+                        ? " What it was saved at counts for nothing now, and saving here takes it off your parts."
+                        : ""}
+                    </span>
+                  ) : (
+                    choice.description && (
+                      <span className="text-body-sm text-muted">
+                        {choice.description}
+                      </span>
+                    )
+                  )}
+                </span>
+                {on && (
+                  <Check aria-hidden="true" className="mt-1 size-4 shrink-0" />
+                )}
               </button>
             );
           })}
@@ -280,7 +400,7 @@ function SetupWizardInner({
           <WeightsPie
             slices={ticked.map((source) => ({
               id: source,
-              label: labelOf(source),
+              label: nameOf(source),
               percent: percent(source),
             }))}
           />
@@ -296,37 +416,47 @@ function SetupWizardInner({
                     className="size-2.5 rounded-full"
                     style={{ background: sliceColour(index) }}
                   />
-                  {labelOf(source)}
+                  {nameOf(source)}
                 </span>
                 <span className="w-28">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    suffix="%"
-                    aria-label={labelOf(source)}
-                    value={weights[source] ?? ""}
-                    onChange={(event) => {
-                      setTouched(true);
-                      setWeights({ ...weights, [source]: event.target.value });
-                    }}
-                  />
+                  {source === lastSource ? (
+                    /* The remainder: worked out, so it is shown and not typed. */
+                    <Input
+                      type="number"
+                      suffix="%"
+                      aria-label={nameOf(source)}
+                      value={percent(source)}
+                      readOnly
+                      className="bg-sunken"
+                    />
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      suffix="%"
+                      aria-label={nameOf(source)}
+                      value={shown(source)}
+                      onChange={(event) =>
+                        changeWeight(source, event.target.value)
+                      }
+                    />
+                  )}
                 </span>
               </label>
             ))}
+            {empty !== undefined && (
+              <p role="status" className="text-body-sm text-warning-text">
+                {nameOf(empty)} needs a share. Give it at least 1%, or take it
+                off on the first page.
+              </p>
+            )}
             <button
               type="button"
               onClick={() => {
                 setTouched(false);
-                setWeights(
-                  Object.fromEntries(
-                    Object.entries(splitEvenly(ticked)).map(([k, v]) => [
-                      k,
-                      String(v),
-                    ]),
-                  ),
-                );
+                setWeights(evenly(ticked));
               }}
               className="self-start text-body-sm text-accent-text hover:underline"
             >
@@ -414,22 +544,45 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 }
 
 /**
- * Waits for what the company already has, so a company coming back to change
- * its marks sees its own parts and weights rather than the defaults.
+ * Waits for what the company is scored on today, then starts from it.
+ *
+ * The weights are read here, once, and handed to the wizard: a component that
+ * reads them itself renders first with no answer, and its starting state is set
+ * on that first render. A read that fails says so and offers to try again, and
+ * does not open the questions on defaults the company never chose: saving from
+ * them would replace weights it never saw.
  */
 export function SetupWizard(props: {
   open: boolean;
   onClose: () => void;
   onDone: (startPeriod: boolean) => void;
 }) {
-  const parts = useScoringParts();
   const scoring = useScoringWeights();
-  /* Keyed on whether the weights have arrived, so the first screen is built from
-     them even if they land a moment after it opens. */
-  return (
-    <SetupWizardInner
-      key={`${scoring.weights ? "w" : "-"}${parts.parts ? "p" : "-"}`}
-      {...props}
-    />
-  );
+  /* Held, because saving asks the hook to read again and a read in flight has no
+     answer: without this the questions would be swapped for the loading screen
+     in the middle of the save, and take what was typed with them. */
+  const scored = useHeld(scoring.weights, scoring.weights !== null);
+  if (!scored) {
+    return (
+      <WizardShell
+        open={props.open}
+        onClose={props.onClose}
+        step={0}
+        total={3}
+        title="What counts towards someone's score?"
+        hideNext
+      >
+        <LoadState
+          loading={scoring.loading}
+          error={scoring.error}
+          subject="how scores are made up today"
+          onRetry={scoring.reload}
+          skeleton="list"
+        >
+          {null}
+        </LoadState>
+      </WizardShell>
+    );
+  }
+  return <SetupWizardInner {...props} scoring={scoring} scored={scored} />;
 }

@@ -49,7 +49,7 @@ import { QUERY_FILE_ACCEPT, QueryFiles } from "./query-files";
  *
  * Staff type the words from the signed copy and attach the scan. The record says who entered it and
  * that it came from paper, and the server refuses it for anybody who has a sign-in: nobody replies
- * in the product in somebody else's name (`can.enterPaperReply` already says so).
+ * in ApproveHR in somebody else's name (`can.enterPaperReply` already says so).
  */
 export function ReplyCard({
   detail,
@@ -79,8 +79,8 @@ export function ReplyCard({
             reply.source === "FROM_PAPER"
               ? `Entered from paper${reply.enteredByName ? ` by ${reply.enteredByName}` : ""}${reply.receivedOn ? `, signed copy received on ${dayLabel(reply.receivedOn)}` : ""}.`
               : reply.sentAt
-                ? `Sent in the product on ${formatDateTime(reply.sentAt, timeZone)}.`
-                : "Sent in the product."
+                ? `Sent in ApproveHR on ${formatDateTime(reply.sentAt, timeZone)}.`
+                : "Sent in ApproveHR."
           }
         />
         <CardBody className="flex flex-col gap-4">

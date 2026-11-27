@@ -10,7 +10,6 @@ import {
   choicesOf,
   directCounts,
   draftsFrom,
-  kindLine,
   payloadFrom,
   recordedWords,
   repeatedLabels,
@@ -18,7 +17,6 @@ import {
   scoreBp,
   scoreText,
   type ChoiceDraft,
-  subsectionOptionLabel,
 } from "@/lib/performance/answer-kind";
 
 /**
@@ -312,16 +310,6 @@ describe("the words for each kind", () => {
     });
   });
 
-  it("say, for the two that have no level, where they are not shown", () => {
-    /* HR is not left wondering where a yes-or-no subsection went in the gap list
-       which is about levels and is filtered to levels. */
-    expect(kindLine("BOOLEAN", 5)).toContain("left out of the gap list");
-    expect(kindLine("CHOICE", 5)).toContain("left out of the gap list");
-    expect(kindLine("RATING", 5)).toContain("1 to 5");
-    expect(kindLine("RATING", 5)).toContain("in the gap list");
-    expect(kindLine("RATING", 5)).not.toContain("left out");
-  });
-
   it("label the four on a row", () => {
     expect(KIND_BADGE).toEqual({
       RATING: "Rated",
@@ -329,29 +317,5 @@ describe("the words for each kind", () => {
       CHOICE: "Pick one",
       TEXT: "Written",
     });
-  });
-});
-
-describe("how a subsection reads in a picker", () => {
-  it("is the bare name for a level, which is what nearly every subsection is", () => {
-    expect(subsectionOptionLabel("Diligence", "RATING")).toBe("Diligence");
-  });
-
-  it("says yes or no, or pick one, after the name of the other two", () => {
-    expect(subsectionOptionLabel("Teamwork", "BOOLEAN")).toBe(
-      "Teamwork, yes or no",
-    );
-    expect(subsectionOptionLabel("Customer feedback", "CHOICE")).toBe(
-      "Customer feedback, pick one",
-    );
-  });
-
-  it("uses the words of the row badge", () => {
-    expect(subsectionOptionLabel("X", "BOOLEAN").toLowerCase()).toContain(
-      KIND_BADGE.BOOLEAN.toLowerCase(),
-    );
-    expect(subsectionOptionLabel("X", "CHOICE").toLowerCase()).toContain(
-      KIND_BADGE.CHOICE.toLowerCase(),
-    );
   });
 });

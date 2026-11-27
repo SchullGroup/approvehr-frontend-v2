@@ -8,11 +8,11 @@ import { ApiError } from "@/lib/api/client";
  * How long the work behind a final rating is kept, in Appraisal scoring > Records.
  *
  * What is proved: nothing is kept until a company chooses and no figure is suggested (the box is
- * empty); the card tells "none chosen" from "this server cannot say" from "no server" from "the read
- * failed"; a period is a whole number from 1 to 120 and nothing else can be sent; setting one asks
- * first and says what it will do; stopping needs no confirmation and says what it leaves; somebody
- * who may look and not change gets controls that are off; and a refusal is the server's own
- * sentence, shown where it can be read.
+ * empty); the section tells "none chosen" from "this server cannot say" from "no server" from "the read
+ * failed"; a period is a whole number from 1 to 120 and nothing else can be sent; Save is there only
+ * when there is something to save; setting a period asks first, in one question; emptying the box stops
+ * keeping work with no question and says what it leaves; somebody who may look and not change gets a
+ * box that is off; and a refusal is the server's own sentence, shown where it can be read.
  */
 
 const setWorkEvidenceMonths = vi.fn<(next: number | null) => Promise<object>>(
@@ -43,12 +43,16 @@ const mount = (connected = true, over: Partial<FeatureState> = {}) => {
   );
 };
 
-const box = () => screen.getByRole("textbox");
-/* The button says what it will do: "Keep for 12 months" once a valid number is in, "Save" before. */
-const keep = () => screen.getByRole("button", { name: /^(Save|Keep for .+)$/ });
+const box = () => screen.getByRole("textbox", { name: /Months to keep/ });
+/* Only there once there is something to save. */
+const keep = () => screen.getByRole("button", { name: "Save" });
+const noKeep = () =>
+  expect(
+    screen.queryByRole("button", { name: "Save" }),
+  ).not.toBeInTheDocument();
 const openInfo = () =>
   userEvent.click(
-    screen.getByRole("button", { name: "About Work kept with a final rating" }),
+    screen.getByRole("button", { name: "More about this field" }),
   );
 
 beforeEach(() => {
@@ -63,24 +67,25 @@ beforeEach(() => {
 });
 
 describe("a company that has not chosen", () => {
-  it("says nothing is kept, and leaves the box empty: no figure is suggested", async () => {
+  it("leaves the box empty, with nothing to save: no figure is suggested, and no sentence repeats it", async () => {
     mount();
-    expect(screen.getByText("Not kept.")).toBeInTheDocument();
+    expect(screen.queryByText(/Not kept\./)).not.toBeInTheDocument();
     expect(box()).toHaveValue("");
-    expect(box()).toHaveAttribute("placeholder", "1 to 120");
-    expect(keep()).toHaveTextContent("Save");
+    expect(box()).toHaveAttribute("placeholder", "Not kept");
+    noKeep();
     await openInfo();
+    /* Twice: the copy a screen reader always has, and the panel. */
     expect(
-      screen.getByText(/Check with your legal adviser how long to keep it/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Check with your legal adviser how long to keep it/)
+        .length,
+    ).toBeGreaterThan(0);
   });
 
-  it("cannot be set until there is a valid number in the box", async () => {
+  it("cannot be set until there is a valid number in the box: Save is not there before", async () => {
     mount();
-    expect(keep()).toBeDisabled();
+    noKeep();
     await userEvent.type(box(), "12");
     expect(keep()).toBeEnabled();
-    expect(keep()).toHaveTextContent("Keep for 12 months");
   });
 
   it("has nothing to stop", () => {
@@ -100,7 +105,7 @@ describe("what can be typed", () => {
       expect(
         screen.getByText("Enter a whole number from 1 to 120."),
       ).toBeInTheDocument();
-      expect(keep()).toBeDisabled();
+      noKeep();
       expect(setWorkEvidenceMonths).not.toHaveBeenCalled();
     },
   );
@@ -116,23 +121,17 @@ describe("what can be typed", () => {
 });
 
 describe("choosing a period", () => {
-  it("asks first, says what it will do and what it will not, and sends the number only when confirmed", async () => {
+  it("asks first, in one question with no paragraph, and sends the number only when confirmed", async () => {
     mount();
     await userEvent.type(box(), "12");
     await userEvent.click(keep());
 
-    expect(
-      screen.getByRole("heading", {
-        name: "Keep work with final ratings for 12 months?",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Task titles aren't kept/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Ratings already final don't change/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/A disputed rating keeps it one period longer/),
-    ).toBeInTheDocument();
+    const question = screen.getByRole("dialog", {
+      name: "Keep work with final ratings for 12 months?",
+    });
+    expect(question.textContent).not.toMatch(
+      /Task titles|Ratings already final|disputed/,
+    );
     expect(setWorkEvidenceMonths).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "Keep it" }));
@@ -185,13 +184,11 @@ describe("a company that has chosen", () => {
     features = { ...features, workEvidenceMonths: 24 };
   });
 
-  it("says how long, from when, and fills the box with it", () => {
+  it("fills the box with how long, and says it nowhere else", () => {
     mount();
-    expect(
-      screen.getByText("Kept for 24 months after a rating is final."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Kept for 24 months/)).not.toBeInTheDocument();
     expect(box()).toHaveValue("24");
-    expect(keep()).toBeDisabled();
+    noKeep();
   });
 
   it("can be changed, and is asked about again", async () => {
@@ -203,25 +200,20 @@ describe("a company that has chosen", () => {
     expect(setWorkEvidenceMonths).toHaveBeenCalledWith(36);
   });
 
-  it("stops with one press and no question, and says what it leaves", async () => {
+  it("stops by clearing the box, with one press and no question, and says what it leaves", async () => {
     mount();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Stop keeping work" }),
-    );
+    expect(
+      screen.queryByRole("button", { name: "Stop keeping work" }),
+    ).not.toBeInTheDocument();
+    await userEvent.clear(box());
+    await userEvent.click(keep());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(setWorkEvidenceMonths).toHaveBeenCalledWith(null);
     expect(
       await screen.findByText("Work is no longer kept with final ratings"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Records already kept stay until their own date."),
-    ).toBeInTheDocument();
-  });
-
-  it("says one month, not 1 months", () => {
-    features = { ...features, workEvidenceMonths: 1 };
-    mount();
-    expect(
-      screen.getByText("Kept for 1 month after a rating is final."),
     ).toBeInTheDocument();
   });
 });
@@ -256,14 +248,14 @@ describe("a refusal", () => {
 });
 
 describe("somebody who may look and not change", () => {
-  it("has controls that are off, and is told why", () => {
+  it("has a box that is off, nothing to press, and is told why", () => {
     features = { ...features, workEvidenceMonths: 12 };
     mount(true, { editable: false });
     expect(box()).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Stop keeping work" }),
-    ).toBeDisabled();
-    expect(keep()).toBeDisabled();
+      screen.queryByRole("button", { name: "Stop keeping work" }),
+    ).not.toBeInTheDocument();
+    noKeep();
     expect(
       screen.getByText("Only people who manage settings can change this."),
     ).toBeInTheDocument();
@@ -316,7 +308,9 @@ describe("what it says about what is kept", () => {
   it("says behind the info icon what is kept, what is never kept, and who reads it", async () => {
     mount();
     await openInfo();
-    const said = screen.getByText(/Kept: which tasks the person finished/);
+    const said = screen.getAllByText(
+      /Kept: which tasks the person finished/,
+    )[0]!;
     expect(said).toHaveTextContent(
       /Never kept: task titles, descriptions, comments or files/,
     );

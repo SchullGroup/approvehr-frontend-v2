@@ -5,12 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Check,
   CornerDownRight,
   Plus,
   Target,
   TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -35,7 +33,6 @@ import {
   THead,
   TR,
   TableWrap,
-  Textarea,
   rowClick,
   useToast,
   type AppliedFilter,
@@ -53,6 +50,7 @@ import {
 } from "@/lib/performance/objectives-by-department";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { newObjectiveHref } from "@/lib/performance/objective-wizard";
+import { askedLine, notSwitchedOn } from "@/lib/performance/notify-objectives";
 import { approvalWords } from "@/lib/performance/objective-queue";
 import { useAction } from "@/lib/use-action";
 import {
@@ -64,8 +62,10 @@ import { useTaskSummarySuggestion } from "@/lib/store/ai";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
+  MEASURE_NUMBER_PROBLEM,
   formatMeasure,
   isDoneMeasure,
+  isPlainNumber,
   isUnread,
   type ApiGoal,
   type ApiKeyResult,
@@ -86,13 +86,23 @@ import {
   type KpiScope,
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog } from "./approval-dialogs";
-import { goalFacts } from "./goal-facts";
+import {
+  DeclineByline,
+  DeclineList,
+  EarlierDeclines,
+} from "@/components/performance/decline-trail";
+import { declineEntries } from "@/lib/performance/declines";
+import {
+  goalFacts,
+  noReadingsWords,
+  shownStatus,
+  takesReadings,
+} from "./goal-facts";
 import {
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
-  progressLabel,
-  readCountLine,
+  periodOf,
   readCountShort,
   reopenedSaid,
   sharedSaid,
@@ -107,6 +117,7 @@ import {
   DeleteGoalDialog,
   deleteBlocker,
   mayEditGoal,
+  useAssignablePeople,
 } from "./goal-dialogs";
 import { CompletedWork } from "@/components/performance/completed-work";
 import { useCanUploadObjectives } from "./kpis/import/access";
@@ -141,8 +152,9 @@ import {
  * A cost or a time-to-hire target progresses as the number **falls**. The bar
  * fills as it falls, because `percent` comes from the API and the API's
  * arithmetic is direction-aware — this screen never divides current by target.
- * The direction is also stated in words beside it, with an arrow, so a
- * cost-reduction row at 50% cannot be misread as half-failed.
+ * A target that counts down carries a small arrow (and "from" its starting
+ * figure), so a cost-reduction row at 50% cannot be misread as half-failed;
+ * one that counts up, which is what every reader expects, says nothing.
  *
  * ## Two axes on every card, and they disagree on purpose
  *
@@ -200,6 +212,12 @@ export function EmptyObjectives({
   const periods = useCycleMutations();
   const scoring = useScoringWeights();
   const [asking, setAsking] = useState(false);
+  /* A server that does not have the route: the button goes, and says so once. */
+  const [unavailable, setUnavailable] = useState(false);
+  /* The route needs the permission that manages a period, the same one the
+     period's Get-ready list asks for. Showing the button to anybody else would
+     hand them a refusal. */
+  const mayManage = useCan("MANAGE_SETTINGS");
   /* What objectives are worth in the score, so the page says why they matter. */
   const weight = Math.round(
     (scoring.weights?.rows.find((row) => row.component === "OBJECTIVES")
@@ -207,7 +225,12 @@ export function EmptyObjectives({
   );
   /* Somebody can only be asked in the name of a period, so the button waits for one. */
   const period = appraisals.cycles.find((one) => one.stage !== "PUBLISHED");
-  const mayAsk = href !== null && scope === "company" && period !== undefined;
+  const mayAsk =
+    href !== null &&
+    scope === "company" &&
+    period !== undefined &&
+    mayManage &&
+    !unavailable;
 
   const ask = async () => {
     if (!period) return;
@@ -217,17 +240,27 @@ export function EmptyObjectives({
       toast.push({
         title: "Everyone has been asked",
         tone: "success",
-        detail: `${String(result.notified)} ${result.notified === 1 ? "person was" : "people were"} told in the app.`,
+        detail: askedLine(result),
       });
     } catch (caught) {
-      toast.push({
-        title: "That did not send",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Something went wrong. Try again.",
-      });
+      if (notSwitchedOn(caught)) {
+        setUnavailable(true);
+        toast.push({
+          title: "Asking everyone is not available yet",
+          tone: "info",
+          detail:
+            "This server cannot send it yet. Set the objectives here instead.",
+        });
+      } else {
+        toast.push({
+          title: "That did not send",
+          tone: "danger",
+          detail:
+            caught instanceof ApiError
+              ? caught.message
+              : "Something went wrong. Try again.",
+        });
+      }
     } finally {
       setAsking(false);
     }
@@ -575,7 +608,7 @@ export function KpisTab({
         return false;
       }
       if (approval !== "" && goal.approval !== approval) return false;
-      if (progress !== "" && goal.status !== progress) return false;
+      if (progress !== "" && shownStatus(goal) !== progress) return false;
       /* A company or department objective has no owner. It is not "somebody
          else's", it is nobody's — so it drops out of an owner filter rather
          than being counted against whoever is selected. */
@@ -827,11 +860,31 @@ export function KpisTab({
               }
             />
           ) : flat.length === 0 ? (
+            /* An empty department is where the next step is obvious, and there
+               was nothing to press (F11). Only offered where the department view
+               is the company's (the people who may set one for it). */
             <EmptyState
-              plain
+              {...(scope === "company" && department
+                ? { mood: "start" as const }
+                : { plain: true })}
               icon={<Target aria-hidden="true" />}
               title="No objectives here yet"
               description="Nothing in this department is filed as an objective yet."
+              {...(scope === "company" && department
+                ? {
+                    action: (
+                      <ButtonLink
+                        variant="accent"
+                        href={newObjectiveHref({
+                          back: backHere,
+                          department,
+                        })}
+                      >
+                        New objective for this department
+                      </ButtonLink>
+                    ),
+                  }
+                : {})}
             />
           ) : (
             /* A flat, even grid. An opened department is two sections: its
@@ -1319,6 +1372,9 @@ export function GoalCard({
 }) {
   const facts = goalFacts(goal);
   const { progress, done, reads } = facts;
+  const shown = shownStatus(goal);
+  const latestDecline =
+    goal.approval === "NEEDS_REVISION" ? declineEntries(goal)[0] : undefined;
 
   /* The detail is a modal, and this is the card's only piece of state.
      Everything the modal renders comes from the same `goal` the card has, so
@@ -1349,10 +1405,11 @@ export function GoalCard({
             </span>
           </TD>
           <TD align="right">
+            {/* Empty, not "No reading yet": a row with nothing read has no
+                figure to show, and the words said it again for every row
+                (owner, 27 Nov 2026). The card still says it on its face. */}
             <span className="tabular">
-              {reads?.read === 0
-                ? readCountShort(reads)
-                : `${String(progress)}%`}
+              {reads?.read === 0 ? null : `${String(progress)}%`}
             </span>
           </TD>
           <TD>
@@ -1361,9 +1418,11 @@ export function GoalCard({
             </Badge>
           </TD>
           <TD>
-            <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-              {GOAL_STATUS_LABEL[goal.status]}
-            </Badge>
+            {shown && (
+              <Badge tone={GOAL_STATUS_TONE[shown]} size="sm" dot>
+                {GOAL_STATUS_LABEL[shown]}
+              </Badge>
+            )}
           </TD>
         </TR>
         <GoalDetailModal
@@ -1508,9 +1567,11 @@ export function GoalCard({
               <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
                 {approvalWords(goal)}
               </Badge>
-              <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
-                {GOAL_STATUS_LABEL[goal.status]}
-              </Badge>
+              {shown && (
+                <Badge tone={GOAL_STATUS_TONE[shown]} size="sm" dot>
+                  {GOAL_STATUS_LABEL[shown]}
+                </Badge>
+              )}
             </span>
           </div>
         </button>
@@ -1521,12 +1582,18 @@ export function GoalCard({
                 is the same page an objective is written on (owner, 24 Nov). */}
             <p className="border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
               {goal.approval === "NEEDS_REVISION" && (
-                <span className="block text-meta text-muted">
-                  Feedback when it was declined
-                </span>
+                <>
+                  <span className="block text-meta text-muted">
+                    Feedback when it was declined
+                  </span>
+                  {latestDecline && <DeclineByline entry={latestDecline} />}
+                </>
               )}
               {goal.approvalNote}
             </p>
+            {goal.approval === "NEEDS_REVISION" && (
+              <EarlierDeclines goal={goal} />
+            )}
             {goal.approval === "NEEDS_REVISION" &&
               editable &&
               mayEditGoal(goal) && (
@@ -1620,6 +1687,7 @@ function GoalDetailModal({
   progress: number;
   done: boolean;
   canShare: boolean;
+  /** Belongs to no period and no quarter, so it cannot be sent to be agreed. */
   noPeriod: boolean;
   /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
   reads: { read: number; of: number } | null;
@@ -1647,44 +1715,54 @@ function GoalDetailModal({
     onClose();
     run();
   };
+  const period = periodOf(goal);
 
   return (
     <Modal open={open} onClose={onClose} title={goal.title} size="lg">
       <div className="flex flex-col gap-4">
-        {goal.ownerName && (
-          <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
+        {/* Who it is, and the period it is filed in: said once, small. */}
+        {(goal.ownerName || period) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted">
             {goal.ownerName && (
               <span className="flex items-center gap-1.5">
                 <Avatar name={goal.ownerName} size="xs" />
                 {goal.ownerName}
               </span>
             )}
+            {period && <span>{period}</span>}
           </div>
         )}
 
-        {/* With nothing read, the label says so and the figure is not drawn: a 0%
-            beside "nothing read yet" would be the claim the label denies. */}
-        <ProgressMeter
-          value={progress}
-          showValue={reads?.read !== 0}
-          size="sm"
-          tone={
-            done
-              ? "success"
-              : goal.status === "OFF_TRACK"
-                ? "danger"
-                : goal.status === "AT_RISK"
-                  ? "warning"
-                  : "accent"
-          }
-          label={progressLabel(goal.keyResults.length, reads)}
-        />
+        {/* One bar, on the objective, and only once something has been read:
+            with nothing read the figure is the 0 the objective was made with,
+            and a bar at 0% is a claim that the work has not moved. The target
+            rows below say "Not recorded" once and that is all. */}
+        {reads?.read !== 0 && (
+          <ProgressMeter
+            value={progress}
+            size="sm"
+            tone={
+              done
+                ? "success"
+                : goal.status === "OFF_TRACK"
+                  ? "danger"
+                  : goal.status === "AT_RISK"
+                    ? "warning"
+                    : "accent"
+            }
+            label="Progress"
+          />
+        )}
 
-        {/* Said only when it is a warning: "4 of 4 read" on every card is noise.
-            With none read, the bar above is the 0 the objective was made with
-            and not a result, so the line says so. */}
-        {reads && (
-          <p className="text-body-sm text-body">{readCountLine(reads)}</p>
+        {declineEntries(goal).length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-meta font-semibold text-muted">
+              {goal.approval === "NEEDS_REVISION"
+                ? "Feedback when it was declined"
+                : "Feedback it was given before it was agreed"}
+            </p>
+            <DeclineList goal={goal} />
+          </div>
         )}
 
         {goal.keyResults.length > 0 ? (
@@ -1701,7 +1779,7 @@ function GoalDetailModal({
                   key={measure.id}
                   measure={measure}
                   goalId={goal.id}
-                  editable={!done}
+                  editable={!done && takesReadings(goal)}
                   onRecord={onRecord}
                 />
               ),
@@ -1709,162 +1787,214 @@ function GoalDetailModal({
           </ul>
         ) : null}
 
+        {goal.keyResults.length > 0 && noReadingsWords(goal) && (
+          <p className="text-body-sm text-body">{noReadingsWords(goal)}</p>
+        )}
+
         {/* The finished project tasks linked to this, for whoever is reading it
             to see what went into it. Read-only; nothing here is graded. */}
         {open && <CompletedWork goal={goal} />}
-
-        {noPeriod && goal.approval !== "AGREED" && (
-          <p className="text-body-sm text-body">
-            Give this a quarter before you send it to be agreed, so it can be
-            agreed before that quarter starts.
-          </p>
-        )}
 
         {/* Two actions at most, then a menu: a row of four buttons asks the reader to
             choose between things that are not equally likely. In order of how often
             each is the next thing to do; what does not fit goes under the dots,
             and the one that cannot be undone goes last. Each is only listed where
             the API will take it, so none comes back as a refusal. */}
-        {(() => {
-          type Item = {
-            key: string;
-            label: string;
-            onSelect?: () => void;
-            href?: string;
-            tone?: "danger";
-          };
-          const items: Item[] = [];
-          if (mayBeSubmitted(goal)) {
-            items.push(
-              goal.approval === "NEEDS_REVISION" &&
-                editable &&
-                mayEditGoal(goal)
-                ? {
-                    key: "resend",
-                    label: "Edit and resend",
-                    href: newObjectiveHref({ edit: goal.id }),
-                  }
-                : {
-                    key: "submit",
-                    label:
-                      goal.approval === "NEEDS_REVISION"
-                        ? "Send it again"
-                        : "Send to be agreed",
-                    onSelect: act(() => onSubmit(goal)),
-                  },
-            );
-          }
-          if (goal.approval === "AGREED" && !done) {
-            items.push({
-              key: "reopen",
-              label: "Reopen the objective",
-              onSelect: act(() => onReopen(goal)),
-            });
-            if (canPlan && onPlan) {
+        <AssignableGate goal={goal} active={open}>
+          {(canAssign) => {
+            type Item = {
+              key: string;
+              label: string;
+              onSelect?: () => void;
+              href?: string;
+              tone?: "danger";
+            };
+            const items: Item[] = [];
+            /* With no period and no quarter it cannot be sent at all, and the
+               way forward is to give it one. The menu says that where Send
+               would have been, instead of a paragraph above it. */
+            if (
+              noPeriod &&
+              (goal.approval === "DRAFT" ||
+                goal.approval === "NEEDS_REVISION") &&
+              editable &&
+              mayEditGoal(goal)
+            ) {
               items.push({
-                key: "plan",
-                label: "Plan work",
-                onSelect: act(() => onPlan(goal)),
-              });
-            }
-          }
-          if (editable) {
-            if (!done)
-              items.push({
-                key: "done",
-                label: "Mark done",
-                onSelect: act(() => onComplete(goal)),
-              });
-            if (!goal.targetFrozen) {
-              items.push({
-                key: "target",
-                label: "Add a target",
-                onSelect: act(() => onAddMeasure(goal)),
-              });
-            }
-            if (mayEditGoal(goal))
-              items.push({
-                key: "edit",
-                label: "Edit",
+                key: "period",
+                label: "Add a period",
                 onSelect: act(() => onEdit(goal)),
               });
-            items.push({
-              key: "child",
-              label: "Add an objective under this",
-              onSelect: act(() => onAddChild(goal.id)),
-            });
-            if (goal.ownerId === null) {
-              items.push({
-                key: "assign",
-                label: "Give an objective to people",
-                onSelect: act(() => onAssign(goal)),
-              });
             }
-            if (canShare)
-              items.push({
-                key: "share",
-                label: "Tell the people affected",
-                onSelect: act(() => onShare(goal)),
-              });
-            if (!done)
-              items.push({
-                key: "stop",
-                label: "Stop this objective",
-                onSelect: act(() => onStop(goal)),
-              });
-            if (deleteBlocker(goal) === null) {
-              items.push({
-                key: "delete",
-                label: "Delete",
-                tone: "danger",
-                onSelect: act(() => onDelete(goal)),
-              });
+            if (mayBeSubmitted(goal)) {
+              items.push(
+                goal.approval === "NEEDS_REVISION" &&
+                  editable &&
+                  mayEditGoal(goal)
+                  ? {
+                      key: "resend",
+                      label: "Edit and resend",
+                      href: newObjectiveHref({ edit: goal.id }),
+                    }
+                  : {
+                      key: "submit",
+                      label:
+                        goal.approval === "NEEDS_REVISION"
+                          ? "Send it again"
+                          : "Send to be agreed",
+                      onSelect: act(() => onSubmit(goal)),
+                    },
+              );
             }
-          }
-          const shown = items.slice(0, 2);
-          const more = items.slice(2);
-          if (items.length === 0) return null;
-          return (
-            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
-              {shown.map((item, index) =>
-                item.href ? (
-                  <ButtonLink
-                    key={item.key}
-                    variant={index === 0 ? "accent" : "secondary"}
-                    size="sm"
-                    href={item.href}
-                  >
-                    {item.label}
-                  </ButtonLink>
-                ) : (
-                  <Button
-                    key={item.key}
-                    variant={index === 0 ? "accent" : "secondary"}
-                    size="sm"
-                    onClick={item.onSelect}
-                  >
-                    {item.label}
-                  </Button>
-                ),
-              )}
-              {more.length > 0 && (
-                <RowActions
-                  label="More for this objective"
-                  items={more.map((item) => ({
-                    key: item.key,
-                    label: item.label,
-                    ...(item.href ? { href: item.href } : {}),
-                    ...(item.onSelect ? { onSelect: item.onSelect } : {}),
-                    ...(item.tone ? { tone: item.tone } : {}),
-                  }))}
-                />
-              )}
-            </div>
-          );
-        })()}
+            if (goal.approval === "AGREED" && !done) {
+              items.push({
+                key: "reopen",
+                label: "Reopen the objective",
+                onSelect: act(() => onReopen(goal)),
+              });
+              if (canPlan && onPlan) {
+                items.push({
+                  key: "plan",
+                  label: "Plan work",
+                  onSelect: act(() => onPlan(goal)),
+                });
+              }
+            }
+            if (editable) {
+              /* Not for a declined or refused objective: it takes no reading
+                 and cannot be finished (F13), and the API refuses both. */
+              if (!done && takesReadings(goal))
+                items.push({
+                  key: "done",
+                  label: "Mark done",
+                  onSelect: act(() => onComplete(goal)),
+                });
+              if (!goal.targetFrozen) {
+                items.push({
+                  key: "target",
+                  label: "Add a target",
+                  onSelect: act(() => onAddMeasure(goal)),
+                });
+              }
+              if (mayEditGoal(goal))
+                items.push({
+                  key: "edit",
+                  label: "Edit",
+                  onSelect: act(() => onEdit(goal)),
+                });
+              items.push({
+                key: "child",
+                label: "Add an objective under this",
+                onSelect: act(() => onAddChild(goal.id)),
+              });
+              if (goal.ownerId === null && canAssign) {
+                items.push({
+                  key: "assign",
+                  label: "Give an objective to people",
+                  onSelect: act(() => onAssign(goal)),
+                });
+              }
+              if (canShare)
+                items.push({
+                  key: "share",
+                  label: "Tell the people affected",
+                  onSelect: act(() => onShare(goal)),
+                });
+              if (!done)
+                items.push({
+                  key: "stop",
+                  label: "Stop this objective",
+                  onSelect: act(() => onStop(goal)),
+                });
+              if (deleteBlocker(goal) === null) {
+                items.push({
+                  key: "delete",
+                  label: "Delete",
+                  tone: "danger",
+                  onSelect: act(() => onDelete(goal)),
+                });
+              }
+            }
+            const shown = items.slice(0, 2);
+            const more = items.slice(2);
+            if (items.length === 0) return null;
+            return (
+              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+                {shown.map((item, index) =>
+                  item.href ? (
+                    <ButtonLink
+                      key={item.key}
+                      variant={index === 0 ? "accent" : "secondary"}
+                      size="sm"
+                      href={item.href}
+                    >
+                      {item.label}
+                    </ButtonLink>
+                  ) : (
+                    <Button
+                      key={item.key}
+                      variant={index === 0 ? "accent" : "secondary"}
+                      size="sm"
+                      onClick={item.onSelect}
+                    >
+                      {item.label}
+                    </Button>
+                  ),
+                )}
+                {more.length > 0 && (
+                  <RowActions
+                    label="More for this objective"
+                    items={more.map((item) => ({
+                      key: item.key,
+                      label: item.label,
+                      ...(item.href ? { href: item.href } : {}),
+                      ...(item.onSelect ? { onSelect: item.onSelect } : {}),
+                      ...(item.tone ? { tone: item.tone } : {}),
+                    }))}
+                  />
+                )}
+              </div>
+            );
+          }}
+        </AssignableGate>
       </div>
     </Modal>
   );
+}
+
+/**
+ * Whether the objective has anybody to be given to, for its menu.
+ *
+ * "Give an objective to people" is offered only on a shared objective, and only
+ * to somebody who leads at least one person it could go to: a list with nobody
+ * in it is a dialog that can only refuse. The people are asked for only while
+ * the window is open, and only for a shared objective, so a page of cards makes
+ * no request. While they are on their way the item stays, rather than
+ * appearing late under somebody's cursor.
+ */
+function AssignableGate({
+  goal,
+  active,
+  children,
+}: {
+  goal: ApiGoal;
+  active: boolean;
+  children: (canAssign: boolean) => React.ReactNode;
+}) {
+  if (goal.ownerId !== null) return <>{children(false)}</>;
+  if (!active) return <>{children(true)}</>;
+  return <AssignableProbe goal={goal}>{children}</AssignableProbe>;
+}
+
+function AssignableProbe({
+  goal,
+  children,
+}: {
+  goal: ApiGoal;
+  children: (canAssign: boolean) => React.ReactNode;
+}) {
+  const { employees, loading } = useAssignablePeople(goal.departmentId);
+  return <>{children(loading || employees.length > 0)}</>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1907,9 +2037,21 @@ export function MeasureRow({
     draft !== null &&
     draft.trim() !== "" &&
     (unread || draft.trim() !== measure.currentValue);
+  /* The API takes a plain number (F17): "abc" used to be saved and refused with
+     "Some fields are not valid". Said here, under the box, and Save waits. */
+  const notANumber =
+    changed && draft !== null && !isPlainNumber(draft)
+      ? MEASURE_NUMBER_PROBLEM
+      : null;
+
+  const reset = () => {
+    setDraft(null);
+    setNote("");
+    summary.clear();
+  };
 
   const save = async () => {
-    if (!changed) return;
+    if (!changed || notANumber) return;
     setSaving(true);
     setFailed(null);
     try {
@@ -1922,9 +2064,12 @@ export function MeasureRow({
       setNote("");
       summary.clear();
     } catch (error) {
+      /* The API names the field it refused. Its general sentence ("Some fields
+         are not valid") says nothing about which box, so the field's own comes
+         first. */
       setFailed(
         error instanceof ApiError
-          ? error.message
+          ? (error.messageFor("currentValue") ?? error.message)
           : "Could not save that number. Try again.",
       );
     } finally {
@@ -1932,62 +2077,34 @@ export function MeasureRow({
     }
   };
 
+  const shownPercent = Math.round(Math.min(100, Math.max(0, measure.percent)));
+  const against = `of ${formatMeasure(measure.targetValue, measure.unit)}`;
+
   return (
     <li className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-body-sm font-medium text-ink">
+        <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">
           {measure.label}
-        </span>
-        <span className="flex flex-wrap items-center gap-2">
-          <Badge
-            tone="neutral"
-            size="sm"
-            icon={
-              measure.lowerIsBetter ? (
-                <TrendingDown aria-hidden="true" />
-              ) : (
-                <TrendingUp aria-hidden="true" />
-              )
-            }
-          >
-            {measure.lowerIsBetter ? "Counting down" : "Counting up"}
-          </Badge>
-          {unread && (
-            <Badge tone="warning" size="sm">
-              Not read yet
-            </Badge>
-          )}
-          {!unread && measure.met && (
-            <Badge tone="accent" size="sm" icon={<Check aria-hidden="true" />}>
-              Met
-            </Badge>
+          {/* Direction is said only when it is not the obvious one. */}
+          {measure.lowerIsBetter && (
+            <TrendingDown
+              role="img"
+              aria-label="Counting down"
+              className="size-3.5 shrink-0 text-muted"
+            />
           )}
         </span>
+        {/* The figure as text, and no bar of its own: the objective carries the
+            one bar. A target nobody has read has no figure, and says "Not
+            recorded" in the box below and nowhere else. */}
+        {!unread && (
+          <span className="tabular text-body-sm text-muted">
+            {shownPercent}%
+          </span>
+        )}
       </div>
 
-      {/* No bar for a measure nobody has read: a bar at 0% is a result, and the
-          0 is only where the measure began. What being unread costs is said once,
-          under the objective's own bar, because it is a fact about that figure;
-          repeating it under every unread measure said the same sentence four
-          times in a row to somebody with one unread measure. */}
-      {!unread && (
-        <ProgressMeter
-          value={measure.percent}
-          showValue
-          size="sm"
-          tone={measure.met ? "success" : "accent"}
-        />
-      )}
-
-      <p className="tabular text-body-sm text-body">
-        {unread
-          ? "No reading yet"
-          : `Now ${formatMeasure(measure.currentValue, measure.unit)}`}{" "}
-        · aiming for {formatMeasure(measure.targetValue, measure.unit)} ·
-        started at {formatMeasure(measure.startValue, measure.unit)}
-      </p>
-
-      {editable && (
+      {editable ? (
         <div className="flex flex-wrap items-center gap-2">
           <Input
             aria-label={
@@ -1997,77 +2114,78 @@ export function MeasureRow({
             }
             inputMode="decimal"
             className="h-8 w-36"
-            {...(unread ? { placeholder: "First reading" } : {})}
+            {...(unread ? { placeholder: "Not recorded" } : {})}
             value={value}
+            aria-invalid={notANumber ? true : undefined}
             onChange={(event) => setDraft(event.target.value)}
           />
-          {measure.unit && (
-            <span className="text-body-sm text-muted">{measure.unit}</span>
-          )}
+          <span className="tabular text-body-sm text-muted">
+            {against}
+            {measure.lowerIsBetter &&
+              ` · from ${formatMeasure(measure.startValue, measure.unit)}`}
+          </span>
           {changed && (
             <>
               <Button
                 variant="accent"
                 size="sm"
                 loading={saving}
+                disabled={notANumber !== null}
                 onClick={() => void save()}
               >
                 Save<span className="sr-only"> {measure.label}</span>
               </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setDraft(null);
-                  setNote("");
-                  summary.clear();
-                }}
-              >
-                Undo
+              <Button size="sm" onClick={reset}>
+                Cancel<span className="sr-only"> {measure.label}</span>
               </Button>
             </>
           )}
         </div>
+      ) : (
+        <p className="tabular flex flex-wrap items-baseline gap-x-2 text-body-sm text-body">
+          {unread ? (
+            <span className="text-muted">Not recorded</span>
+          ) : (
+            <span>{formatMeasure(measure.currentValue, measure.unit)}</span>
+          )}
+          <span className="text-muted">{against}</span>
+        </p>
       )}
 
-      {/* The note the API has always accepted and nothing has ever rendered.
-          `progressSchema` takes `{ currentValue, note }` and `recordProgress`
-          has carried a third argument the whole time — so a number moved and
-          the reason it moved was lost, which is the fact somebody actually
-          needs at the review. It appears only once the number has changed:
-          asking "what did you do" beside a figure nobody has touched is a
-          question about nothing. */}
+      {/* The note the API has always accepted. It appears only once the number
+          has changed, because asking "what did you do" beside a figure nobody
+          has touched is a question about nothing, and it is one line: most
+          readings need no more. */}
       {editable && changed && (
-        <div className="flex flex-col gap-2">
-          <Textarea
-            rows={2}
+        <div className="flex flex-col gap-1.5">
+          <Input
             aria-label={`What moved ${measure.label}`}
-            placeholder="What moved it? Closed the Ikeja rollout…"
+            placeholder="What moved it (optional)"
             value={note}
             onChange={(event) => setNote(event.target.value)}
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <SuggestButton
-              loading={summary.loading}
-              label="Write this up for me"
-              onClick={() =>
-                void summary.ask({ goalId, headline: note.trim() })
-              }
-            />
-            {note.trim().length > 0 && note.trim().length < 10 && (
-              <span className="text-meta text-muted">
-                A few more words and it can draft the rest.
-              </span>
-            )}
-          </div>
+          {/* A plain link, and only once there is enough to expand: the draft
+              is built from what they typed and adds no achievement they did not
+              mention (`suggestTaskSummary`). */}
+          {note.trim().length >= 10 && (
+            <span className="self-start">
+              <SuggestButton
+                plain
+                loading={summary.loading}
+                label="Write this up for me"
+                onClick={() =>
+                  void summary.ask({ goalId, headline: note.trim() })
+                }
+              />
+            </span>
+          )}
           <SuggestionPanel
+            compact
             state={summary}
             onDismiss={summary.clear}
-            useLabel="Use this wording"
-            emptyHint="Your words, expanded. Check it before you save."
-            /* Replaces the headline with the fuller version, in an editable box
-               somebody still has to press Save under. The suggestion is built
-               from what they typed and adds no achievement they did not
-               mention — see `modules/ai/service.ts#suggestTaskSummary`. */
+            useLabel="Use this"
+            /* Replaces the note with the fuller version, in an editable box
+               somebody still has to press Save under. */
             onUse={(suggestion) =>
               setNote(suggestion.detail || suggestion.title)
             }
@@ -2075,9 +2193,9 @@ export function MeasureRow({
         </div>
       )}
 
-      {failed && (
+      {(notANumber ?? failed) && (
         <p className="text-body-sm text-danger-text" role="status">
-          {failed}
+          {notANumber ?? failed}
         </p>
       )}
     </li>

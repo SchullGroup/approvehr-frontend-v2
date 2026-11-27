@@ -138,14 +138,6 @@ const map = (cycleId: string, rows: ApiAppraiserMapRow[]): ApiAppraiserMap =>
     },
   }) as unknown as ApiAppraiserMap;
 
-/* The count is a number and a noun in two elements. */
-const countLine = () =>
-  screen.getByText(
-    (_, element) =>
-      element?.tagName === "P" &&
-      /^\d+ (person|people)( match)?$/.test(element.textContent ?? ""),
-  ).textContent;
-
 const { AppraiserMapTab } =
   await import("@/app/(app)/performance/appraiser-map");
 
@@ -277,5 +269,63 @@ describe("one period chosen", () => {
         "1 person has no manager or department head, so HR appraises them.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("one period chosen: the table (F19)", () => {
+  it("does not list the default twice: it shows as the choice and is not an option to pick", async () => {
+    state.search = "period=q4";
+    const user = show();
+    await enter(user, "Finance");
+    const ada = screen.getByRole("combobox", { name: "Appraiser for Ada Eze" });
+    /* A hidden node has no accessible name, so it is found by what it is. */
+    const placeholder = ada.querySelector<HTMLOptionElement>("option[hidden]");
+    expect(placeholder).not.toBeNull();
+    expect(placeholder).toHaveTextContent("Chidi Obi");
+    expect(placeholder).toBeDisabled();
+    expect(ada).toHaveDisplayValue("Chidi Obi");
+  });
+
+  it("has no Rating column on a period that has not started", async () => {
+    state.search = "period=q4";
+    const user = show();
+    await enter(user, "Finance");
+    expect(
+      screen.queryByRole("columnheader", { name: "Rating" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("has one once it has", async () => {
+    state.search = "period=h2";
+    const user = show();
+    await enter(user, "Finance");
+    expect(
+      screen.getByRole("columnheader", { name: "Rating" }),
+    ).toBeInTheDocument();
+  });
+
+  it("says which period the table is for, and what the standing view is", async () => {
+    state.search = "period=q4";
+    const first = show();
+    await enter(first, "Finance");
+    expect(screen.getByText("Appraisers in Q4 Appraisal")).toBeInTheDocument();
+  });
+
+  it("says it is the standing view when no period is chosen", async () => {
+    const user = show();
+    await enter(user, "Finance");
+    expect(
+      screen.getByText("Who appraises them unless a period says otherwise"),
+    ).toBeInTheDocument();
+  });
+
+  it("lets the period select be as wide as the longest name", async () => {
+    const user = show();
+    await enter(user, "Finance");
+    const field = screen
+      .getByRole("combobox", { name: "Appraisal period" })
+      .closest("div[class*='min-w-64']");
+    expect(field).not.toBeNull();
+    expect(field?.className).toMatch(/w-auto/);
   });
 });

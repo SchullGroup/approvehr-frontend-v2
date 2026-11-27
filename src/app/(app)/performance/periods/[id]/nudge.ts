@@ -1,7 +1,7 @@
-import { dayLabel, type ApiCycleParticipants } from "@/lib/api/performance";
+import type { ApiCycleParticipants } from "@/lib/api/performance";
 
 /**
- * Who "Nudge who is late" will reach, before it is pressed.
+ * Who "Remind" will reach, before it is pressed.
  *
  * The API reminds the author of every form in the period that has not been
  * sent: the person for their self-review, the appraiser for a manager review,
@@ -46,25 +46,19 @@ export function anybodyToNudge(audience: NudgeAudience): boolean {
 }
 
 /**
- * What the reminder says, described rather than quoted: the count in it is each
- * person's own, so no one sentence is what everybody receives.
+ * Where people are told. One sentence for every screen that says it: the
+ * start toast said "No emails are sent from here" while the reminder dialog
+ * said "and by email", and both cannot be true of the same notifications. The
+ * app is always one place; email only where the company has email set up.
  */
-export function nudgeMessage(
-  cycleName: string,
-  dueDate: string | null,
-): string {
-  const due = dueDate
-    ? `, and that it is due ${dayLabel(dueDate.slice(0, 10))}`
-    : "";
-  return `Each of them gets a reminder in the app, and by email, saying how many reviews they still have to send for ${cycleName}${due}.`;
-}
+export const TOLD_WHERE = "in the app, and by email where email is set up";
 
 /** The dialog's title. */
 export function nudgeTitle(audience: NudgeAudience | null): string {
-  if (!audience) return "Nudge who is late?";
+  if (!audience) return "Remind who is late?";
   const count = audience.names.length;
-  if (count === 0) return "Nudge the colleagues who owe feedback?";
-  return count === 1 ? "Nudge 1 person?" : `Nudge ${String(count)} people?`;
+  if (count === 0) return "Remind the colleagues who owe feedback?";
+  return count === 1 ? "Remind 1 person?" : `Remind ${String(count)} people?`;
 }
 
 /** The line about peer feedback, or null when none is owed. */
@@ -74,5 +68,5 @@ export function peerLine(audience: NudgeAudience): string | null {
     audience.peerForms === 1
       ? "1 piece of peer feedback"
       : `${String(audience.peerForms)} pieces of peer feedback`;
-  return `${audience.names.length > 0 ? "Also the" : "The"} colleagues who owe ${forms}. They are not named here, because peer feedback is anonymous.`;
+  return `${audience.names.length > 0 ? "Also the" : "The"} colleagues who owe ${forms}.`;
 }

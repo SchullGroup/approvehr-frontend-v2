@@ -64,6 +64,10 @@ export type QueryReplyState =
   | "replied_on_time"
   | "replied_late"
   | "closed_without_reply";
+/**
+ * How a letter is served. These are the wire names and are not what a person reads: the screens say
+ * "In ApproveHR", "In person" and "By post or email" (`SERVED_HOW_LABEL`).
+ */
 export type QueryServedHow = "IN_PRODUCT" | "IN_PERSON" | "OUTSIDE_PRODUCT";
 export type QueryOutcome =
   "NO_FURTHER_ACTION" | "WARNING" | "HEARING" | "OTHER";
@@ -148,7 +152,7 @@ export type ApiQueryServed = {
   subjectHadSignIn: boolean | null;
   /** Staff only. `null` for the person, and `null` before there is an answer. */
   subjectHasSignInNow: boolean | null;
-  /** Served "in the product" and nobody was told there: said plainly. */
+  /** Served "in ApproveHR" and nobody was told there: said plainly. */
   nobodyToldInProduct: boolean;
 };
 
@@ -366,18 +370,18 @@ export function replyBadgeText(state: QueryReplyState | null): string | null {
 }
 
 export const SERVED_HOW_LABEL: Record<QueryServedHow, string> = {
-  IN_PRODUCT: "In the product",
+  IN_PRODUCT: "In ApproveHR",
   IN_PERSON: "In person",
-  OUTSIDE_PRODUCT: "Outside the product",
+  OUTSIDE_PRODUCT: "By post or email",
 };
 
 export const SERVED_HOW_HELP: Record<QueryServedHow, string> = {
   IN_PRODUCT:
-    "They are told in the product and can read and answer it there. Somebody with no sign-in cannot be told this way.",
+    "They are told in ApproveHR and can read and answer it there. Somebody with no sign-in cannot be told this way.",
   IN_PERSON:
-    "You hand it over on paper and record when and by whom. Nobody is told in the product.",
+    "You hand it over on paper and record when and by whom. Nobody is told in ApproveHR.",
   OUTSIDE_PRODUCT:
-    "Sent some other way, by post or email. Nobody is told in the product.",
+    "Sent by post, email or any other way outside ApproveHR. Nobody is told in ApproveHR.",
 };
 
 export const OUTCOME_LABEL: Record<QueryOutcome, string> = {

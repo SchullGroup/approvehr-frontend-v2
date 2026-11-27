@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ScoreBand } from "@/lib/api/performance";
 import { pct, points } from "@/components/performance/record-check";
+import { domainFor, ticksFor } from "@/lib/performance/fairness-domain";
 
 export { pct, points };
-
-const DOMAIN = [4000, 8000] as const;
 
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
@@ -50,14 +48,24 @@ export function RangeChart({
   const height = top + rows.length * rowH + 26;
   const x0 = labelW;
   const x1 = Math.max(x0 + 40, width - countW - 8);
+  /* The range comes from the figures drawn. It was fixed at 40% to 80%, so a
+     group at 37% was pinned to the 40% line and the axis said nothing was
+     below it. */
+  const domain = domainFor(
+    rows.flatMap((row) =>
+      [row.meanBp, row.lowBp, row.highBp].filter(
+        (value): value is number => value !== null,
+      ),
+    ),
+    referenceBp,
+  );
   const x = (bp: number) =>
     x0 +
-    ((Math.min(Math.max(bp, DOMAIN[0]), DOMAIN[1]) - DOMAIN[0]) /
-      (DOMAIN[1] - DOMAIN[0])) *
+    ((Math.min(Math.max(bp, domain[0]), domain[1]) - domain[0]) /
+      (domain[1] - domain[0])) *
       (x1 - x0);
-  const ticks = [4000, 5000, 6000, 7000, 8000].filter(
-    (t) => !narrow || t % 2000 === 0,
-  );
+  const gridlines = ticksFor(domain, false);
+  const ticks = ticksFor(domain, narrow);
 
   return (
     <div ref={ref}>
@@ -69,7 +77,7 @@ export function RangeChart({
           aria-label={caption}
           className="block overflow-visible"
         >
-          {[4000, 5000, 6000, 7000, 8000].map((t) => (
+          {gridlines.map((t) => (
             <line
               key={t}
               x1={x(t)}
@@ -156,80 +164,6 @@ export function RangeChart({
           })}
         </svg>
       )}
-    </div>
-  );
-}
-
-export const BANDS: { key: ScoreBand; label: string; fill: string }[] = [
-  { key: "BELOW", label: "Below", fill: "var(--color-cat-4)" },
-  {
-    key: "PARTIALLY_MEETS",
-    label: "Partially meets",
-    fill: "var(--color-warning)",
-  },
-  { key: "MEETS", label: "Meets", fill: "var(--color-line-strong)" },
-  { key: "EXCEEDS", label: "Exceeds", fill: "var(--color-info)" },
-  {
-    key: "OUTSTANDING",
-    label: "Outstanding",
-    fill: "var(--color-success-strong)",
-  },
-];
-
-export function BandBars({
-  rows,
-}: {
-  rows: { label: string; people: number; bands: Record<ScoreBand, number> }[];
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div
-        className="flex flex-wrap gap-x-4 gap-y-1 text-meta text-body"
-        aria-hidden="true"
-      >
-        {BANDS.map((band) => (
-          <span key={band.key} className="inline-flex items-center gap-1.5">
-            <i
-              className="size-2.5 rounded-xs"
-              style={{ background: band.fill }}
-            />
-            {band.label}
-          </span>
-        ))}
-      </div>
-      {rows.map((row) => {
-        const above = row.bands.EXCEEDS + row.bands.OUTSTANDING;
-        return (
-          <div
-            key={row.label}
-            className="grid grid-cols-[104px_1fr_48px] items-center gap-3 sm:grid-cols-[140px_1fr_48px]"
-          >
-            <span className="truncate text-meta text-ink">{row.label}</span>
-            <div
-              className="flex h-4 gap-0.5"
-              role="img"
-              aria-label={BANDS.map(
-                (b) => `${b.label} ${String(row.bands[b.key])}`,
-              ).join(", ")}
-            >
-              {BANDS.filter((b) => row.bands[b.key] > 0).map((band) => (
-                <div
-                  key={band.key}
-                  className="h-full rounded-xs"
-                  style={{
-                    width: `${String((row.bands[band.key] / row.people) * 100)}%`,
-                    background: band.fill,
-                  }}
-                  title={`${band.label}: ${String(row.bands[band.key])}`}
-                />
-              ))}
-            </div>
-            <span className="text-right text-meta text-muted tabular-nums">
-              {Math.round((above / row.people) * 100)}%
-            </span>
-          </div>
-        );
-      })}
     </div>
   );
 }

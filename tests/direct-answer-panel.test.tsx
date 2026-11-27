@@ -19,6 +19,9 @@ import {
  * all well-typed. Each is what a person finds by pressing the button.
  */
 
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 let updateCompetency: Mock<(...args: unknown[]) => Promise<unknown>>;
 let setChoiceOptions: Mock<(...args: unknown[]) => Promise<unknown>>;
 
@@ -129,9 +132,6 @@ describe("how it is answered", () => {
        picker driven by that alone would show a level again until the read
        landed, which reads as a change that did not take. */
     await waitFor(() => expect(kindSelect().value).toBe("BOOLEAN"));
-    expect(
-      screen.getByText(/Yes scores 100% and no scores 0%/),
-    ).toBeInTheDocument();
   });
 
   it("believes what the API holds once the framework hands over a newer competency", async () => {
@@ -154,30 +154,31 @@ describe("how it is answered", () => {
     expect(kindSelect().value).toBe("CHOICE");
   });
 
-  it("says, for each kind, what it means and where it is not shown", () => {
+  it("does not write a sentence under the picker about what each kind means", () => {
     const { unmount } = show(competency());
-    expect(
-      screen.getByText(/A level from 1 to 5, with a target if one is set/),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/with a target if one is set/)).toBeNull();
     unmount();
 
     show(competency({ answerKind: "BOOLEAN" }));
-    expect(
-      screen.getByText(
-        /Yes scores 100% and no scores 0%.*left out of the gap list/,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Yes scores 100% and no scores 0%/)).toBeNull();
+    expect(screen.queryByText(/left out of the gap list/)).toBeNull();
   });
 
   it("is fixed once a rating exists, and says why before anybody tries", () => {
     show(competency({ ratingCount: 3 }));
     expect(kindSelect()).toBeDisabled();
-    expect(screen.getByText(lockedReason(3))).toBeInTheDocument();
+    /* Behind the icon beside the label, not a line of its own. */
+    expect(
+      screen.getByText(new RegExp(escapeRegExp(lockedReason(3)))),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "More about this field" }),
+    ).toBeInTheDocument();
   });
 
   it("puts the reason above the control it explains, not under it", () => {
     show(competency({ ratingCount: 3 }));
-    const reason = screen.getByText(lockedReason(3));
+    const reason = screen.getByText(new RegExp(escapeRegExp(lockedReason(3))));
     expect(
       reason.compareDocumentPosition(kindSelect()) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -186,7 +187,7 @@ describe("how it is answered", () => {
 
   it("gives the count, and says it applies to every period, which is the part that is not obvious", () => {
     show(competency({ ratingCount: 12 }));
-    const reason = screen.getByText(lockedReason(12));
+    const reason = screen.getByText(new RegExp(escapeRegExp(lockedReason(12))));
     expect(reason).toHaveTextContent("12 ratings are recorded");
     expect(reason).toHaveTextContent("in any period");
     expect(reason).toHaveTextContent("applies to every period");
@@ -225,7 +226,7 @@ describe("how it is answered", () => {
     expect(kindSelect()).toBeDisabled();
     expect(
       screen.getByText(
-        "Only somebody who can manage settings can change sections, subsections and how they are answered.",
+        /Only somebody who can manage settings can change sections, subsections and how they are answered\./,
       ),
     ).toBeInTheDocument();
   });

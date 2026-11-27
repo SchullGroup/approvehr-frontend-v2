@@ -18,6 +18,8 @@ import {
 } from "@/lib/performance/work-in-answers";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useFeatureSettings } from "@/lib/store/features";
+import { useMyAppraisers } from "@/lib/store/performance";
+import { useSession } from "@/lib/store/session";
 import { useSharedProjects } from "@/lib/store/shared-projects";
 import { useHeldWhileOpen } from "@/lib/use-held-while-open";
 
@@ -59,6 +61,16 @@ import { useHeldWhileOpen } from "@/lib/use-held-while-open";
  * The order is held the moment somebody reaches into the list, and let go when the dialog
  * closes: an answer that lands while a person is about to tick a name must not move the
  * names. It then applies the next time the dialog is opened.
+ *
+ * ## Who is not offered, and who is labelled
+ *
+ * Neither the person nor the person asking is offered: asking yourself for feedback on
+ * somebody whose review you are already writing is a form that adds nothing (UAT
+ * 25 Nov, F38). The subject's own appraisers are **labelled, not hidden**: somebody who
+ * already appraises them can still be asked, but the list says they do, so the person
+ * choosing is not left to remember. That is read from the same "who appraises this
+ * person" answer the employee's own page reads; where it does not come, nothing is
+ * labelled and nobody is left out.
  */
 export function AskPeersDialog({
   open,
@@ -80,6 +92,19 @@ export function AskPeersDialog({
      full rows left their list empty (UAT 23 Nov, U101 / PERF-21). */
   const { people, loading } = useEmployeeDirectory({ pageSize: 200 });
   const { workInAnswers } = useFeatureSettings();
+  /* The person asking: `employeeId` and not `actingId`, which is "" for an account
+     with no staff record and must match nobody. */
+  const { employeeId: asker } = useSession();
+  const subjectsAppraisers = useMyAppraisers(open ? cycleId : null, subjectId);
+  const alsoAppraise = useMemo(
+    () =>
+      new Set(
+        (subjectsAppraisers.row?.appraisers ?? []).map(
+          (one) => one.appraiserId,
+        ),
+      ),
+    [subjectsAppraisers.row],
+  );
   const shared = useSharedProjects(subjectId, open && workInAnswers === true);
   const colleagues = useHeldWhileOpen(shared.colleagues, open);
   const [query, setQuery] = useState("");
@@ -87,13 +112,13 @@ export function AskPeersDialog({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
-  /* Everybody but the subject: the API drops a self-review from the list
-     anyway, and offering it would be offering something that silently does
-     nothing. */
+  /* Everybody but the subject and the person asking: the API drops a self-review
+     from the list anyway, and offering it would be offering something that
+     silently does nothing. */
   const candidates = useMemo(() => {
     const term = query.trim().toLowerCase();
     const listed = people
-      .filter((person) => person.id !== subjectId)
+      .filter((person) => person.id !== subjectId && person.id !== asker)
       .filter(
         (person) =>
           !term ||
@@ -101,8 +126,7 @@ export function AskPeersDialog({
       );
     /* Those who shared a project first, when the server said who; otherwise the list as it came. */
     return orderBySharedProjects(listed, colleagues.shown);
-  }, [people, subjectId, query, colleagues.shown]);
-  const anyShared = candidates.some((one) => one.shared > 0);
+  }, [people, subjectId, asker, query, colleagues.shown]);
 
   const toggle = (id: string) =>
     setPicked((current) => {
@@ -175,18 +199,6 @@ export function AskPeersDialog({
           </p>
         )}
 
-        <p className="text-body-sm leading-relaxed text-body">
-          Each one gets their own form about {subjectName}. Their answers count
-          towards the score only if they are an appraiser with a share of it;
-          otherwise they are read as feedback beside it.
-        </p>
-        {anyShared && (
-          <p className="text-body-sm text-muted">
-            People who shared a project with {subjectName} are listed first. You
-            still choose who to ask.
-          </p>
-        )}
-
         <div className="relative">
           <Search
             aria-hidden="true"
@@ -220,6 +232,9 @@ export function AskPeersDialog({
             {candidates.map(({ person, shared: count }) => {
               const detail = [
                 person.jobTitle,
+                ...(alsoAppraise.has(person.id)
+                  ? [`Also appraises ${subjectName}`]
+                  : []),
                 ...(count > 0 ? [sharedLabel(count)] : []),
               ]
                 .filter(Boolean)

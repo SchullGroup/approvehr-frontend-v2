@@ -289,7 +289,7 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
   {
     "href": "/people/queries",
     "title": "Queries",
-    "description": "Written queries to staff, their one written reply, and the outcome recorded on each."
+    "description": "Letters that ask for a written explanation, and what came of each: the register for the people who write them, your own letters for everybody else."
   },
   {
     "href": "/people/queries/counts",
@@ -315,21 +315,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "href": "/performance",
     "title": "Performance",
     "description": "What is waiting on you, and how the running appraisal period is going."
-  },
-  {
-    "href": "/performance/appraisal-preview",
-    "title": "Appraisal flow preview",
-    "description": "A mock-up of the step-by-step appraisal for an employee, with example answers. Nothing is saved."
-  },
-  {
-    "href": "/performance/appraisal-preview/manager",
-    "title": "Manager appraisal preview",
-    "description": "A mock-up of a manager's team list and the step-by-step appraisal of one person, with example data. Nothing is saved."
-  },
-  {
-    "href": "/performance/appraisals",
-    "title": "Appraisals",
-    "description": "Where your appraisal stands, step by step, and where your team's do."
   },
   {
     "href": "/performance/appraisers",

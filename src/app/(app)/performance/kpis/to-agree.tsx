@@ -3,6 +3,8 @@
 import { useId, useMemo, useState } from "react";
 import { ChevronRight, Inbox, Target } from "lucide-react";
 import { CompletedWork } from "@/components/performance/completed-work";
+import { DeclineList } from "@/components/performance/decline-trail";
+import { declineEntries } from "@/lib/performance/declines";
 import {
   Button,
   Card,
@@ -478,10 +480,19 @@ function RowDetail({ goal, id }: { goal: ApiGoal; id: string }) {
             <li className="text-muted">Nothing else recorded.</li>
           )}
         </ul>
-        {goal.approvalNote && (
-          <p className="mt-2 border-l-2 border-line-strong pl-3 leading-relaxed text-body">
-            {goal.approvalNote}
-          </p>
+        {declineEntries(goal).length > 0 ? (
+          <div className="mt-2 flex flex-col gap-1.5">
+            <p className="text-meta font-semibold text-muted">
+              Feedback it was given before
+            </p>
+            <DeclineList goal={goal} />
+          </div>
+        ) : (
+          goal.approvalNote && (
+            <p className="mt-2 border-l-2 border-line-strong pl-3 leading-relaxed text-body">
+              {goal.approvalNote}
+            </p>
+          )
         )}
       </div>
     </div>

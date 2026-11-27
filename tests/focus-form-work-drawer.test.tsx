@@ -73,13 +73,11 @@ vi.mock("@/lib/store/completions", () => ({
 vi.mock("@/lib/store/project-session", () => ({
   useProjectsGate: () => ({ enabled: true, loading: false }),
 }));
-vi.mock("@/app/(app)/hiring/requisitions/[id]/use-phone", () => ({
-  usePhone: () => false,
-}));
 vi.mock("@/lib/api/work-flags", async (original) => ({
   ...(await original<typeof import("@/lib/api/work-flags")>()),
   workFlagsApi: flagsApi,
 }));
+/* The card of the person's own objectives draws nothing for nobody with any. */
 vi.mock("@/app/(app)/performance/self-evidence", () => ({
   SelfEvidence: () => null,
 }));
@@ -168,20 +166,21 @@ async function openDrawer() {
   render(<FocusForm review={review()} onSent={vi.fn()} onSending={vi.fn()} />);
   await userEvent.click(screen.getByRole("button", { name: "Start" }));
   expect(heading()).toBe("First question");
-  await userEvent.click(
-    screen.getByRole("button", { name: "What you did this period" }),
-  );
-  const drawer = await screen.findByRole("dialog", {
-    name: "What you did this period",
-  });
-  /* The flag controls arrive once the flags have been read. */
-  await within(drawer).findByText("This is wrong");
+  await userEvent.click(screen.getByRole("button", { name: "Your work" }));
+  const drawer = await screen.findByRole("dialog", { name: "Your work" });
+  /* The flag menus arrive once the flags have been read. */
+  await within(drawer).findAllByRole("button", { name: /^More actions for / });
   return drawer;
 }
 
 /** Open the flag dialog from the drawer and type a reason in it. */
 async function typeAReason(drawer: HTMLElement) {
-  await userEvent.click(within(drawer).getByText("This is wrong"));
+  await userEvent.click(
+    within(drawer).getAllByRole("button", { name: /^More actions for / })[0]!,
+  );
+  await userEvent.click(
+    await screen.findByRole("menuitem", { name: "This is wrong" }),
+  );
   const box = await screen.findByRole("textbox", {
     name: /What is wrong with it/,
   });
@@ -250,5 +249,16 @@ describe("the drawer on its own", () => {
     );
     await userEvent.keyboard("{Control>}{Enter}{/Control}");
     expect(heading()).toBe("Second question");
+  });
+});
+
+describe("the drawer when the person has no objectives of their own", () => {
+  it("says nothing about them, and nothing about a log that is gone", async () => {
+    const drawer = await openDrawer();
+    /* The card above the finished work draws nothing for nobody with objectives
+       (it takes no wording from the form any more), so there is no sentence about
+       what is missing, and none about a log to add to. */
+    expect(within(drawer).queryByText(/No objectives/i)).toBeNull();
+    expect(within(drawer).queryByText(/logged/i)).toBeNull();
   });
 });

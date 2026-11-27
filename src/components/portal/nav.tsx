@@ -696,23 +696,24 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       rows: "exits",
     },
     {
-      /* The register of written queries, for the people who write them and the people who
-         decide them: **either** permission, and the company's `queries` switch, off for every
-         company until it is turned on in Settings.
+      /* **One row for everybody, behind the company's `queries` switch** (off for every company
+         until it is turned on in Settings), and **no permission**. It used to be only for the
+         people who write or decide queries, on the argument that a row labelled "Queries" in
+         front of somebody who has been queried would say what the letter is before they opened
+         it. The cost of that was the opposite failure: the person a letter was issued to, and
+         every manager, had no row at all, and the only way in was the notification and a card on
+         the profile that nobody knew to look for (UAT 26 Nov: "I can't even see where query is
+         for the employee's view"). A row that is there for everybody says nothing about anybody.
 
-         There is no row for the person a query is addressed to, on purpose. Their way in is the
-         notification, which says only that a letter is waiting, and the "Letters from HR" entry on
-         their own profile. A sidebar row labelled "Queries" in front of somebody who has been
-         queried would say what the letter is before they have opened it. */
+         One route, narrowed by who is asking, as Exit management is: the people who write or
+         decide queries get the register, a line manager given `DRAFT_QUERIES` gets their own
+         drafts, and everybody else gets the letters addressed to them. Which of the three is the
+         page's decision (`QueriesScreen`), made from the permissions and never from this list,
+         and the server still answers every request on its own authority: a manager who types a
+         report's letter into the address gets the answer a record that does not exist gets. */
       href: "/people/queries",
       label: "Queries",
       icon: <MessageSquareText aria-hidden="true" />,
-      /* `DRAFT_QUERIES` is the line manager's: the same row opens their own drafts and nothing
-         else. Held by nobody on the day, so the row is not in front of anybody who was not
-         given it. Whether the company has switched manager drafting on is the server's to say
-         (`GET /queries/my-drafts` answers 403 with its own sentence), so the page asks and the
-         row does not guess. */
-      anyPermission: ["ISSUE_QUERIES", "DECIDE_QUERIES", "DRAFT_QUERIES"],
       feature: "queries",
     },
     {

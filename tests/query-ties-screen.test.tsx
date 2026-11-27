@@ -336,7 +336,7 @@ describe("documents asked for", () => {
     expect(screen.queryByText("Fitness note")).not.toBeInTheDocument();
   });
 
-  it("say plainly when nobody was told in the product", async () => {
+  it("say plainly when nobody was told in ApproveHR", async () => {
     const user = userEvent.setup();
     held = new Set(["ISSUE_QUERIES"]);
     employeeId = "e-9";
@@ -351,7 +351,7 @@ describe("documents asked for", () => {
     await user.type(screen.getByLabelText(/The document/), "ID card");
     await user.click(screen.getByRole("button", { name: "Ask for it" }));
     expect(
-      await screen.findByText(/Nobody was told in the product/),
+      await screen.findByText(/Nobody was told in ApproveHR/),
     ).toBeInTheDocument();
   });
 

@@ -9,10 +9,8 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Disclosure,
   EmptyState,
   SegmentedControl,
-  Stat,
   TBody,
   TD,
   TH,
@@ -22,6 +20,7 @@ import {
   Tabs,
   LoadState,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type {
   ApiFairness,
@@ -34,11 +33,11 @@ import {
   useCycleFairness,
   useReviewFlags,
 } from "@/lib/store/performance";
-import { BandBars, RangeChart, pct, points } from "./charts";
+import { RangeChart, pct, points } from "./charts";
 import { PeopleToReview, flaggedCount } from "./people-to-review";
+import { stageWords } from "@/lib/performance/stage-words";
 
 type Tab = "groups" | "managers" | "people";
-type View = "average" | "bands" | "table";
 
 export function FairnessScreen({
   cycleId,
@@ -52,10 +51,14 @@ export function FairnessScreen({
 }) {
   const allowed = useCan("VIEW_FAIRNESS");
   const [periods, setPeriods] = useState<FairnessPeriods>(1);
-  const [tab, setTab] = useState<Tab>(initialTab ?? "groups");
+  const [chosen, setTab] = useState<Tab | null>(initialTab ?? null);
   const detail = useCycleFairness(cycleId, periods, allowed);
   const data = detail.fairness;
   const review = useReviewFlags(cycleId, allowed);
+  /* It opens on the people to review whenever anybody is flagged, because that
+     is the one thing to do; the statistics are what you read to understand it. */
+  const flagged = flaggedCount(review.flags);
+  const tab: Tab = chosen ?? (flagged > 0 ? "people" : "groups");
 
   return (
     <>
@@ -73,13 +76,16 @@ export function FairnessScreen({
         }
         title="Fairness check"
         meta={
-          picker || detail.cycle ? (
+          picker || detail.cycle || data ? (
             <span className="flex flex-wrap items-center gap-2">
               {picker}
               {detail.cycle && (
                 <Badge tone="neutral" size="sm" dot>
-                  {detail.cycle.stageLabel}
+                  {stageWords(detail.cycle.stageLabel)}
                 </Badge>
+              )}
+              {data && (
+                <InfoTooltip label="How flags work" text={flagRules(data)} />
               )}
             </span>
           ) : undefined
@@ -131,7 +137,6 @@ export function FairnessScreen({
         >
           {data && (
             <>
-              <Summary data={data} periods={periods} />
               <Tabs
                 items={[
                   {
@@ -143,7 +148,7 @@ export function FairnessScreen({
                   {
                     id: "people",
                     label: "People to review",
-                    count: flaggedCount(review.flags) || undefined,
+                    count: flagged || undefined,
                   },
                 ]}
                 value={tab}
@@ -162,30 +167,6 @@ export function FairnessScreen({
                   />
                 )}
               </Tabs>
-              {tab !== "people" && (
-                <Disclosure title="How flags work" region={false}>
-                  <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
-                    <li>
-                      Scores are compared before calibration. Any moves made
-                      during calibration are shown on the period page.
-                    </li>
-                    <li>
-                      A group is flagged when its gap is at least{" "}
-                      {pct(data.rules.minGapBp).replace("%", "")} points and the
-                      likely range doesn&apos;t cross zero.
-                    </li>
-                    <li>
-                      Groups under {data.rules.minGroup} people are hidden.
-                      Religion and state of origin aren&apos;t checked.
-                    </li>
-                    <li>
-                      A manager is flagged at{" "}
-                      {pct(data.managers.rules.apartBp).replace("%", "")} points
-                      from everyone else, or when their scores barely vary.
-                    </li>
-                  </ul>
-                </Disclosure>
-              )}
             </>
           )}
         </LoadState>
@@ -198,58 +179,30 @@ function flagCount(data: ApiFairness) {
   return data.dimensions.reduce((n, d) => n + d.flags.length, 0);
 }
 
-function Summary({
-  data,
-  periods,
-}: {
-  data: ApiFairness;
-  periods: FairnessPeriods;
-}) {
-  const hidden = data.dimensions.reduce((n, d) => n + d.hidden.length, 0);
-  const flags = flagCount(data);
+/**
+ * How a flag is decided, and who is left out of the comparison, as one tooltip
+ * on the title. Rules are said once and out of the way.
+ */
+function flagRules(data: ApiFairness): string {
+  const skipped =
+    data.skipped.length > 0
+      ? ` Not counted: ${data.skipped.map((s) => `${s.name} (${s.reason.toLowerCase()})`).join(", ")}.`
+      : "";
   return (
-    <div className="flex flex-col gap-3">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat
-          label="Scores compared"
-          value={String(data.compared)}
-          hint={
-            periods === 3
-              ? `Across ${data.periods.map((p) => p.name).join(", ")}`
-              : `Of ${String(data.inPeriod)} people in the period`
-          }
-        />
-        <Stat
-          label="Gaps flagged"
-          value={String(flags)}
-          hint={flags ? "See the Groups tab" : "None this time"}
-        />
-        <Stat
-          label="Groups hidden"
-          value={String(hidden)}
-          hint={`Under ${String(data.rules.minGroup)} people`}
-        />
-        <Stat
-          label="Company average"
-          value={
-            data.averageBp === null ? "No scores yet" : pct(data.averageBp)
-          }
-        />
-      </div>
-      {data.skipped.length > 0 && (
-        <Callout tone="neutral">
-          Not counted:{" "}
-          {data.skipped
-            .map((s) => `${s.name} (${s.reason.toLowerCase()})`)
-            .join(", ")}
-          .
-        </Callout>
-      )}
-    </div>
+    `Scores are compared before the score review. A group is flagged when its gap is at least ${pct(data.rules.minGapBp).replace("%", "")} points and the likely range doesn't cross zero. ` +
+    `Groups under ${String(data.rules.minGroup)} people are hidden. Religion and state of origin aren't checked. ` +
+    `A manager is flagged at ${pct(data.managers.rules.apartBp).replace("%", "")} points from everyone else, or when their scores barely vary.` +
+    skipped
   );
 }
 
 function Groups({ data }: { data: ApiFairness }) {
+  const flagged = data.dimensions.filter(
+    (dimension) => dimension.flags.length > 0,
+  );
+  const moves = data.calibration.byGroup.filter(
+    (dimension) => dimension.comparable && dimension.groups,
+  );
   if (data.compared === 0) {
     return (
       <Card>
@@ -257,57 +210,89 @@ function Groups({ data }: { data: ApiFairness }) {
           compact
           icon={<Scale aria-hidden="true" />}
           title="No scores yet"
-          description="Groups appear once people have scores."
+        />
+      </Card>
+    );
+  }
+  if (flagged.length === 0 && (data.calibration.moved === 0 || !moves.length)) {
+    return (
+      <Card>
+        <EmptyState
+          compact
+          icon={<Scale aria-hidden="true" />}
+          title="No gaps flagged"
         />
       </Card>
     );
   }
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {data.dimensions.map((dimension) => (
-        <GroupCard
-          key={dimension.key}
-          dimension={dimension}
-          averageBp={data.averageBp}
-          minGroup={data.rules.minGroup}
-        />
-      ))}
+    <div className="flex flex-col gap-4">
+      {flagged.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {flagged.map((dimension) => (
+            <GroupCard
+              key={dimension.key}
+              dimension={dimension}
+              averageBp={data.averageBp}
+            />
+          ))}
+        </div>
+      )}
+      {data.calibration.moved > 0 && moves.length > 0 && (
+        <CalibrationByGroup data={data} />
+      )}
     </div>
   );
 }
 
 /**
- * What to say when a dimension has no group it can show.
- *
- * A hidden group has one of two reasons. `small` is the plain rule: under the
- * minimum size. `protects` is a group that is itself big enough but is held
- * back because showing it would let anyone work out the small ones by
- * subtraction (total minus the visible groups). Saying "under the size it can
- * be shown at" for the second reads as wrong — the group is large — so name it
- * and say why.
+ * Who calibration moved, by group. This is fairness analysis, so it is here and
+ * not under the period's Scores. Only groups big enough to compare are listed.
  */
-export function allHiddenText(
-  hidden: ApiFairnessDimension["hidden"],
-  minGroup: number,
-): string {
-  const protecting = hidden.filter((h) => h.reason === "protects");
-  if (protecting.length === 0) {
-    return "Every group here is under the size it can be shown at.";
-  }
-  const names = protecting.map((h) => h.label).join(", ");
-  return `Groups under ${String(minGroup)} people are hidden, and so ${protecting.length === 1 ? "is" : "are"} ${names}, because showing ${protecting.length === 1 ? "it" : "them"} would reveal the smaller groups by subtraction.`;
+function CalibrationByGroup({ data }: { data: ApiFairness }) {
+  return (
+    <Card>
+      <CardHeader level={3} title="Score changes" />
+      <TableWrap caption="Score changes by group">
+        <THead>
+          <TH>Grouping</TH>
+          <TH>Group</TH>
+          <TH className="text-right">Moves</TH>
+          <TH className="text-right">Average move</TH>
+        </THead>
+        <TBody>
+          {data.calibration.byGroup.flatMap((dimension) =>
+            dimension.comparable && dimension.groups
+              ? dimension.groups.map((group) => (
+                  <TR key={`${dimension.key}-${group.label}`}>
+                    <TD>{dimension.label}</TD>
+                    <TD>{group.label}</TD>
+                    <TD className="text-right tabular-nums">{group.moves}</TD>
+                    <TD className="text-right tabular-nums">
+                      {points(group.averageMoveBp)}
+                    </TD>
+                  </TR>
+                ))
+              : [],
+          )}
+        </TBody>
+      </TableWrap>
+    </Card>
+  );
 }
 
+/**
+ * One card for a grouping where a gap was found: the averages on one chart, and
+ * who is flagged against whom underneath. Only flagged groupings get a card, so
+ * there is no "no clear gap" badge and no switch to a table or bands.
+ */
 export function GroupCard({
   dimension,
   averageBp,
-  minGroup,
 }: {
   dimension: ApiFairnessDimension;
   averageBp: number | null;
-  minGroup: number;
 }) {
-  const [view, setView] = useState<View>("average");
   const flagged = new Set(
     dimension.flags.flatMap((f) => [
       f.label,
@@ -334,89 +319,17 @@ export function GroupCard({
 
   return (
     <Card className="min-w-0">
-      <CardHeader
-        level={3}
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="whitespace-nowrap">{dimension.label}</span>
-            {dimension.flags.length ? (
-              <Badge tone="warning" size="sm" dot>
-                Flagged
-              </Badge>
-            ) : (
-              <Badge tone="neutral" size="sm" dot>
-                {dimension.groups.length < 2
-                  ? "Too few to compare"
-                  : "No clear gap"}
-              </Badge>
-            )}
-          </span>
-        }
-        action={
-          dimension.groups.length > 0 ? (
-            <SegmentedControl
-              label={`Show ${dimension.label.toLowerCase()} as`}
-              value={view}
-              onChange={setView}
-              options={[
-                { value: "average", label: "Average" },
-                { value: "bands", label: "Bands" },
-                { value: "table", label: "Table" },
-              ]}
-            />
-          ) : undefined
-        }
-      />
-      {dimension.groups.length === 0 ? (
-        <CardBody className="text-body-sm text-muted">
-          {allHiddenText(dimension.hidden, minGroup)}
-        </CardBody>
-      ) : view === "table" ? (
-        <TableWrap caption={`${dimension.label} by group`}>
-          <THead>
-            <TH>Group</TH>
-            <TH className="text-right">People</TH>
-            <TH className="text-right">Average</TH>
-            <TH className="text-right">Gap</TH>
-            <TH className="text-right">Above meets</TH>
-          </THead>
-          <TBody>
-            {dimension.groups.map((group) => (
-              <TR key={group.label}>
-                <TD>{group.label}</TD>
-                <TD className="text-right tabular-nums">{group.people}</TD>
-                <TD className="text-right tabular-nums">{pct(group.meanBp)}</TD>
-                <TD className="text-right tabular-nums">
-                  {group.gap ? points(group.gap.gapBp) : "No gap"}
-                </TD>
-                <TD className="text-right tabular-nums">
-                  {Math.round(
-                    ((group.bands.EXCEEDS + group.bands.OUTSTANDING) /
-                      group.people) *
-                      100,
-                  )}
-                  %
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </TableWrap>
-      ) : (
-        <CardBody>
-          {view === "average" ? (
-            <RangeChart
-              caption={`Average score by ${dimension.label.toLowerCase()}`}
-              referenceBp={averageBp}
-              rows={dimension.groups.map((g) => ({
-                ...g,
-                emphasis: flagged.has(g.label),
-              }))}
-            />
-          ) : (
-            <BandBars rows={dimension.groups} />
-          )}
-        </CardBody>
-      )}
+      <CardHeader level={3} title={dimension.label} />
+      <CardBody>
+        <RangeChart
+          caption={`Average score by ${dimension.label.toLowerCase()}`}
+          referenceBp={averageBp}
+          rows={dimension.groups.map((g) => ({
+            ...g,
+            emphasis: flagged.has(g.label),
+          }))}
+        />
+      </CardBody>
       {footer.length > 0 && (
         <div className="border-t border-line px-5 py-3 text-body-sm text-muted">
           {footer.map((item, i) => (
@@ -437,13 +350,6 @@ export function GroupCard({
 function Managers({ data }: { data: ApiFairness }) {
   const [view, setView] = useState<"average" | "table">("average");
   const { managers, hidden } = data.managers;
-  const flagged = managers.filter((m) => m.flags.length > 0);
-  const pattern = (m: (typeof managers)[number]) =>
-    m.flags.includes("apart") && m.gap
-      ? `${points(m.gap.gapBp)} vs everyone else`
-      : m.flags.includes("flat")
-        ? `${String(m.sameBandShare)}% in the same band`
-        : "No flag";
 
   return (
     <div className="flex flex-col gap-4">
@@ -517,40 +423,6 @@ function Managers({ data }: { data: ApiFairness }) {
           </div>
         )}
       </Card>
-
-      {flagged.length > 0 && (
-        <Card>
-          <CardHeader
-            level={3}
-            title={
-              <span className="flex items-center gap-2">
-                Flagged
-                <Badge tone="warning" size="sm" dot>
-                  {flagged.length}
-                </Badge>
-              </span>
-            }
-          />
-          <TableWrap caption="Flagged managers">
-            <THead>
-              <TH>Manager</TH>
-              <TH className="text-right">Rated</TH>
-              <TH className="text-right">Average</TH>
-              <TH>Pattern</TH>
-            </THead>
-            <TBody>
-              {flagged.map((m) => (
-                <TR key={m.name}>
-                  <TD>{m.name}</TD>
-                  <TD className="text-right tabular-nums">{m.people}</TD>
-                  <TD className="text-right tabular-nums">{pct(m.meanBp)}</TD>
-                  <TD className="text-warning-text">{pattern(m)}</TD>
-                </TR>
-              ))}
-            </TBody>
-          </TableWrap>
-        </Card>
-      )}
     </div>
   );
 }

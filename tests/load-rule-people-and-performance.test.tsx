@@ -136,6 +136,11 @@ beforeEach(() => {
   state.projects.projects = [];
 });
 
+/* A screen that answers "nothing" by drawing nothing at all: the empty card was
+   taken out, so there is no sentence to look for, only the loading and failure
+   rule to hold to. */
+const DRAWS_NOTHING_WHEN_EMPTY = new Set(["the skills framework"]);
+
 const SCREENS = [
   {
     name: "the objectives queue",
@@ -213,6 +218,13 @@ describe.each(SCREENS)("$name", (screenCase) => {
   it("says it is empty once it has asked and there is nothing", async () => {
     screenCase.set(false, null);
     render(await screenCase.draw());
+    if (DRAWS_NOTHING_WHEN_EMPTY.has(screenCase.name)) {
+      /* Answered with nothing: not a skeleton, not a failure, not an empty card. */
+      expect(screen.queryByText(screenCase.empty)).not.toBeInTheDocument();
+      expect(screen.queryByText(screenCase.failed)).not.toBeInTheDocument();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      return;
+    }
     expect(screen.getByText(screenCase.empty)).toBeInTheDocument();
   });
 });

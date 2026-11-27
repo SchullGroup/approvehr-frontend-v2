@@ -1,14 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { ApiCompetency, NewVersionResult } from "@/lib/api/performance";
 import {
-  answeredAsWords,
   lockedMark,
   lockedReason,
   newVersionEffects,
   newVersionTitle,
   otherKinds,
   ratingsWords,
-  startedLine,
   startedToast,
 } from "@/lib/performance/new-version";
 
@@ -166,36 +164,6 @@ describe("what starting one does, before it is pressed", () => {
 });
 
 describe("what happened", () => {
-  it("reads each way a version can be answered", () => {
-    expect(answeredAsWords("RATING")).toBe("a level on a scale");
-    expect(answeredAsWords("BOOLEAN")).toBe("a yes or no");
-    expect(answeredAsWords("CHOICE")).toBe("one pick from a list");
-  });
-
-  it("names the new one, how it is answered and what the old one kept, under the name the API gave it", () => {
-    expect(startedLine(result(), "RATING")).toBe(
-      "Teamwork is now answered as a level on a scale. Teamwork (retired) keeps its 12 ratings and every score made from them.",
-    );
-  });
-
-  it("agrees in number here too: one rating is kept with the scores made from it", () => {
-    expect(startedLine(result({ ratingsKept: 1 }), "BOOLEAN")).toBe(
-      "Teamwork is now answered as a yes or no. Teamwork (retired) keeps its 1 rating and every score made from it.",
-    );
-  });
-
-  it("uses the retired name the API chose, which is numbered when the first was taken", () => {
-    expect(
-      startedLine(result({ retiredName: "Teamwork (retired 2)" }), "BOOLEAN"),
-    ).toContain("Teamwork (retired 2) keeps its 12 ratings");
-  });
-
-  it("does not claim ratings that were not there", () => {
-    const line = startedLine(result({ ratingsKept: 0 }), "BOOLEAN");
-    expect(line).toContain("Teamwork (retired) is kept, retired.");
-    expect(line).not.toContain("0 ratings");
-  });
-
   it("is a short toast when there is nothing else to say", () => {
     expect(startedToast(result())).toEqual({
       title: "Started a new version of Teamwork",
@@ -206,6 +174,16 @@ describe("what happened", () => {
     );
     expect(startedToast(result({ ratingsKept: 0 })).detail).toBe(
       "Teamwork (retired) is kept, retired.",
+    );
+  });
+
+  it("carries the API's own sentences as the detail when it sent any, because they say what to do next", () => {
+    const sent = {
+      ...result(),
+      notes: ['"H2 2026 Appraisal" asks the new one.', "Add its choices."],
+    };
+    expect(startedToast(sent).detail).toBe(
+      '"H2 2026 Appraisal" asks the new one. Add its choices.',
     );
   });
 });

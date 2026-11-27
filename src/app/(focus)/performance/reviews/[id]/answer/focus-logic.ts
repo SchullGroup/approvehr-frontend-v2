@@ -56,6 +56,19 @@ export function closingNoteWords(kind: ApiReviewDetail["kind"]): {
 }
 
 /**
+ * What a page that holds something says about where it is held.
+ *
+ * Answers to the questions are saved to the server as they are written. The
+ * overall rating, how far the person could go and the closing note are not,
+ * because they travel with the send and nothing takes them before it
+ * (`draft-storage.ts`). Each page that asks for one of them says so in these
+ * words, under its box. The introduction and the header say nothing about it:
+ * "Saved" in the header is about the questions, and on these pages it is not
+ * drawn at all.
+ */
+export const KEPT_HERE = "Kept in this browser only, until you send.";
+
+/**
  * Whether the form ends with an overall mark: the company's setting, or a period
  * that needs one from this appraiser.
  *
@@ -81,18 +94,24 @@ export function needsOverallMark(
 }
 
 /**
- * What the mark page is called, and what it says about being optional.
+ * What the mark page is called, and the one sentence behind its info icon.
  *
- * Where it is needed the page does not ask "is there one?", and it says why: this
- * period counts it, and for how much when the API said (`markShareBp`). The shares
- * are the API's figures; nothing here works one out.
+ * The page itself says nothing about weights: a required mark carries a small
+ * "Needed" tag and an optional one is passed with Skip. What it counts for is a
+ * rule, so it sits in a tooltip (`tip`), or nowhere. Where it is needed the tip
+ * says why: this period counts it, and for how much when the API said
+ * (`markShareBp`). The shares are the API's figures; nothing here works one out.
  *
  * **`markShareBp` is the whole part's share of the mark, not this appraiser's.**
  * With several appraisers, "it counts for 30% of the mark" would be the whole
- * part's weight said as this person's, and the strip on the same form says their
+ * part's weight said as this person's, and the strip on the record says their
  * own slice and the part's share separately. So where there is more than one
- * appraiser the lead is the strip's own sentence (`appraiserStripLine`), written
- * once, and the two pages cannot give two answers.
+ * appraiser the tip is the strip's own sentence (`appraiserStripLine`), written
+ * once, and the two screens cannot give two answers.
+ *
+ * An optional mark has a tip only where the period weights the part at nothing
+ * (U36 / PERF-2: a question that counted 0% read as if it decided the rating). A
+ * share the server did not send makes no claim, so there is no tip.
  */
 export function markPageWords(
   required: boolean,
@@ -100,18 +119,12 @@ export function markPageWords(
     ApiAppraiserContext,
     "weightBp" | "appraiserCount" | "markShareBp"
   >,
-): { title: string; lead: string } {
+): { title: string; tip: string | null } {
   if (!required) {
-    /* Where the period weights the part at nothing the answer moves no score,
-       and the page says so rather than leaving it to be guessed (U36 /
-       PERF-2: a question that counted 0% read as if it decided the rating).
-       A share the server did not send makes no claim. */
     return {
       title: "Is there an overall rating?",
-      lead:
-        appraiser?.markShareBp === 0
-          ? "Optional, and it does not change the score. Leave it if the answers say enough."
-          : "Optional. Leave it if the answers say enough.",
+      tip:
+        appraiser?.markShareBp === 0 ? "It does not change the score." : null,
     };
   }
   const title = "Your overall rating";
@@ -123,14 +136,14 @@ export function markPageWords(
         mine: true,
         asksMark: true,
       });
-      if (line) return { title, lead: `Needed. ${line}` };
+      if (line) return { title, tip: line };
     }
     return {
       title,
-      lead: `Needed. It counts for ${weightLabel(share)} of the score in this period.`,
+      tip: `It counts for ${weightLabel(share)} of the score in this period.`,
     };
   }
-  return { title, lead: "Needed. This period counts it towards the score." };
+  return { title, tip: "This period counts it towards the score." };
 }
 
 /**
@@ -161,26 +174,16 @@ export function startingMark(args: {
 }
 
 /**
- * What still stops a send, in one line, or null when nothing does: the questions
- * that need an answer, and the overall mark where the period needs one.
+ * What is left to answer before this can go, as the text of one neutral link:
+ * the questions that need an answer, and the overall mark where the period needs
+ * one. Null when nothing is.
  */
-export function stillNeededLine(
+export function toAnswerLine(
   questions: number,
   markMissing: boolean,
 ): string | null {
-  if (questions === 0) {
-    return markMissing
-      ? "The overall rating still needs an answer before this can go."
-      : null;
-  }
-  const counted =
-    questions === 1 ? "1 question" : `${String(questions)} questions`;
-  if (markMissing) {
-    return `${counted} and the overall rating still need an answer before this can go.`;
-  }
-  return questions === 1
-    ? "1 question still needs an answer before this can go."
-    : `${counted} still need an answer before this can go.`;
+  const count = questions + (markMissing ? 1 : 0);
+  return count === 0 ? null : `${String(count)} to answer`;
 }
 
 /** A signature of what is in a box, to tell "changed" from "typed and undone". */
@@ -206,22 +209,30 @@ export const sigOf = (held: Draft): string =>
  * on the introduction.
  *
  * `withMark` is whether the company asks for an overall mark at all
- * (`ApiReviewDetail.overallMark`). A mark held in this browser only counts as
- * something done while it is being asked for.
+ * (`ApiReviewDetail.overallMark`), and `withPotential` whether this is a
+ * manager's form in a period that asks how far the person could go. Something
+ * held in this browser only counts as something done while it is being asked for.
  */
 export function startIndex(
   review: Pick<ApiReviewDetail, "questions">,
   local: LocalDraft,
   withMark = false,
+  withPotential = false,
 ): number {
-  const last = review.questions.length + (withMark ? 3 : 2);
+  /* The pages are the introduction, the questions, the mark and the potential
+     where asked, the note and the preview. The last index is one less than that
+     count, so a page remembered on the preview is not pulled back one for want
+     of counting the potential page. */
+  const last =
+    review.questions.length + 2 + (withMark ? 1 : 0) + (withPotential ? 1 : 0);
   if (local.step > 0) return Math.min(local.step, last);
 
   const hasAnswers = review.questions.some((question) =>
     filled(question, draftFrom(question)),
   );
   const heldMark = withMark && local.mark !== "";
-  if (!hasAnswers && !heldMark && !local.summary) return 0;
+  const heldPotential = withPotential && local.potential !== "";
+  if (!hasAnswers && !heldMark && !heldPotential && !local.summary) return 0;
   const open = review.questions.findIndex(
     (question) => question.required && !filled(question, draftFrom(question)),
   );
@@ -257,4 +268,69 @@ export function savedAnswerStands(
 ): boolean {
   if (!box) return false;
   return !filled(question, box) && filled(question, saved);
+}
+
+/** The shortcut for "go on" from a box, in the words of the machine somebody is using. */
+export function continueKeys(): string {
+  if (typeof navigator === "undefined") return "Ctrl Enter";
+  return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ Enter" : "Ctrl Enter";
+}
+
+/**
+ * The one line behind the keyboard icon in the footer, or null where no key does
+ * anything. It is the only place the keys are explained: the pages themselves say
+ * nothing about them. `keys` is `continueKeys()`.
+ */
+export function keyboardHint(
+  page: "intro" | "question" | "mark" | "potential" | "summary" | "check",
+  /** Whether the page is answered by pressing a key beside an option. */
+  picks: boolean,
+  keys: string,
+): string | null {
+  if (page === "intro" || page === "check") return null;
+  const close = "Esc saves and closes.";
+  if (picks) return `Press an answer's key to pick it and go on. ${close}`;
+  if (page === "potential") return `Enter goes on. ${close}`;
+  return `${keys} goes on. ${close}`;
+}
+
+/** What the footer's one action is on this page. */
+export type FooterAction =
+  /** Nothing can be pressed: the page cannot be left yet, or sending is closed. */
+  | { kind: "none" }
+  | { kind: "go"; label: "Start" | "Continue" | "Next" | "Skip" }
+  | { kind: "send" }
+  /** The preview, with answers still to give: a link to the first, in Send's place. */
+  | { kind: "answer"; label: string };
+
+/**
+ * The footer's right-hand side, decided once and with no refusals in it.
+ *
+ * **A button that can only refuse is not drawn.** Next is absent while the page
+ * cannot be left (a required answer, or the reason a bigger role needs), Send is
+ * absent while sending is closed, and with answers still to give the preview's
+ * action is the way to the first of them. Where a page can be passed with nothing
+ * in it, the button says Skip, not Next.
+ */
+export function footerAction(args: {
+  page: "intro" | "question" | "mark" | "potential" | "summary" | "check";
+  /** The form was opened again after some of it was answered. */
+  resumed: boolean;
+  /** The page cannot be left yet. */
+  blocked: boolean;
+  /** The page is optional and nothing is in it. */
+  skippable: boolean;
+  /** On the preview: `toAnswerLine`, or null when nothing is left. */
+  toAnswer: string | null;
+  sendClosed: boolean;
+}): FooterAction {
+  if (args.page === "intro") {
+    return { kind: "go", label: args.resumed ? "Continue" : "Start" };
+  }
+  if (args.page === "check") {
+    if (args.toAnswer) return { kind: "answer", label: args.toAnswer };
+    return args.sendClosed ? { kind: "none" } : { kind: "send" };
+  }
+  if (args.blocked) return { kind: "none" };
+  return { kind: "go", label: args.skippable ? "Skip" : "Next" };
 }

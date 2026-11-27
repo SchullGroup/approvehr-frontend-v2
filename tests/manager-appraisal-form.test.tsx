@@ -104,6 +104,13 @@ const heading = (name: string | RegExp) =>
 const next = async (name: string | RegExp) =>
   userEvent.click(screen.getByRole("button", { name }));
 
+/** What the mark page's info icon says: the one place it says what the mark counts for. */
+const countsFor = async () => {
+  await userEvent.click(
+    screen.getByRole("button", { name: "What this counts for" }),
+  );
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
@@ -115,7 +122,8 @@ describe("where the period needs the manager's overall mark", () => {
     await next("Start");
     expect(heading("Your overall rating")).toBeInTheDocument();
     expect(heading("Is there an overall rating?")).toBeNull();
-    expect(screen.getByText(/^Needed\./)).toBeInTheDocument();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
+    expect(screen.queryByText(/^Needed\./)).toBeNull();
   });
 
   it("says what it counts for when the API sent the part's share, and that this period counts it when it did not", async () => {
@@ -124,41 +132,46 @@ describe("where the period needs the manager's overall mark", () => {
       appraiser: appraiser({ markShareBp: 3000 }) as never,
     });
     await next("Start");
+    /* Behind the info icon, not in a sentence on the page. */
+    expect(screen.queryByText(/of the score in this period/)).toBeNull();
+    await countsFor();
     expect(
-      screen.getByText(
-        "Needed. It counts for 30% of the score in this period.",
-      ),
+      screen.getByText("It counts for 30% of the score in this period."),
     ).toBeInTheDocument();
     first.unmount();
     window.localStorage.clear();
 
     mount({ overallMarkRequired: true });
     await next("Start");
+    await countsFor();
     expect(
-      screen.getByText("Needed. This period counts it towards the score."),
+      screen.getByText("This period counts it towards the score."),
     ).toBeInTheDocument();
   });
 
-  it("offers no way to leave it blank, and the button is Next, never Skip", async () => {
+  it("offers no way to leave it blank, and the button is Next once one is picked, never Skip", async () => {
     mount({ overallMarkRequired: true });
     await next("Start");
     expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    /* Nothing picked: no Next to press either. */
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
     await userEvent.click(
       screen.getByRole("radio", { name: /Exceeds Expectations/ }),
     );
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
     expect(screen.queryByText("Leave it blank instead")).toBeNull();
   });
 
-  it("will not go on without one, and says so on the page", async () => {
+  it("will not go on without one: no Next to press, no red line, and Enter does nothing", async () => {
     mount({ overallMarkRequired: true });
     await next("Start");
-    await next("Next");
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    await userEvent.keyboard("{Enter}");
     expect(heading("Your overall rating")).toBeInTheDocument();
     expect(heading("Your recommendations")).toBeNull();
-    expect(
-      screen.getByText("This one needs an answer before you can go on."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/needs an answer/i)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("goes on once one is picked, and sends it as its number", async () => {
@@ -172,13 +185,14 @@ describe("where the period needs the manager's overall mark", () => {
     await next("Skip");
     expect(heading("Preview")).toBeInTheDocument();
     expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
-    expect(screen.queryByText("Needs an answer")).toBeNull();
+    expect(screen.queryByText("Needed")).toBeNull();
+    expect(screen.queryByText(/to answer/)).toBeNull();
     await next("Send it");
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
     expect(send).toHaveBeenCalledWith("r1", { rating: 4 }, []);
   });
 
-  it("says on the preview that the mark is still needed, and Send walks to it instead of sending", async () => {
+  it("says on the preview that the mark is still needed, and offers the way to it in place of Send", async () => {
     /* A person can reach the preview with no mark by coming back to a draft that
        was left there. */
     window.localStorage.setItem(
@@ -188,19 +202,14 @@ describe("where the period needs the manager's overall mark", () => {
     mount({ overallMarkRequired: true });
     expect(heading("Preview")).toBeInTheDocument();
     expect(screen.getByText("Not given yet")).toBeInTheDocument();
-    expect(screen.getByText("Needs an answer")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "The overall rating still needs an answer before this can go.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    /* A button that could only refuse is not drawn. */
+    expect(screen.queryByRole("button", { name: "Send it" })).toBeNull();
 
-    await next("Send it");
+    await next("1 to answer");
     expect(send).not.toHaveBeenCalled();
     expect(heading("Your overall rating")).toBeInTheDocument();
-    expect(
-      screen.getByText("This one needs an answer before you can go on."),
-    ).toBeInTheDocument();
   });
 
   it("is read once: the page does not appear if the server's answer moves under somebody", async () => {
@@ -231,8 +240,7 @@ describe("where the period needs the manager's overall mark", () => {
     expect(heading("Your overall rating")).toBeInTheDocument();
     expect(heading("Is there an overall rating?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
-    await next("Next");
-    expect(heading("Your overall rating")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
   });
 });
 
@@ -241,9 +249,8 @@ describe("where the period does not need it", () => {
     mount({ overallMark: true, overallMarkRequired: false });
     await next("Start");
     expect(heading("Is there an overall rating?")).toBeInTheDocument();
-    expect(
-      screen.getByText("Optional. Leave it if the answers say enough."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Optional/)).toBeNull();
+    expect(screen.queryByText("Needed")).toBeNull();
     expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
   });
 
@@ -263,55 +270,82 @@ describe("where the period does not need it", () => {
   });
 });
 
-describe("the strip above the form says what the overall mark is worth, from the period's share", () => {
-  it("says it counts, and for how much", async () => {
+describe("the first screen does not carry the overall mark's weight", () => {
+  /* The role and what the mark counts for used to sit in a strip above question 1.
+     The weight is a rule, so it is behind the info icon on the page that asks for
+     the mark, and the first screen is the title and the start. */
+  it("says nothing of what it counts for, or of the role, whatever the period's share", async () => {
+    for (const markShareBp of [3000, 0, undefined]) {
+      const view = mount({
+        overallMark: true,
+        appraiser: appraiser(
+          markShareBp === undefined ? {} : { markShareBp },
+        ) as never,
+      });
+      expect(screen.queryByText("Line manager")).toBeNull();
+      expect(screen.queryByText(/counts for/)).toBeNull();
+      expect(screen.queryByText(/does not count/)).toBeNull();
+      expect(screen.queryByText(/of the score/)).toBeNull();
+      expect(screen.queryByText(/Answer for the part of the work/)).toBeNull();
+      view.unmount();
+      window.localStorage.clear();
+    }
+  });
+
+  it("still shows a note the appraiser was given, behind the one link for the instructions", async () => {
     mount({
-      overallMark: true,
-      overallMarkRequired: true,
-      appraiser: appraiser({ markShareBp: 3000 }) as never,
+      appraiser: appraiser({
+        note: "You supervised the Lagos project.",
+      }) as never,
     });
+    expect(screen.queryByText("You supervised the Lagos project.")).toBeNull();
+    await next("Read the instructions");
     expect(
-      screen.getByText("Your overall rating counts for 30% of the score."),
+      screen.getByText("You supervised the Lagos project."),
     ).toBeInTheDocument();
   });
 
-  it("says it does not count where the period does not weight the part and the form asks for one", async () => {
+  it("says it does not change the score, behind the icon, where the period does not weight the part and the form asks for one", async () => {
     mount({
       overallMark: true,
       appraiser: appraiser({ markShareBp: 0 }) as never,
     });
+    await next("Start");
+    await countsFor();
     expect(
-      screen.getByText("Your overall rating does not count towards the score."),
+      screen.getByText("It does not change the score."),
     ).toBeInTheDocument();
   });
 
-  it("makes no claim from a server that does not say, and never says the review counts for the mark", async () => {
+  it("makes no claim from a server that does not say: no icon on an optional page", async () => {
     mount({ overallMark: true, appraiser: appraiser() as never });
-    expect(screen.getByText("Line manager")).toBeInTheDocument();
-    expect(screen.queryByText(/counts for/)).toBeNull();
-    expect(screen.queryByText(/does not count/)).toBeNull();
-    expect(screen.queryByText(/of the score/)).toBeNull();
+    await next("Start");
+    expect(heading("Is there an overall rating?")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "What this counts for" }),
+    ).toBeNull();
   });
 });
 
-describe("with several appraisers, the mark page and the strip say the same thing", () => {
+describe("with several appraisers, the mark page says their own slice in the strip's own sentence", () => {
   /* `markShareBp` is the whole part's share of the mark. At 60/40 with the part at
      30% this appraiser's own slice is 18%, and a page saying "it counts for 30%"
-     would be the whole part said as theirs, beside a strip that says otherwise. */
+     would be the whole part said as theirs. */
   const STRIP =
     "Your overall rating counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the score.";
   const shared = () =>
     appraiser({ weightBp: 6000, appraiserCount: 2, markShareBp: 3000 });
 
-  it("gives the strip's own sentence on the page that asks for the mark", async () => {
+  it("gives the strip's own sentence, behind the icon, on the page that asks for the mark", async () => {
     mount({
       overallMarkRequired: true,
       appraiser: shared() as never,
     });
-    expect(screen.getByText(STRIP)).toBeInTheDocument();
+    expect(screen.queryByText(STRIP)).toBeNull();
     await next("Start");
     expect(heading("Your overall rating")).toBeInTheDocument();
-    expect(screen.getByText(`Needed. ${STRIP}`)).toBeInTheDocument();
+    await countsFor();
+    expect(screen.getByText(STRIP)).toBeInTheDocument();
     expect(
       screen.queryByText(/counts for 30% of the score in this period/),
     ).toBeNull();
@@ -323,8 +357,9 @@ describe("with several appraisers, the mark page and the strip say the same thin
       appraiser: appraiser({ weightBp: 6000, appraiserCount: 2 }) as never,
     });
     await next("Start");
+    await countsFor();
     expect(
-      screen.getByText("Needed. This period counts it towards the score."),
+      screen.getByText("This period counts it towards the score."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/%/)).toBeNull();
   });
@@ -342,14 +377,11 @@ describe("a review sent back for revision keeps the mark it was given", () => {
     expect(picked(/Exceeds Expectations/)).toBeChecked();
     await next("Next");
     expect(heading("Your recommendations")).toBeInTheDocument();
-    expect(
-      screen.queryByText("This one needs an answer before you can go on."),
-    ).toBeNull();
     await next("Skip");
     expect(heading("Preview")).toBeInTheDocument();
     expect(screen.getByText("Exceeds Expectations")).toBeInTheDocument();
     expect(screen.queryByText("Not given yet")).toBeNull();
-    expect(screen.queryByText("Needs an answer")).toBeNull();
+    expect(screen.queryByText("Needed")).toBeNull();
     await next("Send it");
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
     expect(send).toHaveBeenCalledWith("r1", { rating: 4 }, []);
@@ -380,11 +412,9 @@ describe("a review sent back for revision keeps the mark it was given", () => {
         .getAllByRole("radio")
         .filter((radio) => (radio as HTMLInputElement).checked),
     ).toHaveLength(0);
-    await next("Next");
+    /* Nothing is held and nothing is picked, so there is no Next. */
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
     expect(heading("Your overall rating")).toBeInTheDocument();
-    expect(
-      screen.getByText("This one needs an answer before you can go on."),
-    ).toBeInTheDocument();
   });
 
   it("is not carried into a form that does not ask for a mark, which sends none", async () => {

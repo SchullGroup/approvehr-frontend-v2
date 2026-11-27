@@ -38,6 +38,12 @@ vi.mock("@/lib/store/features", async (original) => ({
 
 import { OverallMarkCard } from "@/app/(app)/settings/performance/overall-mark-card";
 
+/** The rules are behind the info icon beside the switch's name. */
+const openTip = () =>
+  userEvent.click(
+    screen.getByRole("button", { name: "About the overall rating" }),
+  );
+
 const mount = (
   props: Partial<Parameters<typeof OverallMarkCard>[0]> = {},
   over: Partial<FeatureState> = {},
@@ -64,12 +70,26 @@ beforeEach(() => {
 });
 
 describe("the switch", () => {
-  it("reads off, and says under it what the person does with it", () => {
+  it("reads off, with no line under it: what the person does with it is behind the icon", async () => {
     mount();
     expect(screen.getByRole("switch")).not.toBeChecked();
     expect(
-      screen.getByText("People pick one of the rating names below."),
+      screen.queryByText(/People pick one of the rating names below/),
+    ).toBeNull();
+    await openTip();
+    expect(
+      screen.getByText(/People pick one of the rating names below\./),
     ).toBeInTheDocument();
+  });
+
+  it("is named by what it asks, not by the icon beside it", () => {
+    mount();
+    expect(
+      screen.getByRole("switch", {
+        name: "Ask for an overall rating at the end of each appraisal",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).toBeNull();
   });
 
   it("reads on", () => {
@@ -79,12 +99,10 @@ describe("the switch", () => {
 
   it("says behind the info icon when it applies, and that a given rating never changes", async () => {
     mount();
-    await userEvent.click(
-      screen.getByRole("button", { name: "About Overall rating" }),
-    );
+    await openTip();
     expect(
       screen.getByText(
-        "It applies to forms opened from now on. A rating already given never changes.",
+        /It applies to forms opened from now on\. A rating already given never changes\./,
       ),
     ).toBeInTheDocument();
   });
@@ -149,11 +167,12 @@ describe("the switch", () => {
 describe("where the server has the Manager appraisal part", () => {
   const has = { state: "has", label: "Line view" } as const;
 
-  it("names the exception under the switch, in the company's own word", () => {
+  it("names the exception behind the icon, in the company's own word", async () => {
     mount({ managerAppraisal: has });
+    await openTip();
     expect(
       screen.getByText(
-        "People pick one of the rating names below. Managers must give one in a period that weights Line view.",
+        /People pick one of the rating names below\. Managers must give one in a period that weights Line view\./,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/is not counted/)).toBeNull();
@@ -186,10 +205,11 @@ describe("where nothing is known about the part, or the server predates it", () 
     ["a server that predates it", { state: "none" } as const],
   ])(
     "%s: says nothing about managers, or about the mark counting",
-    (_name, part) => {
+    async (_name, part) => {
       mount({ managerAppraisal: part });
+      await openTip();
       expect(
-        screen.getByText("People pick one of the rating names below."),
+        screen.getByText(/People pick one of the rating names below\./),
       ).toBeInTheDocument();
       expect(screen.queryByText(/Managers must/)).toBeNull();
       expect(screen.queryByText(/counted/)).toBeNull();

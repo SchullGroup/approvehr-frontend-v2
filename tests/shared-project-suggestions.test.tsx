@@ -129,6 +129,9 @@ vi.mock("@/lib/store/performance", () => ({
     autoAssign: vi.fn(),
     setAppraisers: mutations.setAppraisers,
   }),
+  /* Ask colleagues also reads who already appraises the person, to label them.
+     That is not what this file is about, so nobody is labelled. */
+  useMyAppraisers: () => ({ row: null, loading: false, error: null }),
 }));
 
 import { SharedProjectOptions } from "@/components/performance/shared-project-options";
@@ -269,7 +272,7 @@ describe("Ask colleagues", () => {
       .getAllByRole("checkbox")
       .map((box) => box.closest("li")?.textContent ?? "");
 
-  it("lists those who shared a project first, each saying how many, and says so", () => {
+  it("lists those who shared a project first, each saying how many, with no sentence about it", () => {
     mount();
     const rows = names();
     expect(rows[0]).toContain("Dayo Ola");
@@ -278,11 +281,7 @@ describe("Ask colleagues", () => {
     expect(rows[1]).toContain("Analyst · Shared 1 project");
     expect(rows[2]).toContain("Ada Obi");
     expect(rows[2]).not.toContain("Shared");
-    expect(
-      screen.getByText(
-        "People who shared a project with Femi Balogun are listed first. You still choose who to ask.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/are listed first/)).toBeNull();
   });
 
   it("never lists the person themselves", () => {
@@ -623,7 +622,9 @@ describe("the appraiser map", () => {
         "Shared a project",
         "Everybody else",
       ]);
-      expect(optionTexts(select())[1]).toBe("Dayo Ola — Shared 3 projects");
+      /* The default shown as the choice is a hidden option (F19), so it is not in the
+         list that opens and the first option is the first person. */
+      expect(optionTexts(select())[0]).toBe("Dayo Ola — Shared 3 projects");
     });
 
     it("asks nothing for a pointer that only crosses the row on its way down the column", () => {

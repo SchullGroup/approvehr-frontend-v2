@@ -1,61 +1,62 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Button, Disclosure, Skeleton } from "@/components/ui";
-import { usePhone } from "@/app/(app)/hiring/requisitions/[id]/use-phone";
+import { Skeleton } from "@/components/ui";
 import { dayLabel } from "@/lib/api/performance";
-import type { KeptWorkRecord, KeptWorkItem } from "@/lib/api/kept-work";
+import type { KeptWorkRecord } from "@/lib/api/kept-work";
+import { workFacts } from "@/lib/performance/work-in-answers";
 import { workIssueHref } from "@/lib/projects/objectives";
-import { count } from "@/lib/projects/terms";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { useKeptWork } from "@/lib/store/kept-work";
 import { formatDateShort } from "@/lib/time";
 import { useFlagging } from "./work-flags";
-import { Fact, FlagNote, LeftOut, WorkThisCycle } from "./work-this-cycle";
+import { WORK_LEFT_OUT, WorkList } from "./work-list";
+import { WorkRow } from "./work-row";
+import { WorkThisCycle } from "./work-this-cycle";
 
 /**
  * The work behind a rating, on a review.
  *
- * A review is read beside a list of what the person finished in the cycle (`WorkThisCycle`), and
- * that list is **live**: reopening, relinking or deleting a task later changes what an old review
- * shows. For a company that has chosen a retention period, the list as it stood on the day the
- * rating was made final is kept with it, and this is where it is read. Everything else about the
- * list is as it was: evidence to read, never a number, and the panel says so.
+ * A review is read beside a list of what the person finished in the cycle (`WorkThisCycle`), and that list
+ * is **live**: reopening, relinking or deleting a task later changes what an old review shows. For a
+ * company that has chosen a retention period, the list as it stood on the day the rating was made final is
+ * kept with it, and this is where it is read. Everything else about the list is as it was: evidence to
+ * read, never a number.
+ *
+ * ## One list, never two
+ *
+ * Two lists on one page, each saying a different thing about the same person, is the failure. So this
+ * draws **one**: the record when there is one, because it is what the appraiser could read, and the live
+ * list when there is not. What is different about the live list is said in its tooltip, not above it.
  *
  * ## What this draws, by what the server said
  *
- * - **The rating is not final, or it is not a manager's:** only the live list, exactly as before.
- * - **`NOT_KEPT`:** the live list, with one plain line above it saying nothing was kept from the
- *   day the rating was made final, so that list may differ from what the appraiser read. True of
- *   every rating made final before a company chose a period.
- * - **`REMOVED`:** the same, saying a record was kept and when its period ended.
- * - **`KEPT`:** the record, and the live list one click away. Two lists on one page, each saying a
- *   different thing about the same person, is the failure; the record is what the appraiser could
- *   read, so it leads, and the list as it stands now is asked for only if somebody wants it.
- * - **Anything the server could not answer** (the reader may not see it, a server one deploy
- *   behind, a failed request): the live list and nothing about a record. A server that does not
- *   say makes no claim, and `null` is never read as "none was kept".
+ * - **The rating is not final, or it is not a manager's:** the live list.
+ * - **`NOT_KEPT`:** the live list. Its tooltip says nothing was kept from the day the rating was made
+ *   final, so it may differ from what the appraiser read. True of every rating made final before a
+ *   company chose a period.
+ * - **`REMOVED`:** the live list, and its tooltip says a record was kept and when its period ended.
+ * - **`KEPT`:** the record, and nothing else.
+ * - **Anything the server could not answer** (the reader may not see it, a server one deploy behind, a
+ *   failed request): the live list and nothing about a record. A server that does not say makes no claim,
+ *   and `null` is never read as "none was kept".
  *
  * ## What it never shows
  *
- * A task title. The record does not hold one (a title can carry health or trade-union details), so
- * a row is the task's key, which opens the task as it is now. The panel says so beside the list.
+ * A task title. The record does not hold one (a title can carry health or trade-union details), so a row
+ * is the task's key, which opens the task as it is now. The tooltip says so.
  *
  * ## Not there without Projects
  *
- * Like the live list, nothing is drawn while the company has Projects off or its switches are
- * still on their way. Nothing is deleted when Projects goes off, and it is all there when it
- * comes back.
+ * Like the live list, nothing is drawn while the company has Projects off or its switches are still on
+ * their way. Nothing is deleted when Projects goes off, and it is all there when it comes back.
  *
  * ## "This is wrong"
  *
- * A row of the record carries the person's flag, and the person's controls for it, exactly as a row
- * of the live list does (`WorkThisCycle`), and from the same shared state: a flag that was written is
- * drawn whether or not the switch is still on, and raising or changing one needs it on. A flag is the
- * person's word that an item is not right. It does not remove the item from the record or change the
- * mark.
+ * A row of the record carries the person's flag, and the person's menu for it, exactly as a row of the
+ * live list does (`WorkThisCycle`), and from the same shared state: a flag that was written is drawn
+ * whether or not the switch is still on, and raising or changing one needs it on. A flag is the person's
+ * word that an item is not right. It does not remove the item from the record or change the mark.
  */
 export function WorkBehindTheMark({
   reviewId,
@@ -90,8 +91,9 @@ export function WorkBehindTheMark({
   const asks = kind === "MANAGER" && final && dated && projects.enabled;
   const evidence = useKeptWork(reviewId, asks);
 
-  const live = (
+  const live = (note?: string) => (
     <WorkThisCycle
+      framed
       subjectId={subjectId}
       cycleId={cycleId}
       periodStart={periodStart}
@@ -99,10 +101,11 @@ export function WorkBehindTheMark({
       subjectName={subjectName}
       own={own}
       enabled={kind !== "PEER"}
+      {...(note ? { note } : {})}
     />
   );
 
-  if (!asks) return live;
+  if (!asks) return live();
   if (evidence.loading) {
     return (
       <Skeleton
@@ -112,42 +115,25 @@ export function WorkBehindTheMark({
     );
   }
   const record = evidence.data;
-  if (!record || record.state === "NOT_FINAL") return live;
+  if (!record || record.state === "NOT_FINAL") return live();
 
   if (record.state === "NOT_KEPT") {
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-body-sm text-muted">
-          Nothing was kept of this list when the rating was made final, so the
-          list below is read as it stands now and may differ from what the
-          appraiser read.
-        </p>
-        {live}
-      </div>
+    return live(
+      "Nothing was kept of this list when the rating was made final, so it is read as it stands now and may differ from what the appraiser read.",
     );
   }
 
   if (record.state === "REMOVED") {
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-body-sm text-muted">
-          The work behind this rating was kept when it was made final, and was
-          removed on {formatDateShort(record.endedAt, timeZone)}, when its
-          retention period ended. The list below is read as it stands now and
-          may differ from what the appraiser read.
-        </p>
-        {live}
-      </div>
+    return live(
+      `The work behind this rating was kept when it was made final, and was removed on ${formatDateShort(record.endedAt, timeZone)}, when its retention period ended. This list is read as it stands now and may differ from what the appraiser read.`,
     );
   }
 
   return (
-    <KeptBesideLive
+    <KeptRecord
       record={record}
       disputed={disputed}
       timeZone={timeZone}
-      who={own ? "you" : subjectName}
-      live={live}
       cycleId={cycleId}
       subjectId={subjectId}
       subjectName={subjectName}
@@ -155,55 +141,6 @@ export function WorkBehindTheMark({
     />
   );
 }
-
-function KeptBesideLive({
-  record,
-  disputed,
-  timeZone,
-  who,
-  live,
-  cycleId,
-  subjectId,
-  subjectName,
-  own,
-}: {
-  record: KeptWorkRecord;
-  disputed: boolean;
-  timeZone: string;
-  who: string;
-  live: React.ReactNode;
-  cycleId: string | null;
-  subjectId: string;
-  subjectName: string;
-  own: boolean;
-}) {
-  const [showLive, setShowLive] = useState(false);
-  return (
-    <div className="flex flex-col gap-3">
-      <KeptRecord
-        record={record}
-        disputed={disputed}
-        timeZone={timeZone}
-        who={who}
-        cycleId={cycleId}
-        subjectId={subjectId}
-        subjectName={subjectName}
-        own={own}
-      />
-      {showLive ? (
-        live
-      ) : (
-        <div>
-          <Button size="sm" variant="ghost" onClick={() => setShowLive(true)}>
-            Show the list as it stands now
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const SHOWN = 10;
 
 /** One sentence for how long the record is kept, with the dispute's part said when it applies. */
 export function keptUntilLine(
@@ -221,7 +158,6 @@ function KeptRecord({
   record,
   disputed,
   timeZone,
-  who,
   cycleId,
   subjectId,
   subjectName,
@@ -230,13 +166,11 @@ function KeptRecord({
   record: KeptWorkRecord;
   disputed: boolean;
   timeZone: string;
-  who: string;
   cycleId: string | null;
   subjectId: string;
   subjectName: string;
   own: boolean;
 }) {
-  const phone = usePhone();
   const flagging = useFlagging({
     cycleId,
     subjectId,
@@ -244,150 +178,43 @@ function KeptRecord({
     own,
     enabled: true,
   });
-  const [choice, setChoice] = useState<boolean | null>(null);
-  const [all, setAll] = useState(false);
-  const open = choice ?? !phone;
   const { summary, items } = record;
-  const rows = all ? items : items.slice(0, SHOWN);
   const period = `${dayLabel(record.period.start)} to ${dayLabel(record.period.end)}`;
   const flagged = flagging.countIn(items.map((item) => item.id));
+  const lead = [
+    `${String(summary.finished)} finished`,
+    record.truncated ? `newest ${String(items.length)} kept` : null,
+    flagged,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
 
   return (
-    <Disclosure
-      level={3}
-      title="Work when the rating was made final"
-      meta={
-        summary.finished > 0 ? (
-          <span className="text-body-sm font-normal text-muted">
-            {count(summary.finished, "task")} finished
-            {flagged ? ` · ${flagged}` : ""}
-          </span>
-        ) : undefined
-      }
-      hint={`Finished on the project boards, ${period}, as it stood on ${formatDateShort(record.frozenAt, timeZone)}, when the rating was made final. It does not change if tasks are reopened or removed later, and it does not change the score.`}
-      open={open}
-      onToggle={() => setChoice(!open)}
-    >
-      <div className="flex flex-col gap-5">
-        {summary.finished === 0 ? (
-          /* Nothing recorded, which says nothing about the work itself. */
-          <p className="text-body-sm text-muted">
-            {who === "you"
-              ? "No finished tasks were recorded for you on the project boards in this period when the rating was made final."
-              : `No finished tasks were recorded for ${who} on the project boards in this period when the rating was made final.`}
-          </p>
-        ) : (
-          <>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-              <Fact label="Finished" value={String(summary.finished)} />
-              <Fact
-                label="By the due date"
-                value={
-                  summary.withDueDate === 0
-                    ? "None had one"
-                    : `${String(summary.onTime)} of ${String(summary.withDueDate)}`
-                }
-              />
-              <Fact
-                label="Linked to an objective"
-                value={`${String(summary.linked)} of ${String(summary.finished)}`}
-              />
-            </dl>
-
-            <section aria-labelledby="kept-work-items">
-              <h4
-                id="kept-work-items"
-                className="mb-2 text-body-sm font-medium text-ink"
-              >
-                Finished tasks
-              </h4>
-              <FlagNote flagging={flagging} />
-              <ul className="divide-y divide-line">
-                {rows.map((item) => (
-                  <KeptRow
-                    key={item.id}
-                    item={item}
-                    timeZone={timeZone}
-                    extra={flagging.lineFor(item.id, item.key)}
-                  />
-                ))}
-              </ul>
-              {items.length > SHOWN && (
-                <div className="mt-3">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setAll((v) => !v)}
-                  >
-                    {all ? "Show fewer" : `Show all ${String(items.length)}`}
-                  </Button>
-                </div>
-              )}
-              {record.truncated && (
-                <p className="mt-3 text-meta text-muted">
-                  This record holds the newest {String(items.length)} of{" "}
-                  {String(record.total)} tasks.
-                </p>
-              )}
-            </section>
-          </>
-        )}
-
-        {flagging.dialog}
-
-        <div className="flex flex-col gap-1.5">
-          <p className="text-meta text-muted">
-            Task titles are not kept in this record. Open a task to read it as
-            it is now.
-          </p>
-          <p className="text-meta text-muted">
-            {keptUntilLine(record.retainUntil, timeZone, disputed)}
-          </p>
-          <LeftOut />
-        </div>
-      </div>
-    </Disclosure>
-  );
-}
-
-function KeptRow({
-  item,
-  timeZone,
-  extra,
-}: {
-  item: KeptWorkItem;
-  timeZone: string;
-  /** The person's flag on this row, or nothing. */
-  extra?: React.ReactNode;
-}) {
-  const facts: string[] = [
-    ...(item.personal ? ["Personal"] : []),
-    `Finished ${formatDateShort(item.doneAt, timeZone)}`,
-    ...(item.timing === "ON_TIME"
-      ? ["On time"]
-      : item.timing === "LATE"
-        ? ["Late"]
-        : []),
-    /* Only when somebody else set it, as on the live list. */
-    ...(item.setBy ? [`Set by ${item.setBy.name}`] : []),
-    ...(item.linked ? ["Under an objective"] : []),
-  ];
-  return (
-    <li className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0">
-      <p>
-        <Link
+    <WorkList
+      framed
+      lead={lead}
+      note={[
+        `Finished on the project boards, ${period}, as it stood on ${formatDateShort(record.frozenAt, timeZone)}, when the rating was made final. It does not change if tasks are reopened or removed later, and it does not change the score.`,
+        "Task titles are not kept in this record. Open a task to read it as it is now.",
+        keptUntilLine(record.retainUntil, timeZone, disputed),
+        WORK_LEFT_OUT,
+        flagging.sentence,
+      ]
+        .filter((part) => part)
+        .join(" ")}
+      rows={items.map((item) => (
+        <WorkRow
+          key={item.id}
+          itemKey={item.key}
           href={workIssueHref(item)}
-          className="tabular text-body-sm font-medium text-accent-text hover:underline"
-        >
-          {item.key}
-        </Link>
-      </p>
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-muted">
-        {facts.map((fact, index) => (
-          <span key={index}>{fact}</span>
-        ))}
-      </p>
-      {extra}
-    </li>
+          facts={workFacts(item, timeZone)}
+          extra={flagging.lineFor(item.id)}
+          action={flagging.menuFor(item.id, item.key)}
+        />
+      ))}
+      problem={flagging.problem}
+    >
+      {flagging.dialog}
+    </WorkList>
   );
 }

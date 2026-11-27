@@ -2,23 +2,9 @@
 
 import { useState } from "react";
 import { Button, Field, Modal, SuccessMoment, Textarea } from "@/components/ui";
-import {
-  ratingWordsFrom,
-  showsOverallMark,
-  type ApiReviewDetail,
-} from "@/lib/api/performance";
+import { ratingWordsFrom, type ApiReviewDetail } from "@/lib/api/performance";
 import { useRatingScale } from "@/lib/store/performance";
-import { useOrgTimezone } from "@/lib/store/session";
-import { formatDateShort } from "@/lib/time";
 import { finalisedCopy, type SignOffCopy } from "./sign-off-copy";
-
-/** What the API said was kept with the rating, as the dialog is handed it. */
-export type KeptOutcome = {
-  items: number;
-  total: number;
-  truncated: boolean;
-  retainUntil: string;
-};
 
 /**
  * Finalising, behind a confirmation that names what it does — and then an
@@ -32,28 +18,42 @@ export type KeptOutcome = {
  * It used to close on success with a toast reading "{name} has been told their
  * rating", which was a claim the API had not made: `finalise` reports whether
  * the person could be told, and for somebody with no sign-in they could not.
- * The dialog now stays and turns into a statement of what was recorded, says
- * "told" only when the API did, and closes on "Done". The caller must not toast
- * a success of its own.
+ * The dialog now stays and says what was recorded, which is its title, and a
+ * line only when somebody has to do something (the person could not be told in
+ * the app). It closes on "Done". The caller must not toast a success of its own.
+ *
+ * ## One sentence
+ *
+ * The question says what will happen and that it cannot be undone, once. It
+ * used to say the second thing again in the success view, and the first a third
+ * time under the button on the page behind.
  *
  * ## HR can add a recommendation here, before the person is told
  *
  * Optional, and offered only where the caller says the reader is HR
  * (`canRecommend`, the records permission): the API refuses a recommendation from
  * anybody else and leaves the rating not final, so a box that anybody saw would be
- * a box that could cost somebody their finalise. It says who will read it before
- * anybody types, because it travels with the rating. A form is a new form every
- * time the dialog opens, so what was typed and cancelled is not still there.
+ * a box that could cost somebody their finalise. That the person reads it with
+ * their rating is the field's own help. A form is a new form every time the
+ * dialog opens, so what was typed and cancelled is not still there.
  */
 export function FinaliseDialog({
   open,
   review,
+  scoreNow = null,
   canRecommend = false,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   review: ApiReviewDetail;
+  /**
+   * The period's score for this person as it stands now, "Meets Expectations ·
+   * 3.1": the rating they will read once this is final. It is not this review's
+   * own mark, which is one appraiser's. `null` where the page cannot read it, and
+   * then the dialog names no figure for it rather than the wrong one (F42).
+   */
+  scoreNow?: string | null;
   /** Whether to offer HR's recommendation box. */
   canRecommend?: boolean;
   onClose: () => void;
@@ -62,11 +62,9 @@ export function FinaliseDialog({
    * whether the API could tell the person, or to `null` when it failed and the
    * caller has said so in a toast.
    */
-  onConfirm: (recommendation?: string) => Promise<{
-    subjectNotified: boolean | undefined;
-    /** What was kept with it; absent or `null` says nothing. */
-    kept?: KeptOutcome | null | undefined;
-  } | null>;
+  onConfirm: (
+    recommendation?: string,
+  ) => Promise<{ subjectNotified: boolean | undefined } | null>;
 }) {
   /* Its own read of the same cached scale rather than a prop. This dialog
      quotes the mark somebody is about to make final, and quoting it in the
@@ -74,7 +72,11 @@ export function FinaliseDialog({
      picker-versus-record split all over again, inside one screen. */
   const { scale } = useRatingScale();
   const ratingWords = ratingWordsFrom(scale.levels);
-  const timeZone = useOrgTimezone();
+
+  /* This review's own overall mark, said as its author's: one appraiser's mark.
+     The rating the person reads is the period's score, which is `scoreNow`. */
+  const authorMark = ratingWords(review.rating);
+  const authorName = review.authorName ?? "The appraiser";
 
   const [busy, setBusy] = useState(false);
   /* What it said. While it is set the dialog shows it in place of the question,
@@ -106,20 +108,7 @@ export function FinaliseDialog({
         setMade(
           finalisedCopy({
             subjectName: review.subjectName,
-            cycleName: review.cycleName,
-            ratingLabel:
-              review.rating === null ? null : ratingWords(review.rating),
             subjectNotified: outcome.subjectNotified,
-            markShown: showsOverallMark(review),
-            recommended: typed.length > 0,
-            kept: outcome.kept
-              ? {
-                  items: outcome.kept.items,
-                  total: outcome.kept.total,
-                  truncated: outcome.kept.truncated,
-                  until: formatDateShort(outcome.kept.retainUntil, timeZone),
-                }
-              : null,
           }),
         );
       }
@@ -164,8 +153,7 @@ export function FinaliseDialog({
              focus goes to what replaced it. */
           focusHeading
           title={made.title}
-          lead={made.lead}
-          details={made.details}
+          {...(made.details.length > 0 ? { details: made.details } : {})}
           actions={
             <Button variant="accent" onClick={onClose}>
               Done
@@ -175,39 +163,35 @@ export function FinaliseDialog({
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-body-sm leading-relaxed text-body">
-            {review.subjectName} will be told, and will be asked to acknowledge
-            it.{" "}
-            {review.rating === null
-              ? showsOverallMark(review)
-                ? "This form has no overall rating, so they will read the answers."
-                : "They will read the answers."
-              : `Their rating becomes "${ratingWords(review.rating)}".`}{" "}
-            It cannot be changed afterwards.
+            {/* What the person reads is the period's score, not this review's
+                own mark: one appraiser's mark said as "their rating" made a
+                dialog and a record disagree (F42). */}
+            {scoreNow
+              ? `${firstName(review.subjectName)} will be told their rating, "${scoreNow}", as it stands now.`
+              : authorMark !== null
+                ? `${firstName(review.subjectName)} will read the score for the period.`
+                : `${firstName(review.subjectName)} will read the answers.`}{" "}
+            {authorMark !== null &&
+              `${authorName}'s own overall rating, "${authorMark}", stays with the review. `}
+            This cannot be changed.
           </p>
 
           {canRecommend && (
-            <div className="flex flex-col gap-2">
-              <Field
-                label="Your recommendation (optional)"
-                {...(over > 0
-                  ? {
-                      error: `That is ${String(over)} characters over. Keep it to ${RECOMMENDATION_LIMIT.toLocaleString("en-NG")}.`,
-                    }
-                  : {})}
-              >
-                <Textarea
-                  rows={4}
-                  value={recommendation}
-                  onChange={(event) => setRecommendation(event.target.value)}
-                />
-              </Field>
-              {/* Said on the page and not behind the help icon: that the person
-                  reads it is the consequence of writing it, and a consequence
-                  behind a hover is one that gets agreed to unread. */}
-              <p className="text-meta text-muted">
-                {firstName(review.subjectName)} will read it with their rating.
-              </p>
-            </div>
+            <Field
+              label="Your recommendation (optional)"
+              help={`${firstName(review.subjectName)} will read it with their rating.`}
+              {...(over > 0
+                ? {
+                    error: `That is ${String(over)} characters over. Keep it to ${RECOMMENDATION_LIMIT.toLocaleString("en-NG")}.`,
+                  }
+                : {})}
+            >
+              <Textarea
+                rows={3}
+                value={recommendation}
+                onChange={(event) => setRecommendation(event.target.value)}
+              />
+            </Field>
           )}
         </div>
       )}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { CalendarClock, CalendarRange } from "lucide-react";
+import { StageProgress } from "@/components/performance/stage-progress";
 import { EmptyState, LoadState, Tabs } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { dayLabel, type ApiCycle } from "@/lib/api/performance";
@@ -13,10 +14,17 @@ import { periodWords } from "./review-parts";
 /**
  * The appraisal periods, as large cards.
  *
- * A card says three things: the name, the dates, and how far along it is. No
- * status word, no counts and no button, because the whole card is the way in and
- * what to do next is the period page's job. Running periods are under **Open**;
- * published ones, which are a record, are under **History**.
+ * A card says three things: the name, the dates, and which stage it is at. No
+ * counts and no button, because the whole card is the way in and what to do next
+ * is the period page's job. Running periods are under **Open**; published ones,
+ * which are a record, are under **History**.
+ *
+ * It names the stage and does **not** draw a percentage. The old card filled a
+ * bar by the share of stages passed, so a period read "25%" with nothing sent
+ * and "100%" once published with self-reviews still outstanding: a figure that
+ * is about the calendar, wearing the face of a figure about the work. A period
+ * that has not started says so in words and draws no bar, so it no longer looks
+ * like an open one.
  */
 export function PeriodsTab() {
   const appraisals = useAppraisals();
@@ -70,19 +78,6 @@ export function PeriodsTab() {
 
 /* -------------------------------------------------------------------------- */
 
-/** The four steps a period moves through after it starts. */
-const STEPS = ["SELF", "MANAGER", "CALIBRATION", "PUBLISHED"] as const;
-
-/**
- * How far along a period is, as a share of the way through, with nothing asked
- * of the API: the stage it has reached already says it. A draft has not started
- * and fills nothing.
- */
-export function progressOf(period: Pick<ApiCycle, "stage">): number {
-  const reached = STEPS.indexOf(period.stage as (typeof STEPS)[number]);
-  return reached < 0 ? 0 : (reached + 1) / STEPS.length;
-}
-
 /**
  * One period, as a card. Shared by the periods list and the Overview, so a
  * period looks the same wherever it is met.
@@ -94,9 +89,7 @@ export function PeriodCard({
   period: ApiCycle;
   className?: string;
 }) {
-  const share = progressOf(period);
   const dates = periodWords(period.periodStart, period.periodEnd);
-  const started = share > 0;
   const finished = period.stage === "PUBLISHED";
   /* Each period keeps its own light colour, taken from its name, so a list of them
      is easy to tell apart at a glance and the same period is the same colour on
@@ -131,27 +124,7 @@ export function PeriodCard({
       </div>
 
       <div className="mt-auto flex flex-col gap-3">
-        <div className="flex items-baseline justify-between">
-          <span className="text-body-sm text-muted">Progress</span>
-          {started && (
-            <span className="tabular text-h3 font-semibold text-ink">
-              {Math.round(share * 100)}%
-            </span>
-          )}
-        </div>
-        <div
-          role="progressbar"
-          aria-label={`${period.name} progress`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(share * 100)}
-          className="h-1.5 w-full overflow-hidden rounded-full bg-sunken"
-        >
-          <div
-            className="h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none"
-            style={{ width: `${String(share * 100)}%`, background: tone }}
-          />
-        </div>
+        <StageProgress stage={period.stage} tone={tone} label={period.name} />
         {period.dueDate && (
           <p className="flex items-center gap-1.5 text-meta text-muted">
             <CalendarClock aria-hidden="true" className="size-3.5" />

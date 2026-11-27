@@ -139,23 +139,18 @@ export function RecordCheck({
         )}
       </p>
 
-      {flagged && (
+      {/* Only when there are some: a section that says "None, and here is
+          why" is an empty section with a sentence in it. */}
+      {flagged && flag.patterns.length > 0 && (
         <div>
           <p className="mb-1 text-meta font-semibold text-faint">
             Patterns that apply
           </p>
-          {flag.patterns.length ? (
-            <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
-              {flag.patterns.map((pattern) => (
-                <li key={pattern.text}>{pattern.text}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-body-sm text-body">
-              None. Their manager rates close to average and none of their
-              groups is flagged.
-            </p>
-          )}
+          <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
+            {flag.patterns.map((pattern) => (
+              <li key={pattern.text}>{pattern.text}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -208,9 +203,7 @@ function ClaimsView({ claims }: { claims: ApiClaims }) {
             <ClaimBox key={claim.author} claim={claim} by={claim.author} />
           ))
         ) : (
-          <p className="text-body-sm text-muted">
-            No written review submitted yet.
-          </p>
+          <p className="text-body-sm text-muted">Not recorded</p>
         )}
       </div>
       <div className="flex flex-col gap-3">
@@ -220,7 +213,7 @@ function ClaimsView({ claims }: { claims: ApiClaims }) {
             {(claims.employee.rating ||
               claims.employee.summary ||
               claims.employee.answers.length > 0) && (
-              <ClaimBox claim={claims.employee} by="Self-review" />
+              <ClaimBox claim={claims.employee} by="Self review" />
             )}
             {claims.employee.onFinalMark && (
               <p className="text-body-sm text-body">
@@ -229,9 +222,7 @@ function ClaimsView({ claims }: { claims: ApiClaims }) {
             )}
           </>
         ) : (
-          <p className="text-body-sm text-muted">
-            No self-review submitted yet.
-          </p>
+          <p className="text-body-sm text-muted">Not recorded</p>
         )}
       </div>
     </div>

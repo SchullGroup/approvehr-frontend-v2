@@ -10,15 +10,29 @@ import { kindOf } from "@/lib/api/failure";
 export function askedLine(result: Partial<ApiNotifyObjectives>): string {
   const asked = typeof result.notified === "number" ? result.notified : null;
   const had = typeof result.alreadyHad === "number" ? result.alreadyHad : null;
+  const noAccount =
+    typeof result.noAccount === "number" ? result.noAccount : null;
   const parts: string[] = [];
   if (asked === 0) {
-    parts.push("Everyone was asked in the last day.");
+    /* Asking nobody has two causes, and only the time tells them apart: the
+       server sends it when people were asked in the last day, and has none to
+       send when there was nobody left to ask. */
+    parts.push(
+      result.askedAt
+        ? "Everyone was asked in the last day."
+        : "Nobody new was asked.",
+    );
   } else if (asked !== null) {
     parts.push(`Asked ${String(asked)} ${asked === 1 ? "person" : "people"}.`);
   }
   if (had !== null && had > 0) {
     parts.push(
       `${String(had)} already ${had === 1 ? "has an objective" : "have objectives"}.`,
+    );
+  }
+  if (noAccount !== null && noAccount > 0) {
+    parts.push(
+      `${String(noAccount)} ${noAccount === 1 ? "has" : "have"} no sign-in, so could not be asked in the app.`,
     );
   }
   return parts.join(" ") || "Asked.";

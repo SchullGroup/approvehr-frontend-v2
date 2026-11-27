@@ -107,10 +107,8 @@ describe("Your appraisal", () => {
     };
     mount();
     const row = screen.getByText("Ada").closest("li") as HTMLElement;
-    expect(within(row).getByRole("button", { name: "Nudge" })).toBeVisible();
-    expect(
-      screen.getByText("Ada has not sent their self review yet."),
-    ).toBeVisible();
+    expect(within(row).getByRole("button", { name: "Remind" })).toBeVisible();
+    expect(within(row).getByText("Waiting on their self review")).toBeVisible();
     await userEvent.click(screen.getByRole("link", { name: "Continue" }));
   });
 

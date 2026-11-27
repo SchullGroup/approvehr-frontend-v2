@@ -59,6 +59,7 @@ import {
   useAppraiserMutations,
   useAppraisals,
 } from "@/lib/store/performance";
+import { stageWords } from "@/lib/performance/stage-words";
 
 /**
  * Who appraises whom — the power-user surface, and only when it is asked for.
@@ -181,6 +182,10 @@ export function AppraiserMapTab() {
      to-do with one fix, never an error. Nothing is said about a period that
      is over. */
   const published = cycle?.stage === "PUBLISHED";
+  /* "Rating" is what the appraisers' marks come to, and there are none before a
+     period starts: a column that is empty for every row of a draft says
+     nothing and takes room from the name. */
+  const showRating = cycle !== null && cycle.stage !== "DRAFT";
   const hrCount = published
     ? 0
     : cycleId === null
@@ -349,8 +354,17 @@ export function AppraiserMapTab() {
               <h2 className="text-h4 font-semibold text-ink">
                 {nameOfDept(dept)}
               </h2>
+              <p className="text-meta text-muted">
+                {cycle
+                  ? `Appraisers in ${cycle.name}`
+                  : "Who appraises them unless a period says otherwise"}
+              </p>
             </div>
-            <Field label="Appraisal period" className="w-64 max-w-full">
+            {/* As wide as the longest period name, so a name is not cut off. */}
+            <Field
+              label="Appraisal period"
+              className="w-auto min-w-64 max-w-full"
+            >
               <Select
                 value={cycleId ?? ""}
                 onChange={(event) => setChosen(event.target.value)}
@@ -358,7 +372,7 @@ export function AppraiserMapTab() {
                 <option value="">All appraisal periods</option>
                 {cycles.map((one) => (
                   <option key={one.id} value={one.id}>
-                    {one.name}, {one.stageLabel}
+                    {one.name}, {stageWords(one.stageLabel)}
                   </option>
                 ))}
               </Select>
@@ -401,9 +415,14 @@ export function AppraiserMapTab() {
                         {cycleId !== null ? (
                           <>
                             <TH>Appraiser</TH>
-                            <TH align="right" className="hidden sm:table-cell">
-                              Rating
-                            </TH>
+                            {showRating && (
+                              <TH
+                                align="right"
+                                className="hidden sm:table-cell"
+                              >
+                                Rating
+                              </TH>
+                            )}
                             <TH align="right">
                               <span className="sr-only">Split</span>
                             </TH>
@@ -438,6 +457,7 @@ export function AppraiserMapTab() {
                                 people={people}
                                 fallback={fallbackOf(row)}
                                 readOnly={published}
+                                showRating={showRating}
                                 suggest={workInAnswers === true}
                                 onEdit={() => setEditing(row)}
                                 onQuickAssign={(appraiserId) =>
@@ -519,6 +539,7 @@ function PersonTableRow({
   people,
   fallback = null,
   readOnly = false,
+  showRating = false,
   suggest,
   onEdit,
   onQuickAssign,
@@ -532,6 +553,8 @@ function PersonTableRow({
   fallback?: DefaultAppraiser | null;
   /** A published period: who appraised, as recorded, and nothing to change. */
   readOnly?: boolean;
+  /** The period has started, so there is a rating to show. */
+  showRating?: boolean;
   /** The company lists the people who shared a project with this person first. */
   suggest: boolean;
   onEdit: () => void;
@@ -639,8 +662,11 @@ function PersonTableRow({
                   .finally(() => setSaving(false));
               }}
             >
+              {/* Shows the default while nothing is chosen, and is not in the
+                  list when it is opened: the person it names is in the list
+                  already, and the same name twice read as two different people. */}
               {current === null && (
-                <option value="">
+                <option value="" hidden disabled>
                   {saving
                     ? "Saving…"
                     : fallback && fallback.source === "hr"
@@ -679,9 +705,11 @@ function PersonTableRow({
           </div>
         )}
       </TD>
-      <TD align="right" className="tabular hidden sm:table-cell">
-        {row.weightedRating ?? ""}
-      </TD>
+      {showRating && (
+        <TD align="right" className="tabular hidden sm:table-cell">
+          {row.weightedRating ?? ""}
+        </TD>
+      )}
       <TD align="right">
         {!readOnly && (
           <IconButton

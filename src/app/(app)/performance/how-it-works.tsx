@@ -9,6 +9,10 @@ import {
   TextLink,
 } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
+import {
+  NO_FRAMEWORK_EXPLAINED,
+  NO_FRAMEWORK_TITLE,
+} from "@/lib/performance/framework-empty";
 import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 import { useFramework, useScoringWeights } from "@/lib/store/performance";
 
@@ -105,11 +109,11 @@ export function HowItWorksBody() {
           Competencies are how they work
         </p>
         <p className="mt-1">
-          Judgement, communication, leading a team. They come ready-made in four
-          groups &mdash; you can rename them or switch them off &mdash; and
-          somebody records a level against each one, once per person per period.
-          Leadership is only rated for people who manage somebody. For everyone
-          else it is left out, not marked low.
+          Judgement, communication, leading a team. The company writes its own
+          groups of them and the competencies in each, and somebody records a
+          level against each one, once per person per period. Leadership is only
+          rated for people who manage somebody. For everyone else it is left
+          out, not marked low.
         </p>
       </div>
 
@@ -255,7 +259,7 @@ export function FrameworkDisclosure() {
   return (
     <Disclosure
       title="What an appraisal is made of"
-      hint="The four groups of competencies, ready on day one. Rename or switch any of them off in settings."
+      hint="The groups of competencies your company has written."
       level={2}
     >
       <FrameworkBody />
@@ -280,8 +284,8 @@ function FrameworkBody() {
       <EmptyState
         compact
         icon={<Layers aria-hidden="true" />}
-        title="No framework yet"
-        description="Finish setup and the four standard groups are created for you."
+        title={NO_FRAMEWORK_TITLE}
+        description={NO_FRAMEWORK_EXPLAINED}
       />
     );
   }
