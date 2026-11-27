@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, ListChecks, X } from "lucide-react";
 import { Button, Drawer, IconButton, Spinner } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { ApiError } from "@/lib/api/client";
-import { findingsAcross } from "@/lib/performance/review-language";
 import type {
   AnswerBody,
   ApiFormQuestion,
@@ -33,12 +33,16 @@ import { draftForPick, pickOptions, ratingOptions } from "./focus-question";
 import {
   asksOverallMark,
   closingNoteWords,
+  continueKeys,
+  footerAction,
+  keyboardHint,
   needsOverallMark,
   onRecordOf,
   savedAnswerStands,
   sigOf,
   startIndex,
   startingMark,
+  toAnswerLine,
 } from "./focus-logic";
 import {
   CheckStep,
@@ -48,7 +52,6 @@ import {
   PotentialStep,
   QuestionStep,
   SummaryStep,
-  sendLabel,
 } from "./focus-steps";
 
 /**
@@ -85,8 +88,8 @@ import {
  * A manager's form in a period that weights the Manager appraisal part is the
  * exception (`overallMarkRequired`): the page is there whatever the company's
  * switch says, it does not ask whether there is one, and the review does not go
- * until one is given. It is treated like a required question: going on without
- * it is nudged, and pressing Send walks the person to it rather than sending.
+ * until one is given. It is treated like a required question: Next is not drawn
+ * until it is given, and the preview's way forward is the link to it, not Send.
  *
  * A review sent back for revision keeps the mark it was given, so where the form
  * asks for one it opens on that mark unless this browser remembers a newer pick
@@ -104,7 +107,15 @@ import {
  * It is the one thing here that cannot be undone, so it is never reached by a
  * keystroke: Enter and Ctrl/⌘ Enter go *to* the preview page, and only a press
  * on the Send button goes past it. Key repeat is ignored everywhere, because a
- * held key walked straight through that page and sent.
+ * held key walked straight through that page and sent. One press sends: the
+ * language check is a quiet note beside the closing note and holds nothing back.
+ *
+ * ## No button that can only refuse
+ *
+ * Next is not drawn while a page cannot be left (a required answer, or the
+ * reason a bigger role needs), Back is not drawn on the first page, and Send is
+ * not drawn while sending is closed or answers are still to give. `footerAction`
+ * decides all of it in one place.
  *
  * ## Work pinned to an answer
  *
@@ -198,9 +209,6 @@ export function FocusForm({
   const [failed, setFailed] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [nudged, setNudged] = useState(false);
-  /** The findings the person has been shown, as a signature — see `languageSeen`. */
-  const [seenFindings, setSeenFindings] = useState<string | null>(null);
   const [workOpen, setWorkOpen] = useState(false);
   /** The picker for work to pin is open on top of the page: the form's keys are not for it. */
   const [pinOpen, setPinOpen] = useState(false);
@@ -238,25 +246,16 @@ export function FocusForm({
   /** The period needs an overall mark and none has been picked. */
   const markMissing = withMark && markRequired && !mark;
 
-  /** Manager and peer forms get the language check; a self-review does not. */
+  /** Manager and peer forms get the language note beside the closing note; a self-review does not. */
   const coaching = review.kind !== "SELF";
   const languageTexts = coaching
     ? [
         ...review.questions.map((question) => onRecord(question).text ?? ""),
         summary,
       ]
-    : [];
-  const languageFindings = coaching
-    ? findingsAcross(languageTexts, review.subjectName)
-    : [];
-  /* Seen means *these* findings. Edit the text and a new one may appear, and
-     "Send anyway" must not wave it through unread. */
-  const findingsSignature = JSON.stringify(languageFindings);
-  const languageSeen =
-    languageFindings.length > 0 && seenFindings === findingsSignature;
+    : undefined;
 
   const patch = (question: ApiFormQuestion, next: Draft) => {
-    setNudged(false);
     setDraft((current) => ({
       ...current,
       [question.id]: { ...current[question.id], ...next },
@@ -372,6 +371,44 @@ export function FocusForm({
 
   const current: Step = steps[index] ?? { kind: "intro" };
 
+  /* What the footer offers on this page. Nothing in it can only refuse: see
+     `footerAction`. */
+  const optionalAndEmpty =
+    (current.kind === "question" &&
+      !current.question.required &&
+      !filled(current.question, onRecord(current.question))) ||
+    (current.kind === "mark" && !mark && !markRequired) ||
+    (current.kind === "potential" && !potential) ||
+    (current.kind === "summary" && !summary.trim());
+
+  /* A required answer is still missing, or "Ready for a bigger role" has no
+     reason yet: that one is read by whoever decides a promotion, so it has to say
+     why, and the other two answers need nothing more. */
+  const blocked =
+    (current.kind === "question" &&
+      current.question.required &&
+      !filled(current.question, onRecord(current.question))) ||
+    (current.kind === "mark" && markMissing) ||
+    (current.kind === "potential" &&
+      potential === "HIGH" &&
+      potentialReason.trim().length < POTENTIAL_REASON_MIN);
+
+  const footer = footerAction({
+    page: current.kind,
+    resumed: start > 0,
+    blocked,
+    skippable: optionalAndEmpty,
+    toAnswer: toAnswerLine(outstanding.length, markMissing),
+    sendClosed,
+  });
+
+  /* A page answered by pressing the key beside an option. */
+  const picksByKey =
+    (current.kind === "question" &&
+      pickOptions(current.question, scale) !== null) ||
+    current.kind === "mark";
+  const hint = keyboardHint(current.kind, picksByKey, continueKeys());
+
   /**
    * What the question page needs to draw and change this question's pins, or `null` when there is
    * nothing to draw and nothing that could ever be: no pins, nothing to add (the setting is off) and
@@ -404,7 +441,6 @@ export function FocusForm({
   const go = (to: number, snapshot: Record<string, Draft> = draft) => {
     const target = Math.min(Math.max(to, 0), steps.length - 1);
     setDirection(target >= index ? "forward" : "back");
-    setNudged(false);
     void flush(snapshot);
     setIndex(target);
   };
@@ -420,7 +456,6 @@ export function FocusForm({
       ...draft,
       [question.id]: draftForPick(question, optionValue),
     };
-    setNudged(false);
     setDraft(next);
     moveOnSoon(next);
   };
@@ -430,24 +465,22 @@ export function FocusForm({
     moveOnSoon(draft);
   };
 
+  /** Walk to the first thing still to answer: the questions in order, then the mark. */
+  const toFirstAnswer = () => {
+    if (outstanding.length > 0) {
+      go(1 + review.questions.indexOf(outstanding[0] as ApiFormQuestion));
+    } else if (markMissing) {
+      /* The page straight after the questions. */
+      go(1 + review.questions.length);
+    }
+  };
+
   const sendIt = async () => {
     if (sendLock.current || reading || sendClosed) return;
-    if (outstanding.length > 0) {
-      /* Walk them to the first one rather than telling them where it is. */
-      const first = review.questions.indexOf(outstanding[0] as ApiFormQuestion);
-      go(1 + first);
-      setNudged(true);
-      return;
-    }
-    if (markMissing) {
-      /* The same walk for the mark, which is the page straight after the
-         questions. */
-      go(1 + review.questions.length);
-      setNudged(true);
-      return;
-    }
-    if (coaching && languageFindings.length > 0 && !languageSeen) {
-      setSeenFindings(findingsSignature);
+    if (outstanding.length > 0 || markMissing) {
+      /* The preview does not offer Send while there is something to answer; this
+         is the same rule where a send is reached some other way. */
+      toFirstAnswer();
       return;
     }
     sendLock.current = true;
@@ -481,27 +514,16 @@ export function FocusForm({
   };
 
   /**
-   * Go on to the next page. From the preview page it sends — but only when
-   * asked by the button, never by a key (`byKey`).
+   * Go on to the next page. From the preview it sends, but only when asked by
+   * the button, never by a key (`byKey`). A page that cannot be left yet has no
+   * Next (`footer`), and a key does nothing there either.
    */
   const advance = (byKey = false) => {
     if (current.kind === "check") {
-      if (!byKey) void sendIt();
+      if (!byKey && footer.kind === "send") void sendIt();
       return;
     }
-    if (reading) return;
-    if (
-      current.kind === "question" &&
-      current.question.required &&
-      !filled(current.question, onRecord(current.question))
-    ) {
-      setNudged(true);
-      return;
-    }
-    if (current.kind === "mark" && markMissing) {
-      setNudged(true);
-      return;
-    }
+    if (reading || footer.kind !== "go") return;
     go(index + 1);
   };
 
@@ -589,32 +611,6 @@ export function FocusForm({
             : current.kind === "summary"
               ? closingNoteWords(review.kind).row
               : "Preview";
-
-  const optionalAndEmpty =
-    (current.kind === "question" &&
-      !current.question.required &&
-      !filled(current.question, onRecord(current.question))) ||
-    (current.kind === "mark" && !mark && !markRequired) ||
-    (current.kind === "potential" && !potential) ||
-    (current.kind === "summary" && !summary.trim());
-
-  /* "Ready for a bigger role" is read by whoever decides a promotion, so it has
-     to say why. The other two answers need nothing more. */
-  const potentialBlocked =
-    current.kind === "potential" &&
-    potential === "HIGH" &&
-    potentialReason.trim().length < POTENTIAL_REASON_MIN;
-
-  const nextLabel =
-    current.kind === "intro"
-      ? start > 0
-        ? "Continue"
-        : "Start"
-      : current.kind === "check"
-        ? sendLabel(languageSeen, languageFindings.length > 0)
-        : optionalAndEmpty
-          ? "Skip"
-          : "Next";
 
   /* The self review shows what you did, and the manager's what they did: both
      read-only, one press away at the top. Peer feedback has none. */
@@ -735,8 +731,6 @@ export function FocusForm({
           {current.kind === "intro" && (
             <IntroStep
               review={review}
-              resumed={start > 0}
-              answered={answered}
               onShowWork={showWork ? () => setWorkOpen(true) : null}
             />
           )}
@@ -753,7 +747,6 @@ export function FocusForm({
                 draft[current.question.id],
                 saved(current.question),
               )}
-              nudged={nudged}
               pinning={pinningFor(current.question)}
               onPinDialogChange={setPinOpen}
               onChange={(next) => patch(current.question, next)}
@@ -770,7 +763,6 @@ export function FocusForm({
               required={markRequired}
               appraiser={review.appraiser}
               held={review.rating != null}
-              nudged={nudged}
             />
           )}
           {current.kind === "potential" && (
@@ -792,6 +784,7 @@ export function FocusForm({
               summary={summary}
               onChange={setSummary}
               development={development}
+              {...(languageTexts ? { languageTexts } : {})}
             />
           )}
           {current.kind === "check" && (
@@ -805,9 +798,6 @@ export function FocusForm({
               mark={mark}
               summary={summary}
               outstanding={outstanding}
-              coaching={coaching}
-              languageTexts={languageTexts}
-              languageSeen={languageSeen}
               onEdit={(where) =>
                 go(
                   where === "mark"
@@ -825,28 +815,42 @@ export function FocusForm({
         </div>
       </div>
 
-      <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-3 py-3 sm:px-4">
-        <Button
-          variant="ghost"
-          onClick={() => go(index - 1)}
-          disabled={index === 0}
-        >
-          <ArrowLeft aria-hidden="true" className="size-4" />
-          Back
-        </Button>
-        <Button
-          variant="accent"
-          size="lg"
-          loading={sending}
-          disabled={
-            reading ||
-            potentialBlocked ||
-            (current.kind === "check" && sendClosed)
-          }
-          onClick={() => advance()}
-        >
-          {nextLabel}
-        </Button>
+      <footer className="flex shrink-0 items-center gap-3 border-t border-line bg-surface px-3 py-3 sm:px-4">
+        {index > 0 && (
+          <Button variant="ghost" onClick={() => go(index - 1)}>
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            Back
+          </Button>
+        )}
+        {/* Always as tall as the big button, so the page above does not move
+            when Next comes and goes. */}
+        <div className="ml-auto flex h-12 items-center gap-3">
+          {hint && (
+            <span className="hidden sm:inline-flex">
+              <InfoTooltip label="Keyboard shortcuts" text={hint} />
+            </span>
+          )}
+          {footer.kind === "answer" && (
+            <button
+              type="button"
+              onClick={toFirstAnswer}
+              className="cursor-pointer text-body font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+            >
+              {footer.label}
+            </button>
+          )}
+          {(footer.kind === "go" || footer.kind === "send") && (
+            <Button
+              variant="accent"
+              size="lg"
+              loading={sending}
+              disabled={reading}
+              onClick={() => advance()}
+            >
+              {footer.kind === "send" ? "Send it" : footer.label}
+            </Button>
+          )}
+        </div>
       </footer>
 
       {showWork && (
