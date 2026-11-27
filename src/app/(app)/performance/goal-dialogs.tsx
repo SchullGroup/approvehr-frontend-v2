@@ -29,7 +29,7 @@ import {
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { measureProblems } from "@/lib/performance/measure-problems";
+import { goesDown, measureProblems } from "@/lib/performance/measure-problems";
 import { NEEDS_PERIOD } from "@/lib/performance/objective-wizard";
 import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
@@ -463,8 +463,6 @@ function AddMeasureForm({
   const [unit, setUnit] = useState("");
   const [start, setStart] = useState("0");
   const [target, setTarget] = useState("");
-  const [current, setCurrent] = useState("");
-  const [countDown, setCountDown] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -477,7 +475,6 @@ function AddMeasureForm({
       label,
       start,
       target,
-      countDown,
     });
     if (problems.label) found["label"] = problems.label;
     if (problems.target) found["target"] = problems.target;
@@ -497,8 +494,9 @@ function AddMeasureForm({
         startValue: start.trim() || "0",
       };
       if (unit.trim()) body.unit = unit.trim();
-      if (current.trim()) body.currentValue = current.trim();
-      if (countDown) body.lowerIsBetter = true;
+      /* No direction to ask: a target below where it starts is one that is
+         meant to come down. */
+      if (goesDown(start, target)) body.lowerIsBetter = true;
       await onAdd(body);
     } finally {
       setSaving(false);
@@ -546,7 +544,6 @@ function AddMeasureForm({
               onChange={() => setPicked("NUMBER")}
               icon={<Target aria-hidden="true" />}
               label="A number to reach"
-              description="From where it is now: revenue of ₦40m, 12 hires, cost down to ₦300k."
             />
             <RadioCard
               name="measure-kind"
@@ -555,7 +552,6 @@ function AddMeasureForm({
               onChange={() => setPicked("DONE")}
               icon={<CheckCircle2 aria-hidden="true" />}
               label="Done or not done"
-              description="Something that is finished or it is not: the filing is submitted. A manager confirms it when it is done."
             />
           </div>
         </FieldSet>
@@ -564,7 +560,6 @@ function AddMeasureForm({
           <Field
             label="What does done mean?"
             required
-            help="Say it so a manager can tell whether it happened. A manager confirms it when it is done, and until then it counts as not done."
             {...(errors["label"] ? { error: errors["label"] } : {})}
           >
             <Input
@@ -577,7 +572,7 @@ function AddMeasureForm({
       ) : (
         <div className="flex flex-col gap-4">
           <Field
-            label="Name"
+            label="What"
             required
             {...(errors["label"] ? { error: errors["label"] } : {})}
           >
@@ -588,16 +583,20 @@ function AddMeasureForm({
             />
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Starting value" required>
+          {/* From and To are the whole of the direction: a target below the
+              start is one that comes down, so there is nothing to tick. The
+              unit is typed once, and shows on both as a suffix. */}
+          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_7rem]">
+            <Field label="From" required>
               <Input
                 inputMode="decimal"
                 value={start}
                 onChange={(event) => setStart(event.target.value)}
+                {...(unit.trim() ? { suffix: unit.trim() } : {})}
               />
             </Field>
             <Field
-              label="Target value"
+              label="To"
               required
               {...(errors["target"] ? { error: errors["target"] } : {})}
             >
@@ -605,36 +604,17 @@ function AddMeasureForm({
                 inputMode="decimal"
                 value={target}
                 onChange={(event) => setTarget(event.target.value)}
+                {...(unit.trim() ? { suffix: unit.trim() } : {})}
               />
             </Field>
-            <Field
-              label="Current value"
-              help="Leave blank if nothing has been measured yet. The target then counts as unread and stays out of the objective's progress until a reading is entered."
-            >
+            <Field label="Unit" optional>
               <Input
-                inputMode="decimal"
-                value={current}
-                onChange={(event) => setCurrent(event.target.value)}
+                value={unit}
+                onChange={(event) => setUnit(event.target.value)}
+                placeholder="₦, %, days"
               />
             </Field>
           </div>
-
-          <Field
-            label="Unit"
-            help="₦, %, days, customers, whatever you say out loud."
-          >
-            <Input
-              value={unit}
-              onChange={(event) => setUnit(event.target.value)}
-            />
-          </Field>
-
-          <Checkbox
-            label="This number should go down"
-            description="Cost, days to hire, complaints. Progress is how far it has fallen."
-            checked={countDown}
-            onChange={(event) => setCountDown(event.target.checked)}
-          />
         </div>
       )}
     </Modal>
