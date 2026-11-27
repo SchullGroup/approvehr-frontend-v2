@@ -292,23 +292,33 @@ describe("what the form tells the overall-score card about the part", () => {
   const BASE = "People pick one of the rating names below.";
   const has = (label: string) =>
     `${BASE} Managers must give one in a period that weights ${label}.`;
+  /* The rules are behind the info icon beside the switch's name. */
+  const openTip = () =>
+    userEvent.click(
+      screen.getByRole("button", { name: "About the overall rating" }),
+    );
+  const said = (text: string) =>
+    screen.getByText((content) => content.includes(text));
 
-  it("the company has a part scored from it: the card names the exception, in the company's own word", () => {
+  it("the company has a part scored from it: the card names the exception, in the company's own word", async () => {
     mount("marks");
-    expect(screen.getByText(has("Line view"))).toBeInTheDocument();
+    await openTip();
+    expect(said(has("Line view"))).toBeInTheDocument();
     expect(screen.queryByText(/is not counted in it/)).toBeNull();
   });
 
-  it("the server lists the source and the company has no part from it yet: the card names it by the source's own name", () => {
+  it("the server lists the source and the company has no part from it yet: the card names it by the source's own name", async () => {
     view = viewOf([delivery]);
     mount("marks");
-    expect(screen.getByText(has("Manager appraisal"))).toBeInTheDocument();
+    await openTip();
+    expect(said(has("Manager appraisal"))).toBeInTheDocument();
   });
 
-  it("the server does not list the source, so it predates the part: no exception is named", () => {
+  it("the server does not list the source, so it predates the part: no exception is named", async () => {
     view = viewOf([delivery], { listsManager: false });
     mount("marks");
-    expect(screen.getByText(BASE)).toBeInTheDocument();
+    await openTip();
+    expect(said(BASE)).toBeInTheDocument();
     expect(screen.queryByText(/Managers must/)).toBeNull();
   });
 
@@ -317,10 +327,11 @@ describe("what the form tells the overall-score card about the part", () => {
     ["failed", "failed"],
   ] as const)(
     "the parts %s: nothing is known, so the card says nothing about managers or the score counting",
-    (_name, state) => {
+    async (_name, state) => {
       read = state;
       mount("marks");
-      expect(screen.getByText(BASE)).toBeInTheDocument();
+      await openTip();
+      expect(said(BASE)).toBeInTheDocument();
       expect(screen.queryByText(/Managers must/)).toBeNull();
       expect(screen.queryByText(/is not counted in it/)).toBeNull();
     },

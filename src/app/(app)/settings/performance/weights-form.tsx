@@ -193,14 +193,16 @@ export function ScoringWeightsForm({
             <PartsPanel scoring={scoring} />
           </div>
           <div hidden={tab !== "marks"} className="flex flex-col gap-6">
-            {/* First, because it decides whether the names below are ever
-                offered on a form. */}
-            <OverallMarkCard
-              connected={scoring.source === "api"}
-              onChanged={scoring.reload}
-              managerAppraisal={managerAppraisal}
-            />
-            {scale}
+            {/* One card: the switch first, because it decides whether the names
+                below are ever offered on a form, and then the names. */}
+            <Card className="divide-y divide-line">
+              <OverallMarkCard
+                connected={scoring.source === "api"}
+                onChanged={scoring.reload}
+                managerAppraisal={managerAppraisal}
+              />
+              {scale}
+            </Card>
           </div>
           <div hidden={tab !== "records"} className="flex flex-col gap-6">
             <WorkRecordCard connected={scoring.source === "api"} />

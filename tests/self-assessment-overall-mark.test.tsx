@@ -180,14 +180,17 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
 });
 
 describe("the Rating names tab", () => {
-  it("opens with the switch, ahead of the names it decides whether to offer", () => {
+  it("opens with the switch, ahead of the names it decides whether to offer, in one card with no heading", () => {
     mount("marks");
-    const card = screen.getByRole("heading", { name: "Overall rating" });
+    const toggle = screen.getByRole("switch");
     const scale = screen.getByText("THE SCALE FORM");
     expect(
-      card.compareDocumentPosition(scale) & Node.DOCUMENT_POSITION_FOLLOWING,
+      toggle.compareDocumentPosition(scale) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByRole("switch")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Overall rating" }),
+    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Rating names" })).toBeNull();
   });
 
   it("asks the parts to be read again after the switch moves, so the API's note follows it", async () => {
