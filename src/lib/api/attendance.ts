@@ -71,6 +71,8 @@ import { ApiError, request } from "@/lib/api/client";
  * | Correcting a record | `EDIT_RECORDS`, **and a note** |
  * | Changing the policy | `MANAGE_SETTINGS` |
  * | Adding, changing or switching off a work location | `MANAGE_SETTINGS` |
+ * | Reading schedules and special days | nothing beyond opening Settings → Attendance |
+ * | Adding, changing or removing a schedule or a special day | `MANAGE_SETTINGS` |
  *
  * ## Refusals worth showing verbatim
  *
@@ -400,6 +402,19 @@ export type ApiRosterRow = {
   anomaly: string | null;
   /** Set when HR corrected this entry. The reason travels with the change. */
   correctionNote: string | null;
+  /**
+   * When **this person** is expected that day, `HH:MM`: their own schedule's
+   * hours, or a special day's, or the company's. Absent from an older API, and
+   * null when the day is not a working day for them.
+   *
+   * Read it with `expectedHours` rather than printing the company policy beside
+   * a person who works different hours — somebody on a Saturday schedule is not
+   * expected at 08:00.
+   */
+  expectedStart?: string | null;
+  expectedEnd?: string | null;
+  /** The schedule those hours came from, when one did. Null for the company's own. */
+  scheduleName?: string | null;
 };
 
 export type ApiRoster = {
@@ -815,6 +830,114 @@ export type PolicyBody = Partial<{
   workingWeekdays: number[];
   selfServiceClockIn: boolean;
 }>;
+
+/**
+ * One working day of a schedule. **ISO weekday: 1 = Monday, 7 = Sunday**, the
+ * same numbering as `ApiAttendancePolicy.workingWeekdays`. A weekday that is
+ * missing from a schedule's `days` is a day off, so there is no "off" entry.
+ */
+export type ScheduleDay = {
+  weekday: number;
+  /** `HH:MM`. */
+  start: string;
+  end: string;
+};
+
+/**
+ * A named week: which days somebody works and when.
+ *
+ * Assigned to departments and to people. Resolved on the server in one order,
+ * **a person's own schedule, then their department's, then the company's hours**,
+ * and a special day beats all of them — so nothing on this side works out whose
+ * hours apply. `ApiRosterRow.expectedStart` carries the answer.
+ */
+export type ApiWorkSchedule = {
+  id: string;
+  name: string;
+  days: ScheduleDay[];
+  departments: { id: string; name: string }[];
+  people: { id: string; name: string; departmentId: string | null }[];
+};
+
+/**
+ * Creating a schedule. `departmentIds` and `employeeIds` are optional, and a
+ * schedule nobody is assigned to is allowed: it simply applies to no one yet.
+ */
+export type WorkScheduleBody = {
+  name: string;
+  days: ScheduleDay[];
+  departmentIds?: string[];
+  employeeIds?: string[];
+};
+
+/**
+ * A change. Every field is optional, but **`departmentIds` and `employeeIds`
+ * replace the whole set** rather than adding to it: send the full list, or omit
+ * the field to leave it alone. The same is true of `days`.
+ */
+export type WorkSchedulePatch = Partial<WorkScheduleBody>;
+
+/** Who a special day is for: everybody, one department, or one person. */
+export type SpecialDayScope = "COMPANY" | "DEPARTMENT" | "PERSON";
+
+/**
+ * One date that does not follow the usual week: off, or a custom time range.
+ * Beats every schedule and the company hours.
+ */
+export type ApiSpecialDay = {
+  id: string;
+  /** `YYYY-MM-DD`. */
+  date: string;
+  scope: SpecialDayScope;
+  departmentId: string | null;
+  departmentName: string | null;
+  employeeId: string | null;
+  employeeName: string | null;
+  /** False is a day off. True carries `start` and `end`. */
+  working: boolean;
+  /** `HH:MM`. Null on a day off. */
+  start: string | null;
+  end: string | null;
+  note: string | null;
+};
+
+/**
+ * Neither `departmentId` nor `employeeId` is everybody. `working: true` needs
+ * `start` and `end`; `working: false` is a day off and carries neither.
+ */
+export type SpecialDayBody = {
+  date: string;
+  departmentId?: string;
+  employeeId?: string;
+  working: boolean;
+  start?: string;
+  end?: string;
+  note?: string;
+};
+
+export type SpecialDayPatch = Partial<SpecialDayBody>;
+
+/** `YYYY-MM-DD` bounds, both inclusive and both optional. */
+export type SpecialDayParams = { from?: string; to?: string };
+
+/**
+ * The hours somebody is expected on a roster day: their own where the row
+ * carries them, the company's where it does not.
+ *
+ * One function so the clock card, the clock menu and the attendance page cannot
+ * come to disagree about what "expected" means for the same person. Each end is
+ * read on its own, so an API that sends only one of them still gets the company's
+ * for the other rather than a blank.
+ */
+export function expectedHours(
+  policy: Pick<ApiAttendancePolicy, "shiftStart" | "shiftEnd">,
+  row?: Pick<ApiRosterRow, "expectedStart" | "expectedEnd"> | null,
+): { start: string; end: string } {
+  return {
+    start: row?.expectedStart ?? policy.shiftStart,
+    end: row?.expectedEnd ?? policy.shiftEnd,
+  };
+}
 
 export type TimesheetParams = {
   /** Working days to look back over. The API caps this at 90. */
@@ -1272,4 +1395,58 @@ export const attendanceApi = {
       method: "POST",
       body,
     }),
+
+  /* ------------------------------------------------ schedules, special days */
+
+  /** Every schedule, with the departments and people it applies to. */
+  schedules: (signal?: AbortSignal) =>
+    request<ApiWorkSchedule[]>("/attendance/schedules", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** `MANAGE_SETTINGS`. A weekday left out of `days` is a day off. */
+  createSchedule: (body: WorkScheduleBody) =>
+    request<ApiWorkSchedule>("/attendance/schedules", {
+      method: "POST",
+      body,
+    }),
+
+  /**
+   * `MANAGE_SETTINGS`. Sparse, except that `departmentIds` and `employeeIds`
+   * replace the whole set: see `WorkSchedulePatch`.
+   */
+  updateSchedule: (id: string, patch: WorkSchedulePatch) =>
+    request<ApiWorkSchedule>(`/attendance/schedules/${id}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+
+  /** `MANAGE_SETTINGS`. Everybody on it goes back to the company's hours. */
+  deleteSchedule: (id: string) =>
+    request<void>(`/attendance/schedules/${id}`, { method: "DELETE" }),
+
+  /** Special days, optionally between two dates. */
+  specialDays: (params: SpecialDayParams = {}, signal?: AbortSignal) =>
+    request<ApiSpecialDay[]>("/attendance/special-days", {
+      query: { from: params.from, to: params.to },
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** `MANAGE_SETTINGS`. See `SpecialDayBody` for what each scope needs. */
+  createSpecialDay: (body: SpecialDayBody) =>
+    request<ApiSpecialDay>("/attendance/special-days", {
+      method: "POST",
+      body,
+    }),
+
+  /** `MANAGE_SETTINGS`. */
+  updateSpecialDay: (id: string, patch: SpecialDayPatch) =>
+    request<ApiSpecialDay>(`/attendance/special-days/${id}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+
+  /** `MANAGE_SETTINGS`. The day goes back to the usual hours. */
+  deleteSpecialDay: (id: string) =>
+    request<void>(`/attendance/special-days/${id}`, { method: "DELETE" }),
 };
