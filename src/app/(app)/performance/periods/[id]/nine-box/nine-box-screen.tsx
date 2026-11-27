@@ -64,41 +64,15 @@ const ROW_WORDS: Record<ApiPotentialLevel, string> = {
   LOW: "Happy in their role",
 };
 
-/** One line on what the cell means, and the next step worth taking. */
-const CELL_GUIDE: Record<string, { line: string; next: string | null }> = {
-  HIGH_EXCEEDS: {
-    line: "Delivering and could go further.",
-    next: "Plan their next role",
-  },
-  HIGH_MEETS: {
-    line: "Delivering, with more in them.",
-    next: "Give them a stretch goal",
-  },
-  HIGH_BELOW: {
-    line: "The ability looks to be there; the results are not.",
-    next: "Find out what is in the way",
-  },
-  MEDIUM_EXCEEDS: {
-    line: "Delivering more than was agreed.",
-    next: "Talk about growth",
-  },
-  MEDIUM_MEETS: { line: "Doing the job as agreed.", next: null },
-  MEDIUM_BELOW: {
-    line: "Not delivering what was agreed.",
-    next: "Agree what changes",
-  },
-  LOW_EXCEEDS: {
-    line: "Deep in what they do, and delivering.",
-    next: "Make sure they stay",
-  },
-  LOW_MEETS: {
-    line: "Doing the job as agreed, where they want to be.",
-    next: null,
-  },
-  LOW_BELOW: {
-    line: "Not delivering, and not looking for more.",
-    next: "Book the conversation",
-  },
+/** The one next step worth taking for a cell, where there is one. */
+const CELL_NEXT: Record<string, string> = {
+  HIGH_EXCEEDS: "Plan their next role",
+  HIGH_MEETS: "Give them a stretch goal",
+  HIGH_BELOW: "Find out what is in the way",
+  MEDIUM_EXCEEDS: "Talk about growth",
+  MEDIUM_BELOW: "Agree what changes",
+  LOW_EXCEEDS: "Make sure they stay",
+  LOW_BELOW: "Book the conversation",
 };
 
 /** Soft tint by corner: the top right is the strongest, the bottom left a warm neutral. */
@@ -138,11 +112,6 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
           },
         ]}
         title="Talent map"
-        meta={
-          <span className="text-meta text-faint">
-            Who is ready for more, who to grow, and who needs a conversation.
-          </span>
-        }
       />
       <PageBody>
         {!canSeeCompany ? (
@@ -195,48 +164,41 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
           footer={<Button onClick={() => setOpen(null)}>Close</Button>}
         >
           <div className="flex flex-col gap-4">
-            <p className="text-body-sm text-muted">
-              {CELL_GUIDE[open.box]?.line ?? open.meaning}
-              {CELL_GUIDE[open.box]?.next
-                ? ` ${CELL_GUIDE[open.box]?.next}.`
-                : ""}
-            </p>
-            {open.people.length === 0 ? (
-              <p className="text-body-sm text-faint">Nobody here.</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {open.people.map((person) => (
-                  <li
-                    key={person.employeeId}
-                    className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
-                      <Avatar name={person.employeeName} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-body-sm font-medium text-ink">
-                          {person.employeeName}
-                        </span>
-                        <span className="block truncate text-meta text-muted">
-                          {person.jobTitle}
-                          {person.scoreBp !== null &&
-                            ` · ${scoreWords(person) ?? ""}`}
-                        </span>
+            {CELL_NEXT[open.box] && (
+              <p className="text-body-sm text-muted">{CELL_NEXT[open.box]}</p>
+            )}
+            <ul className="flex flex-col gap-2">
+              {open.people.map((person) => (
+                <li
+                  key={person.employeeId}
+                  className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <Avatar name={person.employeeName} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-body-sm font-medium text-ink">
+                        {person.employeeName}
+                      </span>
+                      <span className="block truncate text-meta text-muted">
+                        {person.jobTitle}
+                        {person.scoreBp !== null &&
+                          ` · ${scoreWords(person) ?? ""}`}
                       </span>
                     </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setOpen(null);
-                        setPlacing(person);
-                      }}
-                    >
-                      Change
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setOpen(null);
+                      setPlacing(person);
+                    }}
+                  >
+                    Change
+                  </Button>
+                </li>
+              ))}
+            </ul>
           </div>
         </Modal>
       )}
@@ -331,6 +293,23 @@ function Row({
       {AXES.map((axis) => {
         const cell = cellFor.get(`${level}_${axis}`);
         if (!cell) return <div key={axis} />;
+        const tint = TINT[cell.box] ?? "bg-surface";
+        /* An empty cell has nothing to open, so it is not a button. */
+        if (cell.people.length === 0) {
+          return (
+            <div
+              key={axis}
+              className={cn(
+                "flex min-h-28 flex-col justify-between gap-3 rounded-xl border border-line p-3",
+                tint,
+              )}
+            >
+              <span className="text-body-sm font-medium text-muted">
+                {cell.label}
+              </span>
+            </div>
+          );
+        }
         return (
           <button
             key={axis}
@@ -339,7 +318,7 @@ function Row({
             aria-label={`${cell.label}, ${String(cell.people.length)} ${cell.people.length === 1 ? "person" : "people"}`}
             className={cn(
               "flex min-h-28 flex-col justify-between gap-3 rounded-xl border border-line p-3 text-left transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2",
-              TINT[cell.box] ?? "bg-surface",
+              tint,
             )}
           >
             <span className="text-body-sm font-medium text-ink">
@@ -354,9 +333,7 @@ function Row({
               <span className="tabular text-body-sm font-semibold text-ink">
                 {cell.people.length > 5
                   ? `+${String(cell.people.length - 5)}`
-                  : cell.people.length === 0
-                    ? ""
-                    : String(cell.people.length)}
+                  : String(cell.people.length)}
               </span>
             </span>
           </button>
