@@ -30,10 +30,9 @@ import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { goesDown, measureProblems } from "@/lib/performance/measure-problems";
-import { NEEDS_PERIOD } from "@/lib/performance/objective-wizard";
 import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
-import { peopleILead, type LeadReach } from "./goal-facts";
+import { defaultPeriodId, peopleILead, type LeadReach } from "./goal-facts";
 
 /**
  * Whose work this caller leads, as the two dialogs below ask it.
@@ -128,6 +127,20 @@ export const quarterText = (quarter: string) => {
   const [year, part] = quarter.split("-");
   return `${part} ${year}`;
 };
+
+/**
+ * The quarter an appraisal period stands for: the one it starts in, or, for a
+ * period written before it had dates, the one it is due in, and otherwise
+ * `fallback`. An objective's quarter is what lets it be agreed before the work
+ * starts, and nobody should have to type it beside the period it already names.
+ */
+export function quarterOfPeriod(
+  period: { periodStart?: string | null; dueDate?: string | null },
+  fallback: string,
+): string {
+  const day = period.periodStart ?? period.dueDate ?? null;
+  return day ? currentQuarter(day.slice(0, 10)) : fallback;
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -746,8 +759,8 @@ export function deleteBlocker(goal: ApiGoal): string | null {
 }
 
 /**
- * Changing what a not-yet-agreed objective says: its title, quarter, appraisal
- * period and description.
+ * Changing what a not-yet-agreed objective says: its title, period and
+ * description.
  *
  * Only what changed is sent, so saving after touching nothing is not offered and
  * a field somebody did not mean to move is not re-written. Who it is assigned to
@@ -770,7 +783,10 @@ export function EditGoalDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [quarter, setQuarter] = useState("");
-  const [reviewCycleId, setReviewCycleId] = useState("");
+  /* `null` until the person touches the select, so that what it shows is the
+     objective's own period, or else the open one, even if the periods arrive
+     after the dialog does. */
+  const [picked, setPicked] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [periodError, setPeriodError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -786,7 +802,7 @@ export function EditGoalDialog({
       setTitle(goal.title);
       setDescription(goal.description ?? "");
       setQuarter(goal.dueQuarter ?? "");
-      setReviewCycleId(goal.reviewCycleId ?? "");
+      setPicked(null);
       setError(null);
       setPeriodError(null);
     }
@@ -806,6 +822,13 @@ export function EditGoalDialog({
      one to file it in. Editing an old one that was never filed asks for it,
      which is the way out the upload's notes already point to. */
   const needsPeriod = goal?.level === "personal" && periods.length > 0;
+  /* The period it is filed in, or else the one that is open, so the person
+     confirms a period and does not have to find one. A shared objective is not
+     filed for them. */
+  const reviewCycleId =
+    picked ??
+    goal?.reviewCycleId ??
+    (needsPeriod ? defaultPeriodId(periods) : "");
 
   const body: UpdateGoalBody = {};
   if (goal) {
@@ -813,11 +836,22 @@ export function EditGoalDialog({
     if (description.trim() !== (goal.description ?? "")) {
       body.description = description.trim() === "" ? null : description.trim();
     }
-    if (quarter !== (goal.dueQuarter ?? "")) {
-      body.dueQuarter = quarter === "" ? null : quarter;
-    }
     if (reviewCycleId !== (goal.reviewCycleId ?? "")) {
       body.reviewCycleId = reviewCycleId === "" ? null : reviewCycleId;
+      /* The quarter follows the period: it is the one it starts in, or, for a
+         period with no dates, the one it is due in, and otherwise what the
+         objective already had. */
+      const cycle = periods.find((period) => period.id === reviewCycleId);
+      const derived = cycle
+        ? quarterOfPeriod(cycle, goal.dueQuarter ?? quarters[1] ?? "")
+        : "";
+      if (derived !== "" && derived !== (goal.dueQuarter ?? "")) {
+        body.dueQuarter = derived;
+      }
+    }
+    /* Only a company with no periods at all asks for the quarter itself. */
+    if (periods.length === 0 && quarter !== (goal.dueQuarter ?? "")) {
+      body.dueQuarter = quarter === "" ? null : quarter;
     }
   }
   const changed = Object.keys(body).length > 0;
@@ -829,7 +863,7 @@ export function EditGoalDialog({
       return;
     }
     if (needsPeriod && reviewCycleId === "") {
-      setPeriodError(NEEDS_PERIOD);
+      setPeriodError("Choose a period.");
       return;
     }
     setError(null);
@@ -870,50 +904,45 @@ export function EditGoalDialog({
           />
         </Field>
 
-        <Field label="Due quarter" required>
-          <Select
-            value={quarter}
-            onChange={(event) => setQuarter(event.target.value)}
-          >
-            {quarter === "" && <option value="">Choose a quarter</option>}
-            {quarterChoices.map((option) => (
-              <option key={option} value={option}>
-                {quarterText(option)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {periods.length > 0 && (
+        {/* One field for when: the period, and the quarter follows it. With no
+            period to pick, the quarter is the only way to date it. */}
+        {periods.length > 0 ? (
           <Field
             {...(needsPeriod ? { required: true } : { optional: true })}
-            label="Appraisal period"
+            label="Period"
             {...(periodError ? { error: periodError } : {})}
-            help={
-              reviewCycleId
-                ? "Counts towards this person's score for that period, once somebody agrees it."
-                : needsPeriod
-                  ? "Pick the period this is scored in."
-                  : "Nothing here reaches an appraisal score. A quarter alone lets the objective be agreed and still score nothing."
-            }
           >
             <Select
               value={reviewCycleId}
               onChange={(event) => {
-                setReviewCycleId(event.target.value);
+                setPicked(event.target.value);
                 setPeriodError(null);
               }}
             >
               {needsPeriod ? (
                 reviewCycleId === "" && (
-                  <option value="">Choose an appraisal period</option>
+                  <option value="">Choose a period</option>
                 )
               ) : (
-                <option value="">Not part of an appraisal period</option>
+                <option value="">None</option>
               )}
               {periods.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : (
+          <Field label="Due quarter" required>
+            <Select
+              value={quarter}
+              onChange={(event) => setQuarter(event.target.value)}
+            >
+              {quarter === "" && <option value="">Choose a quarter</option>}
+              {quarterChoices.map((option) => (
+                <option key={option} value={option}>
+                  {quarterText(option)}
                 </option>
               ))}
             </Select>

@@ -109,15 +109,21 @@ describe("the edit dialog", () => {
   };
 
   it("opens on what the objective says now, with Save waiting for a change", () => {
-    open();
+    open({ reviewCycleId: "c-open", reviewCycleName: "H2 2026" });
     expect(screen.getByLabelText(/Objective title/)).toHaveValue(
       "Grow qualified pipeline",
     );
-    expect(screen.getByLabelText(/Due quarter/)).toHaveValue("2026-Q4");
+    expect(screen.getByLabelText(/^Period/)).toHaveValue("c-open");
     expect(screen.getByLabelText(/Description/)).toHaveValue(
       "Source and qualify.",
     );
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  });
+
+  it("starts one that is in no period on the open one, which is a change to save", () => {
+    open();
+    expect(screen.getByLabelText(/^Period/)).toHaveValue("c-open");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
   it("calls every rung an objective, a personal one too (U94)", () => {
@@ -131,10 +137,7 @@ describe("the edit dialog", () => {
     const title = screen.getByLabelText(/Objective title/);
     await user.clear(title);
     await user.type(title, "Grow qualified pipeline by 40");
-    await user.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "c-open",
-    );
+    await user.selectOptions(screen.getByLabelText(/^Period/), "c-open");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(onSave).toHaveBeenCalledWith("g-1", {
       title: "Grow qualified pipeline by 40",
