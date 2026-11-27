@@ -135,11 +135,6 @@ function DraftWeights({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-meta text-muted">
-        {weights.basis === "period"
-          ? "Set for this period."
-          : "Same as your company's weights."}
-      </p>
       <PeriodWeights
         value={value}
         onChange={setValue}
@@ -159,17 +154,20 @@ function DraftWeights({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="accent"
-          size="sm"
-          loading={saving}
-          disabled={problem !== null || !dirty}
-          onClick={() =>
-            void run({ weights: weightsFromText(value) }, "Weights saved")
-          }
-        >
-          Save the weights
-        </Button>
+        {/* Only once something has changed and the set is valid: the donut says
+            what is left to give out, so a Save that waits needs no reason. */}
+        {dirty && problem === null && (
+          <Button
+            variant="accent"
+            size="sm"
+            loading={saving}
+            onClick={() =>
+              void run({ weights: weightsFromText(value) }, "Weights saved")
+            }
+          >
+            Save the weights
+          </Button>
+        )}
         {/* Only when this period's weights are not the company's: otherwise there
             is nothing for it to change. */}
         {weightsDifferFromCompany(

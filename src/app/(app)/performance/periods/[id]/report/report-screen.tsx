@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  CheckCheck,
-  LineChart,
-  Lock,
-  TriangleAlert,
-  UserX,
-  Users,
-} from "lucide-react";
+import { LineChart, UserX, Users } from "lucide-react";
 import {
   Badge,
   BarChart,
@@ -17,7 +10,6 @@ import {
   CardBody,
   CardHeader,
   ColumnChart,
-  DescriptionList,
   EmptyState,
   TBody,
   TD,
@@ -53,22 +45,22 @@ import {
 } from "@/lib/store/performance";
 import { REPORT_TABS, type ReportTabId } from "./tabs";
 
-const REPORT_TAB_ITEMS: TabItem[] = [
-  { id: "marks", label: "Scores" },
-  { id: "progress", label: "Forms and sign-off" },
-  { id: "parts", label: "Parts of the score" },
-  { id: "follow-up", label: "To follow up" },
-];
-
 /**
- * "N of M", or what the absence is when there is no M.
- *
- * A zero denominator is never "0 of 0" — that reads as a measurement of a set
- * that does not exist yet. The same rule `StatusCell` in `period-status.tsx`
- * follows with its `notYet`, applied to the rows on this screen.
+ * Three tabs, and the third only when somebody needs following up. What came in
+ * and who has signed off is the period page's bar and its next step, so it is
+ * not said a second time here.
  */
-function ratio(done: number, total: number, notYet: string): string {
-  return total === 0 ? notYet : `${done} of ${total}`;
+const SCORES_TAB: TabItem = { id: "marks", label: "Scores" };
+const PARTS_TAB: TabItem = { id: "parts", label: "Parts of the score" };
+
+/** How many people are on any of the four follow-up lists. */
+function followUpCount(report: ApiCycleReport): number {
+  return (
+    report.unscored.length +
+    report.unfinalised.length +
+    report.awaitingAcknowledgement.length +
+    report.disputed.length
+  );
 }
 
 /**
@@ -134,37 +126,17 @@ export function PeriodReportScreen({
             label: cycle?.name ?? "Appraisal period",
           },
         ]}
-        title="Period report"
+        title="Report"
         meta={
           cycle ? (
-            <>
-              <Badge
-                tone={cycle.stage === "PUBLISHED" ? "neutral" : "info"}
-                size="sm"
-                dot
-              >
-                {cycle.stageLabel}
-              </Badge>
-              {cycle.scoringFrozen && (
-                <Badge
-                  tone="accent"
-                  size="sm"
-                  icon={<Lock aria-hidden="true" />}
-                >
-                  Weights frozen
-                </Badge>
-              )}
-            </>
+            <Badge
+              tone={cycle.stage === "PUBLISHED" ? "neutral" : "info"}
+              size="sm"
+              dot
+            >
+              {cycle.stageLabel}
+            </Badge>
           ) : undefined
-        }
-        action={
-          /* The period screen's own action reads "See the report", so this is
-             its mirror. Not "Run the period": nothing is run from there — it is
-             the register of who still owes a form — and "run" is the product's
-             word for nothing at all. */
-          <ButtonLink size="sm" href={`/performance/periods/${cycleId}`}>
-            See everyone&apos;s scores
-          </ButtonLink>
         }
       />
 
@@ -207,66 +179,21 @@ export function PeriodReportScreen({
         >
           {report && report.marks.people === 0 && (
             <Card>
-              <CardHeader title="Nothing to report yet" />
               <EmptyState
                 compact
                 icon={<UserX aria-hidden="true" />}
                 title="Nobody is in this period"
-                description="Starting a period gives every current employee a form."
               />
             </Card>
           )}
 
           {report && report.marks.people > 0 && (
-            <>
-              {/* Four questions, four tabs: how it came out, what came in, what a
-                mark is made of, and who still needs chasing. They share no row,
-                and stacked they were a 4,600px page. */}
-              <Tabs items={REPORT_TAB_ITEMS} value={tab} onChange={changeTab}>
-                <div className="flex flex-col gap-6">
-                  {tab === "marks" && (
-                    <>
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <DepartmentPerformance register={register.register} />
-                        <TopPerformers
-                          register={register.register}
-                          published={report.published}
-                        />
-                      </div>
-                      <Distribution report={report} />
-                    </>
-                  )}
-                  {tab === "progress" && <WhatCameIn report={report} />}
-                  {tab === "parts" && <Parts report={report} />}
-                  {tab === "follow-up" && (
-                    <>
-                      <NamedList
-                        title="No score"
-                        description="These people will finish the period with no score. That is not the same as a score of 0: nothing was recorded for them."
-                        empty="Everybody in this period has a score."
-                        rows={report.unscored}
-                        tone="danger"
-                      />
-                      <NamedList
-                        title="Written, not final yet"
-                        description="A rating has been written but the person has not been told. Making it final is what tells them."
-                        empty="Every rating that has been written is final."
-                        rows={report.unfinalised}
-                        tone="warning"
-                      />
-                      <NamedList
-                        title="Told, and no answer yet"
-                        description="They have been told their rating and have not replied. Not replying is not the same as agreeing."
-                        empty="Everybody who has been told their rating has replied."
-                        rows={report.awaitingAcknowledgement}
-                        tone="warning"
-                      />
-                      <Disputes report={report} />
-                    </>
-                  )}
-                </div>
-              </Tabs>
-            </>
+            <ReportTabs
+              report={report}
+              register={register.register}
+              tab={tab}
+              onTab={changeTab}
+            />
           )}
         </LoadState>
       </PageBody>
@@ -275,6 +202,62 @@ export function PeriodReportScreen({
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Scores, the parts of the score, and who needs following up.
+ *
+ * The last is absent when everybody is accounted for: a tab of four empty cards
+ * that say the news is good is a tab nobody needed.
+ */
+export function ReportTabs({
+  report,
+  register,
+  tab,
+  onTab,
+}: {
+  report: ApiCycleReport;
+  register: ApiScoreRegister | null;
+  tab: ReportTabId;
+  onTab: (next: string) => void;
+}) {
+  const followUps = followUpCount(report);
+  const items: TabItem[] = [
+    SCORES_TAB,
+    PARTS_TAB,
+    ...(followUps > 0
+      ? [{ id: "follow-up", label: "To follow up", count: followUps }]
+      : []),
+  ];
+  /* A link to a tab that is not there lands on the first one. */
+  const shown: ReportTabId = items.some((item) => item.id === tab)
+    ? tab
+    : "marks";
+
+  return (
+    <Tabs items={items} value={shown} onChange={onTab}>
+      <div className="flex flex-col gap-6">
+        {shown === "marks" && (
+          <>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DepartmentPerformance register={register} />
+              <TopPerformers register={register} />
+            </div>
+            <Distribution report={report} />
+          </>
+        )}
+        {shown === "parts" && <Parts report={report} />}
+        {shown === "follow-up" && (
+          <>
+            <NamedList title="No score" rows={report.unscored} />
+            <NamedList title="Written" rows={report.unfinalised} />
+            <NamedList title="Final" rows={report.awaitingAcknowledgement} />
+            <Disputes report={report} />
+          </>
+        )}
+      </div>
+    </Tabs>
+  );
+}
 
 /**
  * One department, added up from the register's own rows.
@@ -327,10 +310,7 @@ export function DepartmentPerformance({
 
   return (
     <Card>
-      <CardHeader
-        title="By department"
-        description="Average score per department, over the people in each who have one."
-      />
+      <CardHeader title="By department" />
       <CardBody className="p-0">
         {rollups.length === 0 ? (
           <p className="p-4 text-body-sm text-muted">
@@ -416,11 +396,8 @@ export function DepartmentPerformance({
  */
 export function TopPerformers({
   register,
-  published = false,
 }: {
   register: ApiScoreRegister | null;
-  /** A published period is over: no "so far" (U96 / PERF-16). */
-  published?: boolean;
 }) {
   if (!register) return null;
   const ranked = register.rows
@@ -430,14 +407,7 @@ export function TopPerformers({
 
   return (
     <Card>
-      <CardHeader
-        title="Top performers"
-        description={
-          published
-            ? "The highest scores in this period."
-            : "The highest scores in this period so far."
-        }
-      />
+      <CardHeader title="Top performers" />
       <CardBody className="p-0">
         {ranked.length === 0 ? (
           <p className="p-4 text-body-sm text-muted">No scores yet.</p>
@@ -525,89 +495,56 @@ const BAND_FILL: Record<ScoreBand, string> = {
 
 export function Distribution({ report }: { report: ApiCycleReport }) {
   const { distribution } = report;
+  /* Nobody has a score yet: there is no shape to draw, and the follow-up list
+     already names who is missing one. */
+  if (distribution.scored === 0) return null;
 
   return (
     <Card>
-      <CardHeader
-        title="The spread of scores"
-        description={
-          distribution.scored === 0
-            ? "Nothing to show yet."
-            : `${distribution.scored} ${distribution.scored === 1 ? "score" : "scores"}, sorted into five bands.`
-        }
-      />
+      <CardHeader title="The spread of scores" />
       <CardBody className="flex flex-col gap-4">
         {/* The shape first, then the figures. The chart answers "what shape is
             this company in", which five independent bars could not; the list
             under it still answers "who is in this band", which a chart cannot.
             Neither replaces the other, and the list is also the accessible
             copy — the chart is `aria-hidden`. */}
-        {distribution.scored === 0 ? (
-          <p className="text-body-sm text-muted">
-            No scores have been given in this period yet, so there is nothing to
-            show.
-          </p>
-        ) : (
-          <>
-            {/* Columns need a column's width per band label. At five bands and
-                a phone's width each gets about 55px, and "Outstanding" or
-                "Partially meets expectations" does not fit in 55px, so the
-                labels were drawn over each other and the last ran out of the
-                card. Below `sm` the same data is drawn as bars with the label
-                on its own line; the two are never both in the page, so a
-                screen reader meets one table, not two. */}
-            <ColumnChart
-              className="hidden sm:block"
-              height={160}
-              points={distribution.bands.map((band) => ({
-                label: band.label,
-                value: band.people,
-              }))}
-              /* The badge tones, so a reader who has learnt amber-means-partially
-               -meets on the register does not learn it again here. Never the
-               only cue: every column carries its count and its band name. */
-              tones={distribution.bands.map((band) => BAND_FILL[band.band])}
-              format={(n) => `${String(n)}`}
-              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
-            />
-            <BarChart
-              className="sm:hidden"
-              points={distribution.bands.map((band) => ({
-                label: band.label,
-                value: band.people,
-              }))}
-              tones={distribution.bands.map((band) => BAND_FILL[band.band])}
-              format={(n) => `${String(n)}`}
-              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
-            />
-          </>
-        )}
+        {/* Columns need a column's width per band label. At five bands and a
+            phone's width each gets about 55px, and "Outstanding" or "Partially
+            meets expectations" does not fit in 55px, so the labels were drawn
+            over each other and the last ran out of the card. Below `sm` the
+            same data is drawn as bars with the label on its own line; the two
+            are never both in the page, so a screen reader meets one table, not
+            two. */}
+        <ColumnChart
+          className="hidden sm:block"
+          height={160}
+          points={distribution.bands.map((band) => ({
+            label: band.label,
+            value: band.people,
+          }))}
+          /* The badge tones, so a reader who has learnt amber-means-partially
+             -meets on the register does not learn it again here. Never the
+             only cue: every column carries its count and its band name. */
+          tones={distribution.bands.map((band) => BAND_FILL[band.band])}
+          format={(n) => `${String(n)}`}
+          caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
+        />
+        <BarChart
+          className="sm:hidden"
+          points={distribution.bands.map((band) => ({
+            label: band.label,
+            value: band.people,
+          }))}
+          tones={distribution.bands.map((band) => BAND_FILL[band.band])}
+          format={(n) => `${String(n)}`}
+          caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "score" : "scores"} across the five bands.`}
+        />
 
-        {distribution.scored > 0 && (
-          <ul className="flex flex-col gap-3">
-            {distribution.bands.map((band) => (
-              <BandRow key={band.band} band={band} of={distribution.scored} />
-            ))}
-          </ul>
-        )}
-
-        {distribution.unscored > 0 && (
-          <div className="border-t border-line pt-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="text-body-sm font-medium text-ink">
-                No score · {distribution.unscored}{" "}
-                {distribution.unscored === 1 ? "person" : "people"}
-              </span>
-              <Badge tone="neutral" size="sm">
-                Not scored
-              </Badge>
-            </div>
-            <p className="mt-1 text-meta text-muted">
-              These people sit outside the bands because they have no score.
-              That is different from a low score. Their names are further down.
-            </p>
-          </div>
-        )}
+        <ul className="flex flex-col gap-3">
+          {distribution.bands.map((band) => (
+            <BandRow key={band.band} band={band} of={distribution.scored} />
+          ))}
+        </ul>
       </CardBody>
     </Card>
   );
@@ -651,127 +588,6 @@ function BandRow({ band, of }: { band: ApiBandCount; of: number }) {
 }
 
 /**
- * Two cards, two headcounts, and each says which one it is counting.
- *
- * `forms.people` is everybody with a form; `marks.people` is everybody the
- * register covers. They are usually equal and are not the same fact — a cycle
- * with nobody's form created yet has forms over 0 people and marks over the whole
- * company. Dividing one by the other is the specific thing this layout exists to
- * make impossible.
- */
-function WhatCameIn({ report }: { report: ApiCycleReport }) {
-  const { forms, marks } = report;
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader
-          title="Forms"
-          description={`Out of the ${forms.people} ${forms.people === 1 ? "person" : "people"} who have a form in this period.`}
-        />
-        <CardBody>
-          <DescriptionList
-            columns={1}
-            items={[
-              {
-                term: "Self-reviews in",
-                value: ratio(
-                  forms.selfIn,
-                  forms.people,
-                  "Nobody has a form yet",
-                ),
-              },
-              {
-                term: "Self-reviews outstanding",
-                value:
-                  forms.selfOutstanding === 0
-                    ? "None"
-                    : `${forms.selfOutstanding} not sent`,
-              },
-              {
-                term: "Manager reviews in",
-                /* Reviews, not people — somebody with two appraisers and one
-                   answer owes one more, so the denominator is the reviews due
-                   and not the headcount. `cellsFrom` in period-status.tsx says
-                   the same thing over the same payload; this row said
-                   `forms.people` and the two screens disagreed about one
-                   figure. */
-                value: ratio(
-                  forms.managerIn,
-                  forms.managerIn + forms.managerOutstanding,
-                  "No manager review is due yet",
-                ),
-              },
-              {
-                term: "Manager reviews outstanding",
-                value:
-                  forms.managerOutstanding === 0
-                    ? "None"
-                    : `${forms.managerOutstanding} not written`,
-              },
-            ]}
-          />
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader
-          title="Sign-off"
-          description={`Out of the ${marks.people} ${marks.people === 1 ? "person" : "people"} in this period.`}
-        />
-        <CardBody>
-          <DescriptionList
-            columns={1}
-            items={[
-              {
-                term: "Ratings written",
-                value: `${marks.written} of ${marks.people}`,
-              },
-              {
-                term: "Made final (the person was told)",
-                value: `${marks.finalised} of ${marks.people}`,
-              },
-              {
-                term: "Acknowledged",
-                /* You can only answer a mark you have been told, so the
-                   denominator is what has been finalised rather than the
-                   headcount — and when nothing is final there is no ratio to
-                   state. This was rendering "0 of 0 told", which is the claim
-                   `ratio` exists to refuse and the one the incumbent's own
-                   dashboard was audited for. */
-                value: ratio(
-                  marks.acknowledged,
-                  marks.finalised,
-                  "No score is final yet",
-                ),
-              },
-              {
-                term: "No answer yet",
-                value:
-                  marks.awaitingAnswer === 0
-                    ? "None outstanding"
-                    : `${marks.awaitingAnswer} have not replied`,
-              },
-              {
-                term: "Disputed",
-                value: marks.disputed === 0 ? "None" : String(marks.disputed),
-              },
-              {
-                term: "No manager review at all",
-                value:
-                  marks.noReview === 0
-                    ? "None"
-                    : `${marks.noReview} (nobody was asked to write one)`,
-              },
-            ]}
-          />
-        </CardBody>
-      </Card>
-    </div>
-  );
-}
-
-/**
  * How each part of the mark came out, and what it was left out of.
  *
  * The average per component is over the people it counted for and the column
@@ -786,15 +602,6 @@ export function Parts({ report }: { report: ApiCycleReport }) {
   const parts = weightedParts(report.components);
   return (
     <Card>
-      <CardHeader
-        title="The parts of the score"
-        description="Each part of the score, how much it counts for, and who it was left out for and why."
-        action={
-          <ButtonLink size="sm" href="/settings/performance">
-            Change the weights
-          </ButtonLink>
-        }
-      />
       <CardBody className="p-0">
         <div className="hidden sm:block">
           <TableWrap caption="Each part of the score across this period">
@@ -906,62 +713,26 @@ export function Parts({ report }: { report: ApiCycleReport }) {
 /**
  * One named list, with the API's sentence per person.
  *
- * An empty list is stated rather than left blank, the same rule the cycle
- * screen's appraiser card follows: a card that disappears when the news is good
- * is a card nobody trusts when it comes back.
+ * An empty list renders nothing: the tab it sits in is absent when all four are
+ * empty, and a card that says the news is good adds a line to read and nothing
+ * to do.
  */
-function NamedList({
-  title,
-  description,
-  empty,
-  rows,
-  tone,
-}: {
-  title: string;
-  description: string;
-  empty: string;
-  rows: ApiNamedOnList[];
-  tone: "danger" | "warning";
-}) {
+function NamedList({ title, rows }: { title: string; rows: ApiNamedOnList[] }) {
+  if (rows.length === 0) return null;
   return (
     <Card>
       <CardHeader
         title={title}
-        description={description}
         action={
-          rows.length === 0 ? (
-            <Badge
-              tone="success"
-              size="sm"
-              icon={<CheckCheck aria-hidden="true" />}
-            >
-              Nothing outstanding
-            </Badge>
-          ) : (
-            <Badge
-              tone={tone}
-              size="sm"
-              icon={<TriangleAlert aria-hidden="true" />}
-            >
-              {rows.length} {rows.length === 1 ? "person" : "people"}
-            </Badge>
-          )
+          <Badge tone="neutral" size="sm">
+            {rows.length}
+          </Badge>
         }
       />
-      <CardBody
-        className={rows.length === 0 ? undefined : "flex flex-col gap-2"}
-      >
-        {rows.length === 0 ? (
-          <p className="flex items-center gap-2 text-body-sm text-body">
-            <CheckCheck
-              aria-hidden="true"
-              className="size-4 text-success-text"
-            />
-            {empty}
-          </p>
-        ) : (
-          rows.map((row) => <PersonRow key={row.employeeId} row={row} />)
-        )}
+      <CardBody className="flex flex-col gap-2">
+        {rows.map((row) => (
+          <PersonRow key={row.employeeId} row={row} />
+        ))}
       </CardBody>
     </Card>
   );
@@ -1001,30 +772,15 @@ function PersonRow({
 /** Disputes carry the employee's own words and a link to the record. */
 function Disputes({ report }: { report: ApiCycleReport }) {
   const rows = report.disputed;
-
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardHeader
-          title="Disputed ratings"
-          description="A dispute is recorded next to the score. It does not change it."
-        />
-        <CardBody className="flex items-center gap-2 text-body-sm text-body">
-          <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
-          Nobody has disputed their rating in this period.
-        </CardBody>
-      </Card>
-    );
-  }
+  if (rows.length === 0) return null;
 
   return (
     <Card>
       <CardHeader
-        title="Disputed ratings"
-        description="The score stays as it was and the dispute is recorded beside it, so there is always a record of what was decided."
+        title="Disputed"
         action={
-          <Badge tone="danger" size="sm" dot>
-            {rows.length} {rows.length === 1 ? "dispute" : "disputes"}
+          <Badge tone="neutral" size="sm">
+            {rows.length}
           </Badge>
         }
       />
@@ -1032,7 +788,7 @@ function Disputes({ report }: { report: ApiCycleReport }) {
         {rows.map((row) => (
           <PersonRow key={row.employeeId} row={row}>
             {row.employeeComment && (
-              <p className="mt-1.5 border-l-2 border-danger-line pl-3 text-body-sm text-ink">
+              <p className="mt-1.5 border-l-2 border-line-strong pl-3 text-body-sm text-ink">
                 {row.employeeComment}
               </p>
             )}

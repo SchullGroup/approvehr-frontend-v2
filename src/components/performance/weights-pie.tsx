@@ -132,24 +132,3 @@ export function WeightsPie({
     </figure>
   );
 }
-
-/** The part names beside the pie, each with its colour. */
-export function PieLegend({ labels }: { labels: readonly string[] }) {
-  return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1">
-      {labels.map((label, index) => (
-        <li
-          key={label}
-          className="flex items-center gap-1.5 text-meta text-muted"
-        >
-          <span
-            aria-hidden="true"
-            className="size-2.5 rounded-full"
-            style={{ background: sliceColour(index) }}
-          />
-          {label}
-        </li>
-      ))}
-    </ul>
-  );
-}

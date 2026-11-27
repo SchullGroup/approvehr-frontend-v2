@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   Button,
-  Callout,
   Field,
   Input,
   Modal,
@@ -78,10 +77,7 @@ export function CalibrateDialog({
       setFailed("Give a whole percentage between 0 and 100.");
       return;
     }
-    if (reason.trim().length < 10) {
-      setFailed("Say why in a few more words: this is the record of it.");
-      return;
-    }
+    if (reason.trim().length < 10) return;
     setBusy(true);
     setFailed(null);
     try {
@@ -92,7 +88,6 @@ export function CalibrateDialog({
       toast.push({
         title: `${employeeName}'s score is now ${String(value)}%`,
         tone: "success",
-        detail: "The score the answers produced is kept beside it.",
       });
       onClose();
       onChanged();
@@ -129,13 +124,26 @@ export function CalibrateDialog({
     }
   };
 
+  /* One line under the title, for whichever of the two things is true: the score
+     has been changed already, or the evidence points somewhere else. */
+  const line = [
+    existing
+      ? `Changed from ${scoreLabel(existing.originalBp)} to ${scoreLabel(existing.calibratedBp)}${existing.calibratedByName ? ` by ${existing.calibratedByName}` : ""}: “${existing.reason}”`
+      : null,
+    offEvidence && offEvidence.gapBp !== null && offEvidence.expectedBp !== null
+      ? `The evidence suggests ${scoreLabel(offEvidence.expectedBp)}, ${exactPoints(offEvidence.gapBp)}.`
+      : null,
+  ]
+    .filter((one): one is string => one !== null)
+    .join(" ");
+
   // Stays mounted: `Modal` reads its own dismiss state for the exit animation.
   return (
     <Modal
       open={open}
       onClose={onClose}
       title={`Change ${employeeName}'s score`}
-      description={`The answers gave ${scoreLabel(computedBp)}.`}
+      {...(line ? { description: line } : {})}
       size="sm"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -154,38 +162,19 @@ export function CalibrateDialog({
             <Button disabled={busy} onClick={onClose}>
               Cancel
             </Button>
-            <Button variant="accent" loading={busy} onClick={() => void save()}>
-              Save the change
+            <Button
+              variant="accent"
+              loading={busy}
+              disabled={reason.trim().length < 10}
+              onClick={() => void save()}
+            >
+              Save
             </Button>
           </div>
         </div>
       }
     >
       <div className="flex flex-col gap-4">
-        {offEvidence &&
-          offEvidence.gapBp !== null &&
-          offEvidence.expectedBp !== null && (
-            <Callout
-              tone="warning"
-              title="This score doesn't match the evidence"
-            >
-              The evidence suggests {scoreLabel(offEvidence.expectedBp)}, a gap
-              of {exactPoints(offEvidence.gapBp)}. Check the evidence on the
-              fairness check before changing it.
-            </Callout>
-          )}
-
-        {existing && (
-          <Callout tone="neutral" title="This score has already been changed">
-            Now {scoreLabel(existing.calibratedBp)}, from{" "}
-            {scoreLabel(existing.originalBp)}
-            {existing.calibratedByName
-              ? `, by ${existing.calibratedByName}`
-              : ""}
-            . The reason given was &ldquo;{existing.reason}&rdquo;.
-          </Callout>
-        )}
-
         <Field
           label="New score"
           required
@@ -206,11 +195,7 @@ export function CalibrateDialog({
           </div>
         </Field>
 
-        <Field
-          label="Why"
-          required
-          help="This is kept with the score and is what explains it if anybody asks later."
-        >
+        <Field label="Why" required>
           <Textarea
             rows={3}
             value={reason}
@@ -219,10 +204,6 @@ export function CalibrateDialog({
             onChange={(event) => setReason(event.target.value)}
           />
         </Field>
-
-        <p className="text-meta text-muted">
-          The score the answers produced is kept beside this one, not replaced.
-        </p>
       </div>
     </Modal>
   );

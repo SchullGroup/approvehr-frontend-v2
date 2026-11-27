@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ArrowLeft, CheckCheck, ChevronDown, Search } from "lucide-react";
-import { Button, EmptyState, Input, TextLink } from "@/components/ui";
+import { EmptyState, Input, TextLink } from "@/components/ui";
 import type { ApiParticipant } from "@/lib/api/performance";
 import { cn } from "@/lib/cn";
 import { DepartmentCard } from "@/components/ui/department-card";
@@ -48,14 +48,7 @@ const initials = (name: string) =>
     .join("")
     .toUpperCase();
 
-export function PeriodPeople({
-  rows,
-  onRemind,
-}: {
-  rows: ApiParticipant[];
-  /** Absent when there is nobody to remind, or the reader may not. */
-  onRemind: (() => void) | null;
-}) {
+export function PeriodPeople({ rows }: { rows: ApiParticipant[] }) {
   const departments = useDepartments();
   const [show, setShow] = useState<"waiting" | "all">("waiting");
   const [query, setQuery] = useState("");
@@ -100,74 +93,72 @@ export function PeriodPeople({
       .sort((a, b) => b.waitingPeople - a.waitingPeople);
   }, [people]);
 
-  const searching = query.trim() !== "";
-  const pool =
-    dept === undefined || searching
-      ? people
-      : (cards.find((card) => card.id === dept)?.members ?? []);
+  /* A department that is open is a handful of people already, so it carries no
+     search and no switch: it shows all of them. */
+  const inDepartment = dept !== undefined;
+  const searching = !inDepartment && query.trim() !== "";
+  const pool = searching
+    ? people
+    : inDepartment
+      ? (cards.find((card) => card.id === dept)?.members ?? [])
+      : people;
   const shown = (
-    show === "waiting" ? pool.filter((p) => p.left > 0) : pool
+    show === "waiting" && !inDepartment ? pool.filter((p) => p.left > 0) : pool
   ).filter((person) =>
-    person.row.employeeName.toLowerCase().includes(query.trim().toLowerCase()),
+    person.row.employeeName
+      .toLowerCase()
+      .includes(searching ? query.trim().toLowerCase() : ""),
   );
-  const showingCards = dept === undefined && !searching;
+  const showingCards = !inDepartment && !searching;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div
-          role="group"
-          aria-label="Who to show"
-          className="inline-flex rounded-lg border border-line bg-surface p-0.5"
-        >
-          {(
-            [
-              ["waiting", `Waiting ${String(waiting.length)}`],
-              ["all", `Everyone ${String(people.length)}`],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={show === id}
-              onClick={() => setShow(id)}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
-                show === id
-                  ? "bg-accent-soft text-accent-text"
-                  : "text-muted hover:text-ink",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="relative min-w-40 flex-1 sm:max-w-xs">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint"
-          />
-          <Input
-            aria-label="Find a person"
-            placeholder="Find a person"
-            className="pl-9"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-        {onRemind && waiting.length > 0 && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onRemind}
-            className="ml-auto"
+      {!inDepartment && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="group"
+            aria-label="Who to show"
+            className="inline-flex rounded-lg border border-line bg-surface p-0.5"
           >
-            Send a reminder
-          </Button>
-        )}
-      </div>
+            {(
+              [
+                ["waiting", `Waiting ${String(waiting.length)}`],
+                ["all", `Everyone ${String(people.length)}`],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={show === id}
+                onClick={() => setShow(id)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
+                  show === id
+                    ? "bg-accent-soft text-accent-text"
+                    : "text-muted hover:text-ink",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="relative min-w-40 flex-1 sm:max-w-xs">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint"
+            />
+            <Input
+              aria-label="Find a person"
+              placeholder="Find a person"
+              className="pl-9"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
-      {dept !== undefined && !searching && (
+      {inDepartment && (
         <button
           type="button"
           onClick={() => setDept(undefined)}
@@ -271,17 +262,21 @@ export function PeriodPeople({
                         <span className={line.sent ? "text-muted" : "text-ink"}>
                           {line.who}
                         </span>
-                        {line.sent ? (
-                          <span className="text-meta text-success-text">
-                            Sent
-                          </span>
-                        ) : (
+                        {/* Every review has its link, sent or not: the register's
+                            sign-off column opens only the one that counts, and a
+                            second appraiser's written review is opened from here. */}
+                        <span className="flex items-center gap-3">
+                          {line.sent && (
+                            <span className="text-meta text-success-text">
+                              Sent
+                            </span>
+                          )}
                           <TextLink
                             href={`/performance/reviews/${line.reviewId}`}
                           >
                             Open
                           </TextLink>
-                        )}
+                        </span>
                       </li>
                     ))}
                   </ul>

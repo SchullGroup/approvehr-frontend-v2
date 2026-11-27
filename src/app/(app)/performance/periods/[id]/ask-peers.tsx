@@ -102,7 +102,6 @@ export function AskPeersDialog({
     /* Those who shared a project first, when the server said who; otherwise the list as it came. */
     return orderBySharedProjects(listed, colleagues.shown);
   }, [people, subjectId, query, colleagues.shown]);
-  const anyShared = candidates.some((one) => one.shared > 0);
 
   const toggle = (id: string) =>
     setPicked((current) => {
@@ -172,18 +171,6 @@ export function AskPeersDialog({
         {failed && (
           <p role="status" className="text-body-sm text-danger-text">
             {failed}
-          </p>
-        )}
-
-        <p className="text-body-sm leading-relaxed text-body">
-          Each one gets their own form about {subjectName}. Their answers count
-          towards the score only if they are an appraiser with a share of it;
-          otherwise they are read as feedback beside it.
-        </p>
-        {anyShared && (
-          <p className="text-body-sm text-muted">
-            People who shared a project with {subjectName} are listed first. You
-            still choose who to ask.
           </p>
         )}
 
