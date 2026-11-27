@@ -33,6 +33,8 @@ import {
 import { actionMessage } from "@/lib/use-action";
 import { useCan } from "@/lib/permissions";
 import { NoticeLine } from "@/components/portal/notice-line";
+import { DirectAnswerPanel } from "./direct-answer-panel";
+import { NewVersionDialog } from "./new-version-dialog";
 import { KindTag } from "./subsection-title";
 
 /**
@@ -116,12 +118,23 @@ export function SectionsDialog({
   const [error, setError] = useState<string | null>(null);
   const [countingFor, setCountingFor] = useState<ApiSection | null>(null);
   const [movingSub, setMovingSub] = useState<ApiCompetency | null>(null);
+  /* How a competency is answered, and starting a new version of one: the doors
+     the period's By-section view used to hold, now that the framework has one
+     editor. */
+  const [answeringSub, setAnsweringSub] = useState<ApiCompetency | null>(null);
+  const [versioningSub, setVersioningSub] = useState<ApiCompetency | null>(
+    null,
+  );
   const [confirmDelete, setConfirmDelete] = useState<ApiSection | null>(null);
   const [confirmArchive, setConfirmArchive] = useState<ApiCompetency | null>(
     null,
   );
 
   const editable = actions.editable && canManage;
+  const sectionOf = (competency: ApiCompetency) => {
+    const section = sections.find((one) => one.id === competency.sectionId);
+    return section ? { name: section.name, weightBp: section.weightBp } : null;
+  };
   const loading = sectionsLoading || frameworkLoading;
 
   const refresh = () => {
@@ -320,6 +333,11 @@ export function SectionsDialog({
     {
       label: "Move to another section",
       onSelect: () => setMovingSub(competency),
+    },
+    {
+      label: "How it is answered",
+      onSelect: () => setAnsweringSub(competency),
+      available: editable,
     },
     "separator",
     {
@@ -569,6 +587,39 @@ export function SectionsDialog({
           </Field>
         )}
       </Modal>
+
+      <Modal
+        open={answeringSub !== null}
+        onClose={() => setAnsweringSub(null)}
+        title={answeringSub?.name ?? "Competency"}
+        size="md"
+        footer={<Button onClick={() => setAnsweringSub(null)}>Done</Button>}
+      >
+        {answeringSub && (
+          <DirectAnswerPanel
+            competency={answeringSub}
+            section={sectionOf(answeringSub)}
+            editable={editable}
+            whyNot={null}
+            onChanged={refresh}
+            onStartNewVersion={(competency) => {
+              setAnsweringSub(null);
+              setVersioningSub(competency);
+            }}
+          />
+        )}
+      </Modal>
+
+      {versioningSub && (
+        <NewVersionDialog
+          competency={versioningSub}
+          onClose={() => setVersioningSub(null)}
+          onStarted={() => {
+            setVersioningSub(null);
+            refresh();
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmDelete !== null}

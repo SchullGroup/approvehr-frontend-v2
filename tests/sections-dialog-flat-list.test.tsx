@@ -343,6 +343,16 @@ describe("a competency", () => {
     );
   });
 
+  it("has How it is answered in its menu, and it opens in a window of its own", async () => {
+    show();
+    await menu("Punctuality");
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "How it is answered" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Punctuality" });
+    expect(dialog).toBeInTheDocument();
+  });
+
   it("is archived after one line, and the API's sentence about its ratings is kept", async () => {
     show();
     await menu("Teamwork");
