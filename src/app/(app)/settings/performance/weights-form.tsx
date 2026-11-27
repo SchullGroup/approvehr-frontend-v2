@@ -205,9 +205,13 @@ export function ScoringWeightsForm({
             </Card>
           </div>
           <div hidden={tab !== "records"} className="flex flex-col gap-6">
-            <WorkRecordCard connected={scoring.source === "api"} />
-            <WorkInAnswersCard connected={scoring.source === "api"} />
-            <WorkAssistsCard connected={scoring.source === "api"} />
+            {/* One card: how long to keep work, and the two switches under it.
+                A switch that needs Projects is not drawn without it. */}
+            <Card className="divide-y divide-line">
+              <WorkRecordCard connected={scoring.source === "api"} />
+              <WorkInAnswersCard connected={scoring.source === "api"} />
+              <WorkAssistsCard connected={scoring.source === "api"} />
+            </Card>
           </div>
         </Tabs>
       </PageBody>
