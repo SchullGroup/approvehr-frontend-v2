@@ -9,6 +9,10 @@ import {
   TextLink,
 } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
+import {
+  NO_FRAMEWORK_EXPLAINED,
+  NO_FRAMEWORK_TITLE,
+} from "@/lib/performance/framework-empty";
 import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 import { useFramework, useScoringWeights } from "@/lib/store/performance";
 
@@ -255,7 +259,7 @@ export function FrameworkDisclosure() {
   return (
     <Disclosure
       title="What an appraisal is made of"
-      hint="The four groups of competencies, ready on day one. Rename or switch any of them off in settings."
+      hint="The groups of competencies your company has written."
       level={2}
     >
       <FrameworkBody />
@@ -280,8 +284,8 @@ function FrameworkBody() {
       <EmptyState
         compact
         icon={<Layers aria-hidden="true" />}
-        title="No framework yet"
-        description="Finish setup and the four standard groups are created for you."
+        title={NO_FRAMEWORK_TITLE}
+        description={NO_FRAMEWORK_EXPLAINED}
       />
     );
   }

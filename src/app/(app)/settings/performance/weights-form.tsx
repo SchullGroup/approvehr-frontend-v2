@@ -559,6 +559,7 @@ function PartsPanel({
             </Card>
 
             <SelfAssessment
+              name={selfPart?.name ?? null}
               note={view.selfAssessmentNote}
               weightBp={selfShareBp}
               swingBp={Math.round(selfShareBp / 2)}
@@ -843,10 +844,13 @@ function Total({ totalBp }: { totalBp: number }) {
  * icon: the badge and the line say the state, which is what a visit needs.
  */
 function SelfAssessment({
+  name,
   note,
   weightBp,
   swingBp,
 }: {
+  /** The company's own name for the part, as the list above shows it; null when it has none. */
+  name: string | null;
   note: string;
   weightBp: number;
   swingBp: number;
@@ -855,7 +859,7 @@ function SelfAssessment({
   return (
     <Card>
       <CardHeader
-        title="Self-assessment"
+        title={name ?? "Self-assessment"}
         info={`${note} Either way, a person's own answers are shown beside the manager's.`}
         description={
           on

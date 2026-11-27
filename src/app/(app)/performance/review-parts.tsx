@@ -9,6 +9,7 @@ import {
   type ApiAppraiserContext,
   type AnswerBody,
   type ApiFormQuestion,
+  type ReviewKind,
 } from "@/lib/api/performance";
 import type { InlineFile } from "@/lib/api/uploads";
 import type { ApiPin } from "@/lib/api/work-pins";
@@ -276,20 +277,32 @@ export function periodWords(
  * Renders **nothing at all** when a cycle states none of it. Most existing
  * periods do, because nothing was back-filled, and an empty bordered box above
  * question 1 is worse than no box.
+ *
+ * ## The message is for the people being appraised
+ *
+ * `instructions` is the period's "message to staff" ("Please complete your
+ * self-review honestly and add evidence."). It was drawn above every form, so a
+ * manager writing about somebody and a colleague giving feedback were asked to
+ * complete a self-review. It is shown only where `kind` says this is a
+ * self-review; a caller that does not say gets the period and the guide and no
+ * message, because a message addressed to the wrong reader is worse than none.
  */
 export function PeriodFraming({
   periodStart,
   periodEnd,
   instructions,
   guideUrl,
+  kind,
 }: {
   periodStart: string | null;
   periodEnd: string | null;
   instructions?: string | null;
   guideUrl?: string | null;
+  kind?: ReviewKind;
 }) {
   const period = periodWords(periodStart, periodEnd);
-  if (!period && !instructions && !guideUrl) return null;
+  const message = kind === "SELF" ? instructions : null;
+  if (!period && !message && !guideUrl) return null;
 
   return (
     <div className="rounded-md border border-line bg-canvas px-3.5 py-3">
@@ -298,18 +311,18 @@ export function PeriodFraming({
           For the period {period}
         </p>
       )}
-      {instructions && (
+      {message && (
         <p
           className={cn(
             "whitespace-pre-line text-body-sm leading-relaxed text-body",
             period && "mt-2",
           )}
         >
-          {instructions}
+          {message}
         </p>
       )}
       {guideUrl && (
-        <p className={cn("text-body-sm", (period || instructions) && "mt-2")}>
+        <p className={cn("text-body-sm", (period || message) && "mt-2")}>
           <TextLink
             href={guideUrl}
             target="_blank"

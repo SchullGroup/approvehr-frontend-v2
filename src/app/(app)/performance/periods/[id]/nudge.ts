@@ -46,6 +46,14 @@ export function anybodyToNudge(audience: NudgeAudience): boolean {
 }
 
 /**
+ * Where people are told. One sentence for every screen that says it: the
+ * start toast said "No emails are sent from here" while the reminder dialog
+ * said "and by email", and both cannot be true of the same notifications. The
+ * app is always one place; email only where the company has email set up.
+ */
+export const TOLD_WHERE = "in the app, and by email where email is set up";
+
+/**
  * What the reminder says, described rather than quoted: the count in it is each
  * person's own, so no one sentence is what everybody receives.
  */
@@ -56,7 +64,7 @@ export function nudgeMessage(
   const due = dueDate
     ? `, and that it is due ${dayLabel(dueDate.slice(0, 10))}`
     : "";
-  return `Each of them gets a reminder in the app, and by email, saying how many reviews they still have to send for ${cycleName}${due}.`;
+  return `Each of them is told ${TOLD_WHERE}, saying how many reviews they still have to send for ${cycleName}${due}.`;
 }
 
 /** The dialog's title. */

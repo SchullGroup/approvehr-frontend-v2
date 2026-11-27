@@ -220,7 +220,7 @@ function Summary({
           }
         />
         <Stat
-          label="Gaps flagged"
+          label="Group gaps flagged"
           value={String(flags)}
           hint={flags ? "See the Groups tab" : "None this time"}
         />
@@ -234,6 +234,11 @@ function Summary({
           value={
             data.averageBp === null ? "No scores yet" : pct(data.averageBp)
           }
+          {...(data.averageBp === null
+            ? {}
+            : {
+                hint: `Of the ${String(data.compared)} scores compared, as the answers worked them out`,
+              })}
         />
       </div>
       {data.skipped.length > 0 && (
