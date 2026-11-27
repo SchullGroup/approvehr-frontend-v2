@@ -434,25 +434,12 @@ describe("who sees which departments", () => {
 });
 
 describe("a department with no objective (F11)", () => {
-  it("offers to start one for that department, and comes back to the department", () => {
+  /* The way to start one is the page's own "New objective", which starts on
+     the open department (tests/objectives-tabs.test.tsx). The empty list does
+     not carry a second button for the same thing. */
+  it("says so, and leaves starting one to the page's New objective", () => {
     mount({ department: "eng" });
     expect(screen.getByText("No objectives here yet")).toBeInTheDocument();
-    const start = screen.getByRole("link", {
-      name: "New objective for this department",
-    });
-    const target = new URL(start.getAttribute("href") ?? "", "http://x");
-    expect(target.pathname).toBe("/performance/kpis/new");
-    expect(target.searchParams.get("department")).toBe("eng");
-    expect(target.searchParams.get("back")).toBe(
-      "/performance/kpis?scope=company&department=eng",
-    );
-  });
-
-  it("does not offer it outside the company's own view of a department", () => {
-    state.goals = [];
-    mount({ scope: "mine" });
-    expect(
-      screen.queryByRole("link", { name: "New objective for this department" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /New objective/ })).toBeNull();
   });
 });

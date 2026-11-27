@@ -37,6 +37,7 @@ vi.mock("@/lib/store/features", () => ({
 }));
 vi.mock("@/lib/store/performance", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/store/performance")>()),
+  useKpiMutations: () => ({ editable: true }),
   useObjectiveApprovals: () => ({
     queue: state.queue,
     loading: false,
@@ -47,9 +48,16 @@ vi.mock("@/lib/store/performance", async (importOriginal) => ({
   }),
 }));
 vi.mock("@/app/(app)/performance/kpis", () => ({
-  KpisTab: ({ strip }: { strip: React.ReactNode }) => (
+  KpisTab: ({
+    strip,
+    headerAction,
+  }: {
+    strip: React.ReactNode;
+    headerAction?: React.ReactNode;
+  }) => (
     <div>
       {strip}
+      {headerAction}
       <p>The objectives list</p>
     </div>
   ),
@@ -125,6 +133,24 @@ describe("the strip", () => {
   it("says the count only when something waits", () => {
     expect(agreeLabel(0)).toBe("To agree");
     expect(agreeLabel(3)).toBe("To agree (3)");
+  });
+});
+
+describe("a department opened on its own", () => {
+  it("starts a new objective for that department, and comes back to it (F11)", async () => {
+    render(<KpisScreen department="eng" />);
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /New objective, or upload objectives/,
+      }),
+    );
+    const start = screen.getByRole("menuitem", { name: "New objective" });
+    const target = new URL(start.getAttribute("href") ?? "", "http://x");
+    expect(target.pathname).toBe("/performance/kpis/new");
+    expect(target.searchParams.get("department")).toBe("eng");
+    expect(target.searchParams.get("back")).toBe(
+      "/performance/kpis?department=eng",
+    );
   });
 });
 
