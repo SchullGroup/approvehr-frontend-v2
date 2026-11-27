@@ -44,6 +44,7 @@ import {
   useCycleReport,
 } from "@/lib/store/performance";
 import { REPORT_TABS, type ReportTabId } from "./tabs";
+import { stageWords } from "@/lib/performance/stage-words";
 
 /**
  * Three tabs, and the third only when somebody needs following up. What came in
@@ -134,7 +135,7 @@ export function PeriodReportScreen({
               size="sm"
               dot
             >
-              {cycle.stageLabel}
+              {stageWords(cycle.stageLabel)}
             </Badge>
           ) : undefined
         }

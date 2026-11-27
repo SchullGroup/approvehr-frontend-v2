@@ -35,6 +35,7 @@ import {
 } from "@/lib/store/performance";
 import { RangeChart, pct, points } from "./charts";
 import { PeopleToReview, flaggedCount } from "./people-to-review";
+import { stageWords } from "@/lib/performance/stage-words";
 
 type Tab = "groups" | "managers" | "people";
 
@@ -80,7 +81,7 @@ export function FairnessScreen({
               {picker}
               {detail.cycle && (
                 <Badge tone="neutral" size="sm" dot>
-                  {detail.cycle.stageLabel}
+                  {stageWords(detail.cycle.stageLabel)}
                 </Badge>
               )}
               {data && (
@@ -188,7 +189,7 @@ function flagRules(data: ApiFairness): string {
       ? ` Not counted: ${data.skipped.map((s) => `${s.name} (${s.reason.toLowerCase()})`).join(", ")}.`
       : "";
   return (
-    `Scores are compared before calibration. A group is flagged when its gap is at least ${pct(data.rules.minGapBp).replace("%", "")} points and the likely range doesn't cross zero. ` +
+    `Scores are compared before the score review. A group is flagged when its gap is at least ${pct(data.rules.minGapBp).replace("%", "")} points and the likely range doesn't cross zero. ` +
     `Groups under ${String(data.rules.minGroup)} people are hidden. Religion and state of origin aren't checked. ` +
     `A manager is flagged at ${pct(data.managers.rules.apartBp).replace("%", "")} points from everyone else, or when their scores barely vary.` +
     skipped
@@ -251,8 +252,8 @@ function Groups({ data }: { data: ApiFairness }) {
 function CalibrationByGroup({ data }: { data: ApiFairness }) {
   return (
     <Card>
-      <CardHeader level={3} title="Calibration moves" />
-      <TableWrap caption="Calibration moves by group">
+      <CardHeader level={3} title="Score changes" />
+      <TableWrap caption="Score changes by group">
         <THead>
           <TH>Grouping</TH>
           <TH>Group</TH>

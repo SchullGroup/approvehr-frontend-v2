@@ -263,7 +263,7 @@ describe("the bar and the one next step", () => {
     expect(screen.queryByText("Everyone has finished this stage")).toBeNull();
   });
 
-  it("moves on once nobody owes anything, and says Move to calibration at the end of manager reviews", async () => {
+  it("moves on once nobody owes anything, and says Move to score review at the end of manager reviews", async () => {
     fx.participants = people(0);
     mount();
     await userEvent
@@ -272,12 +272,12 @@ describe("the bar and the one next step", () => {
     expect(advance).toHaveBeenCalledWith("cycle-1", "MANAGER");
   });
 
-  it("calls the move into calibration by that word", () => {
+  it("calls the move into the score review by that word", () => {
     fx.stage = "MANAGER";
     fx.participants = people(0);
     mount();
     expect(
-      screen.getByRole("button", { name: "Move to calibration" }),
+      screen.getByRole("button", { name: "Move to score review" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Check scores" })).toBeNull();
   });

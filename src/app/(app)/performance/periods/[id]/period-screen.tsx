@@ -152,13 +152,13 @@ const STAGE_AFTER: Partial<Record<ReviewCycleStage, ReviewCycleStage>> = {
 
 const STAGE_NEXT_LABEL: Record<string, string> = {
   MANAGER: "manager reviews",
-  CALIBRATION: "calibration",
+  CALIBRATION: "score review",
 };
 
 /** What the next step says for the move out of the current stage. */
 const NEXT_BUTTON: Record<string, string> = {
   MANAGER: "Open manager reviews",
-  CALIBRATION: "Move to calibration",
+  CALIBRATION: "Move to score review",
 };
 
 type PeriodTabId = "people" | "questions" | "marks" | "settings";

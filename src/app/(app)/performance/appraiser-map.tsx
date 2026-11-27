@@ -59,6 +59,7 @@ import {
   useAppraiserMutations,
   useAppraisals,
 } from "@/lib/store/performance";
+import { stageWords } from "@/lib/performance/stage-words";
 
 /**
  * Who appraises whom — the power-user surface, and only when it is asked for.
@@ -358,7 +359,7 @@ export function AppraiserMapTab() {
                 <option value="">All appraisal periods</option>
                 {cycles.map((one) => (
                   <option key={one.id} value={one.id}>
-                    {one.name}, {one.stageLabel}
+                    {one.name}, {stageWords(one.stageLabel)}
                   </option>
                 ))}
               </Select>

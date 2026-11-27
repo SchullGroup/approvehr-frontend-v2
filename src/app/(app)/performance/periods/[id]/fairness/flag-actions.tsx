@@ -20,7 +20,7 @@ import { useFlagDecisions } from "@/lib/store/performance";
 
 /** What a manager is sent back with, until the person writes their own. */
 const ASK_PROMPT =
-  "Please add the work this score is based on, or reconsider it before calibration.";
+  "Please add the work this score is based on, or reconsider it before the score review.";
 
 /**
  * What has been decided about one flagged mark, and how to decide it: the score
@@ -255,7 +255,7 @@ function MarkStandsDialog({
           rows={3}
           value={note}
           disabled={busy}
-          placeholder="The manager showed the client work behind the score at the calibration meeting."
+          placeholder="The manager showed the client work behind the score in the score review."
           onChange={(event) => setNote(event.target.value)}
         />
       </Field>

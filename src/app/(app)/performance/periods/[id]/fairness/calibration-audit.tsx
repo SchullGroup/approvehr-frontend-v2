@@ -41,7 +41,7 @@ export function CalibrationAudit({ cycleId }: { cycleId: string }) {
       <Card>
         <CardBody className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
-          Loading calibration moves
+          Loading score changes
         </CardBody>
       </Card>
     );
@@ -50,7 +50,7 @@ export function CalibrationAudit({ cycleId }: { cycleId: string }) {
   if (detail.error) {
     return (
       <LoadFailure
-        subject="the calibration moves"
+        subject="the score changes"
         error={detail.error}
         onRetry={detail.reload}
       />
@@ -67,7 +67,7 @@ export function CalibrationAudit({ cycleId }: { cycleId: string }) {
 
   return (
     <Card>
-      <TableWrap caption="Calibration moves">
+      <TableWrap caption="Score changes">
         <THead>
           <TH>Employee</TH>
           <TH className="text-right">Score</TH>

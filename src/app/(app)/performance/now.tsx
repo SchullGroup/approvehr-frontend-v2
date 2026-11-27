@@ -53,6 +53,7 @@ import {
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
 import { YourAppraisal } from "@/components/performance/your-appraisal";
+import { stageWords } from "@/lib/performance/stage-words";
 import { PeriodStatus } from "./period-status";
 import { StartPeriodButton } from "./start-period";
 
@@ -555,7 +556,7 @@ export function WhatNeedsYouTab({
                           (owner, 27 Nov 2026). */}
                       {openPeriod.stage === "DRAFT" && (
                         <Badge tone="info" size="sm" dot>
-                          {openPeriod.stageLabel}
+                          {stageWords(openPeriod.stageLabel)}
                         </Badge>
                       )}
                     </p>
@@ -697,7 +698,7 @@ export function WhatNeedsYouTab({
                     key={review.id}
                     icon={<ShieldCheck aria-hidden="true" />}
                     title={`${review.subjectName}'s rating is written and not final`}
-                    detail="Calibration is running. Making it final tells them their rating, and it cannot be changed after that."
+                    detail="The scores are being reviewed. Making it final tells them their rating, and it cannot be changed after that."
                     href={`/performance/reviews/${review.id}`}
                     action="Open it"
                   />

@@ -30,7 +30,7 @@ export function publishLock(
   const flagged = flaggedCount(flags);
   if (!flagged) return null;
   if (stage !== "CALIBRATION")
-    return `The fairness check flagged ${marks(flagged)}. Move the period to calibration and decide on ${flagged === 1 ? "it" : "each one"} before publishing.`;
+    return `The fairness check flagged ${marks(flagged)}. Move the period to score review and decide on ${flagged === 1 ? "it" : "each one"} before publishing.`;
   const undecided = undecidedScores(flags, stage);
   if (!undecided) return null;
   return `${marks(undecided)} flagged by the fairness check still ${undecided === 1 ? "needs" : "need"} a decision.`;
