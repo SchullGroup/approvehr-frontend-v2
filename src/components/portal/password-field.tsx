@@ -15,26 +15,15 @@ import { PASSWORD_MIN, passwordRules } from "@/lib/api/account";
  * Nothing is listed before the field is touched. A paragraph of rules above an
  * empty box is read by nobody and obeyed by accident; a row that ticks as you
  * type is read by everybody. So: focus the field and the one real requirement
- * appears, unmet; reach twelve characters and it goes green. The correction
+ * appears, unmet; reach eight characters and it goes green. The correction
  * ("not a commonly used password") stays hidden until it is actually needed,
  * because a rule you are not breaking is noise.
- *
- * ## `strict` — the same checklist, a few more rows
- *
- * Set for an account that can see pay, run payroll, or hand out access —
- * `requiresStrongPassword` (`lib/permissions.ts` for a signed-in caller; the
- * API's own `GET /auth/reset-password` / `GET /auth/accept-invite` preview for
- * the two flows where nobody is signed in yet) decides which accounts that is.
- * No banner explaining why there are more rows: the rows themselves are the
- * explanation, the same way "12 characters or more" needs no paragraph above
- * it, and this codebase has already relearned once this session that a second
- * sentence saying what the row beside it already says is clutter, not clarity.
  *
  * ## Show, rather than confirm
  *
  * There is no "confirm password" field. A reveal button does the same job — it
  * stops the typo — while asking for one thing instead of two, and it is the only
- * way somebody on a phone can check a twelve-character passphrase at all. The
+ * way somebody on a phone can check an eight-character password at all. The
  * button starts hidden-by-default and is a real `<button type="button">`, so it
  * never submits the form.
  */
@@ -45,7 +34,6 @@ export function PasswordField({
   error,
   autoComplete,
   onEnter,
-  strict = false,
   showRules = true,
 }: {
   label: string;
@@ -54,24 +42,19 @@ export function PasswordField({
   error?: string | undefined;
   autoComplete: "new-password" | "current-password";
   onEnter?: () => void;
-  /** True for an account that can see pay, run payroll, or hand out access. */
-  strict?: boolean;
   /**
    * Off for a password that already exists — signing in, or the "current
    * password" half of a change — where a checklist against today's rules
    * would flag a perfectly valid older password as failing them. On by
    * default: every other caller is choosing a new one.
    *
-   * Orthogonal to `strict`, which decides *which* rules apply rather than
-   * whether they are drawn: a privileged account changing its password wants
-   * the longer checklist on the new field and none at all on the current one.
    */
   showRules?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const [touched, setTouched] = useState(false);
 
-  const rules = passwordRules(value, strict);
+  const rules = passwordRules(value);
   const shown = rules.filter((rule) => rule.showWhen === "always" || !rule.met);
   const remaining = Math.max(0, PASSWORD_MIN - value.length);
 
@@ -111,37 +94,10 @@ export function PasswordField({
 
       {showRules && touched && (
         <>
-          {/* One plain sentence, not a rule — the checklist below already
-              states the rules. A layperson does not necessarily know that
-              length is what actually matters, rather than the symbol/number
-              juggling most sites still demand.
-
-              It has to say something different under `strict`, and this is not
-              a nicety. "No symbols or numbers required" is true of the base
-              rules and false the moment the four class rules are added — and
-              the screen it was reaching first was **register**, which is
-              always strict (it creates the company's Owner). So the first
-              thing a new customer read was an instruction to type three
-              ordinary words, followed by a refusal for doing exactly that.
-
-              Still no banner explaining *why* there are more rows — the rows
-              are their own explanation, as the note at the top of this file
-              says. What changes is only that the advice matches the rules
-              being enforced beneath it. */}
           <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-            {strict ? (
-              <>
-                Longer beats complicated: a phrase like three ordinary words,
-                with a capital, a number and a symbol, is easier to remember and
-                harder to guess than a short jumble.
-              </>
-            ) : (
-              <>
-                Longer beats complicated: a short phrase like three ordinary
-                words is easy to remember and hard to guess. No symbols or
-                numbers required.
-              </>
-            )}
+            Longer beats complicated: a short phrase like three ordinary words
+            is easy to remember and hard to guess. No symbols or numbers
+            required.
           </p>
           <ul aria-live="polite" className="mt-1.5 flex flex-col gap-1.5">
             {shown.map((rule) => (

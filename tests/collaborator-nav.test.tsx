@@ -42,9 +42,6 @@ const { acceptInvite, markSignedIn } = vi.hoisted(() => ({
 vi.mock("@/lib/api/account", async (original) => ({
   ...(await original<typeof import("@/lib/api/account")>()),
   account: {
-    requirementsForInvite: vi.fn(async () => ({
-      requiresStrongPassword: false,
-    })),
     acceptInvite: (...args: unknown[]) => acceptInvite(...args),
   },
 }));
