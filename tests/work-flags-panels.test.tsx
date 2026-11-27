@@ -11,19 +11,19 @@ import type { Completion, WorkThisCycle } from "@/lib/projects/completions";
  *
  * What is proved, for the live list and for the record kept when the rating was made final: nothing about
  * flags is drawn unless the server said they are on, and a list with no flags is never read as "nothing
- * was flagged" when it did not; only the person the work is about is given the controls, a reader sees the
- * flag and who raised it and nothing to press; a flag reads as who, when and what they said; the heading
- * counts the rows that carry one; the dialog asks for a reason within the API's bounds, says it removes
- * nothing, is fresh each time it opens, keeps its title while it fades, keeps what was typed when the
- * server refuses, and shows the server's own sentence; changing and taking back work on the row; and a
- * panel that is not shown asks for nothing.
+ * was flagged" when it did not; only the person the work is about is given the controls, and they are in the
+ * row's menu, not a button on every row; a reader sees the flag and who raised it and nothing to press; a
+ * flag reads as who, when and what they said; the small line counts the rows that carry one; what a flag is
+ * is said once, in the list's tooltip; the dialog asks for a reason within the API's bounds, is fresh each
+ * time it opens, keeps its title while it fades, keeps what was typed when the server refuses, and shows the
+ * server's own sentence; changing and taking back work from the row's menu; and a panel that is not shown
+ * asks for nothing.
  */
 
 const hook = vi.hoisted(() => ({
   kept: null as unknown,
   live: null as unknown,
   projects: { enabled: true, loading: false },
-  phone: false,
   flags: null as unknown,
   flagArgs: [] as unknown[],
 }));
@@ -36,9 +36,6 @@ vi.mock("@/lib/store/project-session", () => ({
 }));
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
-}));
-vi.mock("@/app/(app)/hiring/requisitions/[id]/use-phone", () => ({
-  usePhone: () => hook.phone,
 }));
 vi.mock("@/lib/store/work-flags", () => ({
   useWorkFlags: (args: unknown) => {
@@ -60,9 +57,33 @@ const flag = (over: Partial<ApiWorkFlag> = {}): ApiWorkFlag => ({
   ...over,
 });
 
-/** Only the three controls that act on a flag: never the disclosure heading, whose own name carries the count ("2 flagged as wrong"). */
-const FLAG_CONTROL =
-  /^(This is wrong, .+|Change, flag on .+|Take it back, flag on .+)$/;
+/** The row's menu, which holds every control that acts on a flag. There is no button of its own on a row. */
+const MENU = /^More actions for /;
+
+/** Opens a row's menu and picks one thing from it. */
+const choose = async (key: string, item: string) => {
+  await userEvent.click(
+    screen.getByRole("button", { name: `More actions for ${key}` }),
+  );
+  await userEvent.click(screen.getByRole("menuitem", { name: item }));
+};
+
+/** What is in a row's menu, and then closes it. */
+const itemsOf = async (key: string) => {
+  await userEvent.click(
+    screen.getByRole("button", { name: `More actions for ${key}` }),
+  );
+  const names = screen.getAllByRole("menuitem").map((one) => one.textContent);
+  await userEvent.keyboard("{Escape}");
+  return names;
+};
+
+/** Opens the one tooltip, where what a flag is is said. */
+const readNote = async () => {
+  await userEvent.click(
+    screen.getByRole("button", { name: "About this list" }),
+  );
+};
 
 /** `flags: null` is a server that said nothing about flags; a list, even an empty one, is what it said. */
 const flagsState = (
@@ -168,7 +189,6 @@ const live = ({ own }: Own) =>
       periodEnd="2026-12-31"
       subjectName="Bola Projects"
       own={own}
-      startOpen
     />,
   );
 const kept = ({ own }: Own) =>
@@ -200,7 +220,6 @@ beforeEach(() => {
   hook.live = read(liveWork());
   hook.kept = read(record());
   hook.projects = { enabled: true, loading: false };
-  hook.phone = false;
   hook.flags = flagsState();
   hook.flagArgs = [];
 });
@@ -211,16 +230,17 @@ describe.each(PANELS)("%s", (_name, mount) => {
       ["a server one deploy behind, which sends no list", false],
       ["an answer with no list", true],
     ])(
-      "draws nothing for %s: no control, no line, no explanation, no count",
-      (_why, on) => {
+      "draws nothing for %s: no menu, no line, no explanation, no count",
+      async (_why, on) => {
         hook.flags = flagsState({ on, flags: null });
         mount({ own: true });
         expect(
-          screen.queryByRole("button", { name: FLAG_CONTROL }),
+          screen.queryByRole("button", { name: MENU }),
         ).not.toBeInTheDocument();
         expect(screen.queryByText(/Flagged by/)).not.toBeInTheDocument();
         expect(screen.queryByText(/flagged as wrong/)).not.toBeInTheDocument();
-        expect(screen.queryByText(/say so beside it/)).not.toBeInTheDocument();
+        await readNote();
+        expect(screen.queryByText(/say so on its row/)).not.toBeInTheDocument();
         expect(
           screen.queryByText(/not available at the moment/),
         ).not.toBeInTheDocument();
@@ -242,7 +262,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       });
     });
 
-    it("still draws every flag that was written, and the count in the heading, to the person", () => {
+    it("still draws every flag that was written, and the count in the small line, to the person", () => {
       mount({ own: true });
       expect(
         screen.getByText(
@@ -255,7 +275,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       expect(screen.getByText(/2 flagged as wrong/)).toBeInTheDocument();
     });
 
-    it("still draws them to a reader, by the person's name, with nothing to press", () => {
+    it("still draws them to a reader, by the person's name, with nothing to press", async () => {
       mount({ own: false });
       expect(
         screen.getByText(
@@ -264,39 +284,35 @@ describe.each(PANELS)("%s", (_name, mount) => {
       ).toBeInTheDocument();
       expect(screen.getByText(/2 flagged as wrong/)).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: FLAG_CONTROL }),
+        screen.queryByRole("button", { name: MENU }),
       ).not.toBeInTheDocument();
+      await readNote();
       expect(
         screen.getByText(
-          "A flag is the person's own word that an item is not right. It does not remove the item or change the score.",
+          /A flag is the person's own word that an item is not right\. It does not remove the item or change the score\./,
         ),
       ).toBeInTheDocument();
     });
 
-    it("offers the person no way to raise or change one, and a way to take each back", () => {
+    it("offers the person no way to raise or change one, and a way to take each back, and no menu on a row with nothing to offer", async () => {
       mount({ own: true });
+      expect(await itemsOf("PRF-2")).toEqual(["Take it back"]);
+      expect(await itemsOf("PRF-3")).toEqual(["Take it back"]);
+      /* Not flagged, and nothing can be raised: there is nothing to press, so there is no menu. */
       expect(
-        screen.queryByRole("button", { name: /^This is wrong, PRF-\d$/ }),
+        screen.queryByRole("button", { name: "More actions for PRF-1" }),
       ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /^Change, flag on/ }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Take it back, flag on PRF-2" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Take it back, flag on PRF-3" }),
-      ).toBeInTheDocument();
     });
 
-    it("says what can and cannot be done, to the person, and not the sentence about saying so beside it", () => {
+    it("says what can and cannot be done, to the person, in the tooltip, and not the sentence about saying so on a row", async () => {
       mount({ own: true });
+      await readNote();
       expect(
         screen.getByText(
-          "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back. It does not remove the item or change your score.",
+          /Raising or changing a flag is not available at the moment\. A flag you raised stays on the list, and you can still take it back\./,
         ),
       ).toBeInTheDocument();
-      expect(screen.queryByText(/say so beside it/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/say so on its row/)).not.toBeInTheDocument();
     });
 
     it("takes one back, for that task only", async () => {
@@ -307,36 +323,41 @@ describe.each(PANELS)("%s", (_name, mount) => {
         unflagFn,
       });
       mount({ own: true });
-      await userEvent.click(
-        screen.getByRole("button", { name: "Take it back, flag on PRF-2" }),
-      );
+      await choose("PRF-2", "Take it back");
       await waitFor(() => expect(unflagFn).toHaveBeenCalledTimes(1));
       expect(unflagFn).toHaveBeenCalledWith("i2");
     });
 
-    it("draws nothing at all when it is off and there is no flag to read", () => {
+    it("draws nothing at all when it is off and there is no flag to read", async () => {
       hook.flags = flagsState({ on: false, flags: [] });
       mount({ own: true });
       expect(screen.queryByText(/Flagged by/)).not.toBeInTheDocument();
       expect(screen.queryByText(/flagged as wrong/)).not.toBeInTheDocument();
       expect(
-        screen.queryByText(/not available at the moment/),
+        screen.queryByRole("button", { name: MENU }),
       ).not.toBeInTheDocument();
+      await readNote();
       expect(
-        screen.queryByRole("button", { name: FLAG_CONTROL }),
+        screen.queryByText(/not available at the moment/),
       ).not.toBeInTheDocument();
     });
   });
 
   describe("for the person the work is about", () => {
-    it("offers a control on every row, and says what it does and does not do", () => {
+    it("offers a menu on every row, with the one thing in it, and says what it does and does not do in the tooltip", async () => {
       mount({ own: true });
       expect(
-        screen.getAllByRole("button", { name: /^This is wrong, PRF-\d$/ }),
+        screen.getAllByRole("button", { name: /^More actions for PRF-\d$/ }),
       ).toHaveLength(3);
+      /* No button of its own on a row: the words are in the menu. */
+      expect(
+        screen.queryByRole("button", { name: /This is wrong/ }),
+      ).not.toBeInTheDocument();
+      expect(await itemsOf("PRF-1")).toEqual(["This is wrong"]);
+      await readNote();
       expect(
         screen.getByText(
-          "If something on this list is not right, say so beside it. It tells whoever reads your work. It does not remove the item or change your score.",
+          /If something here is not right, say so on its row\. It tells whoever reads your work\. It does not remove the item or change your score\./,
         ),
       ).toBeInTheDocument();
     });
@@ -351,7 +372,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       ).toBeInTheDocument();
     });
 
-    it("counts the flagged rows in the heading, and says nothing for none", () => {
+    it("counts the flagged rows in the small line, and says nothing for none", () => {
       hook.flags = flagsState({
         flags: [
           flag(),
@@ -360,12 +381,12 @@ describe.each(PANELS)("%s", (_name, mount) => {
       });
       const view = mount({ own: true });
       expect(
-        screen.getByText(/3 tasks finished · 2 flagged as wrong/),
+        screen.getByText(/3 finished · 2 flagged as wrong/),
       ).toBeInTheDocument();
       view.unmount();
       hook.flags = flagsState();
       mount({ own: true });
-      expect(screen.getByText(/3 tasks finished/)).toBeInTheDocument();
+      expect(screen.getByText(/3 finished/)).toBeInTheDocument();
       expect(screen.queryByText(/flagged as wrong/)).not.toBeInTheDocument();
     });
 
@@ -377,26 +398,16 @@ describe.each(PANELS)("%s", (_name, mount) => {
       expect(screen.queryByText(/flagged as wrong/)).not.toBeInTheDocument();
     });
 
-    it("has Change and Take it back on a row that is flagged, and a plain control on one that is not", () => {
+    it("has Change and Take it back in the menu of a row that is flagged, and This is wrong in one that is not", async () => {
       hook.flags = flagsState({ flags: [flag()] });
       mount({ own: true });
-      expect(
-        screen.getByRole("button", { name: "Change, flag on PRF-2" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Take it back, flag on PRF-2" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: "This is wrong, PRF-2" }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "This is wrong, PRF-1" }),
-      ).toBeInTheDocument();
+      expect(await itemsOf("PRF-2")).toEqual(["Change", "Take it back"]);
+      expect(await itemsOf("PRF-1")).toEqual(["This is wrong"]);
     });
   });
 
   describe("for somebody who reads it", () => {
-    it("sees the flag, and who raised it, by name, and has nothing to press", () => {
+    it("sees the flag, and who raised it, by name, and has nothing to press", async () => {
       hook.flags = flagsState({ flags: [flag()] });
       mount({ own: false });
       expect(
@@ -405,23 +416,22 @@ describe.each(PANELS)("%s", (_name, mount) => {
         ),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", {
-          name: /^This is wrong, |^Change, flag on |^Take it back, flag on /,
-        }),
+        screen.queryByRole("button", { name: MENU }),
       ).not.toBeInTheDocument();
+      expect(screen.getByText(/1 flagged as wrong/)).toBeInTheDocument();
+      await readNote();
       expect(
         screen.getByText(
-          "A flag is the person's own word that an item is not right. It does not remove the item or change the score.",
+          /A flag is the person's own word that an item is not right\. It does not remove the item or change the score\./,
         ),
       ).toBeInTheDocument();
-      expect(screen.getByText(/1 flagged as wrong/)).toBeInTheDocument();
     });
 
     it("draws the rows of a list nobody flagged exactly as it was", () => {
       mount({ own: false });
       expect(screen.queryByText(/Flagged by/)).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: /is wrong/ }),
+        screen.queryByRole("button", { name: MENU }),
       ).not.toBeInTheDocument();
     });
 
@@ -440,23 +450,23 @@ describe.each(PANELS)("%s", (_name, mount) => {
 
   describe("raising one", () => {
     const open = async (key = "PRF-1") => {
-      await userEvent.click(
-        screen.getByRole("button", { name: `This is wrong, ${key}` }),
-      );
+      await choose(key, "This is wrong");
       return screen.getByRole("dialog");
     };
 
-    it("opens a dialog for that task, that says it removes nothing", async () => {
+    it("opens a dialog for that task, that asks one thing and explains nothing", async () => {
       mount({ own: true });
       const dialog = await open("PRF-3");
       expect(
         within(dialog).getByText("Why is PRF-3 wrong?"),
       ).toBeInTheDocument();
+      /* What a flag is, is in the list's tooltip, not above the field. */
       expect(
-        within(dialog).getByText(
-          "This tells whoever reads your work that an item is not right. It does not remove it from the list and it does not change your score.",
-        ),
-      ).toBeInTheDocument();
+        within(dialog).queryByText(/does not change your score/),
+      ).not.toBeInTheDocument();
+      expect(
+        within(dialog).queryByText(/characters\. Whoever reads/),
+      ).not.toBeInTheDocument();
     });
 
     it("cannot be sent until the reason is within the API's bounds", async () => {
@@ -630,9 +640,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       const flagFn = vi.fn(async () => undefined);
       hook.flags = flagsState({ flags: [flag()], flagFn });
       mount({ own: true });
-      await userEvent.click(
-        screen.getByRole("button", { name: "Change, flag on PRF-2" }),
-      );
+      await choose("PRF-2", "Change");
       const dialog = screen.getByRole("dialog");
       expect(
         within(dialog).getByText("Change why PRF-2 is wrong"),
@@ -660,9 +668,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       const unflagFn = vi.fn(async () => undefined);
       hook.flags = flagsState({ flags: [flag()], unflagFn });
       mount({ own: true });
-      await userEvent.click(
-        screen.getByRole("button", { name: "Take it back, flag on PRF-2" }),
-      );
+      await choose("PRF-2", "Take it back");
       await waitFor(() => expect(unflagFn).toHaveBeenCalledTimes(1));
       expect(unflagFn).toHaveBeenCalledWith("i2");
     });
@@ -677,9 +683,7 @@ describe.each(PANELS)("%s", (_name, mount) => {
       });
       hook.flags = flagsState({ flags: [flag()], unflagFn });
       mount({ own: true });
-      await userEvent.click(
-        screen.getByRole("button", { name: "Take it back, flag on PRF-2" }),
-      );
+      await choose("PRF-2", "Take it back");
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "Only the person whose work this is can take a flag back.",
       );
@@ -711,7 +715,7 @@ describe("what is asked of the server", () => {
     hook.projects = { enabled: false, loading: false };
     live({ own: true });
     expect((hook.flagArgs.at(-1) as { enabled: boolean }).enabled).toBe(false);
-    expect(screen.queryByText("Work this cycle")).not.toBeInTheDocument();
+    expect(screen.queryByText(/finished/)).not.toBeInTheDocument();
   });
 
   it("is this person's flags for this cycle, from the kept record", () => {

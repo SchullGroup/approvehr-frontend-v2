@@ -8,8 +8,8 @@ import { ReviewFormCard } from "@/app/(app)/performance/reviews/[id]/review-form
  * The work a person pinned to their answers, read beside the answers.
  *
  * What is proved: in the two-column card the pins sit under the person's own answer and nowhere else, so
- * a manager's column never carries pins, and a question with none says nothing; the line says whose choice
- * it was ("you" to the person themselves, their name to anybody else); the key opens the task and no
+ * a manager's column never carries pins, and a question with none says nothing; a pin is a chip with the
+ * task's key, with no heading and no "pinned by" line, whoever is reading; the key opens the task and no
  * title is drawn however one arrived; on a self-review read on its own the pins are there for its own
  * author and for a reader, and on a manager's review read on its own there are none; and a server that
  * sends no `pins` leaves every card exactly as it was.
@@ -156,18 +156,17 @@ const rowOf = (prompt: string) =>
   within(screen.getByText(prompt).closest("li") as HTMLElement);
 
 describe("in the two-column card", () => {
-  it("puts the pins under the person's own answer, with the task as a link, the facts and the note", () => {
+  it("puts the pins under the person's own answer as chips: the task as a link, the facts on hover and the note in the chip", () => {
     mount({ review: manager(), selfReview: self() });
     const row = rowOf("How did the period go?");
     expect(row.getByText("A good one.")).toBeInTheDocument();
-    expect(row.getByText("Work pinned to this answer")).toBeInTheDocument();
-    expect(row.getByRole("link", { name: "PLT-12" })).toHaveAttribute(
-      "href",
-      "/projects/tasks/i1",
-    );
-    expect(row.getByText("Finished 4 Nov 2026")).toBeInTheDocument();
-    expect(row.getByText("Set by Pat Projects")).toBeInTheDocument();
+    const link = row.getByRole("link", { name: "PLT-12" });
+    expect(link).toHaveAttribute("href", "/projects/tasks/i1");
+    expect(link.getAttribute("title")).toContain("Finished 4 Nov 2026");
+    expect(link.getAttribute("title")).toContain("Set by Pat Projects");
     expect(row.getByText("Led it end to end")).toBeInTheDocument();
+    /* No heading over the chips, no count. */
+    expect(row.queryByText(/pinned to this answer/)).not.toBeInTheDocument();
   });
 
   it("puts them in the person's column, not the manager's", () => {
@@ -214,19 +213,20 @@ describe("in the two-column card", () => {
     expect(row.queryByText(/pinned to this answer/)).not.toBeInTheDocument();
   });
 
-  it("says whose choice it was, by name, to anybody else", () => {
+  it("does not say whose choice it was, by name, to anybody else: the chips sit under the person's own answer", () => {
     mount({ review: manager(), selfReview: self({ mine: false }) });
-    expect(
-      screen.getByText("Pinned by Femi Balogun on 5 Nov 2026"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PLT-12" })).toBeInTheDocument();
+    expect(screen.queryByText(/Pinned by/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Femi Balogun on/)).not.toBeInTheDocument();
   });
 
-  it("says it was the reader's own, to the person themselves", () => {
+  it("does not say it was the reader's own, to the person themselves", () => {
     mount({
       review: manager({ mine: false }),
       selfReview: self({ mine: true }),
     });
-    expect(screen.getByText("Pinned by you on 5 Nov 2026")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PLT-12" })).toBeInTheDocument();
+    expect(screen.queryByText(/Pinned by/)).not.toBeInTheDocument();
   });
 
   it("never draws a title, however one arrived", () => {
@@ -265,7 +265,7 @@ describe("in the two-column card", () => {
     });
     const row = rowOf("How did the period go?");
     expect(row.getByText("Not asked")).toBeInTheDocument();
-    expect(row.getByText("PLT-12")).toBeInTheDocument();
+    expect(row.getByRole("link", { name: "PLT-12" })).toBeInTheDocument();
   });
 });
 
@@ -273,15 +273,14 @@ describe("a review read on its own", () => {
   it("shows a self-review's pins to its own author, as theirs", () => {
     mount({ review: self({ mine: true, submitted: true }) });
     expect(screen.getByText("A good one.")).toBeInTheDocument();
-    expect(screen.getByText("PLT-12")).toBeInTheDocument();
-    expect(screen.getByText("Pinned by you on 5 Nov 2026")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PLT-12" })).toBeInTheDocument();
+    expect(screen.queryByText(/Pinned by/)).not.toBeInTheDocument();
   });
 
-  it("shows them to a reader, by the person's name", () => {
+  it("shows them to a reader the same way, with no name said", () => {
     mount({ review: self({ mine: false }) });
-    expect(
-      screen.getByText("Pinned by Femi Balogun on 5 Nov 2026"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PLT-12" })).toBeInTheDocument();
+    expect(screen.queryByText(/Pinned by/)).not.toBeInTheDocument();
   });
 
   it("shows none on a manager's review read on its own, even if a server sent some", () => {

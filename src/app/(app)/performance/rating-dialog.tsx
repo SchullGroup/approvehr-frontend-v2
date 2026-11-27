@@ -17,11 +17,7 @@ import {
   ratingWordsFrom,
   type RateBody,
 } from "@/lib/api/performance";
-import {
-  WRITTEN_NEVER_COUNTS,
-  answerKindOf,
-  choicesOf,
-} from "@/lib/performance/answer-kind";
+import { answerKindOf, choicesOf } from "@/lib/performance/answer-kind";
 import { ANSWER_CAVEAT } from "@/lib/performance/review-language";
 import { nothingToRateWords } from "@/lib/performance/framework-empty";
 import {
@@ -36,103 +32,57 @@ import {
   useSections,
   useSkills,
 } from "@/lib/store/performance";
-import {
-  namesInWords,
-  splitScoredGroups,
-} from "@/lib/performance/scored-groups";
+import { splitScoredGroups } from "@/lib/performance/scored-groups";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { defaultPeriodId } from "./goal-facts";
 
 /**
- * Recording somebody's level on one skill.
+ * Recording somebody's level on one competency.
  *
- * ## A rating only reaches a mark if it names the period
+ * ## It asks four things, and the rest is behind "More"
+ *
+ * Person, competency, level, Save. The target, the period and a note are one
+ * plain "More" link away, because most recordings use none of them.
+ *
+ * ## It is always filed under a period when there is one to file under
  *
  * `scoreRegister` reads `where: { reviewCycleId: cycle.id }`, so a rating with
- * no period is invisible to the score. This dialog had no period field at all
- * and was the only caller of `rate` in the app, which made the competency
- * components — 55% of every mark, core plus behavioural plus leadership —
- * permanently `NO_DATA`. Rating somebody saved, filled the gap table
- * and moved no mark, with nothing on screen saying why.
- *
- * Both readings are real, which is why this is a choice rather than a default:
- * a rating inside a period is the assessment of record for it, and one without
- * is a point-in-time reading that accumulates so \"did they improve\" stays
- * answerable. See the comment on `rateCompetency`. What was wrong was that only
- * one of the two was reachable. The help text carries the consequence, the same
- * way `NewKpiDialog`'s does for the identical field.
+ * no period is invisible to the score. The period starts as the open one
+ * (`defaultPeriodId`), and there is no "not part of a period" choice: it was the
+ * one way to record a level that counted for nothing. When several periods are
+ * open and none is clearly current, nothing is guessed (a guess files a mark in
+ * the wrong period), so the period is asked in the open and has to be picked.
+ * With no open period the rating is a snapshot, which is all it can be, and the
+ * period is not asked at all. A published period is never offered: the API
+ * refuses a rating in it.
  *
  * ## The signed-in person is not in the picker
  *
- * The API refuses a self-rating outright — a rating is somebody else's
- * assessment or it is not worth storing, and self-assessment belongs on a review
- * form where it is labelled as one. So the option is absent here rather than
- * offered and then rejected.
+ * The API refuses a self-rating outright, so the option is absent rather than
+ * offered and then rejected. A line manager is offered their direct reports,
+ * which is the API's rule, and people are grouped by department.
  *
- * ## The target is asked for at the same time
+ * ## What is asked depends on how the competency is answered
  *
- * A level with no target produces no gap, and a gap is the only actionable thing
- * on the skills screen. Asking for both in one form is what makes "two levels
- * below target" arithmetic rather than an opinion somebody has to supply later.
+ * One of four ways, and the form asks for the one the chosen competency names: a
+ * level (with an optional target), a yes or a no, one of its own choices, or
+ * words. **Exactly one of the four goes in the body**, because the API refuses
+ * any other by name. A competency answered by picking from a list with no
+ * choices yet cannot be answered, so it is not listed.
  *
- * ## What is asked depends on how the subsection is answered
+ * What a pick is worth is the choice's own score, set on the API. This form
+ * shows the choice and never a number. A written answer is 1 to 4,000 characters
+ * once trimmed (`question-limits.ts`), with the count shown when it is long
+ * enough to need it, and the language check runs under the box without ever
+ * blocking the save.
  *
- * A subsection is answered one of four ways, and the form asks for the one the
- * chosen subsection names: a level and a target, a yes or a no, one of the
- * subsection's own choices, or words. **Exactly one of the four goes in the body**,
- * because the API refuses any other by name, and a form that always sent a level
- * would be refused on three of the four. A yes or no, a pick and a written answer
- * have no target: there is no honest distance between two answers that are not on a
- * scale, so the field is not offered and not sent.
+ * The box and the dropdown open on what is already recorded for that person, so
+ * recording again corrects it instead of starting from nothing. A pick is found
+ * by its **id**, because two choices can share a label.
  *
- * What a pick is worth is the choice's own score, set by whoever built the list,
- * and is worked out on the API. This form shows the choice and never a number, so
- * the person marking decides which description fits and not which score they want.
- *
- * ## Words are required, limited, and never scored
- *
- * A written answer is 1 to 4,000 characters once trimmed (`question-limits.ts`,
- * which the page-by-page review form reads too), and the form says so before the
- * request: a blank box is refused on the field, and the count appears when the
- * answer is long enough to need it and keeps counting past the limit. It is not a
- * `maxLength`, which would cut a pasted paragraph without a word. The sentence
- * `WRITTEN_NEVER_COUNTS` is under the box, on the page and not behind an icon,
- * because it is the consequence of choosing a subsection like this: it is read by
- * people, and it is left out of the mark. That is also why the appraisal-period
- * help below says nothing about counting towards a mark for a written answer.
- *
- * The box is already filled with what is on record for that person, found in their
- * skills the way a pick is, so recording it again corrects the words instead of
- * starting from nothing. What was typed over it is kept until the person or the
- * skill changes.
- *
- * ## The language check runs here too
- *
- * This is a manager writing about a named person, which is exactly what
- * `LanguageCheck` is for, so it is drawn under the box while they write. It never
- * blocks: the form saves either way, as the review form does. The person is never
- * the one recording (a self-rating is refused), so there is nothing to exempt.
- *
- * ## The person's current pick is already chosen
- *
- * Rating somebody again corrects their answer, so on a pick-a-list subsection the
- * dropdown opens on the choice they already have. It is found by the choice's
- * **id**, which their skills row carries: the label cannot do it, because two
- * choices can share one, and the choice may have been taken off the list since, in
- * which case nothing is chosen and the form says what their answer was. A server
- * that does not send the id preselects nothing, and a person who picks something
- * else keeps their pick until they choose somebody or something else.
- *
- * Until a subsection is chosen the form shows the level controls, which is what it
- * always showed, and choosing one swaps them. A subsection that is answered by
- * picking and has no choices yet cannot be answered at all, so the form says so and
- * does not offer to save.
- *
- * The title stays "Record a level". It is what the button that opens this says and
- * what everybody calls it, and "Record an answer" would be a new name for a screen
- * that has not moved.
+ * The title stays "Record a level": it is what the button that opens this says.
  */
 export function RecordLevelDialog({
   open,
@@ -149,8 +99,20 @@ export function RecordLevelDialog({
   const canEditFramework = useCan("MANAGE_SETTINGS");
   const framework = useFramework();
   const { sections } = useSections();
-  const { offered: scoredGroups, hidden: unscoredGroups } = useMemo(
-    () => splitScoredGroups(framework.groups, sections),
+  /* Only what can be recorded: a section that counts for nothing is not listed,
+     and neither is a competency answered by picking from a list that has no
+     choices yet. Absent, rather than offered and refused. */
+  const scoredGroups = useMemo(
+    () =>
+      splitScoredGroups(framework.groups, sections)
+        .offered.map((group) => ({
+          ...group,
+          competencies: group.competencies.filter(
+            (one) =>
+              answerKindOf(one) !== "CHOICE" || choicesOf(one).length > 0,
+          ),
+        }))
+        .filter((group) => group.competencies.length > 0),
     [framework.groups, sections],
   );
   const { cycles } = useAppraisals();
@@ -179,6 +141,8 @@ export function RecordLevelDialog({
      somebody else or from the last list. */
   const [typedChoice, setTypedChoice] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  /* Target, period and note, one plain link away. */
+  const [more, setMore] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   /** The API's sentence while this person's self review is not in yet. */
@@ -223,13 +187,33 @@ export function RecordLevelDialog({
     [people, employeeId, canRateAnyone],
   );
 
+  /* The people by department, when anybody has one. Grouped only then: a flat
+     list is what a company with no departments should see. */
+  const peopleByDepartment = useMemo(() => {
+    const groups = new Map<string, typeof options>();
+    for (const one of options) {
+      const key = one.department ?? "";
+      groups.set(key, [...(groups.get(key) ?? []), one]);
+    }
+    const named = [...groups.keys()].filter((key) => key !== "").sort();
+    return named.length === 0
+      ? null
+      : [...named, ...(groups.has("") ? [""] : [])].map((key) => ({
+          name: key === "" ? "No department" : key,
+          people: groups.get(key) ?? [],
+        }));
+  }, [options]);
+
+  /* With several periods open and none clearly current nothing is chosen for
+     the person, so it is asked in the open instead of behind More. */
+  const askPeriod =
+    openPeriods.length > 1 && defaultPeriodId(openPeriods) === "";
+
   const chosen = framework.competencies.find((one) => one.id === competency);
   /* A level until a subsection says otherwise, which is what this form always
      asked for and what the API means by a subsection that does not say. */
   const kind = chosen ? answerKindOf(chosen) : "RATING";
   const choices = chosen ? choicesOf(chosen) : [];
-  /* Nothing can be recorded on a pick-a-list subsection that has no choices. */
-  const nothingToPick = kind === "CHOICE" && choices.length === 0;
 
   /* The chosen person's own answer on this subsection. Only a connected server
      has one to give: offline the skills are derived and carry no pick id, so
@@ -273,6 +257,7 @@ export function RecordLevelDialog({
     if (kind === "RATING" && !level) {
       found["level"] = "Pick the level they are at.";
     }
+    if (askPeriod && !reviewCycleId) found["period"] = "Pick the period.";
     if (kind === "BOOLEAN" && !boolValue) found["answer"] = "Pick yes or no.";
     if (kind === "CHOICE" && !choiceOptionId) {
       found["answer"] = "Pick one of the choices.";
@@ -317,6 +302,26 @@ export function RecordLevelDialog({
     }
   };
 
+  const periodField = (
+    <Field
+      label="Period"
+      {...(askPeriod ? { required: true } : {})}
+      {...(errors["period"] ? { error: errors["period"] } : {})}
+    >
+      <Select
+        value={reviewCycleId}
+        {...(askPeriod ? { placeholder: "Pick a period" } : {})}
+        onChange={(event) => setReviewCycleId(event.target.value)}
+      >
+        {openPeriods.map((period) => (
+          <option key={period.id} value={period.id}>
+            {period.name}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+
   return (
     <Modal
       open={open}
@@ -329,10 +334,9 @@ export function RecordLevelDialog({
           <Button
             variant="accent"
             loading={saving}
-            disabled={nothingToPick}
             onClick={() => void submit()}
           >
-            Save it
+            Save
           </Button>
         </>
       }
@@ -359,7 +363,7 @@ export function RecordLevelDialog({
           </NoticeLine>
         )}
         <Field
-          label="Employee"
+          label="Person"
           required
           {...(errors["person"] ? { error: errors["person"] } : {})}
         >
@@ -372,16 +376,26 @@ export function RecordLevelDialog({
               setTypedWords(null);
             }}
           >
-            {options.map((one) => (
-              <option key={one.id} value={one.id}>
-                {one.fullName} · {one.jobTitle}
-              </option>
-            ))}
+            {peopleByDepartment
+              ? peopleByDepartment.map((group) => (
+                  <optgroup key={group.name} label={group.name}>
+                    {group.people.map((one) => (
+                      <option key={one.id} value={one.id}>
+                        {one.fullName} · {one.jobTitle}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))
+              : options.map((one) => (
+                  <option key={one.id} value={one.id}>
+                    {one.fullName} · {one.jobTitle}
+                  </option>
+                ))}
           </Select>
         </Field>
 
         <Field
-          label="Which competency"
+          label="Competency"
           required
           {...(errors["competency"] ? { error: errors["competency"] } : {})}
         >
@@ -389,9 +403,9 @@ export function RecordLevelDialog({
             value={competency}
             placeholder="Pick a competency"
             onChange={(event) => {
-              /* Everything that belonged to the last subsection goes with it: a
+              /* Everything that belonged to the last competency goes with it: a
                  level typed against a five-point scale means nothing against a
-                 yes or no, and a pick is one of *that* subsection's choices. */
+                 yes or no, and a pick is one of *that* competency's choices. */
               setCompetency(event.target.value);
               setLevel("");
               setTarget("");
@@ -420,52 +434,27 @@ export function RecordLevelDialog({
               {nothingToRateWords(canEditFramework)}
             </p>
           )}
-        {unscoredGroups.length > 0 && (
-          <p className="-mt-2 text-meta text-muted">
-            Not offered, because they count for nothing in the score:{" "}
-            {namesInWords(unscoredGroups)}.
-          </p>
-        )}
 
         {kind === "RATING" && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label="Current level"
-              required
-              {...(errors["level"] ? { error: errors["level"] } : {})}
-            >
-              <RatingScale
-                name="current-level"
-                label="Current level"
-                levels={steps.map((step) => ({
-                  level: step,
-                  label:
-                    scaleMax === 5
-                      ? (levelWords(step) ?? String(step))
-                      : `${String(step)} of ${String(scaleMax)}`,
-                }))}
-                value={level ? Number(level) : null}
-                onChange={(next) => setLevel(String(next))}
-              />
-            </Field>
-            <Field
-              optional
-              label="Target level"
-              help="This is what makes a gap."
-            >
-              <Select
-                value={target}
-                placeholder="No target"
-                onChange={(event) => setTarget(event.target.value)}
-              >
-                {steps.map((step) => (
-                  <option key={step} value={String(step)}>
-                    {step} of {scaleMax}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
+          <Field
+            label="Level"
+            required
+            {...(errors["level"] ? { error: errors["level"] } : {})}
+          >
+            <RatingScale
+              name="current-level"
+              label="Level"
+              levels={steps.map((step) => ({
+                level: step,
+                label:
+                  scaleMax === 5
+                    ? (levelWords(step) ?? String(step))
+                    : `${String(step)} of ${String(scaleMax)}`,
+              }))}
+              value={level ? Number(level) : null}
+              onChange={(next) => setLevel(String(next))}
+            />
+          </Field>
         )}
 
         {kind === "BOOLEAN" && (
@@ -485,35 +474,25 @@ export function RecordLevelDialog({
           </Field>
         )}
 
-        {kind === "CHOICE" &&
-          (nothingToPick ? (
-            <NoticeLine tone="muted">
-              <span>
-                {chosen?.name ?? "That competency"} is answered by picking from
-                a list, and the list has no choices yet, so nothing can be
-                recorded on it. Somebody who can manage settings adds them under
-                Questions, By section.
-              </span>
-            </NoticeLine>
-          ) : (
-            <Field
-              label="Answer"
-              required
-              {...(errors["answer"] ? { error: errors["answer"] } : {})}
+        {kind === "CHOICE" && (
+          <Field
+            label="Answer"
+            required
+            {...(errors["answer"] ? { error: errors["answer"] } : {})}
+          >
+            <Select
+              value={choiceOptionId}
+              placeholder="Pick a choice"
+              onChange={(event) => setTypedChoice(event.target.value)}
             >
-              <Select
-                value={choiceOptionId}
-                placeholder="Pick a choice"
-                onChange={(event) => setTypedChoice(event.target.value)}
-              >
-                {choices.map((choice) => (
-                  <option key={choice.id} value={choice.id}>
-                    {choice.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ))}
+              {choices.map((choice) => (
+                <option key={choice.id} value={choice.id}>
+                  {choice.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
 
         {kind === "TEXT" && (
           <div className="flex flex-col gap-2">
@@ -540,9 +519,6 @@ export function RecordLevelDialog({
                 {writtenAnswerCounter(words)}
               </p>
             )}
-            <NoticeLine tone="muted">
-              <span>{WRITTEN_NEVER_COUNTS}</span>
-            </NoticeLine>
             {/* Findings are about the words as they stand, quoted back, and never
                 stop the save. */}
             <LanguageCheck
@@ -556,51 +532,51 @@ export function RecordLevelDialog({
         {kind === "CHOICE" && takenOffPick !== null && (
           <NoticeLine tone="muted">
             <span>
-              Their current answer is &ldquo;{takenOffPick}&rdquo;, which is no
-              longer on the list. Pick one of the choices to replace it.
+              Their answer was &ldquo;{takenOffPick}&rdquo;, which is no longer
+              offered.
             </span>
           </NoticeLine>
         )}
 
-        {openPeriods.length > 0 && (
-          <Field
-            optional
-            label="Appraisal period"
-            help={
-              /* A written answer never counts towards a mark, so nothing here
-                 says it might: the sentence under its box says it once. */
-              reviewCycleId
-                ? kind === "TEXT"
-                  ? "Filed under that period. Each person has one answer per period, so writing it again replaces this one."
-                  : "Counts towards this person's score for that period. Each person has one rating per period, so rating them again corrects this one."
-                : kind === "RATING"
-                  ? "This will not affect any appraisal score. It is a snapshot of where they are now, and it fills the competency gap table."
-                  : kind === "TEXT"
-                    ? "A snapshot of where they are now."
-                    : "This will not affect any appraisal score. It is a snapshot of where they are now, and it does not appear in the competency gap table, which is about levels."
-            }
-          >
-            <Select
-              value={reviewCycleId}
-              onChange={(event) => setReviewCycleId(event.target.value)}
-            >
-              <option value="">Not part of an appraisal period</option>
-              {openPeriods.map((period) => (
-                <option key={period.id} value={period.id}>
-                  {period.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+        {/* Asked in the open only when it cannot be guessed. */}
+        {askPeriod && periodField}
+
+        {more && (
+          <>
+            {kind === "RATING" && (
+              <Field label="Target">
+                <Select
+                  value={target}
+                  placeholder="No target"
+                  onChange={(event) => setTarget(event.target.value)}
+                >
+                  {steps.map((step) => (
+                    <option key={step} value={String(step)}>
+                      {step} of {scaleMax}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            {!askPeriod && openPeriods.length > 0 && periodField}
+            <Field label="Note">
+              <Textarea
+                rows={3}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </Field>
+          </>
         )}
 
-        <Field optional label="Anything to add" help="They will see it.">
-          <Textarea
-            rows={3}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        </Field>
+        <button
+          type="button"
+          aria-expanded={more}
+          onClick={() => setMore((was) => !was)}
+          className="self-start text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+        >
+          {more ? "Less" : "More"}
+        </button>
       </div>
     </Modal>
   );

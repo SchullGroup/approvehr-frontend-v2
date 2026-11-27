@@ -98,7 +98,7 @@ describe("a measure nobody has confirmed", () => {
   it("is not done yet, and says so", () => {
     show(measure(), "emp-owner");
     expect(screen.getByText("Not done yet")).toBeInTheDocument();
-    expect(screen.queryByText("Done")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Done/)).not.toBeInTheDocument();
   });
 
   it("is not offered a Confirm button to the person whose work it is", () => {
@@ -107,15 +107,15 @@ describe("a measure nobody has confirmed", () => {
     expect(
       screen.queryByRole("button", { name: /Confirm/ }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Your manager confirms it when it is done."),
-    ).toBeInTheDocument();
+    /* No sentence about who will: the button is simply not there. */
+    expect(screen.queryByText(/Your manager confirms it/)).toBeNull();
+    expect(screen.getByText("Not done yet")).toBeInTheDocument();
   });
 
   it("is offered one to somebody else on a personal objective", () => {
     show(measure(), "emp-owner");
     expect(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
+      screen.getByRole("button", { name: /^Confirm/ }),
     ).toBeInTheDocument();
   });
 
@@ -131,7 +131,7 @@ describe("a measure nobody has confirmed", () => {
     who.records = true;
     show(measure(), null);
     expect(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
+      screen.getByRole("button", { name: /^Confirm/ }),
     ).toBeInTheDocument();
   });
 
@@ -146,9 +146,7 @@ describe("confirming it", () => {
     const user = userEvent.setup();
     const { confirm } = show(measure(), "emp-owner");
 
-    await user.click(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /^Confirm/ }));
     await user.type(
       screen.getByLabelText(/Note or link for Both engineers hired/),
       "  https://example.com/offer-letters  ",
@@ -165,9 +163,7 @@ describe("confirming it", () => {
     const user = userEvent.setup();
     const { confirm } = show(measure(), "emp-owner");
 
-    await user.click(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /^Confirm/ }));
     await user.click(screen.getByRole("button", { name: CONFIRM_NAME }));
 
     expect(confirm).toHaveBeenCalledWith("m-1", undefined);
@@ -179,9 +175,7 @@ describe("confirming it", () => {
       confirm: vi.fn<Confirm>().mockResolvedValue(false),
     });
 
-    await user.click(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /^Confirm/ }));
     const note = screen.getByLabelText(/Note or link for/);
     await user.type(note, "Signed on Friday");
     await user.click(screen.getByRole("button", { name: CONFIRM_NAME }));
@@ -193,16 +187,12 @@ describe("confirming it", () => {
     const user = userEvent.setup();
     const { confirm } = show(measure(), "emp-owner");
 
-    await user.click(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /^Confirm/ }));
     await user.type(screen.getByLabelText(/Note or link for/), "Never mind");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(confirm).not.toHaveBeenCalled();
-    await user.click(
-      screen.getByRole("button", { name: /Confirm it is done/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /^Confirm/ }));
     expect(screen.getByLabelText(/Note or link for/)).toHaveValue("");
   });
 });
@@ -219,14 +209,15 @@ describe("a measure that has been confirmed", () => {
       ...over,
     });
 
-  it("is done, and says by whom and when", () => {
+  it("is done, once, in one badge that says by whom and when", () => {
     show(confirmed(), "emp-owner");
-    expect(screen.getByText("Done")).toBeInTheDocument();
+    const when = formatDateShort("2026-10-22T10:30:00.000Z", "Africa/Lagos");
     expect(
-      screen.getByText(
-        `Confirmed by Adaeze Okonkwo on ${formatDateShort("2026-10-22T10:30:00.000Z", "Africa/Lagos")}.`,
-      ),
+      screen.getByText(`Done · Adaeze Okonkwo, ${when}`),
     ).toBeInTheDocument();
+    /* Not said a second time in a line beneath it. */
+    expect(screen.queryByText(/^Confirmed/)).toBeNull();
+    expect(screen.queryByText("Not done yet")).toBeNull();
   });
 
   it("makes a link in the note a link", () => {
@@ -240,16 +231,19 @@ describe("a measure that has been confirmed", () => {
     show(confirmed({ confirmedByName: null }), "emp-owner");
     expect(
       screen.getByText(
-        `Confirmed on ${formatDateShort("2026-10-22T10:30:00.000Z", "Africa/Lagos")}.`,
+        `Done · ${formatDateShort("2026-10-22T10:30:00.000Z", "Africa/Lagos")}`,
       ),
     ).toBeInTheDocument();
   });
 
-  it("can be taken back by somebody who could have confirmed it", async () => {
+  it("can be taken back, by a plain link, by somebody who could have confirmed it", async () => {
     const user = userEvent.setup();
     const { unconfirm } = show(confirmed(), "emp-owner");
 
-    await user.click(screen.getByRole("button", { name: /Take it back/ }));
+    const back = screen.getByRole("button", { name: /Take it back/ });
+    /* A link in the text, not a bordered button that sits there for good. */
+    expect(back.className).toMatch(/underline/);
+    await user.click(back);
 
     expect(unconfirm).toHaveBeenCalledWith("m-1");
   });

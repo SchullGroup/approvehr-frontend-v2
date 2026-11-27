@@ -185,9 +185,7 @@ describe("<PeriodWeights />", () => {
     await user.clear(screen.getByLabelText("Weekly tasks"));
     await user.type(screen.getByLabelText("Weekly tasks"), "2.5");
     expect(screen.getByLabelText("Weekly tasks")).toBeInvalid();
-    expect(
-      screen.getByText("Whole numbers only, 0 to 100."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Whole numbers only, 0 to 100.")).toBeNull();
   });
 
   it("says what happens to the Weekly tasks share when nobody has linked tasks", () => {

@@ -86,7 +86,7 @@ vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
 
 const groupLabels = () =>
   Array.from(
-    screen.getByLabelText(/Which competency/).querySelectorAll("optgroup"),
+    screen.getByLabelText(/Competency/).querySelectorAll("optgroup"),
   ).map((group) => group.label);
 
 beforeEach(() => {
@@ -111,11 +111,9 @@ describe("Record a level offers only groups that count", () => {
   it("leaves out a group that counts towards no part, and one weighted at nothing", () => {
     render(<RecordLevelDialog open onClose={vi.fn()} onSave={vi.fn()} />);
     expect(groupLabels()).toEqual(["Core competency"]);
-    expect(
-      screen.getByText(
-        "Not offered, because they count for nothing in the score: Key result area and Leadership.",
-      ),
-    ).toBeInTheDocument();
+    /* Left out without a word about it: absent, not explained. */
+    expect(screen.queryByText(/Not offered/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/count for nothing/)).not.toBeInTheDocument();
   });
 
   it("offers everything while the sections are not known", () => {

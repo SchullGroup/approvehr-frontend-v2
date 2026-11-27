@@ -188,8 +188,9 @@ describe("answering a written subsection", () => {
     mount({ questions: [written()] });
     await toTheQuestion();
     expect(box().value).toBe("");
-    expect(screen.getByText(/Needed\./)).toBeInTheDocument();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
     expect(screen.queryByText(/Pick one, or press its key/)).toBeNull();
+    expect(screen.queryByText(/Press .* to go on/)).toBeNull();
   });
 
   it("sends the words, trimmed, in `textValue` and in nothing else", async () => {
@@ -231,14 +232,13 @@ describe("answering a written subsection", () => {
     expect(box().maxLength).toBe(4000);
   });
 
-  it("will not go on without words: it is required like any other required question", async () => {
+  it("will not go on without words: it is required like any other required question, so there is no Next", async () => {
     mount({ questions: [written()] });
     await toTheQuestion();
-    await next("Next");
 
-    expect(
-      await screen.findByText("This one needs an answer before you can go on."),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+    expect(screen.queryByText(/needs an answer/i)).toBeNull();
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -246,12 +246,16 @@ describe("answering a written subsection", () => {
     mount({ questions: [written()] });
     await toTheQuestion();
     await userEvent.type(box(), "     ");
-    await next("Next");
 
-    expect(
-      await screen.findByText("This one needs an answer before you can go on."),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it("offers Next as soon as there are words", async () => {
+    mount({ questions: [written()] });
+    await toTheQuestion();
+    await userEvent.type(box(), "Clear.");
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
   });
 
   it("shows the words already saved in the box when the form is opened again, and opens past them", async () => {
@@ -278,7 +282,7 @@ describe("answering a written subsection", () => {
     await next("Back");
     await userEvent.clear(box());
     expect(
-      screen.getByText(/The answer you saved stays unless you write a new one/),
+      screen.getByText("Your saved answer stands until you write a new one."),
     ).toBeInTheDocument();
   });
 });
@@ -314,7 +318,7 @@ describe("the preview of a written subsection", () => {
     expect(words.className).not.toMatch(/line-clamp|truncate/);
   });
 
-  it("says Not answered, and that it needs an answer, for one nobody wrote, and never a nought", async () => {
+  it("says Not answered, and that it is needed, for one nobody wrote, and never a nought", async () => {
     /* A browser that remembers it was on the last page: the only way to the
        preview with a required question left blank, since Next will not go on. */
     window.localStorage.setItem(
@@ -328,10 +332,13 @@ describe("the preview of a written subsection", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Communication")).toBeInTheDocument();
     expect(screen.getByText("Not answered")).toBeInTheDocument();
-    expect(screen.getByText("Needs an answer")).toBeInTheDocument();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
+    /* One neutral link, in Send's place: Send could only refuse. */
     expect(
-      screen.getByText("1 question still needs an answer before this can go."),
+      screen.getByRole("button", { name: "1 to answer" }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send it" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText("0")).not.toBeInTheDocument();
     expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
@@ -345,7 +352,7 @@ describe("the preview of a written subsection", () => {
       questions: [written({ answer: answer({ textValue: "   " }) })],
     });
     expect(screen.getByText("Not answered")).toBeInTheDocument();
-    expect(screen.getByText("Needs an answer")).toBeInTheDocument();
+    expect(screen.getByText("Needed")).toBeInTheDocument();
   });
 
   it("sends the review once the written question has its words", async () => {
@@ -449,24 +456,41 @@ describe("on a manager's form: what the person wrote of themselves", () => {
   });
 });
 
-describe("the language check on a manager's written answer", () => {
+describe("the language note on a manager's written answer", () => {
   const PHRASE = "Chidi is quite disorganised";
   const headline = "One phrase here is worth a second look";
 
-  /** Write `words` in the written subsection, then go to the preview. */
-  const writeAndPreview = async (words: string) => {
+  /** Write `words` in the written subsection, then go on to the closing note, where the note is. */
+  const writeAndGoToTheNote = async (words: string) => {
     await toTheQuestion();
     await userEvent.type(box(), words);
     await next("Next");
-    await next("Skip");
   };
 
-  it("reads it, and quotes the exact words, like any other written part of a manager's review", async () => {
+  it("reads it, and quotes the exact words behind a See link, like any other written part of a manager's review", async () => {
     asManager(written());
-    await writeAndPreview(`${PHRASE}.`);
+    await writeAndGoToTheNote(`${PHRASE}.`);
 
     expect(screen.getByText(headline)).toBeInTheDocument();
-    expect(screen.getByText(PHRASE)).toBeInTheDocument();
+    /* Quiet: the quoted phrase is one press away, not open. */
+    expect(screen.queryByText(PHRASE, { selector: "q" })).toBeNull();
+    await next("See");
+    expect(screen.getByText(PHRASE, { selector: "q" })).toBeInTheDocument();
+  });
+
+  it("is beside the closing note, and not drawn on the preview", async () => {
+    asManager(written());
+    await writeAndGoToTheNote(`${PHRASE}.`);
+    expect(
+      screen.getByRole("textbox", { name: "Your recommendations" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(headline)).toBeInTheDocument();
+
+    await next("Skip");
+    expect(
+      screen.getByRole("heading", { name: "Preview" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(headline)).toBeNull();
   });
 
   it("reads it the way it reads the closing note: the same words give the same finding", async () => {
@@ -476,13 +500,14 @@ describe("the language check on a manager's written answer", () => {
     await toTheQuestion();
     await userEvent.type(box(), "Delivered on time.");
     await next("Next");
+    expect(screen.queryByText(headline)).toBeNull();
     await userEvent.type(
       screen.getByRole("textbox", { name: "Your recommendations" }),
       `${PHRASE}.`,
     );
-    await next("Next");
     expect(screen.getByText(headline)).toBeInTheDocument();
-    expect(screen.getByText(PHRASE)).toBeInTheDocument();
+    await next("See");
+    expect(screen.getByText(PHRASE, { selector: "q" })).toBeInTheDocument();
   });
 
   it("counts the written answer and the closing note together", async () => {
@@ -494,33 +519,41 @@ describe("the language check on a manager's written answer", () => {
       screen.getByRole("textbox", { name: "Your recommendations" }),
       "Chidi is rather lazy.",
     );
-    await next("Next");
     expect(
       screen.getByText("2 phrases here are worth a second look"),
     ).toBeInTheDocument();
   });
 
-  it("does not stop the review: the first press shows it and the second sends it anyway", async () => {
+  it("says what the check cannot do behind an icon, not in a paragraph", async () => {
     asManager(written());
-    await writeAndPreview(`${PHRASE}.`);
-
-    await next("Send it");
-    expect(send).not.toHaveBeenCalled();
+    await writeAndGoToTheNote(`${PHRASE}.`);
+    expect(screen.queryByText(/Nothing here stops you/)).toBeNull();
+    await next("About this check");
     expect(
-      screen.getByRole("button", { name: "Send anyway" }),
+      screen.getByText(/Nothing here stops you sending the review/),
     ).toBeInTheDocument();
+  });
 
-    await next("Send anyway");
+  it("does not hold the review back: the first press of Send sends it, whatever was found", async () => {
+    asManager(written());
+    await writeAndGoToTheNote(`${PHRASE}.`);
+    await next("Skip");
+
+    expect(screen.queryByRole("button", { name: "Send anyway" })).toBeNull();
+    await next("Send it");
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   });
 
   it("finds nothing to say about words that describe the work", async () => {
     asManager(written());
-    await writeAndPreview("Moved three deadlines in October without notice.");
+    await writeAndGoToTheNote(
+      "Moved three deadlines in October without notice.",
+    );
     expect(screen.queryByText(headline)).not.toBeInTheDocument();
     expect(
       screen.queryByText(/phrases here are worth a second look/),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "See" })).toBeNull();
   });
 
   it("leaves a person's own review alone: a person's account of themselves is not a judgement of somebody else", async () => {
@@ -532,6 +565,8 @@ describe("the language check on a manager's written answer", () => {
     await toTheQuestion();
     await userEvent.type(box(), "I took maternity leave in March.");
     await next("Next");
+    expect(screen.queryByText(headline)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "See" })).toBeNull();
     await next("Skip");
 
     expect(screen.queryByText(headline)).not.toBeInTheDocument();
@@ -544,8 +579,9 @@ describe("the language check on a manager's written answer", () => {
 
   it("flags the very same words on a manager's form, so the exemption above is a rule and not a gap", async () => {
     asManager(written());
-    await writeAndPreview("Took maternity leave in March.");
+    await writeAndGoToTheNote("Took maternity leave in March.");
     expect(screen.getByText(headline)).toBeInTheDocument();
+    await next("See");
     expect(
       screen.getByText("maternity", { selector: "q" }),
     ).toBeInTheDocument();
@@ -562,10 +598,10 @@ describe("the language check on a manager's written answer", () => {
     await next("Back");
     await userEvent.clear(box());
     await next("Next");
-    await next("Skip");
     expect(
-      screen.getByRole("heading", { name: "Preview" }),
+      screen.getByRole("textbox", { name: "Your recommendations" }),
     ).toBeInTheDocument();
+    await next("See");
     expect(screen.getByText(PHRASE, { selector: "q" })).toBeInTheDocument();
   });
 });

@@ -53,11 +53,11 @@ export function RenamePeriodDialog({
        submits the form. A second press in flight would send the same name twice. */
     if (saving) return;
     if (trimmed.length < MIN) {
-      setError("Name it: people will see this in their inbox.");
+      setError(`Use at least ${String(MIN)} characters.`);
       return;
     }
     if (trimmed.length > MAX) {
-      setError(`Keep it to ${MAX} characters: it is a heading.`);
+      setError(`Keep it to ${String(MAX)} characters.`);
       return;
     }
     if (unchanged) {
@@ -87,7 +87,6 @@ export function RenamePeriodDialog({
       open={open}
       onClose={onClose}
       title="Rename this period"
-      description="The new name shows on everybody's form, inbox and report."
       size="sm"
       footer={
         <div className="flex justify-end gap-2">

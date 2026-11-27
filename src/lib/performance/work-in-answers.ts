@@ -23,31 +23,14 @@ import { formatDateShort } from "@/lib/time";
 /* ----------------------------------------------------------------- the wording */
 
 /**
- * What the picker says about titles, once. The list shows the live title so the person can tell
- * their tasks apart, and **a pin keeps no title**: the reader sees the key, the dates and the note,
- * and opens the task to read it as it is now. Saying so is what stops a person typing something
- * sensitive into a task and believing it travels with the pin.
+ * Everything a person needs to know before adding work to an answer, in one place for one tooltip.
+ *
+ * The list shows the live title so the person can tell their tasks apart, and **a pin keeps no title**:
+ * the reader sees the key, the dates and the note, and opens the task to read it as it is now. Saying
+ * so is what stops a person typing something sensitive into a task and believing it travels with the
+ * pin. It is a choice and moves no mark, and the most one answer carries is five.
  */
-export const PIN_TITLE_NOTE =
-  "The title is shown here to help you choose and is not saved with the pin. Readers see the task's key, the day it was finished and your note, and can open the task to read it where they are allowed to.";
-
-/** What adding work to an answer does, in one sentence a person can act on. */
-export const PIN_PURPOSE =
-  "The people who read your review see what you add beside this answer. The full list of your finished work is still one press away for them, so this shows what you want them to look at, not the whole picture.";
-
-/** Said wherever a person is about to pin: it is their choice, and it moves no mark. */
-export const PIN_NO_MARK =
-  "It does not change your score, and nothing is added or graded for you.";
-
-/** The limit, as a sentence that is true at every count. */
-export function pinCountLine(count: number): string {
-  if (count >= PINS_PER_ANSWER) {
-    return `${String(count)} of ${String(PINS_PER_ANSWER)} added. Unpin one to add another.`;
-  }
-  return count === 0
-    ? `Up to ${String(PINS_PER_ANSWER)} on each answer.`
-    : `${String(count)} of ${String(PINS_PER_ANSWER)} added.`;
-}
+export const PIN_RULES = `The people who read your review see what you add beside this answer: the task's key, the day it was finished and your note. The title is shown here to help you choose and is not saved. It does not change your score. Up to ${String(PINS_PER_ANSWER)} on each answer.`;
 
 /** The note's counter, shown from the moment it is useful and in the colour of a warning at the limit. */
 export function noteCounter(length: number): string | null {
@@ -63,25 +46,61 @@ export function noteProblem(note: string): string | null {
     : null;
 }
 
-/* ------------------------------------------------------------------ reading a pin */
+/* ------------------------------------------------------------------ reading a task */
 
 /** "Finished 4 Nov 2026", from the instant when there is one and the company's own day when not. */
 function finishedLabel(
-  pin: Pick<ApiPin, "doneAt" | "finishedOn">,
+  work: { doneAt: string; finishedOn?: string },
   timeZone: string,
 ): string | null {
-  if (pin.doneAt !== "")
-    return `Finished ${formatDateShort(pin.doneAt, timeZone)}`;
+  if (work.doneAt !== "")
+    return `Finished ${formatDateShort(work.doneAt, timeZone)}`;
   /* The company's own day is already a day: `dayLabel` does not read it as an instant, which in
      some zones would move it. */
-  return pin.finishedOn !== "" ? `Finished ${dayLabel(pin.finishedOn)}` : null;
+  return work.finishedOn ? `Finished ${dayLabel(work.finishedOn)}` : null;
 }
 
+/** What a row of finished work says about one task, whichever list it is in. */
+export type WorkFactsOf = {
+  /** On the person's own task list rather than a project board. */
+  personal?: boolean;
+  /** The project, for a list that spans several. Not for a personal task. */
+  where?: string | null;
+  /** Who finished it, for a list that is not already under their name. */
+  person?: string | null;
+  doneAt: string;
+  finishedOn?: string;
+  /** `null` and `NO_DUE_DATE` both say nothing: a task with no due date is neither on time nor late. */
+  timing: "ON_TIME" | "LATE" | "NO_DUE_DATE" | null;
+  setBy?: { name: string } | null;
+  /** Whether it sat under an objective, for a list that has nowhere else to say so. */
+  linked?: boolean;
+};
+
 /**
- * The quiet facts under a pinned task's key, in the order a reader looks for them. On time and late
- * are the same quiet word, a task with no due date says nothing about one, and "Set by" appears only
- * when somebody else made the task, as everywhere else the finished work is listed.
+ * The quiet facts under a finished task's key, in the order a reader looks for them: who and where
+ * when the list does not say, the day, on time or late, who set it when somebody else did, and the
+ * objective when it is known. On time and late are the same quiet word, a task with no due date says
+ * nothing about one, and "Set by" appears only when somebody else made the task. The one place this
+ * is written, so a pin, a kept record, the live list and the picker cannot drift apart.
  */
+export function workFacts(work: WorkFactsOf, timeZone: string): string[] {
+  const finished = finishedLabel(work, timeZone);
+  return [
+    ...(work.person ? [work.person] : []),
+    ...(work.personal ? ["Personal"] : work.where ? [work.where] : []),
+    ...(finished ? [finished] : []),
+    ...(work.timing === "ON_TIME"
+      ? ["On time"]
+      : work.timing === "LATE"
+        ? ["Late"]
+        : []),
+    ...(work.setBy ? [`Set by ${work.setBy.name}`] : []),
+    ...(work.linked ? ["Under an objective"] : []),
+  ];
+}
+
+/** A pin's facts: the same line every finished task has. */
 export function pinFacts(
   pin: Pick<
     ApiPin,
@@ -89,33 +108,7 @@ export function pinFacts(
   >,
   timeZone: string,
 ): string[] {
-  const finished = finishedLabel(pin, timeZone);
-  return [
-    ...(pin.personal ? ["Personal"] : []),
-    ...(finished ? [finished] : []),
-    ...(pin.timing === "ON_TIME"
-      ? ["On time"]
-      : pin.timing === "LATE"
-        ? ["Late"]
-        : []),
-    ...(pin.setBy ? [`Set by ${pin.setBy.name}`] : []),
-    ...(pin.linked ? ["Under an objective"] : []),
-  ];
-}
-
-/**
- * Who pinned it and when. The person pinning is always the self-review's author, so the name is
- * passed in by whoever knows it; without one the line says only when. Said as a fact in a muted
- * line, so a reader knows this is the person's own choice and not the appraiser's selection.
- */
-export function pinnedLine(
-  pinnedBy: string | null,
-  pinnedAt: string,
-  timeZone: string,
-): string {
-  const when =
-    pinnedAt === "" ? "" : ` on ${formatDateShort(pinnedAt, timeZone)}`;
-  return pinnedBy ? `Pinned by ${pinnedBy}${when}` : `Pinned${when}`;
+  return workFacts(pin, timeZone);
 }
 
 /** Where a pinned task opens: the task by its id, which sends a board task on to its board. */
@@ -182,9 +175,33 @@ export function orderBySharedProjects<T extends { id: string }>(
 
 /* ------------------------------------------------------------------------ flags */
 
-/** What a flag is and is not, said beside the control that raises one. */
-export const FLAG_PURPOSE =
-  "This tells whoever reads your work that an item is not right. It does not remove it from the list and it does not change your score.";
+/**
+ * What a flag is, for the list's one tooltip, and nothing where the server said nothing about flags.
+ *
+ * Said to the person while a flag can be raised; said to a reader while one can be raised or one is
+ * there; and, once the setting has been turned off, said to the person only while a flag they raised is
+ * still on the list, with what they can and cannot do about it. A flag removes nothing from the list and
+ * moves no mark.
+ */
+export function flagSentence(state: {
+  known: boolean;
+  own: boolean;
+  on: boolean;
+  any: boolean;
+}): string | null {
+  if (!state.known) return null;
+  if (state.own) {
+    if (state.on) {
+      return "If something here is not right, say so on its row. It tells whoever reads your work. It does not remove the item or change your score.";
+    }
+    return state.any
+      ? "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back."
+      : null;
+  }
+  return state.on || state.any
+    ? "A flag is the person's own word that an item is not right. It does not remove the item or change the score."
+    : null;
+}
 
 /** The reason, or why it cannot be sent yet. Empty is not a problem to shout about, just not ready. */
 export function reasonProblem(reason: string): string | null {

@@ -74,9 +74,7 @@ const mount = (onReorder?: (ids: string[]) => Promise<void>) => {
     <QuestionsDialog
       open
       cycleId="c-1"
-      periodName="H2 2026 Appraisal"
       onClose={vi.fn()}
-      onAdd={vi.fn().mockResolvedValue(undefined)}
       onUpdate={vi.fn().mockResolvedValue(undefined)}
       onRemove={vi.fn().mockResolvedValue(undefined)}
       {...(onReorder ? { onReorder } : {})}

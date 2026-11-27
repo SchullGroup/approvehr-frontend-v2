@@ -175,11 +175,11 @@ const openDialog = () =>
 const dialog = () => screen.getByRole("dialog", { name: "Record a level" });
 const inDialog = () => within(dialog());
 const pickPerson = () =>
-  userEvent.selectOptions(inDialog().getByLabelText(/Employee/), "e-chidi");
+  userEvent.selectOptions(inDialog().getByLabelText(/Person/), "e-chidi");
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(inDialog().getByLabelText(/Which competency/), name);
+  userEvent.selectOptions(inDialog().getByLabelText(/Competency/), name);
 const save = () =>
-  userEvent.click(inDialog().getByRole("button", { name: "Save it" }));
+  userEvent.click(inDialog().getByRole("button", { name: "Save" }));
 
 beforeEach(() => {
   mineRows = [];
@@ -206,7 +206,7 @@ describe("a written answer on somebody's own list", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Written")).toBeInTheDocument();
     /* The level beside it is still a level. */
-    expect(screen.getByText("Level 4 of 5 · target 5")).toBeInTheDocument();
+    expect(screen.getByText("4 of 5")).toBeInTheDocument();
   });
 });
 

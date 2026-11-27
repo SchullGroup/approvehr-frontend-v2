@@ -17,7 +17,13 @@ import type { ApiGoal } from "@/lib/api/performance";
  */
 
 const state = vi.hoisted(() => ({
-  cycles: [] as { id: string; name: string; stage: string }[],
+  cycles: [] as {
+    id: string;
+    name: string;
+    stage: string;
+    periodStart?: string | null;
+    dueDate?: string | null;
+  }[],
   loading: false,
 }));
 
@@ -57,7 +63,7 @@ beforeEach(() => {
 });
 
 const periodField = () =>
-  screen.queryByLabelText(/Appraisal period/) as HTMLSelectElement | null;
+  screen.queryByLabelText(/^Period/) as HTMLSelectElement | null;
 const optionTexts = (select: HTMLElement) =>
   Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
 
@@ -95,7 +101,9 @@ describe("Edit a KPI", () => {
     await user.type(screen.getByLabelText(/Description/), " More.");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByText(/counts towards nobody's score/)).toBeVisible();
+    expect(screen.getByText("Choose a period.")).toBeVisible();
+    /* The reason is not an essay under the field. */
+    expect(screen.queryByText(/counts towards nobody's score/)).toBeNull();
 
     await user.selectOptions(periodField()!, "c-h1");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
@@ -110,12 +118,79 @@ describe("Edit a KPI", () => {
     expect(optionTexts(periodField()!)).not.toContain(
       "Not part of an appraisal period",
     );
+    expect(optionTexts(periodField()!)).not.toContain("None");
     expect(periodField()!.value).toBe("c-h1");
+  });
+
+  it("starts an unfiled one on the period that is open, when exactly one is", async () => {
+    state.cycles = [{ ...H1, stage: "PUBLISHED" }, H2];
+    const { onSave, user } = edit();
+    expect(periodField()!.value).toBe("c-h2");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSave).toHaveBeenCalledWith("g-1", { reviewCycleId: "c-h2" });
+  });
+
+  it("chooses nothing for them when several are open, and asks", () => {
+    edit();
+    expect(periodField()!.value).toBe("");
+  });
+
+  it("asks for one 'when' and not two: a Period, no Due quarter, and no sentence about either", () => {
+    edit();
+    expect(screen.queryByLabelText(/Due quarter/)).toBeNull();
+    expect(screen.queryByLabelText(/Appraisal period/)).toBeNull();
+    expect(screen.queryByText(/A quarter alone/)).toBeNull();
+    expect(screen.queryByText(/Pick the period this is scored in/)).toBeNull();
+    expect(screen.queryByText(/Counts towards this person/)).toBeNull();
+  });
+
+  it("gives an objective with no quarter the one its period starts in", async () => {
+    state.cycles = [
+      { ...H1, periodStart: "2027-01-01", periodEnd: "2027-06-30" } as never,
+      H2,
+    ];
+    const { onSave, user } = edit({ dueQuarter: null });
+    await user.selectOptions(periodField()!, "c-h1");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSave).toHaveBeenCalledWith("g-1", {
+      reviewCycleId: "c-h1",
+      dueQuarter: "2027-Q1",
+    });
+  });
+
+  it("does not move a quarter it already has because a period was picked", async () => {
+    state.cycles = [
+      { ...H1, periodStart: "2027-01-01", periodEnd: "2027-06-30" } as never,
+      H2,
+    ];
+    const { onSave, user } = edit({ dueQuarter: "2026-Q4" });
+    await user.selectOptions(periodField()!, "c-h1");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSave).toHaveBeenCalledWith("g-1", { reviewCycleId: "c-h1" });
+  });
+
+  it("keeps the quarter it had when the period has no dates", async () => {
+    const { onSave, user } = edit();
+    await user.selectOptions(periodField()!, "c-h2");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSave).toHaveBeenCalledWith("g-1", { reviewCycleId: "c-h2" });
+  });
+
+  it("dates it by quarter only where there is no period to pick", async () => {
+    state.cycles = [];
+    const { onSave, user } = edit({ dueQuarter: "2026-Q4" });
+    expect(periodField()).toBeNull();
+    expect(screen.getByLabelText(/Due quarter/)).toHaveValue("2026-Q4");
+    await user.selectOptions(screen.getByLabelText(/Due quarter/), "2027-Q1");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSave).toHaveBeenCalledWith("g-1", { dueQuarter: "2027-Q1" });
   });
 
   it("leaves a department objective free to belong to no period", async () => {
     const { onSave, user } = edit({ level: "department", ownerId: null });
     expect(periodField()!.getAttribute("aria-required")).toBeNull();
+    expect(periodField()!.value).toBe("");
+    expect(optionTexts(periodField()!)).toContain("None");
 
     await user.type(screen.getByLabelText(/Description/), " More.");
     await user.click(screen.getByRole("button", { name: "Save changes" }));

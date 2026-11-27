@@ -6,14 +6,36 @@ import type { ApiGoal, ApiObjectiveSubmitted } from "@/lib/api/performance";
 import { sentToAgreeCopy, type MomentCopy } from "./objective-copy";
 
 /**
+ * What an objective lacks that a person sending it may not have noticed, in one
+ * neutral line, or null when it lacks neither.
+ */
+export function missingWords(
+  goal: Pick<ApiGoal, "keyResults" | "reviewCycleId" | "childCount">,
+): string | null {
+  /* One with objectives under it is measured by them, so it is not short of a
+     target. */
+  const noTarget = goal.keyResults.length === 0 && (goal.childCount ?? 0) === 0;
+  const noPeriod = goal.reviewCycleId === null;
+  if (noTarget && noPeriod) return "No target and no appraisal period yet.";
+  if (noTarget) return "No target yet.";
+  if (noPeriod) return "No appraisal period yet.";
+  return null;
+}
+
+/**
  * Sending an objective to be agreed: the confirmation, and then what it did.
  *
  * It used to be a confirmation that closed on success with a toast reading
- * `"X" sent to be agreed`. What is worth saying was not in it: that the target
- * is now out of the sender's hands, how many people it went to, and that
- * agreement will freeze it. So the dialog stays after the write and turns into
- * that statement, the same way the resignation dialog does, and closes on
- * "Done".
+ * `"X" sent to be agreed`. What is worth saying was not in it: how many people
+ * it went to. So the dialog stays after the write and turns into that
+ * statement, the same way the resignation dialog does, and closes on "Done".
+ *
+ * ## The question is the title
+ *
+ * Sending is reversible, since it can be sent back, so the dialog asks the
+ * question and nothing else: no account of who agrees it and no restating of
+ * what agreement fixes. The one line it may carry is a fact about what the
+ * objective lacks (no target, no period), said neutrally and only when true.
  *
  * ## The case it does not celebrate
  *
@@ -63,6 +85,11 @@ export function SendForAgreementDialog({
   }
 
   if (!shown) return null;
+
+  /* One neutral line, and only when something is missing. It is a fact about
+     the objective and not a reason to stop: an objective with children under
+     it is measured by them, and a shared one need not belong to a period. */
+  const missing = missingWords(shown);
 
   const submit = async () => {
     setBusy(true);
@@ -131,40 +158,9 @@ export function SendForAgreementDialog({
             </Button>
           }
         />
-      ) : (
-        <div className="text-body-sm leading-relaxed text-body">
-          {/* What is worth confirming is not the sending — that can be sent
-              back. It is what agreement does, because the next press is
-              somebody else's and there is no dialog in front of that one: the
-              target freezes and a measure can no longer be added at all.
-              Anybody who still means to add one has to know before this click
-              rather than after theirs. */}
-          <p>
-            {shown.ownerName
-              ? `It goes to whoever agrees ${shown.ownerName}'s objectives, their manager, or somebody who can edit records. Nobody agrees their own.`
-              : "It goes to somebody who can agree it. Nobody agrees their own."}
-          </p>
-          <p className="mt-2">
-            Once it is agreed it is fixed: the title, the period and every
-            target&rsquo;s figure stop moving, and no new target can be added.
-            Progress still moves. Changing what was asked for after that takes a
-            recorded revision.
-          </p>
-          {shown.keyResults.length === 0 && (
-            <p className="mt-2 text-warning-text">
-              It has no target on it, so it will be scored on a figure somebody
-              states by hand. Add one first if it should be measured.
-            </p>
-          )}
-          {shown.reviewCycleId === null && (
-            <p className="mt-2 text-warning-text">
-              It is not in an appraisal period, so agreeing it counts towards
-              nobody&rsquo;s score, and the period is one of the fields that
-              freezes, so it cannot be added afterwards.
-            </p>
-          )}
-        </div>
-      )}
+      ) : missing ? (
+        <p className="text-body-sm text-muted">{missing}</p>
+      ) : null}
     </Modal>
   );
 }

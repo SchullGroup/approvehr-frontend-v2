@@ -20,6 +20,7 @@ import {
   useSections,
 } from "@/lib/store/performance";
 import { useProjectsGate } from "@/lib/store/project-session";
+import { balanceWeights } from "@/lib/performance/setup-weights";
 import {
   WIZARD_ORDER,
   choicesFrom,
@@ -55,6 +56,13 @@ import {
  * The wrapper reads the weights and hands them down, because the first render of
  * a component that reads them itself has no answer yet and would start from the
  * defaults, ignoring what the company saved.
+ *
+ * ## A total is never asked for
+ *
+ * The last weight is worked out from the others, so the weights always add up to
+ * 100 and Continue is never refused over a figure. See `balanceWeights`. The one
+ * thing that does hold Continue is a ticked part left with nothing to count for,
+ * which would be saved as no part at all.
  */
 
 const COMPETENCY_PARTS: ScoreComponent[] = [
@@ -143,12 +151,42 @@ function SetupWizardInner({
           : "competencies";
   const compSource = competencySteps[step - 2];
 
-  const percent = (source: ScoreComponent) =>
-    Math.max(0, Math.round(Number(weights[source]) || 0));
-  const sum = ticked.reduce((n, source) => n + percent(source), 0);
+  /* The last part is the remainder, so the total is 100 whatever is typed. */
+  const shares = balanceWeights(ticked, weights);
+  const percent = (source: ScoreComponent) => shares[source] ?? 0;
+  const lastSource = ticked[ticked.length - 1];
   /* A part that is ticked and has nothing to count for would be saved as no part
      at all (a new one is never created at 0%), which is not what ticking says. */
   const empty = firstWithoutShare(ticked, percent);
+
+  /* What a box shows: what was typed, unless the others have left less than
+     that (a total saved before the 100% rule), and then what it really counts
+     for. Typed text is kept as it is otherwise, so a box can be emptied to be
+     retyped. */
+  const shown = (source: ScoreComponent) => {
+    const typed = weights[source] ?? "";
+    return (Number(typed) || 0) === percent(source)
+      ? typed
+      : String(percent(source));
+  };
+
+  /* What was typed for a part, held to what the other typed parts have left. */
+  const changeWeight = (source: ScoreComponent, text: string) => {
+    setTouched(true);
+    const others = ticked
+      .slice(0, -1)
+      .filter((one) => one !== source)
+      .reduce((n, one) => n + percent(one), 0);
+    const allowed = 100 - others;
+    const typed = Number(text);
+    setWeights({
+      ...weights,
+      [source]:
+        text !== "" && Number.isFinite(typed) && typed > allowed
+          ? String(allowed)
+          : text,
+    });
+  };
 
   const toggle = (source: ScoreComponent) => {
     const next = picked.includes(source)
@@ -296,7 +334,7 @@ function SetupWizardInner({
         kind === "parts"
           ? ticked.length > 0
           : kind === "weights"
-            ? sum === 100 && empty === undefined
+            ? empty === undefined
             : true
       }
       busy={saving}
@@ -381,19 +419,30 @@ function SetupWizardInner({
                   {nameOf(source)}
                 </span>
                 <span className="w-28">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    suffix="%"
-                    aria-label={nameOf(source)}
-                    value={weights[source] ?? ""}
-                    onChange={(event) => {
-                      setTouched(true);
-                      setWeights({ ...weights, [source]: event.target.value });
-                    }}
-                  />
+                  {source === lastSource ? (
+                    /* The remainder: worked out, so it is shown and not typed. */
+                    <Input
+                      type="number"
+                      suffix="%"
+                      aria-label={nameOf(source)}
+                      value={percent(source)}
+                      readOnly
+                      className="bg-sunken"
+                    />
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      suffix="%"
+                      aria-label={nameOf(source)}
+                      value={shown(source)}
+                      onChange={(event) =>
+                        changeWeight(source, event.target.value)
+                      }
+                    />
+                  )}
                 </span>
               </label>
             ))}

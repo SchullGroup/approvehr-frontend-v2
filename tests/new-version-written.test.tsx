@@ -5,10 +5,9 @@ import { ToastProvider } from "@/components/ui";
 import type { ApiCompetency, NewVersionResult } from "@/lib/api/performance";
 import { WRITTEN_NEVER_COUNTS } from "@/lib/performance/answer-kind";
 import {
-  answeredAsWords,
   newVersionEffects,
   otherKinds,
-  startedLine,
+  startedToast,
 } from "@/lib/performance/new-version";
 
 /**
@@ -22,6 +21,10 @@ import {
  * line written for a pick (no choices to add, no draft period that stops asking),
  * and that a subsection that was written does not claim marks were made from it.
  */
+
+/** Text that holds the sentence, wherever in a longer one it sits. */
+const saysNeverCounts = (content: string) =>
+  content.includes(WRITTEN_NEVER_COUNTS);
 
 let newCompetencyVersion: Mock<(...args: unknown[]) => Promise<unknown>>;
 
@@ -188,27 +191,11 @@ describe("what happened", () => {
     notes: [],
   });
 
-  it("reads a written answer as a written answer", () => {
-    expect(answeredAsWords("TEXT")).toBe("a written answer");
-  });
-
-  it("names the new version as answered in words, and says what the old one kept, scores included", () => {
-    expect(startedLine(result(12), "TEXT")).toBe(
-      "Communication is now answered as a written answer. Communication (retired) keeps its 12 ratings and every score made from them.",
+  it("says what the old one kept, and claims no ratings that were not there", () => {
+    expect(startedToast(result(12)).detail).toBe(
+      "Communication (retired) keeps its 12 ratings.",
     );
-  });
-
-  it("does not claim scores for a retired subsection that was written", () => {
-    expect(startedLine(result(12), "RATING", "TEXT")).toBe(
-      "Communication is now answered as a level on a scale. Communication (retired) keeps its 12 ratings.",
-    );
-    expect(startedLine(result(1), "BOOLEAN", "TEXT")).toBe(
-      "Communication is now answered as a yes or no. Communication (retired) keeps its 1 rating.",
-    );
-  });
-
-  it("does not claim ratings that were not there", () => {
-    expect(startedLine(result(0), "TEXT", "RATING")).toContain(
+    expect(startedToast(result(0)).detail).toBe(
       "Communication (retired) is kept, retired.",
     );
   });
@@ -249,13 +236,12 @@ describe("the dialog", () => {
     expect(confirm()).toBeDisabled();
   });
 
-  it("says, on the page and before the button, that a written answer never counts, once", async () => {
+  it("says, behind the icon and before the button, that a written answer never counts, once", async () => {
     show();
-    expect(screen.queryByText(WRITTEN_NEVER_COUNTS)).not.toBeInTheDocument();
+    expect(screen.queryByText(saysNeverCounts)).not.toBeInTheDocument();
 
     await userEvent.selectOptions(kindSelect(), WORDS);
-    expect(screen.getAllByText(WRITTEN_NEVER_COUNTS)).toHaveLength(1);
-    expect(screen.getByText(WRITTEN_NEVER_COUNTS)).toBeVisible();
+    expect(screen.getAllByText(saysNeverCounts)).toHaveLength(1);
     expect(confirm()).toBeEnabled();
   });
 
@@ -263,7 +249,7 @@ describe("the dialog", () => {
     show();
     await userEvent.selectOptions(kindSelect(), WORDS);
     await userEvent.selectOptions(kindSelect(), "Yes or no");
-    expect(screen.queryByText(WRITTEN_NEVER_COUNTS)).not.toBeInTheDocument();
+    expect(screen.queryByText(saysNeverCounts)).not.toBeInTheDocument();
   });
 
   it("does not talk of choices or of periods that stop asking, for words", async () => {
@@ -294,24 +280,18 @@ describe("the dialog", () => {
     expect(onStarted).toHaveBeenCalledWith(result, "TEXT");
   });
 
-  it("says the new version is a written answer, with the API's own sentences, until Done", async () => {
+  it("says it was started in a toast, with the API's own sentences, and closes", async () => {
     const notes = ['"H2 2026 Appraisal" asks the new one.'];
     newCompetencyVersion.mockResolvedValue(started(notes));
-    show();
+    const { onClose } = show();
     await userEvent.selectOptions(kindSelect(), WORDS);
     await userEvent.click(confirm());
 
     expect(
-      await screen.findByRole("dialog", {
-        name: "Started a new version of Communication",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Communication is now answered as a written answer. Communication (retired) keeps its 12 ratings and every score made from them.",
-      ),
+      await screen.findByText("Started a new version of Communication"),
     ).toBeInTheDocument();
     expect(screen.getByText(notes[0] as string)).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("does not claim scores when the one it retired was written", async () => {
@@ -327,20 +307,18 @@ describe("the dialog", () => {
     show(competency({ answerKind: "TEXT", ratingCount: 3 }));
     await userEvent.selectOptions(kindSelect(), "A level on a scale, 1 to 5");
 
-    /* Before the press, in the lines under the picker. */
+    /* Before the press, in what is behind the icon. */
     expect(
       screen.getByText(
-        "Communication keeps its 3 ratings. It is marked retired and leaves this list.",
+        /Communication keeps its 3 ratings\. It is marked retired and leaves this list\./,
       ),
-    ).toBeVisible();
+    ).toBeInTheDocument();
     expect(screen.queryByText(/every score made from/)).not.toBeInTheDocument();
 
     await userEvent.click(confirm());
-    /* And after it, in the line that says what happened. */
+    /* And after it, in the toast that says what happened. */
     expect(
-      await screen.findByText(
-        "Communication is now answered as a level on a scale. Communication (retired) keeps its 3 ratings.",
-      ),
+      await screen.findByText("A period asks the new one."),
     ).toBeInTheDocument();
   });
 

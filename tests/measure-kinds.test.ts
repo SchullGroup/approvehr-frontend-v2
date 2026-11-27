@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { goalFacts } from "@/app/(app)/performance/goal-facts";
 import {
-  averageProgressHint,
   measureAddedSaid,
-  progressLabel,
-  readCountLine,
   readCountShort,
 } from "@/app/(app)/performance/objective-copy";
 import {
@@ -146,60 +143,6 @@ describe("what the face of a card says about its figure", () => {
   });
 });
 
-describe("the caption under the average", () => {
-  it("counts only the objectives the average was taken over", () => {
-    expect(averageProgressHint(5, 6)).toBe(
-      "across 5 of 6 objectives, the rest not read yet",
-    );
-  });
-
-  it("is the plain count when every objective contributes", () => {
-    expect(averageProgressHint(6, 6)).toBe("across 6 objectives");
-    expect(averageProgressHint(1, 1)).toBe("across 1 objective");
-  });
-
-  it("says nothing has been read, rather than leaving a bare dash, when none has", () => {
-    expect(averageProgressHint(0, 3)).toBe("nothing read yet");
-  });
-
-  it("adds nothing when nothing is tracked at all", () => {
-    expect(averageProgressHint(0, 0)).toBeNull();
-  });
-});
-
-describe("what is said under an objective's progress", () => {
-  it("says a bar with nothing read is not a result", () => {
-    expect(readCountLine({ read: 0, of: 3 })).toBe(
-      "0 of 3 targets read. Nothing is counted yet, so the figure above is not a result.",
-    );
-  });
-
-  it("does not say '0 of 1 targets' for an objective with one target", () => {
-    expect(readCountLine({ read: 0, of: 1 })).toBe(
-      "Its target has not been read. Nothing is counted yet, so the figure above is not a result.",
-    );
-  });
-
-  it("says the unread ones are left out, when some are read", () => {
-    expect(readCountLine({ read: 1, of: 3 })).toBe(
-      "1 of 3 targets read. The others are left out of the figure above until somebody enters a reading.",
-    );
-  });
-
-  it("labels the bar by what it is made of, not by how many targets there are", () => {
-    expect(progressLabel(0, null)).toBe("Progress, entered by hand");
-    expect(progressLabel(1, null)).toBe("Progress, from 1 target");
-    expect(progressLabel(3, null)).toBe("Progress, from 3 targets");
-    /* "From 3 measures" would be false while two of them are left out. */
-    expect(progressLabel(3, { read: 1, of: 3 })).toBe(
-      "Progress, from the targets read so far",
-    );
-    expect(progressLabel(3, { read: 0, of: 3 })).toBe(
-      "Progress, nothing read yet",
-    );
-  });
-});
-
 describe("the toast when a target is added", () => {
   const number = {
     label: "Customers",
@@ -209,7 +152,7 @@ describe("the toast when a target is added", () => {
     lowerIsBetter: false,
   };
 
-  it("says a done-or-not-done target counts as not done until it is confirmed", () => {
+  it("names the done-or-not-done target and the objective, and says no more", () => {
     const said = measureAddedSaid(
       {
         label: "Both engineers hired",
@@ -218,14 +161,12 @@ describe("the toast when a target is added", () => {
         targetValue: "1",
         lowerIsBetter: false,
         kind: "DONE",
-        lastReadAt: "2026-10-23T09:00:00.000Z",
       },
       "Grow the team",
     );
-    expect(said.title).toBe('"Both engineers hired" added to "Grow the team"');
-    expect(said.detail).toBe(
-      "Done or not done. It counts as not done until it is confirmed.",
-    );
+    expect(said).toEqual({
+      title: '"Both engineers hired" added to "Grow the team"',
+    });
   });
 
   it('never reads the 0 and 1 the server keeps for it as "0 to 1"', () => {
@@ -236,32 +177,23 @@ describe("the toast when a target is added", () => {
       targetValue: "1",
       kind: "DONE",
     });
-    expect(said.detail).not.toMatch(/0 to 1/);
+    expect(said.detail).toBeUndefined();
   });
 
-  it("says a number added with no reading is left out until it has one", () => {
-    const said = measureAddedSaid({
-      ...number,
-      kind: "NUMBER",
-      lastReadAt: null,
-    });
-    expect(said.detail).toBe(
-      "1,000 customers to 5,000 customers. No reading yet, so it is left out of progress until there is one.",
-    );
-  });
-
-  it("carries the figures alone for a number that was read", () => {
-    const said = measureAddedSaid({
-      ...number,
-      kind: "NUMBER",
-      lastReadAt: "2026-10-23T09:00:00.000Z",
-    });
+  it("carries the figures alone for a number, and says nothing of whether it was read", () => {
+    const said = measureAddedSaid({ ...number, kind: "NUMBER" });
     expect(said.detail).toBe("1,000 customers to 5,000 customers.");
+    expect(said.detail).not.toMatch(/reading|left out/i);
   });
 
-  it("makes no claim about a reading on a server that does not say", () => {
-    expect(measureAddedSaid(number).detail).toBe(
-      "1,000 customers to 5,000 customers.",
-    );
+  it("says a number is counting down", () => {
+    const said = measureAddedSaid({
+      ...number,
+      startValue: "40",
+      targetValue: "20",
+      unit: "days",
+      lowerIsBetter: true,
+    });
+    expect(said.detail).toBe("40 days to 20 days, counting down.");
   });
 });

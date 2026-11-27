@@ -117,11 +117,14 @@ const mount = () => {
 };
 
 const pickPerson = (id = "e-chidi") =>
-  userEvent.selectOptions(screen.getByLabelText(/Employee/), id);
+  userEvent.selectOptions(screen.getByLabelText(/Person/), id);
 const pickSkill = (name: string) =>
-  userEvent.selectOptions(screen.getByLabelText(/Which competency/), name);
+  userEvent.selectOptions(screen.getByLabelText(/Competency/), name);
 const save = () =>
-  userEvent.click(screen.getByRole("button", { name: "Save it" }));
+  userEvent.click(screen.getByRole("button", { name: "Save" }));
+/* The target, the period and the note sit behind one plain "More" link. */
+const more = () =>
+  userEvent.click(screen.getByRole("button", { name: "More" }));
 const sent = (onSave: ReturnType<typeof mount>["onSave"]) => ({
   skill: onSave.mock.calls[0]?.[0],
   body: onSave.mock.calls[0]?.[1],
@@ -132,11 +135,13 @@ beforeEach(() => {
 });
 
 describe("a subsection that is rated", () => {
-  it("asks for a level and a target, as it always did", async () => {
+  it("asks for a level, and keeps the target behind More", async () => {
     mount();
     await pickSkill("Punctuality");
-    expect(screen.getByLabelText(/Current level/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Target level/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Level/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Target/)).not.toBeInTheDocument();
+    await more();
+    expect(screen.getByLabelText(/Target/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Answer")).not.toBeInTheDocument();
   });
 
@@ -145,7 +150,8 @@ describe("a subsection that is rated", () => {
     await pickPerson();
     await pickSkill("Punctuality");
     await userEvent.click(screen.getByRole("radio", { name: /^Rating 4,/ }));
-    await userEvent.selectOptions(screen.getByLabelText(/Target level/), "5");
+    await more();
+    await userEvent.selectOptions(screen.getByLabelText(/Target/), "5");
     await save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -169,7 +175,7 @@ describe("a subsection that is rated", () => {
   it("offers the steps of that subsection's own scale", async () => {
     mount();
     await pickSkill("Delivery");
-    const steps = within(screen.getByLabelText(/Current level/))
+    const steps = within(screen.getByLabelText(/Level/))
       .getAllByRole("radio")
       .map((one) => one.getAttribute("aria-label"));
     expect(steps).toContain("Rating 10, 10 of 10");
@@ -178,8 +184,8 @@ describe("a subsection that is rated", () => {
 
   it("is what the form shows before any subsection is chosen", () => {
     mount();
-    expect(screen.getByLabelText(/Current level/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Target level/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Level/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Target/)).not.toBeInTheDocument();
   });
 
   it("is told a level is needed, in the sentence it always was", async () => {
@@ -205,8 +211,8 @@ describe("a subsection that is a yes or a no", () => {
         .getAllByRole("option")
         .map((one) => one.textContent),
     ).toEqual(["Pick yes or no", "Yes", "No"]);
-    expect(screen.queryByLabelText(/Current level/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Target level/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Level/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Target/)).not.toBeInTheDocument();
   });
 
   it("sends a yes as true and nothing else of the three", async () => {
@@ -261,8 +267,8 @@ describe("a subsection answered by picking from a list", () => {
         .getAllByRole("option")
         .map((one) => one.textContent),
     ).toEqual(["Pick a choice", "Delighted", "Satisfied"]);
-    expect(screen.queryByLabelText(/Current level/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Target level/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Level/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Target/)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/100%|60%/);
   });
 
@@ -291,21 +297,13 @@ describe("a subsection answered by picking from a list", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("says nothing can be recorded, and does not offer to save, when it has no choices yet", async () => {
-    const { onSave } = mount();
-    await pickPerson();
-    await pickSkill("Site visits");
-
-    expect(
-      screen.getByText(
-        /Site visits is answered by picking from a list, and the list has no choices yet/,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Answer/)).not.toBeInTheDocument();
-    const button = screen.getByRole("button", { name: "Save it" });
-    expect(button).toBeDisabled();
-    await userEvent.click(button);
-    expect(onSave).not.toHaveBeenCalled();
+  it("does not list one that has no choices yet, since nothing can be recorded on it", () => {
+    mount();
+    const names = within(screen.getByLabelText(/Competency/))
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(names).not.toContain("Site visits");
+    expect(names).toContain("Customer feedback");
   });
 });
 
@@ -315,7 +313,8 @@ describe("changing the skill", () => {
     await pickPerson();
     await pickSkill("Punctuality");
     await userEvent.click(screen.getByRole("radio", { name: /^Rating 4,/ }));
-    await userEvent.selectOptions(screen.getByLabelText(/Target level/), "5");
+    await more();
+    await userEvent.selectOptions(screen.getByLabelText(/Target/), "5");
 
     await pickSkill("Follows safety procedures");
     await userEvent.selectOptions(screen.getByLabelText(/Answer/), "Yes");
@@ -364,20 +363,19 @@ describe("changing the skill", () => {
   });
 });
 
-describe("the appraisal period", () => {
+describe("the period", () => {
   beforeEach(() => {
     cycles = [{ id: "p-1", name: "H2 2026 Appraisal", stage: "SELF" }];
   });
 
-  it("is carried with the answer, whatever the kind", async () => {
+  /* UAT 23 Nov, U93 / PERF-13: it used to start on "Not part of an appraisal
+     period", so a level recorded from here counted towards nobody's mark. */
+  it("is carried with the answer, whatever the kind, without being asked for", async () => {
     const { onSave } = mount();
     await pickPerson();
     await pickSkill("Follows safety procedures");
     await userEvent.selectOptions(screen.getByLabelText(/Answer/), "Yes");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "p-1",
-    );
+    expect(screen.queryByLabelText(/Period/)).not.toBeInTheDocument();
     await save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
@@ -388,57 +386,64 @@ describe("the appraisal period", () => {
     });
   });
 
-  /* UAT 23 Nov, U93 / PERF-13: it used to start on "Not part of an appraisal
-     period", so a level recorded from here counted towards nobody's mark. */
-  it("starts in the running period", () => {
+  it("starts in the running period, behind More", async () => {
     mount();
-    expect(screen.getByLabelText(/Appraisal period/)).toHaveValue("p-1");
+    await more();
+    expect(screen.getByLabelText(/Period/)).toHaveValue("p-1");
   });
 
-  it("says, with none chosen, that a level fills the gap table", async () => {
+  it("has no way to leave the period out", async () => {
     mount();
+    await more();
+    const options = within(screen.getByLabelText(/Period/))
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual(["H2 2026 Appraisal"]);
+  });
+
+  it("is not offered when no period is open", async () => {
+    cycles = [{ id: "p-0", name: "H1 2026 Appraisal", stage: "PUBLISHED" }];
+    const { onSave } = mount();
+    await more();
+    expect(screen.queryByLabelText(/Period/)).not.toBeInTheDocument();
+    await pickPerson();
     await pickSkill("Punctuality");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "",
-    );
-    expect(
-      screen.getByText(/it fills the competency gap table/),
-    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /^Rating 3,/ }));
+    await save();
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(sent(onSave).body).toEqual({ employeeId: "e-chidi", level: 3 });
   });
 
-  it("does not say that for a yes or no or a pick, which are in neither", async () => {
-    mount();
+  it("is asked in the open, and has to be picked, when several are open and none is current", async () => {
+    cycles = [
+      { id: "p-1", name: "H2 2026 Appraisal", stage: "DRAFT" },
+      { id: "p-2", name: "H1 2027 Appraisal", stage: "DRAFT" },
+    ];
+    const { onSave } = mount();
+    await pickPerson();
     await pickSkill("Follows safety procedures");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "",
-    );
-    expect(
-      screen.queryByText(/it fills the competency gap table/),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /does not appear in the competency gap table, which is about levels/,
-      ),
-    ).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText(/Answer/), "Yes");
+    expect(screen.getByLabelText(/Period/)).toHaveValue("");
 
-    await pickSkill("Customer feedback");
-    expect(
-      screen.queryByText(/it fills the competency gap table/),
-    ).not.toBeInTheDocument();
+    await save();
+    expect(await screen.findByText("Pick the period.")).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+
+    await userEvent.selectOptions(screen.getByLabelText(/Period/), "p-2");
+    await save();
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(sent(onSave).body).toMatchObject({ reviewCycleId: "p-2" });
   });
 
-  it("says, once one is chosen, that it counts towards the score, for every kind", async () => {
+  it("says nothing about how it counts, whichever kind", async () => {
     mount();
     await pickSkill("Customer feedback");
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Appraisal period/),
-      "p-1",
-    );
+    await more();
     expect(
-      screen.getByText(/Counts towards this person's score for that period/),
-    ).toBeInTheDocument();
+      screen.queryByText(
+        /counts towards|fills the competency gap table|not affect any/i,
+      ),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -448,10 +453,8 @@ describe("the note", () => {
     await pickPerson();
     await pickSkill("Follows safety procedures");
     await userEvent.selectOptions(screen.getByLabelText(/Answer/), "No");
-    await userEvent.type(
-      screen.getByLabelText(/Anything to add/),
-      "Missed the briefing",
-    );
+    await more();
+    await userEvent.type(screen.getByLabelText(/Note/), "Missed the briefing");
     await save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());

@@ -6,10 +6,12 @@ import type { ReviewCycleStage } from "@/lib/api/performance";
  * ## What a stage move actually does
  *
  * Less than its buttons implied. Answering a review is allowed in **any running
- * stage** (`assertMayAnswer` on the API), so "Open manager reviews" opened
- * nothing: managers could already write. And "Check scores ... Nothing more is
- * asked of anyone" was false while reviews were still unsent, because those can
- * still be sent until the results are shared.
+ * stage** (`assertMayAnswer` on the API), so a button that said "Open manager
+ * reviews" opened nothing: managers could already write. And the toast after the
+ * move into the score review ("Nothing more is asked of anyone") was false while
+ * reviews were still unsent, because those can still be sent until the results
+ * are shared. The buttons are "Move to manager review" and "Move to score review"
+ * for that reason: they name the act, and they ask first.
  *
  * What a move does do: it changes the stage everybody sees, it **stops new
  * objectives being added or agreed** for the period, and it cannot be undone
@@ -52,12 +54,12 @@ export const STAGE_MOVE: Record<StageMoveTarget, StageMoveWords> = {
     },
   },
   CALIBRATION: {
-    button: "Move to checking scores",
-    title: "Move to checking scores?",
+    button: "Move to score review",
+    title: "Move to score review?",
     confirm: "Move it",
     body: `Reviews not yet sent can still be sent, and nothing is shared with anybody until you share the results. ${LASTS}`,
     done: {
-      title: (period) => `${period} moved to checking scores`,
+      title: (period) => `${period} moved to score review`,
       detail:
         "Reviews not yet sent can still be sent. Nothing is shared until you share the results.",
     },

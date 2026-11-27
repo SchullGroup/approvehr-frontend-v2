@@ -1,47 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  ListChecks,
-  Grid3x3,
-  Pencil,
-  Plus,
-  Play,
-  UserX,
-  Users,
-} from "lucide-react";
+import { Pencil, Play, UserX } from "lucide-react";
 import { PAGE_ICONS } from "@/components/portal/nav-icons";
 
-const WhoAppraisesIcon = PAGE_ICONS["/performance/appraisers"]!;
 const FairnessIcon = PAGE_ICONS["/performance/fairness"]!;
 import {
-  Badge,
   Button,
   IconButton,
-  ButtonLink,
   Card,
   CardBody,
-  CardHeader,
   Callout,
   Checkbox,
   ConfirmDialog,
   EmptyState,
-  Field,
-  Modal,
   RowActions,
   type RowAction,
-  Select,
-  Stat,
+  type RowActionItem,
   TBody,
   TD,
   TH,
   THead,
   TR,
   TableWrap,
-  Textarea,
   TextLink,
   useToast,
   Tabs,
@@ -52,7 +35,10 @@ import {
   NextStep,
   ReadyChip,
   type ReadyStep,
+  type StepAction,
 } from "@/components/performance/next-step";
+import { departmentTone } from "@/components/ui/department-card";
+import { StageProgress } from "@/components/performance/stage-progress";
 import { fallbackCountLine } from "@/lib/performance/appraiser-fill";
 import { periodWeightsLine } from "@/lib/performance/score-wording";
 import {
@@ -68,42 +54,39 @@ import {
   dayLabel,
   outOf5FromBp,
   outOf5Label,
-  ratingWordsFrom,
   scoreLabel,
   scoreWords,
   visibleComponents,
   weightLabel,
   type ApiComponentScore,
   type ApiCycle,
-  type ApiCycleParticipants,
   type ApiRevisionRequest,
   type ApiScoreRegister,
   type ApiScoreRow,
 } from "@/lib/api/performance";
-import { useCan } from "@/lib/permissions";
+import { useCan, usePermissions } from "@/lib/permissions";
 import {
   useCycleMutations,
-  useCycleQuestions,
   useCycleRegister,
   useKpis,
-  useRatingScale,
   useReviewFlags,
 } from "@/lib/store/performance";
 import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
+import { RevisionDialog } from "@/components/performance/revision-dialog";
 import { periodWords } from "../../review-parts";
 import { PeriodPeople } from "./period-people";
+import { QuestionsPanel } from "./period-questions";
 import { QuestionsDialog } from "../../period-dialogs";
-import { AskPeersButton, AskPeersDialog } from "./ask-peers";
+import { AskPeersDialog } from "./ask-peers";
 import {
   anybodyToNudge,
   nudgeAudience,
-  nudgeMessage,
   nudgeTitle,
   peerLine,
   TOLD_WHERE,
 } from "./nudge";
 import { CalibrationAudit } from "./fairness/calibration-audit";
-import { publishLock } from "./fairness/fairness-status";
+import { publishLock, undecidedScores } from "./fairness/publish-lock";
 import { flaggedCount } from "./fairness/people-to-review";
 import {
   PeriodDatesCard,
@@ -166,7 +149,7 @@ import { STAGE_AFTER, moveWordsFor } from "./stage-move";
  * "Scored nought" and "nothing was recorded" are different claims about a person,
  * and only one of them is ever true here.
  */
-type PeriodTabId = "overview" | "people" | "questions" | "marks" | "settings";
+type PeriodTabId = "people" | "questions" | "marks" | "settings";
 
 /** A quiet icon button that goes somewhere. The name is the tooltip and the label. */
 function IconLink({
@@ -206,6 +189,7 @@ export function PeriodScreen({
   initialTab?: "questions";
 }) {
   const router = useRouter();
+  const { loading: accessLoading } = usePermissions();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
   const canSeeFairness = useCan("VIEW_FAIRNESS");
@@ -218,6 +202,7 @@ export function PeriodScreen({
   const [confirmingNudge, setConfirmingNudge] = useState(false);
   const [starting, setStarting] = useState(false);
   const [confirmingStart, setConfirmingStart] = useState(false);
+  const [confirmingAdvance, setConfirmingAdvance] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
@@ -227,7 +212,6 @@ export function PeriodScreen({
     initialTab ?? null,
   );
   const [advancing, setAdvancing] = useState(false);
-  const [confirmingAdvance, setConfirmingAdvance] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noObjectives, setNoObjectives] = useState<number>(0);
@@ -248,13 +232,48 @@ export function PeriodScreen({
   const draft = period?.stage === "DRAFT";
   const published = period?.stage === "PUBLISHED";
   const running = period !== null && !draft && !published;
-  /* A draft has nothing to measure yet, so it opens on its questions for
-     whoever may write them. The questions are read with MANAGE_SETTINGS only
-     (`GET .../questions`), so nobody else is offered the tab (UAT 23 Nov, L11):
-     it would load into a refusal. */
-  const questionsTab = draft && canManage;
-  const periodTab: PeriodTabId =
-    chosenTab ?? (questionsTab ? "questions" : "overview");
+
+  /* The page covers the whole company, and somebody who may not see that has
+     nothing here to read: their own review and objectives are on their
+     Performance page. Not while who they are is still being worked out, which
+     would send a reader who can see it away on a hard refresh. */
+  const sendAway = !accessLoading && !canSeeCompany;
+  useEffect(() => {
+    if (sendAway) router.replace("/performance");
+  }, [sendAway, router]);
+
+  /* The tabs, and only the ones that have something in them (UAT 23 Nov, L11 for
+     the questions: they are read with MANAGE_SETTINGS only, so nobody else is
+     offered the tab). People is for a started period, Scores too; the questions
+     of a period that has started and has none are not worth a tab, and Settings
+     holds nothing that can change once the period is published. */
+  const tabs: { id: PeriodTabId; label: string }[] = [
+    ...(!draft && canSeeCompany && detail.available
+      ? [{ id: "people" as const, label: "People" }]
+      : []),
+    ...(canManage && (draft || (period?.questionCount ?? 0) > 0)
+      ? [{ id: "questions" as const, label: "Questions" }]
+      : []),
+    ...(draft ? [] : [{ id: "marks" as const, label: "Scores" }]),
+    ...(canManage && !published
+      ? [{ id: "settings" as const, label: "Settings" }]
+      : []),
+  ];
+  /* A draft has nothing to measure yet, so it opens on its questions. A running
+     period opens on its people, and a published one on its scores. */
+  const defaultTab: PeriodTabId | undefined = (
+    draft
+      ? ["questions", "settings"]
+      : published
+        ? ["marks"]
+        : ["people", "marks"]
+  )
+    .map((id) => tabs.find((tab) => tab.id === id)?.id)
+    .find((id) => id !== undefined);
+  const periodTab: PeriodTabId | undefined =
+    chosenTab !== null && tabs.some((tab) => tab.id === chosenTab)
+      ? chosenTab
+      : defaultTab;
   const flagged = review.flags ? flaggedCount(review.flags) : 0;
 
   /* Only while it is actually running: a draft has not started and a
@@ -263,6 +282,12 @@ export function PeriodScreen({
   const nextStage = running && period ? STAGE_AFTER[period.stage] : undefined;
   const moveWords = running && period ? moveWordsFor(period.stage) : null;
   const lock = publishLock(review.flags, period?.stage ?? null);
+  /* Whether the fairness check has been read, for somebody who may read it: until
+     it has, whether anything is waiting for a decision is not known, and Publish
+     would be offered and then refused. */
+  const fairnessKnown =
+    !canSeeFairness || !review.loading || review.flags !== null;
+  const undecided = undecidedScores(review.flags, period?.stage ?? null);
 
   const failed = (error: unknown) => {
     toast.push({
@@ -318,11 +343,7 @@ export function PeriodScreen({
     setDeleting(true);
     try {
       await periods.deleteCycle(cycleId);
-      toast.push({
-        title: `${period.name} deleted`,
-        tone: "success",
-        detail: "Nobody had been sent anything, so there is nothing to undo.",
-      });
+      toast.push({ title: `${period.name} deleted`, tone: "success" });
       router.push("/performance");
     } catch (error) {
       failed(error);
@@ -399,7 +420,7 @@ export function PeriodScreen({
         title:
           result.outstanding === 0
             ? "Nobody is late"
-            : `Nudged ${result.reminded} ${result.reminded === 1 ? "person" : "people"}`,
+            : `Reminded ${result.reminded} ${result.reminded === 1 ? "person" : "people"}`,
         tone: "success",
         /* The count that does not add up is the useful one: somebody with no
            sign-in cannot be chased in the app, and saying so beats a number
@@ -492,11 +513,53 @@ export function PeriodScreen({
       : [];
   const stillToDo = readySteps.some((step) => !step.done && !step.optional);
 
+  /* Who has not sent what they owe, and what that leaves to do. `null` while who
+     is outstanding is not known to this reader. */
+  const waiting = nudging ? nudging.names.length : null;
+  /* The move out of this stage, as one action: the next stage, or publishing from
+     calibration once no flagged score is waiting for a decision. */
+  const moveOn: StepAction | null =
+    canManage && running && period
+      ? nextStage && moveWords
+        ? {
+            label: moveWords.button,
+            onClick: () => setConfirmingAdvance(true),
+          }
+        : period.stage === "CALIBRATION" && lock === null && fairnessKnown
+          ? { label: "Publish", onClick: () => setPublishing(true) }
+          : null
+      : null;
+  const remindable =
+    canManage &&
+    running &&
+    nudging !== null &&
+    nudging.names.length > 0 &&
+    anybodyToNudge(nudging);
+  /* The move out of the stage is the next step only once nobody owes anything. While
+     somebody does, the reminder is, and the move is in the menu: it stays reachable
+     for the person who has to close a stage with somebody on leave. It is also
+     here while who owes what is not known, so it is never out of reach. */
+  const moveInMenu =
+    (remindable || nudging === null) && moveOn !== null ? moveOn : null;
+
+  if (sendAway) return null;
+
   return (
     <>
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title={period?.name ?? "Appraisal period"}
+        meta={
+          canManage && period && !published ? (
+            <IconButton
+              label="Rename this period"
+              className="size-8 rounded-md"
+              onClick={() => setRenaming(true)}
+            >
+              <Pencil aria-hidden="true" className="size-4" />
+            </IconButton>
+          ) : undefined
+        }
         subline={
           period ? (
             <>
@@ -516,7 +579,6 @@ export function PeriodScreen({
         }
         action={
           <>
-            {/* One main button, and it is whatever this period needs next. */}
             {/* Not ready (no questions yet) is the Get ready checklist's next
                 step, not a button that refuses. */}
             {canManage && draft && period && (
@@ -533,76 +595,70 @@ export function PeriodScreen({
                 </Button>
               </>
             )}
-            {canManage && nextStage && moveWords && (
-              <Button size="sm" onClick={() => setConfirmingAdvance(true)}>
-                <ArrowRight aria-hidden="true" className="size-3.5" />
-                {moveWords.button}
-              </Button>
-            )}
-            {canManage && period?.stage === "CALIBRATION" && (
-              <Button
-                size="sm"
-                disabled={lock !== null}
-                title={lock ?? undefined}
-                onClick={() => setPublishing(true)}
-              >
-                Share results
-              </Button>
-            )}
-            {/* The rest are icons: places this period links to, not things to do
-                to it. Who appraises whom and the fairness check keep their own
-                pages in the sidebar; these open them on this period. */}
-            {canSeeCompany && (
-              <IconLink
-                href={`/performance/appraisers?period=${cycleId}`}
-                label="Who appraises whom"
-              >
-                <WhoAppraisesIcon aria-hidden="true" className="size-4" />
-              </IconLink>
-            )}
-            {canSeeFairness && !draft && (
+            {/* The fairness check, as an icon, only while something is flagged:
+                it carries the count. With nothing flagged it is a line in the
+                menu with the other places this period links to. */}
+            {canSeeFairness && !draft && flagged > 0 && (
               <IconLink
                 href={`/performance/periods/${cycleId}/fairness`}
-                label={
-                  flagged > 0
-                    ? `Fairness check, ${String(flagged)} flagged`
-                    : "Fairness check"
-                }
+                label={`Fairness check, ${String(flagged)} flagged`}
                 badge={flagged}
               >
                 <FairnessIcon aria-hidden="true" className="size-4" />
               </IconLink>
             )}
-            {canSeeCompany && !draft && (
-              <IconLink
-                href={`/performance/periods/${cycleId}/nine-box`}
-                label="Talent map"
-              >
-                <Grid3x3 aria-hidden="true" className="size-4" />
-              </IconLink>
-            )}
             <RowActions
               label="More for this period"
-              items={[
-                ...(canSeeCompany && !draft
-                  ? [
-                      {
-                        label: "Download report",
-                        href: `/performance/periods/${cycleId}/report`,
-                      },
-                    ]
-                  : []),
-                ...(canManage && draft
-                  ? [
-                      "separator" as const,
-                      {
-                        label: "Delete period",
-                        tone: "danger" as const,
-                        onSelect: () => setConfirmingDelete(true),
-                      },
-                    ]
-                  : []),
-              ]}
+              items={
+                [
+                  ...(moveInMenu
+                    ? [
+                        {
+                          label: moveInMenu.label,
+                          onSelect: () => moveInMenu.onClick?.(),
+                        },
+                      ]
+                    : []),
+                  ...(canSeeCompany
+                    ? [
+                        {
+                          label: "Who appraises whom",
+                          href: `/performance/appraisers?period=${cycleId}`,
+                        },
+                      ]
+                    : []),
+                  ...(canSeeCompany && !draft
+                    ? [
+                        {
+                          label: "Talent map",
+                          href: `/performance/periods/${cycleId}/nine-box`,
+                        },
+                        {
+                          label: "Report",
+                          href: `/performance/periods/${cycleId}/report`,
+                        },
+                      ]
+                    : []),
+                  ...(canSeeFairness && !draft && flagged === 0
+                    ? [
+                        {
+                          label: "Fairness check",
+                          href: `/performance/periods/${cycleId}/fairness`,
+                        },
+                      ]
+                    : []),
+                  ...(canManage && draft
+                    ? [
+                        "separator" as const,
+                        {
+                          label: "Delete period",
+                          tone: "danger" as const,
+                          onSelect: () => setConfirmingDelete(true),
+                        },
+                      ]
+                    : []),
+                ] satisfies RowActionItem[]
+              }
             />
           </>
         }
@@ -610,56 +666,36 @@ export function PeriodScreen({
 
       <PageBody>
         <div className="flex flex-col gap-6">
-          {/* A line each. These were two tinted panels, each with a heading, a
-              paragraph explaining the consequence, an action and a Dismiss —
-              stacked, immediately after pressing Start, on the screen that
-              fixes both. The names are what somebody needs; the essay about
-              how a missing part is carried by the rest of the score belongs
-              where the score is explained, not over the top of a list of
-              people. See `NoticeLine`.
-
-              `withoutAppraiser` is a list of names and not rows (see
-              `activateCycle`), so this cannot open the dialog on one person
-              directly. Scrolling to the card that can is the honest
-              affordance rather than a control that guesses. */}
-          {/* One next step, never a stack of warnings (`docs/guided-flows.md`). */}
-          {canManage && running && period && (
-            <WhatIsNext
-              waiting={nudging ? nudging.names.length : 0}
-              nextLabel={moveWords ? moveWords.button : null}
-              noObjectives={noObjectives}
-              startedWith={startedWith}
-              onAdvance={() => setConfirmingAdvance(true)}
-              advancing={advancing}
-            />
+          {/* How far along it is, and the one thing to do about it. The bar is the
+              same one the Periods list draws; the step is a reminder while
+              somebody owes a form, then the move to the next stage. */}
+          {canSeeCompany && period && !draft && (
+            <div className="flex flex-col gap-4">
+              <StageProgress
+                stage={period.stage}
+                tone={departmentTone(period.name)}
+                label={period.name}
+              />
+              {canManage && running && (
+                <PeriodNextStep
+                  waiting={remindable ? (waiting ?? 0) : 0}
+                  known={waiting !== null}
+                  undecided={undecided}
+                  fairnessHref={
+                    canSeeFairness
+                      ? `/performance/periods/${cycleId}/fairness?tab=people`
+                      : null
+                  }
+                  moveOn={moveOn}
+                  onRemind={() => setConfirmingNudge(true)}
+                  noObjectives={noObjectives}
+                  startedWith={startedWith}
+                />
+              )}
+            </div>
           )}
 
-          {/* Not a permission problem and not an outage. Two different sentences,
-              because sending somebody to look for the wrong one wastes an
-              afternoon. */}
-          {!canSeeCompany ? (
-            /* An empty state, not a notice on an empty page.
-               ------------------------------------------------
-               A `Callout` on an otherwise blank screen reads as a warning about
-               something that went wrong. Nothing went wrong: this page is a
-               company-wide aggregate and this reader is not the audience for
-               it. An empty state with an icon and a way onward is what a screen
-               that is simply not for you should look like — and it sends them
-               to the one that is. */
-            <Card>
-              <EmptyState
-                plain
-                icon={<Users aria-hidden="true" />}
-                title="This page covers the whole company"
-                description="Your own review and objectives are on your Performance page."
-                action={
-                  <ButtonLink href="/performance" variant="accent" size="sm">
-                    Go to your performance
-                  </ButtonLink>
-                }
-              />
-            </Card>
-          ) : DEMO_ENABLED && !detail.available ? (
+          {DEMO_ENABLED && canSeeCompany && !detail.available ? (
             <Callout tone="warning" title="Demo data, this browser only">
               <p>{detail.refusal}</p>
             </Callout>
@@ -683,266 +719,196 @@ export function PeriodScreen({
             />
           )}
 
-          <Tabs
-            items={[
-              ...(questionsTab ? [] : [{ id: "overview", label: "Overview" }]),
-              ...(!draft && canSeeCompany && detail.available
-                ? [{ id: "people", label: "People" }]
-                : []),
-              ...(canManage ? [{ id: "questions", label: "Questions" }] : []),
-              ...(draft ? [] : [{ id: "marks", label: "Scores" }]),
-              ...(canManage ? [{ id: "settings", label: "Settings" }] : []),
-            ]}
-            value={periodTab}
-            onChange={(next) => setPeriodTab(next as PeriodTabId)}
-          >
-            {periodTab === "overview" && (
-              <div className="flex flex-col gap-6">
+          {tabs.length > 0 && periodTab !== undefined && (
+            <Tabs
+              items={tabs}
+              value={periodTab}
+              onChange={(next) => setPeriodTab(next as PeriodTabId)}
+            >
+              {periodTab === "people" && !draft && (
                 <LoadState
                   loading={detail.loading}
                   error={null}
-                  subject="the period"
+                  subject="the people"
                   skeleton="list"
                 >
-                  {detail.available && !detail.error && (
-                    <>
-                      <ProgressStats
-                        participants={detail.participants}
-                        published={period?.stage === "PUBLISHED"}
-                        marked={detail.register?.rows.length ?? null}
-                      />
-                      <MultiAppraiserReviews
-                        participants={detail.participants}
-                      />
-                    </>
+                  {detail.participants && (
+                    <PeriodPeople rows={detail.participants.rows} />
                   )}
                 </LoadState>
-              </div>
-            )}
-            {periodTab === "people" && !draft && (
-              <LoadState
-                loading={detail.loading}
-                error={null}
-                subject="the people"
-                skeleton="list"
-              >
-                {detail.participants && (
-                  <PeriodPeople
-                    rows={detail.participants.rows}
-                    onRemind={
-                      canManage &&
-                      running &&
-                      (nudging === null || anybodyToNudge(nudging))
-                        ? () => setConfirmingNudge(true)
-                        : null
-                    }
-                  />
-                )}
-              </LoadState>
-            )}
-            {periodTab === "questions" && period && canManage && (
-              <QuestionsPanel
-                cycleId={cycleId}
-                editable={canManage && period.stage !== "PUBLISHED"}
-                draft={draft}
-                onEdit={() => setQuestionsOpen(true)}
-              />
-            )}
-            {periodTab === "marks" &&
-              detail.available &&
-              !detail.loading &&
-              !detail.error && (
-                <div className="flex flex-col gap-6">
-                  <Register
-                    register={detail.register}
-                    cycleId={cycleId}
-                    canAskPeers={running && canSeeCompany}
-                    canCalibrate={period?.stage === "CALIBRATION" && canManage}
-                    canRequestRevision={running && canManage}
-                    revisionRequests={detail.revisionRequests}
-                    revisionsUnavailable={detail.revisionsUnavailable}
-                    onAsked={() => detail.reload()}
-                  />
-                  {(period?.stage === "CALIBRATION" ||
-                    period?.stage === "PUBLISHED") && (
-                    <CalibrationAudit cycleId={cycleId} />
-                  )}
-                </div>
               )}
-            {periodTab === "settings" && period && canManage && (
-              <PeriodSettings
-                period={period}
-                draft={draft}
-                onRename={() => setRenaming(true)}
-                onChanged={() => detail.reload()}
-                onDelete={() => setConfirmingDelete(true)}
-              />
-            )}
-          </Tabs>
+              {periodTab === "questions" && period && canManage && (
+                <QuestionsPanel
+                  cycleId={cycleId}
+                  editable={canManage && period.stage !== "PUBLISHED"}
+                  draft={draft}
+                  onEdit={() => setQuestionsOpen(true)}
+                  onChanged={() => detail.reload()}
+                />
+              )}
+              {periodTab === "marks" &&
+                detail.available &&
+                !detail.loading &&
+                !detail.error && (
+                  <div className="flex flex-col gap-6">
+                    <Register
+                      register={detail.register}
+                      cycleId={cycleId}
+                      canAskPeers={running && canSeeCompany}
+                      canCalibrate={
+                        period?.stage === "CALIBRATION" && canManage
+                      }
+                      canRequestRevision={running && canManage}
+                      revisionRequests={detail.revisionRequests}
+                      revisionsUnavailable={detail.revisionsUnavailable}
+                      onAsked={() => detail.reload()}
+                    />
+                    {/* Only when a score has been moved: with none, there is
+                        nothing to audit and no reason to read the fairness
+                        data a second time. */}
+                    {(period?.stage === "CALIBRATION" ||
+                      period?.stage === "PUBLISHED") &&
+                      detail.register?.rows.some((row) => row.calibration) && (
+                        <CalibrationAudit cycleId={cycleId} />
+                      )}
+                  </div>
+                )}
+              {periodTab === "settings" && period && canManage && (
+                <PeriodSettings
+                  period={period}
+                  draft={draft}
+                  onChanged={() => detail.reload()}
+                />
+              )}
+            </Tabs>
+          )}
         </div>
       </PageBody>
 
-      {period && (
-        <RenamePeriodDialog
-          period={period}
-          open={renaming}
-          onClose={() => setRenaming(false)}
-          onRenamed={() => detail.reload()}
-        />
-      )}
+      {
+        <>
+          {period && (
+            <RenamePeriodDialog
+              period={period}
+              open={renaming}
+              onClose={() => setRenaming(false)}
+              onRenamed={() => detail.reload()}
+            />
+          )}
 
-      {/* `period` is unrelated data, not the open/closed signal — kept as the
-          mount guard since the dialog cannot render without it. `open` is the
-          real signal, threaded through so `QuestionsDialog`'s `Modal` can see
-          it go false and play its exit animation instead of the whole dialog
-          vanishing with `questionsOpen` itself. */}
-      {/* Only for whoever may write the questions: mounted, it reads them, and
-          that read is refused without the settings permission (L11). */}
-      {period && canManage && (
-        <QuestionsDialog
-          open={questionsOpen}
-          cycleId={cycleId}
-          periodName={period.name}
-          onClose={() => {
-            setQuestionsOpen(false);
-            detail.reload();
-          }}
-          onAdd={(body) => periods.addQuestion(cycleId, body).then(() => {})}
-          onUpdate={(id, body) =>
-            periods.updateQuestion(id, body).then(() => {})
-          }
-          onRemove={(id) => periods.removeQuestion(id).then(() => {})}
-          /* Where the period is, so the Questions dialog can say a draft may
-             change which subsections its review form asks and a started one may
-             not. The API refuses it after the start. */
-          stage={period.stage}
-          onAskSubsection={(competencyId, askedOf) =>
-            periods.askSubsection(cycleId, competencyId, askedOf).then(() => {})
-          }
-          onStopAskingSubsection={(competencyId) =>
-            periods.stopAskingSubsection(cycleId, competencyId).then(() => {})
-          }
-          /* Every stage but published. The API refuses a rearrangement once
-             the form is a record, so the dialog drops the handles entirely
-             there rather than offering a drag that would be undone. */
-          {...(period.stage !== "PUBLISHED"
-            ? {
-                onReorder: (ids: string[]) =>
-                  periods.reorderQuestions(cycleId, ids).then(() => {}),
+          {/* The list that changes a period's questions once it has started. A
+              draft writes them in the step-by-step form, so it is not mounted
+              for one, and mounted it reads them, which is refused without the
+              settings permission (L11). `period` is the mount guard; `open` is
+              the real signal, threaded through so the `Modal` can see it go
+              false and play its exit animation. */}
+          {period && canManage && !draft && !published && (
+            <QuestionsDialog
+              open={questionsOpen}
+              cycleId={cycleId}
+              onClose={() => {
+                setQuestionsOpen(false);
+                detail.reload();
+              }}
+              onUpdate={(id, body) =>
+                periods.updateQuestion(id, body).then(() => {})
               }
-            : {})}
-          /* Only on a draft. The API refuses a copy onto a period that has
-             started, and the dialog drops the whole offer without this prop
-             rather than showing a button that would be refused. */
-          {...(period.stage === "DRAFT"
-            ? {
-                onCopyFrom: (sourceCycleId: string) =>
-                  periods.copyQuestions(cycleId, sourceCycleId),
+              onRemove={(id) => periods.removeQuestion(id).then(() => {})}
+              onReorder={(ids: string[]) =>
+                periods.reorderQuestions(cycleId, ids).then(() => {})
               }
-            : {})}
-          /* Same gate as `onCopyFrom`, same reason: the API refuses this
-             once the cycle has started. */
-          {...(period.stage === "DRAFT"
-            ? {
-                onAddStandard: () =>
-                  periods.addStandardQuestions(cycleId).then(() => {}),
+            />
+          )}
+
+          {/* One-way, and the confirmation says which way. Every manager's review
+              becomes readable by the person it is about the moment this lands. */}
+          {publishing && period && (
+            <ConfirmDialog
+              open
+              onClose={() => setPublishing(false)}
+              onConfirm={() => void publish()}
+              title="Publish the results?"
+              confirmLabel="Publish"
+              tone="primary"
+              body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no score finishes with none.`}
+            />
+          )}
+
+          {/* Who is reminded, by name; the rest of what this says is what the
+              button already did. */}
+          {confirmingNudge && period && (
+            <ConfirmDialog
+              open
+              onClose={() => setConfirmingNudge(false)}
+              onConfirm={() => void chase()}
+              loading={chasing}
+              title={nudgeTitle(nudging)}
+              confirmLabel="Remind"
+              tone="primary"
+              body={
+                nudging !== null ? (
+                  <div className="space-y-3">
+                    {nudging.names.length > 0 && (
+                      <ul
+                        aria-label="Who gets a reminder"
+                        className="max-h-48 list-disc space-y-0.5 overflow-y-auto pl-5"
+                      >
+                        {nudging.names.map((name) => (
+                          <li key={name}>{name}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {peerLine(nudging) && <p>{peerLine(nudging)}</p>}
+                  </div>
+                ) : undefined
               }
-            : {})}
-        />
-      )}
+            />
+          )}
 
-      {/* One-way, and the confirmation says which way. Every manager's review
-          becomes readable by the person it is about the moment this lands. */}
-      {publishing && period && (
-        <ConfirmDialog
-          open
-          onClose={() => setPublishing(false)}
-          onConfirm={() => void publish()}
-          title="Share the results?"
-          confirmLabel="Share them"
-          tone="primary"
-          body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no score finishes with none.`}
-        />
-      )}
+          {/* Moved here from the card's own description: the moment somebody is
+              about to press it is when "the form is fixed after this" actually
+              matters, not on page load before they have looked at anything. */}
+          {/* One-way, and it does less than its old buttons said: see `stage-move`. */}
+          {confirmingAdvance && period && moveWords && (
+            <ConfirmDialog
+              open
+              onClose={() => setConfirmingAdvance(false)}
+              onConfirm={() => void advance()}
+              loading={advancing}
+              title={moveWords.title}
+              confirmLabel={moveWords.confirm}
+              tone="primary"
+              body={moveWords.body}
+            />
+          )}
 
-      {confirmingNudge && period && (
-        <ConfirmDialog
-          open
-          onClose={() => setConfirmingNudge(false)}
-          onConfirm={() => void chase()}
-          loading={chasing}
-          title={nudgeTitle(nudging)}
-          confirmLabel="Send the reminders"
-          tone="primary"
-          body={
-            <div className="space-y-3">
-              <p>{nudgeMessage(period.name, period.dueDate)}</p>
-              {nudging === null ? (
-                <p>
-                  It goes to everybody who still owes a review for this period.
-                </p>
-              ) : (
-                <>
-                  {nudging.names.length > 0 && (
-                    <ul
-                      aria-label="Who gets a reminder"
-                      className="max-h-48 list-disc space-y-0.5 overflow-y-auto pl-5"
-                    >
-                      {nudging.names.map((name) => (
-                        <li key={name}>{name}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {peerLine(nudging) && <p>{peerLine(nudging)}</p>}
-                </>
-              )}
-            </div>
-          }
-        />
-      )}
+          {confirmingStart && period && (
+            <ConfirmDialog
+              open
+              onClose={() => setConfirmingStart(false)}
+              onConfirm={() => void start()}
+              loading={starting}
+              title="Start the period?"
+              confirmLabel="Start it"
+              tone="primary"
+              body="Everyone gets their form today, and the questions cannot be changed once it starts, so add any more first."
+            />
+          )}
 
-      {/* Moved here from the card's own description: the moment somebody is
-          about to press it is when "the form is fixed after this" actually
-          matters, not on page load before they have looked at anything. */}
-      {/* One-way, and it does less than its old buttons said: see `stage-move`. */}
-      {confirmingAdvance && period && moveWords && (
-        <ConfirmDialog
-          open
-          onClose={() => setConfirmingAdvance(false)}
-          onConfirm={() => void advance()}
-          loading={advancing}
-          title={moveWords.title}
-          confirmLabel={moveWords.confirm}
-          tone="primary"
-          body={moveWords.body}
-        />
-      )}
-
-      {confirmingStart && period && (
-        <ConfirmDialog
-          open
-          onClose={() => setConfirmingStart(false)}
-          onConfirm={() => void start()}
-          loading={starting}
-          title="Start the period?"
-          confirmLabel="Start it"
-          tone="primary"
-          body="Everyone gets their form today, and the questions cannot be changed once it starts, so add any more first."
-        />
-      )}
-
-      {confirmingDelete && period && (
-        <ConfirmDialog
-          open
-          onClose={() => setConfirmingDelete(false)}
-          onConfirm={() => void deleteCycle()}
-          loading={deleting}
-          title="Delete this period?"
-          confirmLabel="Delete it"
-          tone="danger"
-          body={`Nobody has been sent anything for ${period.name} yet. Deleting it removes its questions too, and this cannot be undone.`}
-        />
-      )}
+          {confirmingDelete && period && (
+            <ConfirmDialog
+              open
+              onClose={() => setConfirmingDelete(false)}
+              onConfirm={() => void deleteCycle()}
+              loading={deleting}
+              title="Delete this period?"
+              confirmLabel="Delete it"
+              tone="danger"
+              body={`Nobody has been sent anything for ${period.name} yet. Deleting it removes its questions too, and this cannot be undone.`}
+            />
+          )}
+        </>
+      }
     </>
   );
 }
@@ -950,287 +916,103 @@ export function PeriodScreen({
 /* -------------------------------------------------------------------------- */
 
 /**
- * Who has not sent a form yet, by name and by what is missing.
- *
- * The counts come from the API and the rows are derived from the same payload, so
- * "12 of 18 self-reviews in" and the list underneath it cannot disagree.
+ * A running period: the one thing to do next. While somebody owes a form that is
+ * a reminder; then, at calibration, the flagged scores that wait for a decision;
+ * then the move to the next stage, or publishing. A count of people with no
+ * objective is a quiet line under it, never a warning.
  */
-function ProgressStats({
-  participants,
-  published,
-  marked,
+function PeriodNextStep({
+  waiting,
+  known,
+  undecided,
+  fairnessHref,
+  moveOn,
+  onRemind,
+  noObjectives,
+  startedWith,
 }: {
-  participants: ApiCycleParticipants | null;
-  /** A published period is a record, said in the past tense (U96 / PERF-16). */
-  published: boolean;
-  /** Who the period's register reads: for a published one, who was in it. */
-  marked: number | null;
+  /** People who still owe a form. */
+  waiting: number;
+  /** Whether who owes what is known to this reader at all. */
+  known: boolean;
+  /** Flagged scores that wait for a decision before publishing. */
+  undecided: number;
+  /** Where the flagged scores are decided, for somebody who may see them. */
+  fairnessHref: string | null;
+  moveOn: StepAction | null;
+  onRemind: () => void;
+  noObjectives: number;
+  startedWith: { fallback: string | null; nobody: number };
 }) {
-  if (!participants) return null;
-  /* Who was in a published period is the register's rows, not today's staff
-     (U96): the page said "Nobody is in this period yet" over 46 scores. */
-  if (published) {
-    const people = marked ?? participants.counts.people;
-    if (people === 0) {
-      return (
-        <p className="text-body-sm text-muted">Nobody was in this period.</p>
-      );
-    }
-  } else if (participants.counts.people === 0) {
+  const lines = [
+    noObjectives > 0
+      ? `${String(noObjectives)} ${noObjectives === 1 ? "person has" : "people have"} no objective yet. Add them if you want them in the score.`
+      : null,
+    startedWith.fallback,
+    startedWith.nobody > 0
+      ? `${String(startedWith.nobody)} ${startedWith.nobody === 1 ? "person has" : "people have"} nobody to appraise them yet. Set a department head.`
+      : null,
+  ].filter((line): line is string => line !== null);
+  const detail = lines.length > 0 ? lines.join(" ") : undefined;
+
+  if (waiting > 0) {
     return (
-      <p className="text-body-sm text-muted">Nobody is in this period yet.</p>
+      <NextStep
+        title={`${String(waiting)} still to send`}
+        {...(detail ? { detail } : {})}
+        action={{ label: "Remind", onClick: onRemind }}
+      />
     );
   }
-
-  /* The API's counts, which the report's `progress` and the dashboard read too
-     (U103 / CRAWL-2): people, out of the people each applies to. An API that
-     predates `selfTotal` is counted off the same rows, as before. */
-  const { counts } = participants;
-  const fromApi =
-    counts.selfTotal !== undefined && counts.managerTotal !== undefined;
-  const managerTotal = fromApi
-    ? counts.managerTotal!
-    : participants.rows.reduce((total, row) => total + row.managers.length, 0);
-  const managerIn = fromApi
-    ? counts.managerDone
-    : participants.rows.reduce(
-        (total, row) =>
-          total + row.managers.filter((one) => one.submitted).length,
-        0,
-      );
-  const selfTotal = fromApi
-    ? counts.selfTotal!
-    : participants.rows.filter((row) => row.self !== null).length;
-  const selfIn = fromApi
-    ? counts.selfDone
-    : participants.rows.filter((row) => row.self?.submitted).length;
-  const ratio = (done: number, total: number) =>
-    total === 0 ? <span className="text-faint">—</span> : `${done} of ${total}`;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Stat label="Self-reviews" value={ratio(selfIn, selfTotal)} />
-        <Stat label="Manager reviews" value={ratio(managerIn, managerTotal)} />
-      </div>
-    </div>
-  );
+  /* Who owes what is not known to this reader, so nothing can be said about it:
+     "everyone has finished" would be a claim made without an answer. */
+  if (!known) {
+    return detail ? <p className="text-body-sm text-muted">{detail}</p> : null;
+  }
+  if (undecided > 0 && fairnessHref) {
+    return (
+      <NextStep
+        title={`${String(undecided)} flagged ${undecided === 1 ? "score needs" : "scores need"} a decision`}
+        {...(detail ? { detail } : {})}
+        action={{ label: "Review", href: fairnessHref }}
+      />
+    );
+  }
+  if (moveOn) {
+    return (
+      <NextStep
+        title={
+          moveOn.label === "Publish"
+            ? "Ready to publish"
+            : "Everyone has finished this stage"
+        }
+        {...(detail ? { detail } : {})}
+        action={moveOn}
+      />
+    );
+  }
+  return detail ? <p className="text-body-sm text-muted">{detail}</p> : null;
 }
+
+/* -------------------------------------------------------------------------- */
 
 /**
- * The form as people will see it: the competencies each person is rated on,
- * then any questions written for this period. The competencies come from the
- * company's own list, so there is nothing to set up here beyond what to add.
- */
-export function QuestionsPanel({
-  cycleId,
-  editable,
-  draft,
-  onEdit,
-}: {
-  cycleId: string;
-  editable: boolean;
-  /** The step-by-step wizard is for a period that has not started. */
-  draft: boolean;
-  onEdit: () => void;
-}) {
-  const { questions, loading, error, reload } = useCycleQuestions(cycleId);
-  const rated = questions.filter((q) => q.answersSubsection);
-  const extra = questions.filter((q) => !q.answersSubsection);
-
-  return (
-    <LoadState
-      loading={loading}
-      error={error}
-      subject="the questions"
-      onRetry={reload}
-      hasData={questions.length > 0}
-      skeleton="list"
-    >
-      <div className="flex flex-col gap-6">
-        {questions.length === 0 && (
-          <EmptyState
-            compact
-            icon={<ListChecks aria-hidden="true" />}
-            title={draft ? "No questions yet" : "No questions in this period"}
-          />
-        )}
-        {(extra.length > 0 || editable) && (
-          <Card>
-            <CardHeader
-              title="Questions"
-              action={
-                editable ? (
-                  <HeaderIcons
-                    what="questions"
-                    {...(draft
-                      ? {
-                          addHref: `/performance/periods/${cycleId}/questions`,
-                          editHref: `/performance/periods/${cycleId}/questions`,
-                        }
-                      : { onAdd: onEdit, onEdit })}
-                  />
-                ) : undefined
-              }
-            />
-            <CardBody className="flex flex-col gap-3">
-              <p className="text-meta text-muted">
-                Written answers. They are read, and never scored.
-                {rated.length > 0 &&
-                  " What is rated below does count towards the score."}
-              </p>
-              <ul className="flex flex-col gap-2">
-                {extra.map((q) => (
-                  <li
-                    key={q.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-line p-3 text-body-sm text-ink"
-                  >
-                    <span>{q.prompt}</span>
-                    <span className="text-meta text-muted">
-                      {whoAnswers(q.askedOf)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </CardBody>
-          </Card>
-        )}
-        {rated.length > 0 && (
-          <Card>
-            <CardHeader
-              title="Rated"
-              action={
-                editable ? (
-                  <HeaderIcons
-                    what="competencies"
-                    addHref="/performance/skills"
-                    onEdit={onEdit}
-                  />
-                ) : undefined
-              }
-            />
-            <CardBody>
-              <ul className="flex flex-col gap-2">
-                {rated.map((q) => (
-                  <li
-                    key={q.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-line p-3 text-body-sm text-ink"
-                  >
-                    <span>{q.prompt}</span>
-                    <span className="text-meta text-muted">
-                      {whoAnswers(q.askedOf)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </CardBody>
-          </Card>
-        )}
-      </div>
-    </LoadState>
-  );
-}
-
-/**
- * A plus and a pencil at the right of a card's title: add to it, or change it.
- * Each goes to the place that does it, as a link where that is a page and as a
- * button where it opens the editor.
- */
-function HeaderIcons({
-  what,
-  addHref,
-  editHref,
-  onAdd,
-  onEdit,
-}: {
-  what: string;
-  addHref?: string;
-  editHref?: string;
-  onAdd?: () => void;
-  onEdit?: () => void;
-}) {
-  const icon = "size-9 rounded-md";
-  return (
-    <span className="flex items-center gap-1">
-      {addHref ? (
-        <IconLink href={addHref} label={`Add to the ${what}`}>
-          <Plus aria-hidden="true" className="size-4" />
-        </IconLink>
-      ) : (
-        <IconButton
-          label={`Add to the ${what}`}
-          className={icon}
-          onClick={onAdd}
-        >
-          <Plus aria-hidden="true" className="size-4" />
-        </IconButton>
-      )}
-      {editHref ? (
-        <IconLink href={editHref} label={`Edit the ${what}`}>
-          <Pencil aria-hidden="true" className="size-4" />
-        </IconLink>
-      ) : (
-        <IconButton
-          label={`Edit the ${what}`}
-          className={icon}
-          onClick={onEdit}
-        >
-          <Pencil aria-hidden="true" className="size-4" />
-        </IconButton>
-      )}
-    </span>
-  );
-}
-
-function whoAnswers(askedOf: readonly string[]): string {
-  const self = askedOf.includes("SELF");
-  const manager = askedOf.includes("MANAGER");
-  if (self && manager) return "Person and manager";
-  if (self) return "Person";
-  if (manager) return "Manager";
-  return "Everyone";
-}
-
-/**
- * This period's own settings, in the shape of a repository's: a stack of
- * sections, each with its own control, and the one destructive act last. These
- * used to sit on the main page ahead of everything else.
+ * This period's own settings: what it is scored on, and, while it is a draft, who
+ * it appraises. Renaming is the pencil beside the title and deleting is in the
+ * header's menu, so neither is repeated here. There is no Settings tab once it is
+ * published, because nothing in it can change then.
  */
 function PeriodSettings({
   period,
   draft,
-  onRename,
   onChanged,
-  onDelete,
 }: {
   period: ApiCycle;
   draft: boolean;
-  onRename: () => void;
   onChanged: () => void;
-  onDelete: () => void;
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        {/* A published period is a fixed record, and its name is part of it
-            (U96 / PERF-16). */}
-        <CardHeader
-          title="Name"
-          {...(period.stage === "PUBLISHED"
-            ? {}
-            : {
-                action: (
-                  <Button size="sm" variant="secondary" onClick={onRename}>
-                    Rename
-                  </Button>
-                ),
-              })}
-        />
-        <CardBody>
-          <p className="text-body-sm text-ink">{period.name}</p>
-        </CardBody>
-      </Card>
-
       <PeriodDatesCard period={period} onChanged={onChanged} />
       <PeriodMessageCard period={period} onChanged={onChanged} />
       <PeriodReminderCard period={period} onChanged={onChanged} />
@@ -1238,130 +1020,128 @@ function PeriodSettings({
       <PeriodWeightsSection period={period} onChanged={onChanged} />
 
       {draft && (
-        <Card>
-          <CardHeader title="Who is included" />
-          <CardBody className="flex flex-col gap-3">
-            <AppraiseLeadersToggle
-              cycleId={period.id}
-              appraiseOwner={period.appraiseOwner}
-              appraiseHrManager={period.appraiseHrManager}
-              onChanged={onChanged}
-            />
-            <ManagerQuestionsToggle
-              cycleId={period.id}
-              value={period.managersCanAddQuestions}
-              onChanged={onChanged}
-            />
-            <AskPotentialToggle
-              cycleId={period.id}
-              value={period.askPotential !== false}
-              onChanged={onChanged}
-            />
-          </CardBody>
-        </Card>
-      )}
+        <>
+          <Card>
+            <CardBody className="flex flex-col gap-3">
+              <p className="flex items-center gap-1.5 text-body-sm font-semibold text-ink">
+                Who is appraised
+                <InfoTooltip
+                  label="More about who is appraised"
+                  text="Off for both by default. Whoever is left out still appraises their own team. They just do not get a form of their own, so they are not left with no score."
+                />
+              </p>
+              <PeriodToggle
+                cycleId={period.id}
+                field="appraiseOwner"
+                label="Appraise the Owner in this period"
+                checked={period.appraiseOwner}
+                onChanged={onChanged}
+              />
+              <PeriodToggle
+                cycleId={period.id}
+                field="appraiseHrManager"
+                label="Appraise the HR manager in this period"
+                checked={period.appraiseHrManager}
+                onChanged={onChanged}
+              />
+            </CardBody>
+          </Card>
 
-      {draft && (
-        <Card>
-          <CardHeader title="Delete this period" />
-          <CardBody className="flex items-center justify-between gap-3">
-            <p className="text-body-sm text-muted">
-              Nobody has been sent anything yet.
-            </p>
-            <Button size="sm" variant="secondary" onClick={onDelete}>
-              Delete
-            </Button>
-          </CardBody>
-        </Card>
+          <Card>
+            <CardBody className="flex flex-col gap-3">
+              <PeriodToggle
+                cycleId={period.id}
+                field="managersCanAddQuestions"
+                label="Let managers add their own questions, scoped to their team"
+                checked={period.managersCanAddQuestions}
+                onChanged={onChanged}
+              />
+              <PeriodToggle
+                cycleId={period.id}
+                field="askPotential"
+                label="Managers say how far each person could go"
+                checked={period.askPotential !== false}
+                onChanged={onChanged}
+              />
+            </CardBody>
+          </Card>
+        </>
       )}
     </div>
   );
 }
 
 /**
- * Every manager review, for anybody more than one manager appraises.
+ * One yes-or-no setting of a draft period, saved the moment it is flipped.
  *
- * `Register` below is right to show one row per person — finalisation is what
- * picks a single mark of record out of several manager reviews, and the sign-off
- * column follows whichever review that pick lands on. But before anybody has
- * finalised anything, that pick is provisional, and it is only ever one of the
- * reviews: a second appraiser's already-written form has nowhere else in this
- * screen to be opened, read or finalised from. This card is that place, for
- * every person more than one manager review exists for — nothing here duplicates
- * `Register`'s job of naming the mark of record; it exists so every appraiser's
- * review, not just the one currently picked, has a link somewhere.
- *
- * Renders nothing for a company running one manager per person, which is the
- * default and the common case: every `managers` array below is length 1 or 0,
- * so the filter below empties the card away rather than showing a table that
- * repeats `Register`.
+ * There is nothing to confirm, only a boolean to flip, and `PATCH /cycles/:id`
+ * already refuses these once the period has started, so a stale toggle here would
+ * fail loudly rather than silently doing nothing. The Owner and HR manager
+ * switches are two unrelated decisions with a write each: an HR manager is an
+ * employee with a manager like anybody else, so a company that does not appraise
+ * the person who owns it may still want its HR manager appraised. They sit on a
+ * draft's page because that is where they change anything: the exclusion only
+ * applies to somebody with no form in the period.
  */
-function MultiAppraiserReviews({
-  participants,
+function PeriodToggle({
+  cycleId,
+  field,
+  label,
+  checked,
+  onChanged,
 }: {
-  participants: ApiCycleParticipants | null;
+  cycleId: string;
+  field:
+    | "appraiseOwner"
+    | "appraiseHrManager"
+    | "managersCanAddQuestions"
+    | "askPotential";
+  label: string;
+  checked: boolean;
+  onChanged: () => void;
 }) {
-  /* Before the early returns: a hook cannot run conditionally. */
-  const { scale } = useRatingScale();
-  const ratingWords = ratingWordsFrom(scale.levels);
+  const periods = useCycleMutations();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
 
-  if (!participants) return null;
-  const rows = participants.rows.filter((row) => row.managers.length > 1);
-  if (rows.length === 0) return null;
+  const toggle = async (next: boolean) => {
+    setBusy(true);
+    try {
+      await periods.updateCycle(cycleId, { [field]: next });
+      onChanged();
+    } catch (caught) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not change that setting.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <Card>
-      <CardHeader
-        title="Manager reviews, by appraiser"
-        description="Some of these people have more than one appraiser. Every review is listed here, including the ones that are not the main rating."
-      />
-      <CardBody className="flex flex-col gap-2">
-        {rows.flatMap((row) =>
-          row.managers.map((manager) => (
-            <div
-              key={manager.reviewId}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-            >
-              <div className="min-w-0">
-                <p className="text-body-sm font-medium text-ink">
-                  {manager.managerName} on {row.employeeName}
-                </p>
-                <p className="mt-1 text-meta text-muted">
-                  {manager.finalised
-                    ? "Final"
-                    : manager.submitted
-                      ? "Written, not final"
-                      : "Not written yet"}
-                  {manager.rating !== null
-                    ? ` · ${ratingWords(manager.rating)}`
-                    : ""}
-                </p>
-              </div>
-              <TextLink
-                href={`/performance/reviews/${manager.reviewId}`}
-                className="text-body-sm"
-              >
-                {manager.finalised
-                  ? "Open"
-                  : manager.submitted
-                    ? "Finalise"
-                    : "Open"}
-              </TextLink>
-            </div>
-          )),
-        )}
-      </CardBody>
-    </Card>
+    <Checkbox
+      label={label}
+      checked={checked}
+      disabled={busy}
+      onChange={(event) => void toggle(event.target.checked)}
+    />
   );
 }
+
+/* -------------------------------------------------------------------------- */
 
 /**
  * Where every mark stands.
  *
  * One row per person, and the score column is the place absent-versus-zero shows
- * up most often: a person with nothing recorded gets "No mark", never 0%. The
- * sign-off column carries three separate facts and reads whichever applies, in
- * order of what somebody has to do about it.
+ * up most often: a person with nothing recorded gets "Not recorded", never 0%.
+ * The sign-off column is one muted word, and a link when there is a review to
+ * open. No heading: the tab is called Scores.
  */
 function Register({
   register,
@@ -1397,62 +1177,44 @@ function Register({
   if (register.rows.length === 0) {
     return (
       <Card>
-        <CardHeader title="Where the scores stand" />
         <EmptyState
           compact
           icon={<UserX aria-hidden="true" />}
           title="Nobody is in this period"
-          description="Starting a period gives every current employee a form."
         />
       </Card>
     );
   }
 
+  const revisable = canRequestRevision && !revisionsUnavailable;
+  const revisionOf = (row: ApiScoreRow) =>
+    revisionRequests.find((request) => request.employeeId === row.employeeId);
+
   return (
     <Card>
-      <CardHeader
-        title="Where the scores stand"
-        {...(register.weightsFrom === "current"
-          ? {
-              info: `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`,
-            }
-          : {})}
-        action={
-          <span className="flex flex-wrap gap-2">
-            {register.counts.unscored > 0 && (
-              <Badge tone="danger" size="sm">
-                {register.counts.unscored} unscored
-              </Badge>
-            )}
-            {register.counts.awaitingAcknowledgement > 0 && (
-              <Badge tone="warning" size="sm">
-                {register.counts.awaitingAcknowledgement} unanswered
-              </Badge>
-            )}
-            {register.counts.disputed > 0 && (
-              <Badge tone="danger" size="sm">
-                {register.counts.disputed} disputed
-              </Badge>
-            )}
-          </span>
-        }
-      />
       <CardBody className="p-0">
         {/* Up to seven columns, one of them (Score) already two lines and a
             breakdown, is unreadable under 375px. Below `sm` this becomes a
             card per person — `RegisterCard` is `RegisterRow`'s sibling, same
-            `SignOffCell` / `ScoreParts` / action buttons, arranged as a list
+            `SignOffCell` / `ScoreParts` / action menu, arranged as a list
             instead of columns. */}
         <div className="hidden sm:block">
           <TableWrap caption="Everybody in this period, their score and their sign-off">
             <THead>
               <TH>Person</TH>
-              <TH>Objectives agreed</TH>
-              <TH align="right">Score</TH>
+              <TH align="right">
+                <span className="inline-flex items-center justify-end gap-1.5">
+                  Score
+                  {register.weightsFrom === "current" && (
+                    <InfoTooltip
+                      label="How these scores are weighted"
+                      text={`Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every score here, including ones already given.`}
+                    />
+                  )}
+                </span>
+              </TH>
               <TH>Sign-off</TH>
-              {(canAskPeers ||
-                canCalibrate ||
-                (canRequestRevision && !revisionsUnavailable)) && (
+              {(canAskPeers || canCalibrate || revisable) && (
                 <TH align="right">
                   <span className="sr-only">Actions</span>
                 </TH>
@@ -1466,12 +1228,8 @@ function Register({
                   cycleId={cycleId}
                   canAskPeers={canAskPeers}
                   canCalibrate={canCalibrate}
-                  canRequestRevision={
-                    canRequestRevision && !revisionsUnavailable
-                  }
-                  existingRevision={revisionRequests.find(
-                    (request) => request.employeeId === row.employeeId,
-                  )}
+                  canRequestRevision={revisable}
+                  existingRevision={revisionOf(row)}
                   onAsked={onAsked}
                 />
               ))}
@@ -1487,10 +1245,8 @@ function Register({
               cycleId={cycleId}
               canAskPeers={canAskPeers}
               canCalibrate={canCalibrate}
-              canRequestRevision={canRequestRevision && !revisionsUnavailable}
-              existingRevision={revisionRequests.find(
-                (request) => request.employeeId === row.employeeId,
-              )}
+              canRequestRevision={revisable}
+              existingRevision={revisionOf(row)}
               onAsked={onAsked}
             />
           ))}
@@ -1534,18 +1290,10 @@ export function RegisterRow({
           {row.departmentName ? ` · ${row.departmentName}` : ""}
         </span>
       </TD>
-      <TD>
-        <span className="tabular">{row.objectives.agreed}</span>
-        {row.objectives.awaitingApproval > 0 && (
-          <span className="mt-0.5 block text-meta text-muted">
-            {row.objectives.awaitingApproval} waiting to be agreed
-          </span>
-        )}
-      </TD>
       <TD align="right">
         {/* Absent is absent. Nothing recorded is not a mark of nought. */}
         {row.scoreBp === null ? (
-          <span className="text-muted">No score</span>
+          <span className="text-muted">Not recorded</span>
         ) : (
           <>
             <span className="inline-flex items-center justify-end gap-1.5">
@@ -1579,7 +1327,7 @@ export function RegisterRow({
         )}
       </TD>
       <TD>
-        <SignOffCell row={row} />
+        <SignOffCell row={row} sentBack={existingRevision !== undefined} />
       </TD>
       {/* One menu for the acts on a person, not a column and a button each:
           three buttons in three columns made every row three lines long
@@ -1602,11 +1350,10 @@ export function RegisterRow({
 }
 
 /**
- * Ask colleagues, change the mark and send back, behind one menu on a row of
- * the Marks table. Each opens the same dialog its own button opens on the card
- * a phone shows. The 360 half had no door at all until it was a button here;
- * calibration is only at its stage and only for somebody with a mark; a review
- * can be sent back at any running stage.
+ * Ask colleagues, change the score and send back, behind one menu: on a row of
+ * the Scores table and on the card a phone shows. The 360 half had no door at all
+ * until it was here; calibration is only at its stage and only for somebody with a
+ * score; a review can be sent back at any running stage.
  */
 function MarkActions({
   row,
@@ -1628,8 +1375,6 @@ function MarkActions({
   const [open, setOpen] = useState<"peers" | "calibrate" | "revision" | null>(
     null,
   );
-  /* A new revision form each time it opens, so last time's reason is gone. */
-  const [revisionSession, setRevisionSession] = useState(0);
   /* The colleagues dialog reads the staff list, so it is mounted only once
      somebody has asked for it, and stays mounted after so it can animate out. */
   const [peersOpened, setPeersOpened] = useState(false);
@@ -1657,10 +1402,7 @@ function MarkActions({
       label: "Send back",
       /* Already sent back: it is waiting for them, so no second item. */
       available: !existingRevision,
-      onSelect: () => {
-        setRevisionSession((n) => n + 1);
-        setOpen("revision");
-      },
+      onSelect: () => setOpen("revision"),
     });
   }
 
@@ -1694,12 +1436,16 @@ function MarkActions({
       )}
       {canRequestRevision && (
         <RevisionDialog
-          key={revisionSession}
           open={open === "revision"}
           onClose={() => setOpen(null)}
           cycleId={cycleId}
-          row={row}
+          employeeId={row.employeeId}
+          employeeName={row.employeeName}
           onChanged={onChanged}
+          /* Both reviews could be meant only once a manager has written theirs;
+             before that, the one to send back is the person's own. */
+          choose={row.signOff.submitted}
+          target={row.signOff.submitted ? "MANAGER" : "SELF"}
         />
       )}
     </>
@@ -1739,13 +1485,24 @@ function RegisterCard({
             {row.departmentName ? ` · ${row.departmentName}` : ""}
           </p>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="flex shrink-0 items-start gap-1 text-right">
           {row.scoreBp === null ? (
-            <span className="text-body-sm text-muted">No score</span>
+            <span className="text-body-sm text-muted">Not recorded</span>
           ) : (
             <span className="tabular font-medium text-ink">
               {scoreWords(row)}
             </span>
+          )}
+          {(canAskPeers || canCalibrate || canRequestRevision) && (
+            <MarkActions
+              row={row}
+              cycleId={cycleId}
+              canAskPeers={canAskPeers}
+              canCalibrate={canCalibrate}
+              canRequestRevision={canRequestRevision}
+              existingRevision={existingRevision}
+              onChanged={onAsked}
+            />
           )}
         </div>
       </div>
@@ -1761,60 +1518,11 @@ function RegisterCard({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-        <span className="tabular">
-          {row.objectives.agreed} objective
-          {row.objectives.agreed === 1 ? "" : "s"} agreed
-          {row.objectives.awaitingApproval > 0 &&
-            ` · ${row.objectives.awaitingApproval} waiting`}
-        </span>
-      </div>
-
-      <div>
-        <SignOffCell row={row} />
-      </div>
-
-      {(canAskPeers || canCalibrate || canRequestRevision) && (
-        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-2">
-          {canAskPeers && (
-            <AskPeersButton
-              cycleId={cycleId}
-              subjectId={row.employeeId}
-              subjectName={row.employeeName}
-              onAsked={onAsked}
-            />
-          )}
-          {canCalibrate &&
-            (row.scoreBp === null ? (
-              <span className="text-meta text-muted">No score yet</span>
-            ) : (
-              <CalibrateButton
-                cycleId={cycleId}
-                row={row}
-                onChanged={onAsked}
-              />
-            ))}
-          {canRequestRevision && (
-            <RevisionButton
-              cycleId={cycleId}
-              row={row}
-              existing={existingRevision}
-              onChanged={onAsked}
-            />
-          )}
-        </div>
-      )}
+      <SignOffCell row={row} sentBack={existingRevision !== undefined} />
     </li>
   );
 }
 
-/**
- * The sign-off state, in one phrase, ordered by what has to happen next.
- *
- * Disputed first because it is the only one that obliges somebody else to act.
- * Then unanswered, which is the exposure acknowledgement exists to close —
- * silence is not acceptance and this cell must never read as though it were.
- */
 /**
  * What a mark is made of, under the mark.
  *
@@ -1888,536 +1596,52 @@ export function breakdownSentence(components: ApiComponentScore[]): string {
   return `${parts || "Nothing counted yet"}.${rest}`;
 }
 
-function SignOffCell({ row }: { row: ApiScoreRow }) {
-  const signOff = row.signOff;
-
-  if (signOff.disputed) {
-    return (
-      <Badge tone="danger" size="sm" dot>
-        Disputed
-      </Badge>
-    );
-  }
-  if (signOff.acknowledged) {
-    return (
-      <Badge tone="success" size="sm" dot>
-        Acknowledged
-      </Badge>
-    );
-  }
-  if (signOff.finalised) {
-    return (
-      <span className="flex flex-wrap items-center gap-2">
-        <Badge tone="warning" size="sm" dot>
-          Not answered yet
-        </Badge>
-        {signOff.reviewId && (
-          <TextLink
-            href={`/performance/reviews/${signOff.reviewId}`}
-            className="text-meta"
-          >
-            Open
-          </TextLink>
-        )}
-      </span>
-    );
-  }
-  if (signOff.submitted) {
-    return (
-      <span className="flex flex-wrap items-center gap-2">
-        <Badge tone="info" size="sm" dot>
-          Written, not final
-        </Badge>
-        {signOff.reviewId && (
-          <TextLink
-            href={`/performance/reviews/${signOff.reviewId}`}
-            className="text-meta"
-          >
-            Finalise
-          </TextLink>
-        )}
-      </span>
-    );
-  }
-  /* No review at all is a different fact from an unwritten one, and it is the
-     appraiser-map exception above rather than a state of this cell. */
-  return (
-    <span className="text-body-sm text-muted">
-      {signOff.reviewId === null ? "No manager review" : "Not written yet"}
+/**
+ * The sign-off state, as one muted word and a link where there is a review to open.
+ *
+ * The four words are the whole vocabulary: **Written** (the manager has written
+ * it, and it is not final), **Final** (the person has been told), **Acknowledged**
+ * and **Disputed**. Disputed first because it is the only one that obliges
+ * somebody else to act; then Acknowledged; then Final, which is the exposure
+ * acknowledgement exists to close — silence is not acceptance and this cell must
+ * never read as though it were. A person whose manager has not written anything
+ * has nothing to say here, and the score beside it already says so.
+ */
+function SignOffCell({
+  row,
+  sentBack,
+}: {
+  row: ApiScoreRow;
+  /** Their review is open again, waiting for them to send it. */
+  sentBack: boolean;
+}) {
+  const { signOff } = row;
+  const open = signOff.reviewId && (
+    <TextLink
+      href={`/performance/reviews/${signOff.reviewId}`}
+      className="text-meta"
+    >
+      Open
+    </TextLink>
+  );
+  const word = (text: string, strong = false) => (
+    <span
+      className={strong ? "text-body-sm text-ink" : "text-body-sm text-muted"}
+    >
+      {text}
     </span>
   );
-}
 
-/**
- * Whether managers may add their own questions to this draft.
- *
- * Lives on the setup card rather than its own settings screen because it is
- * one fact about one draft, changed rarely — the same reasoning that keeps
- * scope and the reminder as disclosures on `StartPeriodDialog` rather than a
- * separate page. Saves immediately on change: there is nothing to confirm,
- * only a boolean to flip, and `PATCH /cycles/:id` already refuses this once
- * the period has started, so a stale toggle here would fail loudly rather
- * than silently doing nothing.
- */
-
-function ManagerQuestionsToggle({
-  cycleId,
-  value,
-  onChanged,
-}: {
-  cycleId: string;
-  value: boolean;
-  onChanged: () => void;
-}) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-
-  const toggle = async (checked: boolean) => {
-    setBusy(true);
-    try {
-      await periods.updateCycle(cycleId, {
-        managersCanAddQuestions: checked,
-      });
-      onChanged();
-    } catch (caught) {
-      toast.push({
-        title: "That did not save",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Could not change that setting.",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Checkbox
-      label="Let managers add their own questions, scoped to their team"
-      checked={value}
-      disabled={busy}
-      onChange={(event) => void toggle(event.target.checked)}
-    />
-  );
-}
-
-/**
- * Whether a manager's review ends with how far the person could go, which is what
- * fills the talent map as reviews are sent.
- */
-function AskPotentialToggle({
-  cycleId,
-  value,
-  onChanged,
-}: {
-  cycleId: string;
-  value: boolean;
-  onChanged: () => void;
-}) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-
-  const toggle = async (checked: boolean) => {
-    setBusy(true);
-    try {
-      await periods.updateCycle(cycleId, { askPotential: checked });
-      onChanged();
-    } catch (caught) {
-      toast.push({
-        title: "That did not save",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Could not change that setting.",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Checkbox
-      label="Managers say how far each person could go"
-      checked={value}
-      disabled={busy}
-      onChange={(event) => void toggle(event.target.checked)}
-    />
-  );
-}
-
-/**
- * Whether the Owner and the HR manager are appraised in this period.
- *
- * Two checkboxes and two independent writes, because they are two unrelated
- * decisions: an HR manager is an employee with a manager like anybody else, so
- * a company that does not appraise the person who owns it may still want its
- * HR manager appraised. Sending both every time would make one an edit nobody
- * made.
- *
- * ## Why this sits on a draft's card and is not refused afterwards
- *
- * The API does not guard either field to `DRAFT`, and that is deliberate
- * rather than an oversight to mirror: the exclusion only ever applies to
- * somebody with **no form in the period**, so switching one off after the
- * forms are written leaves everybody who already has one exactly where they
- * are. It is rendered with the draft's other settings because that is where it
- * changes anything, not because the API would refuse it later.
- */
-function AppraiseLeadersToggle({
-  cycleId,
-  appraiseOwner,
-  appraiseHrManager,
-  onChanged,
-}: {
-  cycleId: string;
-  appraiseOwner: boolean;
-  appraiseHrManager: boolean;
-  onChanged: () => void;
-}) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-
-  const toggle = async (
-    field: "appraiseOwner" | "appraiseHrManager",
-    checked: boolean,
-  ) => {
-    setBusy(true);
-    try {
-      await periods.updateCycle(cycleId, { [field]: checked });
-      onChanged();
-    } catch (caught) {
-      toast.push({
-        title: "That did not save",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Could not change that setting.",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <Checkbox
-        label="Appraise the Owner in this period"
-        checked={appraiseOwner}
-        disabled={busy}
-        onChange={(event) => void toggle("appraiseOwner", event.target.checked)}
-      />
-      <Checkbox
-        label="Appraise the HR manager in this period"
-        checked={appraiseHrManager}
-        disabled={busy}
-        onChange={(event) =>
-          void toggle("appraiseHrManager", event.target.checked)
-        }
-      />
-      <p className="text-meta text-muted">
-        Off for both by default. Whoever is left out still appraises their own
-        team. They just do not get a form of their own, so they are not left
-        with no score.
-      </p>
-    </div>
-  );
-}
-
-/**
- * Moving one person's mark, and putting it back.
- *
- * ## A row, not an edit
- *
- * The same shape as a payroll exclusion, deliberately: a figure, a reason, a
- * person, a date. The computed mark is never overwritten — `row.computedBp`
- * still reads what the answers produced and `row.scoreBp` reads what the
- * company decided — because the question this has to answer a year later is
- * *"why is this person's mark different"*, and an edit in place cannot answer
- * it.
- *
- * ## The reason is required, and that is the feature
- *
- * The API's floor is ten characters and this says so before the refusal rather
- * than after it. A mark that moved with no account of why is the single most
- * common way an appraisal becomes indefensible — the same argument that puts a
- * required reason on reopening an agreed objective.
- *
- * ## Percent in, basis points out
- *
- * People think in percentages and the API stores basis points, so the field
- * takes a percentage and converts once, here. Whole percentages only: a mark
- * calibrated to 73.5% invites an argument about the half that no moderation
- * meeting has ever actually had.
- */
-function CalibrateButton({
-  cycleId,
-  row,
-  onChanged,
-}: {
-  cycleId: string;
-  row: ApiScoreRow;
-  onChanged: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        {row.calibration ? "Change it" : "Change the score"}
-      </Button>
-      <CalibrateDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        onChanged={onChanged}
-        cycleId={cycleId}
-        employeeId={row.employeeId}
-        employeeName={row.employeeName}
-        computedBp={row.computedBp ?? row.scoreBp ?? 0}
-        existing={row.calibration}
-      />
-    </>
-  );
-}
-
-/**
- * Sending one person's review back for another pass.
- *
- * ## A reopened review, not an edited one
- *
- * Opening a request clears that one review's submission and sign-off — the
- * person sees it as unfinished again — without touching the cycle's stage or
- * anyone else's review. It resolves itself the moment they resubmit; there
- * is no separate "cancel" action here because there is nothing to undo once
- * they have. `existing` is only ever an *open* request — the API's own list
- * already drops resolved ones — so its presence alone is the whole state:
- * requested and not yet answered.
- *
- * ## The reason is required, same as calibration
- *
- * A review sent back with no account of why is not feedback, and the API
- * enforces the same ten-character floor `CalibrateButton` does — this checks
- * it first so the refusal is immediate rather than a round trip.
- *
- * ## Which review
- *
- * The table's sign-off column is the *manager's* review, but the person
- * being sent back to redo something might be the employee themself. Asked
- * directly rather than guessed from the row, because a wrong guess here
- * reopens the wrong person's work.
- */
-function RevisionButton({
-  cycleId,
-  row,
-  existing,
-  onChanged,
-}: {
-  cycleId: string;
-  row: ApiScoreRow;
-  existing: ApiRevisionRequest | undefined;
-  onChanged: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  /* A new form each time it opens, so last time's reason is gone. */
-  const [session, setSession] = useState(0);
-
-  if (existing) {
+  if (sentBack) return word("Sent back");
+  if (signOff.disputed) return word("Disputed", true);
+  if (signOff.acknowledged) return word("Acknowledged");
+  if (signOff.finalised || signOff.submitted) {
     return (
-      <span
-        className="text-meta text-muted"
-        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"}, ${existing.reason}`}
-      >
-        Sent back, waiting for them to send it again
+      <span className="flex flex-wrap items-center gap-2">
+        {word(signOff.finalised ? "Final" : "Written")}
+        {open}
       </span>
     );
   }
-
-  return (
-    <>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => {
-          setSession((n) => n + 1);
-          setOpen(true);
-        }}
-      >
-        Send back
-      </Button>
-      <RevisionDialog
-        key={session}
-        open={open}
-        onClose={() => setOpen(false)}
-        cycleId={cycleId}
-        row={row}
-        onChanged={onChanged}
-      />
-    </>
-  );
-}
-
-/** The form behind Send back, from a card's button or a row's menu. */
-function RevisionDialog({
-  open,
-  onClose,
-  cycleId,
-  row,
-  onChanged,
-}: {
-  open: boolean;
-  onClose: () => void;
-  cycleId: string;
-  row: ApiScoreRow;
-  onChanged: () => void;
-}) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-
-  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">("MANAGER");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  const save = async () => {
-    if (reason.trim().length < 10) {
-      setFailed("Say why in a sentence: this is the record of it.");
-      return;
-    }
-    setBusy(true);
-    setFailed(null);
-    try {
-      await periods.requestRevision(cycleId, {
-        employeeId: row.employeeId,
-        targetStage,
-        reason: reason.trim(),
-      });
-      toast.push({
-        title: `Sent back to ${row.employeeName}`,
-        tone: "success",
-        detail:
-          targetStage === "SELF"
-            ? "Their self-appraisal is open for another pass."
-            : "Their manager review is open for another pass.",
-      });
-      onClose();
-      onChanged();
-    } catch (caught) {
-      setFailed(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not send that back.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <>
-      {/* No open-gating here, matching `CalibrateDialog`: `Modal` reads its own
-          `useDismiss` state, so it stays mounted with the real `open` passed
-          through rather than being unmounted by its caller. */}
-      <Modal
-        open={open}
-        onClose={onClose}
-        title={`Send ${row.employeeName}'s review back`}
-        description="Opens that one review again so they can redo it. Nobody else's review changes."
-        size="sm"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button disabled={busy} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button variant="accent" loading={busy} onClick={() => void save()}>
-              Send it back
-            </Button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <Field label="Which review" required>
-            <Select
-              value={targetStage}
-              disabled={busy}
-              onChange={(event) =>
-                setTargetStage(event.target.value as "SELF" | "MANAGER")
-              }
-            >
-              <option value="MANAGER">Manager review</option>
-              <option value="SELF">Self-appraisal</option>
-            </Select>
-          </Field>
-
-          <Field
-            label="Why"
-            required
-            {...(failed ? { error: failed } : {})}
-            help="This is kept with the request and is what they see for it."
-          >
-            <Textarea
-              rows={3}
-              value={reason}
-              disabled={busy}
-              placeholder="The objectives section is missing answers for two of the agreed goals. Please complete before resubmitting."
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </Field>
-        </div>
-      </Modal>
-    </>
-  );
-}
-
-/**
- * A running period: what is next, as one step. People who have not finished
- * come first (a reminder), then the move to the next stage. A count of people
- * with no objective is a quiet invitation under it, never a warning.
- */
-function WhatIsNext({
-  waiting,
-  nextLabel,
-  noObjectives,
-  startedWith,
-  onAdvance,
-  advancing,
-}: {
-  startedWith: { fallback: string | null; nobody: number };
-  waiting: number;
-  nextLabel: string | null;
-  noObjectives: number;
-  onAdvance: () => void;
-  advancing: boolean;
-}) {
-  const lines = [
-    noObjectives > 0
-      ? `${String(noObjectives)} ${noObjectives === 1 ? "person has" : "people have"} no objective yet. Add them if you want them in the score.`
-      : null,
-    startedWith.fallback,
-    startedWith.nobody > 0
-      ? `${String(startedWith.nobody)} ${startedWith.nobody === 1 ? "person has" : "people have"} nobody to appraise them yet. Set a department head.`
-      : null,
-  ].filter((line): line is string => line !== null);
-  const invitation = lines.length > 0 ? lines.join(" ") : undefined;
-  if (waiting > 0) {
-    return invitation ? (
-      <p className="text-body-sm text-muted">{invitation}</p>
-    ) : null;
-  }
-  if (nextLabel) {
-    return (
-      <NextStep
-        title="Everyone has finished this stage"
-        {...(invitation ? { detail: invitation } : {})}
-        action={{ label: nextLabel, onClick: onAdvance, loading: advancing }}
-      />
-    );
-  }
-  return invitation ? (
-    <p className="text-body-sm text-muted">{invitation}</p>
-  ) : null;
+  return null;
 }

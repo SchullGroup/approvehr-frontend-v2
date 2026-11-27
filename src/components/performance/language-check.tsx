@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { PenLine, ShieldAlert, Scale, UserRound } from "lucide-react";
 import { Callout } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import {
   FINDINGS_CAVEAT,
   findingsAcross,
@@ -19,7 +20,10 @@ import {
  * own account of their own work.
  *
  * Never blocks sending — the API accepts the review either way, and
- * `FINDINGS_CAVEAT` says so plus that four rules can't judge fairness.
+ * `FINDINGS_CAVEAT` says so plus that four rules can't judge fairness. It never
+ * holds a button back either: an earlier version made the first press of Send
+ * show the findings and the second send anyway, and a button that does nothing
+ * visible the first time it is pressed is worse than no check at all.
  *
  * Always quotes the exact words written rather than paraphrasing a judgement
  * ("this reads as judgemental") — a quote is a fact to act on or dismiss.
@@ -73,15 +77,12 @@ export function LanguageCheck({
   /** Who the review is about — without it, only pronoun forms are caught, not
    *  a name used directly (e.g. "Chidera is..."). See `nameAlternatives`. */
   subjectName,
-  /** True once somebody has pressed Send and been shown this. */
-  acknowledged = false,
   /** What is said under the list. Where the words are saved rather than sent as a
    *  review, `ANSWER_CAVEAT`: this one says "sending the review". */
   caveat = FINDINGS_CAVEAT,
 }: {
   texts: string[];
   subjectName?: string;
-  acknowledged?: boolean;
   caveat?: string;
 }) {
   const findings = useMemo(
@@ -94,14 +95,7 @@ export function LanguageCheck({
   if (findings.length === 0) return null;
 
   return (
-    <Callout
-      tone={acknowledged ? "warning" : "info"}
-      title={
-        acknowledged
-          ? `${findingsHeadline(findings.length)}. Press Send again to send it anyway`
-          : findingsHeadline(findings.length)
-      }
-    >
+    <Callout tone="info" title={findingsHeadline(findings.length)}>
       <ul className="mt-1 flex flex-col gap-3">
         {findings.map((finding) => (
           <Row
@@ -112,5 +106,60 @@ export function LanguageCheck({
       </ul>
       <p className="mt-3 text-body-sm text-muted">{caveat}</p>
     </Callout>
+  );
+}
+
+/**
+ * The same findings, quietly, beside the box the words are written in.
+ *
+ * One muted line says how many, a "See" link opens the quoted phrases, and what
+ * the check cannot do sits behind an info icon instead of in a paragraph. It is
+ * not a box, carries no colour and holds nothing back: the form sends on the
+ * first press whatever it finds. Renders nothing for no findings.
+ *
+ * `LanguageCheck` above is still what the Record a level dialog draws.
+ */
+export function LanguageNote({
+  texts,
+  subjectName,
+  caveat = FINDINGS_CAVEAT,
+}: {
+  texts: string[];
+  subjectName?: string;
+  caveat?: string;
+}) {
+  const findings = useMemo(
+    () => findingsAcross(texts, subjectName),
+    [texts, subjectName],
+  );
+  const [open, setOpen] = useState(false);
+
+  if (findings.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="flex flex-wrap items-center gap-x-2 text-meta text-muted">
+        <span>{findingsHeadline(findings.length)}</span>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((now) => !now)}
+          className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
+        >
+          {open ? "Hide" : "See"}
+        </button>
+        <InfoTooltip label="About this check" text={caveat} />
+      </p>
+      {open && (
+        <ul className="flex flex-col gap-3">
+          {findings.map((finding) => (
+            <Row
+              key={`${String(finding.at)}-${finding.phrase}`}
+              finding={finding}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

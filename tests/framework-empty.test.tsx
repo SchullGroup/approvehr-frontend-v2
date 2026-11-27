@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   NO_FRAMEWORK_EXPLAINED,
-  noFrameworkWords,
   nothingToRateWords,
 } from "@/lib/performance/framework-empty";
 
@@ -16,9 +15,11 @@ import {
  * own". An administrator whose setup was finished went looking for a step that
  * does not exist.
  *
- * Three screens can be empty, so the words live in one module and each screen
- * is checked: the person's own list, the card that explains how appraisals work,
- * and the dialog that records a level.
+ * Two screens still say it, so the words live in one module and each is checked:
+ * the card that explains how appraisals work, and the dialog that records a level.
+ * The person's own list says nothing when there is no framework (owner, 27 Nov
+ * 2026), which is checked too: there is nothing in it to promise a step that does
+ * not exist.
  */
 
 let canEdit = true;
@@ -89,8 +90,6 @@ beforeEach(() => {
 describe("the words", () => {
   it("never promise that anything is created for the company", () => {
     for (const text of [
-      noFrameworkWords(true),
-      noFrameworkWords(false),
       NO_FRAMEWORK_EXPLAINED,
       nothingToRateWords(true),
       nothingToRateWords(false),
@@ -100,31 +99,28 @@ describe("the words", () => {
   });
 
   it("send the reader who can write the framework to the button that does it", () => {
-    expect(noFrameworkWords(true)).toMatch(/Edit competencies/);
     expect(nothingToRateWords(true)).toMatch(/Edit competencies/);
   });
 
   it("do not send everybody else to a button they do not have", () => {
-    expect(noFrameworkWords(false)).not.toMatch(/Edit competencies/);
     expect(nothingToRateWords(false)).not.toMatch(/Edit competencies/);
   });
 });
 
 describe("the person's own list of competencies", () => {
-  it("tells the reader who can write the framework where to do it", async () => {
+  it("says nothing at all when nobody has written a framework, whoever is reading", async () => {
     const { SkillsTab } = await import("@/app/(app)/performance/skills");
-    render(<SkillsTab canSeeCompany={false} isManager={false} />);
-    expect(screen.getByText("No framework yet")).toBeInTheDocument();
-    expect(screen.getByText(noFrameworkWords(true))).toBeInTheDocument();
-    expect(screen.queryByText(/created for you/)).not.toBeInTheDocument();
-  });
-
-  it("tells everybody else only that it is not written", async () => {
-    canEdit = false;
-    const { SkillsTab } = await import("@/app/(app)/performance/skills");
-    render(<SkillsTab canSeeCompany={false} isManager={false} />);
-    expect(screen.getByText(noFrameworkWords(false))).toBeInTheDocument();
-    expect(screen.queryByText(/Edit competencies/)).not.toBeInTheDocument();
+    for (const mayEdit of [true, false]) {
+      canEdit = mayEdit;
+      const { container, unmount } = render(
+        <SkillsTab canSeeCompany={false} isManager={false} />,
+      );
+      expect(screen.queryByText("No framework yet")).not.toBeInTheDocument();
+      expect(screen.queryByText(/created for you/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Edit competencies/)).not.toBeInTheDocument();
+      expect(container).not.toHaveTextContent(/framework|nothing to rate/i);
+      unmount();
+    }
   });
 });
 

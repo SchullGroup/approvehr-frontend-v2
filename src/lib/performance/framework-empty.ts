@@ -8,19 +8,14 @@
  * administrator whose setup was already finished looking for a step that does
  * not exist (F35, 25 Nov 2026).
  *
- * One place, so the three screens that can be empty (the person's own list, the
- * How it works card, the Record a level dialog) cannot say three different
- * things. The reader who may write the framework is told where; everybody else
- * is told only that it is not written yet, because they cannot do anything
- * about it.
+ * One place, so the two screens that still say it (the How it works card and the
+ * Record a level dialog) cannot say two different things. The person's own list
+ * says nothing at all when there is no framework (owner, 27 Nov 2026: a list shows
+ * what is recorded and hides what is empty), so it has nothing to promise. The
+ * reader who may write the framework is told where; everybody else is told only
+ * that it is not written yet, because they cannot do anything about it.
  */
 export const NO_FRAMEWORK_TITLE = "No framework yet";
-
-export function noFrameworkWords(canEdit: boolean): string {
-  return canEdit
-    ? "Nobody has written your competencies yet. Use Edit competencies at the top of this page to add the groups and the competencies in each, then record levels."
-    : "Your company has not written its competencies yet, so there is nothing to rate.";
-}
 
 /** The same fact on the page that explains how appraisals work, for every reader. */
 export const NO_FRAMEWORK_EXPLAINED =

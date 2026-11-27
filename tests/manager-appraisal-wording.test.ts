@@ -19,7 +19,7 @@ import {
   markPageWords,
   needsOverallMark,
   startingMark,
-  stillNeededLine,
+  toAnswerLine,
 } from "@/app/(focus)/performance/reviews/[id]/answer/focus-logic";
 
 /**
@@ -389,37 +389,40 @@ describe("the overall rating page in the answer flow", () => {
     ...(markShareBp === undefined ? {} : { markShareBp }),
   });
 
-  it("says an optional rating does not change the score where the period weights it at nothing (U36)", () => {
-    expect(markPageWords(false, alone(0)).lead).toBe(
-      "Optional, and it does not change the score. Leave it if the answers say enough.",
+  it("says an optional rating does not change the score where the period weights it at nothing (U36), in a tooltip", () => {
+    expect(markPageWords(false, alone(0)).tip).toBe(
+      "It does not change the score.",
     );
     /* A share the server did not send, or one that counts, makes no such claim. */
-    expect(markPageWords(false, alone()).lead).toBe(
-      "Optional. Leave it if the answers say enough.",
-    );
-    expect(markPageWords(false, alone(2000)).lead).toBe(
-      "Optional. Leave it if the answers say enough.",
-    );
+    expect(markPageWords(false, alone()).tip).toBeNull();
+    expect(markPageWords(false, alone(2000)).tip).toBeNull();
   });
 
   it("asks whether there is one when it is optional, and says why it is needed when it is", () => {
     expect(markPageWords(false, undefined)).toEqual({
       title: "Is there an overall rating?",
-      lead: "Optional. Leave it if the answers say enough.",
+      tip: null,
     });
     expect(markPageWords(true, alone(3000))).toEqual({
       title: "Your overall rating",
-      lead: "Needed. It counts for 30% of the score in this period.",
+      tip: "It counts for 30% of the score in this period.",
     });
-    expect(markPageWords(true, undefined).lead).toBe(
-      "Needed. This period counts it towards the score.",
+    expect(markPageWords(true, undefined).tip).toBe(
+      "This period counts it towards the score.",
     );
-    expect(markPageWords(true, alone(0)).lead).toBe(
-      "Needed. This period counts it towards the score.",
+    expect(markPageWords(true, alone(0)).tip).toBe(
+      "This period counts it towards the score.",
     );
-    expect(markPageWords(true, alone()).lead).toBe(
-      "Needed. This period counts it towards the score.",
+    expect(markPageWords(true, alone()).tip).toBe(
+      "This period counts it towards the score.",
     );
+  });
+
+  it("never leads with Needed or Optional: those are a tag and the Skip button now", () => {
+    for (const required of [true, false]) {
+      const { tip } = markPageWords(required, alone(3000));
+      expect(tip ?? "").not.toMatch(/^(Needed|Optional)/);
+    }
   });
 
   it("with several appraisers says their own slice and the part's share, in the strip's own sentence", () => {
@@ -428,22 +431,22 @@ describe("the overall rating page in the answer flow", () => {
        whole part said as theirs, and the strip on the same form says otherwise. */
     const appraiser = { weightBp: 6000, appraiserCount: 2, markShareBp: 3000 };
     const strip = appraiserStripLine({ appraiser, mine: true, asksMark: true });
-    expect(markPageWords(true, appraiser).lead).toBe(`Needed. ${strip}`);
-    expect(markPageWords(true, appraiser).lead).toBe(
-      "Needed. Your overall rating counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the score.",
+    expect(markPageWords(true, appraiser).tip).toBe(strip);
+    expect(markPageWords(true, appraiser).tip).toBe(
+      "Your overall rating counts for 60% of what the appraisers say, alongside 1 other. What they say is 30% of the score.",
     );
-    expect(markPageWords(true, appraiser).lead).not.toMatch(
+    expect(markPageWords(true, appraiser).tip).not.toMatch(
       /counts for 30% of the score in this period/,
     );
   });
 
   it("with several appraisers and no share from the server makes no figure up", () => {
-    const lead = markPageWords(true, {
+    const tip = markPageWords(true, {
       weightBp: 6000,
       appraiserCount: 2,
-    }).lead;
-    expect(lead).toBe("Needed. This period counts it towards the score.");
-    expect(lead).not.toMatch(/%/);
+    }).tip;
+    expect(tip).toBe("This period counts it towards the score.");
+    expect(tip).not.toMatch(/%/);
   });
 
   it("keeps the sole appraiser's wording when there is one appraiser", () => {
@@ -452,27 +455,16 @@ describe("the overall rating page in the answer flow", () => {
         weightBp: 10000,
         appraiserCount: 1,
         markShareBp: 3000,
-      }).lead,
-    ).toBe("Needed. It counts for 30% of the score in this period.");
+      }).tip,
+    ).toBe("It counts for 30% of the score in this period.");
   });
 
-  it("says what still stops a send, the questions and the score together", () => {
-    expect(stillNeededLine(0, false)).toBeNull();
-    expect(stillNeededLine(0, true)).toBe(
-      "The overall rating still needs an answer before this can go.",
-    );
-    expect(stillNeededLine(1, false)).toBe(
-      "1 question still needs an answer before this can go.",
-    );
-    expect(stillNeededLine(3, false)).toBe(
-      "3 questions still need an answer before this can go.",
-    );
-    expect(stillNeededLine(1, true)).toBe(
-      "1 question and the overall rating still need an answer before this can go.",
-    );
-    expect(stillNeededLine(2, true)).toBe(
-      "2 questions and the overall rating still need an answer before this can go.",
-    );
+  it("says what is left to answer in two words and a number, the questions and the score together", () => {
+    expect(toAnswerLine(0, false)).toBeNull();
+    expect(toAnswerLine(0, true)).toBe("1 to answer");
+    expect(toAnswerLine(1, false)).toBe("1 to answer");
+    expect(toAnswerLine(3, false)).toBe("3 to answer");
+    expect(toAnswerLine(2, true)).toBe("3 to answer");
   });
   it("opens on no score where the form does not ask for one, whatever is remembered or held", () => {
     expect(startingMark({ asks: false, local: "4", held: 3 })).toBe("");
