@@ -896,7 +896,7 @@ export function FocusForm({
             <button
               type="button"
               onClick={toFirstAnswer}
-              className="cursor-pointer text-body font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+              className="cursor-pointer text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
             >
               {footer.label}
             </button>
