@@ -430,9 +430,11 @@ export function WhatNeedsYouTab({
           count is worth a card; a card whose only content is the absence of
           one is furniture. */}
 
-      {/* The one next step on your own appraisal, and your team's. Not for
-          HR, who have the period cards. */}
-      {scored && !canSeeCompany && <YourAppraisal />}
+      {/* The one next step on your own appraisal, and your team's. For
+          everybody who is appraised, HR and administrators included: the period
+          cards are about running the period, and this is about being in it. It
+          draws nothing for somebody who is not appraised. */}
+      {scored && <YourAppraisal />}
 
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer

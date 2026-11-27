@@ -13,8 +13,10 @@ import type { ApiProgressPerson } from "@/lib/api/performance";
  * this is that the two surfaces use it.
  *
  * F33: a manager's "What Chidi did this period" drawer was a title and nothing
- * under it when the work could not be shown. `whenNothing` says so, once the
- * panel has settled, and never while it is still reading.
+ * under it when the work could not be shown. The drawer now says "Not recorded"
+ * on its own, in a line that shows only when everything else in it is absent
+ * (`only:block`), so this panel has to draw nothing, not a refusal, in every case
+ * where there is no list to show, and something while it is still reading.
  */
 
 const hook = vi.hoisted(() => ({
@@ -38,11 +40,10 @@ vi.mock("@/lib/store/work-flags", () => ({
     unflag: vi.fn(),
   }),
 }));
-vi.mock("@/app/(app)/hiring/requisitions/[id]/use-phone", () => ({
-  usePhone: () => false,
-}));
 
-const { personOf } = await import("@/components/performance/team-appraisals");
+const { TeamAppraisals, personOf } =
+  await import("@/components/performance/team-appraisals");
+const { ToastProvider } = await import("@/components/ui");
 const { YourAppraisalCard, stepLine } =
   await import("@/components/performance/your-appraisal");
 const { WorkThisCycle } =
@@ -89,6 +90,21 @@ describe("F31: part-way through a step is in progress, not ready to start", () =
     expect(personOf(person({ steps, submitted: true })).status).toBe("done");
   });
 
+  it("a team row says how many are answered beside its status, and offers Continue", () => {
+    const row = person({
+      steps: [step("Questions", 2, 1), step("Core", 3, 0)],
+    });
+    render(
+      <ToastProvider>
+        <TeamAppraisals people={[personOf(row)]} onOpen={vi.fn()} />
+      </ToastProvider>,
+    );
+    expect(screen.getByText("In progress")).toBeInTheDocument();
+    expect(screen.getByText(/1 of 5 answered/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeVisible();
+    expect(screen.queryByText("Ready to start")).toBeNull();
+  });
+
   it("the card says how much of the step is answered and offers Continue", () => {
     const mine = {
       reviewId: "r1",
@@ -117,9 +133,6 @@ describe("F31: part-way through a step is in progress, not ready to start", () =
   });
 });
 
-const nothing = (
-  <p data-testid="nothing">Nothing from the project boards is shown.</p>
-);
 const show = (over: Partial<Parameters<typeof WorkThisCycle>[0]> = {}) =>
   render(
     <WorkThisCycle
@@ -129,7 +142,6 @@ const show = (over: Partial<Parameters<typeof WorkThisCycle>[0]> = {}) =>
       periodEnd="2026-12-31"
       subjectName="Chidi Nwosu"
       own={false}
-      whenNothing={nothing}
       {...over}
     />,
   );
@@ -140,52 +152,47 @@ const answered = (data: unknown, error: unknown = null) => ({
   reload: vi.fn(),
 });
 
-describe("F33: the work drawer says why it is empty, once it has settled", () => {
+describe("F33: the work panel draws nothing where there is nothing to show", () => {
   beforeEach(() => {
     hook.projects = { enabled: true, loading: false };
     hook.read = answered(null);
   });
 
-  it("says it when there is no list", () => {
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
+  it("draws nothing when there is no list", () => {
+    const { container } = show();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("says it when the company does not use Projects", () => {
+  it("draws nothing when the company does not use Projects", () => {
     hook.projects = { enabled: false, loading: false };
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
+    const { container } = show();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("says it when the API will not show this reader the work", () => {
+  it("draws nothing when the API will not show this reader the work", () => {
     hook.read = answered(null, new ApiError(403, "forbidden", "Not yours."));
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
-    hook.read = answered(null, new ApiError(404, "not_found", "Not there."));
+    const first = show();
+    expect(first.container).toBeEmptyDOMElement();
     cleanup();
-    show();
-    expect(screen.getByTestId("nothing")).toBeInTheDocument();
+    hook.read = answered(null, new ApiError(404, "not_found", "Not there."));
+    const second = show();
+    expect(second.container).toBeEmptyDOMElement();
   });
 
-  it("says nothing while the company's switches are still arriving", () => {
+  it("draws nothing while the company's switches are still arriving", () => {
     hook.projects = { enabled: false, loading: true };
-    show();
-    expect(screen.queryByTestId("nothing")).toBeNull();
+    const { container } = show();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("says nothing while the list is still being read", () => {
+  it("draws a loading line, not nothing, while the list is still being read", () => {
     hook.read = { data: null, loading: true, error: null, reload: vi.fn() };
     show();
-    expect(screen.queryByTestId("nothing")).toBeNull();
+    expect(screen.getByLabelText("Loading work")).toBeInTheDocument();
   });
 
-  it("says nothing where the caller turned the panel off", () => {
-    show({ enabled: false });
-    expect(screen.queryByTestId("nothing")).toBeNull();
-  });
-
-  it("draws nothing at all without it, as it always did beside a review", () => {
-    const { container } = show({ whenNothing: undefined });
+  it("draws nothing where the caller turned the panel off", () => {
+    const { container } = show({ enabled: false });
     expect(container).toBeEmptyDOMElement();
   });
 });

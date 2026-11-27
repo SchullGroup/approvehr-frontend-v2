@@ -17,8 +17,9 @@ import {
 import { useAppraisalProgress, useAppraisals } from "@/lib/store/performance";
 
 /**
- * "Your appraisal" at the top of the Overview for everybody who is not HR (owner,
- * 24 Nov 2026): the one next step ("Step 2 of 4: Core competencies" and a
+ * "Your appraisal" at the top of the Overview for everybody who is appraised, HR
+ * and administrators included (an administrator with a form of their own had no
+ * way to it): the one next step ("Step 2 of 4: Core competencies" and a
  * Continue), and for a manager their team's list below it (`TeamAppraisals`).
  * Reads the period's appraisal progress; where the API does not have it, or
  * nothing is running, it draws nothing.

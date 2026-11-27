@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Avatar, Button, ProgressMeter, useToast } from "@/components/ui";
 import { actionMessage } from "@/lib/use-action";
 import type { ApiProgressPerson } from "@/lib/api/performance";
+import { answeredLine, hasStarted } from "@/lib/performance/progress-words";
 
 /**
  * A manager's team and where each person's appraisal stands (owner, 24 Nov 2026,
@@ -36,6 +37,8 @@ export type TeamPerson = {
   stepsTotal: number;
   /** Why a locked row is locked, in the API's words. Not drawn: the status says it. */
   lockedReason?: string | null;
+  /** "1 of 3 answered", once something is. Absent when nothing is. */
+  answered?: string | null;
 };
 
 export const STATUS_WORDS: Record<TeamStatus, string> = {
@@ -62,12 +65,16 @@ export function personOf(row: ApiProgressPerson): TeamPerson {
       ? "done"
       : row.locked
         ? "locked"
-        : done > 0
+        : /* In progress once any question is answered, not only once a whole
+             step is finished: a form somebody has started is not "Ready to
+             start" beside Start. */
+          hasStarted(row.steps)
           ? "in-progress"
           : "ready",
     stepsDone: done,
     stepsTotal: row.steps.length,
     lockedReason: row.lockedReason,
+    answered: answeredLine(row.steps),
   };
 }
 
@@ -160,6 +167,9 @@ export function TeamAppraisals({
                   </p>
                   <p className="text-meta text-muted">
                     {STATUS_WORDS[person.status]}
+                    {person.status === "in-progress" && person.answered && (
+                      <span> · {person.answered}</span>
+                    )}
                   </p>
                   {person.status === "in-progress" && (
                     <div className="mt-1.5 max-w-48">

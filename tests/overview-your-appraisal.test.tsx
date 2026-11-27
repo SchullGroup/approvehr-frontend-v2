@@ -3,12 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiCycle } from "@/lib/api/performance";
 
 /**
- * The Overview's "This period" card and "Your appraisal" (F22, F23).
+ * "Your appraisal" on the Overview (F22).
  *
- * "Your appraisal" is for everybody who is appraised, HR included: the period
- * cards are about running the period and it is about being in it. And the counts
- * under the open period are the whole company's, so an employee is not shown
- * them as if they were their own.
+ * It is for everybody who is appraised, HR included: the period cards are about
+ * running the period and it is about being in it.
  */
 
 const state = vi.hoisted(() => ({
