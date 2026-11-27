@@ -130,22 +130,6 @@ export const account = {
       anonymous: true,
     }),
 
-  /**
-   * Whether this reset link's account needs the stronger password policy —
-   * asked before the password is typed, so the checklist that appears matches
-   * what the real submit will demand. Read-only on the API's side; see the
-   * note on `resetPasswordRequirements` in `auth/service.ts`. A dead or
-   * malformed token answers `false` here and then fails the usual way on
-   * submit, so a failed call is safe to treat the same as a `false` reply.
-   */
-  requirementsForReset: (
-    token: string,
-  ): Promise<{ requiresStrongPassword: boolean }> =>
-    request<{ requiresStrongPassword: boolean }>("/auth/reset-password", {
-      query: { token },
-      anonymous: true,
-    }),
-
   /** Sets the password and ends every session, this browser's included. */
   async resetPassword(
     token: string,
@@ -179,15 +163,6 @@ export const account = {
     return result;
   },
 
-  /** Same idea as `requirementsForReset`, for an invitation instead of a reset. */
-  requirementsForInvite: (
-    token: string,
-  ): Promise<{ requiresStrongPassword: boolean }> =>
-    request<{ requiresStrongPassword: boolean }>("/auth/accept-invite", {
-      query: { token },
-      anonymous: true,
-    }),
-
   /**
    * Exchanges an invitation for a password and a signed-in session, in one
    * request — the API's `acceptInvite` returns the same shape `sign-in` does,
@@ -216,19 +191,29 @@ export const account = {
  * The password rule, mirrored from the API so the form can show it being met
  * rather than reporting it as a failure after a round trip.
  *
- * It is length-first on purpose: composition rules ("one symbol, one digit")
- * reliably produce `Password1!` and a sticky note, while length is what actually
- * resists cracking. If `registerSchema` in `approvehr-api/src/modules/auth/
- * schemas.ts` changes, change this with it — the API stays authoritative either
- * way, and anything it rejects still comes back as a field error on the form.
+ * Length only, for every account: eight characters, no composition rules. A
+ * person who wants more protection turns on two-factor on their own account. If
+ * `password` in `approvehr-api/src/modules/auth/schemas.ts` changes, change this
+ * with it — the API stays authoritative either way, and anything it rejects
+ * still comes back as a field error on the form.
  */
-export const PASSWORD_MIN = 12;
+export const PASSWORD_MIN = 8;
 
 /** The list the API refuses. Short by design; the server is the real gate. */
 const OBVIOUS = [
+  "password",
+  "password1",
+  "password123",
   "password1234",
   "passw0rd1234",
+  "12345678",
+  "123456789",
+  "1234567890",
+  "qwertyui",
+  "qwerty123",
+  "11111111",
   "administrator",
+  "approvehr",
   "approvehr123",
   "qwertyuiop12",
 ];
@@ -245,45 +230,8 @@ export type PasswordRule = {
   showWhen: "always" | "unmet";
 };
 
-/**
- * The composition floor for an account that can see pay, run payroll, or hand
- * out access — layered on top of the length rule above, not instead of it, and
- * only for that tier of account. `strict` on `passwordRules`/`passwordAccepted`
- * decides whether these four apply; `requiresStrongPassword` in
- * `lib/permissions.ts` is what decides `strict` for a signed-in change of
- * password, and `register`/`accept-invite`/`reset-password` each resolve their
- * own — see the callers.
- *
- * Mirrored from `assertPasswordComplexity` in `approvehr-api/src/modules/
- * auth/service.ts`. If that changes, change this with it, the same rule the
- * length constant above already lives by — the API stays the real gate either
- * way, and a mismatch only ever costs a round trip, never a wrong acceptance.
- */
-const CLASS_RULES: {
-  id: string;
-  label: string;
-  test: (value: string) => boolean;
-}[] = [
-  {
-    id: "lower",
-    label: "A lowercase letter",
-    test: (value) => /[a-z]/.test(value),
-  },
-  {
-    id: "upper",
-    label: "An uppercase letter",
-    test: (value) => /[A-Z]/.test(value),
-  },
-  { id: "digit", label: "A number", test: (value) => /[0-9]/.test(value) },
-  {
-    id: "symbol",
-    label: "A special character",
-    test: (value) => /[^a-zA-Z0-9]/.test(value),
-  },
-];
-
-export function passwordRules(value: string, strict = false): PasswordRule[] {
-  const base: PasswordRule[] = [
+export function passwordRules(value: string): PasswordRule[] {
+  return [
     {
       id: "length",
       label: `${PASSWORD_MIN} characters or more`,
@@ -297,17 +245,7 @@ export function passwordRules(value: string, strict = false): PasswordRule[] {
       showWhen: "unmet",
     },
   ];
-  if (!strict) return base;
-  return [
-    ...base,
-    ...CLASS_RULES.map((rule) => ({
-      id: rule.id,
-      label: rule.label,
-      met: rule.test(value),
-      showWhen: "always" as const,
-    })),
-  ];
 }
 
-export const passwordAccepted = (value: string, strict = false): boolean =>
-  passwordRules(value, strict).every((rule) => rule.met);
+export const passwordAccepted = (value: string): boolean =>
+  passwordRules(value).every((rule) => rule.met);
