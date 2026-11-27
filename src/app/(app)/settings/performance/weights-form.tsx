@@ -9,7 +9,6 @@ import {
   Callout,
   Card,
   CardBody,
-  CardHeader,
   ConfirmDialog,
   EmptyState,
   Field,
@@ -20,10 +19,10 @@ import {
   Select,
   Tabs,
   Textarea,
-  TextLink,
   useToast,
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { SavedWeightsNote } from "@/components/performance/saved-weights-note";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -42,7 +41,6 @@ import {
 } from "@/lib/api/performance";
 import { useHeld } from "@/lib/use-held";
 import type { ManagerAppraisalPart } from "@/lib/performance/overall-mark-wording";
-import { WeightsPie } from "@/components/performance/weights-pie";
 import { useCan } from "@/lib/permissions";
 import { useScoringParts, useScoringWeights } from "@/lib/store/performance";
 import { OverallMarkCard } from "./overall-mark-card";
@@ -51,7 +49,6 @@ import { WorkInAnswersCard } from "./work-in-answers-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
 import { WorkRecordCard } from "./work-record-card";
 import { NEXT_PERIOD, READ_ONLY_MANY } from "./setting-copy";
-import { WEIGHTS_RULE } from "@/lib/performance/score-wording";
 
 const TAB_ITEMS: TabItem[] = [
   { id: "weights", label: "Parts of the score" },
@@ -196,19 +193,25 @@ export function ScoringWeightsForm({
             <PartsPanel scoring={scoring} />
           </div>
           <div hidden={tab !== "marks"} className="flex flex-col gap-6">
-            {/* First, because it decides whether the names below are ever
-                offered on a form. */}
-            <OverallMarkCard
-              connected={scoring.source === "api"}
-              onChanged={scoring.reload}
-              managerAppraisal={managerAppraisal}
-            />
-            {scale}
+            {/* One card: the switch first, because it decides whether the names
+                below are ever offered on a form, and then the names. */}
+            <Card className="divide-y divide-line">
+              <OverallMarkCard
+                connected={scoring.source === "api"}
+                onChanged={scoring.reload}
+                managerAppraisal={managerAppraisal}
+              />
+              {scale}
+            </Card>
           </div>
           <div hidden={tab !== "records"} className="flex flex-col gap-6">
-            <WorkRecordCard connected={scoring.source === "api"} />
-            <WorkInAnswersCard connected={scoring.source === "api"} />
-            <WorkAssistsCard connected={scoring.source === "api"} />
+            {/* One card: how long to keep work, and the two switches under it.
+                A switch that needs Projects is not drawn without it. */}
+            <Card className="divide-y divide-line">
+              <WorkRecordCard connected={scoring.source === "api"} />
+              <WorkInAnswersCard connected={scoring.source === "api"} />
+              <WorkAssistsCard connected={scoring.source === "api"} />
+            </Card>
           </div>
         </Tabs>
       </PageBody>
@@ -264,10 +267,6 @@ function PartsPanel({
      empty list: both are `LoadState`'s to say, below, so a count, "No parts yet"
      and the Add button are never drawn under a failure or before an answer. */
   const free = view?.sources.filter((source) => source.usedBy === null) ?? [];
-  const selfPart = view?.parts.find(
-    (part) => part.source === "SELF_ASSESSMENT",
-  );
-  const selfShareBp = selfPart?.shareBp ?? 0;
 
   const onSave = async () => {
     if (!draft || draft.source === "") return;
@@ -409,21 +408,19 @@ function PartsPanel({
         {view && (
           <>
             <Card>
-              <CardHeader
-                title={
-                  <span className="inline-flex items-center gap-2">
-                    The parts of the score
-                    {weights?.managerAppraisalNote &&
-                      view.parts.some(
-                        (part) => part.source === MANAGER_SOURCE,
-                      ) && <SavedWeightsNote moved={false} />}
-                  </span>
-                }
-                description={WEIGHTS_RULE}
-                action={
-                  <span className="flex flex-wrap items-center gap-3">
-                    <Total totalBp={view.totalBp} />
-                    {manage && view.parts.length > 0 && (
+              {/* No heading: the tab says what this is. The figures are the
+                  list, so there is no chart over it, and a total is only said
+                  when it is not 100%. Add part is absent, not dimmed, when
+                  every source already has a part. */}
+              {view.parts.length > 0 &&
+                (view.totalBp !== FULL_WEIGHT_BP || manage) && (
+                  <div className="flex flex-wrap items-center justify-end gap-3 border-b border-line px-5 py-3">
+                    {view.totalBp !== FULL_WEIGHT_BP && (
+                      <span className="mr-auto">
+                        <Total totalBp={view.totalBp} />
+                      </span>
+                    )}
+                    {manage && (
                       <Button
                         variant="secondary"
                         size="sm"
@@ -433,25 +430,14 @@ function PartsPanel({
                         Edit weights
                       </Button>
                     )}
-                    {manage && (
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        disabled={free.length === 0}
-                        title={
-                          free.length === 0
-                            ? "Every source is in use. Edit or delete a part first."
-                            : undefined
-                        }
-                        onClick={newPart}
-                      >
+                    {manage && free.length > 0 && (
+                      <Button variant="accent" size="sm" onClick={newPart}>
                         <Plus aria-hidden="true" className="size-4" />
                         Add part
                       </Button>
                     )}
-                  </span>
-                }
-              />
+                  </div>
+                )}
               <CardBody className="flex flex-col gap-0 p-0">
                 {/* Said on the page, not behind an icon: a set saved before the
                     100% rule still scores in proportion to its total, which
@@ -465,24 +451,12 @@ function PartsPanel({
                       {weightTotalNote(view.totalBp, { canChange: manage })}
                     </p>
                   )}
-                {view.parts.length > 0 && (
-                  <div className="flex justify-center border-b border-line px-5 py-5">
-                    <WeightsPie
-                      slices={view.parts.map((part) => ({
-                        id: part.id,
-                        label: part.name,
-                        percent: Math.round(part.weightBp / 100),
-                      }))}
-                    />
-                  </div>
-                )}
                 {view.parts.length === 0 ? (
                   <div className="p-6">
                     <EmptyState
                       plain
                       title="No parts yet"
-                      description="Add the parts a score is made of, then give them weights that add up to 100%."
-                      {...(manage
+                      {...(manage && free.length > 0
                         ? {
                             action: (
                               <Button variant="accent" onClick={newPart}>
@@ -503,8 +477,21 @@ function PartsPanel({
                         className="flex flex-wrap items-start gap-x-4 gap-y-2 px-5 py-4"
                       >
                         <div className="min-w-0 flex-1 basis-64">
-                          <p className="text-body-sm font-medium text-ink">
+                          <p className="flex items-center gap-2 text-body-sm font-medium text-ink">
                             {part.name}
+                            {/* What a part is read from, and what weighting it
+                                costs, behind an icon on the part it is about:
+                                the weight beside it says the state. */}
+                            {part.source === MANAGER_SOURCE &&
+                              weights?.managerAppraisalNote && (
+                                <SavedWeightsNote moved={false} />
+                              )}
+                            {part.source === "SELF_ASSESSMENT" && (
+                              <InfoTooltip
+                                label="About self-assessment"
+                                text={`${view.selfAssessmentNote} Either way, a person's own answers are shown beside the manager's.`}
+                              />
+                            )}
                           </p>
                           <p className="text-meta text-muted">
                             Scored from {part.sourceLabel}
@@ -557,17 +544,6 @@ function PartsPanel({
                 )}
               </CardBody>
             </Card>
-
-            <SelfAssessment
-              note={view.selfAssessmentNote}
-              weightBp={selfShareBp}
-              swingBp={Math.round(selfShareBp / 2)}
-            />
-
-            <p className="text-body-sm text-muted">
-              A period keeps the parts and weights it started with. Periods are
-              started in <TextLink href="/performance">Performance</TextLink>.
-            </p>
           </>
         )}
       </LoadState>
@@ -834,40 +810,5 @@ function Total({ totalBp }: { totalBp: number }) {
         {weightLabel(totalBp)}
       </Badge>
     </span>
-  );
-}
-
-/**
- * Whether a person's own rating counts, in one line. The API's sentence about
- * what the part is read from, and what counting it costs, sit behind the info
- * icon: the badge and the line say the state, which is what a visit needs.
- */
-function SelfAssessment({
-  note,
-  weightBp,
-  swingBp,
-}: {
-  note: string;
-  weightBp: number;
-  swingBp: number;
-}) {
-  const on = weightBp > 0;
-  return (
-    <Card>
-      <CardHeader
-        title="Self-assessment"
-        info={`${note} Either way, a person's own answers are shown beside the manager's.`}
-        description={
-          on
-            ? `Rating themselves 5 instead of 3 moves a person's own score by ${weightLabel(swingBp)}.`
-            : "To count it, add a part scored from self-assessment."
-        }
-        action={
-          <Badge tone={on ? "warning" : "neutral"} size="sm" dot>
-            {on ? `Counts for ${weightLabel(weightBp)}` : "Not counted"}
-          </Badge>
-        }
-      />
-    </Card>
   );
 }

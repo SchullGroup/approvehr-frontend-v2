@@ -9,12 +9,12 @@ import { ApiError } from "@/lib/api/client";
  * on a done-or-not measure, and the finished tasks of the week for a weekly line.
  *
  * What is proved: the switch is off for a company that has not chosen, and turning it on asks first,
- * says what it does and changes nothing until it is confirmed; turning it off is one press and says
- * what it keeps; the card says that won't do and acceptance are NOT behind it; somebody who may look
- * and not change gets a switch that cannot be pressed; the card tells "loading" from "could not be
- * read" from "this server has not been updated" from "no server", in four different sentences, and
- * offers no switch for any of them (null is not off); Projects being off is said, not hidden; and a
- * refusal is the server's own sentence, shown where it can be read.
+ * in one question with no paragraph, and changes nothing until it is confirmed; turning it off is one
+ * press and says what it keeps; that won't do and acceptance are NOT behind it is behind the icon beside
+ * the switch's name; somebody who may look and not change gets a switch that cannot be pressed; no switch
+ * is offered, and nothing drawn, for "loading", "could not be read", "this server has not been updated"
+ * or "no server" (null is not off); with Projects off the switch is absent, not explained, unless it is
+ * already on; and a refusal is the server's own sentence, shown where it can be read.
  */
 
 const setWorkAssists = vi.fn<(next: boolean) => Promise<object>>(
@@ -50,7 +50,7 @@ const THE_SWITCH = /Show linked tasks next to Confirm/;
 const dialog = () => screen.getByRole("dialog");
 const openInfo = () =>
   userEvent.click(
-    screen.getByRole("button", { name: "About Task suggestions" }),
+    screen.getByRole("button", { name: "About task suggestions" }),
   );
 const info = () =>
   screen.getByText(/A manager confirming a done-or-not target/).textContent ??
@@ -69,14 +69,15 @@ beforeEach(() => {
 });
 
 describe("a company that has not chosen", () => {
-  it("is off, and the switch says what it does", () => {
+  it("is off", () => {
     mount();
     expect(screen.getByRole("switch", { name: THE_SWITCH })).not.toBeChecked();
   });
 
-  it("says on the switch itself that it changes no score", () => {
+  it("has no line under the switch: the rule is not said twice", () => {
     mount();
-    expect(screen.getByText("It never changes a score.")).toBeInTheDocument();
+    expect(screen.queryByText("It never changes a score.")).toBeNull();
+    expect(screen.queryByRole("heading")).toBeNull();
   });
 
   it("says behind the info icon that won't do and acceptance are not behind the switch, and that nothing is filed", async () => {
@@ -101,18 +102,19 @@ describe("turning it on", () => {
     expect(screen.getByRole("switch", { name: THE_SWITCH })).not.toBeChecked();
   });
 
-  it("says what it does, that nothing is filed, that it never recommends, that no title is saved and that it needs Projects", async () => {
+  it("is the question, Cancel and the action, with no paragraph", async () => {
     mount();
     await userEvent.click(screen.getByRole("switch", { name: THE_SWITCH }));
-    const body = within(dialog());
+    const question = within(dialog());
     expect(
-      body.getByText(/the tasks linked to a done-or-not target/),
+      question.getByRole("button", { name: "Cancel" }),
     ).toBeInTheDocument();
     expect(
-      body.getByText(/never says a target is done; a manager still decides/),
+      question.getByRole("button", { name: "Switch it on" }),
     ).toBeInTheDocument();
-    expect(body.getByText(/[Tt]ask titles aren't saved/)).toBeInTheDocument();
-    expect(body.getByText(/It needs Projects/)).toBeInTheDocument();
+    expect(dialog().textContent).not.toMatch(
+      /linked to a done-or-not|never says a target|titles aren't saved|Projects/i,
+    );
   });
 
   it("sends true only when confirmed, then says what was done and closes", async () => {
@@ -154,12 +156,12 @@ describe("turning it off", () => {
 });
 
 describe("who may change it", () => {
-  it("cannot be pressed without the permission, and says why", () => {
+  it("cannot be pressed without the permission, and has no sentence of its own: the months field says why, once for the card", () => {
     mount(true, { editable: false });
     expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeDisabled();
     expect(
-      screen.getByText("Only people who manage settings can change this."),
-    ).toBeInTheDocument();
+      screen.queryByText(/Only people who manage settings/),
+    ).not.toBeInTheDocument();
   });
 
   it("cannot be pressed while a save is out", () => {
@@ -169,61 +171,54 @@ describe("who may change it", () => {
 });
 
 describe("when the setting is not known, which is not off", () => {
-  it("says it is reading while the store loads, and offers no switch", () => {
+  /* Nothing: the months field above is the one place that says which of the four it is. */
+  const NOTHING = () => {
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(document.body.textContent).toBe("");
+  };
+
+  it("draws nothing while the store loads", () => {
     mount(true, { workAssists: null, loading: true });
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
-    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    NOTHING();
   });
 
-  it("says it could not be read, and offers no switch", () => {
+  it("draws nothing when it could not be read", () => {
     mount(true, { workAssists: null, error: new Error("boom") });
-    expect(
-      screen.getByText(
-        "This setting didn't load. Reload the page to try again.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    NOTHING();
   });
 
-  it("says a server that predates it has not been updated, and offers no switch", () => {
+  it("draws nothing for a server that predates it", () => {
     mount(true, { workAssists: null });
-    expect(
-      screen.getByText(/This server doesn't offer this setting yet/),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    NOTHING();
   });
 
-  it("says there is no server when there is none, and offers no switch", () => {
+  it("draws nothing when there is no server", () => {
     mount(false, { workAssists: null });
-    expect(
-      screen.getByText("This setting is kept on the server."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    NOTHING();
   });
 
   it("offers no switch with no server even when a value is somehow present", () => {
     mount(false, { workAssists: false });
-    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    NOTHING();
   });
 });
 
 describe("Projects", () => {
-  it("is said to be off, with a link to switch it on, and the switch is still there", () => {
+  it("being off leaves the switch out, with no sentence about it", () => {
     mount(true, { flags: { projects: false } });
-    expect(
-      screen.getByText(/Needs Projects\. Turn it on in/),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Features" })).toHaveAttribute(
-      "href",
-      "/settings/features",
-    );
-    expect(
-      screen.getByRole("switch", { name: THE_SWITCH }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Needs Projects/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Features" })).toBeNull();
   });
 
-  it("is not mentioned as a problem when it is on", () => {
+  it("being off still shows a switch that is already on, so it can be turned off", () => {
+    mount(true, { flags: { projects: false }, workAssists: true });
+    expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeChecked();
+  });
+
+  it("being on shows the switch with nothing said about it", () => {
     mount();
+    expect(screen.getByRole("switch", { name: THE_SWITCH })).toBeEnabled();
     expect(screen.queryByText(/Needs Projects/)).not.toBeInTheDocument();
   });
 });

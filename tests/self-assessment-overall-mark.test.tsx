@@ -124,13 +124,16 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
     ["on", true],
     ["not said", null],
   ] as const)(
-    "describes what a weight costs when the setting is %s",
+    "is one row of the list, with no card of its own, when the setting is %s",
     (_name, value) => {
       overallMark = value;
       mount();
       expect(
-        screen.getByText(/moves a person's own score by 10%/),
-      ).toBeInTheDocument();
+        document.querySelector('[data-part="SELF_ASSESSMENT"]'),
+      ).not.toBeNull();
+      expect(screen.queryByText(/Counts for/)).toBeNull();
+      expect(screen.queryByText(/Not counted/)).toBeNull();
+      expect(screen.queryByText(/moves a person's own score by/)).toBeNull();
     },
   );
 
@@ -144,20 +147,22 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
     ).toBeNull();
   });
 
-  it("argues against a weight at the default, whatever forms ask for", () => {
+  it("has no row, and no sentence arguing for one, when the company has no such part", () => {
     selfSaved = 0;
     overallMark = false;
     mount();
+    expect(document.querySelector('[data-part="SELF_ASSESSMENT"]')).toBeNull();
+    expect(screen.queryByText(/To count it, add a part/)).toBeNull();
     expect(
-      screen.getByText(/To count it, add a part scored from self-assessment/),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "About self-assessment" }),
+    ).toBeNull();
   });
 
-  it("keeps the API's own sentence about what is saved, once, behind the info icon", async () => {
+  it("keeps the API's own sentence about what is saved, once, behind the info icon on its row", async () => {
     mount();
     expect(screen.queryByText(/THE API'S NOTE/)).toBeNull();
     await userEvent.click(
-      screen.getByRole("button", { name: "About Self-assessment" }),
+      screen.getByRole("button", { name: "About self-assessment" }),
     );
     expect(screen.getAllByText(/THE API'S NOTE/)).toHaveLength(1);
   });
@@ -165,7 +170,7 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
   it("says the person's own answers are shown beside the manager's, not a self-rating", async () => {
     mount();
     await userEvent.click(
-      screen.getByRole("button", { name: "About Self-assessment" }),
+      screen.getByRole("button", { name: "About self-assessment" }),
     );
     expect(
       screen.getByText(/a person's own answers are shown beside the manager's/),
@@ -175,14 +180,17 @@ describe("Self-assessment reads the same whatever forms ask for", () => {
 });
 
 describe("the Rating names tab", () => {
-  it("opens with the switch, ahead of the names it decides whether to offer", () => {
+  it("opens with the switch, ahead of the names it decides whether to offer, in one card with no heading", () => {
     mount("marks");
-    const card = screen.getByRole("heading", { name: "Overall rating" });
+    const toggle = screen.getByRole("switch");
     const scale = screen.getByText("THE SCALE FORM");
     expect(
-      card.compareDocumentPosition(scale) & Node.DOCUMENT_POSITION_FOLLOWING,
+      toggle.compareDocumentPosition(scale) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByRole("switch")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Overall rating" }),
+    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Rating names" })).toBeNull();
   });
 
   it("asks the parts to be read again after the switch moves, so the API's note follows it", async () => {

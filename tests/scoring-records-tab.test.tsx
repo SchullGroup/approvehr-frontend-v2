@@ -8,10 +8,10 @@ import { ToastProvider } from "@/components/ui";
  *
  * Three company decisions about the performance module live on it, and none reaches a mark: how long
  * the work behind a final rating is kept, whether people may use their own finished work in their
- * review answers, and whether the two assists are offered (the linked tasks beside Confirm and the
- * weekly-line suggestions). What is proved here is only that each is on the tab, in that order, and
- * that they are the page's own tab and not the weights or the names: the cards themselves are held by
- * their own files' tests.
+ * review answers, and whether the linked tasks are offered beside Confirm. They are one card, a field
+ * and two switches with no headings. What is proved here is that each is on the tab, in that order,
+ * that the two that need Projects are not drawn without it, and that they are the page's own tab and
+ * not the weights or the names: the sections themselves are held by their own files' tests.
  */
 
 const setWorkInAnswers = vi.fn<(next: boolean) => Promise<object>>(
@@ -20,6 +20,7 @@ const setWorkInAnswers = vi.fn<(next: boolean) => Promise<object>>(
 const setWorkAssists = vi.fn<(next: boolean) => Promise<object>>(
   async () => ({}),
 );
+let projectsOn = true;
 
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
 vi.mock("@/components/portal/shell", () => ({
@@ -71,7 +72,7 @@ vi.mock("@/lib/store/features", async (original) => ({
     workEvidenceMonths: null,
     workInAnswers: false,
     workAssists: false,
-    flags: { projects: true },
+    flags: { projects: projectsOn },
     editable: true,
     loading: false,
     saving: null,
@@ -97,42 +98,66 @@ const records = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  projectsOn = true;
   window.history.replaceState(null, "", "/settings/performance?tab=records");
 });
 
 describe("the Records tab", () => {
-  it("holds how long work is kept and whether people may use their work in their answers", () => {
+  it("is one card: a field and two switches, with no heading", () => {
     mount();
     const tab = within(records());
-    expect(tab.getByText("Work kept with a final rating")).toBeInTheDocument();
-    expect(tab.getByText("Work in review answers")).toBeInTheDocument();
+    expect(
+      tab.getByRole("textbox", { name: /Months to keep/ }),
+    ).toBeInTheDocument();
     expect(
       tab.getByRole("switch", {
         name: /Let people add their finished work/,
       }),
     ).not.toBeChecked();
-  });
-
-  it("holds the two assists' switch as well", () => {
-    mount();
-    const tab = within(records());
-    expect(tab.getByText("Task suggestions")).toBeInTheDocument();
     expect(
       tab.getByRole("switch", {
         name: /Show linked tasks next to Confirm/,
       }),
     ).not.toBeChecked();
+    expect(tab.queryByRole("heading")).toBeNull();
+    for (const gone of [
+      "Work kept with a final rating",
+      "Work in review answers",
+      "Task suggestions",
+      "It never changes a score.",
+    ]) {
+      expect(tab.queryByText(gone)).toBeNull();
+    }
   });
 
-  it("puts the switches in order: how long work is kept, then work in answers, then the assists", () => {
+  it("puts how long work is kept first, then work in answers, then the linked tasks", () => {
     mount();
-    const text = records().textContent ?? "";
-    const kept = text.indexOf("Work kept with a final rating");
-    const answers = text.indexOf("Work in review answers");
-    const assists = text.indexOf("Task suggestions");
-    expect(kept).toBeGreaterThanOrEqual(0);
-    expect(kept).toBeLessThan(answers);
-    expect(answers).toBeLessThan(assists);
+    const order = [
+      within(records()).getByRole("textbox", { name: /Months to keep/ }),
+      within(records()).getByRole("switch", {
+        name: /Let people add their finished work/,
+      }),
+      within(records()).getByRole("switch", {
+        name: /Show linked tasks next to Confirm/,
+      }),
+    ];
+    for (let at = 0; at < order.length - 1; at += 1) {
+      expect(
+        order[at]!.compareDocumentPosition(order[at + 1]!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
+  it("keeps the months field and drops both switches when Projects is off, with no line about it", () => {
+    projectsOn = false;
+    mount();
+    const tab = within(records());
+    expect(
+      tab.getByRole("textbox", { name: /Months to keep/ }),
+    ).toBeInTheDocument();
+    expect(tab.queryAllByRole("switch")).toHaveLength(0);
+    expect(tab.queryByText(/Needs Projects/)).toBeNull();
   });
 
   it("keeps the assists' switch off the weights and the names too", () => {
@@ -145,7 +170,7 @@ describe("the Records tab", () => {
     expect(records()).toContainElement(all[0] as HTMLElement);
   });
 
-  it("asks before the assists are switched on, as the card does", async () => {
+  it("asks before the assists are switched on, as the section does", async () => {
     mount();
     await userEvent.click(
       within(records()).getByRole("switch", {
@@ -169,7 +194,7 @@ describe("the Records tab", () => {
     expect(records()).toContainElement(all[0] as HTMLElement);
   });
 
-  it("asks before it is switched on, as the card does", async () => {
+  it("asks before it is switched on, as the section does", async () => {
     mount();
     await userEvent.click(
       within(records()).getByRole("switch", {

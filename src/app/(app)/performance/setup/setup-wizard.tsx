@@ -14,7 +14,8 @@ import {
   useScoringWeights,
   useSections,
 } from "@/lib/store/performance";
-import { splitEvenly } from "@/lib/performance/setup-weights";
+import { useFeatures } from "@/lib/store/features";
+import { balanceWeights, splitEvenly } from "@/lib/performance/setup-weights";
 
 /**
  * Setting appraisals up, once, one question to a screen.
@@ -24,6 +25,14 @@ import { splitEvenly } from "@/lib/performance/setup-weights";
  * defaults presses Continue. Nothing is written until the last question has been
  * answered, and what is written is the company's own scoring parts and
  * competencies, the same ones Settings and Competency ratings edit afterwards.
+ *
+ * ## Two things it does not ask
+ *
+ * **Tasks done** is offered only where there is Projects to do tasks in, or where
+ * the company already has it (so going back through the wizard never takes a part
+ * away). **A total** is never asked for: the last weight is worked out from the
+ * others, so the weights always add up to 100 and Continue is never refused over
+ * a figure. See `balanceWeights`.
  */
 
 const CHOICES: { source: ScoreComponent; label: string }[] = [
@@ -66,6 +75,7 @@ function SetupWizardInner({
   const sections = useSections();
   const framework = useFramework();
   const actions = useFrameworkActions();
+  const features = useFeatures();
 
   /* What the company is scored on today, whether or not it ever saved its own
      parts: a company on the built-in weights sees those, not an even split. */
@@ -124,9 +134,45 @@ function SetupWizardInner({
           : "competencies";
   const compSource = competencySteps[step - 2];
 
-  const percent = (source: ScoreComponent) =>
-    Math.max(0, Math.round(Number(weights[source]) || 0));
-  const sum = ticked.reduce((n, source) => n + percent(source), 0);
+  /* The last part is the remainder, so the total is 100 whatever is typed. */
+  const shares = balanceWeights(ticked, weights);
+  const percent = (source: ScoreComponent) => shares[source] ?? 0;
+  const lastSource = ticked[ticked.length - 1];
+  const choices = CHOICES.filter(
+    (choice) =>
+      choice.source !== "TASKS" ||
+      features.projects ||
+      ticked.includes("TASKS"),
+  );
+
+  /* What a box shows: what was typed, unless the others have left less than
+     that (a total saved before the 100% rule), and then what it really counts
+     for. Typed text is kept as it is otherwise, so a box can be emptied to be
+     retyped. */
+  const shown = (source: ScoreComponent) => {
+    const typed = weights[source] ?? "";
+    return (Number(typed) || 0) === percent(source)
+      ? typed
+      : String(percent(source));
+  };
+
+  /* What was typed for a part, held to what the other typed parts have left. */
+  const changeWeight = (source: ScoreComponent, text: string) => {
+    setTouched(true);
+    const others = ticked
+      .slice(0, -1)
+      .filter((one) => one !== source)
+      .reduce((n, one) => n + percent(one), 0);
+    const allowed = 100 - others;
+    const typed = Number(text);
+    setWeights({
+      ...weights,
+      [source]:
+        text !== "" && Number.isFinite(typed) && typed > allowed
+          ? String(allowed)
+          : text,
+    });
+  };
 
   const toggle = (source: ScoreComponent) => {
     const next = ticked.includes(source)
@@ -238,13 +284,7 @@ function SetupWizardInner({
       title={title}
       onBack={() => setStep(step - 1)}
       onNext={next}
-      canNext={
-        kind === "parts"
-          ? ticked.length > 0
-          : kind === "weights"
-            ? sum === 100
-            : true
-      }
+      canNext={kind === "parts" ? ticked.length > 0 : true}
       busy={saving}
       error={error}
       nextLabel={step === total - 2 ? "Save" : "Continue"}
@@ -252,7 +292,7 @@ function SetupWizardInner({
     >
       {kind === "parts" && (
         <div className="grid gap-2 sm:grid-cols-2">
-          {CHOICES.map((choice) => {
+          {choices.map((choice) => {
             const on = ticked.includes(choice.source);
             return (
               <button
@@ -299,19 +339,30 @@ function SetupWizardInner({
                   {labelOf(source)}
                 </span>
                 <span className="w-28">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    suffix="%"
-                    aria-label={labelOf(source)}
-                    value={weights[source] ?? ""}
-                    onChange={(event) => {
-                      setTouched(true);
-                      setWeights({ ...weights, [source]: event.target.value });
-                    }}
-                  />
+                  {source === lastSource ? (
+                    /* The remainder: worked out, so it is shown and not typed. */
+                    <Input
+                      type="number"
+                      suffix="%"
+                      aria-label={labelOf(source)}
+                      value={percent(source)}
+                      readOnly
+                      className="bg-sunken"
+                    />
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      suffix="%"
+                      aria-label={labelOf(source)}
+                      value={shown(source)}
+                      onChange={(event) =>
+                        changeWeight(source, event.target.value)
+                      }
+                    />
+                  )}
                 </span>
               </label>
             ))}

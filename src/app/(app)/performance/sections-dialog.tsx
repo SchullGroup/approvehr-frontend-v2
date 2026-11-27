@@ -1,29 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  Archive,
-  Pencil,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { useRef, useState } from "react";
+import { Pencil, Plus } from "lucide-react";
 import {
   Badge,
   Button,
   Callout,
   ConfirmDialog,
-  Disclosure,
   Field,
   IconButton,
   Input,
   Modal,
+  RowActions,
   Select,
   Spinner,
-  Textarea,
+  useToast,
 } from "@/components/ui";
+import type { RowActionItem } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
 import type {
   ApiCompetency,
@@ -43,18 +36,15 @@ import { NoticeLine } from "@/components/portal/notice-line";
 import { KindTag } from "./subsection-title";
 
 /**
- * The appraisal framework: sections, and the subsections filed under them.
+ * The appraisal framework: sections, and the competencies filed under them.
  *
  * ## Why this exists
  *
  * The four sections a company starts with — Core competency, Behavioural
- * competency, Key result area, Leadership — and every subsection under them
- * were readable everywhere and editable nowhere. `useFrameworkActions`
- * exposed `createSection` and `createCompetency` and nothing else, while
- * `performanceApi.updateSection`, `deleteSection`, `updateCompetency` and
- * `archiveCompetency` had existed the whole time with no caller in the
- * product. So a company could add to its framework and never correct it: a
- * section named wrongly on day one stayed named wrongly.
+ * competency, Key result area, Leadership — and every competency under them
+ * were readable everywhere and editable nowhere. A company could add to its
+ * framework and never correct it: a section named wrongly on day one stayed
+ * named wrongly.
  *
  * **There is no such thing as a section this refuses to edit.** The API never
  * protected the ones it seeds, and `modules/performance/framework.ts` says so
@@ -64,26 +54,31 @@ import { KindTag } from "./subsection-title";
  * so renaming "Leadership" could not silently stop every rating under it
  * counting towards the mark.
  *
- * ## Read first, edit on purpose
+ * ## A flat list, edited where it is read
  *
- * Every section is collapsed to a line — its name, what it is worth, how much
- * is filed under it. Opening one is the act that turns it into a form. That is
- * the shape asked for, and it is also the safer one: this framework is shared
- * across **every** appraisal period, past and future, so nothing here is a
- * change to the period somebody happens to be looking at. The note at the top
- * says that before anything is opened.
+ * Every section is a heading with its competencies beneath it, all on screen at
+ * once. Nothing is a form until it is touched:
+ *
+ * - **A pencil renames**, in place. Enter or leaving the field saves, Escape
+ *   puts the old name back. There is no Save button to find, and nothing waits.
+ * - **A menu holds the rare acts.** On a section: move up, move down, what it
+ *   counts towards, remove. On a competency: move it to another section,
+ *   archive it. An act that cannot be done (move up from the top) is not listed.
+ * - **A small plus adds**: a competency to a section, a section at the foot.
+ *
+ * One noun each: **section** and **competency**, here and everywhere the
+ * framework is edited.
  *
  * ## Three things it refuses to render as a number
  *
- * - A section outside `ScoreComponent` reads **"Not weighted"**, never 0%. Its
+ * - A section outside `ScoreComponent` reads **"Not scored"**, never 0%. Its
  *   ratings are recorded and excluded from the mark, which is a different fact
  *   from a section somebody weighted at nothing.
- * - Archiving names how many ratings it kept, in the API's own sentence. A
- *   subsection is never deleted: a past rating is the evidence somebody
+ * - Archiving keeps every rating, and says how many in the API's own sentence.
+ *   A competency is never deleted: a past rating is the evidence somebody
  *   improved.
- * - Deleting a section says what happens to the subsections under it — they
- *   survive, unfiled — because `Competency.sectionId` is `onDelete: SetNull`
- *   and the alternative reading is that they go with it.
+ * - Removing a section leaves its competencies, unfiled, because
+ *   `Competency.sectionId` is `onDelete: SetNull`.
  */
 export function SectionsDialog({
   open,
@@ -96,6 +91,7 @@ export function SectionsDialog({
 }) {
   const canManage = useCan("MANAGE_SETTINGS");
   const actions = useFrameworkActions();
+  const toast = useToast();
   const {
     sections,
     loading: sectionsLoading,
@@ -107,27 +103,19 @@ export function SectionsDialog({
     reload: reloadFramework,
   } = useFramework();
 
-  /* Which section is open. One at a time: this is a list somebody reads, and
-     two open forms invite an edit in the one nobody was looking at. */
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [nameDraft, setNameDraft] = useState("");
-  const [descriptionDraft, setDescriptionDraft] = useState("");
-
-  const [addingSection, setAddingSection] = useState(false);
-  const [newSectionName, setNewSectionName] = useState("");
-  const [newSectionComponent, setNewSectionComponent] = useState<
-    ScoreComponent | ""
-  >("");
-  const [addingSubTo, setAddingSubTo] = useState<string | null>(null);
-  const [newSubName, setNewSubName] = useState("");
+  /* What is being edited in place: one name at a time. */
+  const [renamingSection, setRenamingSection] = useState<string | null>(null);
   const [renamingSub, setRenamingSub] = useState<string | null>(null);
-  const [subDraft, setSubDraft] = useState("");
+  const [addingSubTo, setAddingSubTo] = useState<string | null>(null);
+  /* Bumped after each add, so the field starts empty again and keeps the
+     cursor: the next name can be typed the moment the last one is sent. */
+  const [addRound, setAddRound] = useState(0);
+  const [addingSection, setAddingSection] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /* The API's own sentence after an archive — it is the one that carries how
-     many ratings were kept, which is the whole reason this is not a delete. */
-  const [notice, setNotice] = useState<string | null>(null);
+  const [countingFor, setCountingFor] = useState<ApiSection | null>(null);
+  const [movingSub, setMovingSub] = useState<ApiCompetency | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ApiSection | null>(null);
   const [confirmArchive, setConfirmArchive] = useState<ApiCompetency | null>(
     null,
@@ -157,22 +145,6 @@ export function SectionsDialog({
     }
   };
 
-  /* `expand`, not `open`: `open` is the dialog's own prop now, and a section
-     row expanding is a different thing from the dialog being on screen. */
-  const expand = (section: ApiSection) => {
-    setOpenId(section.id);
-    setNameDraft(section.name);
-    setDescriptionDraft(section.description ?? "");
-    setAddingSubTo(null);
-    setRenamingSub(null);
-    setError(null);
-  };
-
-  const toggle = (section: ApiSection) => {
-    if (openId === section.id) setOpenId(null);
-    else expand(section);
-  };
-
   const subsectionsOf = (sectionId: string | null) =>
     competencies.filter((competency) => competency.sectionId === sectionId);
 
@@ -196,39 +168,27 @@ export function SectionsDialog({
     next.splice(index, 1);
     next.splice(index + delta, 0, row);
 
-    const moved = next.filter(
-      (section, position) => section.order !== position,
-    );
     await run("the new order", async () => {
       for (const [position, section] of next.entries()) {
         if (section.order !== position) {
           await actions.updateSection(section.id, { order: position });
         }
       }
-      return moved;
     });
   };
 
-  const rename = async (section: ApiSection) => {
-    const name = nameDraft.trim();
+  /* A name that is blank leaves things as they were; one that is too short says
+     so. Either way the field closes: it is saved on leaving, never held open. */
+  const renameSection = async (section: ApiSection, typed: string) => {
+    setRenamingSection(null);
+    const name = typed.trim();
+    if (name === "" || name === section.name) return;
     if (name.length < 2) {
       setError("Give the section a name.");
       return;
     }
-    if (name === section.name) return;
     await run("the new name", () =>
       actions.updateSection(section.id, { name }),
-    );
-  };
-
-  const describe = async (section: ApiSection) => {
-    const description = descriptionDraft.trim();
-    if (description === (section.description ?? "")) return;
-    /* Blank is sent as null: an emptied box means "no description". */
-    await run("the description", () =>
-      actions.updateSection(section.id, {
-        description: description === "" ? null : description,
-      }),
     );
   };
 
@@ -236,83 +196,78 @@ export function SectionsDialog({
     section: ApiSection,
     component: ScoreComponent | "",
   ) => {
+    setCountingFor(null);
     await run("what it counts towards", () =>
       actions.updateSection(section.id, { component: component || null }),
     );
   };
 
-  const addSection = async () => {
-    const name = newSectionName.trim();
+  const addSection = async (typed: string) => {
+    const name = typed.trim();
+    if (name === "") {
+      setAddingSection(false);
+      return;
+    }
     if (name.length < 2) {
       setError("Give the section a name.");
+      setAddingSection(false);
       return;
     }
     /* Ordered last rather than left at the column default of 0, which every
-       section created through this API otherwise shares — see `move`. */
+       section created through this API otherwise shares — see `move`. It counts
+       towards nothing until somebody chooses a part for it, which its row says. */
     const ok = await run("the section", () =>
-      actions.createSection({
-        name,
-        order: sections.length,
-        ...(newSectionComponent ? { component: newSectionComponent } : {}),
-      }),
+      actions.createSection({ name, order: sections.length }),
     );
-    if (ok) {
-      setNewSectionName("");
-      setNewSectionComponent("");
-      setAddingSection(false);
-    }
+    if (ok) setAddingSection(false);
+    return ok;
   };
 
-  const addSubsection = async (sectionId: string | null) => {
-    const name = newSubName.trim();
-    if (name.length < 2) {
-      setError("Give the subsection a name.");
-      return;
-    }
-    const ok = await run("the subsection", () =>
-      actions.createCompetency({
-        name,
-        scaleMax: 5,
-        ...(sectionId ? { sectionId } : {}),
-      }),
-    );
-    if (ok) {
-      setNewSubName("");
+  const addSubsection = async (sectionId: string, typed: string) => {
+    const name = typed.trim();
+    if (name === "") {
       setAddingSubTo(null);
+      return;
     }
+    if (name.length < 2) {
+      setError("Give the competency a name.");
+      setAddingSubTo(null);
+      return;
+    }
+    const ok = await run("the competency", () =>
+      actions.createCompetency({ name, scaleMax: 5, sectionId }),
+    );
+    if (ok) setAddRound((round) => round + 1);
+    return ok;
   };
 
-  const renameSub = async (competency: ApiCompetency) => {
-    const name = subDraft.trim();
+  const renameSub = async (competency: ApiCompetency, typed: string) => {
+    setRenamingSub(null);
+    const name = typed.trim();
+    if (name === "" || name === competency.name) return;
     if (name.length < 2) {
-      setError("Give the subsection a name.");
+      setError("Give the competency a name.");
       return;
     }
-    if (name === competency.name) {
-      setRenamingSub(null);
-      return;
-    }
-    const ok = await run("the new name", () =>
+    await run("the new name", () =>
       actions.updateCompetency(competency.id, { name }),
     );
-    if (ok) setRenamingSub(null);
   };
 
-  const refile = async (competency: ApiCompetency, sectionId: string) =>
-    run("the new section", () =>
+  const refile = async (competency: ApiCompetency, sectionId: string) => {
+    setMovingSub(null);
+    await run("the new section", () =>
       actions.updateCompetency(competency.id, {
         sectionId: sectionId === "" ? null : sectionId,
       }),
     );
+  };
 
   const remove = async (section: ApiSection) => {
     const ok = await run("the removal", () =>
       actions.deleteSection(section.id),
     );
-    if (ok) {
-      setConfirmDelete(null);
-      if (openId === section.id) setOpenId(null);
-    }
+    if (ok) setConfirmDelete(null);
   };
 
   const archive = async (competency: ApiCompetency) => {
@@ -322,7 +277,11 @@ export function SectionsDialog({
       const result = await actions.archiveCompetency(competency.id);
       /* The API says how many ratings it kept. That sentence is the reason
          this is an archive, so it is shown rather than swallowed. */
-      setNotice(result.note);
+      toast.push({
+        tone: "success",
+        title: `${competency.name} archived`,
+        detail: result.note,
+      });
       setConfirmArchive(null);
       refresh();
     } catch (caught) {
@@ -332,498 +291,55 @@ export function SectionsDialog({
     }
   };
 
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Competencies"
-      size="lg"
-      footer={<Button onClick={onClose}>Done</Button>}
-    >
-      <div className="flex flex-col gap-5">
-        {/* Said once, before anything is opened. This is not the period's own
-            form — it is the framework every period is built from. */}
-        <NoticeLine tone="muted">
-          <span>These apply to every appraisal, past and future.</span>
-        </NoticeLine>
+  const sectionMenu = (
+    section: ApiSection,
+    index: number,
+  ): readonly RowActionItem[] => [
+    {
+      label: "Move up",
+      onSelect: () => void move(index, -1),
+      available: index > 0,
+    },
+    {
+      label: "Move down",
+      onSelect: () => void move(index, 1),
+      available: index < sections.length - 1,
+    },
+    { label: "Counts towards", onSelect: () => setCountingFor(section) },
+    "separator",
+    {
+      label: "Remove",
+      tone: "danger",
+      onSelect: () => setConfirmDelete(section),
+    },
+  ];
 
-        {!actions.editable ? (
-          <Callout tone="neutral" title="This needs a connection to the server">
-            Sections are shared across every appraisal period, and one kept in
-            this browser would not reach any of them.
-          </Callout>
-        ) : !canManage ? (
-          <Callout tone="neutral" title="You can read these, not change them">
-            Changing the framework needs the Manage settings permission, because
-            it decides how everybody in the company is scored.
-          </Callout>
-        ) : null}
+  const subsectionMenu = (
+    competency: ApiCompetency,
+  ): readonly RowActionItem[] => [
+    {
+      label: "Move to another section",
+      onSelect: () => setMovingSub(competency),
+    },
+    "separator",
+    {
+      label: "Archive",
+      tone: "danger",
+      onSelect: () => setConfirmArchive(competency),
+    },
+  ];
 
-        {error && (
-          <Callout tone="danger" title="That did not go through">
-            {error}
-          </Callout>
-        )}
-
-        {notice && (
-          <Callout tone="success" title="Archived">
-            {notice}
-          </Callout>
-        )}
-
-        {loading ? (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the framework
-          </span>
-        ) : (
-          <>
-            <ul className="flex flex-col gap-2">
-              {sections.map((section, index) => {
-                const subs = subsectionsOf(section.id);
-                return (
-                  <li key={section.id}>
-                    <Disclosure
-                      dense
-                      level={4}
-                      open={openId === section.id}
-                      onToggle={() => toggle(section)}
-                      title={section.name}
-                      meta={
-                        <span className="flex flex-wrap items-center gap-2">
-                          {/* Null is "not weighted", never 0%. A section
-                              outside ScoreComponent has its ratings recorded
-                              and excluded; 0% would read as a weight somebody
-                              chose. */}
-                          <Badge
-                            tone={
-                              section.weightBp === null ? "neutral" : "accent"
-                            }
-                            size="sm"
-                          >
-                            {section.weightBp === null
-                              ? "Not weighted"
-                              : `${weightLabel(section.weightBp)} of the score`}
-                          </Badge>
-                          <Badge tone="neutral" size="sm">
-                            {subs.length === 1
-                              ? "1 competency"
-                              : `${String(subs.length)} competencies`}
-                          </Badge>
-                        </span>
-                      }
-                      hint={
-                        editable ? "Open it to rename or move it" : undefined
-                      }
-                    >
-                      <div className="flex flex-col gap-4">
-                        {editable && (
-                          <div className="flex flex-wrap items-end gap-2">
-                            <Field label="Group name" className="flex-1">
-                              <Input
-                                value={nameDraft}
-                                onChange={(event) =>
-                                  setNameDraft(event.target.value)
-                                }
-                              />
-                            </Field>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              loading={busy}
-                              disabled={nameDraft.trim() === section.name}
-                              onClick={() => void rename(section)}
-                            >
-                              Save the name
-                            </Button>
-                            <span className="flex gap-1">
-                              <IconButton
-                                label="Move up"
-                                disabled={index === 0 || busy}
-                                onClick={() => void move(index, -1)}
-                              >
-                                <ArrowUp aria-hidden="true" />
-                              </IconButton>
-                              <IconButton
-                                label="Move down"
-                                disabled={index === sections.length - 1 || busy}
-                                onClick={() => void move(index, 1)}
-                              >
-                                <ArrowDown aria-hidden="true" />
-                              </IconButton>
-                            </span>
-                          </div>
-                        )}
-
-                        {editable ? (
-                          <div className="flex flex-col items-start gap-2">
-                            <Field
-                              label="Description"
-                              help="What this section is for. Shown under its name."
-                              className="w-full"
-                            >
-                              <Textarea
-                                rows={3}
-                                maxLength={500}
-                                value={descriptionDraft}
-                                onChange={(event) =>
-                                  setDescriptionDraft(event.target.value)
-                                }
-                              />
-                            </Field>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              loading={busy}
-                              disabled={
-                                descriptionDraft.trim() ===
-                                (section.description ?? "")
-                              }
-                              onClick={() => void describe(section)}
-                            >
-                              Save the description
-                            </Button>
-                          </div>
-                        ) : (
-                          section.description && (
-                            <p className="text-body-sm text-body">
-                              {section.description}
-                            </p>
-                          )
-                        )}
-
-                        {editable && (
-                          <CountsTowards
-                            value={section.component ?? ""}
-                            disabled={busy}
-                            label={`What ${section.name} counts towards`}
-                            onChange={(value) =>
-                              void setComponent(section, value)
-                            }
-                          />
-                        )}
-
-                        <Subsections
-                          items={subs}
-                          sections={sections}
-                          editable={editable}
-                          busy={busy}
-                          renamingSub={renamingSub}
-                          subDraft={subDraft}
-                          onStartRename={(competency) => {
-                            setRenamingSub(competency.id);
-                            setSubDraft(competency.name);
-                          }}
-                          onDraft={setSubDraft}
-                          onCancelRename={() => setRenamingSub(null)}
-                          onRename={(competency) => void renameSub(competency)}
-                          onRefile={(competency, id) =>
-                            void refile(competency, id)
-                          }
-                          onArchive={setConfirmArchive}
-                        />
-
-                        {editable && (
-                          <div className="flex flex-col gap-2">
-                            {addingSubTo === section.id ? (
-                              <div className="flex flex-wrap items-end gap-2">
-                                <Field
-                                  label="New competency"
-                                  className="flex-1"
-                                >
-                                  <Input
-                                    value={newSubName}
-                                    onChange={(event) =>
-                                      setNewSubName(event.target.value)
-                                    }
-                                    placeholder="Communication"
-                                  />
-                                </Field>
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  loading={busy}
-                                  onClick={() => void addSubsection(section.id)}
-                                >
-                                  Add it
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() => setAddingSubTo(null)}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex flex-wrap justify-between gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setAddingSubTo(section.id);
-                                    setNewSubName("");
-                                  }}
-                                >
-                                  <Plus
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  Add a competency
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() => setConfirmDelete(section)}
-                                >
-                                  <Trash2
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  Remove this section
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </Disclosure>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {/* Its own group, and deliberately not called "Other" — the
-                framework read groups an absent section under that word, which
-                reads as a section somebody named. These are filed under
-                nothing, which is a state rather than a place. */}
-            {unfiled.length > 0 && (
-              <Disclosure
-                dense
-                level={4}
-                open={openId === UNFILED}
-                onToggle={() => setOpenId(openId === UNFILED ? null : UNFILED)}
-                title="Not in a group"
-                meta={
-                  <Badge tone="warning" size="sm">
-                    {unfiled.length === 1
-                      ? "1 competency"
-                      : `${String(unfiled.length)} competencies`}
-                  </Badge>
-                }
-                hint="A level recorded on these counts towards no part of the score"
-              >
-                <Subsections
-                  items={unfiled}
-                  sections={sections}
-                  editable={editable}
-                  busy={busy}
-                  renamingSub={renamingSub}
-                  subDraft={subDraft}
-                  onStartRename={(competency) => {
-                    setRenamingSub(competency.id);
-                    setSubDraft(competency.name);
-                  }}
-                  onDraft={setSubDraft}
-                  onCancelRename={() => setRenamingSub(null)}
-                  onRename={(competency) => void renameSub(competency)}
-                  onRefile={(competency, id) => void refile(competency, id)}
-                  onArchive={setConfirmArchive}
-                />
-              </Disclosure>
-            )}
-
-            {editable &&
-              (addingSection ? (
-                <div className="flex flex-wrap items-end gap-2 rounded-md border border-line bg-canvas p-3">
-                  <Field label="New section" className="flex-1">
-                    <Input
-                      value={newSectionName}
-                      onChange={(event) =>
-                        setNewSectionName(event.target.value)
-                      }
-                      placeholder="Behavioural competency"
-                    />
-                  </Field>
-                  <CountsTowards
-                    value={newSectionComponent}
-                    disabled={busy}
-                    label="What the new section counts towards"
-                    onChange={setNewSectionComponent}
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    loading={busy}
-                    onClick={() => void addSection()}
-                  >
-                    Add it
-                  </Button>
-                  <IconButton
-                    label="Cancel"
-                    onClick={() => setAddingSection(false)}
-                  >
-                    <X aria-hidden="true" />
-                  </IconButton>
-                </div>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="self-start"
-                  onClick={() => {
-                    setAddingSection(true);
-                    setNewSectionName("");
-                  }}
-                >
-                  <Plus aria-hidden="true" className="size-3.5" />
-                  Add a group
-                </Button>
-              ))}
-
-            {/* A new section is outside `ScoreComponent`, so it is recorded
-                and not scored until somebody maps it. Said here rather than
-                discovered when a mark comes out lower than expected. */}
-            {editable && (
-              <NoticeLine tone="muted">
-                <span>
-                  A group you add counts towards nothing until you choose a part
-                  of the score for it.
-                </span>
-              </NoticeLine>
-            )}
-          </>
-        )}
-      </div>
-
-      <ConfirmDialog
-        open={confirmDelete !== null}
-        onClose={() => setConfirmDelete(null)}
-        onConfirm={() => {
-          if (confirmDelete) void remove(confirmDelete);
-        }}
-        title={`Remove ${confirmDelete?.name ?? "this section"}?`}
-        confirmLabel="Remove the section"
-        loading={busy}
-        body={
-          <>
-            <p>
-              The heading goes. The{" "}
-              {subsectionsOf(confirmDelete?.id ?? "").length === 1
-                ? "subsection"
-                : `${String(subsectionsOf(confirmDelete?.id ?? "").length)} subsections`}{" "}
-              filed under it stay, and every rating against them stays, they are
-              left without a section until somebody re-files them.
-            </p>
-            <p>
-              While they are unfiled, a level recorded on them counts towards no
-              part of the score.
-            </p>
-          </>
-        }
-      />
-
-      <ConfirmDialog
-        open={confirmArchive !== null}
-        onClose={() => setConfirmArchive(null)}
-        onConfirm={() => {
-          if (confirmArchive) void archive(confirmArchive);
-        }}
-        title={`Archive ${confirmArchive?.name ?? "this subsection"}?`}
-        confirmLabel="Archive it"
-        loading={busy}
-        body={
-          <p>
-            It stops being offered on new forms. Every rating already recorded
-            against it is kept, a past rating is the evidence somebody improved,
-            so this is never a delete.
-          </p>
-        }
-      />
-    </Modal>
-  );
-}
-
-/** The id the unfiled group opens under. Not a section, so not a section id. */
-const UNFILED = "__unfiled__";
-
-/**
- * The subsections of one section: rename in place, move to another section,
- * archive.
- *
- * Shared by a real section and the unfiled group, because the three acts are
- * the same in both and a second copy is how one of them quietly stops
- * offering the move.
- */
-function Subsections({
-  items,
-  sections,
-  editable,
-  busy,
-  renamingSub,
-  subDraft,
-  onStartRename,
-  onDraft,
-  onCancelRename,
-  onRename,
-  onRefile,
-  onArchive,
-}: {
-  items: ApiCompetency[];
-  sections: ApiSection[];
-  editable: boolean;
-  busy: boolean;
-  renamingSub: string | null;
-  subDraft: string;
-  onStartRename: (competency: ApiCompetency) => void;
-  onDraft: (value: string) => void;
-  onCancelRename: () => void;
-  onRename: (competency: ApiCompetency) => void;
-  onRefile: (competency: ApiCompetency, sectionId: string) => void;
-  onArchive: (competency: ApiCompetency) => void;
-}) {
-  if (items.length === 0) {
-    return (
-      <p className="text-body-sm text-muted">
-        Nothing is filed under this yet.
-      </p>
-    );
-  }
-
-  return (
-    <ul className="flex flex-col gap-2">
+  const competencyRows = (items: ApiCompetency[], sectionId: string | null) => (
+    <ul className="mt-1 flex flex-col divide-y divide-line">
       {items.map((competency) => (
-        <li
-          key={competency.id}
-          className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2.5"
-        >
+        <li key={competency.id} className="flex items-center gap-2 py-2">
           {renamingSub === competency.id ? (
-            <>
-              <Input
-                value={subDraft}
-                onChange={(event) => onDraft(event.target.value)}
-                className="flex-1"
-                aria-label={`Rename ${competency.name}`}
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={busy}
-                onClick={() => onRename(competency)}
-              >
-                Save
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={onCancelRename}
-              >
-                Cancel
-              </Button>
-            </>
+            <NameInput
+              value={competency.name}
+              label={`Rename ${competency.name}`}
+              onSave={(name) => void renameSub(competency, name)}
+              onCancel={() => setRenamingSub(null)}
+            />
           ) : (
             <>
               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -849,61 +365,314 @@ function Subsections({
                 )}
               </span>
               {editable && (
-                <span className="flex flex-wrap items-center gap-1">
-                  <Select
-                    value={competency.sectionId ?? ""}
-                    disabled={busy}
-                    aria-label={`Section for ${competency.name}`}
-                    onChange={(event) =>
-                      onRefile(competency, event.target.value)
-                    }
-                  >
-                    <option value="">Not filed</option>
-                    {sections.map((section) => (
-                      <option key={section.id} value={section.id}>
-                        {section.name}
-                      </option>
-                    ))}
-                  </Select>
+                <span className="flex items-center gap-0.5">
                   <IconButton
                     label={`Rename ${competency.name}`}
+                    size="sm"
                     disabled={busy}
-                    onClick={() => onStartRename(competency)}
+                    onClick={() => setRenamingSub(competency.id)}
                   >
                     <Pencil aria-hidden="true" />
                   </IconButton>
-                  <IconButton
-                    label={`Archive ${competency.name}`}
+                  <RowActions
+                    label={`More actions for ${competency.name}`}
+                    items={subsectionMenu(competency)}
                     disabled={busy}
-                    onClick={() => onArchive(competency)}
-                  >
-                    <Archive aria-hidden="true" />
-                  </IconButton>
+                  />
                 </span>
               )}
             </>
           )}
         </li>
       ))}
+      {sectionId !== null && addingSubTo === sectionId && (
+        <li key={`add-${String(addRound)}`} className="py-2">
+          <NameInput
+            value=""
+            label="New competency"
+            placeholder="Communication"
+            onSave={(name) => addSubsection(sectionId, name)}
+            onCancel={() => setAddingSubTo(null)}
+          />
+        </li>
+      )}
     </ul>
+  );
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Competencies"
+      size="lg"
+      footer={<Button onClick={onClose}>Done</Button>}
+    >
+      <div className="flex flex-col gap-5">
+        {!actions.editable && (
+          <NoticeLine tone="muted">
+            <span>Editing needs a connection to the server.</span>
+          </NoticeLine>
+        )}
+
+        {error && (
+          <Callout tone="danger" title="That did not go through">
+            {error}
+          </Callout>
+        )}
+
+        {loading ? (
+          <span className="flex items-center gap-2 text-body-sm text-muted">
+            <Spinner size="sm" />
+            Loading the framework
+          </span>
+        ) : (
+          <>
+            <ul className="flex flex-col gap-6">
+              {sections.map((section, index) => (
+                <li key={section.id}>
+                  <div className="flex items-center gap-1.5">
+                    {renamingSection === section.id ? (
+                      <NameInput
+                        value={section.name}
+                        label={`Rename ${section.name}`}
+                        onSave={(name) => void renameSection(section, name)}
+                        onCancel={() => setRenamingSection(null)}
+                      />
+                    ) : (
+                      <>
+                        <h3 className="min-w-0 text-body-md font-semibold text-ink">
+                          {section.name}
+                        </h3>
+                        {editable && (
+                          <IconButton
+                            label={`Rename ${section.name}`}
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => setRenamingSection(section.id)}
+                          >
+                            <Pencil aria-hidden="true" />
+                          </IconButton>
+                        )}
+                        {/* Null is "not scored", never 0%. A section outside
+                            ScoreComponent has its ratings recorded and
+                            excluded; 0% would read as a weight somebody
+                            chose. */}
+                        <span className="tabular text-meta text-muted">
+                          {section.weightBp === null
+                            ? "Not scored"
+                            : weightLabel(section.weightBp)}
+                        </span>
+                        {editable && (
+                          <span className="ml-auto flex items-center gap-0.5">
+                            <IconButton
+                              label={`Add a competency to ${section.name}`}
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => {
+                                setAddingSubTo(section.id);
+                                setAddRound((round) => round + 1);
+                              }}
+                            >
+                              <Plus aria-hidden="true" />
+                            </IconButton>
+                            <RowActions
+                              label={`More actions for ${section.name}`}
+                              items={sectionMenu(section, index)}
+                              disabled={busy}
+                            />
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {competencyRows(subsectionsOf(section.id), section.id)}
+                </li>
+              ))}
+
+              {/* Its own group, and deliberately not called "Other" — the
+                  framework read groups an absent section under that word, which
+                  reads as a section somebody named. These are filed under
+                  nothing, which is a state rather than a place. */}
+              {unfiled.length > 0 && (
+                <li>
+                  <h3 className="text-body-md font-semibold text-ink">
+                    No section
+                  </h3>
+                  {competencyRows(unfiled, null)}
+                </li>
+              )}
+            </ul>
+
+            {editable &&
+              (addingSection ? (
+                <NameInput
+                  value=""
+                  label="New section"
+                  placeholder="Behavioural competency"
+                  onSave={(name) => addSection(name)}
+                  onCancel={() => setAddingSection(false)}
+                />
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => setAddingSection(true)}
+                >
+                  <Plus aria-hidden="true" className="size-3.5" />
+                  Add a section
+                </Button>
+              ))}
+          </>
+        )}
+      </div>
+
+      <Modal
+        open={countingFor !== null}
+        onClose={() => setCountingFor(null)}
+        title={countingFor?.name ?? "Section"}
+        size="sm"
+        footer={<Button onClick={() => setCountingFor(null)}>Done</Button>}
+      >
+        {countingFor && (
+          <CountsTowards
+            value={countingFor.component ?? ""}
+            disabled={busy}
+            label={`What ${countingFor.name} counts towards`}
+            onChange={(value) => void setComponent(countingFor, value)}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        open={movingSub !== null}
+        onClose={() => setMovingSub(null)}
+        title={movingSub?.name ?? "Competency"}
+        size="sm"
+        footer={<Button onClick={() => setMovingSub(null)}>Done</Button>}
+      >
+        {movingSub && (
+          <Field label="Section">
+            <Select
+              value={movingSub.sectionId ?? ""}
+              disabled={busy}
+              aria-label={`Section for ${movingSub.name}`}
+              onChange={(event) => void refile(movingSub, event.target.value)}
+            >
+              <option value="">No section</option>
+              {sections.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          if (confirmDelete) void remove(confirmDelete);
+        }}
+        title={`Remove ${confirmDelete?.name ?? "this section"}?`}
+        confirmLabel="Remove"
+        loading={busy}
+        body="Its competencies and their ratings stay, with no section."
+      />
+
+      <ConfirmDialog
+        open={confirmArchive !== null}
+        onClose={() => setConfirmArchive(null)}
+        onConfirm={() => {
+          if (confirmArchive) void archive(confirmArchive);
+        }}
+        title={`Archive ${confirmArchive?.name ?? "this competency"}?`}
+        confirmLabel="Archive"
+        loading={busy}
+        body="Its ratings are kept."
+      />
+    </Modal>
+  );
+}
+
+/**
+ * A name that is typed in place and saved when it is done: Enter saves, leaving
+ * the field saves, Escape puts things back. There is no Save button to find.
+ *
+ * It tells the dialog's own Escape not to close the whole dialog while it has the
+ * cursor (`data-escape-to-popup`, the opt-out `useFocusTrap` reads), so the first
+ * Escape cancels the edit and the second closes the dialog. Saved once: Enter
+ * and the blur that follows it are one act.
+ */
+function NameInput({
+  value,
+  label,
+  placeholder,
+  onSave,
+  onCancel,
+}: {
+  value: string;
+  label: string;
+  placeholder?: string;
+  /** `false` from a write that was refused keeps the field, with what was typed. */
+  onSave: (name: string) => void | Promise<boolean | void>;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const finished = useRef(false);
+
+  const save = () => {
+    if (finished.current) return;
+    finished.current = true;
+    void Promise.resolve(onSave(draft)).then((result) => {
+      if (result === false) finished.current = false;
+    });
+  };
+
+  return (
+    <span data-escape-to-popup="" className="min-w-0 flex-1">
+      <Input
+        autoFocus
+        value={draft}
+        aria-label={label}
+        {...(placeholder ? { placeholder } : {})}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={save}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            save();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            finished.current = true;
+            onCancel();
+          }
+        }}
+      />
+    </span>
   );
 }
 
 /**
  * Which part of the mark a section's ratings feed.
  *
- * Every one of the company's own parts is listed, from Settings under
- * Appraisal scoring, by the names it gave them, so the list matches Settings.
- * The competency and leadership parts are made of the manager's ratings on
- * the sections filed under them. A Self-assessment part is made of the
- * person's own answers to the sections filed under it, which is how a company
- * writes its self-appraisal questions. The others are shown greyed out with
- * what they are scored from instead: Weekly tasks come from graded tasks,
- * Delivery against objectives from the objectives themselves and Manager
- * appraisal from the appraisers' overall mark, so a rating filed under a
- * section could not reach any of them. A source the company has no part for
- * is not listed: a section filed under it would count for nothing. A section
- * that feeds the same part as another is averaged in with it.
+ * Every one of the company's own parts that ratings can feed is listed, from
+ * Settings under Appraisal scoring, by the names it gave them, so the list
+ * matches Settings. The competency and leadership parts are made of the
+ * manager's ratings on the sections filed under them. A Self-assessment part is
+ * made of the person's own answers to the sections filed under it, which is how
+ * a company writes its self-appraisal questions.
+ *
+ * The others are **not listed**: Tasks done comes from graded tasks, Delivery
+ * against objectives from the objectives themselves and Manager appraisal from
+ * the appraisers' overall mark, so a rating filed under a section could not
+ * reach any of them, and an option that can only be refused is absent rather
+ * than greyed. A source the company has no part for is not listed either: a
+ * section filed under it would count for nothing. A section that feeds the same
+ * part as another is averaged in with it.
  */
 const SECTION_SOURCES: readonly ScoreComponent[] = [
   "CORE_COMPETENCY",
@@ -911,13 +680,6 @@ const SECTION_SOURCES: readonly ScoreComponent[] = [
   "LEADERSHIP",
   "SELF_ASSESSMENT",
 ];
-
-/** What a part a section cannot feed is scored from, for its greyed-out option. */
-const SCORED_FROM: Partial<Record<ScoreComponent, string>> = {
-  OBJECTIVES: "scored from objectives",
-  TASKS: "scored from tasks finished in Projects",
-  MANAGER_APPRAISAL: "scored from the appraisers' overall rating",
-};
 
 export function CountsTowards({
   value,
@@ -931,47 +693,32 @@ export function CountsTowards({
   onChange: (value: ScoreComponent | "") => void;
 }) {
   const { weights: settings } = useScoringWeights();
-  const offered = (settings?.rows ?? [])
-    .filter((row) => row.isPart !== false)
-    .map((row) => {
-      const rated = SECTION_SOURCES.includes(row.component);
-      return {
-        value: row.component,
-        rated,
-        label: rated
-          ? row.label
-          : `${row.label} (${SCORED_FROM[row.component] ?? "not scored from ratings"}, not from a section)`,
-      };
-    });
-  const known = offered.some((part) => part.value === value);
+  const offered = (settings?.rows ?? []).filter(
+    (row) => row.isPart !== false && SECTION_SOURCES.includes(row.component),
+  );
+  const known = offered.some((part) => part.component === value);
+  /* A section filed under something that is not one of the company's parts
+     counts for nothing, which is what "Not scored" says, so it reads that. Only
+     while the parts are still on their way is its own value kept, so it is not
+     shown as unscored for a moment it is not. */
+  const reading = value !== "" && !known && settings === null;
   return (
-    <Field
-      label="Counts towards"
-      help="The part of the score this group feeds."
-    >
+    <Field label="Counts towards">
       <Select
-        value={value}
+        value={known || reading ? value : ""}
         disabled={disabled}
         aria-label={label}
         onChange={(event) =>
           onChange(event.target.value as ScoreComponent | "")
         }
       >
-        <option value="">
-          No part of the score (ratings are only recorded)
-        </option>
+        <option value="">Not scored</option>
         {offered.map((part) => (
-          <option key={part.value} value={part.value} disabled={!part.rated}>
+          <option key={part.component} value={part.component}>
             {part.label}
           </option>
         ))}
-        {value !== "" && !known && (
-          <option value={value}>
-            {settings === null
-              ? "Loading your scoring parts…"
-              : "Not one of your scoring parts, so it counts for nothing. Choose another."}
-          </option>
-        )}
+        {reading && <option value={value}>Loading…</option>}
       </Select>
     </Field>
   );
