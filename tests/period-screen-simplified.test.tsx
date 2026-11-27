@@ -269,6 +269,13 @@ describe("the bar and the one next step", () => {
     await userEvent
       .setup()
       .click(screen.getByRole("button", { name: "Open manager reviews" }));
+    /* It cannot be undone, so it asks first. */
+    expect(advance).not.toHaveBeenCalled();
+    await userEvent.setup().click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Move it",
+      }),
+    );
     expect(advance).toHaveBeenCalledWith("cycle-1", "MANAGER");
   });
 
@@ -293,6 +300,11 @@ describe("the bar and the one next step", () => {
     await userEvent
       .setup()
       .click(screen.getByRole("menuitem", { name: "Open manager reviews" }));
+    await userEvent.setup().click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Move it",
+      }),
+    );
     expect(advance).toHaveBeenCalledWith("cycle-1", "MANAGER");
   });
 
