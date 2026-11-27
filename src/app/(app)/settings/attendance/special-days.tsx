@@ -378,6 +378,7 @@ export function SpecialDayEditor({
               options={SCOPES}
               value={scope}
               onChange={setScope}
+              className="self-start"
             />
             {choosing && scope === "DEPARTMENT" && (
               <Field
@@ -424,6 +425,7 @@ export function SpecialDayEditor({
             options={KINDS}
             value={kind}
             onChange={setKind}
+            className="self-start"
           />
           {kind === "custom" && (
             <>
