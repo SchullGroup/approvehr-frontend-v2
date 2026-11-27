@@ -327,11 +327,6 @@ export const PAGE_INDEX: readonly { href: string; title: string; description: st
     "description": "A mock-up of a manager's team list and the step-by-step appraisal of one person, with example data. Nothing is saved."
   },
   {
-    "href": "/performance/appraisals",
-    "title": "Appraisals",
-    "description": "Where your appraisal stands, step by step, and where your team's do."
-  },
-  {
     "href": "/performance/appraisers",
     "title": "Who appraises whom",
     "description": "Who appraises whom: everybody's line manager by default, and the exceptions period by period."

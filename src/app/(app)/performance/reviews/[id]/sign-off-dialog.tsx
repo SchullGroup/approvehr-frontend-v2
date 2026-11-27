@@ -1,22 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Field, Modal, SuccessMoment, Textarea } from "@/components/ui";
+import { Button, Field, Modal, Textarea } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import type { ApiReview } from "@/lib/api/performance";
-import { todayIn } from "@/lib/time";
-import { useOrgTimezone } from "@/lib/store/session";
-import { acknowledgedCopy, type SignOffCopy } from "./sign-off-copy";
 
 /**
- * Answering a rating — one act the subject does for themselves, one HR does
- * about them.
+ * Answering a rating: the one act the person it is about does for themselves.
  *
- * One act: they record that they were shown it. **Acknowledging is not
- * agreeing**, and every line of copy here keeps those apart. An
- * acknowledgement that reads as consent is worth less than nothing to a
- * company defending a decision later — the employee can say they only ticked a
- * box, and they would be right.
+ * They record that they were shown it. **Acknowledging is not agreeing**, and
+ * the screen that opens this says so once, behind the mark beside the button.
+ * An acknowledgement that reads as consent is worth less than nothing to a
+ * company defending a decision later, so that sentence is not dropped, only said
+ * where it is read rather than again here.
  *
  * ## Disputing was here and is deliberately gone
  *
@@ -31,66 +26,46 @@ import { acknowledgedCopy, type SignOffCopy } from "./sign-off-copy";
  * - **`ApiReview.disputed` is still read, everywhere it was.** Reviews
  *   disputed before this change exist, and a record of what somebody formally
  *   refused to accept is the last thing a performance module should stop
- *   displaying. The badge, the answer card, the register filter and the cycle
- *   report all still show them. What is gone is the ability to raise a new
- *   one, which is exactly what was asked for.
+ *   displaying. The badge, the line under the rating, the register filter and
+ *   the cycle report all still show them. What is gone is the ability to raise
+ *   a new one, which is exactly what was asked for.
  * - **The API still accepts `POST /performance/reviews/:id/dispute`.** Nothing
  *   in this product calls it, and a frontend cannot close an endpoint. Until
  *   the backend refuses it, the capability exists over the wire — see
  *   `docs/backend/no-employee-dispute.md`.
  *
  * The comment stays optional. Somebody with nothing to add should not have to
- * invent something to get past a form, and with disputing gone there is no
- * longer a second act whose comment was compulsory.
+ * invent something to get past a form.
  *
- * ## It says what it recorded before it closes
+ * ## It closes when it is done
  *
- * This used to close on success with a toast reading "Acknowledgement
- * recorded" — for the one answer a person gives about their own rating, which
- * is stored with the date and cannot be given twice. The dialog now stays and
- * turns into a statement of what was recorded, the way the resignation dialog
- * does, and closes on "Done". The caller must not toast a success of its own.
+ * It used to turn into a four-line statement of what was recorded. What was
+ * recorded is now one small line under the rating, with its date, so the dialog
+ * is the question and nothing else: the optional comment and one button. The
+ * caller says "Acknowledged" in a toast.
  */
 export function SignOffDialog({
-  review,
-  ratingLabel,
   onClose,
   onConfirm,
 }: {
-  review: ApiReview;
-  /** The mark in the company's own words, or null when the form gave none. */
-  ratingLabel: string | null;
   onClose: () => void;
   /**
-   * Records it. Resolves to the API's timestamp for it — null in demo mode,
-   * where there is none — or to `null` when it failed and the caller has said so
-   * in a toast.
+   * Records it. Resolves to whether it was, and a `false` is a failure the
+   * caller has already said so in a toast. The dialog stays on its question.
    */
-  onConfirm: (comment?: string) => Promise<{ at: string | null } | null>;
+  onConfirm: (comment?: string) => Promise<boolean>;
 }) {
-  const timeZone = useOrgTimezone();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-  /* What it said. While it is set the dialog shows it in place of the form. */
-  const [recorded, setRecorded] = useState<SignOffCopy | null>(null);
 
   const submit = async () => {
     setBusy(true);
     setFailed(null);
     try {
       const trimmed = comment.trim();
-      const outcome = await onConfirm(trimmed.length > 0 ? trimmed : undefined);
-      if (outcome) {
-        setRecorded(
-          acknowledgedCopy({
-            cycleName: review.cycleName,
-            ratingLabel,
-            day: outcome.at ? outcome.at.slice(0, 10) : todayIn(timeZone),
-            commented: trimmed.length > 0,
-          }),
-        );
-      }
+      const done = await onConfirm(trimmed.length > 0 ? trimmed : undefined);
+      if (done) onClose();
     } catch (error) {
       setFailed(
         error instanceof ApiError
@@ -107,71 +82,35 @@ export function SignOffDialog({
       open
       onClose={onClose}
       title="Acknowledge this rating"
-      description={
-        recorded
-          ? undefined
-          : `Confirms you have seen your rating for ${review.cycleName}.`
-      }
       size="sm"
       footer={
-        recorded ? undefined : (
-          <>
-            <Button onClick={onClose}>Cancel</Button>
-            <Button
-              variant="approve"
-              loading={busy}
-              onClick={() => void submit()}
-            >
-              I have seen this
-            </Button>
-          </>
-        )
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="approve"
+            loading={busy}
+            onClick={() => void submit()}
+          >
+            I have seen this
+          </Button>
+        </>
       }
     >
-      {recorded ? (
-        <SuccessMoment
-          /* Under the dialog's own `h2`, not beside it. */
-          headingLevel={3}
-          align="center"
-          /* The button that was just pressed has left with the footer, so
-             focus goes to what replaced it. */
-          focusHeading
-          title={recorded.title}
-          lead={recorded.lead}
-          details={recorded.details}
-          actions={
-            <Button variant="accent" onClick={onClose}>
-              Done
-            </Button>
-          }
-        />
-      ) : (
-        <div className="flex flex-col gap-4">
-          <p className="text-body-sm leading-relaxed text-body">
-            This records that you have seen your rating, and when. It does not
-            mean you agree with it.
+      <div className="flex flex-col gap-3">
+        <Field label="Anything to add (optional)">
+          <Textarea
+            rows={3}
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+          />
+        </Field>
+
+        {failed && (
+          <p role="status" className="text-body-sm text-danger-text">
+            {failed}
           </p>
-
-          <Field
-            label="Anything to add"
-            help="Optional. Leave it blank if you have nothing to add."
-          >
-            <Textarea
-              rows={5}
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-            />
-          </Field>
-
-          <p className="text-body-sm text-muted">You can do this once.</p>
-
-          {failed && (
-            <p role="status" className="text-body-sm text-danger-text">
-              {failed}
-            </p>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </Modal>
   );
 }

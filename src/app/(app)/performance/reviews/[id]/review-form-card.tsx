@@ -1,15 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { FileQuestion } from "lucide-react";
-import {
-  Card,
-  CardBody,
-  CardHeader,
-  ButtonLink,
-  EmptyState,
-  Spinner,
-} from "@/components/ui";
+import { Card, CardBody, Spinner } from "@/components/ui";
 import {
   dayOf,
   showsOverallMark,
@@ -18,74 +10,54 @@ import {
 } from "@/lib/api/performance";
 import { pinsOf } from "@/lib/api/work-pins";
 import {
-  CLOSING_NOTE_LABEL,
   MANAGER_REVIEW_LABEL,
   SELF_REVIEW_LABEL,
+  closingNoteLabel,
   comparisonRows,
 } from "@/lib/performance/review-comparison";
-import {
-  PeriodFraming,
-  ReadAnswer,
-  ReadAnswerBody,
-  draftFrom,
-} from "../../review-parts";
+import { ReadAnswer, ReadAnswerBody, draftFrom } from "../../review-parts";
 
 /**
- * How much of this form is still to do, in a sentence whose noun is true.
- *
- * `outstanding` is **required** questions only — the API filters on
- * `question.required && answer === null`, which is the right thing for it to
- * carry, because required-and-unanswered is what refuses a submit. The
- * description read *"2 questions still unanswered"* above three questions
- * each showing "Not answered": the number was right and the noun was not.
- *
- * Naming the requirement also makes the number useful rather than merely
- * accurate — what a reader wants to know is what is standing between them and
- * sending the form. The optional ones are still counted, separately, because
- * silently dropping an unanswered question from a summary is how a form gets
- * sent with a blank nobody meant to leave.
- *
- * The same rule the payroll side keeps a helper pair for: a number under a
- * label has to be true of the thing the label names.
+ * Whether there is anything for the Answers tab to show: a question with an
+ * answer to read, a closing note, or (beside a self review) the two overall
+ * ratings. A form with none of it has no card, and so no tab, where it used to
+ * have a card headed "Manager review" and an empty state telling an employee to
+ * add questions to the period.
  */
-export function unansweredLine(review: {
-  outstanding: string[];
-  questions: { required: boolean; answer: unknown }[];
-}): string {
-  const required = review.outstanding.length;
-  const optional = review.questions.filter(
-    (question) => !question.required && question.answer === null,
-  ).length;
-
-  const optionalPart =
-    optional === 0
-      ? ""
-      : optional === 1
-        ? " One optional question is also unanswered."
-        : ` ${String(optional)} optional questions are also unanswered.`;
-
-  if (required === 0) {
-    return optional === 0
-      ? "Every question on this form is answered."
-      : `Every required question is answered.${optionalPart}`;
-  }
-  const requiredPart =
-    required === 1
-      ? "1 required question still to answer."
-      : `${String(required)} required questions still to answer.`;
-  return `${requiredPart}${optionalPart}`;
+export function hasAnswers(
+  review: ApiReviewDetail,
+  selfReview: ApiReviewDetail | null,
+): boolean {
+  const comparing = review.kind === "MANAGER" && selfReview !== null;
+  if (!comparing) return review.questions.length > 0 || Boolean(review.summary);
+  return (
+    comparisonRows(review.questions, selfReview.questions).length > 0 ||
+    showsOverallMark(review) ||
+    showsOverallMark(selfReview) ||
+    Boolean(review.summary) ||
+    Boolean(selfReview.summary)
+  );
 }
 
 /**
  * The questions and the answers of the review being read, and of the person's own
- * self review beside it when there is one.
+ * self review beside it when there is one: the Answers tab of the record.
  *
- * ## One card, two columns
+ * ## One card, no heading
  *
- * It used to be two cards one above the other, "What was asked, and what was
- * answered" and "What they said about their own period", and the comparison that
- * was the point of having both was left to the reader to make by scrolling. On a
- * manager's review with the person's self review in, this is one card with a
+ * The tab is called Answers, so the card does not say so again, and it has no
+ * description. It used to say how much of the form was still to do ("1 required
+ * question still to answer") above a form that had already been sent, and to
+ * repeat the period and the company's instructions above the answers. What is
+ * left to do is the form's own business and is said where it is filled in; the
+ * period is the page's small line under its title; the instructions are for
+ * somebody answering. Nothing here is to do, so nothing here is a status.
+ *
+ * Where there is nothing to read the card is not drawn (`hasAnswers`).
+ *
+ * ## Two columns
+ *
+ * On a manager's review with the person's self review in, this is one card with a
  * column for each, question by question, so a difference is something you see on
  * one line. The columns are named for what they are, **Self review** and
  * **Manager review**, and say who wrote each and when.
@@ -96,9 +68,9 @@ export function unansweredLine(review: {
  *
  * `selfReview` is null for several different reasons (it has not been sent, the
  * reader may not read it, there is no API) and none of them is "they wrote
- * nothing". So the card says nothing about it and shows the one review it has,
- * under the name of what it is. While it is loading the card says so in its
- * description and does not leave a column empty that will fill.
+ * nothing". So the card says nothing about it and shows the one review it has.
+ * While it is loading the card says so, in one line, and does not leave a column
+ * empty that will fill.
  *
  * ## What is read from where
  *
@@ -107,6 +79,10 @@ export function unansweredLine(review: {
  * wherever it appears: the company's words for a level, a pick by its label, a
  * file as something to open (with the id of the review it belongs to, since the
  * evidence is that review's).
+ *
+ * ## The closing note has one word
+ *
+ * "Recommendations" where a manager wrote it, "Note" otherwise (`closingNoteLabel`).
  */
 export function ReviewFormCard({
   review,
@@ -120,112 +96,54 @@ export function ReviewFormCard({
   ratingWords: (level: number | null | undefined) => string | null;
 }) {
   const comparing = review.kind === "MANAGER" && selfReview !== null;
-  const filling = review.mine && !review.submitted;
-
-  const action = filling ? (
-    <ButtonLink
-      href={`/performance/reviews/${review.id}/answer`}
-      variant="accent"
-      size="sm"
-    >
-      Fill it in
-    </ButtonLink>
-  ) : undefined;
 
   if (!comparing) {
-    const title =
-      review.kind === "MANAGER"
-        ? MANAGER_REVIEW_LABEL
-        : review.kind === "SELF"
-          ? SELF_REVIEW_LABEL
-          : review.kindLabel;
     const loadingSelf = review.kind === "MANAGER" && selfLoading;
     return (
       <Card>
-        <CardHeader
-          title={title}
-          description={
-            loadingSelf ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner size="sm" />
-                Loading their self review
-              </span>
-            ) : (
-              unansweredLine(review)
-            )
-          }
-          {...(action ? { action } : {})}
-        />
-        {review.questions.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<FileQuestion aria-hidden="true" />}
-            title="No questions on this form"
-            description="Add questions to the period and they will show up here."
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-4">
-            {/* Above the answers, because this is the record of a mark and
-                what period it covers is part of the record. Renders nothing
-                when the period states nothing. */}
-            <PeriodFraming
-              periodStart={review.periodStart}
-              periodEnd={review.periodEnd}
-              instructions={review.instructions}
-              guideUrl={review.guideUrl}
+        <CardBody className="flex flex-col gap-4">
+          {loadingSelf && (
+            <p className="inline-flex items-center gap-2 text-body-sm text-muted">
+              <Spinner size="sm" />
+              Loading their self review
+            </p>
+          )}
+          {review.questions.map((question) => (
+            <ReadAnswer
+              key={question.id}
+              question={question}
+              held={draftFrom(question)}
+              reviewId={review.id}
+              {...(review.kind === "SELF"
+                ? {
+                    pins: pinsOf(question.pins),
+                    pinnedBy: review.mine ? "you" : review.subjectName,
+                  }
+                : {})}
             />
-            {review.questions.map((question) => (
-              <ReadAnswer
-                key={question.id}
-                question={question}
-                held={draftFrom(question)}
-                reviewId={review.id}
-                {...(review.kind === "SELF"
-                  ? {
-                      pins: pinsOf(question.pins),
-                      pinnedBy: review.mine ? "you" : review.subjectName,
-                    }
-                  : {})}
-              />
-            ))}
-            {review.summary && (
-              <div>
-                <p className="text-meta font-medium text-muted">
-                  {CLOSING_NOTE_LABEL}
-                </p>
-                <p className="mt-1 text-body-sm leading-relaxed text-ink">
-                  {review.summary}
-                </p>
-              </div>
-            )}
-          </CardBody>
-        )}
+          ))}
+          {review.summary && (
+            <div>
+              <p className="text-meta font-medium text-muted">
+                {closingNoteLabel(review.kind)}
+              </p>
+              <p className="mt-1 text-body-sm leading-relaxed whitespace-pre-line text-ink">
+                {review.summary}
+              </p>
+            </div>
+          )}
+        </CardBody>
       </Card>
     );
   }
 
   const rows = comparisonRows(review.questions, selfReview.questions);
   const showMark = showsOverallMark(review) || showsOverallMark(selfReview);
+  const showNote = Boolean(review.summary || selfReview.summary);
 
   return (
     <Card>
-      <CardHeader
-        title={`${SELF_REVIEW_LABEL} and ${MANAGER_REVIEW_LABEL.toLowerCase()}`}
-        description={
-          filling
-            ? unansweredLine(review)
-            : "Each question, with their answer beside their manager's."
-        }
-        {...(action ? { action } : {})}
-      />
       <CardBody className="flex flex-col gap-4">
-        <PeriodFraming
-          periodStart={review.periodStart}
-          periodEnd={review.periodEnd}
-          instructions={review.instructions}
-          guideUrl={review.guideUrl}
-        />
-
         {/* The column names, once, on a wide screen. On a phone each answer
             carries its own label instead, and a heading row over a single
             column would say nothing, so it is not drawn. Hidden from assistive
@@ -249,11 +167,6 @@ export function ReviewFormCard({
         {/* The overall mark and the closing note are the review's own and are
             there whether or not the period asked a question, so they do not
             wait on the list being non-empty. */}
-        {rows.length === 0 && (
-          <p className="text-body-sm text-muted">
-            Neither form had any questions.
-          </p>
-        )}
         <ul className="flex flex-col divide-y divide-line">
           {rows.map((row) => (
             <li key={row.id} className="flex flex-col gap-2 py-4 first:pt-0">
@@ -281,15 +194,17 @@ export function ReviewFormCard({
             </li>
           )}
 
-          <li className="flex flex-col gap-2 pt-4 first:pt-0">
-            <p className="text-meta font-medium text-muted">
-              {CLOSING_NOTE_LABEL}
-            </p>
-            <Pair
-              self={<Note text={selfReview.summary} />}
-              manager={<Note text={review.summary} />}
-            />
-          </li>
+          {showNote && (
+            <li className="flex flex-col gap-2 pt-4 first:pt-0">
+              <p className="text-meta font-medium text-muted">
+                {closingNoteLabel("BOTH")}
+              </p>
+              <Pair
+                self={<Note text={selfReview.summary} />}
+                manager={<Note text={review.summary} />}
+              />
+            </li>
+          )}
         </ul>
       </CardBody>
     </Card>
@@ -391,7 +306,7 @@ function Mark({
           : "text-body-sm leading-relaxed text-ink"
       }
     >
-      {rating === null ? "None given" : (words(rating) ?? "None given")}
+      {rating === null ? "Not recorded" : (words(rating) ?? "Not recorded")}
     </p>
   );
 }

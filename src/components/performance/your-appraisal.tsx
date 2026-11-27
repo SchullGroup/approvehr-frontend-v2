@@ -15,9 +15,13 @@ import { useAppraisalProgress, useAppraisals } from "@/lib/store/performance";
 /**
  * "Your appraisal" at the top of the Overview for everybody who is not HR (owner,
  * 24 Nov 2026): the one next step ("Step 2 of 4: Core competencies" and a
- * Continue), and for a manager their team's list below it with progress and
- * Nudge. Reads the period's appraisal progress; where the API does not have it,
- * or nothing is running, it draws nothing.
+ * Continue), and for a manager their team's list below it (`TeamAppraisals`).
+ * Reads the period's appraisal progress; where the API does not have it, or
+ * nothing is running, it draws nothing.
+ *
+ * This is the only place this is drawn. There used to be a page of its own at
+ * `/performance/appraisals`, an older copy of the same two things; it is gone and
+ * its address sends people to Performance, where this is.
  */
 
 type Mine = NonNullable<ApiAppraisalProgress["mine"]>;
