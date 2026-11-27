@@ -206,7 +206,7 @@ describe("a written answer on somebody's own list", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Written")).toBeInTheDocument();
     /* The level beside it is still a level. */
-    expect(screen.getByText("Level 4 of 5 · target 5")).toBeInTheDocument();
+    expect(screen.getByText("4 of 5")).toBeInTheDocument();
   });
 });
 

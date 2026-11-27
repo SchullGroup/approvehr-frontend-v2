@@ -56,20 +56,23 @@ const segments = (container: HTMLElement) =>
   container.querySelectorAll("span.rounded-full").length;
 
 describe("a subsection that is rated", () => {
-  it("says the level and the target, and draws the level", () => {
+  it("says the level once, and draws it, with the target in the shape and for a screen reader", () => {
     const { container } = show({
       answerKind: "RATING",
       level: 4,
       target: 5,
       ratedAt: ANSWERED,
     });
-    expect(screen.getByText("Level 4 of 5 · target 5")).toBeInTheDocument();
+    expect(screen.getByText("4 of 5")).toBeInTheDocument();
+    expect(screen.queryByText(/Level 4/)).not.toBeInTheDocument();
+    expect(screen.getByText(", target 5")).toHaveClass("sr-only");
     expect(segments(container)).toBe(5);
   });
 
   it("says no target when none was set", () => {
     show({ level: 3, ratedAt: ANSWERED });
-    expect(screen.getByText("Level 3 of 5")).toBeInTheDocument();
+    expect(screen.getByText("3 of 5")).toBeInTheDocument();
+    expect(screen.queryByText(/target/)).not.toBeInTheDocument();
   });
 
   it("is a level when the server does not say, which is what an older one means", () => {
@@ -78,19 +81,20 @@ describe("a subsection that is rated", () => {
       level: 2,
       ratedAt: ANSWERED,
     });
-    expect(screen.getByText("Level 2 of 5")).toBeInTheDocument();
+    expect(screen.getByText("2 of 5")).toBeInTheDocument();
     expect(segments(container)).toBe(5);
   });
 
-  it("is not assessed, and still draws its empty scale, until it has been", () => {
+  it("is absent until it has been assessed, rather than a row saying so", () => {
     const { container } = show({ level: null, ratedAt: null });
-    expect(screen.getByText("Not assessed yet")).toBeInTheDocument();
-    expect(segments(container)).toBe(5);
+    expect(screen.queryByText("Not assessed yet")).not.toBeInTheDocument();
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(segments(container)).toBe(0);
   });
 
   it("draws the scale of its own length", () => {
     const { container } = show({ scaleMax: 10, level: 7, ratedAt: ANSWERED });
-    expect(screen.getByText("Level 7 of 10")).toBeInTheDocument();
+    expect(screen.getByText("7 of 10")).toBeInTheDocument();
     expect(segments(container)).toBe(10);
   });
 });
@@ -121,14 +125,14 @@ describe("a subsection that is a yes or a no", () => {
     expect(screen.queryByText("Not assessed yet")).not.toBeInTheDocument();
   });
 
-  it("is not assessed, with nothing drawn, until somebody answers it", () => {
+  it("is absent until somebody answers it", () => {
     const { container } = show({
       answerKind: "BOOLEAN",
       level: null,
       boolValue: null,
       ratedAt: null,
     });
-    expect(screen.getByText("Not assessed yet")).toBeInTheDocument();
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
     expect(screen.queryByText("Yes")).not.toBeInTheDocument();
     expect(screen.queryByText("No")).not.toBeInTheDocument();
     expect(segments(container)).toBe(0);
@@ -181,14 +185,14 @@ describe("a subsection answered by picking from a list", () => {
     expect(screen.getByText("Answered")).toBeInTheDocument();
   });
 
-  it("is not assessed, with nothing drawn, until somebody picks", () => {
+  it("is absent until somebody picks", () => {
     const { container } = show({
       answerKind: "CHOICE",
       level: null,
       choiceOptionLabel: null,
       ratedAt: null,
     });
-    expect(screen.getByText("Not assessed yet")).toBeInTheDocument();
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
     expect(segments(container)).toBe(0);
   });
 });
