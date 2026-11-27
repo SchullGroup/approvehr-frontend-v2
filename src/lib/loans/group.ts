@@ -247,7 +247,7 @@ function totalsOf(loans: ApiLoan[], thisMonth: string): LoanFigures {
  */
 export function groupLoansByPerson(
   loans: readonly ApiLoan[],
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = new Date().toISOString().slice(0, 10), // reads-the-clock: the screen always passes the organisation's own today (useLoanToday); only a caller with no zone, such as a test, falls back to this
 ): LoanPerson[] {
   const thisMonth = addMonths(today, 0);
   const byPerson = new Map<string, ApiLoan[]>();

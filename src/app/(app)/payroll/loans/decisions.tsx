@@ -5,6 +5,7 @@ import {
   Button,
   Callout,
   Field,
+  FieldRow,
   Input,
   Modal,
   Select,
@@ -454,7 +455,7 @@ export function SpreadLoanModal({
           are, including a smaller figure set for the payroll being worked: the
           difference is spread too.
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <FieldRow>
           <Field
             label="Over how many months"
             required
@@ -483,7 +484,7 @@ export function SpreadLoanModal({
               ))}
             </Select>
           </Field>
-        </div>
+        </FieldRow>
         <Field
           label="Why?"
           required
