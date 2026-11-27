@@ -23,6 +23,7 @@ import {
   choicesOf,
 } from "@/lib/performance/answer-kind";
 import { ANSWER_CAVEAT } from "@/lib/performance/review-language";
+import { nothingToRateWords } from "@/lib/performance/framework-empty";
 import {
   writtenAnswerCounter,
   writtenAnswerIsOver,
@@ -145,6 +146,7 @@ export function RecordLevelDialog({
   const { people } = useEmployeeDirectory({ pageSize: 200 });
   const { employeeId } = useSession();
   const canRateAnyone = useCan("EDIT_RECORDS");
+  const canEditFramework = useCan("MANAGE_SETTINGS");
   const framework = useFramework();
   const { sections } = useSections();
   const { offered: scoredGroups, hidden: unscoredGroups } = useMemo(
@@ -409,6 +411,15 @@ export function RecordLevelDialog({
             ))}
           </Select>
         </Field>
+        {/* Only an answered, empty list says there is nothing to rate: while it
+            is still being read, or when it failed, the picker is just not ready. */}
+        {!framework.loading &&
+          framework.error === null &&
+          framework.competencies.length === 0 && (
+            <p className="-mt-2 text-meta text-muted">
+              {nothingToRateWords(canEditFramework)}
+            </p>
+          )}
         {unscoredGroups.length > 0 && (
           <p className="-mt-2 text-meta text-muted">
             Not offered, because they count for nothing in the score:{" "}

@@ -31,6 +31,7 @@ vi.mock("@/lib/store/session", () => ({
 const registerHook = vi.fn();
 const draftsHook = vi.fn();
 const countsHook = vi.fn();
+const mineHook = vi.fn();
 let switchState = {
   on: true,
   known: true,
@@ -43,6 +44,7 @@ vi.mock("@/lib/store/queries", async (original) => ({
   useQueriesSwitch: () => switchState,
   useQueryRegister: (...args: unknown[]) => registerHook(...args),
   useMyDrafts: (...args: unknown[]) => draftsHook(...args),
+  useMyQueries: (...args: unknown[]) => mineHook(...args),
   useQueryCounts: (...args: unknown[]) => countsHook(...args),
 }));
 
@@ -82,6 +84,8 @@ beforeEach(() => {
   registerHook.mockReturnValue(page([]));
   draftsHook.mockReset();
   countsHook.mockReset();
+  mineHook.mockReset();
+  mineHook.mockReturnValue(page([]));
 });
 
 describe("a line manager", () => {
@@ -119,6 +123,21 @@ describe("a line manager", () => {
     expect(
       screen.getByText(/never a query once it has been issued/),
     ).toBeInTheDocument();
+  });
+
+  it("is shown the letters addressed to them above their drafts, only when there is one", () => {
+    draftsHook.mockReturnValue(page([]));
+    mineHook.mockReturnValue(page([summary({ id: "q-mine" })]));
+    const { unmount } = render(<QueriesScreen />);
+    expect(screen.getByText("Letters addressed to you")).toBeInTheDocument();
+    expect(screen.getByText("You have no drafts")).toBeInTheDocument();
+    unmount();
+
+    mineHook.mockReturnValue(page([]));
+    render(<QueriesScreen />);
+    expect(
+      screen.queryByText("Letters addressed to you"),
+    ).not.toBeInTheDocument();
   });
 
   it("asks only for its drafts, and never asks the register", () => {

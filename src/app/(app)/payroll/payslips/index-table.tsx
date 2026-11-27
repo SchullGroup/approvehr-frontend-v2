@@ -331,6 +331,7 @@ function PayslipIndex() {
           runId={run.id}
           approved={run.status === "APPROVED" || run.status === "PAID"}
           notSent={counts?.notSent}
+          total={inRun}
           onSent={() => {
             /* The three delivery counts are the server's, over the whole run.
                Nothing here patches them — a send moves rows between the three

@@ -50,7 +50,7 @@ import { useOpenSession } from "@/lib/use-open-session";
  * name and reason are read in My documents, where the person already reads them. So this screen
  * says that before the press, and its toast is about the act and never about the document.
  *
- * `notifiedPerson: false` is said plainly: nobody was told in the product, either because there is
+ * `notifiedPerson: false` is said plainly: nobody was told in ApproveHR, either because there is
  * no sign-in or because the company switched that rule off, and the server does not say which.
  *
  * ## Who
@@ -198,7 +198,7 @@ function AskForm({
         ...(asked.notifiedPerson === false
           ? {
               detail:
-                "Nobody was told in the product. They have no sign-in, or your company switched that notification off.",
+                "Nobody was told in ApproveHR. They have no sign-in, or your company switched that notification off.",
             }
           : {}),
       });

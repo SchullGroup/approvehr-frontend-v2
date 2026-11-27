@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useIsClient } from "@/hooks/use-is-client";
 
 /**
@@ -14,10 +15,23 @@ import { useIsClient } from "@/hooks/use-is-client";
  * nothing about what is asked. Enter continues, Escape closes, and focus moves
  * to the question each time it changes so a keyboard never has to hunt for it.
  *
+ * ## Focus stays inside it
+ *
+ * It covers the page, so the keyboard has to stay on it: Tab and Shift+Tab
+ * wrap at its ends (they used to run on into the page behind, the skip link,
+ * the search and the bell), Escape closes it and gives focus back to what
+ * opened it (it used to leave it on the page body), and the page behind does
+ * not scroll. All of that is `useFocusTrap`, the same as every dialog; this
+ * file only moves focus to the question when a step changes, which the trap
+ * does not know about. `whyNot` says in words why Continue is off, because a
+ * disabled button is skipped by Tab and says nothing to somebody using one.
+ *
  * The page scrolls and the question is centred with `m-auto`, not
  * `justify-center`: a long step on a phone (a target has five fields) would
  * otherwise be cut off at the top, where centring pushes what does not fit.
  */
+const WHY_ID = "wizard-why-not";
+
 export function WizardShell({
   open,
   onClose,
@@ -29,6 +43,7 @@ export function WizardShell({
   onNext,
   nextLabel = "Continue",
   canNext = true,
+  whyNot,
   busy = false,
   error,
   hideNext = false,
@@ -47,6 +62,8 @@ export function WizardShell({
   onNext?: () => void;
   nextLabel?: string;
   canNext?: boolean;
+  /** Why Continue is off, shown beside it while it is. Nothing is said when it is on. */
+  whyNot?: string | null;
   busy?: boolean;
   error?: string | null;
   /** The screen answers itself (a pair of large choices) and moves on when one is chosen. */
@@ -68,33 +85,24 @@ export function WizardShell({
 }) {
   const isClient = useIsClient();
   const heading = useRef<HTMLHeadingElement>(null);
+  /* First, so its focus on opening is overridden by the heading's below, and
+     only once the dialog is on screen: before that there is nothing to trap. */
+  const trap = useFocusTrap(open && isClient, onClose);
 
   useEffect(() => {
     if (open && !done) heading.current?.focus();
   }, [open, step, done]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
-    };
-  }, [open, onClose]);
-
   if (!isClient || !open) return null;
 
   return createPortal(
     <div
+      ref={trap}
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-canvas"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-canvas outline-none"
     >
       <div className="sticky top-0 z-10 flex items-center gap-4 bg-canvas px-4 py-3 sm:px-8">
         <div
@@ -160,9 +168,15 @@ export function WizardShell({
                 variant="accent"
                 disabled={!canNext}
                 loading={busy}
+                {...(!canNext && whyNot ? { "aria-describedby": WHY_ID } : {})}
               >
                 {nextLabel}
               </Button>
+            )}
+            {!hideNext && !canNext && whyNot && (
+              <p id={WHY_ID} className="text-body-sm text-muted">
+                {whyNot}
+              </p>
             )}
             {extra}
           </div>

@@ -129,6 +129,9 @@ vi.mock("@/lib/store/performance", () => ({
     autoAssign: vi.fn(),
     setAppraisers: mutations.setAppraisers,
   }),
+  /* Ask colleagues also reads who already appraises the person, to label them.
+     That is not what this file is about, so nobody is labelled. */
+  useMyAppraisers: () => ({ row: null, loading: false, error: null }),
 }));
 
 import { SharedProjectOptions } from "@/components/performance/shared-project-options";
@@ -623,7 +626,9 @@ describe("the appraiser map", () => {
         "Shared a project",
         "Everybody else",
       ]);
-      expect(optionTexts(select())[1]).toBe("Dayo Ola — Shared 3 projects");
+      /* The default shown as the choice is a hidden option (F19), so it is not in the
+         list that opens and the first option is the first person. */
+      expect(optionTexts(select())[0]).toBe("Dayo Ola — Shared 3 projects");
     });
 
     it("asks nothing for a pointer that only crosses the row on its way down the column", () => {

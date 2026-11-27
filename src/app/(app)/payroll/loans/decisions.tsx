@@ -7,6 +7,7 @@ import {
   Field,
   Input,
   Modal,
+  Select,
   Textarea,
   formatMoney,
   useToast,
@@ -357,6 +358,143 @@ export function RescheduleLoanModal({
             value={startsIn}
             onChange={setStartsIn}
             months={startMonths}
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------- spread */
+
+/**
+ * Spread what is still owed over a number of months.
+ *
+ * For a loan whose schedule is too lumpy to pay: two loans combined into one on a one-month term left ₦310,000 due at
+ * once. Nothing owed changes, only when it comes off. The instalments before the chosen month stay as they are, and a
+ * smaller figure set for the payroll being worked is respected. The reason is the record.
+ */
+export function SpreadLoanModal({
+  loan,
+  onClose,
+}: {
+  loan: ApiLoanDetail;
+  onClose: () => void;
+}) {
+  const { respread } = useLoanActions();
+  const today = useLoanToday();
+  const toast = useToast();
+  const { failure, clear, capture } = useFailure();
+  const [months, setMonths] = useState("5");
+  const [startsIn, setStartsIn] = useState("1");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const startPeriod = addMonths(today, Number(startsIn));
+  const count = Number(months);
+  const valid =
+    Number.isInteger(count) &&
+    count >= 1 &&
+    count <= 60 &&
+    reason.trim().length >= 3;
+
+  async function submit() {
+    setSaving(true);
+    clear();
+    try {
+      await respread(loan.id, {
+        startPeriod,
+        termMonths: count,
+        reason: reason.trim(),
+      });
+      toast.push({
+        title: `${loan.employeeName}'s loan is spread over ${String(count)} ${count === 1 ? "month" : "months"}`,
+        tone: "success",
+        detail: `From ${monthLabel(startPeriod)}. A payroll already calculated picks it up when you run it again.`,
+      });
+      onClose();
+    } catch (error) {
+      capture(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title="Spread over months"
+      description={`${loan.employeeName}'s loan still owes ${money(loan.outstandingKobo)}. What is owed does not change, only when it comes off.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            disabled={!valid}
+            onClick={() => void submit()}
+          >
+            Spread it
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failure && (
+          <Callout tone="danger" title="That did not go through">
+            {failure.message}
+          </Callout>
+        )}
+        <p className="text-body-sm leading-relaxed text-body">
+          Everything still owed from {monthLabel(startPeriod)} on is divided
+          into equal monthly instalments. Instalments before then stay as they
+          are, including a smaller figure set for the payroll being worked: the
+          difference is spread too.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label="Over how many months"
+            required
+            error={failure?.messageFor("termMonths")}
+          >
+            <Input
+              inputMode="numeric"
+              value={months}
+              disabled={saving}
+              onChange={(event) => setMonths(event.target.value)}
+            />
+          </Field>
+          <Field
+            label="Starting"
+            required
+            error={failure?.messageFor("startPeriod")}
+          >
+            <Select
+              value={startsIn}
+              onChange={(event) => setStartsIn(event.target.value)}
+            >
+              {Array.from({ length: 13 }, (_, i) => (
+                <option key={i} value={String(i)}>
+                  {monthLabel(addMonths(today, i))}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <Field
+          label="Why?"
+          required
+          error={failure?.messageFor("reason")}
+          help="Kept with the loan, for whoever asks later."
+        >
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Two loans were combined on a one-month term; too much to pay at once."
           />
         </Field>
       </div>

@@ -173,6 +173,7 @@ export function ReviewFormCard({
               periodEnd={review.periodEnd}
               instructions={review.instructions}
               guideUrl={review.guideUrl}
+              kind={review.kind}
             />
             {review.questions.map((question) => (
               <ReadAnswer
@@ -219,10 +220,11 @@ export function ReviewFormCard({
         {...(action ? { action } : {})}
       />
       <CardBody className="flex flex-col gap-4">
+        {/* Two forms side by side is somebody reading about a person, not a
+            person filling in their own, so the staff message is not repeated. */}
         <PeriodFraming
           periodStart={review.periodStart}
           periodEnd={review.periodEnd}
-          instructions={review.instructions}
           guideUrl={review.guideUrl}
         />
 

@@ -1,10 +1,10 @@
 "use client";
 
 import { GoHomeWhenOff } from "@/components/portal/go-home-when-off";
-import { BackHome } from "@/components/portal/require-permission";
+import { PageHeader } from "@/components/portal/shell";
 import { useState } from "react";
 import Link from "next/link";
-import { MessageSquareText, ShieldAlert } from "lucide-react";
+import { MessageSquareText } from "lucide-react";
 import {
   Badge,
   Callout,
@@ -42,6 +42,8 @@ import {
 } from "@/lib/store/queries";
 import { useDebounced } from "@/lib/use-debounced";
 import { MyDrafts } from "./my-drafts";
+import { MyLetters } from "./my-letters";
+import { StartQueryButton } from "./start-dialog";
 
 const ALL = "all";
 
@@ -60,14 +62,18 @@ const TABS: TabItem[] = [
 ];
 
 /**
- * The register: every query in the company, for the people who write or decide them.
+ * The Queries page, one route for every reader: what it shows depends on who is asking.
  *
- * ## Who it is for, and who it is not
+ * ## Who gets what
  *
- * `ISSUE_QUERIES` or `DECIDE_QUERIES`, either one. The person a query is addressed to never comes
- * here: their way in is the notification and the "Letters from HR" entry on their own profile, and
- * this register is **never** the caller's own query (the API leaves it out), so somebody who is
- * both staff and a subject reads theirs as the person only.
+ * - **`ISSUE_QUERIES` or `DECIDE_QUERIES`, either one: the register**, every query in the company.
+ * - **`DRAFT_QUERIES` and neither of those (a line manager):** their own drafts.
+ * - **Everybody else: the letters addressed to them** (`MyLetters`). That is every employee and
+ *   every manager, and it is the answer to "where do I see a query that was issued to me?".
+ *
+ * The register is **never** the caller's own query (the API leaves it out), so somebody who works
+ * queries and is also queried sees their own letters above the register (`MyLetters alongside`),
+ * and only when there is one. The "Letters from HR" card on the profile shows the same letters.
  *
  * ## "No reply in time" is a label, and the register says it in the API's words
  *
@@ -114,20 +120,16 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
      reader. Their screen is their own drafts and nothing of the company's register. */
   if (!works && canDraft) {
     if (queries.known && !queries.on) return <ModuleOff canSettings={false} />;
-    return <MyDrafts />;
-  }
-
-  if (!works) {
     return (
-      <EmptyState
-        plain
-        icon={<ShieldAlert aria-hidden="true" className="size-5" />}
-        title="You cannot open the queries register"
-        description="Writing, reading and deciding queries is held by the people given the Issue queries or Decide queries permission."
-        action={<BackHome />}
-      />
+      <div className="flex flex-col gap-4">
+        <MyLetters alongside />
+        <MyDrafts />
+      </div>
     );
   }
+
+  /* Everybody else: the letters addressed to them. Not a refusal, because the row is theirs. */
+  if (!works) return <MyLetters />;
 
   /* The server is the authority on the switch, and the sidebar's copy of it is a default until the
      read lands: a refusal that says `module_off` wins over a flag that has not arrived. */
@@ -137,6 +139,7 @@ export function QueriesScreen({ subjectId }: { subjectId?: string }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <MyLetters alongside />
       {subjectId && (
         <p className="text-body-sm text-body">
           Showing the queries about one person.{" "}
@@ -259,6 +262,34 @@ function RegisterRow({ row }: { row: ApiQuerySummary }) {
         )}
       </TD>
     </TR>
+  );
+}
+
+/**
+ * The page's title row. The register has a way back to the directory; a person reading their own
+ * letters has no use for one (the directory is not theirs to open) and gets a line saying what the
+ * page is, because "Queries" does not say it to somebody who has never met one.
+ */
+export function QueriesHeader() {
+  const canIssue = useCan("ISSUE_QUERIES");
+  const canDecide = useCan("DECIDE_QUERIES");
+  const works = canIssue || canDecide;
+  return (
+    <PageHeader
+      title="Queries"
+      {...(works
+        ? {
+            breadcrumb: [
+              { href: "/people", label: "Employees" },
+              { href: "/people/queries", label: "Queries" },
+            ],
+          }
+        : {
+            description:
+              "Letters from HR that ask you to explain something, and what you replied.",
+          })}
+      action={<StartQueryButton />}
+    />
   );
 }
 

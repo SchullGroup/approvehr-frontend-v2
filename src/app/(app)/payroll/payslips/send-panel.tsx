@@ -1,8 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Send } from "lucide-react";
-import { Button, Callout, ConfirmDialog } from "@/components/ui";
+import { RotateCw, Send } from "lucide-react";
+import {
+  Button,
+  Callout,
+  ConfirmDialog,
+  Field,
+  Input,
+  Modal,
+} from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { PayslipSendOutcome } from "@/lib/api/payroll";
 import { usePayrollActions } from "@/lib/store/payroll";
@@ -35,6 +42,7 @@ export function SendPayslips({
   runId,
   approved,
   notSent,
+  total,
   onSent,
 }: {
   runId: string;
@@ -50,6 +58,12 @@ export function SendPayslips({
   approved: boolean;
   /** From the run's own counts, so this cannot disagree with the tile above. */
   notSent: number | undefined;
+  /**
+   * Everybody on the run, from the same counts. Absent until the server has
+   * answered, and then "Resend all" says "all payslips" rather than a number it
+   * does not have.
+   */
+  total?: number | undefined;
   /** Re-read the list, so the delivery counts on screen are the new ones. */
   onSent: () => void;
 }) {
@@ -58,6 +72,12 @@ export function SendPayslips({
   const [outcome, setOutcome] = useState<PayslipSendOutcome | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  /* Resending everybody has two steps: a warning, then typing a word. The first
+     is the same kind of question "Send them" asks; the second exists because the
+     people it reaches already have a payslip, so a slip of the mouse mails a whole
+     company twice, and an email cannot be taken back. */
+  const [resendStep, setResendStep] = useState<0 | 1 | 2>(0);
+  const [typed, setTyped] = useState("");
   /* Everybody a send has named as having no address (U77). The run's counts
      cannot tell them apart from anybody else not yet sent, so without this the
      button went on offering "Send 48 payslips" to 48 people it had just been
@@ -67,13 +87,17 @@ export function SendPayslips({
   const reachable =
     notSent === undefined ? undefined : Math.max(0, notSent - noAddress.size);
 
-  async function send() {
+  async function send(resend = false) {
     setConfirming(false);
+    setResendStep(0);
+    setTyped("");
     setBusy(true);
     setFailed(null);
     setOutcome(null);
     try {
-      const result = await actions.sendPayslips(runId);
+      const result = resend
+        ? await actions.sendPayslips(runId, { resend: true })
+        : await actions.sendPayslips(runId);
       setOutcome(result);
       setNoAddress(
         (known) =>
@@ -117,6 +141,14 @@ export function SendPayslips({
         <span className="text-meta text-muted">
           Anybody who already has theirs is left alone.
         </span>
+        <Button
+          variant="secondary"
+          disabled={busy}
+          onClick={() => setResendStep(1)}
+        >
+          <RotateCw aria-hidden="true" className="size-4" />
+          Resend all payslips
+        </Button>
       </div>
 
       <ConfirmDialog
@@ -132,12 +164,91 @@ export function SendPayslips({
         }
         body={
           <p>
-            Each person is emailed their net pay and a link to their payslip. An
-            email cannot be taken back. Anybody with no email address on their
-            record is named afterwards, and nothing is sent to them.
+            Each person is emailed their net pay with their payslip attached as
+            a PDF, so they do not need to sign in to see it. An email cannot be
+            taken back. Anybody with no email address on their record is named
+            afterwards, and nothing is sent to them.
           </p>
         }
       />
+
+      {/* Resend all, step one: what it does, and that it reaches people who
+          already have theirs. */}
+      <ConfirmDialog
+        open={resendStep === 1}
+        onClose={() => setResendStep(0)}
+        onConfirm={() => setResendStep(2)}
+        tone="danger"
+        confirmLabel="Continue"
+        title={
+          total === undefined
+            ? "Resend every payslip?"
+            : `Resend all ${String(total)} ${total === 1 ? "payslip" : "payslips"}?`
+        }
+        body={
+          <div className="flex flex-col gap-2">
+            <p>
+              Everybody on this payroll is emailed their payslip again, attached
+              as a PDF, including the people who already have one. Each of them
+              receives a second email.
+            </p>
+            <p>
+              An email cannot be taken back. Anybody with no email address on
+              their record is named afterwards, and nothing is sent to them.
+            </p>
+          </div>
+        }
+      />
+
+      {/* Step two: a word to type, so it cannot be done by a stray click. */}
+      <Modal
+        open={resendStep === 2}
+        onClose={() => {
+          setResendStep(0);
+          setTyped("");
+        }}
+        title="Are you sure?"
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setResendStep(0);
+                setTyped("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={typed.trim().toUpperCase() !== "RESEND"}
+              onClick={() => void send(true)}
+            >
+              {total === undefined
+                ? "Resend all payslips"
+                : `Resend all ${String(total)}`}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
+          <p>
+            This sends every payslip on the payroll again. To go ahead, type{" "}
+            <strong>RESEND</strong> below.
+          </p>
+          <Field label="Type RESEND to confirm" required>
+            <Input
+              autoFocus
+              autoComplete="off"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+            />
+          </Field>
+        </div>
+      </Modal>
     </div>
   );
 }

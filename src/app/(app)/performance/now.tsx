@@ -29,13 +29,16 @@ import {
 import {
   dayLabel,
   dayOf,
+  ratingToRead,
   ratingWordsFrom,
   weightLabel,
+  type ApiCycle,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
   periodInPlay,
 } from "@/lib/api/performance";
+import { partsShown, periodWeightsLine } from "@/lib/performance/score-wording";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
 import { useHeadedDepartmentIds } from "@/lib/store/departments";
@@ -53,6 +56,7 @@ import {
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
 import { YourAppraisal } from "@/components/performance/your-appraisal";
+import { PeriodCounts } from "./period-counts";
 import { PeriodExceptionNotice, PeriodStatus } from "./period-status";
 import { StartPeriodButton } from "./start-period";
 
@@ -123,8 +127,6 @@ export function WhatNeedsYouTab({
   const features = useFeatures();
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
-  const { scale } = useRatingScale();
-  const ratingWords = ratingWordsFrom(scale.levels);
   const mineGoals = useKpis("mine");
   const { isConnected, actingId, employeeId } = useSession();
 
@@ -424,9 +426,11 @@ export function WhatNeedsYouTab({
           count is worth a card; a card whose only content is the absence of
           one is furniture. */}
 
-      {/* The one next step on your own appraisal, and your team's. Not for
-          HR, who have the period cards. */}
-      {scored && !canSeeCompany && <YourAppraisal />}
+      {/* The one next step on your own appraisal, and your team's. For
+          everybody who is appraised, HR and administrators included: the
+          period cards are about running the period, and this is about being in
+          it (an administrator with a form of their own had no way to it). */}
+      {scored && <YourAppraisal />}
 
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
@@ -480,32 +484,7 @@ export function WhatNeedsYouTab({
           />
           <CardBody className="flex flex-col gap-2">
             {owesAnswer.map((review) => (
-              <div
-                key={review.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-body-sm font-medium text-ink">
-                    {review.cycleName}
-                    {review.rating !== null
-                      ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall rating"}
-                  </p>
-                  <p className="mt-1 text-meta text-muted">
-                    {review.finalisedAt
-                      ? `Final on ${dayOf(review.finalisedAt)}`
-                      : "Final"}
-                    {review.authorName ? ` · from ${review.authorName}` : ""}
-                  </p>
-                </div>
-                <ButtonLink
-                  variant="accent"
-                  size="sm"
-                  href={`/performance/reviews/${review.id}`}
-                >
-                  Read it and answer
-                </ButtonLink>
-              </div>
+              <FinalRatingRow key={review.id} review={review} />
             ))}
           </CardBody>
         </Card>
@@ -564,21 +543,10 @@ export function WhatNeedsYouTab({
                         {openPeriod.stageLabel}
                       </Badge>
                     </p>
-                    <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                      <span>
-                        {openPeriod.questionCount === 1
-                          ? "1 question"
-                          : `${openPeriod.questionCount} questions`}
-                      </span>
-                      <span>
-                        {openPeriod.reviewCount === 1
-                          ? "1 form"
-                          : `${openPeriod.reviewCount} forms`}
-                      </span>
-                      {openPeriod.dueDate && (
-                        <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
-                      )}
-                    </p>
+                    <PeriodCounts
+                      period={openPeriod}
+                      canSeeCompany={canSeeCompany}
+                    />
                   </div>
                   {/* Both destinations are the period's management screen, so both
                       are gated the same way `showOutstandingLink` already gates the
@@ -846,7 +814,10 @@ export function WhatNeedsYouTab({
           hint="How much each part counts for, and what each point on the scale means."
           level={2}
         >
-          <ScoringSettingsBody canManage={canManagePeriods} />
+          <ScoringSettingsBody
+            canManage={canManagePeriods}
+            period={openPeriod}
+          />
         </Disclosure>
       )}
 
@@ -926,50 +897,7 @@ export function WhatNeedsYouTab({
         >
           <div className="flex flex-col gap-2">
             {written.reviews.map((review) => (
-              <div
-                key={review.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-body-sm font-medium text-ink">
-                    {review.subjectName}
-                    {review.rating !== null
-                      ? ` · ${ratingWords(review.rating)}`
-                      : " · no overall rating"}
-                  </p>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                    <span>{review.cycleName}</span>
-                    {/* Four states, never three: not answered is not the same
-                        fact as disagreed, and nobody having been asked yet is
-                        the common one. Same rule the register's sign-off
-                        column follows. */}
-                    {review.disputed ? (
-                      <Badge tone="danger" size="sm" dot>
-                        Disputed
-                      </Badge>
-                    ) : review.acknowledged ? (
-                      <Badge tone="success" size="sm" dot>
-                        Acknowledged
-                      </Badge>
-                    ) : review.finalised ? (
-                      <Badge tone="warning" size="sm" dot>
-                        Final, not answered yet
-                      </Badge>
-                    ) : (
-                      <Badge tone="info" size="sm" dot>
-                        Written, not final
-                      </Badge>
-                    )}
-                  </p>
-                </div>
-                <ButtonLink
-                  variant="accent"
-                  size="sm"
-                  href={`/performance/reviews/${review.id}`}
-                >
-                  {review.finalised ? "Read it" : "Open it"}
-                </ButtonLink>
-              </div>
+              <WrittenReviewRow key={review.id} review={review} />
             ))}
           </div>
         </Disclosure>
@@ -1045,9 +973,21 @@ export function WhatNeedsYouTab({
  * scored can see what they are being scored against — only the outbound
  * link's wording changes for somebody who can actually change it.
  */
-function ScoringSettingsBody({ canManage }: { canManage: boolean }) {
+export function ScoringSettingsBody({
+  canManage,
+  period,
+}: {
+  canManage: boolean;
+  /** The period this screen is about: its weights are how a score is made now. */
+  period: ApiCycle | undefined;
+}) {
   const { weights, loading: weightsLoading } = useScoringWeights();
   const { scale, loading: scaleLoading } = useRatingScale();
+  /* The period's own weights when the server sent them, and the company's as they
+     are today when it did not. A score is made from the period's, so listing the
+     company's current set over it described a mark nobody was given (F44). */
+  const shown = partsShown(weights, period?.weights);
+  const basis = periodWeightsLine(period?.weights?.basis);
 
   return (
     <div className="flex flex-col gap-4">
@@ -1060,11 +1000,16 @@ function ScoringSettingsBody({ canManage }: { canManage: boolean }) {
         <>
           <DescriptionList
             layout="rows"
-            items={weights.rows.map((row) => ({
-              term: row.label,
-              value: weightLabel(row.weightBp),
+            items={shown.parts.map((part) => ({
+              term: part.label,
+              value: weightLabel(part.shareBp),
             }))}
           />
+          <p className="text-body-sm text-muted">
+            {shown.from === "period" && period
+              ? `${period.name}${basis ? `. ${basis}` : "."}`
+              : "Your company's weights as they are today."}
+          </p>
           <p className="text-body-sm text-muted">
             {scale.levels
               .map((level) => `${level.level} ${level.label}`)
@@ -1123,6 +1068,99 @@ function TaskRow({
 }
 
 /**
+ * One final rating the person has not yet answered, on the card that tells them it
+ * is final.
+ *
+ * The rating on the row is the one their record opens on: the period's score of
+ * record, "Meets Expectations · 3.1" (U36 / PERF-2). It is not the mark of the
+ * appraiser the row is "from", which is one person's: the Overview used to say
+ * "Exceeds Expectations" here over a record that said "Meets Expectations" (F42).
+ */
+export function FinalRatingRow({ review }: { review: ApiReview }) {
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
+      <div className="min-w-0">
+        <p className="text-body-sm font-medium text-ink">
+          {review.cycleName}
+          {` · ${ratingToRead(review, ratingWords) ?? "no overall rating"}`}
+        </p>
+        <p className="mt-1 text-meta text-muted">
+          {review.finalisedAt
+            ? `Final on ${dayOf(review.finalisedAt)}`
+            : "Final"}
+          {review.authorName ? ` · from ${review.authorName}` : ""}
+        </p>
+      </div>
+      <ButtonLink
+        variant="accent"
+        size="sm"
+        href={`/performance/reviews/${review.id}`}
+      >
+        Read it and answer
+      </ButtonLink>
+    </div>
+  );
+}
+
+/**
+ * One review the signed-in person wrote about somebody, in "Reviews you have
+ * written".
+ *
+ * The mark on the row is theirs and is said as theirs, "you rated Exceeds
+ * Expectations". The rating the person it is about is told is the period's score,
+ * which is not this: a name followed by a bare "Exceeds Expectations" read as the
+ * outcome, and the person's own record could say something else (F42).
+ */
+export function WrittenReviewRow({ review }: { review: ApiReview }) {
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
+      <div className="min-w-0">
+        <p className="text-body-sm font-medium text-ink">
+          {review.subjectName}
+          {review.rating !== null
+            ? ` · you rated ${ratingWords(review.rating)}`
+            : " · no overall rating"}
+        </p>
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+          <span>{review.cycleName}</span>
+          {/* Four states, never three: not answered is not the same fact as
+              disagreed, and nobody having been asked yet is the common one. Same
+              rule the register's sign-off column follows. */}
+          {review.disputed ? (
+            <Badge tone="danger" size="sm" dot>
+              Disputed
+            </Badge>
+          ) : review.acknowledged ? (
+            <Badge tone="success" size="sm" dot>
+              Acknowledged
+            </Badge>
+          ) : review.finalised ? (
+            <Badge tone="warning" size="sm" dot>
+              Final, not answered yet
+            </Badge>
+          ) : (
+            <Badge tone="info" size="sm" dot>
+              Written, not final
+            </Badge>
+          )}
+        </p>
+      </div>
+      <ButtonLink
+        variant="accent"
+        size="sm"
+        href={`/performance/reviews/${review.id}`}
+      >
+        {review.finalised ? "Read it" : "Open it"}
+      </ButtonLink>
+    </div>
+  );
+}
+
+/**
  * One review, as a row.
  *
  * The second name on the row is different in the two lists, and getting it
@@ -1160,6 +1198,15 @@ export function ReviewRow(
         ? review.authorName
         : null;
 
+  /* In the record, the rating the person was told: the period's score of
+     record where there is one. On a form still to write it is the author's own
+     mark. Absent, not zero: a form the author put no number on is not a form
+     marked nought. */
+  const mark =
+    context === "record"
+      ? ratingToRead(review, ratingWords)
+      : ratingWords(review.rating);
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
       <div className="min-w-0">
@@ -1178,9 +1225,7 @@ export function ReviewRow(
         <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{review.cycleName}</span>
           {review.dueDate && <span>Due {dayLabel(review.dueDate)}</span>}
-          {/* Absent, not zero: a form the author put no number on is not a form
-              marked nought. */}
-          {review.rating !== null && <span>{ratingWords(review.rating)}</span>}
+          {mark !== null && <span>{mark}</span>}
           <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
             {review.submitted ? "Sent" : "Not sent"}
           </Badge>
