@@ -71,9 +71,7 @@ describe("sending an objective to be agreed", () => {
         name: '"Ship the billing flow" is waiting to be agreed',
       }),
     ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("Sent to 1 person who can agree it."),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText("Sent to 1 person.")).toBeInTheDocument();
     /* The question and its buttons are gone, and only "Done" is left. */
     expect(
       within(dialog).queryByRole("button", { name: "Send it" }),
@@ -99,9 +97,11 @@ describe("sending an objective to be agreed", () => {
     );
     await user.click(screen.getByRole("button", { name: "Send it" }));
     expect(
-      await screen.findByText(/Once it is agreed it is fixed/),
+      await screen.findByRole("button", { name: "Done" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Sent to \d/)).toBeNull();
+    /* The rule is not restated in the moment. */
+    expect(screen.queryByText(/Once it is agreed it is fixed/)).toBeNull();
   });
 
   it("is a warning and a closed dialog, not a check, when nobody else was asked", async () => {

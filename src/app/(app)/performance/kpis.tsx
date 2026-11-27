@@ -5,12 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Check,
   CornerDownRight,
   Plus,
   Target,
   TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -35,7 +33,6 @@ import {
   THead,
   TR,
   TableWrap,
-  Textarea,
   rowClick,
   useToast,
   type AppliedFilter,
@@ -91,8 +88,7 @@ import {
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
-  progressLabel,
-  readCountLine,
+  periodOf,
   readCountShort,
   reopenedSaid,
   sharedSaid,
@@ -1597,7 +1593,6 @@ function GoalDetailModal({
   progress,
   done,
   canShare,
-  noPeriod,
   reads,
   editable,
   canPlan,
@@ -1621,7 +1616,6 @@ function GoalDetailModal({
   progress: number;
   done: boolean;
   canShare: boolean;
-  noPeriod: boolean;
   /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
   reads: { read: number; of: number } | null;
   editable: boolean;
@@ -1648,44 +1642,43 @@ function GoalDetailModal({
     onClose();
     run();
   };
+  const period = periodOf(goal);
 
   return (
     <Modal open={open} onClose={onClose} title={goal.title} size="lg">
       <div className="flex flex-col gap-4">
-        {goal.ownerName && (
-          <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
+        {/* Who it is, and the period it is filed in: said once, small. */}
+        {(goal.ownerName || period) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted">
             {goal.ownerName && (
               <span className="flex items-center gap-1.5">
                 <Avatar name={goal.ownerName} size="xs" />
                 {goal.ownerName}
               </span>
             )}
+            {period && <span>{period}</span>}
           </div>
         )}
 
-        {/* With nothing read, the label says so and the figure is not drawn: a 0%
-            beside "nothing read yet" would be the claim the label denies. */}
-        <ProgressMeter
-          value={progress}
-          showValue={reads?.read !== 0}
-          size="sm"
-          tone={
-            done
-              ? "success"
-              : goal.status === "OFF_TRACK"
-                ? "danger"
-                : goal.status === "AT_RISK"
-                  ? "warning"
-                  : "accent"
-          }
-          label={progressLabel(goal.keyResults.length, reads)}
-        />
-
-        {/* Said only when it is a warning: "4 of 4 read" on every card is noise.
-            With none read, the bar above is the 0 the objective was made with
-            and not a result, so the line says so. */}
-        {reads && (
-          <p className="text-body-sm text-body">{readCountLine(reads)}</p>
+        {/* One bar, on the objective, and only once something has been read:
+            with nothing read the figure is the 0 the objective was made with,
+            and a bar at 0% is a claim that the work has not moved. The target
+            rows below say "Not recorded" once and that is all. */}
+        {reads?.read !== 0 && (
+          <ProgressMeter
+            value={progress}
+            size="sm"
+            tone={
+              done
+                ? "success"
+                : goal.status === "OFF_TRACK"
+                  ? "danger"
+                  : goal.status === "AT_RISK"
+                    ? "warning"
+                    : "accent"
+            }
+            label="Progress"
+          />
         )}
 
         {goal.keyResults.length > 0 ? (
@@ -1713,13 +1706,6 @@ function GoalDetailModal({
         {/* The finished project tasks linked to this, for whoever is reading it
             to see what went into it. Read-only; nothing here is graded. */}
         {open && <CompletedWork goal={goal} />}
-
-        {noPeriod && goal.approval !== "AGREED" && (
-          <p className="text-body-sm text-body">
-            Give this a quarter before you send it to be agreed, so it can be
-            agreed before that quarter starts.
-          </p>
-        )}
 
         {/* Two actions at most, then a menu: a row of four buttons asks the reader to
             choose between things that are not equally likely. In order of how often
@@ -1909,6 +1895,12 @@ export function MeasureRow({
     draft.trim() !== "" &&
     (unread || draft.trim() !== measure.currentValue);
 
+  const reset = () => {
+    setDraft(null);
+    setNote("");
+    summary.clear();
+  };
+
   const save = async () => {
     if (!changed) return;
     setSaving(true);
@@ -1933,62 +1925,34 @@ export function MeasureRow({
     }
   };
 
+  const shownPercent = Math.round(Math.min(100, Math.max(0, measure.percent)));
+  const against = `of ${formatMeasure(measure.targetValue, measure.unit)}`;
+
   return (
     <li className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-body-sm font-medium text-ink">
+        <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">
           {measure.label}
-        </span>
-        <span className="flex flex-wrap items-center gap-2">
-          <Badge
-            tone="neutral"
-            size="sm"
-            icon={
-              measure.lowerIsBetter ? (
-                <TrendingDown aria-hidden="true" />
-              ) : (
-                <TrendingUp aria-hidden="true" />
-              )
-            }
-          >
-            {measure.lowerIsBetter ? "Counting down" : "Counting up"}
-          </Badge>
-          {unread && (
-            <Badge tone="warning" size="sm">
-              Not read yet
-            </Badge>
-          )}
-          {!unread && measure.met && (
-            <Badge tone="accent" size="sm" icon={<Check aria-hidden="true" />}>
-              Met
-            </Badge>
+          {/* Direction is said only when it is not the obvious one. */}
+          {measure.lowerIsBetter && (
+            <TrendingDown
+              role="img"
+              aria-label="Counting down"
+              className="size-3.5 shrink-0 text-muted"
+            />
           )}
         </span>
+        {/* The figure as text, and no bar of its own: the objective carries the
+            one bar. A target nobody has read has no figure, and says "Not
+            recorded" in the box below and nowhere else. */}
+        {!unread && (
+          <span className="tabular text-body-sm text-muted">
+            {shownPercent}%
+          </span>
+        )}
       </div>
 
-      {/* No bar for a measure nobody has read: a bar at 0% is a result, and the
-          0 is only where the measure began. What being unread costs is said once,
-          under the objective's own bar, because it is a fact about that figure;
-          repeating it under every unread measure said the same sentence four
-          times in a row to somebody with one unread measure. */}
-      {!unread && (
-        <ProgressMeter
-          value={measure.percent}
-          showValue
-          size="sm"
-          tone={measure.met ? "success" : "accent"}
-        />
-      )}
-
-      <p className="tabular text-body-sm text-body">
-        {unread
-          ? "No reading yet"
-          : `Now ${formatMeasure(measure.currentValue, measure.unit)}`}{" "}
-        · aiming for {formatMeasure(measure.targetValue, measure.unit)} ·
-        started at {formatMeasure(measure.startValue, measure.unit)}
-      </p>
-
-      {editable && (
+      {editable ? (
         <div className="flex flex-wrap items-center gap-2">
           <Input
             aria-label={
@@ -1998,13 +1962,15 @@ export function MeasureRow({
             }
             inputMode="decimal"
             className="h-8 w-36"
-            {...(unread ? { placeholder: "First reading" } : {})}
+            {...(unread ? { placeholder: "Not recorded" } : {})}
             value={value}
             onChange={(event) => setDraft(event.target.value)}
           />
-          {measure.unit && (
-            <span className="text-body-sm text-muted">{measure.unit}</span>
-          )}
+          <span className="tabular text-body-sm text-muted">
+            {against}
+            {measure.lowerIsBetter &&
+              ` · from ${formatMeasure(measure.startValue, measure.unit)}`}
+          </span>
           {changed && (
             <>
               <Button
@@ -2015,60 +1981,57 @@ export function MeasureRow({
               >
                 Save<span className="sr-only"> {measure.label}</span>
               </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setDraft(null);
-                  setNote("");
-                  summary.clear();
-                }}
-              >
-                Undo
+              <Button size="sm" onClick={reset}>
+                Cancel<span className="sr-only"> {measure.label}</span>
               </Button>
             </>
           )}
         </div>
+      ) : (
+        <p className="tabular flex flex-wrap items-baseline gap-x-2 text-body-sm text-body">
+          {unread ? (
+            <span className="text-muted">Not recorded</span>
+          ) : (
+            <span>{formatMeasure(measure.currentValue, measure.unit)}</span>
+          )}
+          <span className="text-muted">{against}</span>
+        </p>
       )}
 
-      {/* The note the API has always accepted and nothing has ever rendered.
-          `progressSchema` takes `{ currentValue, note }` and `recordProgress`
-          has carried a third argument the whole time — so a number moved and
-          the reason it moved was lost, which is the fact somebody actually
-          needs at the review. It appears only once the number has changed:
-          asking "what did you do" beside a figure nobody has touched is a
-          question about nothing. */}
+      {/* The note the API has always accepted. It appears only once the number
+          has changed, because asking "what did you do" beside a figure nobody
+          has touched is a question about nothing, and it is one line: most
+          readings need no more. */}
       {editable && changed && (
-        <div className="flex flex-col gap-2">
-          <Textarea
-            rows={2}
+        <div className="flex flex-col gap-1.5">
+          <Input
             aria-label={`What moved ${measure.label}`}
-            placeholder="What moved it? Closed the Ikeja rollout…"
+            placeholder="What moved it (optional)"
             value={note}
             onChange={(event) => setNote(event.target.value)}
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <SuggestButton
-              loading={summary.loading}
-              label="Write this up for me"
-              onClick={() =>
-                void summary.ask({ goalId, headline: note.trim() })
-              }
-            />
-            {note.trim().length > 0 && note.trim().length < 10 && (
-              <span className="text-meta text-muted">
-                A few more words and it can draft the rest.
-              </span>
-            )}
-          </div>
+          {/* A plain link, and only once there is enough to expand: the draft
+              is built from what they typed and adds no achievement they did not
+              mention (`suggestTaskSummary`). */}
+          {note.trim().length >= 10 && (
+            <span className="self-start">
+              <SuggestButton
+                plain
+                loading={summary.loading}
+                label="Write this up for me"
+                onClick={() =>
+                  void summary.ask({ goalId, headline: note.trim() })
+                }
+              />
+            </span>
+          )}
           <SuggestionPanel
+            compact
             state={summary}
             onDismiss={summary.clear}
-            useLabel="Use this wording"
-            emptyHint="Your words, expanded. Check it before you save."
-            /* Replaces the headline with the fuller version, in an editable box
-               somebody still has to press Save under. The suggestion is built
-               from what they typed and adds no achievement they did not
-               mention — see `modules/ai/service.ts#suggestTaskSummary`. */
+            useLabel="Use this"
+            /* Replaces the note with the fuller version, in an editable box
+               somebody still has to press Save under. */
             onUse={(suggestion) =>
               setNote(suggestion.detail || suggestion.title)
             }

@@ -2,16 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   agreedCopy,
   describeObjective,
-  kpiAddedSaid,
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
   measuresPhrase,
   namesPhrase,
-  objectiveCreatedSaid,
   periodOf,
   possessive,
-  refusedSaid,
   reopenedSaid,
   sentBackSaid,
   sentToAgreeCopy,
@@ -37,7 +34,6 @@ const personal: GoalFacts = {
   reviewCycleName: "H1 2026",
   dueQuarter: "2026-Q2",
   approval: "DRAFT",
-  parentTitle: "Grow recurring revenue",
   keyResults: [{}, {}],
 };
 
@@ -48,7 +44,6 @@ const company: GoalFacts = {
   ownerName: null,
   level: "company",
   departmentName: null,
-  parentTitle: null,
   keyResults: [],
 };
 
@@ -98,56 +93,6 @@ describe("the small parts", () => {
         dueQuarter: null,
       }),
     ).toBe("The company's objective, with no target.");
-  });
-});
-
-describe("an objective was created", () => {
-  it("names it, and says it is a draft with somewhere to go next", () => {
-    expect(
-      objectiveCreatedSaid({
-        ...company,
-        level: "department",
-        departmentName: "Engineering",
-      }),
-    ).toEqual({
-      title: '"Grow recurring revenue" created',
-      detail:
-        "Engineering's objective for H1 2026. It is a draft, so add objectives under it and send it to be agreed.",
-    });
-  });
-
-  it("does not call it a draft when the API says it is not", () => {
-    const said = objectiveCreatedSaid({ ...company, approval: "AGREED" });
-    expect(said.detail).toBe("The company's objective for H1 2026.");
-  });
-});
-
-describe("a KPI was added", () => {
-  it("names it, whose it is, what it sits under and that it is a draft", () => {
-    expect(kpiAddedSaid(personal)).toEqual({
-      title: '"Ship the billing flow" added',
-      detail:
-        'Chidi Nwosu\'s objective under "Grow recurring revenue", for H1 2026. It is a draft until it is sent to be agreed.',
-    });
-  });
-
-  it("says 'Your' to the person who made their own", () => {
-    expect(kpiAddedSaid(personal, "emp-chidi").detail).toMatch(
-      /^Your objective under/,
-    );
-  });
-
-  it("leaves out an absent parent and an absent period", () => {
-    expect(
-      kpiAddedSaid({
-        ...personal,
-        parentTitle: null,
-        reviewCycleName: null,
-        dueQuarter: null,
-      }).detail,
-    ).toBe(
-      "Chidi Nwosu's objective. It is a draft until it is sent to be agreed.",
-    );
   });
 });
 
@@ -281,7 +226,7 @@ describe("an objective was marked done", () => {
   });
 });
 
-describe("shared, reopened, sent back, refused", () => {
+describe("shared, reopened, sent back", () => {
   it("quotes how many people were told, because the API counts them", () => {
     expect(sharedSaid("X", 0).detail).toBe("No one was told.");
     expect(sharedSaid("X", 1).detail).toBe("1 person was told.");
@@ -310,14 +255,6 @@ describe("shared, reopened, sent back, refused", () => {
       "Your reason is kept with it. It can be changed and sent again.",
     );
   });
-
-  it("says a refusal is on the record and final", () => {
-    expect(refusedSaid({ title: "X" })).toEqual({
-      title: '"X" refused',
-      detail:
-        "Your reason is on the record. A refused objective cannot be sent again.",
-    });
-  });
 });
 
 describe("sending an objective to be agreed", () => {
@@ -328,10 +265,7 @@ describe("sending an objective to be agreed", () => {
       copy: {
         title: '"Ship the billing flow" is waiting to be agreed',
         lead: "Chidi Nwosu's objective for H1 2026, with 2 targets.",
-        details: [
-          "Sent to 1 person who can agree it.",
-          "Once it is agreed it is fixed. Progress still moves.",
-        ],
+        details: ["Sent to 1 person."],
       },
     });
   });
@@ -342,7 +276,7 @@ describe("sending an objective to be agreed", () => {
       sentTo: ["a", "b", "c"],
     });
     expect(result.kind === "moment" && result.copy.details[0]).toBe(
-      "Sent to 3 people who can agree it.",
+      "Sent to 3 people.",
     );
   });
 
@@ -369,9 +303,7 @@ describe("sending an objective to be agreed", () => {
   it("makes no claim about who it went to in demo mode, where there is no answer", () => {
     const result = sentToAgreeCopy({ goal: personal, sentTo: undefined });
     expect(result.kind).toBe("moment");
-    expect(result.kind === "moment" && result.copy.details).toEqual([
-      "Once it is agreed it is fixed. Progress still moves.",
-    ]);
+    expect(result.kind === "moment" && result.copy.details).toEqual([]);
   });
 });
 
@@ -380,10 +312,7 @@ describe("agreeing an objective", () => {
     expect(agreedCopy(personal)).toEqual({
       title: '"Ship the billing flow" is agreed',
       lead: "Chidi Nwosu's objective for H1 2026, with 2 targets.",
-      details: [
-        "It is fixed. Progress still moves.",
-        "Changing it now takes a revision, which is recorded.",
-      ],
+      details: ["It is fixed. Progress still moves."],
     });
   });
 
@@ -395,8 +324,6 @@ describe("agreeing an objective", () => {
 describe("the voice", () => {
   it("has no exclamation scores anywhere", () => {
     const everything = JSON.stringify([
-      objectiveCreatedSaid(company),
-      kpiAddedSaid(personal),
       kpisAssignedSaid({ owners: ["A"], alreadyHad: ["B"], parentTitle: "P" }),
       measureAddedSaid(
         {
@@ -412,7 +339,6 @@ describe("the voice", () => {
       sharedSaid("X", 2),
       reopenedSaid("X"),
       sentBackSaid({ title: "X", ownerName: "A" }),
-      refusedSaid({ title: "X" }),
       sentToAgreeCopy({ goal: personal, sentTo: ["a"] }),
       sentToAgreeCopy({ goal: personal, sentTo: [] }),
       agreedCopy(personal),
