@@ -1,83 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Button, Disclosure, LoadFailure, Skeleton } from "@/components/ui";
+import { LoadFailure, Skeleton } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { usePhone } from "@/app/(app)/hiring/requisitions/[id]/use-phone";
 import { dayLabel } from "@/lib/api/performance";
-import {
-  objectiveCountLabel,
-  type WorkThisCycle as Work,
-} from "@/lib/projects/completions";
-import { count } from "@/lib/projects/terms";
 import { useWorkThisCycle } from "@/lib/store/completions";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { CompletedItem } from "./completed-item";
 import { useFlagging } from "./work-flags";
+import { WORK_LEFT_OUT, WorkList } from "./work-list";
 
 /**
- * "Work this cycle", inside a review.
+ * The work done in a review's period, read inside the review and the answering form.
  *
- * What the person the review is about finished on the project boards over the
- * period the review covers: how many tasks, how many by their due date, how many
- * are linked to an objective, which projects they were in, and the list. It is
- * evidence for the reader to weigh beside the answers, and it is read-only.
+ * What the person the review is about finished on the project boards over the period the review covers:
+ * one list, with no heading, a small line that says how many, and every rule about it behind one info
+ * mark. It is evidence for the reader to weigh beside the answers, and it is read-only.
  *
  * ## Not a score
  *
- * Every figure is a count of finished tasks, written as a count ("9 of 12"),
- * never as a rate or a rating, and there is no total that could be read as a
- * mark. It does not change the mark, and the panel says so. Effort is never read.
- * A task with no link is just as much a finished task as one with a link, so the
- * share that is linked is a plain fact and never a shortfall.
+ * Every figure is a count of finished tasks, written as a count ("12 finished"), never as a rate or a
+ * rating, and there is no total that could be read as a mark. It does not change the mark, and the
+ * tooltip says so. Effort is never read. A task with no link is just as much a finished task as one with
+ * a link.
  *
  * ## Who sees it
  *
- * The API answers only for the person, those who lead them, HR, and the people
- * assigned to appraise them in this cycle (a functional manager or project lead
- * need not be on the reporting line, and the review is open to them). For anybody
- * else it answers as if the person were not there, and this draws nothing, not a
- * refusal. It is collapsed on a phone, where a review is already long, and open
- * beside the answers on a wider screen.
+ * The API answers only for the person, those who lead them, HR, and the people assigned to appraise them
+ * in this cycle (a functional manager or project lead need not be on the reporting line, and the review
+ * is open to them). For anybody else it answers as if the person were not there, and this draws nothing,
+ * not a refusal.
  *
  * ## Not there without Projects
  *
- * A company that has not switched Projects on has no boards to read, and "no tasks
- * finished" would be a claim about work nobody tracks, read as low output. So the
- * panel is not offered at all, and draws nothing while the company's switches are
- * still on their way, so it never flashes up and goes.
+ * A company that has not switched Projects on has no boards to read, and "no tasks finished" would be a
+ * claim about work nobody tracks, read as low output. So the list is not offered at all, and draws nothing
+ * while the company's switches are still on their way, so it never flashes up and goes.
  *
  * ## What it says it cannot show
  *
- * The list is only what was tracked in Projects. It does not show meetings, mentoring
- * or anything done outside Projects, and says so beside the list, so a short list is
- * never read as a short record of work.
+ * The list is only what was tracked in Projects. It does not show meetings, mentoring or anything done
+ * outside Projects, and says so in the tooltip, so a short list is never read as a short record of work.
+ * Nothing recorded is "Not recorded", with the same tooltip.
  *
- * That sentence has to be true against whichever server answers, so it says nothing
- * the server alone decides. Which tasks the list leaves out (a to-do the person made
- * for themselves on their own list) is the API's rule, and each row shows what is left
- * to say: **Personal** for a task from somebody's own list and **Set by** for one
- * somebody else made.
+ * That sentence has to be true against whichever server answers, so it says nothing the server alone
+ * decides. Which tasks the list leaves out (a to-do the person made for themselves on their own list) is
+ * the API's rule, and each row shows what is left to say: **Personal** for a task from somebody's own list
+ * and **Set by** for one somebody else made.
  *
  * ## One request
  *
- * It asks once the review is in hand and the reader is somebody the API will
- * answer, and again only when the review's own period changes.
+ * It asks once the review is in hand and the reader is somebody the API will answer, and again only when
+ * the review's own period changes.
  *
  * ## "This is wrong"
  *
- * Where the company has switched on "Work in review answers", the person the work is about can flag
- * an item on the list as wrong, with a reason, and whoever reads the list sees the flag on the row
- * and a count in the heading. A flag is a statement for the reader: it removes nothing from the list
- * and moves no mark, and the panel says so.
+ * Where the company has switched on "Work in review answers", the person the work is about can flag an
+ * item on the list as wrong, with a reason, from the row's menu, and whoever reads the list sees the flag
+ * under the row and a count in the summary. A flag is a statement for the reader: it removes nothing from
+ * the list and moves no mark.
  *
  * **A flag that was written is drawn whether or not the switch is still on**: turning it off stops
- * anything new and does not hide what somebody said, and the person can still take one back. Raising
- * or changing one needs the switch on. Nothing is drawn where the server said nothing about flags, and
- * a panel with no flags is never read as "nothing was flagged" there. The state is shared with the
- * record kept with a rating (`useWorkFlags`), so a flag raised in one panel is in the other at once.
+ * anything new and does not hide what somebody said, and the person can still take one back. Raising or
+ * changing one needs the switch on. Nothing is drawn where the server said nothing about flags, and a list
+ * with no flags is never read as "nothing was flagged" there. The state is shared with the record kept with
+ * a rating (`useWorkFlags`), so a flag raised in one list is in the other at once.
  */
 export function WorkThisCycle({
   subjectId,
@@ -87,7 +74,8 @@ export function WorkThisCycle({
   subjectName,
   own,
   enabled = true,
-  startOpen,
+  framed = false,
+  note,
 }: {
   /** Whose work: the person the review is about, always. */
   subjectId: string;
@@ -98,16 +86,12 @@ export function WorkThisCycle({
   /** The review is about the reader, so it speaks to "you". */
   own: boolean;
   enabled?: boolean;
-  /**
-   * Open on arrival, whatever the screen. Left out, it is open on a wide screen
-   * and closed on a phone; a drawer that was opened to see the work asks for it
-   * open.
-   */
-  startOpen?: boolean;
+  /** In a card of its own, for a page. A drawer has its own surface. */
+  framed?: boolean;
+  /** One more rule for the tooltip: why this list may differ from the one the appraiser read. */
+  note?: string;
 }) {
   const timeZone = useOrgTimezone();
-  const phone = usePhone();
-  const [choice, setChoice] = useState<boolean | null>(null);
   const projects = useProjectsGate();
   /* Not offered without Projects, and not asked for either (see above). */
   const active = enabled && projects.enabled;
@@ -148,242 +132,44 @@ export function WorkThisCycle({
   }
   const work = read.data;
   if (!work) return null;
-  const flagged = flagging.countIn(work.items.map((item) => item.id));
 
-  const open = choice ?? startOpen ?? !phone;
-  const who = own ? "You" : subjectName;
   const period =
     periodStart && periodEnd
       ? `${dayLabel(periodStart)} to ${dayLabel(periodEnd)}`
       : "the last 90 days";
+  const flagged = flagging.countIn(work.items.map((item) => item.id));
+  const lead = [
+    `${String(work.summary.finished)} finished`,
+    work.capped ? `latest ${String(work.items.length)} shown` : null,
+    flagged,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
 
   return (
-    <Disclosure
-      level={3}
-      title="Work this cycle"
-      meta={
-        work.summary.finished > 0 ? (
-          <span className="text-body-sm font-normal text-muted">
-            {count(work.summary.finished, "task")} finished
-            {flagged ? ` · ${flagged}` : ""}
-          </span>
-        ) : undefined
-      }
-      hint={`Finished on the project boards, ${period}. For reading beside the answers; it does not change the score.`}
-      open={open}
-      onToggle={() => setChoice(!open)}
+    <WorkList
+      framed={framed}
+      lead={lead}
+      note={[
+        `Finished on the project boards, ${period}. For reading beside the answers; it does not change the score.`,
+        WORK_LEFT_OUT,
+        flagging.sentence,
+        note,
+      ]
+        .filter((part) => part)
+        .join(" ")}
+      rows={work.items.map((item) => (
+        <CompletedItem
+          key={item.id}
+          item={item}
+          timeZone={timeZone}
+          extra={flagging.lineFor(item.id)}
+          action={flagging.menuFor(item.id, item.key)}
+        />
+      ))}
+      problem={flagging.problem}
     >
-      <div className="flex flex-col gap-5">
-        {work.summary.finished === 0 ? (
-          <>
-            {/* Nothing recorded, which says nothing about the work itself. */}
-            <p className="text-body-sm text-muted">
-              {who === "You"
-                ? "No finished tasks were recorded for you on the project boards in this period."
-                : `No finished tasks were recorded for ${who} on the project boards in this period.`}
-            </p>
-            <LeftOut />
-          </>
-        ) : (
-          <Body
-            work={work}
-            timeZone={timeZone}
-            flagging={flagging}
-            seeAll={`/performance/history/${subjectId}`}
-          />
-        )}
-        {flagging.dialog}
-      </div>
-    </Disclosure>
-  );
-}
-
-const SHOWN = 10;
-
-/**
- * What this list cannot show, said where it is read. It is only what was tracked in
- * Projects, so a short list is not a short record of work: meetings, mentoring and
- * anything done outside Projects are not in it. True of every server, on purpose.
- */
-export function LeftOut() {
-  return (
-    <p className="text-meta text-muted">
-      This is only what was tracked in Projects. It does not show meetings,
-      mentoring or anything done outside Projects, so a short list is not a
-      short record of work.
-    </p>
-  );
-}
-
-function Body({
-  work,
-  timeZone,
-  seeAll,
-  flagging,
-}: {
-  work: Work;
-  timeZone: string;
-  seeAll: string;
-  flagging: ReturnType<typeof useFlagging>;
-}) {
-  const [all, setAll] = useState(false);
-  const { summary } = work;
-  const rows = all ? work.items : work.items.slice(0, SHOWN);
-
-  return (
-    <>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-        <Fact label="Finished" value={String(summary.finished)} />
-        <Fact
-          label="By the due date"
-          value={
-            summary.withDueDate === 0
-              ? "None had one"
-              : `${String(summary.onTime)} of ${String(summary.withDueDate)}`
-          }
-        />
-        <Fact
-          label="Linked to an objective"
-          value={`${String(summary.linked)} of ${String(summary.finished)}`}
-        />
-        <Fact label="Projects" value={String(work.byProject.length)} />
-      </dl>
-
-      <section aria-labelledby="work-by-project">
-        <h4
-          id="work-by-project"
-          className="mb-1.5 text-body-sm font-medium text-ink"
-        >
-          By project
-        </h4>
-        <ul className="flex flex-col gap-1 text-body-sm text-body">
-          {work.byProject.map((p) => (
-            <li key={p.projectId} className="flex justify-between gap-4">
-              <span className="min-w-0 break-words">{p.projectName}</span>
-              <span className="tabular shrink-0 text-muted">
-                {p.finished === 1
-                  ? "1 finished"
-                  : `${String(p.finished)} finished`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Only worth a section when some of it is linked: a list that says
-          "not linked" and nothing else would be a heading over a blank. */}
-      {work.byObjective.some((o) => !o.unlinked) && (
-        <section aria-labelledby="work-by-objective">
-          <h4
-            id="work-by-objective"
-            className="mb-1.5 text-body-sm font-medium text-ink"
-          >
-            By objective
-          </h4>
-          <ul className="flex flex-col gap-1 text-body-sm text-body">
-            {work.byObjective.map((o) => (
-              <li
-                key={`${o.goalId ?? (o.unlinked ? "none" : "hidden")}|${o.keyResultTitle ?? ""}`}
-                className="flex justify-between gap-4"
-              >
-                <span className="min-w-0 break-words">
-                  {objectiveCountLabel(o)}
-                </span>
-                <span className="tabular shrink-0 text-muted">
-                  {o.finished === 1
-                    ? "1 finished"
-                    : `${String(o.finished)} finished`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section aria-labelledby="work-items">
-        <h4 id="work-items" className="mb-2 text-body-sm font-medium text-ink">
-          Finished tasks
-        </h4>
-        <FlagNote flagging={flagging} />
-        <ul className="divide-y divide-line">
-          {rows.map((item) => (
-            <CompletedItem
-              key={item.id}
-              item={item}
-              timeZone={timeZone}
-              extra={flagging.lineFor(item.id, item.key)}
-            />
-          ))}
-        </ul>
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted">
-          {work.items.length > SHOWN && (
-            <Button size="sm" variant="ghost" onClick={() => setAll((v) => !v)}>
-              {all ? "Show fewer" : `Show all ${String(work.items.length)}`}
-            </Button>
-          )}
-          {work.capped && (
-            <span>
-              Showing the latest {String(work.items.length)} of{" "}
-              {String(work.total)}.{" "}
-              <Link
-                href={seeAll}
-                className="font-medium text-accent-text hover:underline"
-              >
-                Open the work record
-              </Link>{" "}
-              for all of it.
-            </span>
-          )}
-        </div>
-      </section>
-
-      <LeftOut />
-    </>
-  );
-}
-
-/**
- * What a flag is, said once above the list where flags can be raised or read, and a take-back that
- * failed, in the server's words. Nothing where the server said nothing about flags.
- *
- * Said to the person while a flag can be raised; said to a reader while one can be raised or one is
- * there; and, once the setting has been turned off, said to the person only while a flag they raised is
- * still on the list, with what they can and cannot do about it.
- */
-export function FlagNote({
-  flagging,
-}: {
-  flagging: ReturnType<typeof useFlagging>;
-}) {
-  const sentence = !flagging.known
-    ? null
-    : flagging.own
-      ? flagging.on
-        ? "If something on this list is not right, say so beside it. It tells whoever reads your work. It does not remove the item or change your score."
-        : flagging.any
-          ? "Raising or changing a flag is not available at the moment. A flag you raised stays on the list, and you can still take it back. It does not remove the item or change your score."
-          : null
-      : flagging.on || flagging.any
-        ? "A flag is the person's own word that an item is not right. It does not remove the item or change the score."
-        : null;
-  if (sentence === null && !flagging.problem) return null;
-  return (
-    <>
-      {sentence && <p className="mb-2 text-meta text-muted">{sentence}</p>}
-      {flagging.problem && (
-        <p role="alert" className="mb-2 text-body-sm text-danger-text">
-          {flagging.problem}
-        </p>
-      )}
-    </>
-  );
-}
-
-export function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-meta text-muted">{label}</dt>
-      <dd className="tabular text-body-sm font-medium text-ink">{value}</dd>
-    </div>
+      {flagging.dialog}
+    </WorkList>
   );
 }

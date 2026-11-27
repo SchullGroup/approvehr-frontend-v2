@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
-  ApiMyTask,
   ApiProjectSource,
   ApiTask,
   ApiTaskForGrading,
@@ -39,18 +38,11 @@ vi.mock("@/lib/store/projects", () => ({
 }));
 
 let queue: ApiTaskForGrading[] = [];
-let mine: ApiMyTask[] = [];
 let logged: ApiTask[] = [];
 
 vi.mock("@/lib/store/performance", () => ({
   useTasksForGrading: () => ({
     tasks: queue,
-    loading: false,
-    error: null,
-    reload: vi.fn(),
-  }),
-  useMyTasks: () => ({
-    tasks: mine,
     loading: false,
     error: null,
     reload: vi.fn(),
@@ -84,7 +76,6 @@ beforeEach(() => {
   actor = { employeeId: "e-reader", editRecords: false };
   myProjects = [];
   queue = [];
-  mine = [];
   logged = [];
   listRequested.mockClear();
 });
