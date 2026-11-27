@@ -22,6 +22,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/permissions", () => ({
   useCan: (permission: string) =>
     permission === "MANAGE_SETTINGS" ? canManage : true,
+  usePermissions: () => ({ loading: false }),
 }));
 vi.mock("@/lib/store/performance", () => ({
   useKpis: () => ({
@@ -39,6 +40,15 @@ vi.mock("@/lib/store/performance", () => ({
     reload: vi.fn(),
   }),
   useRatingScale: () => ({ scale: { levels: [], max: 5, source: "default" } }),
+  useFramework: () => ({
+    competencies: [],
+    groups: [],
+    loading: false,
+    error: null,
+    source: "api",
+    reload: () => {},
+  }),
+  useFrameworkActions: () => ({ editable: false }),
   useReviewFlags: () => ({
     flags: null,
     loading: false,
@@ -88,10 +98,10 @@ vi.mock(
   "@/app/(app)/performance/periods/[id]/fairness/calibration-audit",
   () => ({ CalibrationAudit: () => null }),
 );
-vi.mock(
-  "@/app/(app)/performance/periods/[id]/fairness/publish-lock",
-  () => ({ publishLock: () => null, undecidedScores: () => 0 }),
-);
+vi.mock("@/app/(app)/performance/periods/[id]/fairness/publish-lock", () => ({
+  publishLock: () => null,
+  undecidedScores: () => 0,
+}));
 vi.mock("@/app/(app)/performance/periods/[id]/period-weights-section", () => ({
   PeriodWeightsSection: () => null,
 }));
@@ -115,8 +125,7 @@ const nameBox = () => screen.getByRole("textbox", { name: /Period name/ });
 async function openRename() {
   const user = userEvent.setup();
   mount();
-  await user.click(screen.getByRole("tab", { name: "Settings" }));
-  await user.click(screen.getByRole("button", { name: "Rename" }));
+  await user.click(screen.getByRole("button", { name: "Rename this period" }));
   return user;
 }
 
@@ -127,12 +136,16 @@ beforeEach(() => {
 });
 
 describe("renaming a period", () => {
-  it("offers Rename, under Settings, to somebody who manages settings", async () => {
+  it("offers a pencil beside the title, and no Name card under Settings", async () => {
     mount();
+    expect(
+      screen.getByRole("button", { name: "Rename this period" }),
+    ).toBeInTheDocument();
     await userEvent
       .setup()
       .click(screen.getByRole("tab", { name: "Settings" }));
-    expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rename" })).toBeNull();
+    expect(screen.queryByText("Name")).toBeNull();
   });
 
   it("does not offer it without the permission", () => {
@@ -142,7 +155,7 @@ describe("renaming a period", () => {
       screen.queryByRole("tab", { name: "Settings" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Rename" }),
+      screen.queryByRole("button", { name: "Rename this period" }),
     ).not.toBeInTheDocument();
   });
 
@@ -169,9 +182,7 @@ describe("renaming a period", () => {
     await user.type(nameBox(), "Q1");
     await user.click(screen.getByRole("button", { name: "Save name" }));
     expect(updateCycle).not.toHaveBeenCalled();
-    expect(
-      screen.getByText("Name it: people will see this in their inbox."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Use at least 3 characters.")).toBeInTheDocument();
   });
 
   it("says why the API refused it, e.g. another period already has the name", async () => {

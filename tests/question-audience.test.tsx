@@ -58,21 +58,18 @@ const question = (askedOf: ApiQuestion["askedOf"]): ApiQuestion => ({
 const mount = (
   overrides: Partial<React.ComponentProps<typeof QuestionsDialog>> = {},
 ) => {
-  const onAdd = vi.fn().mockResolvedValue(undefined);
   const onUpdate = vi.fn().mockResolvedValue(undefined);
   render(
     <QuestionsDialog
       open
       cycleId="c-1"
-      periodName="H2 2026 Appraisal"
       onClose={vi.fn()}
-      onAdd={onAdd}
       onUpdate={onUpdate}
       onRemove={vi.fn()}
       {...overrides}
     />,
   );
-  return { onAdd, onUpdate };
+  return { onUpdate };
 };
 
 beforeEach(() => {
@@ -85,64 +82,78 @@ const narrow = async () =>
     "Only certain people",
   );
 
+/** A question asked of everybody, opened for change. Nothing is added here: a
+ * period that has started takes no new question. */
+const editEveryone = async () => {
+  listed.push(question([]));
+  const handles = mount();
+  await userEvent.click(screen.getByRole("button", { name: /Edit/i }));
+  return handles;
+};
+
 describe("choosing more than one audience", () => {
   it("writes both when both are ticked", async () => {
-    const { onAdd } = mount();
+    const { onUpdate } = await editEveryone();
 
-    await userEvent.type(
-      screen.getByLabelText(/Add a question/),
-      "How did this period go?",
-    );
     await narrow();
     await userEvent.click(screen.getByLabelText("The person themselves"));
     await userEvent.click(screen.getByLabelText("Their manager"));
-    await userEvent.click(screen.getByRole("button", { name: "Add question" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(onAdd).toHaveBeenCalled());
-    expect(onAdd.mock.calls[0]?.[0]).toMatchObject({
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+    expect(onUpdate.mock.calls[0]?.[1]).toMatchObject({
       askedOf: ["SELF", "MANAGER"],
     });
   });
 
   it("keeps the declared order, not the order they were ticked", async () => {
-    const { onAdd } = mount();
+    const { onUpdate } = await editEveryone();
 
-    await userEvent.type(screen.getByLabelText(/Add a question/), "Anything?");
     await narrow();
     /* Manager first. The list row joins these with commas, so click order
        leaking through would render one fact under two different labels. */
     await userEvent.click(screen.getByLabelText("Their manager"));
     await userEvent.click(screen.getByLabelText("The person themselves"));
-    await userEvent.click(screen.getByRole("button", { name: "Add question" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(onAdd).toHaveBeenCalled());
-    expect(onAdd.mock.calls[0]?.[0]?.askedOf).toEqual(["SELF", "MANAGER"]);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+    expect(onUpdate.mock.calls[0]?.[1]?.askedOf).toEqual(["SELF", "MANAGER"]);
   });
 
   it("still writes an empty list for everybody", async () => {
-    const { onAdd } = mount();
+    const { onUpdate } = await editEveryone();
 
-    await userEvent.type(screen.getByLabelText(/Add a question/), "Anything?");
-    await userEvent.click(screen.getByRole("button", { name: "Add question" }));
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /^Question/ }),
+      " Really?",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(onAdd).toHaveBeenCalled());
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled());
     /* Empty means everybody — the API filter is
        `askedOf.length === 0 || askedOf.includes(audience)`. Narrowing to all
        three instead would exclude any audience added to the enum later. */
-    expect(onAdd.mock.calls[0]?.[0]?.askedOf).toEqual([]);
+    expect(onUpdate.mock.calls[0]?.[1]?.askedOf).toEqual([]);
   });
 
   it("refuses a narrowed question with nobody ticked", async () => {
-    const { onAdd } = mount();
+    const { onUpdate } = await editEveryone();
 
-    await userEvent.type(screen.getByLabelText(/Add a question/), "Anything?");
     await narrow();
-    await userEvent.click(screen.getByRole("button", { name: "Add question" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
-      await screen.findByText(/A question nobody is asked is never answered/),
+      await screen.findByText(
+        "Choose who is asked, or set it back to everyone.",
+      ),
     ).toBeInTheDocument();
-    expect(onAdd).not.toHaveBeenCalled();
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("says who is asked on the row as words", () => {
+    listed.push(question(["SELF", "MANAGER"]));
+    mount();
+    expect(screen.getByText("Person and manager")).toBeInTheDocument();
   });
 });
 
@@ -170,7 +181,7 @@ describe("editing a question that is already asked of two people", () => {
   it("saves both back untouched", async () => {
     const { onUpdate } = await openTheEditor();
 
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
     expect(onUpdate.mock.calls[0]?.[1]).toMatchObject({
@@ -186,7 +197,7 @@ describe("editing a question that is already asked of two people", () => {
     const { onUpdate } = mount();
 
     await userEvent.click(screen.getByRole("button", { name: /Edit/i }));
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
     expect(onUpdate.mock.calls[0]?.[1]?.askedOf).toEqual(["MANAGER", "REPORT"]);
