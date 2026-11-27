@@ -61,15 +61,12 @@ export function RegisterScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  /* Always strict: registering always creates the company's Owner, who holds
-     every permission there is — see `requiresStrongPassword` in the API's
-     `permissions/service.ts`. */
   const ready =
     companyName.trim() !== "" &&
     firstName.trim() !== "" &&
     lastName.trim() !== "" &&
     email.trim() !== "" &&
-    passwordAccepted(password, true);
+    passwordAccepted(password);
 
   async function submit() {
     if (!ready || busy) return;
@@ -213,7 +210,6 @@ export function RegisterScreen() {
           onChange={setPassword}
           error={error?.messageFor("password")}
           onEnter={() => void submit()}
-          strict
         />
 
         <Button

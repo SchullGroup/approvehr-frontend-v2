@@ -38,7 +38,6 @@ import {
   TextLink,
   useToast,
   type AppliedFilter,
-  type BadgeTone,
   rowClick,
 } from "@/components/ui";
 import {
@@ -54,20 +53,10 @@ import {
   missingForPayroll,
   payrollFieldsForDisplay,
   type Employee,
-  type EmploymentStatus,
 } from "@/lib/types";
 import { employmentStatusLook } from "@/lib/employment-status";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDay, todayIn } from "@/lib/time";
-
-const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
-  active: { tone: "success", label: "Active" },
-  onboarding: { tone: "info", label: "Onboarding" },
-  probation: { tone: "warning", label: "Probation" },
-  on_leave: { tone: "info", label: "On leave" },
-  offboarding: { tone: "warning", label: "Offboarding" },
-  inactive: { tone: "neutral", label: "Inactive" },
-};
 
 /** The API's `EmploymentStatus`, upper case, as the query expects it. */
 const STATUS_OPTIONS = [
@@ -198,25 +187,6 @@ export function Directory({
      the filter bar must survive the next one, so a reload replaces the table
      rather than blanking the screen. */
   const answered = useHasAnswered(loading);
-
-  /**
-   * Headcount by status, in the order `STATUS` declares.
-   *
-   * Declaration order, not count order: these are stages somebody moves
-   * through — onboarding, probation, active, offboarding — and sorting by size
-   * would shuffle a progression into a ranking. Statuses nobody is in are
-   * dropped rather than drawn as empty rows.
-   */
-  const statusPoints = useMemo(() => {
-    const counts = summary.byStatus;
-    if (!counts) return [];
-    return (Object.keys(STATUS) as EmploymentStatus[])
-      .map((key) => ({
-        label: STATUS[key].label,
-        value: counts[key.toUpperCase()] ?? counts[key] ?? 0,
-      }))
-      .filter((point) => point.value > 0);
-  }, [summary.byStatus]);
 
   const departments = useDepartments();
   const locations = useWorkLocations();
@@ -386,41 +356,6 @@ export function Directory({
           </Badge>
         </div>
       )}
-
-      {/* One line, not a chart and four tiles (UAT 23 Nov, L20: HR-24): on a
-          phone they pushed the list two screens down. It follows the filter,
-          like the list. Absent figures are left out rather than shown as 0. */}
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-muted">
-        <span>
-          <span className="font-semibold text-ink tabular">
-            {count(summary.onPayroll ?? summary.total)}
-          </span>{" "}
-          {(summary.onPayroll ?? summary.total) === 1 ? "person" : "people"}
-          {(applied.length > 0 || view !== "active") && " matching"}
-        </span>
-        {statusPoints
-          .filter((point) => point.label !== STATUS.active.label)
-          .map((point) => (
-            <span key={point.label}>
-              <span aria-hidden="true">· </span>
-              {point.value} {point.label.toLowerCase()}
-            </span>
-          ))}
-        {summary.notOnPayroll ? (
-          <span>
-            <span aria-hidden="true">· </span>
-            {summary.notOnPayroll} not on payroll
-          </span>
-        ) : null}
-        {summary.incomplete ? (
-          <span>
-            <span aria-hidden="true">· </span>
-            <TextLink href="/people/incomplete">
-              {count(summary.incomplete)} incomplete
-            </TextLink>
-          </span>
-        ) : null}
-      </p>
 
       <FilterBar
         search={list.search}
@@ -850,17 +785,6 @@ export function Directory({
     </div>
   );
 }
-
-/**
- * A count, or a dash while it is unknown.
- *
- * The dash is the whole point. Every one of these four figures used to be
- * computed from the rows in hand, so it was always *a* number — and a number
- * that says "0 employees" while a request is in flight is a claim the reader has
- * no reason to doubt. Absent renders as absent.
- */
-const count = (value: number | undefined): string =>
-  value === undefined ? "—" : value.toLocaleString("en-NG");
 
 /** A switcher option, with its count only once the count is known. */
 const label = (text: string, value: number | undefined): string =>
