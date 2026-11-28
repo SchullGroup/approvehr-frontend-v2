@@ -12,7 +12,12 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
-import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
+import {
+  expectedHours,
+  geofenceRefusal,
+  policyForRow,
+  type ApiClockResult,
+} from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
   defaultClockLocationId,
@@ -176,6 +181,8 @@ function ClockPanel({
   const myRow = roster.rows.find(
     (row) => row.employeeId === session.employeeId,
   );
+  /* Their own hours for the day: the company's only where the row says nothing. */
+  const own = policy ? expectedHours(policy, myRow) : null;
 
   const remembered = useLastClockLocation();
   const home = useHomeLocationId();
@@ -252,15 +259,15 @@ function ClockPanel({
             clockIn={myRow.clockIn}
             serverTime={roster.time}
             date={roster.date}
-            policy={policy}
+            policy={policy && policyForRow(policy, myRow)}
             className="mt-1.5"
           />
         )}
 
-        {!myRow?.clockIn && !nothingToClock && policy && (
+        {!myRow?.clockIn && !nothingToClock && policy && own && (
           <p className="mt-1.5 flex items-center gap-1.5 text-body-sm font-semibold text-ink">
             <Clock aria-hidden="true" className="size-4 text-accent-text" />
-            Expected {policy.shiftStart}–{policy.shiftEnd}
+            Expected {own.start}–{own.end}
           </p>
         )}
       </div>

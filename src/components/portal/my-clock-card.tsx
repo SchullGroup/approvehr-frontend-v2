@@ -20,7 +20,12 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
-import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
+import {
+  expectedHours,
+  geofenceRefusal,
+  policyForRow,
+  type ApiClockResult,
+} from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
   defaultClockLocationId,
@@ -92,6 +97,9 @@ export function MyClockCard({
   const myRow = roster.rows.find(
     (row) => row.employeeId === session.employeeId,
   );
+  /* Their own hours for the day, which differ from the company's for somebody
+     on a schedule or a special day. The company's where the row says nothing. */
+  const own = policy ? expectedHours(policy, myRow) : null;
 
   /* Still derived rather than stored, so a location arriving late becomes the
      default without a setState in an effect. The ids differ between the two
@@ -293,7 +301,7 @@ export function MyClockCard({
                     clockIn={myRow?.clockIn ?? ""}
                     serverTime={roster.time}
                     date={roster.date}
-                    policy={policy}
+                    policy={policy && policyForRow(policy, myRow)}
                   />
                 </>
               ) : clockedIn ? (
@@ -320,9 +328,9 @@ export function MyClockCard({
                     You have not clocked in today
                   </p>
                   <LiveTime />
-                  {policy && (
+                  {policy && own && (
                     <p className="mt-3 text-body-sm whitespace-nowrap text-white/90">
-                      Expected {policy.shiftStart}&ndash;{policy.shiftEnd}
+                      Expected {own.start}&ndash;{own.end}
                       {policy.graceMinutes > 0 &&
                         ` · ${policy.graceMinutes} min grace`}
                     </p>
@@ -509,7 +517,8 @@ export function MyClockCard({
             {phase === "ready" &&
               !myRow?.clockIn &&
               !nothingToClock &&
-              policy && (
+              policy &&
+              own && (
                 /* A chip, and every part of it `whitespace-nowrap`.
                ----------------------------------------------------
                The old markup was a flex row whose *text node* was one flex
@@ -528,7 +537,7 @@ export function MyClockCard({
                     className="size-4 shrink-0 text-accent-text"
                   />
                   <span className="font-semibold whitespace-nowrap text-ink">
-                    Expected {policy.shiftStart}–{policy.shiftEnd}
+                    Expected {own.start}–{own.end}
                   </span>
                   {policy.graceMinutes > 0 && (
                     <span className="text-body-sm whitespace-nowrap text-muted">
@@ -553,7 +562,7 @@ export function MyClockCard({
                 clockIn={myRow.clockIn}
                 serverTime={roster.time}
                 date={roster.date}
-                policy={policy}
+                policy={policy && policyForRow(policy, myRow)}
                 className="mt-1.5"
               />
             )}
