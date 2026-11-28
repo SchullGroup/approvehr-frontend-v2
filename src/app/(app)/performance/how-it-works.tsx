@@ -109,11 +109,11 @@ export function HowItWorksBody() {
           Competencies are how they work
         </p>
         <p className="mt-1">
-          Judgement, communication, leading a team. They come ready-made in four
-          groups &mdash; you can rename them or switch them off &mdash; and
-          somebody records a level against each one, once per person per period.
-          Leadership is only rated for people who manage somebody. For everyone
-          else it is left out, not marked low.
+          Judgement, communication, leading a team. The company writes its own
+          groups of them and the competencies in each, and somebody records a
+          level against each one, once per person per period. Leadership is only
+          rated for people who manage somebody. For everyone else it is left
+          out, not marked low.
         </p>
       </div>
 

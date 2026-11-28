@@ -41,9 +41,7 @@ vi.mock("@/lib/store/work-flags", () => ({
   }),
 }));
 
-const { TeamAppraisals, personOf } =
-  await import("@/components/performance/team-appraisals");
-const { ToastProvider } = await import("@/components/ui");
+const { personOf } = await import("@/components/performance/team-appraisals");
 const { YourAppraisalCard, stepLine } =
   await import("@/components/performance/your-appraisal");
 const { WorkThisCycle } =
@@ -88,21 +86,6 @@ describe("F31: part-way through a step is in progress, not ready to start", () =
     const steps = [step("Questions", 2, 1)];
     expect(personOf(person({ steps, locked: true })).status).toBe("locked");
     expect(personOf(person({ steps, submitted: true })).status).toBe("done");
-  });
-
-  it("a team row says how many are answered beside its status, and offers Continue", () => {
-    const row = person({
-      steps: [step("Questions", 2, 1), step("Core", 3, 0)],
-    });
-    render(
-      <ToastProvider>
-        <TeamAppraisals people={[personOf(row)]} onOpen={vi.fn()} />
-      </ToastProvider>,
-    );
-    expect(screen.getByText("In progress")).toBeInTheDocument();
-    expect(screen.getByText(/1 of 5 answered/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeVisible();
-    expect(screen.queryByText("Ready to start")).toBeNull();
   });
 
   it("the card says how much of the step is answered and offers Continue", () => {

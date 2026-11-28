@@ -67,7 +67,7 @@ export function personOf(row: ApiProgressPerson): TeamPerson {
         ? "locked"
         : /* In progress once any question is answered, not only once a whole
              step is finished: a form somebody has started is not "Ready to
-             start" beside Start. */
+             start". */
           hasStarted(row.steps)
           ? "in-progress"
           : "ready",
@@ -167,10 +167,14 @@ export function TeamAppraisals({
                   </p>
                   <p className="text-meta text-muted">
                     {STATUS_WORDS[person.status]}
-                    {person.status === "in-progress" && person.answered && (
-                      <span> · {person.answered}</span>
-                    )}
                   </p>
+                  {/* Once something is answered, say how much, on its own line
+                      so the status stays one word: with no whole step finished
+                      the meter is empty, and an empty meter beside "In
+                      progress" reads as nothing done (F31). */}
+                  {person.status !== "done" && person.answered && (
+                    <p className="text-meta text-muted">{person.answered}</p>
+                  )}
                   {person.status === "in-progress" && (
                     <div className="mt-1.5 max-w-48">
                       <ProgressMeter

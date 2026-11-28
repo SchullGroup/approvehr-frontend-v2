@@ -139,6 +139,10 @@ describe("the list", () => {
     expect(
       within(rowOf("Efe")).getByText("Waiting on their self review"),
     ).toBeVisible();
+    /* How much is answered is its own line, so the status stays one word, and
+       it is only there once something is (F31). */
+    expect(within(rowOf("Funmi")).getByText("1 of 2 answered")).toBeVisible();
+    expect(within(rowOf("Dayo")).queryByText(/answered/)).toBeNull();
     /* The API's own sentence adds nothing to that, so it is not drawn. */
     expect(
       screen.queryByText("Efe has not sent their self review yet."),
